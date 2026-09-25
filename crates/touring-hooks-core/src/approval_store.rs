@@ -129,6 +129,17 @@ impl<'a> ApprovalStore<'a> {
             .optional()
     }
 
+    /// Delete the row for `action_sig_key` (S26 — the revocation path of a durable
+    /// denial: TTL expiry and `touring calibrate-confidence --revoke`). `true` if a row
+    /// was removed.
+    pub fn revoke(&self, action_sig_key: &str) -> rusqlite::Result<bool> {
+        let n = self.conn.execute(
+            "DELETE FROM pending_approvals WHERE action_sig_key = ?1;",
+            params![action_sig_key],
+        )?;
+        Ok(n > 0)
+    }
+
     /// All rows still `pending` — what the next session must resume.
     pub fn list_pending(&self) -> rusqlite::Result<Vec<ApprovalRecord>> {
         let mut stmt = self.conn.prepare(

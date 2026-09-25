@@ -743,7 +743,7 @@ pub fn compute_blast_radius_cross_feature(
 /// breaking API changes after an edit.
 #[must_use]
 pub fn diff_pub_api_surface(old_source: &str, new_source: &str, file_path: &str) -> Option<String> {
-    let lang = Lang::from_path(Path::new(file_path))?;
+    let lang = code_lang(file_path)?;
 
     let old_syms = extract_symbols(old_source, lang).ok()?;
     let new_syms = extract_symbols(new_source, lang).ok()?;
@@ -772,7 +772,7 @@ pub fn diff_pub_api_from_snapshot(
     new_source: &str,
     file_path: &str,
 ) -> Option<String> {
-    let lang = Lang::from_path(Path::new(file_path))?;
+    let lang = code_lang(file_path)?;
     let new_syms = extract_symbols(new_source, lang).ok()?;
     let new_pub = extract_pub_symbols(&new_syms);
 
@@ -784,6 +784,13 @@ pub fn diff_pub_api_from_snapshot(
     }
 
     Some(format_symbol_diff(&diff))
+}
+
+/// The language of `file_path` when it is CODE — the only kind with a public API surface
+/// (S28, 25/09/2026). Markup and data files have structure (headings, keys) the symbol
+/// extractor reads, but a changed heading is not an API change.
+fn code_lang(file_path: &str) -> Option<Lang> {
+    Lang::from_path(Path::new(file_path)).filter(Lang::is_code)
 }
 
 /// Parse pub symbols from the compact JSON format stored in knowledge.db.
@@ -1166,6 +1173,29 @@ def simple():
         let source = "pub fn foo() {}\n";
         let result = diff_pub_api_surface(source, source, "test.rs");
         assert!(result.is_none(), "no API change should return None");
+    }
+
+    /// S28 (plan 2026-09-25): a Markdown heading is not API — `.md` edits were reported
+    /// as "API surface changed" in post-edit. Only code languages have a public surface.
+    #[test]
+    fn markdown_headings_are_not_api_surface() {
+        let old = "# Title\n\n## Old section\n\ntext\n";
+        let new = "# Title\n\n## New section\n\ntext\n";
+        assert_eq!(
+            diff_pub_api_surface(old, new, "README.md"),
+            None,
+            "headings are not API"
+        );
+        assert_eq!(diff_pub_api_from_snapshot("[]", new, "docs/guide.md"), None);
+        assert_eq!(
+            diff_pub_api_surface("{\"a\": 1}", "{\"b\": 1}", "conf.json"),
+            None,
+            "data is not API"
+        );
+        assert!(
+            diff_pub_api_surface("pub fn a() {}", "pub fn b() {}", "lib.rs").is_some(),
+            "control: code still reports its surface"
+        );
     }
 
     #[test]

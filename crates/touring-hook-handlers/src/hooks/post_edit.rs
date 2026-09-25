@@ -22,7 +22,6 @@ use crate::shared::gate_metrics;
 use crate::shared::hook_helpers;
 use crate::shared::metadata_collector::FastMetadata;
 use crate::shared::metadata_dedup::{DedupKey, MetadataDedup};
-use regex::Regex;
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 use touring_code::ast::speculate_v2;
@@ -51,9 +50,6 @@ pub(crate) fn flush_dedup() {
 const AUTO_GOTCHA_THRESHOLD: i64 = 2;
 /// How many recent edits to scan when counting error pattern recurrences.
 const RECENT_EDIT_WINDOW: usize = 20;
-/// Minimum number of NEW anti-patterns that triggers a Block response.
-/// Must be > 3 to avoid false positives from pre-existing code issues.
-const BLOCK_ANTIPATTERN_THRESHOLD: usize = 4;
 /// Persist call edges discovered in `source` as FileRelation records.
 ///
 /// For each unique callee function found in the file's call graph,
@@ -113,9 +109,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         .and_then(|v| v.as_str())
         .unwrap_or("");
     match super::check_compile::default_state_dir() {
-        Some(dir) if !file_path.is_empty() => {
-            super::check_compile::attach_check_signal(file_path, result, &dir)
-        }
+        Some(dir) if !file_path.is_empty() => super::check_compile::attach_check_signal(
+            file_path,
+            result,
+            &dir,
+            &crate::triad_hook::session_of(input),
+        ),
         _ => result,
     }
 }
@@ -230,7 +229,18 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         format!("{}ms", phase1_latency_ms),
         runtime.session_turn() as u32,
     );
-    if !crate::shared::quality::is_test_file(file_path) {
+    // S28: only a `.rs` file of a Cargo package, with cargo-mutants installed, against the
+    // file's real diff — the old spawn ran for every file with a diff-less `--in-diff`.
+    let mutants = super::check_compile::default_state_dir().and_then(|dir| {
+        super::check_compile::mutants_job(
+            std::path::Path::new(file_path),
+            &dir,
+            super::check_compile::cargo_mutants_installed(),
+        )
+    });
+    if !crate::shared::quality::is_test_file(file_path)
+        && let Some(job) = mutants
+    {
         let mutants_key = format!("__mutants_job__:{}", rel_path);
         // F-7: gate the spawn below so we never run more than one `cargo mutants`
         // job per file concurrently (plus a global cap) — rapid edits previously
@@ -302,12 +312,8 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         if should_spawn {
             let job_id = crate::shared::job_registry::spawn_worker(
                 "cargo-mutants",
-                "cargo",
-                &[
-                    "mutants".to_string(),
-                    "--in-diff".to_string(),
-                    "--timeout-multiplier=2.0".to_string(),
-                ],
+                "bash",
+                &job.bash_args(),
             );
             runtime
                 .ctx
@@ -356,17 +362,26 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         )
         .run(runtime.project_root.to_str().unwrap_or("")),
     );
+    // S28: the post hook reads the disk AFTER the edit, so the true pre-edit content is
+    // rebuilt from the tool input (new_string → old_string); `old_source` above is the
+    // NEW content and made the edit-impact check compare the file with itself.
+    let before_content: Option<String> = file_content.as_deref().and_then(|after| {
+        super::post_feedback::content_before_edit(
+            after,
+            input.get("tool_input").unwrap_or(&serde_json::Value::Null),
+        )
+    });
     let p2 = Phase2Inputs {
         lang_str,
         quality_after: quality_after.as_ref(),
         file_content: file_content.as_deref(),
         old_symbols_json: old_symbols_json.as_deref(),
-        old_source: old_source.as_deref(),
+        old_source: before_content.as_deref(),
         post_health: post_health.as_ref(),
     };
-    let mut issues = phase2_verification(runtime, file_path, &rel_path, &p2);
+    let mut outcome = phase2_verification(runtime, file_path, &rel_path, &p2);
     if !skip_violation_ctx.is_empty() {
-        issues.push(skip_violation_ctx);
+        outcome.issues.push(skip_violation_ctx);
     }
     if let Some(reward_val) = compute_rust_workflow_reward(file_path, file_content.as_deref()) {
         runtime
@@ -380,7 +395,13 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
     if let Some(src) = file_content.as_deref()
         && let Some(delta) = crate::health_delta::compute_signals_delta(file_path, src)
     {
-        issues.push(crate::health_delta::format_delta_hint(&delta));
+        let hint = crate::health_delta::format_delta_hint(&delta);
+        // A regression is a defect of this edit; a first observation is information (S28).
+        if delta.is_regression() {
+            outcome.issues.push(hint);
+        } else {
+            outcome.signals.push(hint);
+        }
         if let Some(reward) = crate::health_delta::delta_reward(&delta) {
             runtime
                 .learning
@@ -430,7 +451,7 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
                 } else {
                     format!(" [degraded: {}]", degraded_dims.join(", "))
                 };
-                issues.push(format!(
+                outcome.issues.push(format!(
                     "REGRESSION health: {:.2} → {:.2} (Δ{:.2}){} — edit degraded codebase quality",
                     pre_score, post.composite_score, delta, dim_detail,
                 ));
@@ -441,17 +462,30 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         let findings = runtime.ctx.pii_scanner.scan_text(content);
         if !findings.is_empty() {
             let pii_ctx = format_pii_findings_context_post(&findings);
-            issues.push(pii_ctx);
+            outcome.issues.push(pii_ctx);
         }
     }
-    if issues.is_empty() {
-        return HookResponse::Allow;
-    }
-    if let Some(block_response) = check_block_gate(&issues, &rel_path) {
+    // S28: the shared gate, on NEW occurrences (rebuilt before × after); it abstains when
+    // the edit could not be reversed.
+    let new_antipatterns = match (before_content.as_deref(), file_content.as_deref()) {
+        (Some(before), Some(after)) => {
+            super::post_feedback::new_antipatterns(Some(before), after, lang_str, file_path)
+        }
+        _ => 0,
+    };
+    if let Some(block_response) = super::post_feedback::check_block_gate(
+        new_antipatterns,
+        &rel_path,
+        super::post_feedback::Mutation::Edit,
+        &outcome,
+    ) {
         runtime
             .learning
             .inject_reward("post_edit", -0.5, "antipattern_block_gate");
         return block_response;
+    }
+    if outcome.is_empty() {
+        return HookResponse::Allow;
     }
     let cila_level: u8 = runtime
         .ctx
@@ -459,7 +493,7 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         .get_result("__meta__", "__session_cila_level__")
         .and_then(|s| s.parse().ok())
         .unwrap_or(2);
-    let mut feedback = compose_post_edit_feedback(issues, cila_level);
+    let mut feedback = compose_post_edit_feedback(outcome, cila_level);
     if let Some(report) = runtime.infra.cortex_dispatcher.flush_evidence()
         && report.drift_detected
     {
@@ -860,87 +894,11 @@ struct Phase2Inputs<'a> {
     file_content: Option<&'a str>,
     /// Pre-edit symbols JSON snapshot for API surface diff (E13).
     old_symbols_json: Option<&'a str>,
-    /// Pre-edit source for edit impact analysis (I-4).
+    /// Pre-edit source for edit impact analysis (I-4) — REBUILT from the tool input (S28):
+    /// the post hook reads the disk after the edit, so a disk read here is the new content.
     old_source: Option<&'a str>,
     /// Pre-computed CodeHealthReport (I-1: avoids duplicate pipeline call).
     post_health: Option<&'a touring_analysis::CodeHealthReport>,
-}
-/// Regex to parse antipattern issue strings like "ANTIPATTERN [3x]: unwrap".
-/// Captures the count and the message.
-static RE_ANTIPATTERN_COUNT: once_cell::sync::Lazy<Regex> = once_cell::sync::Lazy::new(|| {
-    Regex::new(r"ANTIPATTERN \[(\d+)x\]: (.+)").expect("antipattern regex is valid")
-});
-/// Parse antipattern issue strings to extract pattern → count mapping.
-///
-/// Only matches issues that start with "ANTIPATTERN [" and contain "[{count}x]".
-/// Returns a HashMap of pattern message → occurrence count.
-fn parse_antipattern_counts(issues: &[String]) -> std::collections::HashMap<String, usize> {
-    let mut counts = std::collections::HashMap::new();
-    for issue in issues {
-        if let Some(caps) = RE_ANTIPATTERN_COUNT.captures(issue)
-            && let (Ok(count), Some(msg)) = (caps[1].parse::<usize>(), caps.get(2))
-        {
-            counts.insert(msg.as_str().to_string(), count);
-        }
-    }
-    counts
-}
-/// Get antipattern baseline from cache for a given file.
-///
-/// Returns an empty map if no baseline exists (first edit to this file).
-fn get_antipattern_baseline(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-) -> std::collections::HashMap<String, usize> {
-    let key = format!("__antipattern_baseline__:{rel_path}");
-    cache
-        .get_result("post_edit", &key)
-        .and_then(
-            |json: String| -> Option<std::collections::HashMap<String, usize>> {
-                serde_json::from_str(&json).ok()
-            },
-        )
-        .unwrap_or_default()
-}
-/// Store antipattern baseline in cache for a given file.
-fn set_antipattern_baseline(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-    baseline: &std::collections::HashMap<String, usize>,
-) {
-    let key = format!("__antipattern_baseline__:{rel_path}");
-    if let Ok(json) = serde_json::to_string(baseline) {
-        cache.cache_result("post_edit", &key, json);
-    }
-}
-/// Compute antipattern delta and return blocking issue if threshold exceeded.
-///
-/// Compares current antipattern counts against baseline to determine how many
-/// NEW antipatterns were introduced by this edit. Only blocks when the delta
-/// (sum of new occurrences across all patterns) exceeds the threshold.
-fn compute_antipattern_delta_and_block(
-    cache: &super::aco_bridge::HookResultCache,
-    rel_path: &str,
-    issues: &mut Vec<String>,
-) {
-    let baseline = get_antipattern_baseline(cache, rel_path);
-    let current = parse_antipattern_counts(issues);
-    let mut total_delta = 0usize;
-    for (pattern, &curr_count) in &current {
-        let baseline_count = baseline.get(pattern).copied().unwrap_or(0);
-        if curr_count > baseline_count {
-            total_delta += curr_count - baseline_count;
-        }
-    }
-    set_antipattern_baseline(cache, rel_path, &current);
-    if total_delta >= BLOCK_ANTIPATTERN_THRESHOLD {
-        issues.push(format!(
-            "ANTIPATTERN_BLOCK [{total_delta}x new]: too many new anti-patterns introduced. \
-             Baseline had {} patterns, edit added {} new occurrences.",
-            baseline.len(),
-            total_delta
-        ));
-    }
 }
 /// Phase 2: Quality verification — speculate, anti-patterns, quality delta, cognitive enrichment.
 ///
@@ -954,7 +912,7 @@ fn phase2_verification(
     file_path: &str,
     rel_path: &str,
     inputs: &Phase2Inputs<'_>,
-) -> Vec<String> {
+) -> super::post_feedback::Feedback {
     let Phase2Inputs {
         lang_str,
         quality_after,
@@ -982,7 +940,10 @@ fn phase2_verification(
         *file_content,
         pipeline_item,
     );
-    compute_antipattern_delta_and_block(&runtime.ctx.result_cache, rel_path, &mut issues);
+    // Hints and summaries are information, never counted as issues (S28).
+    let mut signals: Vec<String> = Vec::new();
+    signals.extend(verify_multiconfig_hint(file_path, *file_content));
+    signals.extend(verify_rust_workflow_hint(file_path, *file_content));
     if let (Some(old_json), Some(src)) = (old_symbols_json, file_content)
         && let Some(diff_msg) =
             crate::ast_bridge::diff_pub_api_from_snapshot(old_json, src, file_path)
@@ -1027,51 +988,21 @@ fn phase2_verification(
         if !alerts.is_empty() {
             issues.push(format!("HEALTH {}", alerts.join(", ")));
         } else if health.composite_score < 1.0 {
-            issues.push(format!(
+            // No dimension below 0.8: a summary, not a defect (S28).
+            signals.push(format!(
                 "HEALTH {}",
                 health.to_analysis_summary().one_liner()
             ));
         }
     }
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched =
+            crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false, None);
         if !enriched.is_empty() {
-            issues.push(enriched);
+            signals.push(enriched);
         }
     }
-    issues
-}
-/// Check whether the edit should be BLOCKED due to excessive new anti-patterns.
-///
-/// Phase 2.1 (Semantic Provenance): Now uses delta-based blocking instead of total count.
-/// The `compute_antipattern_delta_and_block` function in `phase2_verification` computes
-/// the actual delta between current and baseline antipattern counts, and injects an
-/// "ANTIPATTERN_BLOCK" issue when delta >= BLOCK_ANTIPATTERN_THRESHOLD.
-///
-/// This function looks for that "ANTIPATTERN_BLOCK" marker to decide whether to block,
-/// rather than counting all "ANTIPATTERN" issues (which would incorrectly block on
-/// pre-existing antipatterns in the file.
-///
-/// Returns `Some(HookResponse::Block { .. })` when the edit should be undone,
-/// or `None` to let it proceed with Context feedback.
-fn check_block_gate(issues: &[String], rel_path: &str) -> Option<HookResponse> {
-    for issue in issues {
-        if issue.contains("ANTIPATTERN_BLOCK") {
-            let reason = format!(
-                "Edit blocked: too many new anti-patterns introduced in {}. \
-                 This edit exceeds the regression threshold. \
-                 Please fix the anti-patterns before reapplying.",
-                rel_path,
-            );
-            let context = issues.join("\n");
-            return Some(HookResponse::Block {
-                reason,
-                context: Some(context),
-                event_name: Some("PostToolUse".to_string()),
-            });
-        }
-    }
-    None
+    super::post_feedback::Feedback { issues, signals }
 }
 /// Assign a priority score to an issue string based on its category prefix.
 ///
@@ -1108,36 +1039,38 @@ fn issue_priority(issue: &str) -> f32 {
         0.5
     }
 }
-/// Assemble the post-edit feedback string from a list of issues.
+/// Assemble the post-edit feedback string from the typed findings (S28).
 ///
-/// **Sorts issues by priority** (descending) before applying a CILA-aware
-/// character budget, so that high-priority issues (syntax errors, anti-patterns)
-/// survive truncation ahead of lower-priority signals (wiring hints).
-///
-/// Returns a formatted string like:
-/// `"post-edit verification: N issue(s) | issue1 | issue2 | …"`
-pub(crate) fn compose_post_edit_feedback(mut issues: Vec<String>, cila_level: u8) -> String {
+/// **Sorts issues by priority** (descending) before applying a CILA-aware character
+/// budget, so high-priority issues (syntax errors, anti-patterns) survive truncation ahead
+/// of lower-priority ones; signals get what the budget leaves. The header counts issues
+/// only and declares any elision:
+/// `"post-edit verification: N issue(s) | issue1 | … | (+K elided by the budget) | ℹ signal"`.
+/// Empty findings render the empty string.
+pub(crate) fn compose_post_edit_feedback(
+    findings: super::post_feedback::Feedback,
+    cila_level: u8,
+) -> String {
+    let super::post_feedback::Feedback {
+        mut issues,
+        mut signals,
+    } = findings;
     issues.sort_by(|a, b| {
         issue_priority(b)
             .partial_cmp(&issue_priority(a))
             .unwrap_or(std::cmp::Ordering::Equal)
     });
     let budget = crate::shared::cila::cila_budget_edit(cila_level);
-    let mut used = 0usize;
-    issues.retain(|s| {
-        let len = s.len() + 3;
-        if used + len <= budget {
-            used += len;
-            true
-        } else {
-            false
-        }
-    });
-    format!(
-        "post-edit verification: {} issue(s) | {}",
-        issues.len(),
-        issues.join(" | ")
+    let total = issues.len();
+    let used = super::post_feedback::fit_budget(&mut issues, budget);
+    super::post_feedback::fit_budget(&mut signals, budget.saturating_sub(used));
+    super::post_feedback::render_feedback(
+        "post-edit verification",
+        &issues,
+        total - issues.len(),
+        &signals,
     )
+    .unwrap_or_default()
 }
 /// Run speculate_v2 on `source` and collect diagnostic messages (V1 check).
 ///
@@ -1321,17 +1254,11 @@ fn verify_post_edit_quality(
         None => return Vec::new(),
     };
     let is_test = crate::shared::quality::is_test_file(file_path);
-    let mut issues = compute_parallel_checks(source, lang, is_test, lang_str);
+    let mut issues = compute_parallel_checks(source, lang, is_test, lang_str, file_path);
     if let Some(signal) = verify_complexity_signal(quality_after) {
         issues.push(signal);
     }
     if let Some(signal) = verify_wiring_signal(db, rel_path) {
-        issues.push(signal);
-    }
-    if let Some(signal) = verify_multiconfig_hint(file_path, file_content) {
-        issues.push(signal);
-    }
-    if let Some(signal) = verify_rust_workflow_hint(file_path, file_content) {
         issues.push(signal);
     }
     issues
@@ -1380,13 +1307,15 @@ fn compute_parallel_checks(
     lang: touring_code::ast::Lang,
     is_test: bool,
     lang_str: &str,
+    file_path: &str,
 ) -> Vec<String> {
     let source_v1 = source.clone();
     let source_v2 = source;
     let lang_str_owned = lang_str.to_owned();
+    let path_owned = file_path.to_owned();
     let (spec_issues, antipattern_issues) = rayon::join(
         move || compute_speculate_issues(&source_v1, lang),
-        move || compute_antipattern_issues(&source_v2, &lang_str_owned, is_test),
+        move || compute_antipattern_issues(&source_v2, &lang_str_owned, is_test, &path_owned),
     );
     let mut issues = spec_issues;
     issues.extend(antipattern_issues);
@@ -1396,14 +1325,23 @@ fn compute_parallel_checks(
 ///
 /// Uses `detect_antipatterns_with_lines` so each warning includes the first
 /// line number where the pattern was found — actionable context for the caller.
-fn compute_antipattern_issues(source: &str, lang_str: &str, is_test: bool) -> Vec<String> {
+fn compute_antipattern_issues(
+    source: &str,
+    lang_str: &str,
+    is_test: bool,
+    file_path: &str,
+) -> Vec<String> {
     if is_test {
         Vec::new()
     } else {
-        crate::shared::antipatterns::detect_antipatterns_with_lines(source, lang_str)
-            .into_iter()
-            .map(|(msg, line)| format!("{msg} (line {line})"))
-            .collect()
+        crate::shared::antipatterns::detect_antipatterns_with_lines_at(
+            source,
+            lang_str,
+            std::path::Path::new(file_path),
+        )
+        .into_iter()
+        .map(|(msg, line)| format!("{msg} (line {line})"))
+        .collect()
     }
 }
 /// V3: Emit a complexity warning when CC_max exceeds the threshold.

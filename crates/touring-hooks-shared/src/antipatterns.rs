@@ -43,6 +43,27 @@ pub fn detect_antipatterns_with_lines(source: &str, lang: &str) -> Vec<(String, 
     report.antipattern_hits
 }
 
+/// [`detect_antipatterns`] for a file at `path`: directory conventions apply (a `scripts/`
+/// file is a program whose `print` is output — S28).
+pub fn detect_antipatterns_at(source: &str, lang: &str, path: &std::path::Path) -> Vec<String> {
+    detect_antipatterns_with_lines_at(source, lang, path)
+        .into_iter()
+        .map(|(msg, _line)| msg)
+        .collect()
+}
+
+/// [`detect_antipatterns_with_lines`] for a file at `path` (S28). The antipattern hits of
+/// `SecurityAnalyzer::analyze` ARE `touring_analysis::quality::antipatterns::detect_antipatterns`
+/// (`security.rs`), so its path-aware twin keeps ONE rule — `path_variant_matches_the_analyzer`
+/// holds that equivalence.
+pub fn detect_antipatterns_with_lines_at(
+    source: &str,
+    lang: &str,
+    path: &std::path::Path,
+) -> Vec<(String, usize)> {
+    touring_analysis::quality::antipatterns::detect_antipatterns_at(source, lang, path)
+}
+
 /// Check for dynamic `eval\x28\x29` usage in JS/TS/web languages.
 ///
 /// Only fires for: `javascript`, `typescript`, `jsx`, `tsx`, `js`, `ts`.
@@ -76,6 +97,21 @@ mod tests {
         let issues = detect_antipatterns(&src, "rust");
         assert!(issues.iter().any(|s| s.contains("unwrap")));
         assert!(issues[0].contains("(2x)"));
+    }
+
+    /// S28 — outside `scripts/` the path-aware variant equals the analyzer's hits, so the
+    /// facade never forks the rule; inside `scripts/` only the `print` rule changes.
+    #[test]
+    fn path_variant_matches_the_analyzer() {
+        let src = "import sys\n\n\ndef f(x):\n    print(x)\n    try:\n        pass\n    except:\n        pass\n";
+        let plain = detect_antipatterns_with_lines(src, "python");
+        assert_eq!(
+            detect_antipatterns_with_lines_at(src, "python", std::path::Path::new("src/f.py")),
+            plain
+        );
+        let script = detect_antipatterns_at(src, "python", std::path::Path::new("scripts/f.py"));
+        assert!(!script.iter().any(|m| m.contains("print()")), "{script:?}");
+        assert!(script.iter().any(|m| m.contains("except:")), "{script:?}");
     }
 
     #[test]

@@ -72,8 +72,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     if crate::shared::cila::is_enrichment_mandatory(runtime.enrichment_active, cila_level) {
         let file_path = parse_file_path_from_input(input);
         if let Some(ref cognitive) = runtime.cognitive {
-            let enriched =
-                crate::shared::signals::enrich_with_cognitive(cognitive, &file_path, false);
+            let enriched = crate::shared::signals::enrich_with_cognitive(
+                cognitive,
+                &file_path,
+                false,
+                crate::shared::signals::payload_session(input),
+            );
             if !enriched.is_empty() {
                 return HookResponse::Context {
                     context: enriched,

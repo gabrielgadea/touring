@@ -41,6 +41,9 @@ pub mod post_edit;
 #[path = "hooks/post_edit_rule_engine.rs"]
 pub mod post_edit_rule_engine;
 #[cfg(feature = "post-hooks")]
+#[path = "hooks/post_feedback.rs"]
+pub mod post_feedback;
+#[cfg(feature = "post-hooks")]
 #[path = "hooks/post_read.rs"]
 pub mod post_read;
 #[cfg(feature = "post-hooks")]

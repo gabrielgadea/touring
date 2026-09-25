@@ -406,12 +406,137 @@ pub fn is_automated_payload(prompt: &str) -> bool {
 
 /// The response for a payload that is not a prompt: contract preserved, nothing injected.
 fn skipped_automated_payload() -> serde_json::Value {
+    // S27: no invented field — the reason goes to the trace.
+    tracing::debug!(reason = "automated_payload", "prompt_enhance: skipped");
     serde_json::json!({
-        "hookSpecificOutput": {
-            "hookEventName": "UserPromptSubmit",
-            "skipped": "automated_payload",
-        },
+        "hookSpecificOutput": { "hookEventName": "UserPromptSubmit" },
         "suppressOutput": true,
+    })
+}
+
+/// S27 (plan 2026-09-25) — the density invariant at the ONE exit of this module: every
+/// `<placeholder>` in the context gets the value the prompt yields, or its line is dropped.
+/// A template shipped to the model (`touring tantivy search "<topic>"`) is debt, not help
+/// (rules/touring-4-pillars.md). Output-structure tags (`<analysis>…</analysis>`) are
+/// recognised by their closing tag on the same line and kept.
+pub fn densify(context: &str, prompt: &str) -> String {
+    context
+        .lines()
+        .filter_map(|line| fill_placeholders(line, prompt))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn fill_placeholders(line: &str, prompt: &str) -> Option<String> {
+    let mut out = String::with_capacity(line.len());
+    let mut rest = line;
+    while let Some(i) = rest.find('<') {
+        let tail = &rest[i + 1..];
+        let Some(j) = tail.find('>') else { break };
+        let name = &tail[..j];
+        let is_word = !name.is_empty() && name.chars().all(|c| c.is_ascii_lowercase() || c == '_');
+        out.push_str(&rest[..i]);
+        if is_word && !line.contains(&format!("</{name}>")) {
+            out.push_str(&derive_placeholder(name, prompt)?);
+        } else {
+            out.push('<');
+            out.push_str(name);
+            out.push('>');
+        }
+        rest = &tail[j + 1..];
+    }
+    out.push_str(rest);
+    Some(out)
+}
+
+fn derive_placeholder(name: &str, prompt: &str) -> Option<String> {
+    match name {
+        "topic" | "feature_area" | "keyword_from_task" | "error_keyword" | "relevant_keyword"
+        | "query" | "task_keywords" => prompt_keywords(prompt),
+        "symbol" | "symbol_name" => prompt_symbol(prompt),
+        "file" => prompt_path(prompt),
+        _ => None,
+    }
+}
+
+const STOPWORDS: &[&str] = &[
+    "the",
+    "and",
+    "for",
+    "with",
+    "that",
+    "this",
+    "from",
+    "into",
+    "have",
+    "make",
+    "please",
+    "como",
+    "para",
+    "com",
+    "uma",
+    "que",
+    "dos",
+    "das",
+    "nos",
+    "nas",
+    "pelo",
+    "pela",
+    "este",
+    "esta",
+    "isso",
+    "fix",
+    "add",
+    "implement",
+    "write",
+    "create",
+    "explain",
+    "plan",
+    "refactor",
+    "test",
+    "tests",
+    "corrija",
+    "implemente",
+    "escreva",
+    "crie",
+    "explique",
+    "planeje",
+    "refatore",
+];
+
+fn prompt_keywords(prompt: &str) -> Option<String> {
+    let words: Vec<String> = prompt
+        .split(|c: char| !c.is_alphanumeric() && c != '_')
+        .filter(|w| w.chars().count() >= 4 && !STOPWORDS.contains(&w.to_lowercase().as_str()))
+        .take(3)
+        .map(str::to_string)
+        .collect();
+    (!words.is_empty()).then(|| words.join(" "))
+}
+
+fn prompt_symbol(prompt: &str) -> Option<String> {
+    prompt
+        .split(|c: char| !c.is_alphanumeric() && c != '_' && c != ':')
+        .find_map(|w| {
+            let w = w.trim_matches(':');
+            let camel = w.chars().next().is_some_and(char::is_uppercase)
+                && w.chars().skip(1).any(char::is_uppercase)
+                && w.chars().any(char::is_lowercase);
+            let snake = w.contains('_')
+                && w.chars()
+                    .all(|c| c.is_ascii_lowercase() || c == '_' || c.is_ascii_digit());
+            (w.len() >= 3 && (camel || snake || w.contains("::"))).then(|| w.to_string())
+        })
+}
+
+fn prompt_path(prompt: &str) -> Option<String> {
+    const EXT: &[&str] = &[
+        "rs", "py", "ts", "tsx", "js", "go", "md", "toml", "json", "yaml", "yml", "sh", "sql",
+    ];
+    prompt.split_whitespace().find_map(|w| {
+        let w = w.trim_matches(|c: char| "\"'`,;()[]".contains(c));
+        let ext = w.rsplit_once('.').map(|(_, e)| e)?;
+        (EXT.contains(&ext) && w.len() > ext.len() + 1).then(|| w.to_string())
     })
 }
 
@@ -444,27 +569,41 @@ pub fn compose_json(prompt: &str) -> serde_json::Value {
     let taco_phase = taco_phase_for_cila(details.cila_level);
     let touring_hints = touring_cli_hints_for_intent(&details.intent);
 
-    let mut result = serde_json::json!({
+    // S27: the metadata goes to the trace, never onto the wire — UserPromptSubmit's
+    // hookSpecificOutput accepts additionalContext/sessionTitle/suppressOriginalPrompt only.
+    tracing::info!(
+        cila_level = details.cila_level,
+        intent = details.intent.as_str(),
+        techniques = ?technique_names,
+        confidence = details.confidence,
+        taco_phase = %taco_phase,
+        touring_hints = %touring_hints,
+        "prompt_enhance: classified"
+    );
+    serde_json::json!({
         "hookSpecificOutput": {
             "hookEventName": "UserPromptSubmit",
-            "additionalContext": context,
-            "cila_level": details.cila_level,
-            "intent": details.intent.as_str(),
-            "techniques": technique_names,
-            "confidence": details.confidence,
+            "additionalContext": densify(&context, prompt),
         }
-    });
+    })
+}
 
-    // Add TACO phase protocol info
-    if let Some(obj) = result
-        .get_mut("hookSpecificOutput")
-        .and_then(|v| v.as_object_mut())
-    {
-        obj.insert("taco_phase_protocol".to_string(), taco_phase);
-        obj.insert("touring_cli_hints".to_string(), touring_hints);
+/// The classification behind [`compose_json`] — for diagnostics and tests, never the wire.
+/// `Null` for a machine payload (nothing was classified).
+pub fn compose_details(prompt: &str) -> serde_json::Value {
+    if is_automated_payload(prompt) {
+        return serde_json::Value::Null;
     }
-
-    result
+    let details = classify_with_details(prompt);
+    let technique_names: Vec<&str> = details.techniques.iter().map(|t| t.as_str()).collect();
+    serde_json::json!({
+        "cila_level": details.cila_level,
+        "intent": details.intent.as_str(),
+        "techniques": technique_names,
+        "confidence": details.confidence,
+        "taco_phase_protocol": taco_phase_for_cila(details.cila_level),
+        "touring_cli_hints": touring_cli_hints_for_intent(&details.intent),
+    })
 }
 
 /// Entry point for the `user_prompt_submit` lifecycle hook.

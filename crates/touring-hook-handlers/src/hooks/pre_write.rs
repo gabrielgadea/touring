@@ -462,7 +462,7 @@ fn collect_upfront_signals(
 
     // Cognitive enrichment (risk + gotchas from CognitiveRuntime).
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = enrich_with_cognitive(cognitive, file_path, false, None);
         if !enriched.is_empty() {
             signals.push((1.0, enriched));
         }

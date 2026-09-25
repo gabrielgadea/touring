@@ -1196,7 +1196,8 @@ fn test_migrate_schema_directly_is_idempotent() {
 #[test]
 fn test_schema_version_drift_guard() {
     assert_eq!(
-        SCHEMA_VERSION, 11,
+        SCHEMA_VERSION,
+        12, // v12 = S22; migration test: legacy_rows_are_labelled_unverified_by_the_migration
         "SCHEMA_VERSION changed to {} — bump this guard AND add a fixture/migration test \
              (see Master Plan C.W2.P3.T9: build_v7_fixture + \
              test_migration_v7_to_v8_upgrades_schema_and_preserves_data)",
@@ -1240,4 +1241,69 @@ fn consumer_file_filters_on_wiring_map_use_an_index() {
     for plan in plans(&upgraded.conn) {
         assert!(!plan.contains("SCAN"), "upgraded database scans: {plan}");
     }
+}
+
+/// S22 — provenance of bash outcomes (plan 2026-09-25).
+fn s22_fail(cmd: &str) -> BashOutcome {
+    BashOutcome {
+        command: cmd.into(),
+        command_short: cmd.into(),
+        command_hash: String::new(),
+        exit_code: 1,
+        success: false,
+        error_pattern: Some("boom".into()),
+        file_context: None,
+        executed_at: String::new(),
+    }
+}
+
+#[test]
+fn recent_bash_outcomes_for_session_scopes_by_session() {
+    let (_tmp, db) = test_db();
+    db.record_bash_outcome_with_origin(&s22_fail("a-cmd"), Some("sess-a"), "PostToolUseFailure")
+        .unwrap();
+    db.record_bash_outcome_with_origin(&s22_fail("b-cmd"), Some("sess-b"), "PostToolUseFailure")
+        .unwrap();
+    db.record_bash_outcome(&s22_fail("legacy-cmd")).unwrap();
+    let mine: Vec<String> = db
+        .recent_bash_outcomes_for_session("sess-a", 10)
+        .unwrap()
+        .into_iter()
+        .map(|o| o.command_short)
+        .collect();
+    assert_eq!(
+        mine,
+        vec!["a-cmd".to_string()],
+        "other sessions and unverified rows must not leak"
+    );
+}
+
+#[test]
+fn legacy_rows_are_labelled_unverified_by_the_migration() {
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("legacy.db");
+    drop(FileKnowledgeDB::new(&path).unwrap());
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        // A pre-S22 database: v11 and no provenance columns.
+        conn.execute_batch(
+            "PRAGMA user_version = 11;
+             DROP INDEX IF EXISTS idx_bash_outcomes_session;
+             ALTER TABLE bash_outcomes DROP COLUMN origin_event;
+             ALTER TABLE bash_outcomes DROP COLUMN session_id;
+             INSERT INTO bash_outcomes (command, command_short, exit_code, success)
+                 VALUES ('printf x', 'printf', 3, 0);",
+        )
+        .unwrap();
+    }
+    let db = FileKnowledgeDB::new(&path).unwrap();
+    let origin: String = db
+        .conn_ref()
+        .query_row(
+            "SELECT origin_event FROM bash_outcomes WHERE command = 'printf x'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(origin, "legacy_unverified");
 }

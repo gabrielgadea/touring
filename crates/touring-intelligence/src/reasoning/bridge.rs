@@ -614,6 +614,13 @@ mod tests {
         fn recent_bash_outcomes(&self, _limit: usize) -> Vec<BashOutcomeRecord> {
             vec![]
         }
+        fn recent_bash_outcomes_for_session(
+            &self,
+            _s: &str,
+            _limit: usize,
+        ) -> Vec<BashOutcomeRecord> {
+            vec![]
+        }
         fn coedit_pairs(&self) -> Vec<CoEditPair> {
             self.coedits.clone()
         }

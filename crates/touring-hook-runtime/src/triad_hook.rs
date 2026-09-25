@@ -219,6 +219,17 @@ pub fn describe_write(state: &TriadState) -> String {
     format!("{head} — +{added} −{removed} lines vs pre-write snapshot")
 }
 
+/// What the written file held BEFORE the write (S28): `Some(None)` when it did not exist
+/// (a new file — everything in it is new), `Some(Some(text))` its content, `None` when the
+/// snapshot cannot be read (unknown — a consumer must then abstain, never guess).
+pub fn before_content(state: &TriadState) -> Option<Option<String>> {
+    state
+        .snapshot
+        .snapshot_content(Path::new(&state.written_path))
+        .ok()
+        .map(|bytes| bytes.map(|b| String::from_utf8_lossy(&b).into_owned()))
+}
+
 /// Multiset line delta: how many lines the new text has beyond the old (added) and the
 /// old beyond the new (removed). O(n + m); exact counts, not an edit script.
 pub fn line_delta(before: &str, after: &str) -> (usize, usize) {
@@ -537,5 +548,29 @@ mod tests {
 
         // Commit the snapshot
         let _ = state.snapshot.commit();
+    }
+}
+
+/// S28 — `before_content` distinguishes a new file (nothing before) from a rewritten one.
+#[cfg(test)]
+mod s28_before_tests {
+    use super::*;
+
+    #[test]
+    fn before_content_distinguishes_new_file_from_existing() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let existing = dir.path().join("a.rs");
+        std::fs::write(&existing, "old body\n").expect("write");
+        let state = TriadState::pre_write(existing.to_str().expect("utf8")).expect("snapshot");
+        std::fs::write(&existing, "new body\n").expect("rewrite");
+        assert_eq!(before_content(&state), Some(Some("old body\n".to_string())));
+        let fresh = dir.path().join("new.rs");
+        let state = TriadState::pre_write(fresh.to_str().expect("utf8")).expect("snapshot");
+        std::fs::write(&fresh, "x").expect("create");
+        assert_eq!(
+            before_content(&state),
+            Some(None),
+            "a new file had no content before"
+        );
     }
 }

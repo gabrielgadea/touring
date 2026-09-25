@@ -607,7 +607,7 @@ fn build_db_context(
 
     // Cognitive enrichment: risk, gotchas, predicted co-edits
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = enrich_with_cognitive(cognitive, file_path, true);
+        let enriched = enrich_with_cognitive(cognitive, file_path, true, None);
         if !enriched.is_empty() {
             append_cognitive_section(&mut context, enriched);
         }

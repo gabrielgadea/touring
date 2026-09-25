@@ -766,6 +766,27 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
     roots
 }
 
+/// S24 (plan 2026-09-25) — the ONE answer to "can a sandboxed program reach `path`?",
+/// derived from the very roots [`sandbox_read_roots`] hands to the landlock ruleset.
+///
+/// D8 guard: the code-mode gate that routes work INTO the sandbox (`cli_suggester`) asks
+/// this, so it never rewrites or denies toward `touring run` a command the kernel will
+/// refuse — measured 25/09: `.touring/bin/touring` resolves into `~/.touring/toolchains`
+/// and `~/.claude/settings.json` is outside by design, so the rewritten run failed with
+/// "Permission denied". Symlinks are followed (landlock judges the resolved path).
+pub fn sandbox_can_reach(path: &Path) -> bool {
+    let roots: Vec<PathBuf> = sandbox_read_roots()
+        .into_iter()
+        .map(|r| std::fs::canonicalize(&r).unwrap_or(r))
+        .collect();
+    path_within_roots(path, &roots)
+}
+
+fn path_within_roots(path: &Path, roots: &[PathBuf]) -> bool {
+    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    roots.iter().any(|r| resolved.starts_with(r))
+}
+
 /// Confina o filho pelo landlock LSM: escrita nas raízes de projeto/temp, e
 /// **nenhuma** conexão TCP.
 ///
@@ -3093,5 +3114,43 @@ mod tests {
             !std::path::Path::new(seen).exists(),
             "the run tmp must be removed after the run: {seen}"
         );
+    }
+}
+
+/// S24 — the reach predicate follows symlinks out of the granted roots.
+#[cfg(test)]
+mod s24_reach_tests {
+    use super::*;
+
+    #[test]
+    fn path_within_roots_follows_symlinks_out_of_roots() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = std::fs::canonicalize(dir.path()).expect("canon");
+        std::fs::write(root.join("inside.txt"), b"x").expect("write");
+        std::os::unix::fs::symlink("/root", root.join("escape")).expect("symlink");
+        let roots = vec![root.clone()];
+        assert!(path_within_roots(&root.join("inside.txt"), &roots));
+        assert!(
+            !path_within_roots(&root.join("escape"), &roots),
+            "symlink out of the roots must not count"
+        );
+    }
+
+    #[test]
+    fn sandbox_cannot_reach_claude_settings_but_reaches_projects() {
+        let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+            return;
+        };
+        let settings = home.join(".claude").join("settings.json");
+        if settings.exists() {
+            assert!(
+                !sandbox_can_reach(&settings),
+                "settings.json holds env with keys — never granted"
+            );
+        }
+        let projects = home.join("projects");
+        if projects.exists() {
+            assert!(sandbox_can_reach(&projects));
+        }
     }
 }

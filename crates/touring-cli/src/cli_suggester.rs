@@ -2054,11 +2054,6 @@ fn query_edit_failures(
     out
 }
 
-/// Federated query of `bash_outcomes` for failed runs of `command_short`,
-/// across every knowledge DB in `knowledge_dbs`. Returns
-/// `(command_short, error_pattern, executed_at)` tuples, at most `limit` rows
-/// per DB; the caller derives age via [`age_days_from_sqlite`]. Fail-open per
-/// DB.
 /// Abre um DB de lições para LEITURA APENAS: o abridor único
 /// [`crate::cli::shared::open_db_readonly`], cuja doc registra os dois defeitos
 /// (deadlock no `sqlite3WalClose` e criação silenciosa de DB alheio).
@@ -2066,6 +2061,17 @@ fn open_lessons_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection
     crate::cli::shared::open_db_readonly(db)
 }
 
+/// Federated query of `bash_outcomes` for failed runs of `command_short`,
+/// across every knowledge DB in `knowledge_dbs`. Returns
+/// `(command_short, error_pattern, executed_at)` tuples, at most `limit` rows
+/// per DB; the caller derives age via [`age_days_from_sqlite`]. Fail-open per
+/// DB.
+///
+/// S22 (25/09/2026): only VERIFIED failures teach — rows whose `origin_event` is
+/// `PostToolUseFailure`. Text-inferred rows (82.7% false among the judged legacy
+/// sample, PT4) never become lessons. A DB on a schema older than v12 has no
+/// `origin_event` column, hence no verified failures: it contributes nothing, and
+/// the skip is traced so that absence is never read as "no failures".
 fn query_bash_failures(
     knowledge_dbs: &[std::path::PathBuf],
     command_short: &str,
@@ -2075,6 +2081,7 @@ fn query_bash_failures(
                FROM bash_outcomes
                WHERE command_short = ?1 AND success = 0
                  AND error_pattern IS NOT NULL
+                 AND origin_event = 'PostToolUseFailure'
                ORDER BY executed_at DESC
                LIMIT ?2";
     let mut out: Vec<(String, String, String)> = Vec::new();
@@ -2082,8 +2089,12 @@ fn query_bash_failures(
         let Ok(conn) = open_lessons_db_readonly(db) else {
             continue;
         };
-        let Ok(mut stmt) = conn.prepare(sql) else {
-            continue;
+        let mut stmt = match conn.prepare(sql) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                tracing::debug!(db = %db.display(), error = %e, "lessons: DB skipped (pre-v12 schema has no verified failures)");
+                continue;
+            }
         };
         let rows = stmt.query_map(rusqlite::params![command_short, limit as i64], |row| {
             let cmd_short: String = row.get(0)?;
@@ -3357,10 +3368,21 @@ fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
 /// camada de reescrita em subprocess que o modelo teria de conferir. Rede e
 /// padrões destrutivos seguem hard-deny em toda lang. `--timeout-ms` viaja
 /// explícito (E4): N ferramentas reais não cabem no default de 30s.
-fn r9_exec_program(cmds: &[String]) -> String {
-    let mut corpo = String::from("falhas=0\n");
+fn r9_exec_program(executed: &[String], pending: &str) -> String {
+    // S212 (25/09/2026): the commands of the burst that ALREADY ran travel as context
+    // comments (first line only) — re-running them repeated their effects (a memory
+    // write, a commit). Only the denied command is a step.
+    let mut corpo = String::new();
+    for cmd in executed {
+        let first: String = cmd.lines().next().unwrap_or("").chars().take(120).collect();
+        corpo.push_str("# já executado (não repetir): ");
+        corpo.push_str(&first);
+        corpo.push('\n');
+    }
+    corpo.push_str("falhas=0\n");
     let mut ordem = 0usize;
-    for cmd in cmds {
+    let cmds = [pending.to_string()];
+    for cmd in &cmds {
         let cabe = corpo.chars().count() + cmd.chars().count() + 64 <= G1_BODY_BUDGET;
         if !cabe {
             continue; // inteiro ou fora, jamais truncado (mesma regra do R9 antigo)
@@ -3579,14 +3601,26 @@ fn pending_suggestion() -> &'static moka::sync::Cache<String, ()> {
     })
 }
 
-/// F2 — session key for the uptake cache. Claude Code threads `session_id` into
-/// every hook payload; absent it (non-CC callers), a single shared slot is used.
+/// ACTOR key of every per-session window (F2 uptake cache, G1/G3/G7/G10/G11, T3-B).
+///
+/// S23 (25/09/2026): the actor is `(session_id, agent_id)`. A subagent inherits its
+/// parent's `session_id`, so keying by session alone let a subagent's greps and bypasses
+/// spend its parent's windows (measured live). A payload without `session_id` gets its own
+/// `"anon"` key — never a slot shared with real sessions (was `"default"`).
 fn session_key(payload: &Value) -> String {
-    payload
+    let session = payload
         .get("session_id")
         .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("anon");
+    match payload
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        Some(agent) => format!("{session}\u{2}agent:{agent}"),
+        None => session.to_string(),
+    }
 }
 
 /// F2 — did the current action follow a coupling redirect? True when the tool is
@@ -3755,17 +3789,18 @@ fn bypass_ledger() -> &'static moka::sync::Cache<u64, BypassBudget> {
 }
 
 /// Chave do ledger: o escopo, como nos demais gates deste módulo.
-fn bypass_key(project_root: &Path) -> u64 {
+fn bypass_key(project_root: &Path, actor: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}code-mode-bypass\u{2}".hash(&mut hasher);
     project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
     hasher.finish()
 }
 
 /// Cobra um bypass e devolve as contas já atualizadas.
-fn charge_bypass(project_root: &Path) -> BypassBudget {
-    let key = bypass_key(project_root);
+fn charge_bypass(project_root: &Path, actor: &str) -> BypassBudget {
+    let key = bypass_key(project_root, actor);
     let prev = bypass_ledger().get(&key).unwrap_or_default();
     let next = BypassBudget {
         strict_run: prev.strict_run.saturating_add(1),
@@ -3776,8 +3811,8 @@ fn charge_bypass(project_root: &Path) -> BypassBudget {
 }
 
 /// A rota sancionada foi usada: o crédito volta inteiro.
-fn credit_sanctioned_route(project_root: &Path) {
-    bypass_ledger().invalidate(&bypass_key(project_root));
+fn credit_sanctioned_route(project_root: &Path, actor: &str) {
+    bypass_ledger().invalidate(&bypass_key(project_root, actor));
 }
 
 /// Um comando que não é bypass quebra a sequência ESTRITA, e só ela.
@@ -3785,8 +3820,8 @@ fn credit_sanctioned_route(project_root: &Path) {
 /// A conta `since_route` sobrevive de propósito: caso contrário, bastaria
 /// intercalar um `echo` entre os bypasses para zerar o orçamento, que é
 /// exatamente a série espaçada que a R2 existe para impedir.
-fn break_strict_run(project_root: &Path) {
-    let key = bypass_key(project_root);
+fn break_strict_run(project_root: &Path, actor: &str) {
+    let key = bypass_key(project_root, actor);
     if let Some(prev) = bypass_ledger().get(&key)
         && prev.strict_run > 0
     {
@@ -3802,8 +3837,12 @@ fn break_strict_run(project_root: &Path) {
 
 /// `true` quando o comando É a rota sancionada (um programa único no sandbox).
 fn is_sanctioned_route(cmd: &str) -> bool {
-    let c = cmd.trim_start();
-    c.starts_with("touring run ") || c.contains(" touring run ") || c == "touring run"
+    // S24: a path-qualified binary (`.touring/bin/touring run`, the per-project one) is the
+    // same route — it was never credited, so a project's own binary looked like a bypass.
+    cmd.split(|c: char| c.is_whitespace() || ";|&(".contains(c))
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|w| (w[0] == "touring" || w[0].ends_with("/touring")) && w[1] == "run")
 }
 
 /// Token de bypass POR-COMANDO: viaja no próprio comando (o padrão
@@ -3968,10 +4007,11 @@ fn burst_ledger() -> &'static moka::sync::Cache<u64, BurstEntry> {
     })
 }
 
-fn burst_key(project_root: &Path, class: &str) -> u64 {
+fn burst_key(project_root: &Path, actor: &str, class: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g1-burst\u{2}".hash(&mut hasher);
     project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
     class.hash(&mut hasher);
     hasher.finish()
 }
@@ -4049,10 +4089,11 @@ fn g7_seen() -> &'static moka::sync::Cache<u64, u32> {
     })
 }
 
-fn g7_key(project_root: &Path, file: &str) -> u64 {
+fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g7-target\u{2}".hash(&mut hasher);
     project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
     file.hash(&mut hasher);
     hasher.finish()
 }
@@ -4847,7 +4888,12 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
         record_g1_continuation(seguiu_remedio || class == Some(denied_class.as_str()));
     }
     let class = class?;
-    let key = burst_key(project_root, class);
+    // S24: a command naming a path the sandbox cannot reach is not fusible into
+    // `touring run` — counting it would deny toward a route that fails.
+    if !unreachable_in_sandbox(project_root, cmd).is_none() {
+        return None;
+    }
+    let key = burst_key(project_root, session, class);
     let epoca_atual = mutation_epoch()
         .get(&project_root.display().to_string())
         .unwrap_or(0);
@@ -5179,7 +5225,7 @@ pub(crate) fn code_mode_gates(
             crate::shared::gate_metrics::record_g4_observed();
         }
         // W3 S-3.2 — G7: re-inspeção do MESMO alvo.
-        let key = g7_key(project_root, fp);
+        let key = g7_key(project_root, session, fp);
         let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
         g7_seen().insert(key, n);
         if !code_gates_disabled() {
@@ -5217,7 +5263,7 @@ pub(crate) fn code_mode_gates(
     if cmd.contains("touring run") {
         for token in cmd.split_whitespace().filter(|t| t.contains('/')) {
             let limpo = token.trim_matches(|c: char| "'\"[]{},".contains(c));
-            g7_seen().invalidate(&g7_key(project_root, limpo));
+            g7_seen().invalidate(&g7_key(project_root, session, limpo));
         }
     }
     // G5 (telemetria): a primeira ação Bash encerra a rajada de edits; se ela
@@ -5252,16 +5298,16 @@ pub(crate) fn code_mode_gates(
     // G11 — a rota sancionada devolve o crédito ANTES de qualquer cobrança, para
     // que um turno que alterna programa e bypass nunca acumule dívida.
     if is_sanctioned_route(cmd) {
-        credit_sanctioned_route(project_root);
-    } else if !cmd.contains(GATE_BYPASS_TOKEN) {
-        break_strict_run(project_root);
+        credit_sanctioned_route(project_root, session);
+    } else if !has_bypass_token(cmd) {
+        break_strict_run(project_root, session);
     }
-    if cmd.contains(GATE_BYPASS_TOKEN) {
+    if has_bypass_token(cmd) {
         // O orçamento é cobrado ANTES da isenção: o token continua legítimo, mas
         // a SÉRIE passa a custar. O deny do G11 não é bypassável de propósito —
         // um bypass que se auto-libera não é orçamento; a saída é o kill switch
         // humano no env do daemon, que exige decisão fora do turno.
-        let budget = charge_bypass(project_root);
+        let budget = charge_bypass(project_root, session);
         if !code_gates_disabled()
             && let Some(rule) = bypass_verdict(budget)
         {
@@ -5287,7 +5333,7 @@ pub(crate) fn code_mode_gates(
         // G1: o bypass consciente reseta a janela da classe (S-2.2) — a
         // exploração legítima recomeça do zero, e o evento fica contado.
         if let Some(class) = scan_class_of(cmd) {
-            let key = burst_key(project_root, class);
+            let key = burst_key(project_root, session, class);
             if matches!(burst_ledger().get(&key), Some((n, _, _)) if n >= G1_DENY_AT - 1) {
                 record_gate_event(GateId::G1, GateEvent::Bypassed);
             }
@@ -5385,7 +5431,9 @@ pub(crate) fn code_mode_gates(
     // comando — `run-1787620774532-346193` registrou "X6 denied the subprocess
     // capability 'echo' under profile 'Sandboxed'" —, então um laço que mata
     // processo, faz git ou compila fica de fora por construção.
-    if let Some(rewritten) = loop_rewrite_candidate(cmd) {
+    if let Some(rewritten) =
+        loop_rewrite_candidate(cmd).filter(|_| unreachable_in_sandbox(project_root, cmd).is_none())
+    {
         if code_gates_disabled() {
             record_gate_event(GateId::G8, GateEvent::Bypassed);
         } else {
@@ -5423,7 +5471,9 @@ pub(crate) fn code_mode_gates(
     // vira 1 programa (R9). Um `touring run` entre elas zera a contagem — a
     // condição "0 run" é a prova de que a rota já foi oferecida e ignorada.
     // DEPOIS do G8: um laço escrito é reescrito lá; aqui é a rajada serial.
-    if let Some(class) = exec_class_of(cmd) {
+    if let Some(class) =
+        exec_class_of(cmd).filter(|_| unreachable_in_sandbox(project_root, cmd).is_none())
+    {
         if class == "python-inline" {
             // telemetria S5: cada inline visto conta — a calibração segue
             // medindo mesmo com a classe agora dentro da rajada.
@@ -5450,7 +5500,13 @@ pub(crate) fn code_mode_gates(
             let programa = if class == "python-inline" {
                 python_inline_remedy(cmd)
             } else {
-                r9_exec_program(&cmds)
+                // S212: the ledger ends with the denied command; everything before it
+                // already ran and must not be replayed.
+                let executed: Vec<String> = match cmds.split_last() {
+                    Some((last, before)) if last == cmd => before.to_vec(),
+                    _ => cmds.clone(),
+                };
+                r9_exec_program(&executed, cmd)
             };
             // S6 — a rajada real consulta o portfólio: quando há um programa
             // que já funcionou para este trabalho, o deny entrega os dois
@@ -5461,9 +5517,10 @@ pub(crate) fn code_mode_gates(
             return Some(deny_response(format!(
                 "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
                  na janela de {}s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\n  \
-                 {programa}\nOs comandos rodam verbatim, sequenciais e na mesma ordem \
-                 (denies subprocess-only são advisory em `--lang bash` — o sandbox contém o \
-                 filesystem); veredito por comando na saída, íntegra no spill.{prior}{hint} \
+                 {programa}\nSó o comando negado roda; os já executados da rajada vêm como \
+                 comentário e NUNCA são repetidos (denies subprocess-only são advisory em \
+                 `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra \
+                 no spill. Os próximos comandos do lote entram no MESMO programa.{prior}{hint} \
                  Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
                 EXEC_BURST_WINDOW_SECS
             )));
@@ -5528,6 +5585,7 @@ pub(crate) fn code_mode_gates(
     if apresentacao == CodeModePresentation::Code
         && let Some(class) = inspect_class
         && !code_gates_disabled()
+        && unreachable_in_sandbox(project_root, cmd).is_none()
     {
         let key = inspect_burst_key(project_root, session, class);
         let (n, mut cmds) = inspect_burst_ledger().get(&key).unwrap_or_default();
@@ -6327,9 +6385,9 @@ mod g11_bypass_budget_tests {
     fn a_neutral_command_breaks_only_the_strict_run() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
-        charge_bypass(root);
-        break_strict_run(root);
-        let after = charge_bypass(root);
+        charge_bypass(root, "t");
+        break_strict_run(root, "t");
+        let after = charge_bypass(root, "t");
         assert_eq!(
             after,
             BypassBudget {
@@ -6345,10 +6403,10 @@ mod g11_bypass_budget_tests {
     fn the_route_credits_both_counts_back() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
-        charge_bypass(root);
-        charge_bypass(root);
-        credit_sanctioned_route(root);
-        let after = charge_bypass(root);
+        charge_bypass(root, "t");
+        charge_bypass(root, "t");
+        credit_sanctioned_route(root, "t");
+        let after = charge_bypass(root, "t");
         assert_eq!(
             after,
             BypassBudget {
@@ -6408,5 +6466,246 @@ mod snippet_hint_tests {
     fn missing_db_is_empty_never_an_error() {
         let root = std::path::Path::new("/definitely/not/a/project/root/xyz");
         assert_eq!(snippet_hint_for_program("anything", root), "");
+    }
+}
+
+/// S23 (plan 2026-09-25) — every code-mode window belongs to ONE actor: (session, agent).
+///
+/// Measured live on 25/09: the G1/G7/G10/G11 windows mixed this session's commands with
+/// its subagents' and with OTHER sessions of the same project (a first read denied as a
+/// "3rd"; a bypass budget spent by someone else). Each test uses its own project root:
+/// the ledgers are process-global caches and the tests run in parallel.
+#[cfg(test)]
+mod actor_isolation_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn denied(out: &Option<String>) -> bool {
+        out.as_deref()
+            .is_some_and(|s| s.contains("\"permissionDecision\":\"deny\""))
+    }
+
+    #[test]
+    fn actor_key_separates_subagents_and_defaults_to_anon() {
+        let parent = session_key(&json!({"session_id": "s-1"}));
+        let child = session_key(&json!({"session_id": "s-1", "agent_id": "agent-x"}));
+        assert_ne!(
+            parent, child,
+            "a subagent must not share its parent's windows"
+        );
+        assert_eq!(session_key(&json!({})), "anon");
+        assert_eq!(session_key(&json!({"session_id": ""})), "anon");
+    }
+
+    #[test]
+    fn g7_counter_isolated_per_session_and_agent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s23_g7_probe.py"});
+        let owner = session_key(&json!({"session_id": "s23-g7-owner"}));
+        let _ = code_mode_gates(root, &owner, "Read", &read);
+        let _ = code_mode_gates(root, &owner, "Read", &read);
+        let other = session_key(&json!({"session_id": "s23-g7-other"}));
+        assert!(
+            !denied(&code_mode_gates(root, &other, "Read", &read)),
+            "another session's 1st read denied"
+        );
+        let agent = session_key(&json!({"session_id": "s23-g7-owner", "agent_id": "agent-x"}));
+        assert!(
+            !denied(&code_mode_gates(root, &agent, "Read", &read)),
+            "a subagent's 1st read denied"
+        );
+    }
+
+    #[test]
+    fn g7_third_read_same_actor_still_denied() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s23_g7_same.py"});
+        let me = session_key(&json!({"session_id": "s23-g7-same"}));
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        assert!(
+            denied(&code_mode_gates(root, &me, "Read", &read)),
+            "isolation disabled the gate for its own actor"
+        );
+    }
+
+    #[test]
+    fn burst_window_isolated_per_agent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let owner = session_key(&json!({"session_id": "s23-g1"}));
+        let _ = burst_gate(root, &owner, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &owner, "grep -rn beta crates/");
+        let agent = session_key(&json!({"session_id": "s23-g1", "agent_id": "agent-y"}));
+        assert!(
+            !denied(&burst_gate(root, &agent, "grep -c gamma README.md")),
+            "a subagent inherited the parent's burst"
+        );
+        assert!(
+            denied(&burst_gate(root, &owner, "grep -l delta docs/x.md")),
+            "the owner's own 3rd inspection must still deny"
+        );
+    }
+
+    #[test]
+    fn bypass_budget_isolated_per_actor() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let token = GATE_BYPASS_TOKEN;
+        let bash = |c: &str| json!({"command": format!("{token} {c}")});
+        let a = session_key(&json!({"session_id": "s23-g11-a"}));
+        let _ = code_mode_gates(root, &a, "Bash", &bash("ls /tmp"));
+        let _ = code_mode_gates(root, &a, "Bash", &bash("ls /var"));
+        let b = session_key(&json!({"session_id": "s23-g11-b"}));
+        assert!(
+            !denied(&code_mode_gates(root, &b, "Bash", &bash("ls /etc"))),
+            "B's first bypass was charged to A's budget"
+        );
+    }
+}
+
+/// S24 (plan 2026-09-25) — the first path `cmd` names that a sandboxed program cannot
+/// reach, judged by the CEG's own landlock table
+/// ([`touring_ceg::gateway::sandbox_executor::sandbox_can_reach`] — one predicate, D8).
+///
+/// A command naming such a path is never rewritten into `touring run` nor denied toward
+/// it (G1/G8/G10/T3-B): the route would not execute. Measured 25/09: the gate rewrote a
+/// `.touring/bin/touring decompose …` loop into a run that failed with "Permission
+/// denied" and still reported `success: true`.
+fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    for raw in cmd.split(|c: char| c.is_whitespace() || ";|&()<>`".contains(c)) {
+        let tok = raw.trim_matches(|c: char| "'\"{}[],".contains(c));
+        let tok = tok.rsplit_once('=').map_or(tok, |(_, v)| v);
+        if tok.is_empty() || tok.contains("://") || !(tok.contains('/') || tok.starts_with('~')) {
+            continue;
+        }
+        let expanded = match (
+            tok.strip_prefix("~/")
+                .or_else(|| tok.strip_prefix("$HOME/")),
+            &home,
+        ) {
+            (Some(rest), Some(h)) => h.join(rest),
+            _ => std::path::PathBuf::from(tok),
+        };
+        let path = if expanded.is_absolute() {
+            expanded
+        } else {
+            project_root.join(expanded)
+        };
+        // Only an EXISTING path is evidence: a missing one fails inside or outside the
+        // sandbox alike, so it says nothing about capability (keeps `/x/a.rs` fixtures fusible).
+        if path.exists() && !touring_ceg::gateway::sandbox_executor::sandbox_can_reach(&path) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// S24 — the bypass token counts only where the SHELL reads it (a command prefix), never
+/// inside a heredoc body or a quoted string: a test file whose text mentions the token was
+/// charged as a bypass and denied by G11 on 25/09.
+fn has_bypass_token(cmd: &str) -> bool {
+    touring_ceg::gateway::gate::mask_shell_data(cmd).contains(GATE_BYPASS_TOKEN)
+}
+
+/// S24 (plan 2026-09-25) — the route is capability-aware and reads shell, not bytes.
+#[cfg(test)]
+mod s24_route_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn denied(out: &Option<String>) -> bool {
+        out.as_deref()
+            .is_some_and(|s| s.contains("\"permissionDecision\":\"deny\""))
+    }
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
+    }
+
+    fn project_with_outside_binary() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin = dir.path().join(".touring").join("bin");
+        std::fs::create_dir_all(&bin).expect("mkdir");
+        // `/root` exists on every Linux box and is never a sandbox root.
+        std::os::unix::fs::symlink("/root", bin.join("touring")).expect("symlink");
+        dir
+    }
+
+    #[test]
+    fn code_mode_does_not_rewrite_commands_outside_sandbox_capability() {
+        let dir = project_with_outside_binary();
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-rewrite"}));
+        let cmd = "for s in a b c; do .touring/bin/touring decompose ready $s; done";
+        let out = code_mode_gates(root, &me, "Bash", &json!({"command": cmd}));
+        assert!(
+            !rewritten(&out),
+            "rewrote into a run the sandbox cannot execute: {out:?}"
+        );
+        assert!(unreachable_in_sandbox(root, cmd).is_some());
+    }
+
+    #[test]
+    fn burst_of_unreachable_commands_is_not_fused_toward_the_sandbox() {
+        let dir = project_with_outside_binary();
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-burst"}));
+        for c in [
+            "cat .touring/bin/touring",
+            "cat .touring/bin/touring x",
+            "cat .touring/bin/touring y",
+        ] {
+            assert!(
+                !denied(&burst_gate(root, &me, c)),
+                "fused a command the sandbox cannot read: {c}"
+            );
+        }
+    }
+
+    #[test]
+    fn code_mode_still_fuses_grep_burst_inside_project() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-control"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        assert!(
+            denied(&burst_gate(root, &me, "grep -l gamma docs/x.md")),
+            "control: in-project burst still fused"
+        );
+    }
+
+    #[test]
+    fn bypass_token_inside_heredoc_is_data_not_a_bypass() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-heredoc"}));
+        let cmd = format!("cat > t.rs <<'EOF'\nlet x = \"{GATE_BYPASS_TOKEN} ls\";\nEOF");
+        for _ in 0..3 {
+            let out = code_mode_gates(root, &me, "Bash", &json!({"command": cmd}));
+            assert!(
+                !out.as_deref().is_some_and(|s| s.contains("G11")),
+                "data charged as bypass: {out:?}"
+            );
+        }
+        assert!(
+            has_bypass_token(&format!("{GATE_BYPASS_TOKEN} ls")),
+            "control: a real prefix still counts"
+        );
+    }
+
+    #[test]
+    fn path_qualified_touring_run_is_the_sanctioned_route() {
+        assert!(is_sanctioned_route(
+            ".touring/bin/touring run --lang bash --file x.sh"
+        ));
+        assert!(is_sanctioned_route(
+            "/home/u/.local/bin/touring run --code 'ls'"
+        ));
+        assert!(!is_sanctioned_route("echo touring running"));
     }
 }
