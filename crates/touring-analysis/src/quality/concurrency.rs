@@ -200,13 +200,13 @@ fn py_async_with_sync_lock(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
 /// synchronisation. If the file already uses a Lock, the pattern is considered
 /// mitigated (the dev knows about synchronisation).
 fn py_thread_shared_global(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
-    let has_thread = memmem::find_iter(bytes, b"threading.Thread")
-        .any(|off| !offset_suppressed(off, regions));
+    let has_thread =
+        memmem::find_iter(bytes, b"threading.Thread").any(|off| !offset_suppressed(off, regions));
     if !has_thread {
         return 0;
     }
-    let has_global = memmem::find_iter(bytes, b"global ")
-        .any(|off| !offset_suppressed(off, regions));
+    let has_global =
+        memmem::find_iter(bytes, b"global ").any(|off| !offset_suppressed(off, regions));
     if !has_global {
         return 0;
     }
@@ -354,12 +354,11 @@ pub fn analyze_concurrency(source: &str, lang: &str) -> ConcurrencyReport {
                     py_async_with_sync_lock(bytes, &regions),
                     1.0,
                 );
-            report
-                .push(
-                    "threading.Thread + global variable without Lock (data race — Python)",
-                    py_thread_shared_global(bytes, &regions),
-                    1.0,
-                );
+            report.push(
+                "threading.Thread + global variable without Lock (data race — Python)",
+                py_thread_shared_global(bytes, &regions),
+                1.0,
+            );
         }
         _ => {}
     }

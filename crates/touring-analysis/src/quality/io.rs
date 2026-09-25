@@ -193,8 +193,7 @@ pub fn analyze_io(source: &str, lang: &str) -> IoReport {
 /// Counts the number of indented `open(` occurrences.
 fn py_open_in_loop(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
     // Only trigger when the file actually contains a for-loop.
-    let has_for = memmem::find_iter(bytes, b"for ")
-        .any(|off| !offset_suppressed(off, regions));
+    let has_for = memmem::find_iter(bytes, b"for ").any(|off| !offset_suppressed(off, regions));
     if !has_for {
         return 0;
     }
@@ -215,8 +214,7 @@ fn py_open_in_loop(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
 /// Python Detector B — `time.sleep(` call when the file has a `for` loop.
 /// `time.sleep` inside a loop body is a busy-wait / throttle anti-pattern.
 fn py_sleep_in_loop(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
-    let has_for = memmem::find_iter(bytes, b"for ")
-        .any(|off| !offset_suppressed(off, regions));
+    let has_for = memmem::find_iter(bytes, b"for ").any(|off| !offset_suppressed(off, regions));
     if !has_for {
         return 0;
     }

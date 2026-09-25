@@ -176,11 +176,10 @@ fn is_path_shape(v: &str) -> bool {
 /// secret-named paths still see it.
 fn is_known_filename(v: &str) -> bool {
     const EXTS: &[&str] = &[
-        "md", "markdown", "txt", "pdf", "doc", "docx", "odt", "rtf", "tex",
-        "py", "rs", "js", "ts", "tsx", "jsx", "go", "java", "c", "h", "cpp", "sh",
-        "json", "yaml", "yml", "toml", "ini", "cfg", "conf", "xml", "csv",
-        "html", "htm", "css", "svg", "png", "jpg", "jpeg", "gif", "webp",
-        "xls", "xlsx", "zip", "gz", "tar", "mp3", "mp4", "wav", "sql", "log",
+        "md", "markdown", "txt", "pdf", "doc", "docx", "odt", "rtf", "tex", "py", "rs", "js", "ts",
+        "tsx", "jsx", "go", "java", "c", "h", "cpp", "sh", "json", "yaml", "yml", "toml", "ini",
+        "cfg", "conf", "xml", "csv", "html", "htm", "css", "svg", "png", "jpg", "jpeg", "gif",
+        "webp", "xls", "xlsx", "zip", "gz", "tar", "mp3", "mp4", "wav", "sql", "log",
     ];
     let last = v.rsplit('/').next().unwrap_or(v);
     let last = last.split('#').next().unwrap_or(last);
@@ -509,9 +508,8 @@ fn is_relative_dir_path(v: &str) -> bool {
     segments.len() >= 3
         && segments.iter().all(|s| {
             !s.is_empty()
-                && s.bytes().all(|b| {
-                    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.')
-                })
+                && s.bytes()
+                    .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
         })
         && segments.iter().any(|s| s.trim_matches('-').contains('-'))
 }
@@ -1001,7 +999,10 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
         }
     }
     // (3) generic high-entropy literal anywhere on the line → strong.
-    if extract_quoted(line).iter().any(|l| looks_like_secret_value(l)) {
+    if extract_quoted(line)
+        .iter()
+        .any(|l| looks_like_secret_value(l))
+    {
         return Some("high-entropy-literal");
     }
     None
