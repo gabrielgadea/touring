@@ -120,6 +120,9 @@ fn main() {
     touring_hook_runtime::hook_trace::set_session_id(
         input.get("session_id").and_then(|v| v.as_str()),
     );
+    // S214: this process answers as the event that invoked it — every standalone
+    // serialization is stamped from here (the daemon path is stamped below).
+    touring_hook_runtime::hook_response::set_invoking_event(&input);
 
     // ── Daemon fast-path ─────────────────────────────────────────────────
     // Pre-hooks and post-hooks that the daemon handles are attempted via socket
@@ -163,23 +166,7 @@ fn main() {
             // fall back to the canonical "{}" Allow shape — preserving the
             // "hooks never block CC" invariant.
             touring_hook_runtime::hook_trace::set_route("daemon");
-            if resp.output.is_empty() {
-                touring_hook_runtime::hook_trace::set_reason("daemon-empty");
-                process::exit(0);
-            }
-            let trimmed = resp.output.trim();
-            if serde_json::from_str::<serde_json::Value>(trimmed).is_ok() {
-                touring_hook_runtime::hook_trace::set_reason("daemon-json");
-                println!("{}", resp.output);
-            } else {
-                touring_hook_runtime::hook_trace::set_reason("daemon-nonjson");
-                eprintln!(
-                    "[touring-hook] daemon returned non-JSON output ({} bytes), \
-                     emitting canonical {{}} Allow instead",
-                    resp.output.len()
-                );
-                println!("{{}}");
-            }
+            forward_daemon_output(&resp.output);
             process::exit(0);
         }
         // Daemon unavailable — fall through to standalone execution below.
@@ -658,6 +645,40 @@ fn run_lifecycle_event(
 
     tracing::debug!(event = event_name, "Lifecycle event recorded");
     Ok(())
+}
+
+/// Forward the daemon's answer to Claude Code.
+///
+/// Defense-in-depth: `output` must be empty OR a parseable JSON object before it
+/// reaches Claude Code's strict hook-output schema validator. Anything else
+/// (partial response from a crashed daemon, stdout contamination, mixed
+/// prose+JSON) falls back to the canonical `{}` Allow — preserving the "hooks
+/// never block CC" invariant. S214: the daemon answers many events and names
+/// them by hand; this process knows which one invoked it, so it stamps the name.
+fn forward_daemon_output(output: &str) {
+    if output.is_empty() {
+        touring_hook_runtime::hook_trace::set_reason("daemon-empty");
+        return;
+    }
+    match serde_json::from_str::<serde_json::Value>(output.trim()) {
+        Ok(mut value) => {
+            touring_hook_runtime::hook_trace::set_reason("daemon-json");
+            if touring_hook_runtime::hook_response::stamp_invoking_event(&mut value) {
+                println!("{value}");
+            } else {
+                println!("{output}");
+            }
+        }
+        Err(_) => {
+            touring_hook_runtime::hook_trace::set_reason("daemon-nonjson");
+            eprintln!(
+                "[touring-hook] daemon returned non-JSON output ({} bytes), \
+                 emitting canonical {{}} Allow instead",
+                output.len()
+            );
+            println!("{{}}");
+        }
+    }
 }
 
 /// Attempt to send a hook request to the running daemon via Unix socket.

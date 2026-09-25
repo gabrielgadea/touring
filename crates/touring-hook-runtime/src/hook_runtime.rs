@@ -133,7 +133,26 @@ impl HookResponse {
         }
     }
     /// Serialize to JSON string without exiting (for tests and logging).
+    ///
+    /// S214: answers as the event that invoked THIS process when the client
+    /// recorded one (`hook_response::set_invoking_event`); otherwise the bytes
+    /// are exactly the handler's own serialization.
     pub fn to_json(&self) -> String {
+        let raw = self.to_json_as_named();
+        if !raw.contains("\"hookSpecificOutput\"") {
+            return raw;
+        }
+        let Ok(mut value) = serde_json::from_str::<serde_json::Value>(&raw) else {
+            return raw;
+        };
+        if crate::hook_response::stamp_invoking_event(&mut value) {
+            value.to_string()
+        } else {
+            raw
+        }
+    }
+    /// The handler's own serialization, with the event name it chose.
+    fn to_json_as_named(&self) -> String {
         match self {
             HookResponse::Allow => "{}".to_string(),
             HookResponse::Context {
