@@ -144,15 +144,17 @@ fn registry_has_expected_count() {
     //   do próprio walker a um arquivo, sob demanda, e nomeia a exclusão
     //   (skipped_dir / unsupported_extension / oversized / …): 243->244 / 245->246.
     // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
-    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera).
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249 (o e7f47c1d adicionou o handler e este comentário
+    //   SEM bump das constantes — 5 dias vermelho; corrigido 25/09, REGRA #21).
     // 2026-09-19: +1 cli-decompose-archive — `archive_completed_tasks` existia,
     //   estava testada e tinha ZERO chamadores de produção, então nenhuma task
     //   terminal jamais recebia `archived_at` (NULL em 381 de 381, medido).
     //   O handler é a rota que faltava (REGRA #0): 244->245 / 246->247.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 248;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 246;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -177,7 +179,9 @@ fn registry_has_expected_count() {
     // 2026-08-29 (R4): +2 cli-experiment-{record,list} = 238.
     // 2026-08-29 (P2 replay): +1 cli-learning-replay = 239.
     // 2026-09-13 (I13): +1 cli-index-why = 240.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 240);
+    // 2026-09-20: +1 cli-decompose-reconcile-stages = 241 (o e7f47c1d não
+    //   bumpou NENHUMA das 4 cópias do tripwire; corrigido 25/09, REGRA #21).
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 241);
 }
 
 /// The tripwire literal is duplicated across four files; this asserts they agree.

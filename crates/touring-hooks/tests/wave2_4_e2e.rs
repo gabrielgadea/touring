@@ -275,12 +275,13 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     // 2026-08-29 (P2 replay): +1 cli-learning-replay: 242->243 / 244->245.
     // 2026-09-13 (I13): +1 cli-index-why: 243->244 / 245->246.
     // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
-    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera).
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249.
     // 2026-09-19: +1 cli-decompose-archive: 244->245 / 246->247.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 248;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 246;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,
