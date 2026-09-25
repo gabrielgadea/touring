@@ -500,3 +500,54 @@ fn the_spawner_is_read_before_the_lock_and_the_bind() {
         "the parent pid must be read before acquiring the lock"
     );
 }
+
+// ── touring-36 ticket (25/09/2026): the per-project admission pin derives
+// from the daemon's OWN socket — never from the inherited env ───────────
+
+#[test]
+fn pin_for_socket_pins_only_dot_touring_sockets() {
+    use std::path::Path;
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/phantom-analise/.touring/daemon.sock")),
+        Some(PathBuf::from("/tmp/phantom-analise")),
+        "o socket per-project (<root>/.touring/daemon.sock) pina o root"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/touring-daemon-1000.sock")),
+        None,
+        "o socket GLOBAL em /tmp nunca pina — o daemon segue multi-projeto"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/tmp/x/.touring")),
+        None,
+        ".touring como FOLHA (sem arquivo de socket abaixo) não pina"
+    );
+    assert_eq!(
+        pin_for_socket(Path::new("/home/u/proj/.touring-cache/daemon.sock")),
+        None,
+        "só o diretório `.touring` exato pina — `.touring-cache` não"
+    );
+}
+
+/// The boot sets the pin BEFORE the accept loop binds the listener: the
+/// derivation is read from this daemon's own socket path, the same source
+/// the spawn sites use to pin `TOURING_PROJECT_ROOT`.
+#[test]
+fn the_pin_is_set_from_the_socket_before_the_listener_binds() {
+    let source = include_str!("daemon.rs");
+    let body = source
+        .split("pub async fn run_daemon_async()")
+        .nth(1)
+        .expect("run_daemon_async");
+    let decided = body.find("daemon_socket_path()").expect("socket decided");
+    let pin_set = body
+        .find("DAEMON_PROJECT_PIN.set(pin_for_socket(&socket_path))")
+        .expect("the pin is set");
+    let bind = body
+        .find("UnixListener::bind(&socket_path)")
+        .expect("the listener binds");
+    assert!(
+        decided < pin_set && pin_set < bind,
+        "socket decidido → pin setado → bind: nenhum request chega sem pin"
+    );
+}

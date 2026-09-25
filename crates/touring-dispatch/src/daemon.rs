@@ -101,6 +101,29 @@ static HOOK_TABLE: OnceLock<HashMap<&'static str, HookHandler>> = OnceLock::new(
 /// Built lazily from the dispatch table keys on first access.
 static HOOK_METRICS: OnceLock<HashMap<&'static str, (AtomicU64, AtomicU64)>> = OnceLock::new();
 
+/// The per-project pin (touring-36 ticket, 25/09/2026): a daemon whose socket
+/// is `<root>/.touring/daemon.sock` serves ONLY `<root>`. Set once at boot
+/// from the daemon's OWN socket path — never from the inherited
+/// `TOURING_PROJECT_ROOT`, which a launcher can carry by accident (the global
+/// daemon's socket lives in `/tmp`, so it stays unpinned either way).
+/// `None` until the boot sets it: tests driving `dispatch_request_async`
+/// directly keep the unpinned behavior.
+static DAEMON_PROJECT_PIN: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Derive the pin from a socket path: `<root>/.touring/<anything>` pins the
+/// daemon to `<root>`; any other location (the global `/tmp` socket) does
+/// not. This is the SAME rule the spawn sites use to pin
+/// `TOURING_PROJECT_ROOT` (`touring-hooks main.rs`, `daemon_ctl.rs`) — the
+/// admission side now agrees with the spawn side, which is what makes
+/// «qualquer caller é correto por construção» true again.
+fn pin_for_socket(socket_path: &std::path::Path) -> Option<PathBuf> {
+    socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .and_then(|d| d.parent())
+        .map(std::path::Path::to_path_buf)
+}
+
 /// Initialize or retrieve the per-hook metrics map.
 fn hook_metrics_map() -> &'static HashMap<&'static str, (AtomicU64, AtomicU64)> {
     HOOK_METRICS.get_or_init(|| {
@@ -702,6 +725,9 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
     let spawner_at_start = peer_label(i32::try_from(std::os::unix::process::parent_id()).ok());
     let cgroup_at_start = std::fs::read_to_string("/proc/self/cgroup").unwrap_or_default();
     let socket_path = daemon_socket_path();
+    // The admission pin: decided ONCE from this daemon's own socket, before
+    // the first request is served (the accept loop runs after this point).
+    let _ = DAEMON_PROJECT_PIN.set(pin_for_socket(&socket_path));
     // W12.5: the lock scopes to THIS socket — N per-project daemons coexist;
     // same-socket races still serialize on one lock (REGRA #19).
     let lock_path = daemon_lock_path_for(&socket_path);
@@ -1852,6 +1878,21 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     let client_root = touring_foundation::TouringConfig::normalize_project_root(&PathBuf::from(
         &req.project_root,
     ));
+
+    // The pinned daemon refuses a request for any other root (touring-36
+    // ticket, 25/09/2026): the project was once chosen from the CLIENT's cwd,
+    // so a `--purge-phantom --dry-run` pointed at a scratch daemon's socket
+    // ran the definer pass against the LIVE touring db (unknown 21→2 there).
+    // The refusal names both roots and the route back.
+    if let Some(Some(pinned)) = DAEMON_PROJECT_PIN.get()
+        && *pinned != client_root
+    {
+        return protocol_failure(format_args!(
+            "this daemon is pinned to {} (derived from its own socket); the request names {} — run it with the cwd inside the pinned root, or against the global daemon",
+            pinned.display(),
+            client_root.display(),
+        ));
+    }
     let hook_name = req.hook.clone();
     let priority = req.priority;
 
