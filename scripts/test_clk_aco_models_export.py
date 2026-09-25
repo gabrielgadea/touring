@@ -323,6 +323,75 @@ def test_search_index_batch_equals_individual(clk):
     assert results[0].module == single.module
 
 
+# ── AcoGraph — the d4's behavior probe (25/09/2026, REGRA #21) ───────────────
+# The four measured defects: the false «cycle detected» on any graph WITH an
+# edge (inverted Kahn in-degree), the silent stub node for an unknown
+# dependency, the unvalidated triad, and the silent Template fallback for an
+# unknown generator_type string. All proofs run against the built module.
+
+
+def _aco_node(clk, nid, deps=None, scripts=("run", "check", "undo"), contract=("pre", "post", "inv")):
+    return clk.GeneratorNode(
+        nid, "d", "template", [], [], [], scripts[0], scripts[1], scripts[2],
+        contract[0], contract[1], contract[2], "", deps or [],
+    )
+
+
+def test_aco_graph_levels_parallelism_and_freeze_work_WITH_edges(clk):
+    g = clk.AcoGraph()
+    g.add_node(_aco_node(clk, "A"))
+    g.add_node(_aco_node(clk, "B", ["A"]))
+    g.add_node(_aco_node(clk, "C", ["A"]))
+    g.add_node(_aco_node(clk, "D", ["B", "C"]))
+    # The diamond: acyclic, 3 levels, B‖C parallel — the broken Kahn said
+    # «cycle detected» here.
+    assert g.get_all_levels() == [["A"], ["B", "C"], ["D"]]
+    assert any(len(level) == 2 for level in g.detect_parallelizable())
+    import json as _json
+
+    frozen = _json.loads(g.freeze(None))
+    assert len(frozen["nodes"]) == 4
+    # linear of 3
+    g2 = clk.AcoGraph()
+    g2.add_node(_aco_node(clk, "A"))
+    g2.add_node(_aco_node(clk, "B", ["A"]))
+    g2.add_node(_aco_node(clk, "C", ["B"]))
+    assert len(g2.get_all_levels()) == 3
+
+
+def test_aco_graph_unknown_dependency_is_never_a_stub_and_is_named(clk):
+    g = clk.AcoGraph()
+    g.add_node(_aco_node(clk, "A", ["NONEXISTENT"]))
+    assert len(g) == 1, "a phantom stub node was materialized"
+    assert g.validate_dependencies() == ["A: depends on unknown node 'NONEXISTENT'"]
+    with pytest.raises(ValueError, match="unresolved.*NONEXISTENT|NONEXISTENT.*unresolved"):
+        g.freeze(None)
+
+
+def test_aco_graph_validate_contracts_names_the_contract_and_the_triad(clk):
+    g = clk.AcoGraph()
+    g.add_node(_aco_node(clk, "X", None, scripts=("", "", ""), contract=("", "", "")))
+    v = g.validate_contracts()
+    for expected in [
+        "X: missing precondition",
+        "X: missing postcondition",
+        "X: missing invariant",
+        "X: missing execution_script (triad mandatory)",
+        "X: missing validation_script (triad mandatory)",
+        "X: missing rollback_script (triad mandatory)",
+    ]:
+        assert expected in v, f"{expected} ausente em {v}"
+
+
+def test_aco_graph_unknown_generator_type_is_refused_with_the_valid_list(clk):
+    g = clk.AcoGraph()
+    bogus = clk.GeneratorNode(
+        "Y", "d", "bogus-type", [], [], [], "a", "b", "c", "p", "q", "i", "", []
+    )
+    with pytest.raises(ValueError, match="unknown generator_type.*validator"):
+        g.add_node(bogus)
+
+
 # ── JaccardComputer — in the simd submodule, not the package level ───────────
 
 
