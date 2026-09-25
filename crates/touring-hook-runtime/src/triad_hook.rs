@@ -574,3 +574,89 @@ mod s28_before_tests {
         );
     }
 }
+
+/// PT3 (plan 2026-09-25) — TRIAD advisory (D1-A) with two sessions writing in parallel:
+/// crossings = 0, reversions = 0, cost measured. Emits one `PT3 {json}` line (run with
+/// `--nocapture` to record it in the plan's data/pt3.json).
+#[cfg(test)]
+mod pt3_tests {
+    use super::*;
+    use std::time::Instant;
+
+    const N: usize = 200;
+
+    fn pct(sorted: &[u128], p: f64) -> u128 {
+        sorted[((sorted.len() - 1) as f64 * p).round() as usize]
+    }
+
+    /// One session's loop: its own file (reversion check) and a file SHARED with the other
+    /// session (crossing check — the old single slot let one session consume the other's
+    /// snapshot, so its own `take` came back empty).
+    fn session_loop(session: &str, dir: &Path) -> (usize, usize, Vec<u128>, Vec<u128>) {
+        let (mut crossed, mut reverted) = (0usize, 0usize);
+        let (mut arm_us, mut take_us) = (Vec::with_capacity(N), Vec::with_capacity(N));
+        let shared = dir.join("shared.txt");
+        let shared = shared.to_str().expect("utf8");
+        for i in 0..N {
+            let own = dir.join(format!("{session}-{}.txt", i % 8));
+            let own = own.to_str().expect("utf8");
+            let t = Instant::now();
+            arm(session, own);
+            arm_us.push(t.elapsed().as_micros());
+            let written = format!("{session} write {i}\n");
+            std::fs::write(own, &written).expect("write own");
+            let t = Instant::now();
+            let state = take(session, own);
+            take_us.push(t.elapsed().as_micros());
+            match state {
+                Some(s) if s.written_path == own => {
+                    let block = HookResponse::Block {
+                        reason: "pt3".to_string(),
+                        context: None,
+                        event_name: None,
+                    };
+                    let _ = run_post_write(&s, block);
+                    if std::fs::read_to_string(own).expect("read own") != written {
+                        reverted += 1;
+                    }
+                }
+                _ => crossed += 1,
+            }
+            arm(session, shared);
+            std::fs::write(shared, format!("{session} {i}\n")).expect("write shared");
+            if take(session, shared).is_none_or(|s| s.written_path != shared) {
+                crossed += 1;
+            }
+        }
+        (crossed, reverted, arm_us, take_us)
+    }
+
+    #[test]
+    fn pt3_two_sessions_parallel_writes_never_cross_or_revert() {
+        let dir = tempfile::tempdir().expect("tmp");
+        let (a, b) = std::thread::scope(|s| {
+            let ha = s.spawn(|| session_loop("pt3-session-A", dir.path()));
+            let hb = s.spawn(|| session_loop("pt3-session-B", dir.path()));
+            (ha.join().expect("A"), hb.join().expect("B"))
+        });
+        let crossed = a.0 + b.0;
+        let reverted = a.1 + b.1;
+        let mut arm_us: Vec<u128> = a.2.into_iter().chain(b.2).collect();
+        let mut take_us: Vec<u128> = a.3.into_iter().chain(b.3).collect();
+        arm_us.sort_unstable();
+        take_us.sort_unstable();
+        println!(
+            "PT3 {}",
+            serde_json::json!({
+                "sessions": 2, "writes_per_session": N, "crossed": crossed, "reverted": reverted,
+                "arm_us": {"p50": pct(&arm_us, 0.5), "p99": pct(&arm_us, 0.99), "max": arm_us[arm_us.len() - 1]},
+                "take_us": {"p50": pct(&take_us, 0.5), "p99": pct(&take_us, 0.99), "max": take_us[take_us.len() - 1]},
+            })
+        );
+        assert_eq!(
+            crossed, 0,
+            "a session's take must always find its OWN snapshot"
+        );
+        assert_eq!(reverted, 0, "a Block must never restore the file (D1-A)");
+    }
+}
