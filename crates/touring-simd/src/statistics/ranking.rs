@@ -10,7 +10,12 @@ use statrs::distribution::{ContinuousCDF, Normal};
 /// Wilson score ranker with configurable z-score.
 #[derive(Debug, Clone)]
 pub struct WilsonRanker {
-    /// Z-score for confidence level (1.96 for 95%).
+/// Z-score for confidence level — computed by statrs `inverse_cdf`, never
+/// truncated: 0.95 → **1.959963984540054** (the exact value; the doc-shorthand
+/// "1.96" below is the textbook rounding of it). Measured 24/09/2026
+/// (analise): at (1,1) this yields 0.206549, while the analise's Python —
+/// using z = 1.96 truncated — yields 0.206543; the divergence is on the
+/// TRUNCATING side, not on this one.
     z_score: f64,
     /// Parallel threshold for batch operations.
     parallel_threshold: usize,
@@ -25,7 +30,10 @@ impl Default for WilsonRanker {
 impl WilsonRanker {
     /// Create ranker with specified confidence level.
     ///
-    /// Common values: 0.90 (z=1.645), 0.95 (z=1.96), 0.99 (z=2.576)
+    /// Common values: 0.90 (z=1.645), 0.95 (z=1.96), 0.99 (z=2.576) — those
+    /// are the textbook roundings; the z actually used is the EXACT
+    /// inverse-CDF of statrs (0.95 → 1.959963984540054), so cross-language
+    /// parity requires the exact value, not the truncation.
     pub fn new(confidence: f64) -> Self {
         let normal = Normal::new(0.0, 1.0).unwrap_or_else(|_| Normal::standard());
         let z_score = normal.inverse_cdf((1.0 + confidence) / 2.0);
