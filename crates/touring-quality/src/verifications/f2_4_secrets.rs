@@ -344,6 +344,35 @@ fn has_connstring_creds(line: &str) -> bool {
         && !is_readable_placeholder(pass)
 }
 
+/// True when `v` is CODE, not a literal: a call (`os.environ.get(…)`) or an
+/// identifier/attribute path (`status.HTTP_202_ACCEPTED`, with the call's
+/// closing paren attached). Such an RHS is READ, never hardcoded — and only a
+/// hardcoded value can be a leaked secret.
+///
+/// Measured 25/09/2026 (touring-36, the analise's backend judge, P0 0.000):
+/// `@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)`
+/// failed — the decorator's first `=` is the `status_code=` kwarg, so the
+/// split named the LHS from "password" in the ROUTE, and the enum path
+/// scored as a high-entropy assigned value. A route path or an identifier
+/// is not a credential.
+///
+/// Why detection holds: no real token carries `(`; a `)`-terminated enum
+/// path is never one either; and a DOTTED value that IS a credential (a
+/// JWT) still lands on the structural-token path
+/// ([`has_structural_token`]), which reads the raw line BEFORE this check
+/// runs — the `TOKEN=eyJ…` case keeps blocking through it, pinned by the
+/// regression test below.
+fn is_code_expression(v: &str) -> bool {
+    if v.contains('(') {
+        return true;
+    }
+    let core = v.trim_end_matches(')');
+    core.contains('.')
+        && core
+            .split('.')
+            .all(|seg| !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+}
+
 /// Value check used when the assignment target NAMES a secret. Following gitleaks'
 /// keyword-prefilter pattern, the naming context raises confidence enough to relax
 /// the generic floor: accept hex tokens (≥32) and lower the entropy bar to 3.5,
@@ -354,7 +383,7 @@ fn looks_like_secret_value_named(v: &str) -> bool {
     if v.len() < 12 || v.chars().any(|c| c.is_whitespace()) {
         return false;
     }
-    if v.starts_with('$') || has_non_secret_markers(v) {
+    if v.starts_with('$') || has_non_secret_markers(v) || is_code_expression(v) {
         return false;
     }
     let has_digit = v.bytes().any(|b| b.is_ascii_digit());
@@ -2001,5 +2030,51 @@ mod tests {
         let base36 = "k3j9x2m8q7w1z5v6/b4n0p3r8t2y7u1i9/o4e6a8s0d2f4g6h8";
         assert!(shannon_entropy(base36) >= 4.5);
         assert!(scan_text(&format!("BLOB=\"{base36}\"\n")).strong);
+    }
+
+    /// touring-36 (25/09/2026, the analise's backend judge, P0 0.000): a route
+    /// path or an identifier RHS is not a credential — only a hardcoded VALUE
+    /// is. The decorator's first `=` is the `status_code=` kwarg; "password"
+    /// in the route named the LHS; the enum path scored as an assigned
+    /// high-entropy value. Negatives on one side, the controls that must
+    /// keep failing on the other.
+    #[test]
+    fn route_paths_and_identifier_rhs_are_not_secrets_but_hardcoded_values_still_are() {
+        for negative in [
+            // The measured FP (the judge's auth.py:203).
+            r#"@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)"#,
+            r#"@router.post("/reset-password", status_code=status.HTTP_200_OK)"#,
+            "password_reset_token_expire_minutes = 30",
+            // An env read is code, never a hardcoded value.
+            r#"token = os.environ.get("API_TOKEN")"#,
+            r#"let url = std::env::var("DATABASE_URL").unwrap_or_default();"#,
+        ] {
+            assert!(
+                !scan_text(&format!("{negative}\n")).strong,
+                "not a secret: {negative}"
+            );
+        }
+        for positive in [
+            // A high-entropy literal ASSIGNED to a secret name keeps blocking…
+            r#"password = "aB3xK9mQ7zR2wY5tE8uI1oP4""#,
+            r#"secret = "aB3xK9mQ7zR2wY5tE8uI1oP4""#,
+            // …quoted or unquoted…
+            "password = aB3xK9mQ7zR2wY5tE8uI1oP4xC2vB",
+            // …a known-prefix key…
+            r#"let key = "ghp_0123456789abcdef0123456789abcdef0123";"#,
+            r#"client := "sk-ant-api03-aB3xK9mQ7zR2wY5tE8uI1oP4aSdF6gHjK8lZ""#,
+            // …and a weak literal password (the analise's test fixtures —
+            // detection by design; the pragma is the documented escape).
+            r#"password="password123""#,
+            // A dotted token (a JWT) unquoted: the named path now skips it as
+            // code-shaped — and the STRUCTURAL path still catches it, which is
+            // exactly why the exclusion opens no hole.
+            "TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJVadQssw5c",
+        ] {
+            assert!(
+                scan_text(&format!("{positive}\n")).strong,
+                "still a secret: {positive}"
+            );
+        }
     }
 }
