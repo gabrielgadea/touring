@@ -224,6 +224,7 @@ def _guard_alone() -> subprocess.CompletedProcess:
 @pytest.mark.skipif(
     not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
     reason="needs the real workspace + a built binary")
+@pytest.mark.post_build
 def test_the_guard_passes_against_the_real_repo():
     """The guard alone against the real workspace, at the CURRENT label —
     whatever version the last propagation left built and locked."""
@@ -236,6 +237,7 @@ def test_the_guard_passes_against_the_real_repo():
 @pytest.mark.skipif(
     not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
     reason="needs the real workspace + a built binary")
+@pytest.mark.post_build
 def test_a_mutated_inheriting_lock_entry_dies():
     """Mutation proof: one inheriting member off-label in the real lock → the
     guard dies; the file is restored afterwards and passes again."""

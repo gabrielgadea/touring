@@ -133,3 +133,73 @@ def test_a_present_rite_test_lets_the_gates_pass():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
+
+
+# ── the two-phase fix (24/09/2026, gate 1/6 of 30.4.68) ─────────────────────
+# The glob ran the binary-dependent tests at gate 1, BEFORE the build — and
+# bump → gate 1 → build means the binary is always OLD there. The fix marks
+# them `post_build`: gate 1 runs `-m "not post_build"`, and after the build +
+# label check the rite runs `-m post_build`, where skipping is not allowed.
+
+
+def test_the_script_runs_two_phases_with_the_marker():
+    body = "\n".join(executable_lines())
+    assert '-m "not post_build"' in body, "gate 1 must exclude the binary-dependent tests"
+    assert "-m post_build" in body, "the post-build phase must run exactly them"
+    assert "testes pós-build do rito OK" in body, "the phase exists and is named"
+
+
+def test_the_label_tests_dependent_on_the_binary_are_marked():
+    src = (REPO / "scripts" / "test_propagate_release_label.py").read_text(encoding="utf-8")
+    assert src.count("@pytest.mark.post_build") == 2, \
+        "the two binary-dependent tests must carry the marker"
+
+
+def test_gate1_selection_excludes_and_post_build_selection_exercises():
+    """The mechanism, self-contained: a failing `post_build` test is SKIPPED
+    by the gate-1 selection (passes) and RUN by the post-build selection
+    (fails) — the exact defect the glob created, inverted by the marker."""
+    import subprocess
+    import tempfile
+
+    tmp = Path(tempfile.mkdtemp(prefix="postbuild-mech-"))
+    test_file = tmp / "test_mech.py"
+    test_file.write_text(
+        "import pytest\n\n"
+        "@pytest.mark.post_build\n"
+        "def test_needs_the_built_binary():\n"
+        "    assert False, 'this runs only in the post_build phase'\n\n"
+        "def test_binary_independent():\n"
+        "    assert True\n",
+        encoding="utf-8",
+    )
+    gate1 = subprocess.run(
+        [sys.executable, "-m", "pytest", str(test_file), "-q", "-m", "not post_build"],
+        capture_output=True, text=True, timeout=120, cwd=tmp,
+    )
+    assert gate1.returncode == 0, (
+        f"gate 1 (not post_build) must skip the binary-dependent test: {gate1.stdout[-300:]}"
+    )
+    post = subprocess.run(
+        [sys.executable, "-m", "pytest", str(test_file), "-q", "-m", "post_build"],
+        capture_output=True, text=True, timeout=120, cwd=tmp,
+    )
+    assert post.returncode != 0, (
+        "the post_build selection must RUN the marked test (and here it fails, "
+        "exactly like at gate 1 with an old binary)"
+    )
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash needed")
+def test_the_post_build_phase_passes_in_the_full_script():
+    """The fake tree with the right label: gate 1 excludes the marked tests,
+    and the post-build phase runs them and passes."""
+    tmp = _fake_tree(with_rite_test=True)
+    try:
+        r = _run(tmp)
+        out = r.stdout + r.stderr
+        assert "testes pós-build do rito OK" in out, (
+            f"the post-build phase must run and pass: {out[-400:]}"
+        )
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
