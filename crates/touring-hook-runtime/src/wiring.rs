@@ -678,12 +678,30 @@ pub fn record_import_consumers(
             // earns an edge. Everything else is an unresolved import with a
             // class, never an `ast_resolved` row without a producer: the
             // phantom no repair can ever clear.
-            let genuine = crate::symbol_extractors::definer_module_opt(
-                &module_file,
-                symbol_name,
-                Some(abs_path),
-            )
-            .is_some()
+            //
+            // Check 1a: direct producer row in the DB for (definer, symbol).
+            // `find_producer_modules_for_qualified` only looks at CALLABLE_KINDS
+            // (method/function/async_function), so structs, enums and type aliases
+            // registered via `register_pub_symbol` — the canonical path — would
+            // never satisfy the genuine gate through that query alone. The direct
+            // `SELECT 1` here closes that gap for all symbol kinds.
+            let in_db = db
+                .conn_ref()
+                .query_row(
+                    "SELECT 1 FROM wiring_map \
+                     WHERE module_file = ?1 AND symbol_name = ?2 \
+                     AND consumer_file IS NULL LIMIT 1",
+                    rusqlite::params![definer, symbol_name],
+                    |_| Ok(true),
+                )
+                .unwrap_or(false);
+            let genuine = in_db
+                || crate::symbol_extractors::definer_module_opt(
+                    &module_file,
+                    symbol_name,
+                    Some(abs_path),
+                )
+                .is_some()
                 || db.find_producer_modules_for_qualified(
                     &[(definer.clone(), symbol_name.clone())],
                     None,
