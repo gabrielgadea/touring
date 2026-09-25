@@ -545,13 +545,10 @@ fn prompt_path(prompt: &str) -> Option<String> {
 /// The output JSON is backward-compatible with the Python `prompt_enhancer.py`
 /// contract (`hookSpecificOutput.hookEventName` + `hookSpecificOutput.additionalContext`).
 ///
-/// Additional fields enriching the output:
-/// - `cila_level`: CILA cognitive intensity level (0-4)
-/// - `intent`: classified intent category (uppercase string)
-/// - `techniques`: list of applied technique identifiers
-/// - `confidence`: classification confidence score
-/// - `taco_phase_protocol`: TACO v6.2 phase routing based on CILA level
-/// - `touring_cli_hints`: relevant touring CLI commands (TIER 1-5) for this intent
+/// The classification (`cila_level`, `intent`, `techniques`, `confidence`,
+/// `taco_phase_protocol`, `touring_cli_hints`) goes to the trace and to
+/// [`compose_details`], never onto the wire (S27): UserPromptSubmit's
+/// `hookSpecificOutput` accepts `additionalContext`/`sessionTitle`/`suppressOriginalPrompt` only.
 ///
 /// A machine payload ([`is_automated_payload`]) is answered with the event name, a
 /// `skipped` reason and `suppressOutput`, and none of the fields above.
