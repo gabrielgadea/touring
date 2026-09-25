@@ -74,6 +74,24 @@ impl PrivateDaemon {
     }
 }
 
+impl PrivateDaemon {
+    /// Call `hook` until it answers with content, so the measured call meets a
+    /// WARM daemon. Returns whether it ever answered (bounded: 5 attempts).
+    ///
+    /// Measured 2026-09-25 (S216): the first `task-completed` on a newborn daemon
+    /// took 2222 ms, the next ones 57 and 37 ms — lazy initialization, not a
+    /// per-call cost. Under the full suite's load that first call crossed the
+    /// client's 3000 ms read timeout, the hook fell back to its silent standalone
+    /// path, and the receipt assertions read an empty stdout ("missing DAG signal
+    /// in: "). A socket FILE proves `bind`, not an answering daemon.
+    fn warm(&self, hook: &str, payload: &str) -> bool {
+        (0..5).any(|_| {
+            run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))
+                .is_some_and(|(stdout, _, _)| !stdout.trim().is_empty())
+        })
+    }
+}
+
 impl Drop for PrivateDaemon {
     fn drop(&mut self) {
         // Signal by the PID we spawned — never by name (REGRA #19).
@@ -182,6 +200,13 @@ fn task_created_event_returns_scaffolded_receipt() {
         eprintln!("touring-daemon not built or would not bind — skipping task_created test");
         return;
     };
+    assert!(
+        daemon.warm(
+            "task-created",
+            r#"{"task_id":"wave24-warmup","subject":"warm-up"}"#
+        ),
+        "the private daemon never answered task-created (5 attempts)"
+    );
     let Some((stdout, _stderr, exit)) = run_with_stdin(
         "touring-hook",
         &["task-created"],
@@ -223,6 +248,13 @@ fn task_completed_event_returns_full_outcome_receipt() {
         eprintln!("touring-daemon not built or would not bind — skipping task_completed test");
         return;
     };
+    assert!(
+        daemon.warm(
+            "task-completed",
+            r#"{"task_id":"wave24-warmup","status":"completed"}"#
+        ),
+        "the private daemon never answered task-completed (5 attempts)"
+    );
     let Some((stdout, _stderr, exit)) = run_with_stdin(
         "touring-hook",
         &["task-completed"],
