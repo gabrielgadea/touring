@@ -1533,6 +1533,34 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
     };
 
+    // I17 (2026-09-25): the sibling pass — kinds no producer carries resolve
+    // from the DEFINITOR's (or the consumer's own) symbol table, and names the
+    // definitor imports from outside become `external_reexport`. What stays
+    // `unknown` after it has no definition ANYWHERE: the phantom predicate the
+    // purge requires. Runs after the producers pass, same rebuild, same report.
+    let (kinds_definers, definers_error) = match rt
+        .ctx
+        .knowledge
+        .resolve_consumer_kinds_from_definers()
+    {
+        Ok(n) => {
+            if n > 0 {
+                tracing::info!(
+                    kinds_resolved_definers = n,
+                    "wiring_map consumer kinds resolved from definers"
+                );
+            }
+            (n, None)
+        }
+        Err(e) => {
+            tracing::error!(
+                error = %e,
+                "wiring_map definer kind resolution FAILED \u{2014} kind_unknown may over-report"
+            );
+            (0, Some(e.to_string()))
+        }
+    };
+
     let abort_hint = if aborted_memory_pressure {
         Some(format!(
             "daemon anonymous memory {} MB (resident {} MB, {} MB held before the walk) exceeded \
@@ -1616,6 +1644,11 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         // non-null means the wiring_map is still polluted — never silent.
         "kinds_backfilled": kinds_backfilled,
         "backfill_error": backfill_error,
+        // I17 (2026-09-25): outcome of the definer-side resolution (module /
+        // private / self-reference / external_reexport). `definers_error`
+        // non-null means `unknown` may over-report — never silent.
+        "kinds_definers": kinds_definers,
+        "definers_error": definers_error,
         // I16 (2026-09-13): the seal, the deterministic kind pass, the atomic
         // wiring writes and the policy sweep — each reported, never silent.
         "generation": generation,
