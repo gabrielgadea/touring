@@ -281,3 +281,103 @@ def test_o_caminho_de_armar_pelo_payload_real(tmp_path, rel, deve_negar, porque)
                           capture_output=True, text=True, env=_env_vivo(home), timeout=180)
     assert proc.returncode == 0, f"fail-open: exit {proc.returncode} — {proc.stderr}"
     assert _is_deny(proc.stdout.strip()) is deve_negar, porque
+
+
+# ── O loop de 24/09: uma vez por (task, arquivo), lápide sobrevive ao refresh ──
+
+def _write_fake_touring(bin_dir: Path) -> None:
+    """Um `touring` que sempre ARMA: blast 200, route L3, recall vazio."""
+    fake = bin_dir / "touring"
+    fake.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json, sys\n"
+        "args = sys.argv[1:]\n"
+        "if args[:2] == ['ast', 'blast']:\n"
+        "    print(json.dumps({'consumers': list(range(200)), 'blast_radius': 200, 'depth': 4, 'symbols': 30}))\n"
+        "elif args[:2] == ['ast', 'meta']:\n"
+        "    print(json.dumps({'enrichment_source': 'index', 'quality_score': 0.9, 'cognitive_score': 0.9, 'fan_in': 0.9, 'fan_out': 0.8}))\n"
+        "elif args and args[0] == 'route':\n"
+        "    print(json.dumps({'level': 'L3', 'routing_mode': 'fake', 'composite': 0.9, 'phases': []}))\n"
+        "elif args[:2] == ['memory', 'recall']:\n"
+        "    print(json.dumps({'cases': {'positive': [], 'negative': [], 'unobserved': []}}))\n"
+    )
+    fake.chmod(0o755)
+
+
+def _env_com_fake(home, bin_dir, **extra):
+    env = {"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(home),
+           "LOOP_ENGINEERING_HOME": str(home), "TOURING_OUTER_NO_SPAWN": "1"}
+    env.update(extra)
+    return env
+
+
+def _fire_env(env, payload):
+    proc = subprocess.run(
+        [sys.executable, str(EFFECT)], input=json.dumps(payload),
+        capture_output=True, text=True, env=env, timeout=60,
+    )
+    assert proc.returncode == 0, f"hook must always exit 0: {proc.stderr}"
+    return proc.stdout.strip()
+
+
+def _marker_file(home):
+    return next(x for x in home.iterdir() if x.suffix == ".json")
+
+
+def _write_marker(home, cwd, task, status, flow="work-outer"):
+    subprocess.run(
+        [sys.executable, str(MARKER_CLI), "write", "--task", task, "--status", status,
+         "--scope", str(cwd), "--cwd", str(cwd), "--session-id", "sess", "--flow", flow],
+        check=True, capture_output=True, env=_env(home),
+    )
+    return _marker_file(home)
+
+
+def test_o_efeito_dispara_uma_vez_por_task_e_arquivo_mesmo_com_task_real(tmp_path):
+    """O loop medido em 24/09 (6 denies seguidos no mesmo rlm.rs): com uma task
+    REAL registrada no passo 11, o promote-only preserva task E status="active",
+    e o ramo de re-arm (`status != "outer"`) re-armava + re-disparava o efeito
+    em CADA edit — o contrato documentado é "não dispara de novo neste ciclo".
+    """
+    cwd = tmp_path / "proj"; cwd.mkdir()
+    home = tmp_path / "home"; home.mkdir()
+    fake_bin = tmp_path / "bin"; fake_bin.mkdir()
+    _write_fake_touring(fake_bin)
+    env = _env_com_fake(home, fake_bin)
+    _write_marker(home, cwd, task="task_1790298226705629625", status="active")
+
+    def fire(name):
+        return _is_deny(_fire_env(env, {"tool_name": "Edit", "cwd": str(cwd),
+                                        "session_id": "sess",
+                                        "tool_input": {"file_path": str(cwd / name)}}))
+
+    assert fire("rlm.rs"), "primeiro edit no arquivo dispara"
+    assert not fire("rlm.rs"), "segundo edit no MESMO arquivo silencia (o loop de 24/09)"
+    assert not fire("rlm.rs"), "e o terceiro"
+    assert fire("aco_models_bindings.rs"), "arquivo diferente arma e dispara uma vez"
+    assert not fire("aco_models_bindings.rs")
+    assert not fire("rlm.rs"), "os tópicos entregues acumulam"
+
+
+def test_a_lapide_sobrevive_ao_refresh_e_um_ciclo_novo_fala_de_novo(tmp_path):
+    """O turn-record regrava o marker via write_marker; se o rebuild derrubar a
+    lápide, o gate re-dispara no edit seguinte (foi assim que o loop atravessou
+    turns). E um ciclo NOVO (`outer_complete` no anterior) fala de novo."""
+    cwd = tmp_path / "proj"; cwd.mkdir()
+    home = tmp_path / "home"; home.mkdir()
+    fake_bin = tmp_path / "bin"; fake_bin.mkdir()
+    _write_fake_touring(fake_bin)
+    env = _env_com_fake(home, fake_bin)
+    f = _write_marker(home, cwd, task="task_1790298226705629625", status="active")
+    payload = {"tool_name": "Edit", "cwd": str(cwd), "session_id": "sess",
+               "tool_input": {"file_path": str(cwd / "rlm.rs")}}
+    assert _is_deny(_fire_env(env, payload))
+    # O turn-record: refresh com a MESMA task/flow — NÃO é ciclo novo.
+    _write_marker(home, cwd, task="task_1790298226705629625", status="active")
+    assert not _is_deny(_fire_env(env, payload)), "a lápide sobrevive ao refresh"
+    # Ciclo NOVO: `outer_complete` no anterior → fala de novo.
+    d = json.loads(f.read_text())
+    d["outer_complete"] = True
+    f.write_text(json.dumps(d))
+    _write_marker(home, cwd, task="task_1790298226705629625", status="active")
+    assert _is_deny(_fire_env(env, payload)), "ciclo novo dispara de novo"

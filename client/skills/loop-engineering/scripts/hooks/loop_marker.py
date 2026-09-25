@@ -303,6 +303,12 @@ def write_marker(task, scope, bundle=None, cwd=None, status="active",
     # "armed work-outer + remedy → still work-outer", which returned None.
     if new_flow:
         data["flow"] = new_flow
+    # Carry the effect gate's once-per-(task, file) tombstone across refreshes of
+    # the SAME cycle: `data` is rebuilt here, and dropping the record made every
+    # turn-record refresh re-fire the gate (the 6-deny loop on rlm.rs, 24/09).
+    # A NEW cycle starts clean — the gate speaks once per cycle by contract.
+    if not starts_new_cycle and prev.get("effect_delivered"):
+        data["effect_delivered"] = prev["effect_delivered"]
     data.update(extra)
     try:
         p.write_text(json.dumps(data, indent=2))
