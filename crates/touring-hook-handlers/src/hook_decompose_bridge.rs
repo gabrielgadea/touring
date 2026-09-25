@@ -253,7 +253,10 @@ pub fn close_scaffold_stages_as(
 fn stage_was_written(result: &str) -> bool {
     serde_json::from_str::<serde_json::Value>(result)
         .ok()
-        .and_then(|v| v.get("subtask_updated").and_then(serde_json::Value::as_bool))
+        .and_then(|v| {
+            v.get("subtask_updated")
+                .and_then(serde_json::Value::as_bool)
+        })
         .unwrap_or(false)
 }
 
