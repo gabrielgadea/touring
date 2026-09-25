@@ -156,5 +156,27 @@ def test_the_stubs_all_lists_equal_the_runtime_all():
     assert _stub_all(INNER_STUB) == runtime, "inner stub's __all__ drifted from runtime"
 
 
+def test_the_wheel_init_py_is_identical_to_the_crates_own():
+    """The hand-written `__init__.py` is a COPY of maturin's generated shim.
+    If a future maturin changes its shim (or starts overriding ours), the
+    copy diverges silently — measured by the coordinator 24/09/2026. The
+    wheel must carry the crate's file byte-for-byte."""
+    import glob
+    import zipfile
+
+    wheels = sorted(glob.glob(str(ROOT / "target" / "wheels" / "claude_learning_kernel-4.0.0-*.whl")))
+    assert wheels, "no built wheel found (maturin build --release -m crates/touring-python/Cargo.toml)"
+    mine = (
+        ROOT / "crates" / "touring-python" / "claude_learning_kernel" / "__init__.py"
+    ).read_bytes()
+    for wheel in wheels:
+        with zipfile.ZipFile(wheel) as z:
+            shipped = z.read("claude_learning_kernel/__init__.py")
+        assert shipped == mine, (
+            f"{Path(wheel).name}: the wheel's __init__.py diverged from the "
+            "crate's own — the shim changed hands silently"
+        )
+
+
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__, "-q"]))
