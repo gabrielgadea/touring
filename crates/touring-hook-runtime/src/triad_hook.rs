@@ -1,21 +1,101 @@
-//! WriteTriadHook — TRIAD pattern (execute + validate + rollback) for Write operations.
+//! WriteTriadHook — TRIAD pattern (snapshot + validate + describe) for Write operations.
 //!
-//! Implements the TRIAD pattern from ACO `generator_engine.py`:
-//! 1. **pre_write**: snapshot files via BranchFs before writing
-//! 2. **post_write**: validate written content; rollback on failure
-//! 3. **rollback**: restore snapshots if validation fails
+//! 1. **pre_write**: snapshot the target via BranchFs and ARM it in a per-process store
+//!    keyed by `(session_id, canonical path)` — [`arm`].
+//! 2. **post_write**: TAKE the pair's own snapshot — [`take`] — and let the validation
+//!    verdict through; on `Block` the verdict gains a `+N −M lines` summary of the write.
 //!
-//! This hook runs alongside the existing `pre_write` and `post_write` hooks.
-//! The TRIAD logic is additive — it enhances, not replaces, existing validation.
+//! **D1-A (approved 25/09/2026): the hook path never restores a file.** Claude Code's
+//! PostToolUse "can't undo actions"; rolling back behind the model broke the next Edit's
+//! `old_string`, and the audit reproduced a CLEAN write reverted (v1 → v2 → v1) because an
+//! advisory context counted as a failure. [`TriadState::rollback`] stays for explicit,
+//! human-invoked tooling only.
+//!
+//! **Why a keyed store**: the previous single `RefCell` slot on `HookRuntime` was shared by
+//! every session served by the daemon — the post-write of file A consumed (and rolled back)
+//! the snapshot of file B. The key makes a post-write see only its own pre-write.
 
 use crate::branch_fs::BranchFs;
 use crate::errors::Result;
-use crate::runtime::{HookResponse, HookRuntime};
-use std::path::Path;
+use crate::runtime::HookResponse;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, OnceLock};
+use std::time::Duration;
 
-/// TRIAD state stored in HookRuntime for the duration of a write operation.
-///
-/// One instance per write call — cleared after post_write completes.
+/// Snapshots older than this are dropped (their TempDir is cleaned); a post-write without
+/// its pair is a plain pass-through.
+pub const TRIAD_TTL: Duration = Duration::from_secs(600);
+/// Upper bound on concurrently armed snapshots (all sessions of one daemon).
+pub const TRIAD_MAX_ARMED: u64 = 4_096;
+/// Files larger than this get no line summary (the snapshot still exists).
+const DIFF_SUMMARY_MAX_BYTES: usize = 2 * 1024 * 1024;
+
+/// Key of an armed snapshot: `(session_id, canonical path)`.
+pub type TriadKey = (String, PathBuf);
+
+fn triad_store() -> &'static moka::sync::Cache<TriadKey, Arc<TriadState>> {
+    static STORE: OnceLock<moka::sync::Cache<TriadKey, Arc<TriadState>>> = OnceLock::new();
+    STORE.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(TRIAD_MAX_ARMED)
+            .time_to_live(TRIAD_TTL)
+            .build()
+    })
+}
+
+/// Session id from a hook payload; a payload without one gets its own `"anon"` key,
+/// never another session's.
+pub fn session_of(input: &serde_json::Value) -> String {
+    input
+        .get("session_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or("anon")
+        .to_string()
+}
+
+/// Canonical key path: absolute, with the PARENT canonicalized (the file itself may not
+/// exist yet at pre-write), so `rel/x.py`, `/abs/x.py` and a symlinked parent agree.
+pub fn canonical_path(file_path: &str) -> PathBuf {
+    let raw = Path::new(file_path);
+    let abs = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|cwd| cwd.join(raw))
+            .unwrap_or_else(|_| raw.to_path_buf())
+    };
+    match (abs.parent(), abs.file_name()) {
+        (Some(parent), Some(name)) => std::fs::canonicalize(parent)
+            .map(|p| p.join(name))
+            .unwrap_or(abs.clone()),
+        _ => abs,
+    }
+}
+
+/// Snapshot `file_path` and arm it for `session_id`. Returns false (and arms nothing)
+/// when the snapshot cannot be taken — the write proceeds unprotected, never blocked.
+/// A second pre-write of the same (session, path) replaces the first (last pre wins).
+pub fn arm(session_id: &str, file_path: &str) -> bool {
+    match run_pre_write(file_path) {
+        Some(state) => {
+            triad_store().insert(
+                (session_id.to_string(), canonical_path(file_path)),
+                Arc::new(state),
+            );
+            true
+        }
+        None => false,
+    }
+}
+
+/// Remove and return the snapshot armed by `session_id` for `file_path` — ONLY that pair.
+pub fn take(session_id: &str, file_path: &str) -> Option<Arc<TriadState>> {
+    triad_store().remove(&(session_id.to_string(), canonical_path(file_path)))
+}
+
+/// TRIAD state for one write operation (one armed snapshot).
 #[derive(Debug)]
 pub struct TriadState {
     /// Snapshot of files before the write operation.
@@ -86,53 +166,76 @@ pub fn run_pre_write(file_path: &str) -> Option<TriadState> {
     }
 }
 
-/// Run the TRIAD post-write validation and commit/rollback.
+/// TRIAD post-write: pass the validation verdict through WITHOUT touching the disk (D1-A).
 ///
-/// Call after post_write validation. If `validation_passed` is true, commits
-/// the snapshot (success). If false, rolls back to the pre-write state.
-pub fn run_post_write(
-    state: &TriadState,
-    validation_passed: bool,
-    _runtime: Option<&HookRuntime>,
-) -> HookResponse {
-    if validation_passed {
-        tracing::debug!(
-            path = %state.written_path,
-            branch_id = %state.snapshot.metadata().branch_id,
-            "TRIAD: post_write validation passed"
-        );
-        // Success: do nothing. Dropping TriadState drops BranchFs without restore.
-        HookResponse::Allow
-    } else {
-        tracing::warn!(
-            path = %state.written_path,
-            branch_id = %state.snapshot.metadata().branch_id,
-            "TRIAD: post_write validation failed — rolling back"
-        );
-        match state.rollback() {
-            Ok(()) => {
-                let msg = format!(
-                    "TRIAD rollback: file restored to pre-write state: {}",
-                    state.written_path
-                );
-                HookResponse::Context {
-                    context: msg,
-                    event_name: Some("TriadRollback".to_string()),
-                }
-            }
-            Err(e) => {
-                let msg = format!(
-                    "TRIAD rollback FAILED: {} — manual intervention may be required for {}",
-                    e, state.written_path
-                );
-                tracing::error!(error = %e, path = %state.written_path, "TRIAD: rollback failed");
-                HookResponse::Context {
-                    context: msg,
-                    event_name: Some("TriadRollbackFailed".to_string()),
-                }
+/// `Allow` and advisory `Context` are returned unchanged — an advisory note is not a
+/// failure. On `Block` the verdict is kept and gains a one-line description of what the
+/// write changed (`+N −M lines vs pre-write snapshot`), so the model fixes forward knowing
+/// the content IS on disk. The event name is always the real one, `PostToolUse`.
+/// The snapshot is discarded when the caller drops its `Arc<TriadState>`.
+pub fn run_post_write(state: &TriadState, response: HookResponse) -> HookResponse {
+    match response {
+        HookResponse::Block {
+            reason, context, ..
+        } => {
+            let note = describe_write(state);
+            tracing::info!(path = %state.written_path, %note, "TRIAD: blocked write kept on disk");
+            let context = Some(match context {
+                Some(c) if !c.is_empty() => format!("{c}\n{note}"),
+                _ => note,
+            });
+            HookResponse::Block {
+                reason,
+                context,
+                event_name: Some("PostToolUse".to_string()),
             }
         }
+        other => other,
     }
+}
+
+/// `TRIAD: write kept on disk … +N −M lines vs pre-write snapshot` (never panics).
+pub fn describe_write(state: &TriadState) -> String {
+    let head = "TRIAD: write kept on disk (PostToolUse cannot undo; fix forward)";
+    let path = Path::new(&state.written_path);
+    let before = match state.snapshot.snapshot_content(path) {
+        Ok(b) => b.unwrap_or_default(),
+        Err(e) => {
+            tracing::warn!(error = %e, path = %state.written_path, "TRIAD: snapshot unreadable");
+            return format!("{head} — line summary unavailable ({e})");
+        }
+    };
+    let after = match std::fs::read(path) {
+        Ok(a) => a,
+        Err(e) => return format!("{head} — line summary unavailable ({e})"),
+    };
+    if before.len().max(after.len()) > DIFF_SUMMARY_MAX_BYTES {
+        return format!("{head} — file above {DIFF_SUMMARY_MAX_BYTES} bytes, no line summary");
+    }
+    let (added, removed) = line_delta(
+        &String::from_utf8_lossy(&before),
+        &String::from_utf8_lossy(&after),
+    );
+    format!("{head} — +{added} −{removed} lines vs pre-write snapshot")
+}
+
+/// Multiset line delta: how many lines the new text has beyond the old (added) and the
+/// old beyond the new (removed). O(n + m); exact counts, not an edit script.
+pub fn line_delta(before: &str, after: &str) -> (usize, usize) {
+    let mut balance: HashMap<&str, isize> = HashMap::new();
+    for line in before.lines() {
+        *balance.entry(line).or_insert(0) -= 1;
+    }
+    for line in after.lines() {
+        *balance.entry(line).or_insert(0) += 1;
+    }
+    balance.values().fold((0, 0), |(add, rem), &v| {
+        if v > 0 {
+            (add + v.unsigned_abs(), rem)
+        } else {
+            (add, rem + v.unsigned_abs())
+        }
+    })
 }
 
 /// Check if a file has drifted since the TRIAD snapshot was taken.
@@ -262,6 +365,161 @@ mod tests {
         assert!(result.is_none());
     }
 
+    /// S12 / D1-A (25/09/2026): PostToolUse cannot undo a tool call (Claude Code docs), so the
+    /// TRIAD never touches the disk. The audit reproduced v1 → v2 → **v1** on a CLEAN write
+    /// because an advisory post-write context counted as "validation failed".
+    #[test]
+    fn post_write_advisory_context_never_touches_disk() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("clean.py");
+        fs::write(&file, b"v1\n").expect("write v1");
+        let state = TriadState::pre_write(file.to_str().unwrap()).expect("pre_write");
+        fs::write(&file, b"v2\n").expect("write v2");
+        let advisory = HookResponse::Context {
+            context: "post-write: 2 issue(s)".into(),
+            event_name: None,
+        };
+        let _ = run_post_write(&state, advisory);
+        assert_eq!(
+            fs::read(&file).expect("read"),
+            b"v2\n",
+            "a post-write verdict must never revert the file"
+        );
+        let block = HookResponse::Block {
+            reason: "4 new anti-patterns".into(),
+            context: None,
+            event_name: None,
+        };
+        let _ = run_post_write(&state, block);
+        assert_eq!(
+            fs::read(&file).expect("read"),
+            b"v2\n",
+            "not even a Block reverts the file"
+        );
+    }
+
+    #[test]
+    fn advisory_context_passes_through_unchanged() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("ctx.py");
+        fs::write(&file, b"a\n").expect("write");
+        let state = TriadState::pre_write(file.to_str().expect("utf8")).expect("pre_write");
+        let out = run_post_write(
+            &state,
+            HookResponse::Context {
+                context: "note".into(),
+                event_name: None,
+            },
+        );
+        match out {
+            HookResponse::Context {
+                context,
+                event_name,
+            } => {
+                assert_eq!(context, "note");
+                assert_eq!(event_name, None);
+            }
+            other => panic!("expected the advisory Context back, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn triad_response_uses_posttooluse_event_name() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("blocked.py");
+        fs::write(&file, b"keep\nold\n").expect("write v1");
+        let state = TriadState::pre_write(file.to_str().expect("utf8")).expect("pre_write");
+        fs::write(&file, b"keep\nnew1\nnew2\n").expect("write v2");
+        let out = run_post_write(
+            &state,
+            HookResponse::Block {
+                reason: "r".into(),
+                context: None,
+                event_name: None,
+            },
+        );
+        let HookResponse::Block {
+            reason,
+            context,
+            event_name,
+        } = out
+        else {
+            panic!("a Block verdict must stay a Block");
+        };
+        assert_eq!(reason, "r");
+        assert_eq!(event_name.as_deref(), Some("PostToolUse"));
+        let note = context.expect("the block gains the write description");
+        assert!(note.contains("+2 −1 lines"), "{note}");
+        assert!(
+            !note.contains("Triad") && !note.contains("rollback"),
+            "{note}"
+        );
+    }
+
+    #[test]
+    fn triad_state_is_keyed_by_session_and_path() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("shared.py");
+        fs::write(&file, b"x\n").expect("write");
+        let path = file.to_str().expect("utf8");
+        assert!(arm("keyed-s1", path));
+        assert!(arm("keyed-s2", path));
+        assert!(
+            take("keyed-s1", path).is_some(),
+            "session 1 finds its own snapshot"
+        );
+        assert!(take("keyed-s1", path).is_none(), "taking consumes it");
+        assert!(
+            take("keyed-s2", path).is_some(),
+            "session 2's snapshot survived session 1's post-write"
+        );
+    }
+
+    #[test]
+    fn post_write_of_a_never_consumes_snapshot_of_b() {
+        let dir = tempdir().expect("tempdir");
+        let a = dir.path().join("a.py");
+        let b = dir.path().join("b.py");
+        fs::write(&a, b"a\n").expect("write a");
+        fs::write(&b, b"b\n").expect("write b");
+        assert!(arm("ab-sess", a.to_str().expect("utf8")));
+        assert!(arm("ab-sess", b.to_str().expect("utf8")));
+        let got = take("ab-sess", a.to_str().expect("utf8")).expect("a armed");
+        assert_eq!(got.written_path, a.to_str().expect("utf8"));
+        assert!(
+            take("ab-sess", b.to_str().expect("utf8")).is_some(),
+            "b is still armed"
+        );
+    }
+
+    #[test]
+    fn relative_and_absolute_paths_share_one_key() {
+        let dir = tempdir().expect("tempdir");
+        let file = dir.path().join("rel.py");
+        fs::write(&file, b"r\n").expect("write");
+        let abs = file.to_str().expect("utf8").to_string();
+        let dotted = format!("{}/./rel.py", dir.path().display());
+        assert!(arm("rel-sess", &dotted));
+        assert!(
+            take("rel-sess", &abs).is_some(),
+            "`dir/./rel.py` and `dir/rel.py` must meet"
+        );
+    }
+
+    #[test]
+    fn missing_session_id_gets_its_own_anon_key() {
+        assert_eq!(session_of(&serde_json::json!({})), "anon");
+        assert_eq!(session_of(&serde_json::json!({"session_id": ""})), "anon");
+        assert_eq!(session_of(&serde_json::json!({"session_id": "s-9"})), "s-9");
+    }
+
+    #[test]
+    fn line_delta_counts_added_and_removed_lines() {
+        assert_eq!(line_delta("a\nb\nc\n", "a\nc\nd\ne\n"), (2, 1));
+        assert_eq!(line_delta("", "x\n"), (1, 0));
+        assert_eq!(line_delta("same\n", "same\n"), (0, 0));
+    }
+
     #[test]
     fn test_run_post_write_allow_on_success() {
         let dir = tempdir().expect("tempdir");
@@ -270,8 +528,8 @@ mod tests {
 
         let state = TriadState::pre_write(file.to_str().unwrap()).expect("pre_write");
 
-        // Success path: run_post_write returns HookResponse::Allow without using runtime
-        let response = run_post_write(&state, true, None);
+        // Success path: an Allow verdict passes through as Allow
+        let response = run_post_write(&state, HookResponse::Allow);
         match response {
             HookResponse::Allow => {}
             other => panic!("expected Allow, got {:?}", other),

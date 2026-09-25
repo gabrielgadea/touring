@@ -131,11 +131,11 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
 
     let rel_path = make_relative(file_path, &runtime.project_root);
 
-    // T-2: TRIAD pre-write — snapshot file before write for rollback protection.
-    // Stores TriadState in runtime.triad_state via RefCell; post_write reads/resets.
-    if let Some(triad_state) = triad_hook::run_pre_write(file_path) {
-        *runtime.triad_state.borrow_mut() = Some(triad_state);
-        tracing::debug!(path = %file_path, "TRIAD: armed — state stored in runtime");
+    // T-2 / S12 (D1-A): TRIAD pre-write — snapshot armed under (session, canonical path),
+    // so only THIS write's post-write can take it (the old single runtime slot was shared by
+    // every session of the daemon). The snapshot is never restored by a hook.
+    if triad_hook::arm(&triad_hook::session_of(input), file_path) {
+        tracing::debug!(path = %file_path, "TRIAD: armed (session, path)");
     }
 
     // S6/E19: Read session CILA level — prefer stable session context,

@@ -115,7 +115,12 @@ impl HookResponse {
         // stdout. Every other variant serializes byte-identically to `to_json`
         // (verified variant-by-variant), so delegate there: one source of truth
         // for the wire format, eliminating the emit/to_json drift-bug class.
-        if !matches!(self, HookResponse::Allow) {
+        // S14: record WHY this process exits before it does — without it the trace kept
+        // the install default `handler-diverged` and a clean exit read like a crash.
+        if matches!(self, HookResponse::Allow) {
+            crate::hook_trace::set_reason("emit-allow");
+        } else {
+            crate::hook_trace::set_reason("emit-json");
             println!("{}", self.to_json());
         }
         std::process::exit(0);
@@ -612,10 +617,9 @@ pub struct HookRuntime {
     /// Auto-save hook for interval-based checkpointing (replaces mempal_save_hook.sh).
     /// Tracks tool exchanges and fires checkpoint at configured interval (default: 15).
     pub auto_save: crate::auto_save_hook::AutoSaveHook,
-    /// TRIAD state for write operation protection (pre_write/post_write/rollback).
-    /// Stores the BranchFs snapshot taken before a write; cleared after post_write.
-    /// `RefCell` for interior mutability: pre_write sets, post_write reads/resets.
-    pub triad_state: RefCell<Option<crate::triad_hook::TriadState>>,
+    // (S12, 25/09/2026) The single `triad_state` slot that lived here was shared by every
+    // session of the daemon — post-write of file A consumed and rolled back B's snapshot.
+    // TRIAD state now lives in `triad_hook`'s store keyed by (session, canonical path).
     /// W4-2: ACO event processor — drains decomposer ACO events and injects
     /// them into the UnifiedPheromoneBus for downstream ACO consumers.
     pub aco_event_processor: AcoEventProcessor,
@@ -923,7 +927,6 @@ impl HookRuntime {
             context_injection_file: None,
             decompose_event_state: HashMap::new(),
             auto_save: crate::auto_save_hook::AutoSaveHook::new(),
-            triad_state: RefCell::new(None),
             aco_event_processor: {
                 let aco_state = crate::aco_wiring::AcoWiringState::new();
                 AcoEventProcessor::new(Arc::new(aco_state.bus))

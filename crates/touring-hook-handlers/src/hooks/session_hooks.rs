@@ -6,7 +6,7 @@
 //!   for cross-session intelligence.
 
 use super::error_predictor::ErrorPredictor;
-use super::runtime::HookRuntime;
+use super::runtime::{HookResponse, HookRuntime};
 use super::session_insights::{self, SessionInsights};
 use crate::cross_agent_ledger::{ActorId, CrossAgentLedger};
 use crate::gateway::harness_contract::HarnessContract;
@@ -18,17 +18,35 @@ use touring_intelligence::rl::aco::tracker::TrackerStatus;
 
 use std::sync::Arc;
 
-/// Run the session-start hook. Injects knowledge stats, trend, and predictor status.
-/// Also initializes ACO quality tracking for the session.
-#[tracing::instrument(skip(runtime, input), fields(hook = "session_start"))]
+/// Run the session-start hook in a ONE-SHOT process (the `touring-hook` binary / CLI):
+/// computes the response and emits it, which exits the process.
+///
+/// NEVER call this from the daemon — use [`run_session_start_returning`]. The daemon's
+/// dispatch table used this function until S13 (25/09/2026): `emit` calls
+/// `process::exit(0)`, so every session start killed the SHARED daemon (trace: 510 of 515
+/// session-starts `daemon-unavailable`; reproduced live at 16:59 on 25/09).
 pub fn run_session_start(
     runtime: &mut HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    // D9: Validate payload with typed schema — fail fast on malformed input.
+    run_session_start_returning(runtime, input).emit()
+}
+
+/// Session-start as a VALUE: injects knowledge stats, trend and predictor status, and
+/// initializes ACO quality tracking — without ever exiting the process (daemon-safe).
+/// Invariant: session start never fails — any early exit is `Allow`.
+#[tracing::instrument(skip(runtime, input), fields(hook = "session_start"))]
+pub fn run_session_start_returning(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+) -> HookResponse {
+    // D9: Validate payload with typed schema — a malformed payload is logged and allowed.
     let validated = match validate_payload::<crate::schemas::SessionStartPayload>(input) {
         Ok(v) => v,
-        Err(errors) => return Err(format!("session_start validation failed: {}", errors).into()),
+        Err(errors) => {
+            tracing::warn!(%errors, "session_start validation failed — allowing");
+            return HookResponse::Allow;
+        }
     };
     let session_id = validated
         .session_id
@@ -156,23 +174,19 @@ pub fn run_session_start(
     }
 
     // Get knowledge stats — fallback to early return on error (e.g. DB locked during
-    // daemon restart). Session-start must never fail — exit 0 invariant.
-    // NOTE: We use `return Ok(())` instead of `emit_allow()` because `emit_allow()`
-    // calls `process::exit(0)` which would kill the entire daemon process when this
-    // handler runs inside the daemon's dispatch pipeline. Returning Ok(()) produces
-    // the same effect: the hook registry wrapper returns `String::new()` → empty
-    // output → client interprets as "allow".
+    // daemon restart). Session-start must never fail — exit 0 invariant. The response is a
+    // value; only the one-shot wrapper `run_session_start` emits (and exits).
     let stats = match runtime.ctx.knowledge.stats() {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!(error = %e, "stats query failed — using empty defaults");
-            return Ok(()); // safe for both daemon and standalone contexts
+            return HookResponse::Allow;
         }
     };
 
     if stats.file_count == 0 && stats.bash_count == 0 {
         // No accumulated knowledge yet — nothing to inject
-        return Ok(());
+        return HookResponse::Allow;
     }
 
     // Compose context about accumulated knowledge
@@ -337,9 +351,8 @@ pub fn run_session_start(
     // demand (CAH roadmap §3).
     let _ = open_cross_agent_ledger(runtime, &session_id);
 
-    // Emit context + exit LAST (diverging `-> !`). Everything that mutates
-    // `runtime` state for this session must run before this line.
-    HookRuntime::emit_context_for_event(&context, Some("SessionStart"));
+    // The context is RETURNED, never emitted here: this runs inside the shared daemon.
+    HookRuntime::build_context_for_event(&context, "SessionStart")
 }
 
 /// Open the cross-agent outcome ledger (ES3 P4) — fail-open helper. Returns
@@ -1122,6 +1135,53 @@ mod tests {
         );
     }
 
+    /// S13: with accumulated knowledge the handler reaches its LAST line — the one that
+    /// used to `process::exit(0)` inside the shared daemon. It must return a value.
+    #[test]
+    fn session_start_in_daemon_returns_without_exit() {
+        let (_tmp, mut rt) = setup();
+        // file_count > 0 is what makes the handler reach its (formerly diverging) last line.
+        let row = super::super::knowledge::FileKnowledge {
+            file_path: "src/lib.rs".into(),
+            language: Some("rust".into()),
+            line_count: 3,
+            symbol_count: 1,
+            read_count: 1,
+            last_read_at: None,
+            imports_json: Some("[]".into()),
+            symbols_json: Some("[]".into()),
+            content_hash: None,
+            notes: None,
+        };
+        rt.ctx.knowledge.upsert(&row).expect("seed knowledge");
+        assert!(
+            rt.ctx.knowledge.stats().expect("stats").file_count > 0,
+            "seed must reach the full path"
+        );
+        let input =
+            serde_json::json!({"session_id": "sess-live", "hook_event_name": "SessionStart"});
+        let response = run_session_start_returning(&mut rt, &input);
+        let json: serde_json::Value = serde_json::from_str(&response.to_json()).expect("json");
+        assert_eq!(
+            json.pointer("/hookSpecificOutput/hookEventName")
+                .and_then(|v| v.as_str()),
+            Some("SessionStart")
+        );
+        assert!(
+            json.pointer("/hookSpecificOutput/additionalContext")
+                .is_some(),
+            "{json}"
+        );
+        // Reaching this line at all is the point: the old tail was `-> !`.
+    }
+
+    #[test]
+    fn session_start_with_malformed_payload_is_allow_not_error() {
+        let (_tmp, mut rt) = setup();
+        let response = run_session_start_returning(&mut rt, &serde_json::json!({"session_id": 42}));
+        assert!(matches!(response, HookResponse::Allow));
+    }
+
     #[test]
     fn test_session_start_loads_got_snapshot() {
         let (_tmp, mut rt) = setup();
@@ -1134,10 +1194,10 @@ mod tests {
             .save("sess-abc", &build_test_snapshot("sess-abc"))
             .expect("save");
 
-        // Run session start — should load the snapshot
+        // Run session start — should load the snapshot (the RETURNING form: the emitting
+        // wrapper exits the process, which would end this test binary)
         let input = serde_json::json!({"session_id": "sess-abc"});
-        let result = run_session_start(&mut rt, &input);
-        assert!(result.is_ok());
+        let _ = run_session_start_returning(&mut rt, &input);
 
         let loaded = rt
             .got_snapshot

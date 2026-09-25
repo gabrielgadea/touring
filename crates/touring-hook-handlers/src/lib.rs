@@ -140,12 +140,17 @@ pub use touring_cli::{cli_handlers, cli_handlers_decompose};
 /// `signal_pipeline`) with re-exports of the runtime/leaf shared homes, so the
 /// historical `crate::shared::<submodule>` paths resolve byte-identically.
 pub mod shared {
+    // Only `pre_edit`/`pre_write` (feature `pre-hooks`) consume these three; compiled
+    // without that feature they were 23 dead-code errors under `clippy -D warnings`.
+    #[cfg(feature = "pre-hooks")]
     pub mod api_cascade_preview;
+    #[cfg(feature = "pre-hooks")]
     pub mod api_preview;
     pub mod cross_caller;
     pub mod hook_helpers;
     pub mod metadata_collector;
     pub mod missing_imports;
+    #[cfg(feature = "pre-hooks")]
     pub mod quality_signal;
     pub mod related_symbols;
     pub mod secrets_signal;

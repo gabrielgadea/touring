@@ -853,9 +853,11 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     // ── Session hooks (feature-gated) ──────────────────────────────
     #[cfg(feature = "session-hooks")]
     {
+        // S13 (25/09/2026): the RETURNING form. `run_session_start` emits, and emit calls
+        // `process::exit(0)` — from here it killed the shared daemon at every session start
+        // (510 of 515 session-starts saw `daemon-unavailable`); same remedy as post-bash above.
         m.insert("session-start", |rt, v| {
-            let _ = crate::session_hooks::run_session_start(rt, v);
-            String::new()
+            crate::session_hooks::run_session_start_returning(rt, v).to_json()
         });
         m.insert("session-stop", |rt, v| {
             let _ = crate::session_hooks::run_session_stop(rt, v);

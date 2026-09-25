@@ -464,22 +464,10 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Step 6: Return feedback if issues found (with block gate for excessive anti-patterns).
     let response = build_response(all_issues, &rel_path);
 
-    // TRIAD: Run post_write validation — commit snapshot on success, rollback on failure.
-    // Take the TriadState out of the RefCell so it is consumed (not double-used).
-    let triad_state = runtime.triad_state.borrow_mut().take();
-    if let Some(state) = triad_state {
-        // validation_passed = HookResponse::Allow means no block gate triggered.
-        let validation_passed = matches!(response, HookResponse::Allow);
-        let triad_response = triad_hook::run_post_write(&state, validation_passed, Some(runtime));
-        // If TRIAD requests a block or context (rollback triggered), surface it.
-        if !matches!(triad_response, HookResponse::Allow) {
-            tracing::debug!(
-                path = %rel_path,
-                triad_response = ?triad_response,
-                "TRIAD: post_write overriding response"
-            );
-            return triad_response;
-        }
+    // TRIAD (S12, D1-A): take ONLY this (session, path) snapshot and pass the verdict through.
+    // Never restores the file — PostToolUse cannot undo; a Block gains the write's +/− summary.
+    if let Some(state) = triad_hook::take(&triad_hook::session_of(input), file_path) {
+        return triad_hook::run_post_write(&state, response);
     }
 
     // D1.6: Emit activity event before returning response.
