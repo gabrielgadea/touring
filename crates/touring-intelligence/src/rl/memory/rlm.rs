@@ -4,7 +4,7 @@
 //! Unified from touring/src/memory/rlm.rs (737 LOC)
 
 use chrono::{DateTime, NaiveDateTime, Utc};
-use rusqlite::{Connection, OptionalExtension, params, types::ValueRef};
+use rusqlite::{Connection, OpenFlags, OptionalExtension, params, types::ValueRef};
 use std::path::Path;
 use thiserror::Error;
 
@@ -232,6 +232,37 @@ impl RlmMemory {
         }
 
         Ok(memory)
+    }
+
+    /// Opens the RLM memory database READ-ONLY (`SQLITE_OPEN_READ_ONLY`): no
+    /// write PRAGMAs, no schema migrations, no DDL, no `PRAGMA optimize`. The
+    /// file must already exist — a reader never creates nor migrates another
+    /// process's database (the `sqlite-so-leitura-abre-readonly` lesson:
+    /// `open()` brings CREATE; deadlock measured beside the daemon).
+    ///
+    /// Reads through this handle must use [`RlmMemory::get_readonly`]: the
+    /// access-count bump in [`RlmMemory::get`] is a WRITE and fails on a
+    /// read-only connection.
+    pub fn open_readonly(db_path: &Path) -> Result<Self> {
+        let conn = Connection::open_with_flags(db_path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        // Connection-local only (never a database write): wait politely beside
+        // the daemon's writer instead of erroring with SQLITE_BUSY.
+        conn.busy_timeout(std::time::Duration::from_secs(5))?;
+        Ok(Self { conn })
+    }
+
+    /// Reads a key WITHOUT the access-count bump — a pure SELECT, the only
+    /// read a read-only connection can perform. Absent key → `Ok(None)`.
+    pub fn get_readonly(&self, key: &str, tier: MemoryTier) -> Result<Option<String>> {
+        let value: Option<String> = self
+            .conn
+            .query_row(
+                "SELECT value FROM memory_entries WHERE key = ?1 AND tier = ?2",
+                params![key, tier.as_str()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        Ok(value)
     }
 
     fn ensure_schema(&self) -> Result<()> {
@@ -2056,5 +2087,161 @@ mod tests {
             )
             .unwrap();
         assert_eq!(fts_hits, 0);
+    }
+
+    // ── Read-only open (the `sqlite-so-leitura-abre-readonly` lesson, now
+    // enforced on the Rust API the Python binding rides on) ────────────────
+
+    /// A pre-H1 database: `PRIMARY KEY (key, tier)`, none of the later
+    /// columns — the shape `migrate_composite_pk` rebuilds on a WRITABLE open.
+    fn legacy_composite_pk_db(dir: &std::path::Path) -> std::path::PathBuf {
+        let path = dir.join("legacy.db");
+        let conn = Connection::open(&path).unwrap();
+        conn.execute_batch(
+            "CREATE TABLE memory_entries (
+                key TEXT NOT NULL,
+                tier TEXT NOT NULL DEFAULT 'local',
+                value TEXT NOT NULL,
+                PRIMARY KEY (key, tier)
+            );
+            INSERT INTO memory_entries (key, tier, value)
+            VALUES ('skill_ranking', 'core', '{\"a\":1}');",
+        )
+        .unwrap();
+        drop(conn);
+        path
+    }
+
+    #[test]
+    fn open_readonly_requires_an_existing_file_and_creates_nothing() {
+        let dir = TempDir::new().unwrap();
+        // The parent EXISTS — only the file is missing, so the failure is the
+        // READ_ONLY flag's, not the filesystem's (a write-y `Connection::open`
+        // succeeds here, which is exactly what this test discriminates).
+        let missing = dir.path().join("memory.db");
+        assert!(
+            RlmMemory::open_readonly(&missing).is_err(),
+            "a read-only open of a missing database must fail"
+        );
+        assert!(!missing.exists(), "a reader creates no database");
+    }
+
+    #[test]
+    fn a_readonly_handle_cannot_run_the_access_count_bump() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mem.db");
+        let writer = RlmMemory::new(&path).unwrap();
+        writer
+            .conn
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, access_count) VALUES ('k', 'core', 'v', 0)",
+                [],
+            )
+            .unwrap();
+        let reader = RlmMemory::open_readonly(&path).unwrap();
+        // `get` carries the bump — a WRITE. On a read-only handle it must fail;
+        // if the open ever loses the READ_ONLY flag, this starts succeeding.
+        assert!(
+            reader.get("k", MemoryTier::Core).is_err(),
+            "the bumping read must fail on a read-only handle"
+        );
+        // …and the failed bump left no trace.
+        let n: i64 = writer
+            .conn
+            .query_row("SELECT access_count FROM memory_entries WHERE key = 'k'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[test]
+    fn open_readonly_never_migrates_a_legacy_db() {
+        let dir = TempDir::new().unwrap();
+        let path = legacy_composite_pk_db(dir.path());
+        let before = std::fs::read(&path).unwrap();
+        {
+            let mem = RlmMemory::open_readonly(&path).unwrap();
+            // The legacy row is readable through the bump-free path.
+            assert_eq!(
+                mem.get_readonly("skill_ranking", MemoryTier::Core)
+                    .unwrap()
+                    .as_deref(),
+                Some("{\"a\":1}")
+            );
+            assert_eq!(mem.get_readonly("absent", MemoryTier::Core).unwrap(), None);
+        }
+        let after = std::fs::read(&path).unwrap();
+        assert_eq!(
+            before, after,
+            "a reader leaves the file byte-for-byte identical (no migration, no DDL)"
+        );
+    }
+
+    #[test]
+    fn get_readonly_never_bumps_access_count_and_get_does() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mem.db");
+        let writer = RlmMemory::new(&path).unwrap();
+        writer
+            .conn
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, access_count) VALUES ('k', 'core', 'v', 0)",
+                [],
+            )
+            .unwrap();
+        let access_count = |conn: &Connection| -> i64 {
+            conn.query_row(
+                "SELECT access_count FROM memory_entries WHERE key = 'k'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap()
+        };
+        let reader = RlmMemory::open_readonly(&path).unwrap();
+        reader.get_readonly("k", MemoryTier::Core).unwrap();
+        reader.get_readonly("k", MemoryTier::Core).unwrap();
+        assert_eq!(access_count(&writer.conn), 0, "get_readonly must not write");
+        writer.get("k", MemoryTier::Core).unwrap();
+        assert_eq!(access_count(&writer.conn), 1, "get bumps (the control)");
+    }
+
+    #[test]
+    fn a_readonly_reader_neither_blocks_nor_starves_beside_a_live_writer() {
+        let dir = TempDir::new().unwrap();
+        let path = dir.path().join("mem.db");
+        let writer = RlmMemory::new(&path).unwrap();
+        writer
+            .conn
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, access_count) VALUES ('k', 'core', 'v0', 0)",
+                [],
+            )
+            .unwrap();
+
+        let reader_path = path.clone();
+        let reader = std::thread::spawn(move || {
+            let mem =
+                RlmMemory::open_readonly(&reader_path).expect("readonly open beside a live writer");
+            for _ in 0..50 {
+                if mem
+                    .get_readonly("k", MemoryTier::Core)
+                    .expect("readonly read beside a live writer")
+                    .is_none()
+                {
+                    return false;
+                }
+            }
+            true
+        });
+
+        for i in 0..50 {
+            writer
+                .conn
+                .execute(
+                    "UPDATE memory_entries SET value = ?1 WHERE key = 'k'",
+                    params![format!("v{i}")],
+                )
+                .unwrap();
+        }
+        assert!(reader.join().expect("reader thread panicked"));
     }
 }
