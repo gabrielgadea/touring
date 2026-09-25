@@ -794,8 +794,18 @@ pub(crate) enum FacadeVerdict {
     /// `from <…>.<symbol> import …` (or `import <…>.<symbol>`) — importing the
     /// submodule binds its name as an attribute of the package (measured by
     /// the runtime oracle: `ontl` HAS on `scripts.external_apis`, whose facade
-    /// does `from scripts.external_apis.ontl import …`).
+    /// does `from scripts.external_apis.ontl import …`). Also: the submodule
+    /// EXISTS on disk beside a package's `__init__.py` — any import of it, by
+    /// any module in the chain, attaches the name to the package (the census
+    /// case: `antt/__init__.py` never mentions `ferrovias_govbr`, yet the
+    /// attribute exists at runtime because a sibling client imports it).
     SubmoduleBound,
+    /// The definitor itself imports the name — `import time` (bare) or
+    /// `from pkg import name [as alias]` (the name in the import LIST, any
+    /// path). Importing binds the name as a module attribute (the census
+    /// cases: `time`, `asyncio`, `subprocess`, `re`; `navegacao` and
+    /// `ps` via `from scripts.eleitoral import … [as …]`).
+    ImportBound,
     /// `from .x import *` followed statically and the name found in x's
     /// `__all__` or top-level definitions — the name EXISTS at runtime.
     ResolvedStar,
@@ -1497,6 +1507,7 @@ impl FileKnowledgeDB {
                             FacadeVerdict::SubmoduleBound => {
                                 Some("reexport_submodule".to_string())
                             }
+                            FacadeVerdict::ImportBound => Some("import_bound".to_string()),
                             FacadeVerdict::ResolvedStar => Some("reexport_star".to_string()),
                             FacadeVerdict::Dynamic => Some("dynamic_export".to_string()),
                             FacadeVerdict::Nothing => None,
@@ -1530,8 +1541,14 @@ fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
         return false;
     };
     let escaped = regex::escape(symbol);
+    // 25/09 (censo do oráculo): o assignment ganhou `^\s*` — a feature-flag
+    // canônica `try: … except ImportError: X = False` é indentada, e o nome
+    // EXISTE como atributo do módulo (`RICH_AVAILABLE`, medido presente no
+    // runtime). O falso positivo possível (assignment LOCAL dentro de uma
+    // função) POUPA uma linha de mais, nunca apaga de mais — conservador por
+    // desenho, e o doctor a conta como index_blind, visível.
     let pattern = format!(
-        r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^{escaped}\s*[:=]"
+        r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^\s*{escaped}\s*[:=]"
     );
     regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
 }
@@ -1555,23 +1572,62 @@ fn facade_dynamic_export(root: Option<&str>, module: &str, symbol: &str) -> Faca
     let Some(root) = root else {
         return FacadeVerdict::Nothing;
     };
-    let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
+    let base = std::path::Path::new(root);
+    let direct = base.join(module);
+    // D (censo 25/09): o índice pode registrar o `.py` de um módulo que virou
+    // pacote (rename arquivo→pasta) — o definidor real é o `__init__.py`
+    // irmão. Sem a queda, a leitura falha e a linha cai em fantasma com o
+    // símbolo existindo no pacote.
+    let (file, pkg_dir) = if direct.is_file() {
+        let pkg = if direct.file_name().is_some_and(|n| n == "__init__.py") {
+            direct.parent().map(std::path::Path::to_path_buf)
+        } else {
+            None
+        };
+        (direct, pkg)
+    } else {
+        let pkg_init = direct.with_extension("").join("__init__.py");
+        if pkg_init.is_file() {
+            let pkg = pkg_init.parent().map(std::path::Path::to_path_buf);
+            (pkg_init, pkg)
+        } else {
+            (direct, None)
+        }
+    };
+    // E (censo 25/09): o submódulo EXISTE no disco ao lado do `__init__.py` —
+    // qualquer import dele, por QUALQUER módulo da cadeia, anexa o nome ao
+    // pacote (o `antt/__init__.py` nunca menciona `ferrovias_govbr` e o
+    // atributo existe porque um cliente irmão o importa). Só vale para pacote.
+    if let Some(pkg) = &pkg_dir
+        && (pkg.join(format!("{symbol}.py")).is_file()
+            || pkg.join(symbol).join("__init__.py").is_file())
+    {
+        return FacadeVerdict::SubmoduleBound;
+    }
+    let Ok(content) = std::fs::read_to_string(&file) else {
         return FacadeVerdict::Nothing;
     };
-    // Importar o submódulo liga o nome como atributo do pacote. Três formas
-    // medidas no analise (oráculo de runtime, 25/09/2026):
-    //   from pkg.mod.frota import X   (absoluta — a única que o `[\w.]+` via)
-    //   from .frota import (          (relativa de UM ponto — o measured miss:
-    //     `[\w.]+\.frota` exigia algo antes do ponto final e `.frota` não casa)
-    //   from . import frota           (o nome na LISTA de importados, com ou
-    //     sem parênteses multi-linha)
-    // Falso positivo aqui só PoupA uma linha (classe conservadora) — nunca apaga.
+    // O nome no CAMINHO do import: `from pkg.mod.frota import X` /
+    // `from .frota import (` / `import pkg.frota` — importar o submódulo liga
+    // o nome no pacote (as três formas medidas pelo oráculo, 25/09).
     let esc = regex::escape(symbol);
     let sub_re = format!(
-        r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b|from\s+\.+\s+import\s+(?:\([^)]*\b{esc}\b|[^(#\n]*\b{esc}\b))",
+        r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b)",
     );
     if regex::Regex::new(&sub_re).is_ok_and(|re| re.is_match(&content)) {
         return FacadeVerdict::SubmoduleBound;
+    }
+    // A/B (censo 25/09): o DEFINIDOR importa o nome — `import time` (nu) ou o
+    // nome na LISTA de um from-import, qualquer caminho, multi-linha, com ou
+    // sem `as` (`from scripts.eleitoral import navegacao`,
+    // `from . import frota`). Importar liga o nome como atributo do módulo.
+    // O alias esconde o nome original (`as ps` liga só `ps`) — casar os dois
+    // POUPA uma linha de mais, nunca apaga de mais: conservador por desenho.
+    let import_re = format!(
+        r"(?m)^\s*import\s+{esc}\b|^\s*from\s+[\w.]+\s+import\s+(?:\([^)]*\b{esc}\b[^)]*\)|[^(#\n]*\b{esc}\b)",
+    );
+    if regex::Regex::new(&import_re).is_ok_and(|re| re.is_match(&content)) {
+        return FacadeVerdict::ImportBound;
     }
     let lazy = content.contains("def __getattr__")
         || content.contains("importlib")
@@ -3385,7 +3441,10 @@ mod consumer_kind_resolution_tests {
         std::fs::create_dir_all(&pkg3).expect("pkg3");
         std::fs::write(pkg3.join("__init__.py"), "from pkg3.impl import Client\n")
             .expect("facade sub");
-        std::fs::write(pkg3.join("impl.py"), "class Client:\n    pass\n").expect("impl3");
+        // NOTA (censo 25/09): nenhum `impl.py` no disco DE PROPÓSITO — a classe
+        // E (submódulo existe ao lado do pacote) casaria antes e o REGEX, que é
+        // o instrumento sob teste aqui, nunca seria exercitado (a mutação do
+        // regex passaria verde via E). 8g/8h são as fixtures de E/D.
         seed_symbols(&db, "pkg3/__init__.py", &[]);
         db.conn_ref()
             .execute(
@@ -3402,7 +3461,7 @@ mod consumer_kind_resolution_tests {
         std::fs::create_dir_all(&pkg4).expect("pkg4");
         std::fs::write(pkg4.join("__init__.py"), "from .impl import (\n    Client,\n)\n")
             .expect("facade relative sub");
-        std::fs::write(pkg4.join("impl.py"), "class Client:\n    pass\n").expect("impl4");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
         seed_symbols(&db, "pkg4/__init__.py", &[]);
         db.conn_ref()
             .execute(
@@ -3415,7 +3474,7 @@ mod consumer_kind_resolution_tests {
         let pkg5 = tmp.path().join("pkg5");
         std::fs::create_dir_all(&pkg5).expect("pkg5");
         std::fs::write(pkg5.join("__init__.py"), "from . import impl\n").expect("facade from-dot");
-        std::fs::write(pkg5.join("impl.py"), "class Client:\n    pass\n").expect("impl5");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
         seed_symbols(&db, "pkg5/__init__.py", &[]);
         db.conn_ref()
             .execute(
@@ -3425,8 +3484,95 @@ mod consumer_kind_resolution_tests {
             )
             .expect("from-dot submodule row");
 
+        // Classes 8e-8h + C (CENSO do oráculo sobre os 171 apagados do ensaio,
+        // 25/09): 13 runtime-PRESENTES em 5 formas que a cinta não via.
+        // 8e: `import time` NU — o import liga o nome no módulo.
+        let pkg6 = tmp.path().join("pkg6");
+        std::fs::create_dir_all(&pkg6).expect("pkg6");
+        std::fs::write(pkg6.join("__init__.py"), "import time\nimport os\n")
+            .expect("facade bare import");
+        seed_symbols(&db, "pkg6/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg6/__init__.py', 'time', 'unknown', 'public', 'src/consumer.rs', 14, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("bare import row");
+        // 8f: o nome na LISTA de um from-import qualquer — `from pkg7 import impl`
+        // e, com alias, `from pkg7 import impl as apelido` (liga só `apelido`).
+        let pkg7 = tmp.path().join("pkg7");
+        std::fs::create_dir_all(&pkg7).expect("pkg7");
+        std::fs::write(
+            pkg7.join("__init__.py"),
+            // `impl` só tem a evidência da LISTA; o alias sai de OUTRO módulo
+            // (core) para não dar a `impl` a evidência do caminho — medido: a
+            // linha `from pkg7.impl import …` também liga `impl` (o submódulo
+            // importado), e a classe mais forte vence.
+            "from pkg7 import impl\nfrom pkg7.core import Client as apelido\n",
+        )
+        .expect("facade from-list");
+        // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
+        seed_symbols(&db, "pkg7/__init__.py", &[]);
+        for (symbol, line) in [("impl", 15), ("apelido", 16)] {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                     VALUES ('pkg7/__init__.py', ?1, 'unknown', 'public', 'src/consumer.rs', ?2, 'ast_resolved', datetime('now'))",
+                    rusqlite::params![symbol, line],
+                )
+                .expect("from-list row");
+        }
+        // 8g (E): o `__init__.py` NUNCA menciona o nome, mas o submódulo
+        // EXISTE no disco — qualquer import dele na cadeia o anexa ao pacote.
+        let pkg8 = tmp.path().join("pkg8");
+        std::fs::create_dir_all(&pkg8).expect("pkg8");
+        std::fs::write(pkg8.join("__init__.py"), "# nunca menciona o irmão\n")
+            .expect("facade silent");
+        std::fs::write(pkg8.join("irmao.py"), "X = 1\n").expect("sibling");
+        seed_symbols(&db, "pkg8/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg8/__init__.py', 'irmao', 'unknown', 'public', 'src/consumer.rs', 17, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("sibling-on-disk row");
+        // 8h (D+E): o índice registrou `pkg9.py`, que MORREU e virou pacote
+        // (`pkg9/__init__.py`) — o definidor real é o pacote irmão.
+        let pkg9 = tmp.path().join("pkg9");
+        std::fs::create_dir_all(&pkg9).expect("pkg9");
+        std::fs::write(pkg9.join("__init__.py"), "# o pkg9.py morreu\n").expect("pkg9 init");
+        std::fs::write(pkg9.join("filho.py"), "X = 1\n").expect("pkg9 child");
+        seed_symbols(&db, "pkg9.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg9.py', 'filho', 'unknown', 'public', 'src/consumer.rs', 18, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("file-turned-package row");
+        // C: o assignment INDENTADO da feature-flag (`try:`/`except ImportError`)
+        // — o `^\s*` do source_declares (o `^` puro não via o RICH_AVAILABLE).
+        // Fixture .py: o braço `(const|fn|…) +nome` casaria um `const` Rust
+        // indentado mesmo sem o fix; só um assignment PYTHON puro morde.
+        let flag_dir = tmp.path().join("src");
+        std::fs::write(
+            flag_dir.join("flag.py"),
+            "try:\n    _FLAG_INDENT = True\nexcept ImportError:\n    _FLAG_INDENT = False\n",
+        )
+        .expect("flag source");
+        seed_symbols(&db, "src/flag.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('src/flag.py', '_FLAG_INDENT', 'unknown', 'public', 'src/consumer.rs', 19, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("indented assignment row");
+
         let n = db.resolve_consumer_kinds_from_definers().expect("pass");
-        assert_eq!(n, 12, "as 12 classes legítimas resolvem; a fantasma fica");
+        assert_eq!(n, 18, "as 18 linhas legítimas resolvem (a 8f são duas); a fantasma fica");
         assert_eq!(kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"), "module");
         assert_eq!(
             kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
@@ -3475,8 +3621,38 @@ mod consumer_kind_resolution_tests {
         );
         assert_eq!(
             kind_of(&db, "pkg5/__init__.py", "impl", "src/consumer.rs"),
+            "import_bound",
+            "`from . import impl`: o caminho `.` não carrega o nome — a evidência é a lista do from-import (classe B), não a do submódulo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg6/__init__.py", "time", "src/consumer.rs"),
+            "import_bound",
+            "o import NU liga o nome no módulo (classe A do censo)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg7/__init__.py", "impl", "src/consumer.rs"),
+            "import_bound",
+            "o nome na LISTA de um from-import qualquer (classe B)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg7/__init__.py", "apelido", "src/consumer.rs"),
+            "import_bound",
+            "o alias `as apelido` liga o apelido (classe B)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg8/__init__.py", "irmao", "src/consumer.rs"),
             "reexport_submodule",
-            "o nome na lista de importados (`from . import impl`)"
+            "o submódulo EXISTE no disco — importá-lo na cadeia o anexa ao pacote (classe E)"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg9.py", "filho", "src/consumer.rs"),
+            "reexport_submodule",
+            "o `.py` morto virou pacote — o definidor é o `__init__.py` irmão (classes D+E)"
+        );
+        assert_eq!(
+            kind_of(&db, "src/flag.py", "_FLAG_INDENT", "src/consumer.rs"),
+            "index_blind",
+            "o assignment indentado da feature-flag (classe C)"
         );
         assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
         // Idempotente: a segunda passada não toca em nada.
