@@ -84,26 +84,34 @@ const F2_6_ARTIFACT_BYTE_CAP: usize = 8 * 1024 * 1024;
 /// closing the FP for `ScopeNative` (directory) invocations. Dogfooding
 /// 2026-07-02: F2.6 ranked `touring-quality` itself `Unranked` by matching its
 /// own rule fixtures.
-fn read_production_config_surface(target: &Path) -> Result<String> {
+/// Read the production config surface as SEGMENTS `(file, bytes)` — one per
+/// source file, so every finding can be located as `arquivo:linha:regra`
+/// (25/09/2026, touring-36: the single concatenated blob made per-file
+/// location impossible). Same readers, same byte caps as the blob version.
+fn read_production_config_segments(target: &Path) -> Result<Vec<(std::path::PathBuf, String)>> {
     use crate::verifications::{ArtifactClass, enumerate_security_files, resolve_artifacts};
     if !target.is_dir() {
         // A file target reaches here only when it is NOT detector-own (the guard
         // in `check` returns early otherwise): read it verbatim.
-        return crate::verifications::read_target_source(target);
+        return Ok(vec![(
+            target.to_path_buf(),
+            crate::verifications::read_target_source(target)?,
+        )]);
     }
-    let mut out = String::new();
+    let mut out: Vec<(std::path::PathBuf, String)> = Vec::new();
     // (1) real config artifacts (yaml/env/ini/…) — test fixtures excluded.
     //     FIRST and on their own budget: they are the dimension's primary
     //     evidence, and running them second let a big source tree starve them
     //     out entirely (see `F2_6_ARTIFACT_BYTE_CAP`).
+    let mut artifact_bytes = 0usize;
     for p in resolve_artifacts(target, ArtifactClass::Config) {
         if is_detector_own_source(&p) {
             continue;
         }
         if let Ok(s) = std::fs::read_to_string(&p) {
-            out.push('\n');
-            out.push_str(&s);
-            if out.len() >= F2_6_ARTIFACT_BYTE_CAP {
+            artifact_bytes += s.len() + 1;
+            out.push((p, s));
+            if artifact_bytes >= F2_6_ARTIFACT_BYTE_CAP {
                 return Ok(out);
             }
         }
@@ -111,7 +119,7 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
     // (2) code-embedded misconfig smells — detector-own source excluded. The
     //     cap applies to the SOURCE bytes alone, so the artifacts already read
     //     neither consume this budget nor are consumed by it.
-    let artifact_bytes = out.len();
+    let mut source_bytes = 0usize;
     // The security corpus: vendored code ships in the binary too (cross-audit
     // 14/09/2026, D3).
     for p in enumerate_security_files(target) {
@@ -119,9 +127,9 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
             continue;
         }
         if let Ok(s) = std::fs::read_to_string(&p) {
-            out.push_str(&s);
-            out.push('\n');
-            if out.len() - artifact_bytes >= F2_6_SCAN_BYTE_CAP {
+            source_bytes += s.len() + 1;
+            out.push((p, s));
+            if source_bytes >= F2_6_SCAN_BYTE_CAP {
                 return Ok(out);
             }
         }
@@ -130,53 +138,91 @@ fn read_production_config_surface(target: &Path) -> Result<String> {
 }
 
 /// Real engine: delegate to the curated OWASP A05 misconfiguration catalog.
+///
+/// 25/09/2026 (touring-36, the analise's backend judge): the evidence named
+/// only the patterns (`default_or_weak_credentials (CWE-798) ×4`) — no
+/// `arquivo:linha`, so classifying a hit meant opening VALUES, which is
+/// exactly what must never happen. The analyzer now runs PER SEGMENT
+/// (file, bytes), the line comes from the match's span, and every finding
+/// is listed as `arquivo:linha:regra (CWE-id)` — never the matched value,
+/// in any shape. The score is unchanged BY CONSTRUCTION: severity sums are
+/// associative, so `1.0 - Σseverity/10` over the segments equals the old
+/// single-blob value (the clamp also applies once, on the total).
 #[cfg(feature = "workspace-integration")]
-fn analyze_config(raw: &str, target: &Path) -> (f32, String) {
+fn analyze_config(segments: &[(std::path::PathBuf, String)], root: &Path) -> (f32, String) {
     use touring_analysis::quality::ConfigSecurityAnalyzer;
-    let lang = crate::verifications::lang_of(target);
-    let report = ConfigSecurityAnalyzer::new().analyze(raw, lang);
-    let evidence = if report.misconfigs.is_empty() {
+    let analyzer = ConfigSecurityAnalyzer::new();
+    let mut total_severity = 0.0f32;
+    let mut findings: Vec<String> = Vec::new();
+    for (path, raw) in segments {
+        let report = analyzer.analyze(raw, crate::verifications::lang_of(path));
+        for m in &report.misconfigs {
+            total_severity += m.severity;
+            // `span.0` is the byte offset of the line's first non-whitespace
+            // byte (the analyzer's contract); the line number is the count of
+            // newlines before it. The VALUE behind the span is never read.
+            let line = 1 + raw[..m.span.0.min(raw.len())]
+                .bytes()
+                .filter(|b| *b == b'\n')
+                .count();
+            let rel = path.strip_prefix(root).unwrap_or(path);
+            findings.push(format!(
+                "{}:{}:{} (CWE-{})",
+                rel.display(),
+                line,
+                m.pattern_name,
+                m.cwe_id
+            ));
+        }
+    }
+    let score = (1.0 - total_severity / 10.0).clamp(0.0, 1.0);
+    let evidence = if findings.is_empty() {
         "Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000"
             .to_string()
     } else {
-        let mut names: Vec<String> = report
-            .misconfigs
-            .iter()
-            .map(|m| format!("{} (CWE-{})", m.pattern_name, m.cwe_id))
-            .collect();
-        names.sort();
-        names.dedup();
-        let shown = names[..names.len().min(4)].join(", ");
+        const SHOWN: usize = 20;
         format!(
             "Config Security (OWASP A05): {} misconfiguration(s): {}{} — score={:.3}",
-            report.misconfigs.len(),
-            shown,
-            if names.len() > 4 {
-                format!(" (+{} more)", names.len() - 4)
+            findings.len(),
+            findings[..findings.len().min(SHOWN)].join(", "),
+            if findings.len() > SHOWN {
+                format!(", +{} more", findings.len() - SHOWN)
             } else {
                 String::new()
             },
-            report.score
+            score
         )
     };
-    (report.score, evidence)
+    (score, evidence)
 }
 
 /// Fallback (no `workspace-integration`): the few highest-signal misconfig tokens.
 /// Explicitly labelled — it cannot region-suppress comments/tests like the engine.
+/// Same evidence contract: `arquivo:linha:regra`, never the matched value.
 #[cfg(not(feature = "workspace-integration"))]
-fn analyze_config(raw: &str, _target: &Path) -> (f32, String) {
+fn analyze_config(segments: &[(std::path::PathBuf, String)], root: &Path) -> (f32, String) {
     const CRITICAL: [&str; 4] = [
         "danger_accept_invalid_certs(true)",
         "rejectunauthorized: false",
         "insecureskipverify: true",
         ".allow_any_origin(",
     ];
-    let lower = raw.to_ascii_lowercase();
-    let hit = CRITICAL.iter().any(|p| lower.contains(p));
-    let value = if hit { 0.0 } else { 1.0 };
+    let mut findings: Vec<String> = Vec::new();
+    for (path, raw) in segments {
+        let lower = raw.to_ascii_lowercase();
+        for token in CRITICAL {
+            if let Some(at) = lower.find(token) {
+                let line = 1 + lower[..at].bytes().filter(|b| *b == b'\n').count();
+                let rel = path.strip_prefix(root).unwrap_or(path);
+                findings.push(format!("{}:{}:{}", rel.display(), line, token));
+            }
+        }
+    }
+    let value = if findings.is_empty() { 1.0 } else { 0.0 };
     let evidence = format!(
-        "Config Security (substring fallback — build --features workspace-integration for the OWASP A05 ConfigSecurityAnalyzer): score={value:.3}"
+        "Config Security (substring fallback — build --features workspace-integration for the OWASP A05 ConfigSecurityAnalyzer): {} misconfiguration(s): {} — score={value:.3}",
+        findings.len(),
+        findings.join(", ")
     );
     (value, evidence)
 }
@@ -196,16 +242,17 @@ impl Verification for F2_6_Config {
         }
         // F2.6 is HYBRID: config-security smells live BOTH in code (`verify=False`,
         // `debug=True`, CORS `*` in a handler) AND in real config files
-        // (yaml/env/ini/conf/toml). The scan blob is built by
-        // `read_production_config_surface`, which — unlike the shared
+        // (yaml/env/ini/conf/toml). The scan segments are built by
+        // `read_production_config_segments`, which — unlike the shared
         // `read_target_source` — EXCLUDES detector-own source and non-production
         // corpora per file. Those files embed the misconfiguration literals as
         // DETECTION LOGIC; concatenating them made F2.6 self-match and rank this
         // very crate `Unranked` (dogfooding 2026-07-02). The per-file exclusion
         // mirrors the `is_detector_own_source` guard above, which only covers a
-        // single-FILE target.
-        let raw = read_production_config_surface(target)?;
-        let (value, evidence) = analyze_config(&raw, target);
+        // single-FILE target. Per-segment scanning is also what makes every
+        // finding locatable as `arquivo:linha:regra` (25/09/2026, touring-36).
+        let segments = read_production_config_segments(target)?;
+        let (value, evidence) = analyze_config(&segments, target);
         Ok((value, evidence))
     }
 }
@@ -247,12 +294,13 @@ mod tests {
         )
         .expect("write config");
 
-        let surface = read_production_config_surface(dir.path()).expect("surface");
+        let segments = read_production_config_segments(dir.path()).expect("segments");
+        let total: usize = segments.iter().map(|(_, s)| s.len()).sum();
         assert!(
-            surface.contains("tls_verify: false"),
+            segments.iter().any(|(_, s)| s.contains("tls_verify: false")),
             "config artifact must be present regardless of source-tree size \
-             (surface = {} bytes)",
-            surface.len()
+             (segments = {} bytes)",
+            total
         );
     }
 
