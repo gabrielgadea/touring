@@ -335,14 +335,22 @@ impl GeneratorNode {
 }
 
 impl GeneratorNode {
-    fn to_tl(&self) -> TlGeneratorNode {
+    fn to_tl(&self) -> pyo3::PyResult<TlGeneratorNode> {
+        // 25/09/2026 (a d4, REGRA #21): um `generator_type` desconhecido caía
+        // em Template EM SILÊNCIO (`_ =>`). O Python recusa com ValueError —
+        // a binding recusa também, nomeando os válidos.
         let gt = match self.generator_type.as_str() {
+            "template" => TlGeneratorType::Template,
             "transformer" => TlGeneratorType::Transformer,
             "composer" => TlGeneratorType::Composer,
             "validator" => TlGeneratorType::Validator,
-            _ => TlGeneratorType::Template,
+            other => {
+                return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "unknown generator_type: {other:?} — válidos: 'template', 'transformer', 'composer', 'validator'"
+                )));
+            }
         };
-        TlGeneratorNode {
+        Ok(TlGeneratorNode {
             id: self.id.clone(),
             description: self.description.clone(),
             generator_type: gt,
@@ -361,7 +369,7 @@ impl GeneratorNode {
             },
             acceptance_criteria: self.acceptance_criteria.clone(),
             depends_on: self.depends_on.clone(),
-        }
+        })
     }
 }
 
@@ -392,7 +400,7 @@ impl PyAcoGraph {
     /// Add a generator node.
     fn add_node(&mut self, node: GeneratorNode) -> PyResult<()> {
         self.inner
-            .add_node(node.to_tl())
+            .add_node(node.to_tl()?)
             .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
