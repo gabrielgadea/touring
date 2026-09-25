@@ -626,6 +626,10 @@ pub(crate) struct PhantomPurgeOutcome {
     pub dry_run: bool,
     /// Up to [`SAMPLE`] of the edges removed (or that would be removed).
     pub sample: Vec<SampleEdge>,
+    /// Consumer kinds the definer pass resolved in this call. In a dry run
+    /// the writes are rolled back — the number declares what the
+    /// measurement needed, without mutating the base it measures.
+    pub kinds_resolved: usize,
 }
 
 /// The phantom predicate (24/09/2026, touring-36; tightened 25/09): a consumer
@@ -684,6 +688,42 @@ fn sample_where(conn: &rusqlite::Connection, predicate: &str) -> Result<Vec<Samp
         .map_err(|e| purge_error("sample", e))
 }
 
+fn measure_phantoms(
+    conn: &rusqlite::Connection,
+    dry_run: bool,
+    kinds_resolved: usize,
+) -> Result<PhantomPurgeOutcome, String> {
+    Ok(PhantomPurgeOutcome {
+        edges: count_where(conn, phantom_predicate())?,
+        dry_run,
+        sample: sample_where(conn, phantom_predicate())?,
+        kinds_resolved,
+    })
+}
+
+/// The read-only preview: pass + measurement inside a savepoint that is
+/// ALWAYS rolled back — on success or on error (the savepoint is what makes
+/// "dry" a property of the construction, not of the caller's care).
+fn preview_phantoms(
+    db: &FileKnowledgeDB,
+    conn: &rusqlite::Connection,
+) -> Result<PhantomPurgeOutcome, String> {
+    conn.execute_batch("SAVEPOINT purge_phantom_preview")
+        .map_err(|e| purge_error("savepoint", e))?;
+    let measured = db
+        .resolve_consumer_kinds_from_definers()
+        .map_err(|e| purge_error("definer resolution", e))
+        .and_then(|kinds_resolved| measure_phantoms(conn, true, kinds_resolved));
+    let rollback = conn
+        .execute_batch("ROLLBACK TO purge_phantom_preview; RELEASE purge_phantom_preview")
+        .map_err(|e| purge_error("rollback", e));
+    match (measured, rollback) {
+        (Ok(outcome), Ok(())) => Ok(outcome),
+        (Err(e), _) => Err(e),
+        (Ok(_), Err(e)) => Err(e),
+    }
+}
+
 /// Remove every consumer edge that is phantom by [`phantom_predicate`].
 pub(crate) fn purge_phantom_edges(
     db: &FileKnowledgeDB,
@@ -694,15 +734,21 @@ pub(crate) fn purge_phantom_edges(
     // on the live database, whatever its history (the stopped 30.4.68 dry-run
     // measured the bare predicate deleting 452 real uses in the analise:
     // declared modules, private symbols, self-references, external reexports).
-    db.resolve_consumer_kinds_from_definers()
-        .map_err(|e| purge_error("definer resolution", e))?;
+    //
+    // But the pass WRITES the resolved kinds, and a preview that mutates is an
+    // instrument that lies (25/09, touring-36's review): a dry-run aimed at
+    // the wrong project root wrote the resolution into the LIVE touring db
+    // (unknown 21→2) before the real purge was ever approved. The dry run is
+    // read-only BY CONSTRUCTION — [`preview_phantoms`].
     let conn = db.conn_ref();
-    let outcome = PhantomPurgeOutcome {
-        edges: count_where(conn, phantom_predicate())?,
-        dry_run,
-        sample: sample_where(conn, phantom_predicate())?,
-    };
-    if outcome.edges > 0 && !dry_run {
+    if dry_run {
+        return preview_phantoms(db, conn);
+    }
+    let kinds_resolved = db
+        .resolve_consumer_kinds_from_definers()
+        .map_err(|e| purge_error("definer resolution", e))?;
+    let outcome = measure_phantoms(conn, dry_run, kinds_resolved)?;
+    if outcome.edges > 0 {
         conn.execute(
             &format!("DELETE FROM wiring_map WHERE {}", phantom_predicate()),
             [],
@@ -713,6 +759,9 @@ pub(crate) fn purge_phantom_edges(
 }
 
 /// The reply of `touring wiring repair --purge-phantom [--dry-run]`.
+/// `kinds_resolved` is declared in BOTH modes — in a dry run it is what the
+/// measurement needed to write (and rolled back), in the real run what it
+/// committed.
 fn phantom_purge_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
     match purge_phantom_edges(db, dry_run) {
         Ok(outcome) => serde_json::json!({
@@ -720,6 +769,7 @@ fn phantom_purge_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
             "mode": "purge_phantom",
             "dry_run": outcome.dry_run,
             "edges": outcome.edges,
+            "kinds_resolved": outcome.kinds_resolved,
             "sample": outcome.sample.iter().map(SampleEdge::to_json).collect::<Vec<_>>(),
         })
         .to_string(),
@@ -1065,6 +1115,109 @@ mod tests {
             Some("unknown"),
             "o definidor ausente do índice é UNMEASURED — poupado, segue unknown"
         );
+        drop(rt);
+        drop(proj);
+    }
+
+    /// touring-36's review (25/09/2026): a dry run is READ-ONLY BY
+    /// CONSTRUCTION. The definer pass WRITES the resolved kinds — without the
+    /// savepoint rollback the preview mutates the base it measures (the
+    /// instrument that gates the destructive run; one such run wrote the
+    /// resolution into the LIVE touring db). The checksum (row count + the
+    /// symbol_kind sequence hash) is identical before and after a dry run
+    /// over a base holding a RESOLVABLE unknown, and `kinds_resolved` still
+    /// declares what the measurement needed. The real run keeps resolving
+    /// and deleting as before.
+    #[test]
+    fn phantom_purge_dry_run_writes_nothing_and_declares_kinds_resolved() {
+        let (proj, rt) = polyglot_project(&[("src/consumer.rs", "fn main() {}\n")]);
+        let db = &rt.ctx.knowledge;
+        // Um unknown RESOLVÍVEL: o definidor declara o símbolo na tabela.
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES ('src/selo.rs', 0, 0, 0, '[{\"symbol_name\": \"_INDICE\", \"kind\": \"const\"}]')",
+                [],
+            )
+            .expect("seed definitor");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('src/selo.rs', '_INDICE', 'unknown', 'public', 'src/consumer.rs', 'ast_resolved')",
+                [],
+            )
+            .expect("seed resolvable unknown");
+        // E um fantasma de verdade (definidor lido, nome ausente).
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES ('src/lib.rs', 0, 0, 0, '[]')",
+                [],
+            )
+            .expect("seed definitor vazio");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES ('src/lib.rs', 'ghost_fn', 'unknown', 'public', 'src/consumer.rs', 'ast_resolved')",
+                [],
+            )
+            .expect("seed phantom");
+
+        // Checksum: a contagem de linhas + o hash da sequência de symbol_kind.
+        let checksum = || -> (usize, u64) {
+            use std::hash::{Hash, Hasher};
+            let kinds = db
+                .conn_ref()
+                .prepare(
+                    "SELECT module_file, symbol_name, symbol_kind, consumer_file FROM wiring_map
+                     ORDER BY module_file, symbol_name, consumer_file",
+                )
+                .expect("prepare")
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                        r.get::<_, String>(3)?,
+                    ))
+                })
+                .expect("query")
+                .collect::<Result<Vec<_>, _>>()
+                .expect("collect");
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            kinds.hash(&mut h);
+            (kinds.len(), h.finish())
+        };
+
+        let before = checksum();
+        let preview = purge_phantom_edges(db, true).expect("dry-run");
+        assert_eq!(preview.edges, 1, "só a fantasma é apagável");
+        assert_eq!(
+            preview.kinds_resolved, 1,
+            "a medição PRECISOU resolver 1 kind — e o declara"
+        );
+        assert_eq!(
+            checksum(),
+            before,
+            "o dry-run não escreve NADA — nem a resolução (checksum igual)"
+        );
+
+        // O modo real segue resolvendo e apagando como hoje.
+        let applied = purge_phantom_edges(db, false).expect("apply");
+        assert_eq!(applied.kinds_resolved, 1, "o rollback devolveu o unknown");
+        assert_eq!(applied.edges, 1);
+        let kind: String = db
+            .conn_ref()
+            .query_row(
+                "SELECT symbol_kind FROM wiring_map
+                 WHERE module_file = 'src/selo.rs' AND symbol_name = '_INDICE'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("kind");
+        assert_eq!(kind, "const", "o modo real persiste a resolução");
         drop(rt);
         drop(proj);
     }
