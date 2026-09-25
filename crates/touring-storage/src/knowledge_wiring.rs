@@ -1358,6 +1358,115 @@ impl FileKnowledgeDB {
         Ok(n)
     }
 
+    /// I17 (2026-09-25, touring-36): resolves the kind of consumer rows that NO
+    /// producer carries — the three legitimate classes the producers-only pass
+    /// leaves as `unknown` (and an `unknown`-keyed purge would delete, as the
+    /// stopped 30.4.68 dry-run measured: touring 27, analise 452):
+    ///
+    /// 1. the DEFINITOR file declares the name (`file_knowledge.symbols_json`) —
+    ///    a declared module (`pub mod x;` → `module`) or a private symbol with
+    ///    its real kind (`_INDICE` → `const`);
+    /// 2. the CONSUMER file itself declares the name — a self-reference the old
+    ///    `definer_module` fallback attributed to the crate root (the 14 lib.rs
+    ///    rows: private helpers of knowledge_wiring.rs / symbol_extractors.rs);
+    /// 3. the definitor IMPORTS the name from outside (`wiring_unresolved`
+    ///    records the per-name import) — an `external_reexport`
+    ///    (`_dagster_compat.py` reexporting dagster's `AssetCheckResult`).
+    ///
+    /// What stays `unknown` after this pass has no definition ANYWHERE — the
+    /// predicate the phantom purge requires (`wiring_repair`).
+    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {
+        let conn = self.conn_ref();
+        let mut stmt = conn.prepare(
+            "SELECT DISTINCT module_file, symbol_name, consumer_file FROM wiring_map
+             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
+        )?;
+        let candidates: Vec<(String, String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .collect::<Result<_, _>>()?;
+        drop(stmt);
+        if candidates.is_empty() {
+            return Ok(0);
+        }
+
+        // The symbol tables of every involved file, parsed once — the
+        // definitor's AND the consumer's own (a self-reference's definition
+        // lives in the consumer's table; the old fallback pinned the crate
+        // root as the module).
+        let mut tables: std::collections::HashMap<
+            String,
+            std::collections::HashMap<String, String>,
+        > = std::collections::HashMap::new();
+        for (module, _, consumer) in &candidates {
+            for file in [module, consumer] {
+                if tables.contains_key(file) {
+                    continue;
+                }
+                let raw: Option<String> = conn
+                    .query_row(
+                        "SELECT symbols_json FROM file_knowledge WHERE file_path = ?1",
+                        params![file],
+                        |row| row.get::<_, Option<String>>(0),
+                    )
+                    .optional()?
+                    .flatten();
+                let table = raw
+                    .as_deref()
+                    .and_then(|s| serde_json::from_str::<Vec<serde_json::Value>>(s).ok())
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|v| {
+                        // Two shapes coexist in live databases (measured on the
+                        // analise's, 25/09/2026): the current extractor writes
+                        // `symbol_name`, another write path writes `name`. A
+                        // pass that reads only one misclassifies the other
+                        // file's every symbol as phantom (the 370 of 461).
+                        let name = v
+                            .get("symbol_name")
+                            .or_else(|| v.get("name"))?
+                            .as_str()?
+                            .to_string();
+                        Some((name, v.get("kind")?.as_str()?.to_string()))
+                    })
+                    .collect();
+                tables.insert(file.clone(), table);
+            }
+        }
+
+        let mut resolved = 0usize;
+        for (module, symbol, consumer) in &candidates {
+            let kind = tables
+                .get(module)
+                .and_then(|t| t.get(symbol))
+                .or_else(|| tables.get(consumer).and_then(|t| t.get(symbol)))
+                .cloned();
+            let kind = match kind {
+                Some(k) => Some(k),
+                None => {
+                    let imported: i64 = conn.query_row(
+                        "SELECT EXISTS(SELECT 1 FROM wiring_unresolved
+                         WHERE consumer_file = ?1 AND symbol_name = ?2)",
+                        params![module, symbol],
+                        |row| row.get(0),
+                    )?;
+                    (imported == 1).then(|| "external_reexport".to_string())
+                }
+            };
+            if let Some(k) = kind {
+                resolved += conn.execute(
+                    "UPDATE wiring_map SET symbol_kind = ?1
+                     WHERE symbol_kind = 'unknown' AND module_file = ?2
+                       AND symbol_name = ?3 AND consumer_file = ?4",
+                    params![k, module, symbol, consumer],
+                )?;
+            }
+        }
+        if resolved > 0 {
+            Self::invalidate_wiring_modules_cache();
+        }
+        Ok(resolved)
+    }
+
     /// Find producer rows whose `symbol_name` matches any of the supplied
     /// names AND whose `symbol_kind` is callable (method / function /
     /// async_function). Returns `(module_file, symbol_name)` pairs.
@@ -2970,6 +3079,97 @@ mod consumer_kind_resolution_tests {
             kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
             "extern"
         );
+    }
+
+    // ── I17 (25/09/2026): the definer-side pass ─────────────────────────────
+
+    fn seed_symbols(db: &FileKnowledgeDB, file: &str, entries: &[(&str, &str)]) {
+        let json = serde_json::to_string(
+            &entries
+                .iter()
+                .map(|(name, kind)| serde_json::json!({"symbol_name": name, "kind": kind}))
+                .collect::<Vec<_>>(),
+        )
+        .expect("json");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES (?1, 0, 0, 0, ?2)",
+                params![file, json],
+            )
+            .expect("seed symbols");
+    }
+
+    #[test]
+    fn definer_kinds_resolve_module_private_self_reference_and_external_reexport() {
+        let (_tmp, db) = setup();
+        // Classe 1a: o definidor declara o MÓDULO (`pub mod a;`) → `module`.
+        seed_symbols(&db, "src/mod.rs", &[("a_bindings", "module")]);
+        db.record_consumer("src/mod.rs", "a_bindings", "src/mod.rs", Some(1))
+            .expect("self-module");
+        // Classe 1b: o definidor declara o símbolo PRIVADO (`_INDICE` → const).
+        // Classe 1b: o definidor declara o símbolo PRIVADO (`_INDICE` → const).
+        // (fixture .rs: o write gate recusa .py sem modo polyglot — a classe é
+        // a consulta ao symbols_json, não a linguagem)
+        seed_symbols(&db, "src/selo.rs", &[("_INDICE", "const")]);
+        db.record_consumer("src/selo.rs", "_INDICE", "tests/test_selo.rs", Some(2))
+            .expect("private");
+        // Classe 2: o CONSUMIDOR declara o próprio helper — a auto-referência
+        // que o fallback antigo atribuía ao crate root.
+        seed_symbols(&db, "src/knowledge_wiring.rs", &[("non_source_sql", "function")]);
+        db.record_consumer("src/lib.rs", "non_source_sql", "src/knowledge_wiring.rs", Some(3))
+            .expect("self-ref");
+        // Classe 3: o definidor IMPORTA o nome de fora → `external_reexport`.
+        db.record_consumer("src/_compat.rs", "AssetCheckResult", "src/checks.rs", Some(4))
+            .expect("reexport");
+        db.record_unresolved_import("dagster", "AssetCheckResult", "src/_compat.rs", Some(1), "rust")
+            .expect("unresolved");
+        // Classe 4: nada em lugar nenhum → segue `unknown` (o purge a tira).
+        // Via SQL cru: `record_consumer` RECUSA a palavra-chave de escopo hoje
+        // (30.4.68) — a linha fantasma é um legado de antes do recuso.
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('src/lib.rs', 'super', 'unknown', 'public', 'src/kpi.rs', 5, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("keyword junk (legacy row)");
+
+        // Classe 5: o definidor declara pelo esquema `name` (a outra forma de
+        // symbols_json que convive na base viva — medido no analise: as 370
+        // pseudo-fantasmas vinham da leitura só por `symbol_name`).
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES ('src/compat2.rs', 0, 0, 0, '[{\"name\": \"_FLAG\", \"kind\": \"variable\", \"is_public\": false}]')",
+                [],
+            )
+            .expect("seed name-shape symbols");
+        db.record_consumer("src/compat2.rs", "_FLAG", "src/consumer.rs", Some(6))
+            .expect("name-shape consumer");
+
+        let n = db.resolve_consumer_kinds_from_definers().expect("pass");
+        assert_eq!(n, 5, "as 5 classes legítimas resolvem; a fantasma fica");
+        assert_eq!(kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"), "module");
+        assert_eq!(
+            kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
+            "const"
+        );
+        assert_eq!(
+            kind_of(&db, "src/lib.rs", "non_source_sql", "src/knowledge_wiring.rs"),
+            "function"
+        );
+        assert_eq!(
+            kind_of(&db, "src/_compat.rs", "AssetCheckResult", "src/checks.rs"),
+            "external_reexport"
+        );
+        assert_eq!(
+            kind_of(&db, "src/compat2.rs", "_FLAG", "src/consumer.rs"),
+            "variable"
+        );
+        assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
+        // Idempotente: a segunda passada não toca em nada.
+        assert_eq!(db.resolve_consumer_kinds_from_definers().expect("pass 2"), 0);
     }
 }
 

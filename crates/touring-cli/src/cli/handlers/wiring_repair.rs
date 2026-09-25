@@ -628,19 +628,29 @@ pub(crate) struct PhantomPurgeOutcome {
     pub sample: Vec<SampleEdge>,
 }
 
-/// The phantom predicate (24/09/2026, touring-36): a consumer row whose kind
-/// is `unknown` and whose producer exists NOWHERE — no row of its own and no
-/// definition to resolve the kind from, so NO repair can ever clear it. The
-/// doctor's `wiring_diagnostic` measured 8 of them, permanent by construction
-/// (the `definer_module` fallback recorded them as `ast_resolved` to a
-/// producer that never existed). No orphan row is restored: these producers
-/// never had a row to begin with.
+/// The phantom predicate (24/09/2026, touring-36; tightened 25/09): a consumer
+/// row whose kind is `unknown` and whose producer exists NOWHERE. Since I17,
+/// [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`] runs inside the
+/// purge itself, so `unknown` here means no definition ANYWHERE — not in the
+/// definitor's symbol table (module declarations, private symbols), not in
+/// the consumer's own (self-references). The `wiring_unresolved` belt is
+/// defense in depth for databases the pass never ran on: a name the definitor
+/// IMPORTS from outside is an `external_reexport`, never a phantom. And a
+/// definitor with NO row in `file_knowledge` was never read by the index —
+/// «no definition» there is UNMEASURED, not phantom (measured on the analise
+/// copy: 2 of 235; the facade `__init__.py` files), so the row is spared and
+/// stays `unknown` for the doctor to keep counting.
 fn phantom_predicate() -> &'static str {
     "symbol_kind = 'unknown' AND consumer_file IS NOT NULL \
+     AND EXISTS (SELECT 1 FROM file_knowledge fk \
+                 WHERE fk.file_path = wiring_map.module_file) \
      AND NOT EXISTS (SELECT 1 FROM wiring_map p \
                      WHERE p.consumer_file IS NULL \
                        AND p.module_file = wiring_map.module_file \
-                       AND p.symbol_name = wiring_map.symbol_name)"
+                       AND p.symbol_name = wiring_map.symbol_name) \
+     AND NOT EXISTS (SELECT 1 FROM wiring_unresolved u \
+                     WHERE u.consumer_file = wiring_map.module_file \
+                       AND u.symbol_name = wiring_map.symbol_name)"
 }
 
 fn count_where(conn: &rusqlite::Connection, predicate: &str) -> Result<usize, String> {
@@ -679,6 +689,13 @@ pub(crate) fn purge_phantom_edges(
     db: &FileKnowledgeDB,
     dry_run: bool,
 ) -> Result<PhantomPurgeOutcome, String> {
+    // I17 (25/09/2026): the predicate means «no definition ANYWHERE», not «no
+    // producer» — the definers pass enforces that precondition in THIS call,
+    // on the live database, whatever its history (the stopped 30.4.68 dry-run
+    // measured the bare predicate deleting 452 real uses in the analise:
+    // declared modules, private symbols, self-references, external reexports).
+    db.resolve_consumer_kinds_from_definers()
+        .map_err(|e| purge_error("definer resolution", e))?;
     let conn = db.conn_ref();
     let outcome = PhantomPurgeOutcome {
         edges: count_where(conn, phantom_predicate())?,
@@ -898,7 +915,9 @@ mod tests {
         producer(&rt, "src/helpers.rs", "real_fn");
         db.record_consumer("src/helpers.rs", "real_fn", "src/consumer.rs", None)
             .expect("healthy edge");
-        // The phantom: unknown kind, no producer anywhere.
+        // The phantom: unknown kind, no producer anywhere — and its definitor
+        // WAS read by the index (an empty table is a measurement, not an
+        // absence; an unread definitor is UNMEASURED and spared, I17 25/09).
         db.conn_ref()
             .execute(
                 "INSERT INTO wiring_map
@@ -907,6 +926,13 @@ mod tests {
                 [],
             )
             .expect("seed phantom");
+        db.conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES ('src/lib.rs', 0, 0, 0, '[]')",
+                [],
+            )
+            .expect("definitor lido, nome ausente");
         // An unknown-kind consumer WITH a producer — resolvable later, NOT phantom.
         producer(&rt, "src/later.rs", "late_fn");
         db.conn_ref()
@@ -944,6 +970,100 @@ mod tests {
             purge_phantom_edges(db, false).expect("again").edges,
             0,
             "idempotent"
+        );
+        drop(rt);
+        drop(proj);
+    }
+
+    /// I17 (25/09/2026, touring-36): the purge's predicate means «no definition
+    /// ANYWHERE», never «no producer». The definers pass runs INSIDE the purge,
+    /// so the three legitimate classes the stopped 30.4.68 dry-run would have
+    /// deleted survive by construction: the declared module, the private
+    /// symbol, the self-reference — and the definitor-imported name is an
+    /// `external_reexport` (also belted by `wiring_unresolved`). Only the true
+    /// phantom dies.
+    #[test]
+    fn phantom_purge_spares_every_class_that_has_a_definition_somewhere() {
+        let (proj, rt) = polyglot_project(&[("src/consumer.rs", "fn main() {}\n")]);
+        let db = &rt.ctx.knowledge;
+        let seed_symbols = |file: &str, entries: &[(&str, &str)]| {
+            let json = serde_json::to_string(
+                &entries
+                    .iter()
+                    .map(|(name, kind)| serde_json::json!({"symbol_name": name, "kind": kind}))
+                    .collect::<Vec<_>>(),
+            )
+            .expect("json");
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                     VALUES (?1, 0, 0, 0, ?2)",
+                    rusqlite::params![file, json],
+                )
+                .expect("seed symbols");
+        };
+        let seed_consumer = |module: &str, symbol: &str, consumer: &str| {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map
+                     (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                     VALUES (?1, ?2, 'unknown', 'public', ?3, 'ast_resolved')",
+                    rusqlite::params![module, symbol, consumer],
+                )
+                .expect("seed consumer");
+        };
+
+        // 1. módulo declarado (opção B, crédito de módulo a si mesmo)
+        seed_symbols("src/mod.rs", &[("a_bindings", "module")]);
+        seed_consumer("src/mod.rs", "a_bindings", "src/mod.rs");
+        // 2. símbolo PRIVADO do definidor
+        seed_symbols("src/selo.rs", &[("_INDICE", "const")]);
+        seed_consumer("src/selo.rs", "_INDICE", "src/consumer.rs");
+        // 3. auto-referência: o CONSUMIDOR declara o próprio helper
+        seed_symbols("src/consumer.rs", &[("helper_fn", "function")]);
+        seed_consumer("src/lib.rs", "helper_fn", "src/consumer.rs");
+        // 4. reexporte externo: o definidor importa o nome de fora
+        seed_consumer("src/_compat.rs", "AssetCheckResult", "src/consumer.rs");
+        db.record_unresolved_import("dagster", "AssetCheckResult", "src/_compat.rs", None, "rust")
+            .expect("unresolved import");
+        // 5. a fantasma de verdade: o definidor FOI lido pelo índice e o nome
+        //    não está lá (tabela vazia = medido, não ausente)
+        seed_symbols("src/lib.rs", &[]);
+        seed_consumer("src/lib.rs", "ghost_fn", "src/consumer.rs");
+        // 6. o definidor AUSENTE do índice: «sem definição» é UNMEASURED, não
+        //    fantasma (2 de 235 no analise) — poupado para o doctor contar
+        seed_consumer("src/facade_init.rs", "lower", "src/consumer.rs");
+
+        let preview = purge_phantom_edges(db, true).expect("dry-run");
+        assert_eq!(preview.edges, 1, "só a fantasma é apagável: {:#?}", preview.sample);
+        let applied = purge_phantom_edges(db, false).expect("apply");
+        assert_eq!(applied.edges, 1);
+
+        let kind = |module: &str, symbol: &str, consumer: &str| -> Option<String> {
+            db.conn_ref()
+                .query_row(
+                    "SELECT symbol_kind FROM wiring_map
+                     WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file = ?3",
+                    rusqlite::params![module, symbol, consumer],
+                    |r| r.get(0),
+                )
+                .ok()
+        };
+        assert_eq!(kind("src/mod.rs", "a_bindings", "src/mod.rs").as_deref(), Some("module"));
+        assert_eq!(kind("src/selo.rs", "_INDICE", "src/consumer.rs").as_deref(), Some("const"));
+        assert_eq!(
+            kind("src/lib.rs", "helper_fn", "src/consumer.rs").as_deref(),
+            Some("function")
+        );
+        assert_eq!(
+            kind("src/_compat.rs", "AssetCheckResult", "src/consumer.rs").as_deref(),
+            Some("external_reexport")
+        );
+        assert_eq!(kind("src/lib.rs", "ghost_fn", "src/consumer.rs"), None, "a fantasma morreu");
+        assert_eq!(
+            kind("src/facade_init.rs", "lower", "src/consumer.rs").as_deref(),
+            Some("unknown"),
+            "o definidor ausente do índice é UNMEASURED — poupado, segue unknown"
         );
         drop(rt);
         drop(proj);
