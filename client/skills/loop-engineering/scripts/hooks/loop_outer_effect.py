@@ -240,6 +240,21 @@ def main() -> int:
     except Exception:  # noqa: BLE001 — fail-open
         return 0
 
+    # Once per (task, file): promote-only (24/09) keeps a REAL registered task —
+    # and with it the "active" status — so the `status != "outer"` test alone
+    # re-armed (and re-fired) the effect on EVERY edit after step 11 registered
+    # the DAG task: 6 denies in a row on the same rlm.rs, measured live. The
+    # gate keeps its own tombstone, which write_marker carries across refreshes
+    # of the same cycle and drops when a new cycle begins.
+    topic_now = Path(file_path).name or ""
+    delivered = (marker or {}).get("effect_delivered") or {}
+    if (
+        marker
+        and delivered.get("task") == marker.get("task")
+        and topic_now in (delivered.get("topics") or [])
+    ):
+        return 0
+
     # ── Opção D (Gabriel, 03/09/2026): arm on the MEASURED scope of the change ──
     #
     # With no marker, the old design fell back to a regex over the prompt text, and on
@@ -290,6 +305,14 @@ def main() -> int:
     # case is one missed nudge, never a turn that cannot edit. Fail-open is the
     # invariant this whole subsystem is held to.
     marker["effect_pending"] = False
+    # The once-per-(task, file) tombstone: promote-only can legitimately flip
+    # `status` back to "active" (a real task is registered), and the re-arm
+    # branch keys on `status` — without this record the gate re-fires forever.
+    if (marker.get("effect_delivered") or {}).get("task") != marker.get("task"):
+        marker["effect_delivered"] = {"task": marker.get("task"), "topics": []}
+    topics = marker["effect_delivered"].setdefault("topics", [])
+    if topic_now and topic_now not in topics:
+        topics.append(topic_now)
     try:
         save_marker(path, marker)
     except Exception:  # noqa: BLE001
