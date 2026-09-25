@@ -709,23 +709,27 @@ fn blank_raw_string(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usi
 ///
 /// Returns `None` when the hit is not attributable to one line on its own — the
 /// caller then omits the location rather than guessing.
-fn first_offending_line(raw: &str) -> Option<usize> {
+fn first_offending(raw: &str) -> Option<(usize, &'static str)> {
     scan_lines(raw).0
 }
 
 /// Both per-line signals, computed over ONE raw↔projection pairing.
 ///
-/// Returns `(1-based line of the first strong hit, weak)`. The projection
-/// ([`strip_strings_and_comments`]) is byte-length preserving, so a byte index
-/// found in a projection line addresses the SAME byte of the raw line — the
-/// invariant the delimiter resolution in [`line_has_strong_secret`] rests on,
-/// pinned by `the_code_projection_addresses_the_same_bytes_as_the_raw_source`.
+/// Returns `(first strong hit as (1-based line, the rule that fired), weak)`.
+/// The projection ([`strip_strings_and_comments`]) is byte-length preserving,
+/// so a byte index found in a projection line addresses the SAME byte of the
+/// raw line — the invariant the delimiter resolution in
+/// [`line_strong_rule`] rests on, pinned by
+/// `the_code_projection_addresses_the_same_bytes_as_the_raw_source`.
 ///
 /// One pairing site on purpose: [`scan`], [`scan_text`] and
-/// [`first_offending_line`] each ran their own `raw.lines().position(…)` until
-/// 04/09/2026, which is how the strong path came to disagree with the weak one
-/// about what a string literal is.
-fn scan_lines(raw: &str) -> (Option<usize>, bool) {
+/// [`first_offending`] each ran their own `raw.lines().position(…)` until
+/// 04/09/2026, which is how the strong path came to disagree with the weak
+/// one about what a string literal is. The rule name rides along since
+/// 25/09/2026 (touring-36): the evidence must name `arquivo:linha:regra` of
+/// each finding — a line number alone left the author bisecting WHICH of
+/// the detector's families fired.
+fn scan_lines(raw: &str) -> (Option<(usize, &'static str)>, bool) {
     let code = strip_strings_and_comments(raw);
     let mut codes = code.lines();
     let mut first_strong = None;
@@ -733,8 +737,8 @@ fn scan_lines(raw: &str) -> (Option<usize>, bool) {
         // Fail-CLOSED if the projection ever runs short: the raw line becomes its
         // own projection, i.e. the pre-fix (strictly more sensitive) reading.
         let code_line = codes.next().unwrap_or(line);
-        if line_is_strong(line, code_line) {
-            first_strong = Some(idx + 1);
+        if let Some(rule) = line_is_strong(line, code_line) {
+            first_strong = Some((idx + 1, rule));
             break;
         }
     }
@@ -795,17 +799,24 @@ fn has_structural_token(text: &str) -> bool {
 }
 
 /// Every strong signal a SINGLE line can carry on its own — the file-wide
-/// predicates applied to one line, plus the per-line paths.
+/// predicates applied to one line, plus the per-line paths. Returns the NAME
+/// of the rule that fired (the evidence's `regra` in `arquivo:linha:regra`).
 ///
 /// This is what makes a hit LOCATABLE. Both file-wide predicates are evaluated
 /// here from the same functions [`scan`] uses, so "the file is dirty" and "this
 /// line is why" can never disagree. Before 04/09/2026 there were two rival
-/// locators — [`first_offending_line`] ran the whole `scan` per line (markers
-/// included) while `scan_text` ran only [`line_has_strong_secret`] (markers
+/// locators — [`first_offending`] ran the whole `scan` per line (markers
+/// included) while `scan_text` ran only [`line_strong_rule`] (markers
 /// excluded), so the same `ghp_…` file reported line 3 through one call and
 /// `None` through the other.
-fn line_is_strong(line: &str, code: &str) -> bool {
-    has_strong_marker(line) || has_structural_token(line) || line_has_strong_secret(line, code)
+fn line_is_strong(line: &str, code: &str) -> Option<&'static str> {
+    if has_strong_marker(line) {
+        return Some("provider-marker");
+    }
+    if has_structural_token(line) {
+        return Some("structural-token");
+    }
+    line_strong_rule(line, code)
 }
 
 fn scan(raw: &str) -> (bool, bool) {
@@ -847,6 +858,10 @@ pub struct SecretScan {
     /// (`None` only when nothing hit, or when no single line carries the signal
     /// on its own).
     pub first_line: Option<usize>,
+    /// The rule that fired at `first_line` (25/09/2026, touring-36): the
+    /// evidence names `arquivo:linha:regra` of each finding, and the rule is
+    /// the `regra` — the family the author must look for, never the value.
+    pub rule: Option<&'static str>,
     /// The text carries `ALLOW_SECRETS_PRAGMA` — explicitly allowlisted.
     pub allowlisted: bool,
 }
@@ -858,6 +873,7 @@ pub fn scan_text(raw: &str) -> SecretScan {
             strong: false,
             weak: false,
             first_line: None,
+            rule: None,
             allowlisted: true,
         };
     }
@@ -866,26 +882,30 @@ pub fn scan_text(raw: &str) -> SecretScan {
     // too: this returned `None` for every `ghp_…` file until 04/09/2026 because
     // it ran a narrower predicate than the gate did, so the pre-write hook could
     // say "secret detected" without saying where.
-    let first_line = if strong {
-        first_offending_line(raw)
+    let (first_line, rule) = if strong {
+        first_offending(raw)
+            .map(|(line, rule)| (Some(line), Some(rule)))
+            .unwrap_or((None, None))
     } else {
-        None
+        (None, None)
     };
     SecretScan {
         strong,
         weak,
         first_line,
+        rule,
         allowlisted: false,
     }
 }
 
 /// Per-line strong-signal check: connection-string credentials, a secret-named
 /// assignment (quoted literal OR unquoted hex/high-entropy RHS), or a generic
-/// high-entropy quoted literal. Extracted from [`scan`] to keep its CC low.
-fn line_has_strong_secret(line: &str, code: &str) -> bool {
+/// high-entropy quoted literal — returned as the rule that fired. Extracted
+/// from [`scan`] to keep its CC low.
+fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
     // (1c) connection string with inline credentials (`scheme://u:pw@host`).
     if has_connstring_creds(line) {
-        return true;
+        return Some("connstring-credentials");
     }
     // (2/2b) secret-named assignment. Prefer the `=` split so a type annotation
     // `let token: T = "…"` is handled by the assignment, not the colon. A quoted
@@ -905,13 +925,14 @@ fn line_has_strong_secret(line: &str, code: &str) -> bool {
             looks_like_secret_value_named(rhs)
         };
         if strong {
-            return true;
+            return Some("secret-named-assignment");
         }
     }
     // (3) generic high-entropy literal anywhere on the line → strong.
-    extract_quoted(line)
-        .iter()
-        .any(|l| looks_like_secret_value(l))
+    if extract_quoted(line).iter().any(|l| looks_like_secret_value(l)) {
+        return Some("high-entropy-literal");
+    }
+    None
 }
 
 /// Split `line` at its first code-level `=` (else `:`), located in `code` — the
@@ -1045,17 +1066,26 @@ impl Verification for F2_4_Secrets {
             (1.0, "no hardcoded secret detected")
         };
 
-        // Point at the offending line. This gate scores the WHOLE file, so a hit
-        // blocks every subsequent edit to it — without a line number the author
-        // has to bisect by hand to learn what tripped it (three times over on
-        // 2026-08-02, all false positives).
+        // Point at the finding as `arquivo:linha:regra` (25/09/2026,
+        // touring-36): this gate scores the WHOLE file, so a hit blocks every
+        // subsequent edit to it — without the line AND the rule the author
+        // has to bisect by hand to learn what tripped it (three times over
+        // on 2026-08-02, all false positives; again on 2026-09-25 with the
+        // route-path class, where the line alone did not say WHICH family
+        // fired).
         //
-        // The line NUMBER only: quoting the text would print the very credential
-        // this dim exists to protect, into terminal scrollback and CI logs.
-        let location = first_offending_line(&raw)
-            .map(|line| format!(" at line {line}"))
-            .unwrap_or_default();
-        let evidence = format!("Cryptographic Issues: {category}{location} — score={value:.3}");
+        // The location and the rule NAME only: quoting the text — or any
+        // slice of it — would print the very credential this dim exists to
+        // protect, into terminal scrollback and CI logs. The guard at the
+        // bottom of this module plants a synthetic secret and asserts no
+        // output format ever echoes it.
+        let evidence = match first_offending(&raw) {
+            Some((line, rule)) if strong => format!(
+                "Cryptographic Issues: {category} at {}:{line}:{rule} — score={value:.3}",
+                target.display()
+            ),
+            _ => format!("Cryptographic Issues: {category} — score={value:.3}"),
+        };
         Ok((value, evidence))
     }
 }
@@ -1817,13 +1847,13 @@ mod tests {
     #[test]
     fn evidence_points_at_the_offending_line_without_leaking_it() {
         let src = "fn main() {\n    let cfg = load();\n    let key = \"ghp_aBcDeF0123456789aBcDeF0123456789aBcD\";\n}\n";
-        assert_eq!(first_offending_line(src), Some(3));
+        assert_eq!(first_offending(src), Some((3, "provider-marker")));
 
         let s = score(src);
         assert_eq!(s.value, 0.0, "premise: this must block");
         assert!(
-            s.evidence.contains("at line 3"),
-            "evidence must locate the hit: {}",
+            s.evidence.contains(":3:provider-marker"),
+            "evidence must locate the hit as arquivo:linha:regra: {}",
             s.evidence
         );
         // The whole point of the redaction: the gate must not print the secret
@@ -1872,6 +1902,7 @@ mod tests {
                 strong: false,
                 weak: false,
                 first_line: None,
+                rule: None,
                 allowlisted: false
             }
         );
