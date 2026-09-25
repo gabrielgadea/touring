@@ -1072,7 +1072,24 @@ impl Verification for F2_4_Secrets {
             ));
         }
 
-        let (strong, weak) = scan(&raw);
+        // Line-level `# pragma: allowlist secret` suppression (gitleaks /
+        // detect-secrets convention). Each annotated line is stripped before
+        // the scan so a legitimate fixture can opt a single line out without
+        // using the whole-file `ALLOW_SECRETS_PRAGMA` marker.
+        const LINE_PRAGMA: &str = "pragma: allowlist secret";
+        let filtered_raw;
+        let scan_src: &str = if raw.contains(LINE_PRAGMA) {
+            filtered_raw = raw
+                .lines()
+                .filter(|l| !l.contains(LINE_PRAGMA))
+                .map(|l| format!("{l}\n"))
+                .collect::<String>();
+            &filtered_raw
+        } else {
+            &raw
+        };
+
+        let (strong, weak) = scan(scan_src);
         let (value, category): (f32, &str) = if strong {
             (
                 0.0,
