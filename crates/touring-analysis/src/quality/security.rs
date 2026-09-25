@@ -108,6 +108,15 @@ impl SecurityAnalyzer {
         if super::code_regions::is_shell_language(lang) {
             vuln_matches.retain(|v| !is_shell_idiom(source, v));
         }
+        // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler
+        // attribute with a CONSTANT value is inline JS, not CWE-79 — no
+        // untrusted data reaches it (`onclick="rodar('preset')"` in a
+        // Python-generated template failed P0 on a file of 05/09 nobody
+        // touched). A handler is a sink only when the value carries
+        // interpolation or a variable. This filter lives HERE, in the code
+        // judge — never in the shared `XssPattern`, because the concolic /
+        // payload path measures INPUT, where the handler IS the attack.
+        vuln_matches.retain(|v| !is_constant_handler_attribute(source, v));
         // One finding per pattern, the first that survived: the score keeps the
         // meaning it had when each pattern reported a single match.
         let mut seen: Vec<String> = Vec::new();
@@ -160,6 +169,57 @@ fn is_shell_syntax_payload(source: &str, m: &VulnMatch) -> bool {
 /// A match in a shell script that is how shell scripts are written, not an attack.
 fn is_shell_idiom(source: &str, m: &VulnMatch) -> bool {
     is_shell_syntax_payload(source, m) || is_script_relative_climb(source, m)
+}
+
+/// True when the XSS match is an HTML event-handler attribute whose VALUE is
+/// a CONSTANT — inline JS, not a sink (25/09/2026, touring-36, the analise-50
+/// judge: `<button onclick="rodar('preset')">` in a Python-generated HTML
+/// template failed P0 on a file of 05/09 nobody touched). A handler sinks
+/// only when the value carries TAINT: a `{…}` interpolation hole (f-string /
+/// Jinja / template), a `.format(` call, or a string-concatenation `+`
+/// adjacent to a quote (`" + name + "`).
+///
+/// Lives in the CODE judge, never in the shared `XssPattern` (which keeps
+/// flagging constant payloads): the concolic / payload path measures INPUT,
+/// where the handler IS the attack.
+fn is_constant_handler_attribute(source: &str, m: &VulnMatch) -> bool {
+    if m.pattern_name != "XSS" {
+        return false;
+    }
+    let Some(text) = source.get(m.span.0..m.span.1.min(source.len())) else {
+        return false;
+    };
+    // The handler arm's match text is `on<event>=`; a `<script` tag or a
+    // `javascript:` URI is a different arm, judged elsewhere.
+    if !(text.starts_with("on") && text.ends_with('=')) {
+        return false;
+    }
+    let line_end = source[m.span.1..]
+        .find('\n')
+        .map_or(source.len(), |i| m.span.1 + i);
+    let tail = &source[m.span.1..line_end];
+    let has_taint = tail.contains('{')
+        || tail.contains(".format(")
+        || has_concat_with_ident(tail);
+    !has_taint
+}
+
+/// A string concatenation with an identifier: `" + nome`, `' + nome`,
+/// `nome + "` — the quote and the identifier on opposite sides of the `+`,
+/// whitespace allowed between (the measured form is `" + nome + "`). A `+`
+/// between two constants (`a + b`, `1 + 2`) or two quotes is not taint.
+fn has_concat_with_ident(tail: &str) -> bool {
+    let b = tail.as_bytes();
+    let Some(at) = b.iter().position(|&c| c == b'+') else {
+        return false;
+    };
+    let left = b[..at].iter().rev().find(|c| !c.is_ascii_whitespace());
+    let right = b[at + 1..].iter().find(|c| !c.is_ascii_whitespace());
+    let left_is_quote = matches!(left, Some(b'"' | b'\''));
+    let left_is_ident = left.is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_');
+    let right_is_quote = matches!(right, Some(b'"' | b'\''));
+    let right_is_ident = right.is_some_and(|c| c.is_ascii_alphabetic() || *c == b'_');
+    (left_is_quote && right_is_ident) || (left_is_ident && right_is_quote)
 }
 
 /// A `../` climb anchored at the script's own directory.
