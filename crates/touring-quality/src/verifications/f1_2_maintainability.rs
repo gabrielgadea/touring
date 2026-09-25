@@ -78,7 +78,23 @@ fn analyze_maintainability_dim(target: &Path) -> Result<(f32, String)> {
                 ),
             )
         }
-        None => (mi_score, String::new()),
+        None => {
+            // No Rust AST available — apply a CC-based penalty for non-Rust
+            // languages (Python, TS, JS, …). High cyclomatic complexity is a
+            // direct maintainability hazard and the MI formula's `0.23·CC`
+            // term only logarithmically penalises deeply-nested functions at
+            // the file level. A per-function CC spike (max_complexity) is an
+            // independent signal: above CC=10 (McCabe's safe threshold) we
+            // subtract 0.02 per unit (capped at 0.35 so a deeply-nested file
+            // cannot reach 0.0 from MI alone — the MI floor still applies).
+            let cc_penalty = if m.max_complexity > 10 {
+                ((m.max_complexity as f32 - 10.0) * 0.02).min(0.35)
+            } else {
+                0.0_f32
+            };
+            let v = (mi_score - cc_penalty).clamp(0.0, 1.0);
+            (v, format!(" cc_penalty={cc_penalty:.2} (max_cc={})", m.max_complexity))
+        }
     };
 
     let evidence = format!(
