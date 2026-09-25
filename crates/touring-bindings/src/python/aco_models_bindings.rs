@@ -337,14 +337,21 @@ impl From<rs::ValidationResult> for ValidationResult {
 /// RLM memory storage (SQLite), as the analise's `learning_service` consumes
 /// it: `RlmMemory(); mem.read("skill_ranking")`.
 ///
-/// Constructor contract (measured in `touring_intelligence::rl::memory::rlm`):
-/// an optional path — omitted, it resolves the current project's canonical
-/// memory db (`.claude/touring/memory.db`, walk-up); a path that does not
-/// exist is CREATED empty. `read` of an absent key returns None, never
-/// raises (the backend's fallback keeps working).
+/// Contract (the coordinator's measurement, 25/09/2026): the omitted-path form
+/// resolves the project's canonical memory.db — the file the LIVE daemon owns
+/// — so the default is READ-ONLY (`SQLITE_OPEN_READ_ONLY`: no write PRAGMAs,
+/// no migrations, no DDL, no optimize; a reader never creates nor migrates
+/// another process's database — the `sqlite-so-leitura-abre-readonly` lesson
+/// crossing into Python). Writing requires `writable=True` with an EXPLICIT
+/// path — a writer names its database.
+///
+/// `read` of an absent key returns None, never raises (the backend's fallback
+/// keeps working); on a read-only handle it is a pure SELECT (the access-count
+/// bump in `get` is a write and would fail).
 #[pyclass(name = "RlmMemory", unsendable)]
 pub struct RlmMemory {
     inner: touring_intelligence::rl::memory::rlm::RlmMemory,
+    readonly: bool,
 }
 
 /// Resolve the canonical memory db of the current project (the same walk-up
@@ -363,49 +370,103 @@ fn default_db_path() -> std::path::PathBuf {
 
 #[pymethods]
 impl RlmMemory {
-    /// Open (or create) the memory db. `db_path` is optional: omitted, the
-    /// current project's canonical `.claude/touring/memory.db`.
+    /// Open the memory db. READ-ONLY by default: the file must exist and
+    /// nothing is created or migrated. `writable=True` requires an explicit
+    /// path — a writer names its database — and opens (or creates) it.
     #[new]
-    #[pyo3(signature = (db_path = None))]
-    fn new(db_path: Option<String>) -> PyResult<Self> {
-        let path = db_path
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(default_db_path);
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| PyValueError::new_err(format!("cannot create {}: {e}", parent.display())))?;
+    #[pyo3(signature = (db_path = None, writable = false))]
+    fn new(db_path: Option<String>, writable: bool) -> PyResult<Self> {
+        if writable {
+            let raw = db_path.ok_or_else(|| {
+                PyValueError::new_err(
+                    "writable=True requires an explicit db_path — a writer names \
+                     its database (the omitted-path form is read-only by design)",
+                )
+            })?;
+            let path = std::path::PathBuf::from(raw);
+            if let Some(parent) = path.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    PyValueError::new_err(format!("cannot create {}: {e}", parent.display()))
+                })?;
+            }
+            let inner = touring_intelligence::rl::memory::rlm::RlmMemory::new(&path)
+                .map_err(|e| PyValueError::new_err(format!("cannot open {}: {e}", path.display())))?;
+            return Ok(Self {
+                inner,
+                readonly: false,
+            });
         }
-        let inner = touring_intelligence::rl::memory::rlm::RlmMemory::new(&path)
-            .map_err(|e| PyValueError::new_err(format!("cannot open {}: {e}", path.display())))?;
-        Ok(Self { inner })
+        Self::open_readonly_impl(db_path)
+    }
+
+    /// Open the memory db READ-ONLY — the reader's explicit form. The file
+    /// must exist (a reader creates nothing); an omitted path resolves the
+    /// current project's canonical `.claude/touring/memory.db` by walk-up.
+    #[classmethod]
+    #[pyo3(signature = (db_path = None))]
+    fn open_readonly(
+        _cls: &Bound<'_, pyo3::types::PyType>,
+        db_path: Option<String>,
+    ) -> PyResult<Self> {
+        Self::open_readonly_impl(db_path)
     }
 
     /// Read a key. Absent → None (never raises). `tier` is optional: given,
     /// it filters exactly; omitted, the tiers are searched in persistence
     /// order (core → reference → working → ephemeral) and the first hit wins.
+    /// On a read-only handle this is a pure SELECT (never the access-count
+    /// bump); on a writable handle it keeps the bump semantics of `get`.
     #[pyo3(signature = (key, tier = None))]
     fn read(&self, key: &str, tier: Option<String>) -> PyResult<Option<String>> {
+        use touring_intelligence::rl::memory::rlm::MemoryTier;
         let tiers = [
-            touring_intelligence::rl::memory::rlm::MemoryTier::Core,
-            touring_intelligence::rl::memory::rlm::MemoryTier::Reference,
-            touring_intelligence::rl::memory::rlm::MemoryTier::Working,
-            touring_intelligence::rl::memory::rlm::MemoryTier::Ephemeral,
+            MemoryTier::Core,
+            MemoryTier::Reference,
+            MemoryTier::Working,
+            MemoryTier::Ephemeral,
         ];
         let wanted = tier.and_then(|t| tiers.iter().find(|x| x.as_str() == t).copied());
+        let get = |k: &str, t: MemoryTier| {
+            if self.readonly {
+                self.inner.get_readonly(k, t)
+            } else {
+                self.inner.get(k, t)
+            }
+        };
         match wanted {
-            Some(t) => self
-                .inner
-                .get(key, t)
-                .map_err(|e| PyValueError::new_err(e.to_string())),
+            Some(t) => get(key, t).map_err(|e| PyValueError::new_err(e.to_string())),
             None => {
                 for t in tiers {
-                    if let Ok(Some(v)) = self.inner.get(key, t) {
+                    if let Ok(Some(v)) = get(key, t) {
                         return Ok(Some(v));
                     }
                 }
                 Ok(None)
             }
         }
+    }
+}
+
+impl RlmMemory {
+    fn open_readonly_impl(db_path: Option<String>) -> PyResult<Self> {
+        let path = db_path
+            .map(std::path::PathBuf::from)
+            .unwrap_or_else(default_db_path);
+        if !path.is_file() {
+            return Err(PyValueError::new_err(format!(
+                "read-only open: {} does not exist — a reader creates nothing \
+                 (the writable form takes an explicit path)",
+                path.display()
+            )));
+        }
+        let inner = touring_intelligence::rl::memory::rlm::RlmMemory::open_readonly(&path)
+            .map_err(|e| {
+                PyValueError::new_err(format!("cannot open {} read-only: {e}", path.display()))
+            })?;
+        Ok(Self {
+            inner,
+            readonly: true,
+        })
     }
 }
 

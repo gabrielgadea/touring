@@ -179,27 +179,77 @@ def test_validation_result_takes_the_enum_status_and_optional_remediation(clk):
 
 
 # ── RlmMemory — the special-care type (the coordinator's verbatim questions) ─
+# Contract (25/09/2026): the omitted-path form resolves the project's LIVE
+# memory.db, which the daemon owns — so the default is READ-ONLY (no write
+# PRAGMAs, no migrations, no DDL; a reader creates nothing). Writing requires
+# `writable=True` with an explicit path — a writer names its database.
 
 
-def test_rlm_memory_explicit_path_creates_the_db_and_absent_key_reads_none(clk, tmp_path):
+def test_rlm_memory_writable_requires_an_explicit_path(clk):
+    with pytest.raises(ValueError, match="writable=True requires an explicit db_path"):
+        clk.RlmMemory(writable=True)
+
+
+def test_rlm_memory_writable_explicit_path_creates_and_absent_key_reads_none(clk, tmp_path):
     db = tmp_path / "mem" / "memory.db"
-    mem = clk.RlmMemory(str(db))
-    assert db.is_file(), "the constructor must open-or-create the db file"
-    # Absent key → None, never raises (the backend's fallback must keep working).
+    mem = clk.RlmMemory(str(db), writable=True)
+    assert db.is_file(), "the writable form opens-or-creates at the EXPLICIT path"
     assert mem.read("skill_ranking") is None
     assert mem.read("skill_ranking", "core") is None
-    assert mem.read("skill_ranking", "ephemeral") is None
 
 
-def test_rlm_memory_default_constructor_resolves_inside_the_cwd(clk, tmp_path, monkeypatch):
-    # Omitted path → the canonical `.claude/touring/memory.db` of the "project"
-    # found by walk-up from the cwd. Under a bare tmp dir there is no ancestor
-    # marker, so it must create a FRESH db there — never touch a real project db.
+def test_rlm_memory_default_is_readonly_and_creates_nothing(clk, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    mem = clk.RlmMemory()
-    expected = tmp_path / ".claude" / "touring" / "memory.db"
-    assert expected.is_file(), "the default path must materialize under the cwd walk-up"
+    with pytest.raises(ValueError, match="read-only open"):
+        clk.RlmMemory()
+    assert not (tmp_path / ".claude" / "touring" / "memory.db").exists(), (
+        "a reader never creates nor migrates another process's database"
+    )
+
+
+def test_rlm_memory_readonly_opens_an_existing_db_and_open_readonly_is_the_explicit_form(
+    clk, tmp_path, monkeypatch
+):
+    db = tmp_path / ".claude" / "touring" / "memory.db"
+    clk.RlmMemory(str(db), writable=True)  # the writer materializes it
+    monkeypatch.chdir(tmp_path)
+    mem = clk.RlmMemory()  # omitted path → canonical walk-up, READ-ONLY
     assert mem.read("absent") is None
+    explicit = clk.RlmMemory.open_readonly(str(db))
+    assert explicit.read("absent", "core") is None
+    with pytest.raises(ValueError, match="does not exist"):
+        clk.RlmMemory.open_readonly(str(tmp_path / "nope.db"))
+    assert not (tmp_path / "nope.db").exists()
+
+
+def test_rlm_memory_readonly_read_never_bumps_access_count(clk, tmp_path):
+    import sqlite3
+
+    db = tmp_path / "memory.db"
+    writable = clk.RlmMemory(str(db), writable=True)
+    raw = sqlite3.connect(str(db))
+    raw.execute(
+        "INSERT INTO memory_entries (key, tier, value, access_count) VALUES ('k', 'core', 'v', 0)"
+    )
+    raw.commit()
+    reader = clk.RlmMemory.open_readonly(str(db))
+    assert reader.read("k", "core") == "v"
+    reader.read("k", "core")
+    n = raw.execute("SELECT access_count FROM memory_entries WHERE key = 'k'").fetchone()[0]
+    assert n == 0, "the read-only read is a pure SELECT — never the bump"
+    assert writable.read("k", "core") == "v"
+    n = raw.execute("SELECT access_count FROM memory_entries WHERE key = 'k'").fetchone()[0]
+    assert n == 1, "the writable read keeps the bump (the control)"
+    raw.close()
+
+
+def test_rlm_memory_readonly_reader_beside_a_live_writer(clk, tmp_path):
+    db = tmp_path / "memory.db"
+    writer = clk.RlmMemory(str(db), writable=True)  # holds the WAL writer open
+    reader = clk.RlmMemory.open_readonly(str(db))
+    for _ in range(20):
+        assert reader.read("skill_ranking") is None
+    del writer  # the reader never blocked on it
 
 
 # ── JaccardComputer — in the simd submodule, not the package level ───────────
