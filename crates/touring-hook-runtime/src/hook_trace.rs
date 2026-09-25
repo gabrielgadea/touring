@@ -198,6 +198,54 @@ extern "C" fn flush_at_exit() {
 mod tests {
     use super::*;
 
+    /// Run THIS test binary again as a child that installs the trace and exits through
+    /// `mode`; return the `exit_reason` of the single line the child left behind.
+    fn child_exit_reason(test_name: &str, mode: &str) -> String {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let trace = dir.path().join("trace.jsonl");
+        let status = std::process::Command::new(std::env::current_exe().expect("test exe"))
+            .args(["--exact", test_name, "--nocapture", "--test-threads=1"])
+            .env("TOURING_TEST_EMIT_CHILD", mode)
+            .env(ENV_TRACE_FILE, &trace)
+            .status()
+            .expect("spawn child");
+        assert!(status.success(), "child exited with {status:?}");
+        let body = std::fs::read_to_string(&trace).expect("the child wrote its trace line");
+        let line: serde_json::Value =
+            serde_json::from_str(body.lines().last().expect("one line")).expect("json line");
+        line["exit_reason"].as_str().unwrap_or_default().to_string()
+    }
+
+    /// S14 (25/09/2026): `emit` exits the process; the trace must record WHY first.
+    /// Until S14 the label stayed at the install default `handler-diverged` (42/42
+    /// permission-request lines), so exits were indistinguishable from crashes.
+    #[test]
+    fn emit_records_exit_reason_before_exit() {
+        match std::env::var("TOURING_TEST_EMIT_CHILD").as_deref() {
+            Ok("allow") => {
+                install("test-emit");
+                crate::runtime::HookResponse::Allow.emit();
+            }
+            Ok("json") => {
+                install("test-emit");
+                crate::runtime::HookResponse::Context {
+                    context: "c".into(),
+                    event_name: None,
+                }
+                .emit();
+            }
+            Ok("ctx") => {
+                install("test-emit");
+                crate::runtime::HookRuntime::emit_context_for_event("c", Some("PostToolUse"));
+            }
+            _ => {}
+        }
+        let me = "hook_trace::tests::emit_records_exit_reason_before_exit";
+        assert_eq!(child_exit_reason(me, "allow"), "emit-allow");
+        assert_eq!(child_exit_reason(me, "json"), "emit-json");
+        assert_eq!(child_exit_reason(me, "ctx"), "emit-json");
+    }
+
     #[test]
     fn line_shape_carries_route_state_and_timing() {
         let line = build_line(

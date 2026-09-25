@@ -490,6 +490,7 @@ impl HookRuntime {
         }
         let output = serde_json::json!({ "hookSpecificOutput" : hso, });
         println!("{}", serde_json::to_string(&output).unwrap_or_default());
+        crate::hook_trace::set_reason("emit-json"); // S14: the exit reason, not the default
         std::process::exit(0)
     }
     /// Detect project root by walking up from cwd looking for `.claude/touring/` marker.
