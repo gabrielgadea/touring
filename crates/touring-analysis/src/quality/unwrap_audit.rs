@@ -113,13 +113,74 @@ pub fn count_prod_hazards(source: &str, lang: &str) -> ProdHazards {
         unwrap_lines.push(line_of(off));
     }
 
-    let expects = memmem::find_iter(bytes, b".expect(")
+    let mut expects = memmem::find_iter(bytes, b".expect(")
         .filter(|&off| !super::code_regions::offset_suppressed(off, &regions))
         .count();
 
-    let panics = memmem::find_iter(bytes, b"panic!")
+    let mut panics = memmem::find_iter(bytes, b"panic!")
         .filter(|&off| !super::code_regions::offset_suppressed(off, &regions))
         .count();
+
+    // Python-specific: bare `except:` (E722) mapped to panics (worst hazard);
+    // swallowed `except … :\n    pass` (S110/BLE001) mapped to expects.
+    if lang == "python" {
+        // `except:` — bare except swallows KeyboardInterrupt, SystemExit, etc.
+        // The needle ends with `:` so it doesn't match `except Exception:`.
+        let bare_needle: &[u8] = b"except:";
+        for off in memmem::find_iter(bytes, bare_needle) {
+            if super::code_regions::offset_suppressed(off, &regions) {
+                continue;
+            }
+            // Confirm there is no non-whitespace between `except` and `:` on the
+            // same byte range (bare except has no exception type before the `:`).
+            panics += 1;
+        }
+        // `except <Type>:\n<indent>pass` — exception type present but swallowed.
+        // Strategy: find every `except ` (with a space) whose containing except-
+        // clause body begins with `pass` (possibly after more whitespace).
+        let typed_needle: &[u8] = b"except ";
+        'outer: for off in memmem::find_iter(bytes, typed_needle) {
+            if super::code_regions::offset_suppressed(off, &regions) {
+                continue;
+            }
+            // Scan forward to the `:` that closes the except clause header.
+            let slice = &bytes[off..];
+            let colon_rel = match slice.iter().position(|&b| b == b':') {
+                Some(c) => c,
+                None => continue,
+            };
+            let after_colon = off + colon_rel + 1;
+            // Must be followed by whitespace/newline then `pass` with no other
+            // statement between the `:` and `pass`.
+            let rest = match bytes.get(after_colon..) {
+                Some(r) => r,
+                None => continue,
+            };
+            // Skip the rest of the line after the `:` (inline `pass` counts too).
+            let mut pos = 0;
+            // Skip optional space / inline content on the same line.
+            while pos < rest.len() && rest[pos] == b' ' {
+                pos += 1;
+            }
+            // Inline `except E: pass` pattern.
+            if rest.get(pos..pos + 4) == Some(b"pass") {
+                expects += 1;
+                continue 'outer;
+            }
+            // Skip to the next line.
+            if let Some(nl) = rest[pos..].iter().position(|&b| b == b'\n') {
+                let next_line_start = pos + nl + 1;
+                // Skip leading whitespace on the next line.
+                let mut np = next_line_start;
+                while np < rest.len() && (rest[np] == b' ' || rest[np] == b'\t') {
+                    np += 1;
+                }
+                if rest.get(np..np + 4) == Some(b"pass") {
+                    expects += 1;
+                }
+            }
+        }
+    }
 
     ProdHazards {
         unwraps,
