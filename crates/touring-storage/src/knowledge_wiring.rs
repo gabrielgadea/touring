@@ -783,6 +783,30 @@ pub struct WiringDbDiagnostic {
     pub heuristic_edges: i64,
 }
 
+/// The verdict of the facade belt of
+/// [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`].
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum FacadeVerdict {
+    /// A module dunder (`__file__`, `__name__`, …) — provided by Python itself
+    /// on every module; the attribute ALWAYS exists (measured by the runtime
+    /// oracle: `__file__` HAS on any module).
+    ModuleDunder,
+    /// `from <…>.<symbol> import …` (or `import <…>.<symbol>`) — importing the
+    /// submodule binds its name as an attribute of the package (measured by
+    /// the runtime oracle: `ontl` HAS on `scripts.external_apis`, whose facade
+    /// does `from scripts.external_apis.ontl import …`).
+    SubmoduleBound,
+    /// `from .x import *` followed statically and the name found in x's
+    /// `__all__` or top-level definitions — the name EXISTS at runtime.
+    ResolvedStar,
+    /// The facade has dynamic machinery (`__getattr__`, importlib, `_LAZY`,
+    /// `__all__ +=`) or an unresolvable star — the name MIGHT exist at
+    /// runtime; statics cannot say. Spared, visible.
+    Dynamic,
+    /// No dynamic machinery — the static instruments are the whole truth.
+    Nothing,
+}
+
 impl FileKnowledgeDB {
     /// Register a pub symbol in the wiring map.
     ///
@@ -1458,7 +1482,25 @@ impl FileKnowledgeDB {
                         // The index being blind is not the symbol being absent.
                         Some("index_blind".to_string())
                     } else {
-                        None
+                        // Facades (25/09/2026, touring-36): 183 of the 200
+                        // purgeable rows in the analise were facade
+                        // `__init__.py` imports — a name arriving by
+                        // `from .x import *` or a module-level `__getattr__`
+                        // (lazy) has NO literal definition in the facade, yet
+                        // exists at runtime. Both static instruments say
+                        // ABSENT; the runtime says EXISTS. The star is
+                        // resolved statically first (`reexport_star`); when it
+                        // cannot be, the row is `dynamic_export` — spared and
+                        // visible, never phantom.
+                        match Self::facade_dynamic_export(self.workspace_root(), module, symbol) {
+                            FacadeVerdict::ModuleDunder => Some("module_dunder".to_string()),
+                            FacadeVerdict::SubmoduleBound => {
+                                Some("reexport_submodule".to_string())
+                            }
+                            FacadeVerdict::ResolvedStar => Some("reexport_star".to_string()),
+                            FacadeVerdict::Dynamic => Some("dynamic_export".to_string()),
+                            FacadeVerdict::Nothing => None,
+                        }
                     }
                 }
             };
@@ -1492,6 +1534,110 @@ fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
         r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^{escaped}\s*[:=]"
     );
     regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
+}
+
+/// The facade belt (25/09/2026, touring-36): a facade `__init__.py` can export
+/// a name with NO literal definition — via `from .x import *` or a lazy
+/// `__getattr__`. The static instruments (symbols_json + the literal grep)
+/// say ABSENT while the runtime says EXISTS. The star is followed STATICALLY
+/// to the target's `__all__`/top-level definitions first; when the name is
+/// absent there too, the row is `Dynamic` (spared, visible), never phantom.
+fn facade_dynamic_export(root: Option<&str>, module: &str, symbol: &str) -> FacadeVerdict {
+    // Module dunders are provided by Python itself — the attribute always
+    // exists, on any module, no content needed.
+    const MODULE_DUNDERS: &[&str] = &[
+        "__name__", "__doc__", "__package__", "__loader__", "__spec__", "__file__",
+        "__cached__", "__path__", "__builtins__",
+    ];
+    if MODULE_DUNDERS.contains(&symbol) {
+        return FacadeVerdict::ModuleDunder;
+    }
+    let Some(root) = root else {
+        return FacadeVerdict::Nothing;
+    };
+    let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
+        return FacadeVerdict::Nothing;
+    };
+    // Importar o submódulo liga o nome como atributo do pacote. Três formas
+    // medidas no analise (oráculo de runtime, 25/09/2026):
+    //   from pkg.mod.frota import X   (absoluta — a única que o `[\w.]+` via)
+    //   from .frota import (          (relativa de UM ponto — o measured miss:
+    //     `[\w.]+\.frota` exigia algo antes do ponto final e `.frota` não casa)
+    //   from . import frota           (o nome na LISTA de importados, com ou
+    //     sem parênteses multi-linha)
+    // Falso positivo aqui só PoupA uma linha (classe conservadora) — nunca apaga.
+    let esc = regex::escape(symbol);
+    let sub_re = format!(
+        r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b|from\s+\.+\s+import\s+(?:\([^)]*\b{esc}\b|[^(#\n]*\b{esc}\b))",
+    );
+    if regex::Regex::new(&sub_re).is_ok_and(|re| re.is_match(&content)) {
+        return FacadeVerdict::SubmoduleBound;
+    }
+    let lazy = content.contains("def __getattr__")
+        || content.contains("importlib")
+        || content.contains("_LAZY")
+        || content.contains("__all__ +=")
+        || content.contains("__all__+=");
+    let star_re = regex::Regex::new(r"(?m)^\s*from\s+(\.[\w.]*)\s+import\s+\*").expect("static");
+    let stars: Vec<String> = star_re
+        .captures_iter(&content)
+        .map(|c| c[1].to_string())
+        .collect();
+    if !lazy && stars.is_empty() {
+        return FacadeVerdict::Nothing;
+    }
+    for target in &stars {
+        if let Some(names) = Self::star_target_names(root, module, target)
+            && names.iter().any(|n| n == symbol)
+        {
+            return FacadeVerdict::ResolvedStar;
+        }
+    }
+    FacadeVerdict::Dynamic
+}
+
+/// Resolve `from .x import *` in `module`: read x's source and return its
+/// exported names (its literal `__all__`, else its top-level def/class/
+/// assignments). None when unreadable — the star stays unresolved.
+fn star_target_names(root: &str, module: &str, target: &str) -> Option<Vec<String>> {
+    let pkg_dir = std::path::Path::new(module).parent()?;
+    // `.x.y` → relative to the module's package dir; a bare `.` is the package.
+    let rel = target.trim_start_matches('.');
+    let base = std::path::Path::new(root).join(pkg_dir);
+    let candidates = if rel.is_empty() {
+        vec![base.join("__init__.py")]
+    } else {
+        let rel_path = rel.replace('.', "/");
+        vec![base.join(format!("{rel_path}.py")), base.join(&rel_path).join("__init__.py")]
+    };
+    // Static patterns, compiled once (never inside the candidate loop).
+    let all_re = regex::Regex::new(r"(?s)__all__\s*=\s*\[(.*?)\]").expect("static");
+    let quoted_re = regex::Regex::new(r#""([^"]+)"|'([^']+)'"#).expect("static");
+    let def_re = regex::Regex::new(r"(?m)^(?:def\s+(\w+)|class\s+(\w+)|(\w+)\s*(?::[^=]*)?=)")
+        .expect("static");
+    for path in candidates {
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        // The literal `__all__ = [...]` first.
+        if let Some(cap) = all_re.captures(&content) {
+            let names = quoted_re
+                .captures_iter(&cap[1])
+                .filter_map(|c| c.get(1).or(c.get(2)))
+                .map(|m| m.as_str().to_string())
+                .collect();
+            return Some(names);
+        }
+        // Without `__all__`: the top-level def/class/assignment names.
+        let names: Vec<String> = def_re
+            .captures_iter(&content)
+            .filter_map(|c| c.get(1).or(c.get(2)).or(c.get(3)))
+            .filter(|m| !m.as_str().starts_with('_'))
+            .map(|m| m.as_str().to_string())
+            .collect();
+        return Some(names);
+    }
+    None
 }
 
 /// Find producer rows whose `symbol_name` matches any of the supplied
@@ -3192,8 +3338,95 @@ mod consumer_kind_resolution_tests {
         db.record_consumer("src/blind.rs", "GRAFIAS", "src/consumer.rs", Some(7))
             .expect("blind consumer");
 
+        // Classes 7a/7b (25/09, touring-36): fachadas `__init__.py`. Um nome que
+        // chega por `from .x import *` ou por `__getattr__` (lazy) NÃO tem
+        // definição literal na fachada, mas EXISTE em runtime.
+        let pkg = tmp.path().join("pkg");
+        std::fs::create_dir_all(&pkg).expect("pkg");
+        std::fs::write(pkg.join("__init__.py"), "from .impl import *\n").expect("facade star");
+        std::fs::write(pkg.join("impl.py"), "def the_thing():\n    pass\n").expect("impl");
+        seed_symbols(&db, "pkg/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg/__init__.py', 'the_thing', 'unknown', 'public', 'src/consumer.rs', 8, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("star consumer");
+        let pkg2 = tmp.path().join("pkg2");
+        std::fs::create_dir_all(&pkg2).expect("pkg2");
+        std::fs::write(
+            pkg2.join("__init__.py"),
+            "def __getattr__(name):\n    raise AttributeError(name)\n",
+        )
+        .expect("facade lazy");
+        seed_symbols(&db, "pkg2/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg2/__init__.py', 'lazy_name', 'unknown', 'public', 'src/consumer.rs', 9, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("lazy consumer");
+
+        // Classe 8a: dunder de módulo — o Python provê em TODO módulo (oráculo
+        // de runtime, 25/09: `__file__` HAS em qualquer um).
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg/__init__.py', '__file__', 'unknown', 'public', 'src/consumer.rs', 10, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("dunder row");
+        // Classe 8b: o nome é o SUBMÓDULO que a fachada importa — importar
+        // `pkg3.impl` liga o nome `impl` como atributo do pacote (oráculo:
+        // `ontl` HAS em `scripts.external_apis`).
+        let pkg3 = tmp.path().join("pkg3");
+        std::fs::create_dir_all(&pkg3).expect("pkg3");
+        std::fs::write(pkg3.join("__init__.py"), "from pkg3.impl import Client\n")
+            .expect("facade sub");
+        std::fs::write(pkg3.join("impl.py"), "class Client:\n    pass\n").expect("impl3");
+        seed_symbols(&db, "pkg3/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg3/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 11, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("submodule row");
+        // Classe 8c: a forma RELATIVA de um ponto — `from .impl import (` — o
+        // measured miss do oráculo 25/09 (frota/slides/api_client/ipca_update
+        // runtime-PRESENTES que o regex antigo não via: `[\w.]+\.` exigia algo
+        // antes do ponto final).
+        let pkg4 = tmp.path().join("pkg4");
+        std::fs::create_dir_all(&pkg4).expect("pkg4");
+        std::fs::write(pkg4.join("__init__.py"), "from .impl import (\n    Client,\n)\n")
+            .expect("facade relative sub");
+        std::fs::write(pkg4.join("impl.py"), "class Client:\n    pass\n").expect("impl4");
+        seed_symbols(&db, "pkg4/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg4/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 12, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("relative submodule row");
+        // Classe 8d: `from . import impl` — o nome na LISTA de importados.
+        let pkg5 = tmp.path().join("pkg5");
+        std::fs::create_dir_all(&pkg5).expect("pkg5");
+        std::fs::write(pkg5.join("__init__.py"), "from . import impl\n").expect("facade from-dot");
+        std::fs::write(pkg5.join("impl.py"), "class Client:\n    pass\n").expect("impl5");
+        seed_symbols(&db, "pkg5/__init__.py", &[]);
+        db.conn_ref()
+            .execute(
+                "INSERT INTO wiring_map (module_file, symbol_name, symbol_kind, visibility, consumer_file, import_line, contract_source, resolved_at)
+                 VALUES ('pkg5/__init__.py', 'impl', 'unknown', 'public', 'src/consumer.rs', 13, 'ast_resolved', datetime('now'))",
+                [],
+            )
+            .expect("from-dot submodule row");
+
         let n = db.resolve_consumer_kinds_from_definers().expect("pass");
-        assert_eq!(n, 6, "as 6 classes legítimas resolvem; a fantasma fica");
+        assert_eq!(n, 12, "as 12 classes legítimas resolvem; a fantasma fica");
         assert_eq!(kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"), "module");
         assert_eq!(
             kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
@@ -3214,6 +3447,36 @@ mod consumer_kind_resolution_tests {
         assert_eq!(
             kind_of(&db, "src/blind.rs", "GRAFIAS", "src/consumer.rs"),
             "index_blind"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg/__init__.py", "the_thing", "src/consumer.rs"),
+            "reexport_star",
+            "a estrela seguida estaticamente até o `def` do impl"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg2/__init__.py", "lazy_name", "src/consumer.rs"),
+            "dynamic_export",
+            "o `__getattr__` lazy — o estático não pode dizer; poupado e visível"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg/__init__.py", "__file__", "src/consumer.rs"),
+            "module_dunder",
+            "o Python provê o dunder em todo módulo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg3/__init__.py", "impl", "src/consumer.rs"),
+            "reexport_submodule",
+            "importar o submódulo liga o nome no pacote"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg4/__init__.py", "impl", "src/consumer.rs"),
+            "reexport_submodule",
+            "a forma relativa de um ponto (`from .impl import (`) — o measured miss do oráculo"
+        );
+        assert_eq!(
+            kind_of(&db, "pkg5/__init__.py", "impl", "src/consumer.rs"),
+            "reexport_submodule",
+            "o nome na lista de importados (`from . import impl`)"
         );
         assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
         // Idempotente: a segunda passada não toca em nada.
