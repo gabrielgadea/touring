@@ -259,31 +259,72 @@ static RULES: &[ConfigRule] = &[
     // CWE-798 — hardcoded / default credentials in a config file. Precision-tuned
     // to well-known placeholder secrets to avoid overlap with F2.4 (which owns
     // high-entropy real secrets) and false hits on prose (W2 2026-07-02).
+    //
+    // 25/09/2026 (touring-36, the analise's backend judge): the value must be a
+    // WEAK LITERAL — quoted or bare, from the known-default list. The substring
+    // form matched weak tokens ANYWHERE in the line, so `: password` fired
+    // inside the type annotation `data: PasswordResetRequest` and `=password`
+    // inside the `password_hash=password_hash` kwarg — the whole backend's P0
+    // was false positive (the only real hits were the test fixtures, the dim's
+    // legitimate target). A type annotation, a bare identifier, an attribute, a
+    // call, or a `kwarg=variable` is READ, never a default credential.
     ConfigRule {
         name: "default_or_weak_credentials",
         cwe_id: 798,
         severity: 4.0,
-        matches: |l, _r| {
+        matches: |l, r| {
             let has_cred_key = l.contains("password")
                 || l.contains("passwd")
                 || l.contains("secret_key")
                 || l.contains("secret-key")
                 || l.contains("api_key")
                 || l.contains("api-key");
-            has_cred_key
-                && (l.contains("changeme")
-                    || l.contains("change_me")
-                    || l.contains("password123")
-                    || l.contains(": admin")
-                    || l.contains(":admin")
-                    || l.contains("\"admin\"")
-                    || l.contains("'admin'")
-                    || l.contains(": password")
-                    || l.contains("=password")
-                    || l.contains("= \"password\""))
+            has_cred_key && weak_literal_value(r)
         },
     },
 ];
+
+/// CWE-798's value side: the RHS (after `=` or `:`) must be a weak LITERAL —
+/// a quoted or bare token from the known-default list. The code-vs-literal
+/// judgment is the shared [`touring_foundation::security::is_code_expression`]
+/// — THE single source, the same predicate F2.4 secrets uses, never a second
+/// copy (touring-36, 25/09/2026).
+fn weak_literal_value(line: &str) -> bool {
+    let Some((_, rhs)) = line.split_once('=').or_else(|| line.split_once(':')) else {
+        return false;
+    };
+    let rhs = rhs.trim();
+    if touring_foundation::security::is_code_expression(rhs) {
+        return false;
+    }
+    // A QUOTED literal keeps its content verbatim (`"pa#ss"` is no comment); a
+    // BARE value ends at the first comment marker (`db_password: password123
+    // # rotation note` — the no-leak guard's planted line, which the
+    // comment-tail hid from the exact match).
+    let bare = if rhs.starts_with('"') || rhs.starts_with('\'') {
+        rhs.trim_end_matches([',', ';'])
+            .trim_matches(|c| c == '"' || c == '\'')
+            .to_ascii_lowercase()
+    } else {
+        rhs.split('#')
+            .next()
+            .unwrap_or(rhs)
+            .split("//")
+            .next()
+            .unwrap_or(rhs)
+            .trim_end()
+            .trim_end_matches([',', ';'])
+            .to_ascii_lowercase()
+    };
+    // Exact-match list (never substring): the weak defaults a scanner can own
+    // without entering F2.4's high-entropy territory. `root` is the postgres
+    // default (touring-36's positive list); `test`/`default` stay OUT — a bare
+    // identifier of that name would false-fire.
+    const WEAK: &[&str] = &[
+        "admin", "password", "changeme", "change_me", "password123", "root", "123456", "12345678",
+    ];
+    WEAK.contains(&bare.as_str())
+}
 
 #[cfg(test)]
 mod tests {
@@ -351,6 +392,50 @@ mod tests {
     fn default_credentials_flagged() {
         let r = ConfigSecurityAnalyzer::new().analyze("db:\n  password: changeme\n", "yaml");
         assert!(r.misconfigs.iter().any(|m| m.cwe_id == 798));
+    }
+
+    /// touring-36 (25/09/2026): the value must be a WEAK LITERAL — a type
+    /// annotation, a bare identifier, an attribute, a call, or a
+    /// `kwarg=variable` is READ, never a default credential. The four
+    /// measured false-positive forms from the analise's backend judge on the
+    /// left; the controls that must keep failing on the right.
+    #[test]
+    fn cwe798_needs_a_weak_literal_value_not_a_password_word() {
+        // The 4 real flagged lines of the backend's P0 — all false positives,
+        // all this class.
+        for negative in [
+            "    data: PasswordResetRequest,",
+            "    data: PasswordResetConfirm,",
+            "    data: PasswordChangeRequest,",
+            "        password_hash=password_hash,",
+            // Same class, untested by the judge but the same shape:
+            "api_key = settings.API_KEY",
+            r#"secret = os.environ.get("APP_SECRET")"#,
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(negative, "python");
+            assert!(
+                !r.misconfigs.iter().any(|m| m.cwe_id == 798),
+                "no CWE-798 on a READ (no literal): {negative} → {:?}",
+                r.misconfigs
+            );
+        }
+        for positive in [
+            r#"password = "admin""#,
+            r#"DEFAULT_PASSWORD = "changeme""#,
+            r#"password="password123""#,
+            r#"db_password: str = "root""#,
+            // The yaml-bare form (no quotes) is still a literal — and a
+            // trailing COMMENT does not hide it (the no-leak guard's plant).
+            "db_password: password123  # rotation note",
+            "db_password: admin",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(positive, "python");
+            assert!(
+                r.misconfigs.iter().any(|m| m.cwe_id == 798),
+                "CWE-798 on a weak literal: {positive} → {:?}",
+                r.misconfigs
+            );
+        }
     }
 
     #[test]

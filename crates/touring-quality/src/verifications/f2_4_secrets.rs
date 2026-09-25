@@ -344,34 +344,14 @@ fn has_connstring_creds(line: &str) -> bool {
         && !is_readable_placeholder(pass)
 }
 
-/// True when `v` is CODE, not a literal: a call (`os.environ.get(…)`) or an
-/// identifier/attribute path (`status.HTTP_202_ACCEPTED`, with the call's
-/// closing paren attached). Such an RHS is READ, never hardcoded — and only a
-/// hardcoded value can be a leaked secret.
-///
-/// Measured 25/09/2026 (touring-36, the analise's backend judge, P0 0.000):
-/// `@router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)`
-/// failed — the decorator's first `=` is the `status_code=` kwarg, so the
-/// split named the LHS from "password" in the ROUTE, and the enum path
-/// scored as a high-entropy assigned value. A route path or an identifier
-/// is not a credential.
-///
-/// Why detection holds: no real token carries `(`; a `)`-terminated enum
-/// path is never one either; and a DOTTED value that IS a credential (a
-/// JWT) still lands on the structural-token path
-/// ([`has_structural_token`]), which reads the raw line BEFORE this check
-/// runs — the `TOKEN=eyJ…` case keeps blocking through it, pinned by the
-/// regression test below.
-fn is_code_expression(v: &str) -> bool {
-    if v.contains('(') {
-        return true;
-    }
-    let core = v.trim_end_matches(')');
-    core.contains('.')
-        && core
-            .split('.')
-            .all(|seg| !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
-}
+/// The code-vs-literal predicate: ONE source, shared with the OWASP A05
+/// config analyzer (`default_or_weak_credentials`), which judges the same
+/// class of lines (touring-36, 25/09/2026 — a second copy is how the two
+/// dims would drift into disagreeing about the same line). Lives in
+/// `touring_foundation::security` because the analyzer crate cannot depend
+/// on this one, and neither may depend on the other with an optional
+/// feature in the way.
+use touring_foundation::security::is_code_expression;
 
 /// Value check used when the assignment target NAMES a secret. Following gitleaks'
 /// keyword-prefilter pattern, the naming context raises confidence enough to relax
