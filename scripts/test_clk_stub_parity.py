@@ -37,8 +37,13 @@ INNER_STUB = (
 )
 SO = ROOT / "target" / "debug" / "libclaude_learning_kernel.so"
 
+# The registered submodules the guard drills into (members compared name for
+# name). Self-maintaining: `test_the_declared_submodule_list_matches_the_runtime`
+# fails the moment a submodule registers that this list does not name.
+SUBMODULES = ("simd", "search_index")
 
-def _runtime_names() -> tuple[set[str], set[str]]:
+
+def _runtime_names() -> tuple[set[str], dict[str, set[str]]]:
     # Replicate the INSTALLED layout exactly (measured in the wheel):
     # `claude_learning_kernel/__init__.py` (maturin's star-import shim) +
     # `claude_learning_kernel/claude_learning_kernel.so` nested — that is
@@ -66,14 +71,33 @@ def _runtime_names() -> tuple[set[str], set[str]]:
     top = {n for n in dir(clk) if not n.startswith("_")}
     if hasattr(clk, "__version__"):
         top.add("__version__")
-    simd_names = {n for n in dir(clk.simd) if not n.startswith("_")}
-    return top, simd_names
+    subs = {
+        name: {n for n in dir(getattr(clk, name)) if not n.startswith("_")}
+        for name in SUBMODULES
+    }
+    return top, subs
 
 
-def _stub_names(path: Path) -> tuple[set[str], set[str]]:
+def _runtime_submodule_names(mod) -> dict[str, set[str]]:
+    """The module-typed attributes of a runtime module (minus the inner
+    self-alias `claude_learning_kernel`) — the truth the SUBMODULES registry
+    is checked against."""
+    import inspect
+
+    return {
+        name: {n for n in dir(attr) if not n.startswith("_")}
+        for name in dir(mod)
+        if not name.startswith("_")
+        and name != "claude_learning_kernel"
+        for attr in [getattr(mod, name)]
+        if inspect.ismodule(attr)
+    }
+
+
+def _stub_names(path: Path) -> tuple[set[str], dict[str, set[str]]]:
     tree = ast.parse(path.read_text(encoding="utf-8"))
     top: set[str] = set()
-    simd_members: set[str] = set()
+    subs: dict[str, set[str]] = {}
     for node in tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
             top.add(node.name)
@@ -82,12 +106,14 @@ def _stub_names(path: Path) -> tuple[set[str], set[str]]:
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             top.add(node.target.id)
     for node in tree.body:
-        if isinstance(node, ast.ClassDef) and node.name == "simd":
-            for sub in node.body:
-                if isinstance(sub, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-                    simd_members.add(sub.name)
+        if isinstance(node, ast.ClassDef) and node.name in SUBMODULES:
+            subs[node.name] = {
+                sub.name
+                for sub in node.body
+                if isinstance(sub, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+            }
     # `__all__` is a dunder — out of the name sets, compared separately.
-    return {n for n in top if not n.startswith("_") or n == "__version__"}, simd_members
+    return {n for n in top if not n.startswith("_") or n == "__version__"}, subs
 
 
 def _stub_all(path: Path) -> list[str]:
@@ -112,15 +138,28 @@ def _runtime_all() -> list[str]:
 
 @pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
 def test_the_stub_matches_the_runtime_surface_name_for_name():
-    top_rt, simd_rt = _runtime_names()
-    top_stub, simd_stub = _stub_names(STUB)
+    top_rt, subs_rt = _runtime_names()
+    top_stub, subs_stub = _stub_names(STUB)
     assert top_stub == top_rt, (
         f"top-level drift — só no stub: {sorted(top_stub - top_rt)} | "
         f"só em runtime: {sorted(top_rt - top_stub)}"
     )
-    assert simd_stub == simd_rt, (
-        f"simd drift — só no stub: {sorted(simd_stub - simd_rt)} | "
-        f"só em runtime: {sorted(simd_rt - simd_stub)}"
+    for name in SUBMODULES:
+        assert subs_stub.get(name, set()) == subs_rt.get(name, set()), (
+            f"{name} drift — só no stub: {sorted(subs_stub.get(name, set()) - subs_rt.get(name, set()))} | "
+            f"só em runtime: {sorted(subs_rt.get(name, set()) - subs_stub.get(name, set()))}"
+        )
+
+
+@pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
+def test_the_declared_submodule_list_matches_the_runtime():
+    """A submodule that registers without entering SUBMODULES fails here —
+    the registry the guard drills into can never silently fall behind."""
+    import claude_learning_kernel as clk  # loaded by the surface test above
+
+    assert set(_runtime_submodule_names(clk)) == set(SUBMODULES), (
+        f"runtime submodules {sorted(_runtime_submodule_names(clk))} ≠ "
+        f"the guard's registry {sorted(SUBMODULES)}"
     )
 
 
@@ -135,16 +174,18 @@ def test_the_inner_stub_matches_the_inner_module_name_for_name():
     top_rt = {n for n in dir(inner) if not n.startswith("_")}
     if hasattr(inner, "__version__"):
         top_rt.add("__version__")
-    simd_rt = {n for n in dir(inner.simd) if not n.startswith("_")}
-    top_stub, simd_stub = _stub_names(INNER_STUB)
+    subs_rt = {name: {n for n in dir(getattr(inner, name)) if not n.startswith("_")}
+               for name in SUBMODULES}
+    top_stub, subs_stub = _stub_names(INNER_STUB)
     assert top_stub == top_rt, (
         f"inner drift — só no stub: {sorted(top_stub - top_rt)} | "
         f"só em runtime: {sorted(top_rt - top_stub)}"
     )
-    assert simd_stub == simd_rt, (
-        f"inner simd drift — só no stub: {sorted(simd_stub - simd_rt)} | "
-        f"só em runtime: {sorted(simd_rt - simd_stub)}"
-    )
+    for name in SUBMODULES:
+        assert subs_stub.get(name, set()) == subs_rt.get(name, set()), (
+            f"inner {name} drift — só no stub: {sorted(subs_stub.get(name, set()) - subs_rt.get(name, set()))} | "
+            f"só em runtime: {sorted(subs_rt.get(name, set()) - subs_stub.get(name, set()))}"
+        )
 
 
 @pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
