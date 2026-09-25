@@ -1091,14 +1091,14 @@ pub(crate) fn auto_remediation(dim: DimId, target: &Path, status: DimStatus) -> 
         // Pass — already good; suggest preventive tightening to keep score stable.
         // Pattern placeholders are <hardening> / <maintain> (defensive, optional).
         DimStatus::Pass => format!(
-            "Edit tool --path {} --operation ssr --pattern '<hardening>' --replacement '<maintain>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {}) [preventive — score is Pass; tighten pattern to harden against regression]",
+            "touring-quality score --format json {} (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {} for hardening patterns)",
             target.display(),
             pattern
         ),
         // Warn / Fail — actual gap; suggest fix.
         // Pattern placeholders are <gap> / <fix> (concrete, required).
         _ => format!(
-            "Edit tool --path {} --operation ssr --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {})",
+            "Edit tool --path {} --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md {})",
             target.display(),
             pattern
         ),
