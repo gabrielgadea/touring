@@ -379,3 +379,36 @@ fn a_climb_from_the_scripts_own_directory_is_not_traversal_but_one_from_input_is
         "python"
     ));
 }
+
+/// 25/09/2026 (touring-36, the analise-50 judge): an HTML event handler whose
+/// VALUE is a constant is inline JS, not CWE-79 — no untrusted data reaches
+/// it (`onclick="rodar('preset')"` in a Python-generated template failed P0
+/// on a file of 05/09 nobody touched). The code judge flags the sink only
+/// when the value carries interpolation or a variable. The shared
+/// `XssPattern` is untouched on purpose: the concolic/payload path measures
+/// INPUT, where the handler IS the attack (its own test suite proves it).
+#[test]
+fn a_constant_handler_is_inline_js_but_a_tainted_one_is_a_sink() {
+    // Single-line string assignment — NOT a docstring, so the docstring
+    // region pass cannot be what spares it: the taint filter is measured.
+    let constant = "html = \"<button onclick=\\\"rodar('preset')\\\">layout preset</button>\"\n";
+    let report = SecurityAnalyzer::new().analyze(constant, "python");
+    assert!(
+        !report.vuln_matches.iter().any(|m| m.pattern_name == "XSS"),
+        "a constant handler is inline JS, not a sink: {:?}",
+        report.vuln_matches
+    );
+    // The controls that must keep failing (touring-36's list): f-string with
+    // a variable, .format(user_input), and a `+ var +` concatenation.
+    for tainted in [
+        "html = f\"<button onclick=\\\"rodar('{nome}')\\\">x</button>\"\n",
+        "html = \"<button onclick=\\\"rodar('{}')\\\">x</button>\".format(nome)\n",
+        "html = \"<button onclick=\\\"rodar('\" + nome + \"')\\\">x</button>\"\n",
+    ] {
+        let report = SecurityAnalyzer::new().analyze(tainted, "python");
+        assert!(
+            report.vuln_matches.iter().any(|m| m.pattern_name == "XSS"),
+            "a tainted handler is a sink: {tainted}"
+        );
+    }
+}
