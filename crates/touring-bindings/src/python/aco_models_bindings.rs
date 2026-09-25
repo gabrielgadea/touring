@@ -153,11 +153,7 @@ pub struct GeneratorOutputs {
 impl GeneratorOutputs {
     #[new]
     #[pyo3(signature = (execution_script = String::new(), validation_script = String::new(), rollback_script = String::new()))]
-    fn new(
-        execution_script: String,
-        validation_script: String,
-        rollback_script: String,
-    ) -> Self {
+    fn new(execution_script: String, validation_script: String, rollback_script: String) -> Self {
         Self {
             execution_script,
             validation_script,
@@ -299,7 +295,13 @@ impl ValidationResult {
     fn __repr__(&self) -> String {
         format!(
             "ValidationResult(phase={:?}, check_name={:?}, status={}, expected={:?}, actual={:?}, message={:?}, remediation={:?})",
-            self.phase, self.check_name, self.status.__str__(), self.expected, self.actual, self.message, self.remediation
+            self.phase,
+            self.check_name,
+            self.status.__str__(),
+            self.expected,
+            self.actual,
+            self.message,
+            self.remediation
         )
     }
 }
@@ -389,8 +391,10 @@ impl RlmMemory {
                     PyValueError::new_err(format!("cannot create {}: {e}", parent.display()))
                 })?;
             }
-            let inner = touring_intelligence::rl::memory::rlm::RlmMemory::new(&path)
-                .map_err(|e| PyValueError::new_err(format!("cannot open {}: {e}", path.display())))?;
+            let inner =
+                touring_intelligence::rl::memory::rlm::RlmMemory::new(&path).map_err(|e| {
+                    PyValueError::new_err(format!("cannot open {}: {e}", path.display()))
+                })?;
             return Ok(Self {
                 inner,
                 readonly: false,
