@@ -37,7 +37,9 @@ __all__ = [
     "py_supported_languages", "py_validate_syntax", "py_viability_verdict",
     "rust_code_gen_workflow", "rust_format_source", "rust_public_api_surface",
     "rust_semantic_analyze", "rust_workspace_info", "select_arm", "simd",
-    "update_arm", "verify_chain_parallel",
+    "update_arm", "verify_chain_parallel", "GeneratorType", "Complexity",
+    "DriftLevel", "ValidationStatus", "ExecutionStatus", "GeneratorOutputs",
+    "GeneratorContract", "ValidationResult", "RlmMemory",
 ]
 
 # ── Constants ──────────────────────────────────────────────────────────────
@@ -62,6 +64,102 @@ class SerializationError(Exception): ...
 # `from claude_learning_kernel.claude_learning_kernel import X` resolves at
 # runtime; typed loosely here (the real surface is this module's own).
 claude_learning_kernel: Any
+
+# ── ACO model types (Gabriel's order, 24/09/2026) ──────────────────────────
+# The parity contracts of `analise/scripts/aco/tests/test_aco_rust_parity.py`:
+# enums stringify lowercase/snake_case (Complexity carries the accent), and
+# from_str round-trips them, raising ValueError on an unknown name.
+
+class GeneratorType:
+    Template: "GeneratorType"
+    Transformer: "GeneratorType"
+    Composer: "GeneratorType"
+    Validator: "GeneratorType"
+    @classmethod
+    def from_str(cls, s: str) -> "GeneratorType": ...
+    def __str__(self) -> str: ...
+
+class Complexity:
+    Trivial: "Complexity"
+    Moderate: "Complexity"
+    High: "Complexity"
+    Critical: "Complexity"
+    @classmethod
+    def from_str(cls, s: str) -> "Complexity": ...
+    def __str__(self) -> str: ...
+
+class DriftLevel:
+    Ok: "DriftLevel"
+    Warning: "DriftLevel"
+    Critical: "DriftLevel"
+    Halt: "DriftLevel"
+    @classmethod
+    def from_str(cls, s: str) -> "DriftLevel": ...
+    def __str__(self) -> str: ...
+
+class ValidationStatus:
+    Pass: "ValidationStatus"
+    Warn: "ValidationStatus"
+    Fail: "ValidationStatus"
+    @classmethod
+    def from_str(cls, s: str) -> "ValidationStatus": ...
+    def __str__(self) -> str: ...
+
+class ExecutionStatus:
+    Pending: "ExecutionStatus"
+    Running: "ExecutionStatus"
+    Success: "ExecutionStatus"
+    ValidationFailed: "ExecutionStatus"
+    ExecutionFailed: "ExecutionStatus"
+    PreconditionFailed: "ExecutionStatus"
+    RollbackExecuted: "ExecutionStatus"
+    RollbackFailed: "ExecutionStatus"
+    @classmethod
+    def from_str(cls, s: str) -> "ExecutionStatus": ...
+    def __str__(self) -> str: ...
+
+class GeneratorOutputs:
+    execution_script: str
+    validation_script: str
+    rollback_script: str
+    def __init__(
+        self,
+        execution_script: str = "",
+        validation_script: str = "",
+        rollback_script: str = "",
+    ) -> None: ...
+
+class GeneratorContract:
+    precondition: str
+    postcondition: str
+    invariant: str
+    def __init__(
+        self, precondition: str = "", postcondition: str = "", invariant: str = ""
+    ) -> None: ...
+    def is_complete(self) -> bool: ...
+
+class ValidationResult:
+    phase: str
+    check_name: str
+    status: ValidationStatus
+    expected: str
+    actual: str
+    message: str
+    remediation: Optional[str]
+    def __init__(
+        self,
+        phase: str,
+        check_name: str,
+        status: ValidationStatus,
+        expected: str,
+        actual: str,
+        message: str,
+        remediation: Optional[str] = None,
+    ) -> None: ...
+
+class RlmMemory:
+    def __init__(self, db_path: Optional[str] = None) -> None: ...
+    def read(self, key: str, tier: Optional[str] = None) -> Optional[str]: ...
 
 # ── ACO core ───────────────────────────────────────────────────────────────
 
@@ -204,6 +302,10 @@ class simd:
         def __init__(self) -> None: ...
         def ks_statistic(self, sample1: list[float], sample2: list[float]) -> float: ...
         def js_divergence(self, dist1: list[float], dist2: list[float]) -> float: ...
+
+    class JaccardComputer:
+        def __init__(self) -> None: ...
+        def jaccard(self, a: list[int], b: list[int]) -> float: ...
 
     @staticmethod
     def py_cosine_similarity(*args: Any, **kwargs: Any) -> Any: ...
