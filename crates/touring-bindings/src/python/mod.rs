@@ -22,6 +22,7 @@
 use pyo3::prelude::*;
 
 mod aco_bindings;
+mod aco_models_bindings;
 mod ast_bindings;
 mod ast_rl_bridge;
 mod cognitive_bindings;
@@ -72,6 +73,11 @@ pub fn register_all(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Wave 5 (2026-04-18) — Deep Rust semantic analysis via syn +
     // prettyplease + cargo_metadata + public-API extraction.
     rust_semantic_bindings::register(m)?;
+
+    // ACO model types + RlmMemory + JaccardComputer (Gabriel's order,
+    // 24/09/2026: «exporte todos os tipos CLK») — after `simd_bindings`, whose
+    // submodule receives JaccardComputer.
+    aco_models_bindings::register(m)?;
 
     // Custom exceptions
     m.add(
