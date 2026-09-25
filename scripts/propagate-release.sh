@@ -152,6 +152,12 @@ else
         # que publica um espelho velho publica código que ninguém está rodando.
         ( cd "$WORKSPACE" && python3 scripts/sync-client-skills.py --check ) \
             || die "espelho client/ fora de sincronia — rode: python3 scripts/sync-client-skills.py --apply"
+        # E o espelho NO HEAD (30.4.69): o --check lê o working tree, onde o
+        # manifesto atualizado pode existir SEM ter sido commitado (25/09:
+        # 7789b9c0 publicou 3 arquivos do espelho com o manifesto ` M` — a
+        # lição escrita à tarde reincidiu em horas; quem segura é o executor).
+        ( cd "$WORKSPACE" && python3 scripts/check_mirror_at_head.py ) \
+            || die "espelho client/ incoerente NO HEAD — o manifesto viaja JUNTO do espelho"
         # A referência gerada (docs/reference) é estado gerado como o espelho:
         # o elite 06_documentation reprovou por drift (hooks 239→241, módulos
         # 360→377) e nenhum gate aqui olhava — só o `elite_aggregate --check`
