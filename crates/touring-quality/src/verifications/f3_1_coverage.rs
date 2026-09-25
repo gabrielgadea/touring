@@ -85,12 +85,44 @@ fn analyze_coverage(target: &Path) -> Result<(f32, String)> {
 /// source; real attributes elsewhere still count.
 fn presence_proxy(target: &Path) -> Result<(f32, String)> {
     let raw = crate::verifications::read_target_source(target)?;
-    let test_fns = raw.matches(concat!("#[", "test]")).count()
-        + raw.matches(concat!("#[", "tokio::test]")).count()
-        + raw.matches(concat!("#[", "async_test]")).count()
-        + raw.matches(concat!("#[", "rstest]")).count();
-    let pub_fns = raw.matches(concat!("pub ", "fn ")).count()
-        + raw.matches(concat!("pub ", "async fn ")).count();
+    let lang = crate::verifications::lang_of(target);
+
+    let (test_fns, pub_fns) = if lang == "python" {
+        // Python: module-level `def foo(` / `async def foo(` where name does
+        // not start with `_` (private by convention). Module-level = no
+        // leading whitespace on the line.
+        let py_pub = raw
+            .lines()
+            .filter(|line| {
+                let s = line.trim_end();
+                let name = if s.starts_with("async def ") {
+                    &s["async def ".len()..]
+                } else if s.starts_with("def ") {
+                    &s["def ".len()..]
+                } else {
+                    return false;
+                };
+                !name.starts_with('_')
+            })
+            .count();
+        // Test functions: lines starting with `def test_` at any indent.
+        let py_test = raw
+            .lines()
+            .filter(|l| {
+                let t = l.trim_start();
+                t.starts_with("def test_") || t.starts_with("async def test_")
+            })
+            .count();
+        (py_test, py_pub)
+    } else {
+        let t = raw.matches(concat!("#[", "test]")).count()
+            + raw.matches(concat!("#[", "tokio::test]")).count()
+            + raw.matches(concat!("#[", "async_test]")).count()
+            + raw.matches(concat!("#[", "rstest]")).count();
+        let p = raw.matches(concat!("pub ", "fn ")).count()
+            + raw.matches(concat!("pub ", "async fn ")).count();
+        (t, p)
+    };
 
     let value = if pub_fns == 0 {
         1.0
@@ -98,7 +130,7 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
         (test_fns as f32 / pub_fns as f32).min(1.0)
     };
     let evidence =
-        format!("test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3}");
+        format!("test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3} ({lang})");
     Ok((value, evidence))
 }
 
