@@ -129,6 +129,12 @@ impl VulnerabilityPattern for XssPattern {
                 // script was blocked by the P0 gate (F2.1) as XSS.
                 // R2 (14/09/2026): `--file <script>` in usage text is the
                 // placeholder of a flag argument, not a tag.
+                // 25/09/2026 (touring-36): the TAINT question for a CONSTANT
+                // handler (`onclick="rodar('preset')"`) is the CODE judge's,
+                // not this pattern's — the concolic/payload path measures
+                // INPUT, where the handler IS the attack. The code judge
+                // post-filters constant handlers (`touring_analysis::quality::
+                // security::is_constant_handler_attribute`).
                 (text.starts_with("<script")
                     && !is_cli_placeholder(input, m.start(), m.end())
                     && !in_html_document_template(input, m.start()))
