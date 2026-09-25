@@ -88,9 +88,19 @@ fn detect_python_deprecated(source: &str) -> anyhow::Result<(f32, String)> {
     if let Some(pos) = source.find(from_collections) {
         let tail = &source[pos..];
         let abc_names = [
-            "Mapping", "MutableMapping", "Sequence", "MutableSequence",
-            "Set", "MutableSet", "Callable", "Iterator", "Generator",
-            "Coroutine", "AsyncGenerator", "AsyncIterator", "AsyncIterable",
+            "Mapping",
+            "MutableMapping",
+            "Sequence",
+            "MutableSequence",
+            "Set",
+            "MutableSet",
+            "Callable",
+            "Iterator",
+            "Generator",
+            "Coroutine",
+            "AsyncGenerator",
+            "AsyncIterator",
+            "AsyncIterable",
             "Iterable",
         ];
         if abc_names.iter().any(|n| tail.contains(n)) {
@@ -105,13 +115,18 @@ fn detect_python_deprecated(source: &str) -> anyhow::Result<(f32, String)> {
     }
 
     let n = hits.len();
-    let value = if n == 0 { 1.0_f32 } else { (1.0 - n as f32 * 0.3).max(0.0) };
+    let value = if n == 0 {
+        1.0_f32
+    } else {
+        (1.0 - n as f32 * 0.3).max(0.0)
+    };
     let evidence = if n == 0 {
         "F4.3 (Python): no deprecated-stdlib imports detected — score=1.000".to_string()
     } else {
         format!(
             "F4.3 (Python): {} deprecated-stdlib hit(s): {} — score={value:.3}",
-            n, hits.join("; ")
+            n,
+            hits.join("; ")
         )
     };
     Ok((value, evidence))

@@ -93,7 +93,10 @@ fn analyze_maintainability_dim(target: &Path) -> Result<(f32, String)> {
                 0.0_f32
             };
             let v = (mi_score - cc_penalty).clamp(0.0, 1.0);
-            (v, format!(" cc_penalty={cc_penalty:.2} (max_cc={})", m.max_complexity))
+            (
+                v,
+                format!(" cc_penalty={cc_penalty:.2} (max_cc={})", m.max_complexity),
+            )
         }
     };
 

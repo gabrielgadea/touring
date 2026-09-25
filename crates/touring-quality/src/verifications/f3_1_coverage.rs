@@ -95,11 +95,10 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
             .lines()
             .filter(|line| {
                 let s = line.trim_end();
-                let name = if s.starts_with("async def ") {
-                    &s["async def ".len()..]
-                } else if s.starts_with("def ") {
-                    &s["def ".len()..]
-                } else {
+                let Some(name) = s
+                    .strip_prefix("async def ")
+                    .or_else(|| s.strip_prefix("def "))
+                else {
                     return false;
                 };
                 !name.starts_with('_')
@@ -129,8 +128,9 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
     } else {
         (test_fns as f32 / pub_fns as f32).min(1.0)
     };
-    let evidence =
-        format!("test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3} ({lang})");
+    let evidence = format!(
+        "test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3} ({lang})"
+    );
     Ok((value, evidence))
 }
 

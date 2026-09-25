@@ -291,16 +291,20 @@ def dispara() -> None:
         t.start()
 "#;
 
-/// m13 — print idioms (F4_1)
+/// m13 — non-idiomatic Python (F4_1). F4_1 measures the ruff idiom subset (E711 `== None`,
+/// E712 `== True`, E721 `type(a) == type(b)`); the first fixture held only `print` calls,
+/// which no idiom rule flags, so the mutant never carried the defect the dim measures
+/// (found 25/09/2026 when the dead constant got its test: clean 1.000 = mutant 1.000).
 const M13_PRINT_IDIOMS: &str = r#"
 """Probe: non-idiomatic patterns."""
 
-import sys
 
-def log(msg):
-    print(msg)
-    print(msg, file=sys.stderr)
-    sys.stdout.write(msg + "\n")
+def check(a, b, flag):
+    if a == None:
+        return False
+    if flag == True:
+        return type(a) == type(b)
+    return b != None
 "#;
 
 // ---------------------------------------------------------------------------
@@ -389,9 +393,7 @@ fn f2_4_pragma_allowlist_suppresses_fixture() {
     // Runtime-generated value so no secret literal in the repo.
     let prefix = "ghp";
     let body = "_FakeT".to_owned() + "oken123456";
-    let content = format!(
-        "TOKEN = \"{prefix}{body}\"  # pragma: allowlist secret\n"
-    );
+    let content = format!("TOKEN = \"{prefix}{body}\"  # pragma: allowlist secret\n");
     let f = py_file(&content);
     let json = score_py(f.path());
     let v = dim_value(&json, "F2_4");
@@ -413,6 +415,39 @@ fn f2_6_detects_debug_true_and_wildcard_hosts() {
         mutant_v < clean_v,
         "F2_6 should drop on config mutant: clean={clean_v:.3} mutant={mutant_v:.3}"
     );
+}
+
+/// The three GREEN dims whose fixtures were written in the S50 baseline but never
+/// exercised (dead constants under clippy, 25/09/2026): the module doc CLAIMED them GREEN;
+/// these tests make the claim evidence. One mutant, one dimension, strictly below the
+/// clean baseline — the status travels in the failure message.
+fn assert_dim_drops(dim: &str, mutant_src: &str, what: &str) {
+    let f_clean = py_file(M00_CLEAN);
+    let f_mutant = py_file(mutant_src);
+    let clean = score_py(f_clean.path());
+    let mutant = score_py(f_mutant.path());
+    let (clean_v, mutant_v) = (dim_value(&clean, dim), dim_value(&mutant, dim));
+    assert!(
+        mutant_v < clean_v,
+        "{dim} should drop on the {what} mutant: clean={clean_v:.3} ({}) mutant={mutant_v:.3} ({})",
+        dim_status(&clean, dim),
+        dim_status(&mutant, dim)
+    );
+}
+
+#[test]
+fn f3_8_missing_docs_drops() {
+    assert_dim_drops("F3_8", M09_NODOCS, "missing-docs");
+}
+
+#[test]
+fn f1_5_tech_debt_drops() {
+    assert_dim_drops("F1_5", M10_DEBT, "TODO/FIXME debt");
+}
+
+#[test]
+fn f4_1_non_idiomatic_code_drops() {
+    assert_dim_drops("F4_1", M13_PRINT_IDIOMS, "non-idiomatic");
 }
 
 // ---------------------------------------------------------------------------
@@ -555,7 +590,6 @@ fn suggestions_have_no_placeholders_on_pass_dims() {
     }
 }
 
-
 // ---------------------------------------------------------------------------
 // S52 - F2.4 blind spot: env-style assignment inside JSON string arg
 // ---------------------------------------------------------------------------
@@ -603,7 +637,10 @@ fn f2_4_env_assignment_in_json_string_is_detected() {
     let jf_aiza = json_file(&format!("{{\"args\":[\"-c\",\"GOOGLE_KEY={aiza} srv\"]}}"));
     let v_aiza = dim_value(&score_py(jf_aiza.path()), "F2_4");
     let _keep_aiza = jf_aiza;
-    assert!(v_aiza < 0.5, "AIza in JSON must still score <0.5: {v_aiza:.3}");
+    assert!(
+        v_aiza < 0.5,
+        "AIza in JSON must still score <0.5: {v_aiza:.3}"
+    );
 
     // regression: sk-ant-api03 in JSON arg form (already detected)
     let ant_prefix = "sk-ant-api03-";
@@ -611,19 +648,28 @@ fn f2_4_env_assignment_in_json_string_is_detected() {
     let jf_ant = json_file(&format!("{{\"args\":[\"-c\",\"ANTHROPIC_KEY={ant}\"]}}"));
     let v_ant = dim_value(&score_py(jf_ant.path()), "F2_4");
     let _keep_ant = jf_ant;
-    assert!(v_ant < 0.5, "sk-ant in JSON must still score <0.5: {v_ant:.3}");
+    assert!(
+        v_ant < 0.5,
+        "sk-ant in JSON must still score <0.5: {v_ant:.3}"
+    );
 
     // regression: ghp_ in JSON arg form (already detected)
     let ghp = "ghp_".to_owned() + &"C".repeat(36);
     let jf_ghp = json_file(&format!("{{\"args\":[\"-c\",\"TOKEN={ghp}\"]}}"));
     let v_ghp = dim_value(&score_py(jf_ghp.path()), "F2_4");
     let _keep_ghp = jf_ghp;
-    assert!(v_ghp < 0.5, "ghp_ in JSON must still score <0.5: {v_ghp:.3}");
+    assert!(
+        v_ghp < 0.5,
+        "ghp_ in JSON must still score <0.5: {v_ghp:.3}"
+    );
 
     // regression: sk-<48hex> as Python assignment (already detected)
     let py_content = format!("API_KEY = \"{sk_prefix}{hex_tail}\"\n");
     let pf = py_file(&py_content);
     let v_py = dim_value(&score_py(pf.path()), "F2_4");
     let _keep_p = pf;
-    assert!(v_py < 0.5, "sk-hex48 in Python assignment must still score <0.5: {v_py:.3}");
+    assert!(
+        v_py < 0.5,
+        "sk-hex48 in Python assignment must still score <0.5: {v_py:.3}"
+    );
 }
