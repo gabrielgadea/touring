@@ -21,7 +21,20 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-STUB = ROOT / "crates" / "touring-python" / "claude_learning_kernel.pyi"
+STUB = (
+    ROOT
+    / "crates"
+    / "touring-python"
+    / "claude_learning_kernel"
+    / "__init__.pyi"
+)
+INNER_STUB = (
+    ROOT
+    / "crates"
+    / "touring-python"
+    / "claude_learning_kernel"
+    / "claude_learning_kernel.pyi"
+)
 SO = ROOT / "target" / "debug" / "libclaude_learning_kernel.so"
 
 
@@ -57,8 +70,8 @@ def _runtime_names() -> tuple[set[str], set[str]]:
     return top, simd_names
 
 
-def _stub_names() -> tuple[set[str], set[str]]:
-    tree = ast.parse(STUB.read_text(encoding="utf-8"))
+def _stub_names(path: Path) -> tuple[set[str], set[str]]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
     top: set[str] = set()
     simd_members: set[str] = set()
     for node in tree.body:
@@ -73,13 +86,34 @@ def _stub_names() -> tuple[set[str], set[str]]:
             for sub in node.body:
                 if isinstance(sub, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
                     simd_members.add(sub.name)
-    return top, simd_members
+    # `__all__` is a dunder — out of the name sets, compared separately.
+    return {n for n in top if not n.startswith("_") or n == "__version__"}, simd_members
+
+
+def _stub_all(path: Path) -> list[str]:
+    """The literal `__all__` list declared in the stub, as a sorted set."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == "__all__" and isinstance(node.value, ast.List):
+                    return sorted(
+                        elt.value for elt in node.value.elts
+                        if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+                    )
+    raise AssertionError(f"{path.name} declares no literal __all__ list")
+
+
+def _runtime_all() -> list[str]:
+    import claude_learning_kernel as clk
+
+    return sorted(clk.__all__)
 
 
 @pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
 def test_the_stub_matches_the_runtime_surface_name_for_name():
     top_rt, simd_rt = _runtime_names()
-    top_stub, simd_stub = _stub_names()
+    top_stub, simd_stub = _stub_names(STUB)
     assert top_stub == top_rt, (
         f"top-level drift — só no stub: {sorted(top_stub - top_rt)} | "
         f"só em runtime: {sorted(top_rt - top_stub)}"
@@ -88,6 +122,38 @@ def test_the_stub_matches_the_runtime_surface_name_for_name():
         f"simd drift — só no stub: {sorted(simd_stub - simd_rt)} | "
         f"só em runtime: {sorted(simd_rt - simd_stub)}"
     )
+
+
+@pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
+def test_the_inner_stub_matches_the_inner_module_name_for_name():
+    """The `claude_learning_kernel.claude_learning_kernel` import form (the
+    aco bridge) must find the same names in the INNER stub as in the INNER
+    `.so` at runtime."""
+    import claude_learning_kernel as pkg
+
+    inner = pkg.claude_learning_kernel
+    top_rt = {n for n in dir(inner) if not n.startswith("_")}
+    if hasattr(inner, "__version__"):
+        top_rt.add("__version__")
+    simd_rt = {n for n in dir(inner.simd) if not n.startswith("_")}
+    top_stub, simd_stub = _stub_names(INNER_STUB)
+    assert top_stub == top_rt, (
+        f"inner drift — só no stub: {sorted(top_stub - top_rt)} | "
+        f"só em runtime: {sorted(top_rt - top_stub)}"
+    )
+    assert simd_stub == simd_rt, (
+        f"inner simd drift — só no stub: {sorted(simd_stub - simd_rt)} | "
+        f"só em runtime: {sorted(simd_rt - simd_stub)}"
+    )
+
+
+@pytest.mark.skipif(not SO.is_file(), reason="needs the built cdylib (cargo build -p touring-python)")
+def test_the_stubs_all_lists_equal_the_runtime_all():
+    """`__all__` in both stubs equals the runtime's `__all__` — never the
+    public set (which would drop `__version__` and add the submodule attr)."""
+    runtime = _runtime_all()
+    assert _stub_all(STUB) == runtime, "package stub's __all__ drifted from runtime"
+    assert _stub_all(INNER_STUB) == runtime, "inner stub's __all__ drifted from runtime"
 
 
 if __name__ == "__main__":
