@@ -185,7 +185,13 @@ else
         [ "${#rite_tests[@]}" -gt 0 ] \
             || die "nenhum scripts/test_propagate_release*.py encontrado — o gate dos testes do rito está cego"
         for rite_test in "${rite_tests[@]}"; do
-            ( cd "$WORKSPACE" && python3 -m pytest "$rite_test" -q ) \
+            # Fase 1 (not post_build): os testes que NÃO dependem do binário
+            # construído. Os dependentes (marcados post_build) falhariam aqui
+            # por construção — bump → gate 1 → build, então no gate 1 o
+            # binário ainda declara a versão VELHA (24/09/2026, gate 1/6 da
+            # 30.4.68 parado exatamente nisso: a lição
+            # bump-de-versao-antes-do-build dentro do próprio rito).
+            ( cd "$WORKSPACE" && python3 -m pytest "$rite_test" -q -m "not post_build" ) \
                 || die "teste do rito falhou: ${rite_test##*/} — corrija antes de propagar"
         done
         log "${GREEN}gates OK${RESET}"
@@ -272,6 +278,33 @@ if [ "$DRY_RUN" -eq 0 ]; then
     fi
 elif [ "$DRY_RUN" -eq 1 ]; then
     warn "dry-run: a checagem de rótulo não roda (build simulado)"
+fi
+
+# ─── 2.6 RITE POST_BUILD — os testes que dependem do binário, onde devem PASSAR ──
+# A outra metade do fix do gate 1/6 (24/09/2026, coordenador): marcados
+# `post_build`, esses testes só existem DEPOIS de o binário declarar o bump —
+# e aqui pular NÃO é permitido: se o binário construído não os sustenta, a
+# propagação morre. A guarda do glob vazio vale nas duas fases: um gate que
+# procura e não acha não está verde, está cego.
+if [ "$DRY_RUN" -eq 0 ] && [ "$SKIP_GATES" -eq 0 ]; then
+    shopt -s nullglob
+    rite_tests=( "$WORKSPACE"/scripts/test_propagate_release*.py )
+    shopt -u nullglob
+    [ "${#rite_tests[@]}" -gt 0 ] \
+        || die "nenhum scripts/test_propagate_release*.py encontrado — o gate pós-build dos testes do rito está cego"
+    for rite_test in "${rite_tests[@]}"; do
+        # Exit 5 do pytest = "nenhum teste coletado": um arquivo sem nenhum
+        # teste marcado é vacuamente satisfeito, não um gate quebrado. "Pular
+        # não é permitido" vale para teste marcado que FALHA (rc 1), nunca
+        # para a ausência deles.
+        rc=0
+        ( cd "$WORKSPACE" && python3 -m pytest "$rite_test" -q -m post_build ) || rc=$?
+        if [ "$rc" -eq 5 ]; then
+            rc=0
+        fi
+        [ "$rc" -eq 0 ] || die "teste pós-build do rito falhou: ${rite_test##*/} — o binário construído não sustenta os testes que dependem dele"
+    done
+    log "testes pós-build do rito OK"
 fi
 
 # ─── 3. FREEZE toolchain imutável (L2) ───────────────────────────────────────
