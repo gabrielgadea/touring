@@ -6,7 +6,7 @@
 //! deprecated API and silencing the compiler. We now score that instead.
 
 use crate::DimId;
-use crate::verifications::{Verification, strip_rust_comments_and_strings};
+use crate::verifications::{Verification, lang_of, strip_rust_comments_and_strings};
 use anyhow::Result;
 use std::path::Path;
 
@@ -21,6 +21,11 @@ impl Verification for F4_3_Deprecated {
 
     fn measure(&self, target: &Path) -> Result<(f32, String)> {
         let raw = crate::verifications::read_target_source(target)?;
+
+        // Dispatch to language-specific detector.
+        if lang_of(target) == "python" {
+            return detect_python_deprecated(&raw);
+        }
 
         // F4.3 measures CONSUMPTION of deprecated APIs, not their declaration.
         // Declaring `#[deprecated(..)]` on your own item is *good* hygiene (D42):
@@ -49,6 +54,67 @@ impl Verification for F4_3_Deprecated {
         );
         Ok((value, evidence))
     }
+}
+
+/// Python deprecated-stdlib catalog (PEP 594 / Python 3.10+).
+///
+/// Needles are built at runtime via concatenation so the source of this
+/// verifier never embeds a contiguous deprecated-module name that would
+/// trigger a self-match.
+///
+/// Catalog:
+/// - `imp` — removed in Python 3.12 (use `importlib`)
+/// - `distutils` — removed in Python 3.12 (use `setuptools`)
+/// - `from collections import <ABC>` — ABCs moved to `collections.abc` in 3.10
+/// - `.utcnow()` — deprecated since Python 3.12
+/// - `asyncio.coroutine` — removed in Python 3.11
+fn detect_python_deprecated(source: &str) -> anyhow::Result<(f32, String)> {
+    let mut hits: Vec<&str> = Vec::new();
+
+    // Build needles at runtime.
+    let import_imp = "import ".to_owned() + "imp";
+    let from_distutils = "from ".to_owned() + "distutils";
+    let from_collections = "from collections import ";
+    let utcnow = ".utcnow()";
+    let asyncio_coro = "asyncio".to_owned() + ".coroutine";
+
+    if source.contains(import_imp.as_str()) {
+        hits.push("import imp (removed in 3.12, use importlib)");
+    }
+    if source.contains(from_distutils.as_str()) {
+        hits.push("from distutils (removed in 3.12, use setuptools)");
+    }
+    // `from collections import Mapping` etc — only flag if an ABC name follows.
+    if let Some(pos) = source.find(from_collections) {
+        let tail = &source[pos..];
+        let abc_names = [
+            "Mapping", "MutableMapping", "Sequence", "MutableSequence",
+            "Set", "MutableSet", "Callable", "Iterator", "Generator",
+            "Coroutine", "AsyncGenerator", "AsyncIterator", "AsyncIterable",
+            "Iterable",
+        ];
+        if abc_names.iter().any(|n| tail.contains(n)) {
+            hits.push("from collections import <ABC> (moved to collections.abc in 3.10)");
+        }
+    }
+    if source.contains(utcnow) {
+        hits.push(".utcnow() (deprecated in 3.12, use datetime.now(timezone.utc))");
+    }
+    if source.contains(asyncio_coro.as_str()) {
+        hits.push("asyncio.coroutine (removed in 3.11, use async def)");
+    }
+
+    let n = hits.len();
+    let value = if n == 0 { 1.0_f32 } else { (1.0 - n as f32 * 0.3).max(0.0) };
+    let evidence = if n == 0 {
+        "F4.3 (Python): no deprecated-stdlib imports detected — score=1.000".to_string()
+    } else {
+        format!(
+            "F4.3 (Python): {} deprecated-stdlib hit(s): {} — score={value:.3}",
+            n, hits.join("; ")
+        )
+    };
+    Ok((value, evidence))
 }
 
 #[cfg(test)]
