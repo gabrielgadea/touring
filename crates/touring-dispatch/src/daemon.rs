@@ -124,6 +124,29 @@ fn pin_for_socket(socket_path: &std::path::Path) -> Option<PathBuf> {
         .map(std::path::Path::to_path_buf)
 }
 
+/// Canonicalize for the pin comparison (symlinks and `..` resolved, so they
+/// never read as a false "outside"). A path that cannot be resolved compares
+/// lexically — `Path::starts_with` is per COMPONENT, so `/x/analise-old` is
+/// never inside `/x/analise`.
+fn canonical_for_pin(p: &std::path::Path) -> PathBuf {
+    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
+}
+
+/// The admission verdict of a pinned daemon (touring-36 review, 25/09/2026):
+/// the client root is served IFF it sits INSIDE the pinned tree — the pin
+/// itself included. Equality was the first cut, but `normalize_project_root`
+/// stops at the FIRST marker (`.touring/`, `.git` dir-or-file, a
+/// `Cargo.toml [workspace]`), so a client whose cwd lives under a NESTED
+/// marker (measured live: `packages/**` in the analise normalizes to
+/// `analise/packages`; `.claude/.git`, worktree `.git` files, nested
+/// `.touring/`) got REFUSED — a regression on 30.4.68, which served it.
+/// Inside the tree the behavior is exactly 30.4.68's; outside, the refusal.
+fn pin_admits(pinned: &std::path::Path, client_root: &std::path::Path) -> bool {
+    let pinned = canonical_for_pin(pinned);
+    let client = canonical_for_pin(client_root);
+    client.starts_with(&pinned)
+}
+
 /// Initialize or retrieve the per-hook metrics map.
 fn hook_metrics_map() -> &'static HashMap<&'static str, (AtomicU64, AtomicU64)> {
     HOOK_METRICS.get_or_init(|| {
@@ -1879,16 +1902,20 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         &req.project_root,
     ));
 
-    // The pinned daemon refuses a request for any other root (touring-36
-    // ticket, 25/09/2026): the project was once chosen from the CLIENT's cwd,
-    // so a `--purge-phantom --dry-run` pointed at a scratch daemon's socket
-    // ran the definer pass against the LIVE touring db (unknown 21→2 there).
-    // The refusal names both roots and the route back.
+    // The pinned daemon refuses a request whose root is OUTSIDE its tree
+    // (touring-36 ticket, 25/09/2026): the project was once chosen from the
+    // CLIENT's cwd, so a `--purge-phantom --dry-run` pointed at a scratch
+    // daemon's socket ran the definer pass against the LIVE touring db
+    // (unknown 21→2 there). Equality was the first cut — and refused clients
+    // under NESTED markers (a regression on 30.4.68, measured live by
+    // touring-36: `packages/**`, `.claude/.git`, worktree `.git` files).
+    // `pin_admits` carries the inside/outside rule; the refusal names both
+    // roots and the route back.
     if let Some(Some(pinned)) = DAEMON_PROJECT_PIN.get()
-        && *pinned != client_root
+        && !pin_admits(pinned, &client_root)
     {
         return protocol_failure(format_args!(
-            "this daemon is pinned to {} (derived from its own socket); the request names {} — run it with the cwd inside the pinned root, or against the global daemon",
+            "this daemon is pinned to {} (derived from its own socket); the request names {}, outside that tree — run it with the cwd inside the pinned root, or against the global daemon",
             pinned.display(),
             client_root.display(),
         ));

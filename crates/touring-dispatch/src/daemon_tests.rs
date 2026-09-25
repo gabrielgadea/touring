@@ -551,3 +551,91 @@ fn the_pin_is_set_from_the_socket_before_the_listener_binds() {
         "socket decidido → pin setado → bind: nenhum request chega sem pin"
     );
 }
+
+// ── touring-36 review (25/09/2026): admission is INSIDE-TREE, not equality ─
+// `normalize_project_root` stops at the FIRST marker, so a client under a
+// NESTED marker normalizes to a SUBPATH of the pin — equality refused it (a
+// regression on 30.4.68, measured live: `packages/Cargo.toml [workspace]` in
+// the analise, `.claude/.git`, worktree `.git` files, nested `.touring/`).
+
+/// A pinned tree with the four nested marker kinds, and for each a cwd below
+/// it: the admission chain (`normalize_project_root` → `pin_admits`) must
+/// ADMIT every one, exactly as 30.4.68 served them.
+#[test]
+fn pin_admits_clients_under_nested_markers_of_every_kind() {
+    let tmp = tempfile::tempdir().expect("tmpdir");
+    let root = tmp.path().join("proj");
+    std::fs::create_dir_all(root.join(".touring")).expect("pin marker");
+
+    let nested: [(&str, bool); 4] = [
+        ("git-dir", true),
+        ("git-file", true),
+        ("cargo-workspace", true),
+        ("dot-touring", true),
+    ];
+    for (name, _) in nested {
+        let base = root.join(name);
+        match name {
+            "git-dir" => {
+                std::fs::create_dir_all(base.join(".git")).expect(".git dir");
+            }
+            "git-file" => {
+                // A worktree's `.git` is a FILE ("gitdir: …"), not a dir.
+                std::fs::create_dir_all(&base).expect("base");
+                std::fs::write(base.join(".git"), "gitdir: /elsewhere\n").expect(".git file");
+            }
+            "cargo-workspace" => {
+                std::fs::create_dir_all(&base).expect("base");
+                std::fs::write(base.join("Cargo.toml"), "[workspace]\n").expect("Cargo.toml");
+            }
+            "dot-touring" => {
+                std::fs::create_dir_all(base.join(".touring")).expect("nested .touring");
+            }
+            _ => unreachable!(),
+        }
+        let cwd = base.join("src").join("deep");
+        std::fs::create_dir_all(&cwd).expect("cwd");
+        let client_root =
+            touring_foundation::TouringConfig::normalize_project_root(&cwd);
+        assert!(
+            pin_admits(&root, &client_root),
+            "{name}: cwd {:?} normaliza para {:?} — dentro da árvore pinada, DEVE ser admitido",
+            cwd,
+            client_root
+        );
+    }
+
+    // The pin itself (equality) is admitted.
+    assert!(pin_admits(&root, &root));
+
+    // The incident stays REFUSED: an unrelated tree is outside.
+    let other = tmp.path().join("other");
+    std::fs::create_dir_all(other.join(".touring")).expect("other");
+    assert!(
+        !pin_admits(&root, &other),
+        "o cenário do incidente (outra árvore) segue recusado"
+    );
+
+    // The NAME-PREFIX sibling is refused: `Path::starts_with` compares per
+    // component, so `analise-old` is never inside `analise` — the test pins
+    // that down (touring-36's ask).
+    let x = tmp.path().join("x");
+    let analise = x.join("analise");
+    let analise_old = x.join("analise-old");
+    std::fs::create_dir_all(&analise).expect("analise");
+    std::fs::create_dir_all(&analise_old).expect("analise-old");
+    assert!(!pin_admits(&analise, &analise_old), "irmão com prefixo de nome é FORA");
+
+    // A symlink or `..` must never read as a false outside (both sides are
+    // canonicalized).
+    let real_sub = root.join("real").join("sub");
+    std::fs::create_dir_all(&real_sub).expect("real sub");
+    let link = tmp.path().join("link");
+    std::os::unix::fs::symlink(tmp.path().join("proj"), &link).expect("symlink");
+    assert!(
+        pin_admits(&root, &link.join("real").join("sub")),
+        "o caminho VIA symlink resolve para dentro"
+    );
+    let dotdot = root.join("real").join("..").join("real").join("sub");
+    assert!(pin_admits(&root, &dotdot), "o `..` resolve para dentro");
+}
