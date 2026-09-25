@@ -2501,6 +2501,35 @@ mod code_mode_gates_w1 {
         assert!(python_inline_remedy("python3 -").contains("verbatim"));
     }
 
+    /// S213 (25/09/2026) — quem ANEXA a arquivo nunca é inspeção. O remédio da rajada funde
+    /// os comandos da janela e os reexecuta; `cat x >> triad_hook.rs && cargo test` foi
+    /// classificado como `cat` e o deny propôs rodá-lo de novo (anexaria o teste duas vezes).
+    /// Sobrescrever (`>`) segue inspeção — decisão P2.3: reexecutar é idempotente.
+    #[test]
+    fn a_command_that_writes_a_file_is_never_inspection() {
+        use super::super::scan_class_of;
+        for writer in [
+            "cat pt3_test.rs >> src/triad_hook.rs && cargo test",
+            "grep -n foo src/lib.rs >> achados.txt",
+            "head -5 src/lib.rs | tee -a copia.txt",
+        ] {
+            assert_eq!(
+                scan_class_of(writer),
+                None,
+                "a writer classified as inspection: {writer}"
+            );
+        }
+        // controls: pure reads stay inspection, quoted `>` is data, /dev/null is not a write
+        assert_eq!(scan_class_of("cat src/lib.rs"), Some("cat"));
+        assert_eq!(scan_class_of("grep -n '>>' src/lib.rs"), Some("grep"));
+        assert_eq!(
+            scan_class_of("cat README.md > out.txt"),
+            Some("cat"),
+            "P2.3: overwrite is idempotent"
+        );
+        assert_eq!(scan_class_of("grep -rn foo src 2> /dev/null"), Some("grep"));
+    }
+
     /// S212 (25/09/2026) — o remédio do G10 NUNCA reexecuta o que já rodou. O ledger traz a
     /// rajada inteira em ordem; só o ÚLTIMO comando foi negado — os anteriores JÁ executaram,
     /// inclusive escritas (gravar memória, commitar). Reexecutá-los repetia efeitos: observado

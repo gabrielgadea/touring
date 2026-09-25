@@ -3936,6 +3936,13 @@ const G1_DEMOTE_FLOOR: f64 = 0.70;
 /// …desde que haja volume real: um punhado de eventos iniciais nunca demove.
 const G1_DEMOTE_MIN_EVENTS: u64 = 100;
 
+/// S213 — whether `cmd` APPENDS to a file (`>>` or `tee -a`/`--append`), read after the CEG
+/// shell mask so a `>>` inside quotes or a heredoc body is data, not a redirect.
+fn appends_to_a_file(cmd: &str) -> bool {
+    let masked = touring_ceg::gateway::gate::mask_shell_data(cmd);
+    masked.contains(">>") || masked.contains("tee -a") || masked.contains("tee --append")
+}
+
 /// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
 /// para comandos que não são inspeção — a rajada só conta o que inspeciona.
 fn scan_class_of(cmd: &str) -> Option<&'static str> {
@@ -3943,6 +3950,13 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
     // é `grep`, `cd /x && cat f` é `cat` — antes o 1º token decidia, e
     // `time`/`nice`/`sudo`/`env`/`cd` anulavam a classe para os 4 gates que
     // consomem este classificador de uma vez só.
+    // S213: an APPENDING command is never inspection — the burst remedy replays the
+    // commands it fuses, and an append replayed duplicates what it wrote (observed live:
+    // `cat t.rs >> src/x.rs && cargo test`). An overwrite redirect stays inspection (P2.3):
+    // replaying it is idempotent. Read through the CEG shell mask — quoted/heredoc is data.
+    if appends_to_a_file(cmd) {
+        return None;
+    }
     let rest = effective_tokens(cmd);
     let first = *rest.first()?;
     match first {
