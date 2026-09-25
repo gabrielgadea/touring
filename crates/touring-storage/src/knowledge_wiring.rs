@@ -1375,8 +1375,7 @@ impl FileKnowledgeDB {
     ///
     /// What stays `unknown` after this pass has no definition ANYWHERE — the
     /// predicate the phantom purge requires (`wiring_repair`).
-    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {
-        let conn = self.conn_ref();
+    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {        let conn = self.conn_ref();
         let mut stmt = conn.prepare(
             "SELECT DISTINCT module_file, symbol_name, consumer_file FROM wiring_map
              WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
@@ -1449,7 +1448,18 @@ impl FileKnowledgeDB {
                         params![module, symbol],
                         |row| row.get(0),
                     )?;
-                    (imported == 1).then(|| "external_reexport".to_string())
+                    if imported == 1 {
+                        Some("external_reexport".to_string())
+                    } else if Self::source_declares(self.workspace_root(), module, symbol) {
+                        // The source belt (25/09/2026, measured on the analise
+                        // copy): 34 of 233 "phantoms" had a literal definition
+                        // in the definitor's SOURCE that the extractor never
+                        // recorded (module-level dicts, try-block assignments).
+                        // The index being blind is not the symbol being absent.
+                        Some("index_blind".to_string())
+                    } else {
+                        None
+                    }
                 }
             };
             if let Some(k) = kind {
@@ -1467,7 +1477,24 @@ impl FileKnowledgeDB {
         Ok(resolved)
     }
 
-    /// Find producer rows whose `symbol_name` matches any of the supplied
+    /// The source belt of [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`]
+/// (25/09/2026): reads the definitor's SOURCE on disk for a literal definition
+/// the extractor never recorded. Covers Python (`def`/`class`/top-level
+/// `X =`/`X:`) and Rust (`fn`/`struct`/`enum`/`const`/`static`/`mod`, with or
+/// without `pub`). Unreadable/unparsed → no proof (`false`).
+fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
+    let Some(root) = root else { return false };
+    let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
+        return false;
+    };
+    let escaped = regex::escape(symbol);
+    let pattern = format!(
+        r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^{escaped}\s*[:=]"
+    );
+    regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
+}
+
+/// Find producer rows whose `symbol_name` matches any of the supplied
     /// names AND whose `symbol_kind` is callable (method / function /
     /// async_function). Returns `(module_file, symbol_name)` pairs.
     ///
@@ -3102,7 +3129,14 @@ mod consumer_kind_resolution_tests {
 
     #[test]
     fn definer_kinds_resolve_module_private_self_reference_and_external_reexport() {
-        let (_tmp, db) = setup();
+        // O db no LAYOUT CANÔNICO (`.claude/touring/`): `project_root_for_db`
+        // deriva o root da localização do banco (a inversa de
+        // `knowledge_db_canonical`), e a cinta de source (`index_blind`) resolve
+        // `src/blind.rs` sob ele — sem isso o root cai no cwd do teste.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
         // Classe 1a: o definidor declara o MÓDULO (`pub mod a;`) → `module`.
         seed_symbols(&db, "src/mod.rs", &[("a_bindings", "module")]);
         db.record_consumer("src/mod.rs", "a_bindings", "src/mod.rs", Some(1))
@@ -3148,8 +3182,18 @@ mod consumer_kind_resolution_tests {
         db.record_consumer("src/compat2.rs", "_FLAG", "src/consumer.rs", Some(6))
             .expect("name-shape consumer");
 
+        // Classe 6: o definidor DECLARA no SOURCE em disco, mas o extrator não
+        // registrou (index_blind) — medido no analise 25/09: 34 de 233.
+        let blind_dir = tmp.path().join("src");
+        std::fs::create_dir_all(&blind_dir).expect("mkdir");
+        std::fs::write(blind_dir.join("blind.rs"), "pub const GRAFIAS: &[&str] = &[];\n")
+            .expect("source file");
+        seed_symbols(&db, "src/blind.rs", &[]); // lido pelo índice, nada registrado
+        db.record_consumer("src/blind.rs", "GRAFIAS", "src/consumer.rs", Some(7))
+            .expect("blind consumer");
+
         let n = db.resolve_consumer_kinds_from_definers().expect("pass");
-        assert_eq!(n, 5, "as 5 classes legítimas resolvem; a fantasma fica");
+        assert_eq!(n, 6, "as 6 classes legítimas resolvem; a fantasma fica");
         assert_eq!(kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"), "module");
         assert_eq!(
             kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
@@ -3166,6 +3210,10 @@ mod consumer_kind_resolution_tests {
         assert_eq!(
             kind_of(&db, "src/compat2.rs", "_FLAG", "src/consumer.rs"),
             "variable"
+        );
+        assert_eq!(
+            kind_of(&db, "src/blind.rs", "GRAFIAS", "src/consumer.rs"),
+            "index_blind"
         );
         assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
         // Idempotente: a segunda passada não toca em nada.
