@@ -333,6 +333,12 @@ fn workspace_wide_scans_get_the_heavy_budget() {
         "cli-ast-blast",
         "cli-pre-task-scout",
         "cli-memory-reindex",
+        // S222c (26/09/2026): `wiring repair --resolve-kinds` re-resolves every
+        // consumer kind of the wiring_map (110k rows on the analise) and died at
+        // the light 15 s budget on its first live run (budget_exceeded,
+        // still_running) — a repair that cannot finish in its own budget is no
+        // repair.
+        "cli-repair-wiring",
     ] {
         assert!(is_heavy_hook(hook), "{hook}");
     }
