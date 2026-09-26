@@ -105,7 +105,10 @@ fn finalize_stamps_archived_at_and_reports_it() {
         "a fresh task is not archived"
     );
 
-    let finalized = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    let finalized = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
 
     assert_eq!(finalized["status"], "finalized");
     assert_eq!(
@@ -139,7 +142,10 @@ fn a_refused_finalize_archives_nothing() {
         }),
     );
 
-    let refused = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    let refused = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
 
     assert!(
         refused.get("error").is_some(),
@@ -186,7 +192,10 @@ fn add_accepts_the_review_flag_the_finalize_gate_reads() {
     assert_eq!(flag, 1, "the payload's review_required must reach the row");
 
     // And the gate it feeds must now actually fire.
-    let refused = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    let refused = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
     assert!(
         refused.get("error").is_some(),
         "a subtask marked for review must block finalize: {refused}"
@@ -304,8 +313,15 @@ fn archive_leaves_unfinished_work_alone() {
 #[test]
 fn reconcile_closes_a_stage_whose_siblings_all_finished() {
     let (_tmp, mut rt) = setup_runtime();
-    bridge_task_created(&mut rt, "90", "a mirror the closer never saw", "sess", None, None)
-        .expect("mirror");
+    bridge_task_created(
+        &mut rt,
+        "90",
+        "a mirror the closer never saw",
+        "sess",
+        None,
+        None,
+    )
+    .expect("mirror");
     let mirror = "cc_task_90";
     // The historical shape: implement + validate closed, scout left open.
     for stage in ["implement", "validate"] {
@@ -341,8 +357,15 @@ fn reconcile_closes_a_stage_whose_siblings_all_finished() {
 #[test]
 fn reconcile_refuses_to_guess_while_a_sibling_is_still_open() {
     let (_tmp, mut rt) = setup_runtime();
-    bridge_task_created(&mut rt, "91", "a mirror still in flight", "sess", None, None)
-        .expect("mirror");
+    bridge_task_created(
+        &mut rt,
+        "91",
+        "a mirror still in flight",
+        "sess",
+        None,
+        None,
+    )
+    .expect("mirror");
     let mirror = "cc_task_91";
     // Only `implement` closed: `validate` is still open, so nothing is decidable.
     cli_decompose_update(
