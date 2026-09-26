@@ -147,13 +147,14 @@ def amplify_dimension(
             if empty_subtasks:
                 action["affected_subtasks"] = empty_subtasks
         if name == "functionality" and ground_truth:
-            orphans = ground_truth.get("wiring_orphans") or []
-            uncovered = [
-                o.get("name", "") for o in orphans
-                if o.get("name") and str(o["name"]) not in plan_md
-            ]
+            names, elided = _orphan_names(ground_truth.get("wiring_orphans"))
+            uncovered = [n for n in names if n not in plan_md]
             if uncovered:
                 action["uncovered_orphans"] = uncovered[:10]
+            if elided:
+                # Absence is not zero: the collector elided the list, so the
+                # coverage of orphans is unmeasured, not "all covered".
+                action["orphans_unmeasured"] = elided
         if name == "precision" and ground_truth:
             verifications = ground_truth.get("vgp_verifications") or []
             unverified = [v.get("name", "") for v in verifications if not v.get("verified")]
@@ -161,6 +162,25 @@ def amplify_dimension(
                 action["unverified_symbols"] = unverified[:10]
         actions.append(action)
     return actions
+
+
+def _orphan_names(orphans: object) -> tuple[list[str], int]:
+    """Normalize `wiring_orphans` into (names, elided_count).
+
+    Same three shapes dimension_scorer already handles: a list of dicts (Rust
+    workspaces), a list of strings (polyglot projects such as analise), or a dict
+    — either `{"orphans": [...]}` or the collector's `{"_elided_array_len": N}`.
+    Iterating that dict directly yields its keys, which is how this function's
+    predecessor crashed with `'str' object has no attribute 'get'`.
+    """
+    elided = 0
+    if isinstance(orphans, dict):
+        elided = int(orphans.get("_elided_array_len") or 0)
+        orphans = orphans.get("orphans") or []
+    if not isinstance(orphans, list):
+        return [], elided
+    names = [str(o.get("name", "")) if isinstance(o, dict) else str(o) for o in orphans]
+    return [n for n in names if n], elided
 
 
 def build_parser() -> argparse.ArgumentParser:
