@@ -145,7 +145,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 Ok(output) => {
                     println!("{output}");
                     if wait {
-                        println!("{}", wait_for_generation_seal(poll_secs, wait_timeout_secs)?);
+                        println!(
+                            "{}",
+                            wait_for_generation_seal(poll_secs, wait_timeout_secs)?
+                        );
                     }
                 }
                 // The rebuild outlived its budget and is STILL WALKING. Without
@@ -157,7 +160,10 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                         "index rebuild exceeded its budget and keeps running — waiting for the \
                          generation seal (polling every {poll_secs}s)"
                     );
-                    println!("{}", wait_for_generation_seal(poll_secs, wait_timeout_secs)?);
+                    println!(
+                        "{}",
+                        wait_for_generation_seal(poll_secs, wait_timeout_secs)?
+                    );
                 }
                 Err(e) => return Err(e),
             }
