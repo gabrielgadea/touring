@@ -36,6 +36,17 @@ fn has_main_guard(source: &str) -> bool {
     source.contains("if __name__ ==")
 }
 
+/// A Rust file that is test code as a whole (S218): under `tests/` or `benches/`, or a
+/// `tests.rs` / `*_tests.rs` module whose `#[cfg(test)]` gate lives in its PARENT file.
+fn is_rust_test_file(path: &Path) -> bool {
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    name == "tests.rs"
+        || name.ends_with("_tests.rs")
+        || path
+            .components()
+            .any(|c| matches!(c.as_os_str().to_str(), Some("tests" | "benches")))
+}
+
 /// Whether `path` lives under a `scripts/` directory — the conventional home of
 /// command-line programs, whose `print` is output (S28).
 pub fn is_script_path(path: &Path) -> bool {
@@ -70,13 +81,24 @@ pub struct AntipatternCount {
 /// Count every antipattern rule of `lang` in `source`, sorted by message. `path`, when
 /// known, lets directory conventions apply (a `scripts/` file is a program).
 pub fn count_antipatterns(source: &str, lang: &str, path: Option<&Path>) -> Vec<AntipatternCount> {
+    // S218 (25/09/2026): Rust TEST code is not production — `panic!()` in the `mod tests`
+    // of hook_response.rs was reported as "explicit panic in production code".
+    if lang == "rust" && path.is_some_and(is_rust_test_file) {
+        return Vec::new();
+    }
     let cli_script = path.is_some_and(is_script_path);
     let bytes = source.as_bytes();
     let mut counts: Vec<AntipatternCount> = Vec::new();
+    let mut rust_test_regions: Option<Vec<(usize, usize)>> = None;
     for (pattern, message) in patterns_for(lang) {
         let mut offsets: Vec<usize> = memmem::find_iter(bytes, pattern).collect();
         if lang == "python" && pattern == b"print(" {
             offsets = debug_prints(source, offsets, cli_script);
+        }
+        if lang == "rust" && !offsets.is_empty() {
+            let regions = rust_test_regions
+                .get_or_insert_with(|| super::code_regions::non_executable_regions(source, "rust"));
+            offsets.retain(|off| !super::code_regions::offset_suppressed(*off, regions));
         }
         let Some(&first) = offsets.first() else {
             continue;
@@ -269,6 +291,39 @@ fn patterns_for(lang: &str) -> Vec<(&'static [u8], &'static str)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rust_test_code_is_not_production() {
+        let flags = |c: &[AntipatternCount]| {
+            c.iter()
+                .any(|a| a.message.contains("panic!()") || a.message.contains(".unwrap()"))
+        };
+        let module = "pub fn f() -> u8 { 1 }\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        let x: Option<u8> = None;\n        x.unwrap();\n        panic!(\"boom\");\n    }\n}\n";
+        assert!(
+            !flags(&count_antipatterns(module, "rust", None)),
+            "cfg(test) module"
+        );
+        let prod = "pub fn f() {\n    let x: Option<u8> = None;\n    x.unwrap();\n    panic!(\"boom\");\n}\n";
+        assert!(
+            flags(&count_antipatterns(prod, "rust", None)),
+            "control: production counts"
+        );
+        for test_path in [
+            "crates/x/tests/it.rs",
+            "crates/x/src/wiring_tests.rs",
+            "crates/x/src/tests.rs",
+        ] {
+            assert!(
+                count_antipatterns(prod, "rust", Some(Path::new(test_path))).is_empty(),
+                "{test_path}"
+            );
+        }
+        assert!(flags(&count_antipatterns(
+            prod,
+            "rust",
+            Some(Path::new("crates/x/src/lib.rs"))
+        )));
+    }
 
     /// S28 (plan 2026-09-25): a command-line script's `print` is its output. Four markers,
     /// each enough alone: the `__main__` guard (Canvas E), a shebang, a module-level
