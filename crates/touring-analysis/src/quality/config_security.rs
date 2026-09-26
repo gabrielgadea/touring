@@ -292,8 +292,7 @@ static RULES: &[ConfigRule] = &[
         cwe_id: 732,
         severity: 2.5,
         matches: |l, _r| {
-            l.contains("0o777")
-                || l.contains("0o666")
+            grants_world_writable_literal(l)
                 || l.contains("chmod 777")
                 || l.contains("chmod(0o777")
                 || l.contains("set_mode(0o777")
@@ -349,6 +348,18 @@ static RULES: &[ConfigRule] = &[
 /// judgment is the shared [`touring_foundation::security::is_code_expression`]
 /// — THE single source, the same predicate F2.4 secrets uses, never a second
 /// copy (touring-36, 25/09/2026).
+/// A world-writable mode literal (`0o777`/`0o666`) that SETS the mode — not one that masks or
+/// compares it. `st_mode & 0o777` reads the permission bits of a file under verification and
+/// `mode == 0o777` checks them (26/09/2026, analise `lifecycle/security/permissions.py:89`).
+fn grants_world_writable_literal(line: &str) -> bool {
+    ["0o777", "0o666"].iter().any(|lit| {
+        line.match_indices(lit).any(|(i, _)| {
+            let before = line[..i].trim_end();
+            !(before.ends_with('&') || before.ends_with("==") || before.ends_with("!="))
+        })
+    })
+}
+
 fn weak_literal_value(line: &str) -> bool {
     let Some((_, rhs)) = line.split_once('=').or_else(|| line.split_once(':')) else {
         return false;
@@ -586,5 +597,37 @@ mod tests {
         let r = analyze_rust(src);
         assert!((0.0..=1.0).contains(&r.score));
         assert!(r.score < 0.5);
+    }
+
+    /// 2026-09-26, analise `lifecycle/security/permissions.py:89`: `st_mode & 0o777` READS the
+    /// permission bits of a file being verified, and `mode == 0o777` compares them — neither grants
+    /// a world-writable mode. Only a literal that sets the mode is CWE-732.
+    #[test]
+    fn masking_or_comparing_the_mode_is_not_granting_it() {
+        for check in [
+            "mode = path.stat().st_mode & 0o777\n",
+            "if mode == 0o777:\n    raise PermissionError(path)\n",
+            "assert (st.st_mode & 0o666) != 0o666\n",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(check, "python");
+            assert!(r.misconfigs.is_empty(), "{check:?}: {:?}", r.misconfigs);
+        }
+    }
+
+    /// Controls: setting the mode stays CWE-732 in every shape.
+    #[test]
+    fn granting_a_world_writable_mode_still_flags() {
+        for grant in [
+            "os.chmod(path, 0o777)\n",
+            "os.makedirs(d, mode=0o777, exist_ok=True)\n",
+            "path.touch(mode=0o666)\n",
+        ] {
+            let r = ConfigSecurityAnalyzer::new().analyze(grant, "python");
+            assert!(
+                r.misconfigs.iter().any(|m| m.cwe_id == 732),
+                "{grant:?}: {:?}",
+                r.misconfigs
+            );
+        }
     }
 }
