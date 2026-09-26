@@ -11,7 +11,7 @@
 //! | `hardcoded-port` | `:8080` or `:3000` literal (non-12-factor — config should come from env) | Rust/JS/TS/Python |
 //! | `no-config-layer` | Rust project with no `figment` / `config` / `dotenvy` reference (config is hardcoded) | Rust |
 //! | `py-os-environ-no-config` | Python using `os.environ[...]` without `pydantic_settings` (config layer missing) | Python |
-//! | `no-12-factor-config` | no `std::env::var` / `os.environ` / `process.env` reads at all (config 100% hardcoded) | polyglot |
+//! | `no-12-factor-config` | no `std::env::var` / `os.environ` / `process.env` reads at all (config 100% hardcoded) — Python: only in an entry point (`if __name__ ==`), reads in any spelling (S512) | polyglot |
 //!
 //! **Disjoint** from D17 secrets (which detects *literal* secrets; F4.12
 //! detects the *absence* of a secret-management layer) and D19 config
@@ -62,6 +62,28 @@ const CONFIG_RS: &[u8] = b"config::Config";
 const HTTP_LITERAL: &[u8] = b"http://";
 const HTTPS_LITERAL: &[u8] = b"https://";
 const PY_OS_ENVIRON: &[u8] = b"os.environ[";
+/// Every spelling of a Python env read (S512, 26/09/2026): `os.environ.get` and
+/// `os.getenv` were read as "no env" and flagged.
+const PY_ENV_READS: &[&[u8]] = &[
+    b"os.environ",
+    b"environ[",
+    b"environ.get(",
+    b"getenv(",
+    b"BaseSettings",
+    b"pydantic_settings",
+];
+/// A CLI takes its config from the invocation (S512: 69,4% of the analise's
+/// flagged entry points parse arguments) — external config, like the env.
+const PY_CLI_CONFIG: &[&[u8]] = &[
+    b"argparse",
+    b"import click",
+    b"from click",
+    b"import typer",
+    b"from typer",
+    b"sys.argv",
+];
+/// The module-level guard that makes a Python file an entry point.
+const PY_MAIN_GUARD: &[u8] = b"if __name__ ==";
 const PY_PYDANTIC_SETTINGS: &[u8] = b"pydantic_settings";
 const PY_BASE_SETTINGS: &[u8] = b"BaseSettings";
 const JS_DOTENV: &[u8] = b"dotenv";
@@ -130,10 +152,18 @@ fn push_python_findings(report: &mut EnvReport, bytes: &[u8], regions: &[(usize,
             1, 0.7,
         );
     }
-    // No env reads at all (12-factor violation)
-    if !has_environ && report.total_lines >= 30 {
+    // No env reads at all (12-factor violation) — S512 (26/09/2026): only in an
+    // entry point, where the process reads its config. Gated on size alone it
+    // flagged 97,3% of the analise's eligible scripts (a pure module dropped
+    // 1.0 -> 0.88 by growing from 29 to 30 lines): a constant is not a signal.
+    let reads_env = PY_ENV_READS
+        .iter()
+        .chain(PY_CLI_CONFIG)
+        .any(|needle| has_in_executable(bytes, regions, needle));
+    if !reads_env && has_in_executable(bytes, regions, PY_MAIN_GUARD) && report.total_lines >= 30 {
         report.push(
-            "no `os.environ` reads (12-factor: config that varies by env must come from env vars)",
+            "no `os.environ` reads nor CLI arguments in an entry point (12-factor: config that \
+             varies must come from outside the code)",
             1,
             0.6,
         );
@@ -178,7 +208,14 @@ fn push_jsts_findings(report: &mut EnvReport, bytes: &[u8], regions: &[(usize, u
 /// Polyglot: Rust + Python + JS/TS.
 pub fn analyze_env(source: &str, lang: &str) -> EnvReport {
     let bytes = source.as_bytes();
-    let regions = non_executable_regions(source, "rust");
+    // S512: each language masks its OWN comments — every language was lexed as
+    // Rust here, so a Python `# os.environ[...]` comment counted as a read.
+    let region_lang = match canonical_lang(lang) {
+        Lang::Python => "python",
+        Lang::JsTs => "javascript",
+        Lang::Rust | Lang::Other => "rust",
+    };
+    let regions = non_executable_regions(source, region_lang);
     let mut report = EnvReport {
         total_lines: source.lines().count().max(1),
         ..Default::default()
@@ -270,6 +307,61 @@ def get_url():
             "{:?}",
             r.findings
         );
+    }
+
+    /// An `n`-line pure Python module: arithmetic helpers, no config, no I/O.
+    fn pure_py(n: usize) -> String {
+        let mut out = String::from("\"\"\"Pure helpers.\"\"\"\n");
+        let mut i = 0;
+        while out.lines().count() < n {
+            out.push_str(&format!("def f{i}(x):\n    return x + {i}\n\n"));
+            i += 1;
+        }
+        out
+    }
+
+    fn flags_no_env(src: &str) -> bool {
+        rep(src, "python")
+            .findings
+            .iter()
+            .any(|(m, _)| m.contains("no `os.environ` reads"))
+    }
+
+    /// S512 (26/09/2026): the absence smell fired on every Python file of 30+
+    /// lines without `os.environ[` — 97,3% of the analise's eligible scripts, a
+    /// near-constant signal; a pure module dropped 1.0 -> 0.88 by growing from 29
+    /// to 30 lines. 12-factor config is read where the process starts: an entry
+    /// point. And a read is a read in any spelling — `os.environ.get` and
+    /// `os.getenv` were false positives. A comment is not a read.
+    #[test]
+    fn py_env_absence_is_an_entry_point_smell_and_any_read_counts() {
+        let module = pure_py(40);
+        assert!(!flags_no_env(&module), "a library module is no entry point");
+        let entry = format!("{module}\nif __name__ == \"__main__\":\n    f0(1)\n");
+        assert!(flags_no_env(&entry), "an entry point that reads no env");
+        for read in [
+            "os.environ.get(\"DB\")",
+            "os.getenv(\"DB\")",
+            "os.environ[\"DB\"]",
+            "environ.get(\"DB\")",
+        ] {
+            let with = format!("import os\nDB = {read}\n{entry}");
+            assert!(!flags_no_env(&with), "{read} is an env read");
+        }
+        let commented = format!("# DB = os.environ[\"DB\"]\n{entry}");
+        assert!(flags_no_env(&commented), "a comment is not a read");
+        // A CLI takes its config from the invocation: 69,4% of the analise's
+        // flagged entry points parse arguments — the smell is "config 100%
+        // hardcoded", not "no env var".
+        for cli in [
+            "import argparse",
+            "import click",
+            "import typer",
+            "import sys\nARGS = sys.argv[1:]",
+        ] {
+            let with = format!("{cli}\n{entry}");
+            assert!(!flags_no_env(&with), "{cli} is external config");
+        }
     }
 
     #[test]
