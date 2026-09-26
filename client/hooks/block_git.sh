@@ -8,6 +8,7 @@
 # Tests: client/hooks/tests/test_s25_block_git_delete.py
 #        client/hooks/tests/test_s25_block_git_data_masking.py
 #        client/hooks/tests/test_s25_block_git_restore.py
+#        client/hooks/tests/test_s25_block_git_occurrences.py
 #
 # Shell-data masking: delegated to _shell_mask.py (same directory).
 # Semantic reference: touring_ceg::gateway::gate::mask_shell_data
@@ -38,18 +39,34 @@ fi
 # ── DESTRUCTIVE PATTERN DETECTION ──────────────────────────────────────────────
 # All patterns run against MASKED_CMD (shell-data masked), not raw CMD.
 
+deny() {
+    REASON_ESC=$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "${REASON_ESC}"
+    exit 0
+}
+
 check_pattern() {
-    local pattern="$1"
-    local reason="$2"
-    if printf '%s' "${MASKED_CMD}" | grep -qE "${pattern}"; then
-        REASON_ESC=$(printf '%s' "${reason}" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "${REASON_ESC}"
-        exit 0
+    if printf '%s' "${MASKED_CMD}" | grep -qE "$1"; then
+        deny "$2"
     fi
 }
 
-check_pattern 'git[[:space:]]+(stash)([^[:alnum:]-]|$)' \
-    "REGRA #11 v2: git stash é PROIBIDO como guarda de trabalho (destruiu 162 módulos 06/04/2026). Use: git checkout -b safety/<slug> && git add -A && git commit -m 'WIP safety pre-<op>'. Para usar mesmo assim: GIT_DESTRUCTIVE_OK=1 git stash"
+# Each git occurrence is judged on its own (26/09/2026): a verdict over the WHOLE command let one
+# harmless form launder a destructive one in the same line, and blocked reads the protocol frees.
+# An occurrence runs from the subcommand to the next shell separator.
+occurrences() {
+    printf '%s' "${MASKED_CMD}" | grep -oE "git[[:space:]]+$1\\b[^;&|)]*" || true
+}
+
+# git stash: only `list` and `show` are LEITURA (REGRA #11 v2, "livres, sempre"); every other
+# form — bare `git stash` included, which is `push` — mutates.
+while IFS= read -r occ; do
+    [[ -z "${occ}" ]] && continue
+    case "$(printf '%s' "${occ}" | awk '{print $3}')" in
+        list | show) ;;
+        *) deny "REGRA #11 v2: git stash é PROIBIDO como guarda de trabalho (destruiu 162 módulos 06/04/2026). Leitura livre: git stash list / git stash show. Use: git checkout -b safety/<slug> && git add -A && git commit -m 'WIP safety pre-<op>'. Para usar mesmo assim: GIT_DESTRUCTIVE_OK=1 git stash" ;;
+    esac
+done < <(occurrences stash)
 
 check_pattern 'git[[:space:]]+reset[[:space:]].*(--hard|--merge|--keep)' \
     "REGRA #11 v2: git reset destrutivo requer ritual (MEDIR→SNAPSHOT→CONFIRMAR) + token GIT_DESTRUCTIVE_OK=1"
@@ -60,18 +77,15 @@ check_pattern 'git[[:space:]]+checkout[[:space:]]+(-f|--|\.)' \
 check_pattern 'git[[:space:]]+switch[[:space:]]+--discard-changes' \
     "REGRA #11 v2: git switch --discard-changes descarta working tree — requer GIT_DESTRUCTIVE_OK=1"
 
-# git restore (working tree): grep -E does not support lookahead (?!--staged).
-# Two-condition check: deny if cmd has 'git restore' AND does NOT have 'git restore --staged'.
-# Edge case: 'git restore --staged foo && git restore bar' → first condition matches,
-# second also matches ('git restore --staged' is present) → not denied. Conservative trade-off.
-# REGRA #21: pré-existente; now correctly fires.
-if printf '%s' "${MASKED_CMD}" | grep -qE 'git[[:space:]]+restore[[:space:]]'; then
-    if ! printf '%s' "${MASKED_CMD}" | grep -qE 'git[[:space:]]+restore[[:space:]]+--staged'; then
-        REASON_ESC=$(printf '%s' "REGRA #11 v2: git restore (working tree) descarta mudanças — use --staged para só unstage, ou GIT_DESTRUCTIVE_OK=1" | sed 's/\\/\\\\/g; s/"/\\"/g')
-        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "${REASON_ESC}"
-        exit 0
+# git restore: only an unstage (--staged / -S, and no --worktree / -W) is ADITIVA; any other
+# occurrence rewrites the working tree — even when another occurrence in the same line unstages.
+while IFS= read -r occ; do
+    [[ -z "${occ}" ]] && continue
+    if ! printf '%s ' "${occ}" | grep -qE '[[:space:]](--staged|-S)[[:space:]]' \
+        || printf '%s ' "${occ}" | grep -qE '[[:space:]](--worktree|-W)[[:space:]]'; then
+        deny "REGRA #11 v2: git restore (working tree) descarta mudanças — use só --staged/-S para unstage, ou GIT_DESTRUCTIVE_OK=1"
     fi
-fi
+done < <(occurrences restore)
 
 check_pattern 'git[[:space:]]+clean[[:space:]]+-[[:alnum:]]*[fd]' \
     "REGRA #11 v2: git clean apaga arquivos não rastreados — rode com -n primeiro (dry-run) e depois GIT_DESTRUCTIVE_OK=1"
