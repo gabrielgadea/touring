@@ -156,6 +156,12 @@ Os ledgers vivem no daemon — um processo para N sessões CC. Chaveados só por
 carregava comandos de OUTRA sessão no remédio e inflava a contagem de quem não fez a rajada
 (medido pela `analise-a2`: paths de scratchpad alheios na rota sugerida).
 
+**O G6 (repetição byte-idêntica) também é por sessão desde 26/09 (`daa295cd`, 30.4.75).** Ficou
+de fora da correção de 30/08 e seguia chaveado só por (raiz, ferramenta, input): uma sessão NOVA
+que repetisse o comando de outra em 300 s era negada como "retry cego" — a suíte de contrato do
+analise (uma sessão sintética por chamada) negava do 2º run em diante. `g6_key` inclui a sessão;
+provado ao vivo com a suíte rodada 2× em 22 s.
+
 ## `--orchestrate` — o SDK `touring.*` dentro do sandbox
 
 Um script Python consulta o daemon em UMA execução (code-mode sem MCP):
