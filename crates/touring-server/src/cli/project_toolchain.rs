@@ -214,7 +214,77 @@ pub(crate) fn relink_bins_inner(
             )),
         }
     }
+    notes.extend(relink_optional_components(
+        &dot_touring.join("bin"),
+        channel.as_deref(),
+        touring_home,
+        dev_bin_dir,
+    ));
     notes
+}
+
+/// S225 (26/09/2026): the optional components the project LINKED follow the
+/// active channel too. `update` re-linked only the core, and the analise's
+/// `touring-quality` stayed on the 30.4.30 toolchain across 42 releases. A
+/// component the channel no longer offers keeps its link and says so, loudly;
+/// one never linked stays unlinked (that is `touring component add`'s call).
+fn relink_optional_components(
+    bin_dir: &Path,
+    channel: Option<&str>,
+    touring_home: &Path,
+    dev_bin_dir: &Path,
+) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(bin_dir) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_symlink()))
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| {
+            !PROJECT_BINARIES.contains(&n.as_str()) && !PROJECT_RUNTIME_LIBS.contains(&n.as_str())
+        })
+        .collect();
+    names.sort();
+    names
+        .into_iter()
+        .map(|name| relink_component(bin_dir, &name, channel, touring_home, dev_bin_dir))
+        .collect()
+}
+
+/// Re-point one linked component, atomically: the new link is created beside
+/// the old one and renamed over it, so a failure never leaves it unlinked.
+fn relink_component(
+    bin_dir: &Path,
+    name: &str,
+    channel: Option<&str>,
+    touring_home: &Path,
+    dev_bin_dir: &Path,
+) -> String {
+    let link = bin_dir.join(name);
+    let current = std::fs::read_link(&link).ok();
+    let Some(target) = resolve_binary_target(name, channel, touring_home, dev_bin_dir) else {
+        return format!(
+            "bin/{name}: component NOT offered by channel {} — still linked to {} \
+             (`touring component remove {name}`, or install a toolchain that ships it)",
+            channel.unwrap_or("<unpinned>"),
+            current.map_or_else(|| "?".to_string(), |p| p.display().to_string())
+        );
+    };
+    if current.as_deref() == Some(target.as_path()) {
+        return format!("bin/{name} -> {} (component, unchanged)", target.display());
+    }
+    let staged = bin_dir.join(format!(".{name}.relink"));
+    let _ = std::fs::remove_file(&staged);
+    match std::os::unix::fs::symlink(&target, &staged)
+        .and_then(|()| std::fs::rename(&staged, &link))
+    {
+        Ok(()) => format!("bin/{name} -> {} (component)", target.display()),
+        Err(e) => {
+            let _ = std::fs::remove_file(&staged);
+            format!("bin/{name}: component relink failed ({e}) — still on its previous target")
+        }
+    }
 }
 
 /// Env-resolving wrapper over [`relink_bins_inner`] (production entry).
@@ -269,6 +339,61 @@ mod tests {
                 "bin/{b} must point at the pinned toolchain"
             );
         }
+    }
+
+    /// S225 (26/09/2026): `touring update` re-linked only the core binaries, so the
+    /// analise's `touring-quality` stayed on the 30.4.30 toolchain across 42
+    /// releases — the project's quality gate ran code no one maintained. A
+    /// component the project LINKED follows the active channel; one the channel no
+    /// longer offers keeps its link and says so; one never linked stays unlinked.
+    #[test]
+    fn relink_bins_moves_linked_optional_components_to_the_active_channel() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        let th = tmp.path().join("touring-home");
+        let old = th.join("toolchains/1.0.0/bin");
+        let new = th.join("toolchains/2.0.0/bin");
+        for dir in [&old, &new] {
+            for b in PROJECT_BINARIES {
+                fake_bin(dir, b);
+            }
+            fake_bin(dir, "touring-quality");
+        }
+        fake_bin(&old, "touring-legacy");
+        fake_bin(&new, "touring-extra");
+        std::os::unix::fs::symlink(old.join("touring-quality"), dot.join("bin/touring-quality"))
+            .expect("link quality");
+        std::os::unix::fs::symlink(old.join("touring-legacy"), dot.join("bin/touring-legacy"))
+            .expect("link legacy");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"2.0.0\"\n",
+        )
+        .expect("pin");
+
+        let notes = relink_bins_inner(&dot, &th, &tmp.path().join("no-dev"));
+
+        assert_eq!(
+            std::fs::read_link(dot.join("bin/touring-quality")).expect("link"),
+            new.join("touring-quality"),
+            "{notes:?}"
+        );
+        assert_eq!(
+            std::fs::read_link(dot.join("bin/touring-legacy")).expect("link"),
+            old.join("touring-legacy"),
+            "a component the channel no longer offers keeps its link"
+        );
+        assert!(
+            notes
+                .iter()
+                .any(|n| n.contains("touring-legacy") && n.contains("2.0.0")),
+            "and says so: {notes:?}"
+        );
+        assert!(
+            !dot.join("bin/touring-extra").exists(),
+            "a component never linked stays unlinked"
+        );
     }
 
     #[test]
