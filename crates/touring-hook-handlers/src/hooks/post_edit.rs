@@ -900,6 +900,57 @@ struct Phase2Inputs<'a> {
     /// Pre-computed CodeHealthReport (I-1: avoids duplicate pipeline call).
     post_health: Option<&'a touring_analysis::CodeHealthReport>,
 }
+/// This edit's public-API change (S221, 25/09/2026): the REBUILT old source against the
+/// new one, through the same extractor on both sides; the stored snapshot only when no
+/// old source exists (a Write). The snapshot path alone listed every symbol of the file
+/// as `+pub` after any small Edit — its live shape carries no visibility.
+fn api_surface_diff(
+    old_symbols_json: Option<&str>,
+    old_source: Option<&str>,
+    new_source: Option<&str>,
+    file_path: &str,
+) -> Option<String> {
+    let new_source = new_source?;
+    match old_source {
+        Some(old) => crate::ast_bridge::diff_pub_api_surface(old, new_source, file_path),
+        None => {
+            crate::ast_bridge::diff_pub_api_from_snapshot(old_symbols_json?, new_source, file_path)
+        }
+    }
+}
+
+#[cfg(test)]
+mod api_surface_diff_tests {
+    use super::api_surface_diff;
+
+    /// The live snapshot shape (no `is_public`), measured on the analise 25/09/2026.
+    const LIVE_SNAPSHOT: &str =
+        r#"[{"file_path":"m.py","symbol_name":"handler","line":1,"kind":"function"}]"#;
+    const OLD: &str = "def handler():\n    return 1\n";
+    const NEW: &str = "def handler():\n    return 1\n\n\ndef added():\n    return 2\n";
+
+    #[test]
+    fn a_small_edit_reports_only_the_symbol_it_added() {
+        assert_eq!(
+            api_surface_diff(Some(LIVE_SNAPSHOT), Some(OLD), Some(NEW), "m.py").as_deref(),
+            Some("API surface changed: +pub: added")
+        );
+    }
+
+    #[test]
+    fn an_unchanged_surface_and_an_unusable_snapshot_report_nothing() {
+        assert_eq!(
+            api_surface_diff(Some(LIVE_SNAPSHOT), Some(NEW), Some(NEW), "m.py"),
+            None
+        );
+        // A Write (no rebuilt old source) with a snapshot that cannot state visibility.
+        assert_eq!(
+            api_surface_diff(Some(LIVE_SNAPSHOT), None, Some(NEW), "m.py"),
+            None
+        );
+    }
+}
+
 /// Phase 2: Quality verification — speculate, anti-patterns, quality delta, cognitive enrichment.
 ///
 /// `inputs.file_content` is the pre-loaded source content (avoids redundant I/O).
@@ -944,9 +995,8 @@ fn phase2_verification(
     let mut signals: Vec<String> = Vec::new();
     signals.extend(verify_multiconfig_hint(file_path, *file_content));
     signals.extend(verify_rust_workflow_hint(file_path, *file_content));
-    if let (Some(old_json), Some(src)) = (old_symbols_json, file_content)
-        && let Some(diff_msg) =
-            crate::ast_bridge::diff_pub_api_from_snapshot(old_json, src, file_path)
+    if let Some(diff_msg) =
+        api_surface_diff(*old_symbols_json, *old_source, *file_content, file_path)
     {
         issues.push(diff_msg);
     }
