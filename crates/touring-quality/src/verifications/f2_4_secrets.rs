@@ -143,8 +143,12 @@ fn has_non_secret_markers(v: &str) -> bool {
         || v.starts_with("urn:")
         || v.contains("://")
         || is_path_shape(v)
+        // Code and style syntax: `(`/`)` of a call and `;` of a statement or a CSS
+        // declaration never occur in an opaque token (26/09/2026: `expect(…);` in a
+        // completion suggestion and `background:#eee;width:200px;…` inside an HTML
+        // f-string held the analise hooks tree at 0.0).
         || v.bytes()
-            .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\'))
+            .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\' | b'(' | b')' | b';'))
         || is_predictable_sequence(v)
         || is_email_like(v)
 }
@@ -2238,5 +2242,32 @@ mod tests {
                 "still a secret: {positive}"
             );
         }
+    }
+
+    /// 2026-09-26, analise `.claude/hooks`: two generic-entropy false positives held
+    /// the P0 gate at 0.0 — a CSS declaration (the literal between the INNER quotes of
+    /// an HTML f-string, so the `<>` markers stayed outside it) and a JS call in a
+    /// completion suggestion. Opaque tokens (base64, base64url, hex, provider keys)
+    /// never carry `(`, `)` or `;`: code and style syntax, the same category as `<>{}\`.
+    #[test]
+    fn css_declaration_and_code_call_are_not_opaque_tokens() {
+        for benign in [
+            r#"f'<div style="background:#eee;width:200px;height:12px;display:inline-block">'"#,
+            r#""expect(diagnostico.tarifa_basica2025).toBeCloseTo(0.12345,4);","#,
+            // the same call without the `;`: the parentheses alone must spare it
+            r#""expect(diagnostico.tarifa_basica2025).toBeCloseTo(0.12345,4)","#,
+        ] {
+            assert!(
+                !scan_text(&format!("{benign}\n")).strong,
+                "not a secret: {benign}"
+            );
+        }
+    }
+
+    /// Control: the new markers exempt code and style syntax, not entropy — an opaque
+    /// token on the same line as that syntax (in its own literal) still blocks.
+    #[test]
+    fn opaque_token_beside_code_syntax_still_blocks() {
+        assert!(scan_text("call(x); k = \"q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA\"\n").strong);
     }
 }
