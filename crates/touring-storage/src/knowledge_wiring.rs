@@ -1409,13 +1409,38 @@ impl FileKnowledgeDB {
     ///
     /// What stays `unknown` after this pass has no definition ANYWHERE — the
     /// predicate the phantom purge requires (`wiring_repair`).
-    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {        let conn = self.conn_ref();
+    pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {
+        self.resolve_consumer_kinds_where(None)
+    }
+
+    /// S223 (2026-09-25): [`Self::resolve_consumer_kinds_from_definers`] scoped to the
+    /// rows ONE consumer file just recorded — the incremental hook path's half of I17.
+    /// Without it, a consumer of a private helper (no producer row) was born `unknown`
+    /// on every edit and stayed so until the next full rebuild: the doctor's
+    /// `kind_unknown` grew 108 in six days on the analise, and 2 s after a rebuild
+    /// sealed, the first new edge was already `unknown` again.
+    pub fn resolve_consumer_kinds_for_consumer(
+        &self,
+        consumer_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let consumer = self.canonicalize_module_path(consumer_file);
+        self.resolve_consumer_kinds_where(Some(consumer.as_ref()))
+    }
+
+    fn resolve_consumer_kinds_where(
+        &self,
+        consumer: Option<&str>,
+    ) -> Result<usize, rusqlite::Error> {
+        let conn = self.conn_ref();
         let mut stmt = conn.prepare(
             "SELECT DISTINCT module_file, symbol_name, consumer_file FROM wiring_map
-             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
+             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL
+               AND (?1 IS NULL OR consumer_file = ?1)",
         )?;
         let candidates: Vec<(String, String, String)> = stmt
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .query_map(params![consumer], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            })?
             .collect::<Result<_, _>>()?;
         drop(stmt);
         if candidates.is_empty() {
@@ -1504,9 +1529,7 @@ impl FileKnowledgeDB {
                         // visible, never phantom.
                         match Self::facade_dynamic_export(self.workspace_root(), module, symbol) {
                             FacadeVerdict::ModuleDunder => Some("module_dunder".to_string()),
-                            FacadeVerdict::SubmoduleBound => {
-                                Some("reexport_submodule".to_string())
-                            }
+                            FacadeVerdict::SubmoduleBound => Some("reexport_submodule".to_string()),
                             FacadeVerdict::ImportBound => Some("import_bound".to_string()),
                             FacadeVerdict::ResolvedStar => Some("reexport_star".to_string()),
                             FacadeVerdict::Dynamic => Some("dynamic_export".to_string()),
@@ -1531,172 +1554,182 @@ impl FileKnowledgeDB {
     }
 
     /// The source belt of [`FileKnowledgeDB::resolve_consumer_kinds_from_definers`]
-/// (25/09/2026): reads the definitor's SOURCE on disk for a literal definition
-/// the extractor never recorded. Covers Python (`def`/`class`/top-level
-/// `X =`/`X:`) and Rust (`fn`/`struct`/`enum`/`const`/`static`/`mod`, with or
-/// without `pub`). Unreadable/unparsed → no proof (`false`).
-fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
-    let Some(root) = root else { return false };
-    let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
-        return false;
-    };
-    let escaped = regex::escape(symbol);
-    // 25/09 (censo do oráculo): o assignment ganhou `^\s*` — a feature-flag
-    // canônica `try: … except ImportError: X = False` é indentada, e o nome
-    // EXISTE como atributo do módulo (`RICH_AVAILABLE`, medido presente no
-    // runtime). O falso positivo possível (assignment LOCAL dentro de uma
-    // função) POUPA uma linha de mais, nunca apaga de mais — conservador por
-    // desenho, e o doctor a conta como index_blind, visível.
-    let pattern = format!(
-        r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^\s*{escaped}\s*[:=]"
-    );
-    regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
-}
-
-/// The facade belt (25/09/2026, touring-36): a facade `__init__.py` can export
-/// a name with NO literal definition — via `from .x import *` or a lazy
-/// `__getattr__`. The static instruments (symbols_json + the literal grep)
-/// say ABSENT while the runtime says EXISTS. The star is followed STATICALLY
-/// to the target's `__all__`/top-level definitions first; when the name is
-/// absent there too, the row is `Dynamic` (spared, visible), never phantom.
-fn facade_dynamic_export(root: Option<&str>, module: &str, symbol: &str) -> FacadeVerdict {
-    // Module dunders are provided by Python itself — the attribute always
-    // exists, on any module, no content needed.
-    const MODULE_DUNDERS: &[&str] = &[
-        "__name__", "__doc__", "__package__", "__loader__", "__spec__", "__file__",
-        "__cached__", "__path__", "__builtins__",
-    ];
-    if MODULE_DUNDERS.contains(&symbol) {
-        return FacadeVerdict::ModuleDunder;
-    }
-    let Some(root) = root else {
-        return FacadeVerdict::Nothing;
-    };
-    let base = std::path::Path::new(root);
-    let direct = base.join(module);
-    // D (censo 25/09): o índice pode registrar o `.py` de um módulo que virou
-    // pacote (rename arquivo→pasta) — o definidor real é o `__init__.py`
-    // irmão. Sem a queda, a leitura falha e a linha cai em fantasma com o
-    // símbolo existindo no pacote.
-    let (file, pkg_dir) = if direct.is_file() {
-        let pkg = if direct.file_name().is_some_and(|n| n == "__init__.py") {
-            direct.parent().map(std::path::Path::to_path_buf)
-        } else {
-            None
+    /// (25/09/2026): reads the definitor's SOURCE on disk for a literal definition
+    /// the extractor never recorded. Covers Python (`def`/`class`/top-level
+    /// `X =`/`X:`) and Rust (`fn`/`struct`/`enum`/`const`/`static`/`mod`, with or
+    /// without `pub`). Unreadable/unparsed → no proof (`false`).
+    fn source_declares(root: Option<&str>, module: &str, symbol: &str) -> bool {
+        let Some(root) = root else { return false };
+        let Ok(content) = std::fs::read_to_string(std::path::Path::new(root).join(module)) else {
+            return false;
         };
-        (direct, pkg)
-    } else {
-        let pkg_init = direct.with_extension("").join("__init__.py");
-        if pkg_init.is_file() {
-            let pkg = pkg_init.parent().map(std::path::Path::to_path_buf);
-            (pkg_init, pkg)
-        } else {
-            (direct, None)
+        let escaped = regex::escape(symbol);
+        // 25/09 (censo do oráculo): o assignment ganhou `^\s*` — a feature-flag
+        // canônica `try: … except ImportError: X = False` é indentada, e o nome
+        // EXISTE como atributo do módulo (`RICH_AVAILABLE`, medido presente no
+        // runtime). O falso positivo possível (assignment LOCAL dentro de uma
+        // função) POUPA uma linha de mais, nunca apaga de mais — conservador por
+        // desenho, e o doctor a conta como index_blind, visível.
+        let pattern = format!(
+            r"(?m)(^|\s)(def|class|fn|struct|enum|static|mod)\s+{escaped}\b|(pub\s+)?(const|fn|struct|enum|mod)\s+{escaped}\b|^\s*{escaped}\s*[:=]"
+        );
+        regex::Regex::new(&pattern).is_ok_and(|re| re.is_match(&content))
+    }
+
+    /// The facade belt (25/09/2026, touring-36): a facade `__init__.py` can export
+    /// a name with NO literal definition — via `from .x import *` or a lazy
+    /// `__getattr__`. The static instruments (symbols_json + the literal grep)
+    /// say ABSENT while the runtime says EXISTS. The star is followed STATICALLY
+    /// to the target's `__all__`/top-level definitions first; when the name is
+    /// absent there too, the row is `Dynamic` (spared, visible), never phantom.
+    fn facade_dynamic_export(root: Option<&str>, module: &str, symbol: &str) -> FacadeVerdict {
+        // Module dunders are provided by Python itself — the attribute always
+        // exists, on any module, no content needed.
+        const MODULE_DUNDERS: &[&str] = &[
+            "__name__",
+            "__doc__",
+            "__package__",
+            "__loader__",
+            "__spec__",
+            "__file__",
+            "__cached__",
+            "__path__",
+            "__builtins__",
+        ];
+        if MODULE_DUNDERS.contains(&symbol) {
+            return FacadeVerdict::ModuleDunder;
         }
-    };
-    // E (censo 25/09): o submódulo EXISTE no disco ao lado do `__init__.py` —
-    // qualquer import dele, por QUALQUER módulo da cadeia, anexa o nome ao
-    // pacote (o `antt/__init__.py` nunca menciona `ferrovias_govbr` e o
-    // atributo existe porque um cliente irmão o importa). Só vale para pacote.
-    if let Some(pkg) = &pkg_dir
-        && (pkg.join(format!("{symbol}.py")).is_file()
-            || pkg.join(symbol).join("__init__.py").is_file())
-    {
-        return FacadeVerdict::SubmoduleBound;
-    }
-    let Ok(content) = std::fs::read_to_string(&file) else {
-        return FacadeVerdict::Nothing;
-    };
-    // O nome no CAMINHO do import: `from pkg.mod.frota import X` /
-    // `from .frota import (` / `import pkg.frota` — importar o submódulo liga
-    // o nome no pacote (as três formas medidas pelo oráculo, 25/09).
-    let esc = regex::escape(symbol);
-    let sub_re = format!(
-        r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b)",
-    );
-    if regex::Regex::new(&sub_re).is_ok_and(|re| re.is_match(&content)) {
-        return FacadeVerdict::SubmoduleBound;
-    }
-    // A/B (censo 25/09): o DEFINIDOR importa o nome — `import time` (nu) ou o
-    // nome na LISTA de um from-import, qualquer caminho, multi-linha, com ou
-    // sem `as` (`from scripts.eleitoral import navegacao`,
-    // `from . import frota`). Importar liga o nome como atributo do módulo.
-    // O alias esconde o nome original (`as ps` liga só `ps`) — casar os dois
-    // POUPA uma linha de mais, nunca apaga de mais: conservador por desenho.
-    let import_re = format!(
-        r"(?m)^\s*import\s+{esc}\b|^\s*from\s+[\w.]+\s+import\s+(?:\([^)]*\b{esc}\b[^)]*\)|[^(#\n]*\b{esc}\b)",
-    );
-    if regex::Regex::new(&import_re).is_ok_and(|re| re.is_match(&content)) {
-        return FacadeVerdict::ImportBound;
-    }
-    let lazy = content.contains("def __getattr__")
-        || content.contains("importlib")
-        || content.contains("_LAZY")
-        || content.contains("__all__ +=")
-        || content.contains("__all__+=");
-    let star_re = regex::Regex::new(r"(?m)^\s*from\s+(\.[\w.]*)\s+import\s+\*").expect("static");
-    let stars: Vec<String> = star_re
-        .captures_iter(&content)
-        .map(|c| c[1].to_string())
-        .collect();
-    if !lazy && stars.is_empty() {
-        return FacadeVerdict::Nothing;
-    }
-    for target in &stars {
-        if let Some(names) = Self::star_target_names(root, module, target)
-            && names.iter().any(|n| n == symbol)
+        let Some(root) = root else {
+            return FacadeVerdict::Nothing;
+        };
+        let base = std::path::Path::new(root);
+        let direct = base.join(module);
+        // D (censo 25/09): o índice pode registrar o `.py` de um módulo que virou
+        // pacote (rename arquivo→pasta) — o definidor real é o `__init__.py`
+        // irmão. Sem a queda, a leitura falha e a linha cai em fantasma com o
+        // símbolo existindo no pacote.
+        let (file, pkg_dir) = if direct.is_file() {
+            let pkg = if direct.file_name().is_some_and(|n| n == "__init__.py") {
+                direct.parent().map(std::path::Path::to_path_buf)
+            } else {
+                None
+            };
+            (direct, pkg)
+        } else {
+            let pkg_init = direct.with_extension("").join("__init__.py");
+            if pkg_init.is_file() {
+                let pkg = pkg_init.parent().map(std::path::Path::to_path_buf);
+                (pkg_init, pkg)
+            } else {
+                (direct, None)
+            }
+        };
+        // E (censo 25/09): o submódulo EXISTE no disco ao lado do `__init__.py` —
+        // qualquer import dele, por QUALQUER módulo da cadeia, anexa o nome ao
+        // pacote (o `antt/__init__.py` nunca menciona `ferrovias_govbr` e o
+        // atributo existe porque um cliente irmão o importa). Só vale para pacote.
+        if let Some(pkg) = &pkg_dir
+            && (pkg.join(format!("{symbol}.py")).is_file()
+                || pkg.join(symbol).join("__init__.py").is_file())
         {
-            return FacadeVerdict::ResolvedStar;
+            return FacadeVerdict::SubmoduleBound;
         }
-    }
-    FacadeVerdict::Dynamic
-}
-
-/// Resolve `from .x import *` in `module`: read x's source and return its
-/// exported names (its literal `__all__`, else its top-level def/class/
-/// assignments). None when unreadable — the star stays unresolved.
-fn star_target_names(root: &str, module: &str, target: &str) -> Option<Vec<String>> {
-    let pkg_dir = std::path::Path::new(module).parent()?;
-    // `.x.y` → relative to the module's package dir; a bare `.` is the package.
-    let rel = target.trim_start_matches('.');
-    let base = std::path::Path::new(root).join(pkg_dir);
-    let candidates = if rel.is_empty() {
-        vec![base.join("__init__.py")]
-    } else {
-        let rel_path = rel.replace('.', "/");
-        vec![base.join(format!("{rel_path}.py")), base.join(&rel_path).join("__init__.py")]
-    };
-    // Static patterns, compiled once (never inside the candidate loop).
-    let all_re = regex::Regex::new(r"(?s)__all__\s*=\s*\[(.*?)\]").expect("static");
-    let quoted_re = regex::Regex::new(r#""([^"]+)"|'([^']+)'"#).expect("static");
-    let def_re = regex::Regex::new(r"(?m)^(?:def\s+(\w+)|class\s+(\w+)|(\w+)\s*(?::[^=]*)?=)")
-        .expect("static");
-    for path in candidates {
-        let Ok(content) = std::fs::read_to_string(&path) else {
-            continue;
+        let Ok(content) = std::fs::read_to_string(&file) else {
+            return FacadeVerdict::Nothing;
         };
-        // The literal `__all__ = [...]` first.
-        if let Some(cap) = all_re.captures(&content) {
-            let names = quoted_re
-                .captures_iter(&cap[1])
-                .filter_map(|c| c.get(1).or(c.get(2)))
+        // O nome no CAMINHO do import: `from pkg.mod.frota import X` /
+        // `from .frota import (` / `import pkg.frota` — importar o submódulo liga
+        // o nome no pacote (as três formas medidas pelo oráculo, 25/09).
+        let esc = regex::escape(symbol);
+        let sub_re =
+            format!(r"(?m)^\s*(?:from\s+[\w.]*\.{esc}\s+import|import\s+[\w.]+\.{esc}\b)",);
+        if regex::Regex::new(&sub_re).is_ok_and(|re| re.is_match(&content)) {
+            return FacadeVerdict::SubmoduleBound;
+        }
+        // A/B (censo 25/09): o DEFINIDOR importa o nome — `import time` (nu) ou o
+        // nome na LISTA de um from-import, qualquer caminho, multi-linha, com ou
+        // sem `as` (`from scripts.eleitoral import navegacao`,
+        // `from . import frota`). Importar liga o nome como atributo do módulo.
+        // O alias esconde o nome original (`as ps` liga só `ps`) — casar os dois
+        // POUPA uma linha de mais, nunca apaga de mais: conservador por desenho.
+        let import_re = format!(
+            r"(?m)^\s*import\s+{esc}\b|^\s*from\s+[\w.]+\s+import\s+(?:\([^)]*\b{esc}\b[^)]*\)|[^(#\n]*\b{esc}\b)",
+        );
+        if regex::Regex::new(&import_re).is_ok_and(|re| re.is_match(&content)) {
+            return FacadeVerdict::ImportBound;
+        }
+        let lazy = content.contains("def __getattr__")
+            || content.contains("importlib")
+            || content.contains("_LAZY")
+            || content.contains("__all__ +=")
+            || content.contains("__all__+=");
+        let star_re =
+            regex::Regex::new(r"(?m)^\s*from\s+(\.[\w.]*)\s+import\s+\*").expect("static");
+        let stars: Vec<String> = star_re
+            .captures_iter(&content)
+            .map(|c| c[1].to_string())
+            .collect();
+        if !lazy && stars.is_empty() {
+            return FacadeVerdict::Nothing;
+        }
+        for target in &stars {
+            if let Some(names) = Self::star_target_names(root, module, target)
+                && names.iter().any(|n| n == symbol)
+            {
+                return FacadeVerdict::ResolvedStar;
+            }
+        }
+        FacadeVerdict::Dynamic
+    }
+
+    /// Resolve `from .x import *` in `module`: read x's source and return its
+    /// exported names (its literal `__all__`, else its top-level def/class/
+    /// assignments). None when unreadable — the star stays unresolved.
+    fn star_target_names(root: &str, module: &str, target: &str) -> Option<Vec<String>> {
+        let pkg_dir = std::path::Path::new(module).parent()?;
+        // `.x.y` → relative to the module's package dir; a bare `.` is the package.
+        let rel = target.trim_start_matches('.');
+        let base = std::path::Path::new(root).join(pkg_dir);
+        let candidates = if rel.is_empty() {
+            vec![base.join("__init__.py")]
+        } else {
+            let rel_path = rel.replace('.', "/");
+            vec![
+                base.join(format!("{rel_path}.py")),
+                base.join(&rel_path).join("__init__.py"),
+            ]
+        };
+        // Static patterns, compiled once (never inside the candidate loop).
+        let all_re = regex::Regex::new(r"(?s)__all__\s*=\s*\[(.*?)\]").expect("static");
+        let quoted_re = regex::Regex::new(r#""([^"]+)"|'([^']+)'"#).expect("static");
+        let def_re = regex::Regex::new(r"(?m)^(?:def\s+(\w+)|class\s+(\w+)|(\w+)\s*(?::[^=]*)?=)")
+            .expect("static");
+        for path in candidates {
+            let Ok(content) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            // The literal `__all__ = [...]` first.
+            if let Some(cap) = all_re.captures(&content) {
+                let names = quoted_re
+                    .captures_iter(&cap[1])
+                    .filter_map(|c| c.get(1).or(c.get(2)))
+                    .map(|m| m.as_str().to_string())
+                    .collect();
+                return Some(names);
+            }
+            // Without `__all__`: the top-level def/class/assignment names.
+            let names: Vec<String> = def_re
+                .captures_iter(&content)
+                .filter_map(|c| c.get(1).or(c.get(2)).or(c.get(3)))
+                .filter(|m| !m.as_str().starts_with('_'))
                 .map(|m| m.as_str().to_string())
                 .collect();
             return Some(names);
         }
-        // Without `__all__`: the top-level def/class/assignment names.
-        let names: Vec<String> = def_re
-            .captures_iter(&content)
-            .filter_map(|c| c.get(1).or(c.get(2)).or(c.get(3)))
-            .filter(|m| !m.as_str().starts_with('_'))
-            .map(|m| m.as_str().to_string())
-            .collect();
-        return Some(names);
+        None
     }
-    None
-}
 
-/// Find producer rows whose `symbol_name` matches any of the supplied
+    /// Find producer rows whose `symbol_name` matches any of the supplied
     /// names AND whose `symbol_kind` is callable (method / function /
     /// async_function). Returns `(module_file, symbol_name)` pairs.
     ///
@@ -3330,6 +3363,52 @@ mod consumer_kind_resolution_tests {
     }
 
     #[test]
+    fn consumer_scoped_resolution_types_a_new_private_helper_consumer() {
+        // S223: the incremental path records a consumer of a private helper with no
+        // producer row as `unknown`; the scoped pass types it from the definer's
+        // symbol table — and touches no other consumer's row.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        seed_symbols(&db, "src/registry.rs", &[("_to_snake_case", "function")]);
+        db.record_consumer(
+            "src/registry.rs",
+            "_to_snake_case",
+            "src/new_consumer.rs",
+            Some(1),
+        )
+        .expect("new consumer");
+        db.record_consumer("src/registry.rs", "_to_snake_case", "src/other.rs", Some(1))
+            .expect("other consumer");
+        let kind = |consumer: &str| -> String {
+            db.conn_ref()
+                .query_row(
+                    "SELECT symbol_kind FROM wiring_map WHERE module_file = 'src/registry.rs'
+                     AND symbol_name = '_to_snake_case' AND consumer_file = ?1",
+                    [consumer],
+                    |row| row.get(0),
+                )
+                .expect("row")
+        };
+        assert_eq!(
+            kind("src/new_consumer.rs"),
+            "unknown",
+            "control: record time leaves it unknown"
+        );
+        let resolved = db
+            .resolve_consumer_kinds_for_consumer("src/new_consumer.rs")
+            .expect("scoped resolve");
+        assert_eq!(resolved, 1);
+        assert_eq!(kind("src/new_consumer.rs"), "function");
+        assert_eq!(
+            kind("src/other.rs"),
+            "unknown",
+            "scope: another consumer stays untouched"
+        );
+    }
+
+    #[test]
     fn definer_kinds_resolve_module_private_self_reference_and_external_reexport() {
         // O db no LAYOUT CANÔNICO (`.claude/touring/`): `project_root_for_db`
         // deriva o root da localização do banco (a inversa de
@@ -3352,14 +3431,34 @@ mod consumer_kind_resolution_tests {
             .expect("private");
         // Classe 2: o CONSUMIDOR declara o próprio helper — a auto-referência
         // que o fallback antigo atribuía ao crate root.
-        seed_symbols(&db, "src/knowledge_wiring.rs", &[("non_source_sql", "function")]);
-        db.record_consumer("src/lib.rs", "non_source_sql", "src/knowledge_wiring.rs", Some(3))
-            .expect("self-ref");
+        seed_symbols(
+            &db,
+            "src/knowledge_wiring.rs",
+            &[("non_source_sql", "function")],
+        );
+        db.record_consumer(
+            "src/lib.rs",
+            "non_source_sql",
+            "src/knowledge_wiring.rs",
+            Some(3),
+        )
+        .expect("self-ref");
         // Classe 3: o definidor IMPORTA o nome de fora → `external_reexport`.
-        db.record_consumer("src/_compat.rs", "AssetCheckResult", "src/checks.rs", Some(4))
-            .expect("reexport");
-        db.record_unresolved_import("dagster", "AssetCheckResult", "src/_compat.rs", Some(1), "rust")
-            .expect("unresolved");
+        db.record_consumer(
+            "src/_compat.rs",
+            "AssetCheckResult",
+            "src/checks.rs",
+            Some(4),
+        )
+        .expect("reexport");
+        db.record_unresolved_import(
+            "dagster",
+            "AssetCheckResult",
+            "src/_compat.rs",
+            Some(1),
+            "rust",
+        )
+        .expect("unresolved");
         // Classe 4: nada em lugar nenhum → segue `unknown` (o purge a tira).
         // Via SQL cru: `record_consumer` RECUSA a palavra-chave de escopo hoje
         // (30.4.68) — a linha fantasma é um legado de antes do recuso.
@@ -3388,8 +3487,11 @@ mod consumer_kind_resolution_tests {
         // registrou (index_blind) — medido no analise 25/09: 34 de 233.
         let blind_dir = tmp.path().join("src");
         std::fs::create_dir_all(&blind_dir).expect("mkdir");
-        std::fs::write(blind_dir.join("blind.rs"), "pub const GRAFIAS: &[&str] = &[];\n")
-            .expect("source file");
+        std::fs::write(
+            blind_dir.join("blind.rs"),
+            "pub const GRAFIAS: &[&str] = &[];\n",
+        )
+        .expect("source file");
         seed_symbols(&db, "src/blind.rs", &[]); // lido pelo índice, nada registrado
         db.record_consumer("src/blind.rs", "GRAFIAS", "src/consumer.rs", Some(7))
             .expect("blind consumer");
@@ -3459,8 +3561,11 @@ mod consumer_kind_resolution_tests {
         // antes do ponto final).
         let pkg4 = tmp.path().join("pkg4");
         std::fs::create_dir_all(&pkg4).expect("pkg4");
-        std::fs::write(pkg4.join("__init__.py"), "from .impl import (\n    Client,\n)\n")
-            .expect("facade relative sub");
+        std::fs::write(
+            pkg4.join("__init__.py"),
+            "from .impl import (\n    Client,\n)\n",
+        )
+        .expect("facade relative sub");
         // Sem `impl.py` no disco — ver a nota da fixture pkg3 (isola o regex).
         seed_symbols(&db, "pkg4/__init__.py", &[]);
         db.conn_ref()
@@ -3572,14 +3677,25 @@ mod consumer_kind_resolution_tests {
             .expect("indented assignment row");
 
         let n = db.resolve_consumer_kinds_from_definers().expect("pass");
-        assert_eq!(n, 18, "as 18 linhas legítimas resolvem (a 8f são duas); a fantasma fica");
-        assert_eq!(kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"), "module");
+        assert_eq!(
+            n, 18,
+            "as 18 linhas legítimas resolvem (a 8f são duas); a fantasma fica"
+        );
+        assert_eq!(
+            kind_of(&db, "src/mod.rs", "a_bindings", "src/mod.rs"),
+            "module"
+        );
         assert_eq!(
             kind_of(&db, "src/selo.rs", "_INDICE", "tests/test_selo.rs"),
             "const"
         );
         assert_eq!(
-            kind_of(&db, "src/lib.rs", "non_source_sql", "src/knowledge_wiring.rs"),
+            kind_of(
+                &db,
+                "src/lib.rs",
+                "non_source_sql",
+                "src/knowledge_wiring.rs"
+            ),
             "function"
         );
         assert_eq!(
@@ -3656,7 +3772,10 @@ mod consumer_kind_resolution_tests {
         );
         assert_eq!(kind_of(&db, "src/lib.rs", "super", "src/kpi.rs"), "unknown");
         // Idempotente: a segunda passada não toca em nada.
-        assert_eq!(db.resolve_consumer_kinds_from_definers().expect("pass 2"), 0);
+        assert_eq!(
+            db.resolve_consumer_kinds_from_definers().expect("pass 2"),
+            0
+        );
     }
 }
 

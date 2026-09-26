@@ -702,12 +702,13 @@ pub fn record_import_consumers(
                     Some(abs_path),
                 )
                 .is_some()
-                || db.find_producer_modules_for_qualified(
-                    &[(definer.clone(), symbol_name.clone())],
-                    None,
-                )
-                .map(|found| !found.is_empty())
-                .unwrap_or(true);
+                || db
+                    .find_producer_modules_for_qualified(
+                        &[(definer.clone(), symbol_name.clone())],
+                        None,
+                    )
+                    .map(|found| !found.is_empty())
+                    .unwrap_or(true);
             if genuine
                 && db
                     .record_consumer(&definer, symbol_name, rel_path, None)
@@ -725,6 +726,14 @@ pub fn record_import_consumers(
                 );
             }
         }
+    }
+    // S223 (25/09/2026): the rebuild types a consumer row no producer carries from
+    // the definer's symbol table (I17); this incremental path did not, so every new
+    // consumer of a private helper was born `unknown` until the next full rebuild.
+    if recorded > 0
+        && let Err(e) = db.resolve_consumer_kinds_for_consumer(rel_path)
+    {
+        tracing::warn!(error = %e, consumer = rel_path, "consumer-kind resolution failed; rows stay `unknown` until the next rebuild");
     }
     recorded
 }
