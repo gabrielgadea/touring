@@ -1,155 +1,157 @@
-"""test_s49_install_claude_hooks.py — S49 tests for install_claude_hooks.py.
+"""test_s49_install_claude_hooks.py — S49: the global hooks section managed from a versioned source.
 
-Tests:
-  test_if_fields_are_single_permission_rule   — RED today (current state has `if` with `|`)
-  test_no_project_script_registered_globally  — RED today (hook_medicao.py still in global)
-  test_check_detects_manual_drift             — checks --check mode
-  test_apply_preserves_non_hook_sections      — --apply must not clobber other settings keys
-  test_lint_finds_if_alternation              — lint rule L1 fires on `|` in `if`
+Every behavioural test runs the REAL script against scratch files (`--settings`, `--source`):
+nothing here reads or writes ~/.claude/settings.json or the versioned source. The previous
+version of this file checked `if` at the GROUP level (the field lives on each HOOK, so the
+lint never fired), "simulated" --apply instead of running it, and accepted either exit code
+from --lint-only — three passes nothing could fail (26/09/2026).
 """
+
 from __future__ import annotations
 
 import json
-import re
+import os
+import stat
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-HOME = Path.home()
 REPO_ROOT = Path(__file__).resolve().parents[3]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_claude_hooks.py"
 HOOKS_SETTINGS = REPO_ROOT / "client" / "claude" / "hooks.settings.json"
-SETTINGS_PATH = HOME / ".claude" / "settings.json"
-
-IF_MULTIPATTERN = re.compile(r'[|]|&&|\|\|')
-PROJECT_DIRS = ["/projects/analise/", "analise/scripts/"]
 
 
-def _run_install(*args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        [sys.executable, str(INSTALL_SCRIPT), *args],
-        capture_output=True, text=True, timeout=15
-    )
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run([sys.executable, str(INSTALL_SCRIPT), *args], capture_output=True, text=True, timeout=30)
 
 
-def test_install_script_exists() -> None:
-    assert INSTALL_SCRIPT.exists(), f"install_claude_hooks.py not found at {INSTALL_SCRIPT}"
+def _hook(command: str, *, timeout: int | None = 5, if_: str | None = None) -> dict[str, Any]:
+    hook: dict[str, Any] = {"type": "command", "command": command}
+    if if_ is not None:
+        hook["if"] = if_
+    if timeout is not None:
+        hook["timeout"] = timeout
+    return hook
 
 
-def test_hooks_settings_json_exists() -> None:
-    assert HOOKS_SETTINGS.exists(), f"hooks.settings.json not found at {HOOKS_SETTINGS}"
+def _write(path: Path, data: Any) -> Path:
+    path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return path
 
 
-def test_hooks_settings_json_is_valid_json() -> None:
-    hooks = json.loads(HOOKS_SETTINGS.read_text())
-    assert isinstance(hooks, dict), "hooks.settings.json must be a dict of events"
+def _lint(tmp_path: Path, hooks: dict[str, Any]) -> list[str]:
+    src = _write(tmp_path / "hooks.settings.json", hooks)
+    proc = _run("--lint-only", "--source", str(src), "--json")
+    return [f["rule"] for f in json.loads(proc.stdout)["findings"]]
 
 
+# ── lint: each rule fires on the REAL shape and stays quiet on a clean one ──────────────
+
+
+def test_lint_sees_if_alternation_on_the_hook(tmp_path: Path) -> None:
+    """L1 on the shape the live settings use: `if` inside the hook, with `|`."""
+    bad = {"PreToolUse": [{"matcher": "Edit", "hooks": [_hook("x", if_="Edit(*.rs|*.py)")]}]}
+    assert "L1" in _lint(tmp_path, bad)
+    ok = {"PreToolUse": [{"matcher": "Edit", "hooks": [_hook("x", if_="Edit(*.rs)")]}]}
+    assert _lint(tmp_path, ok) == []
+
+
+def test_lint_sees_if_on_an_event_that_ignores_it(tmp_path: Path) -> None:
+    """L2: outside the five tool events, `if` makes the hook never run (Claude Code docs)."""
+    bad = {"SessionStart": [{"hooks": [_hook("x", if_="Bash(git *)")]}]}
+    assert "L2" in _lint(tmp_path, bad)
+
+
+def test_no_project_script_registered_globally(tmp_path: Path) -> None:
+    """L3 for ANY project, not a hard-coded one."""
+    for command in ("python3 $HOME/projects/analise/scripts/x.py", "~/projects/konverter/bin/hook.sh"):
+        assert "L3" in _lint(tmp_path, {"PostToolUse": [{"matcher": "Bash", "hooks": [_hook(command)]}]}), command
+    assert _lint(tmp_path, {"PostToolUse": [{"matcher": "Bash", "hooks": [_hook("$HOME/.claude/hooks/x")]}]}) == []
+
+
+def test_lint_requires_a_timeout(tmp_path: Path) -> None:
+    assert "L4" in _lint(tmp_path, {"Stop": [{"hooks": [_hook("x", timeout=None)]}]})
+
+
+# ── check / apply against scratch files ────────────────────────────────────────────────
+
+
+def _pair(tmp_path: Path, source_hooks: dict[str, Any], live_hooks: dict[str, Any]) -> tuple[Path, Path]:
+    settings = _write(tmp_path / "settings.json", {"model": "x", "hooks": live_hooks, "env": {"K": "v"}})
+    source = _write(tmp_path / "hooks.settings.json", source_hooks)
+    return settings, source
+
+
+CLEAN = {"Stop": [{"hooks": [_hook("$HOME/.claude/hooks/a")]}]}
+
+
+def test_check_detects_manual_drift(tmp_path: Path) -> None:
+    settings, source = _pair(tmp_path, CLEAN, CLEAN)
+    assert _run("--check", "--settings", str(settings), "--source", str(source)).returncode == 0
+    drifted = {"Stop": [{"hooks": [_hook("$HOME/.claude/hooks/a", timeout=9)]}]}
+    settings, source = _pair(tmp_path, CLEAN, drifted)
+    assert _run("--check", "--settings", str(settings), "--source", str(source)).returncode == 1
+
+
+def test_apply_writes_the_source_and_preserves_everything_else(tmp_path: Path) -> None:
+    new = {"Stop": [{"hooks": [_hook("$HOME/.claude/hooks/b")]}]}
+    settings, source = _pair(tmp_path, new, CLEAN)
+    os.chmod(settings, 0o600)
+    inode = settings.stat().st_ino
+    proc = _run("--apply", "--settings", str(settings), "--source", str(source))
+    assert proc.returncode == 0, proc.stderr
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert data["hooks"] == new
+    assert (data["model"], data["env"]) == ("x", {"K": "v"})
+    assert stat.S_IMODE(settings.stat().st_mode) == 0o600, "the file mode must survive"
+    assert settings.stat().st_ino != inode, "written by atomic rename, never in place"
+    assert not list(tmp_path.glob("*.next")), "no staging file left behind"
+
+
+def test_apply_refuses_a_source_that_adds_a_lint_finding(tmp_path: Path) -> None:
+    """Pre-existing debt does not block (S31 is its own phase); a NEW finding does."""
+    worse = {"Stop": [{"hooks": [_hook("$HOME/.claude/hooks/a"), _hook("$HOME/.claude/hooks/c", timeout=None)]}]}
+    settings, source = _pair(tmp_path, worse, CLEAN)
+    before = settings.read_text(encoding="utf-8")
+    proc = _run("--apply", "--settings", str(settings), "--source", str(source))
+    assert proc.returncode == 1
+    assert "L4" in proc.stderr
+    assert settings.read_text(encoding="utf-8") == before, "a refused apply must not touch the file"
+    # Control: the same debt already present in the live file does not block.
+    settings, source = _pair(tmp_path, worse, worse)
+    assert _run("--apply", "--settings", str(settings), "--source", str(source)).returncode == 0
+
+
+def test_apply_refuses_an_empty_source(tmp_path: Path) -> None:
+    """An empty source is a lint-clean way to delete every global hook — refused, file untouched."""
+    settings, source = _pair(tmp_path, {}, CLEAN)
+    before = settings.read_text(encoding="utf-8")
+    proc = _run("--apply", "--settings", str(settings), "--source", str(source))
+    assert proc.returncode == 1
+    assert settings.read_text(encoding="utf-8") == before
+
+
+# ── the versioned source itself ────────────────────────────────────────────────────────
+
+
+def test_versioned_source_is_valid() -> None:
+    hooks = json.loads(HOOKS_SETTINGS.read_text(encoding="utf-8"))
+    assert isinstance(hooks, dict)
+    assert hooks, "empty source: an --apply would wipe every global hook"
+
+
+@pytest.mark.xfail(strict=True, reason="S31: six `if` fields with `|` still in the source (the dead hooks)")
 def test_if_fields_are_single_permission_rule() -> None:
-    """RED today: current hooks.settings.json has `if` entries with `|` alternation.
-
-    This test intentionally exposes the S31 anti-pattern (hook silenced by `if` with `|`).
-    After S31 is applied, this becomes GREEN.
-    """
-    hooks = json.loads(HOOKS_SETTINGS.read_text())
-    violating = []
-    for event, entries in hooks.items():
-        for idx, entry in enumerate(entries):
-            if_val = entry.get("if", "")
-            if if_val and IF_MULTIPATTERN.search(if_val):
-                violating.append(f"{event}[{idx}].if = {if_val!r}")
-    # hooks.settings.json was generated clean (no | alternation in `if` fields).
-    # S31 violations live in settings.json but are NOT copied to hooks.settings.json.
-    assert not violating, (
-        f"Unexpected `if` fields with `|` in hooks.settings.json: {violating}"
-    )
+    proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
+    rules = [f["rule"] for f in json.loads(proc.stdout)["findings"]]
+    assert "L1" not in rules and "L2" not in rules, rules
 
 
-def test_no_project_script_registered_globally() -> None:
-    """After S44: no project-specific script in hooks.settings.json.
-
-    RED before S44 is applied (hook_medicao.py from analise was in global hooks).
-    GREEN after S44 removes it.
-    """
-    hooks = json.loads(HOOKS_SETTINGS.read_text())
-    violations = []
-    for event, entries in hooks.items():
-        for entry in entries:
-            for h in entry.get("hooks", []):
-                cmd = h.get("command", "")
-                for proj_dir in PROJECT_DIRS:
-                    if proj_dir in cmd:
-                        violations.append(f"{event}: {cmd!r}")
-    assert not violations, f"Project scripts registered globally (move to settings.local.json): {violations}"
-
-
-def test_every_hook_declares_timeout() -> None:
-    """After S45: every hook entry declares a timeout."""
-    hooks = json.loads(HOOKS_SETTINGS.read_text())
-    missing = []
-    for event, entries in hooks.items():
-        for idx, entry in enumerate(entries):
-            for h_idx, h in enumerate(entry.get("hooks", [])):
-                if h.get("timeout") is None:
-                    missing.append(f"{event}[{idx}].hooks[{h_idx}]: {h.get('command','?')!r}")
-    assert not missing, f"Hooks missing timeout (S45): {missing}"
-
-
-def test_check_detects_manual_drift() -> None:
-    """--check exits 1 when settings.json hooks section differs from hooks.settings.json."""
-    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as tmp:
-        # Write a modified hooks.settings.json with one extra dummy event.
-        hooks = json.loads(HOOKS_SETTINGS.read_text())
-        hooks["__drift_marker__"] = []
-        tmp.write(json.dumps(hooks))
-        tmp_path = Path(tmp.name)
-
-    # Temporarily swap the hooks.settings.json.
-    orig = HOOKS_SETTINGS.read_text()
-    try:
-        HOOKS_SETTINGS.write_text(tmp_path.read_text())
-        result = _run_install("--check")
-        assert result.returncode == 1, "Expected exit 1 on drift, got 0"
-    finally:
-        HOOKS_SETTINGS.write_text(orig)
-        tmp_path.unlink(missing_ok=True)
-
-
-def test_apply_preserves_non_hook_sections() -> None:
-    """--apply must preserve all settings.json keys outside 'hooks'."""
-    with tempfile.NamedTemporaryFile(suffix=".json", mode="w", delete=False) as tmp:
-        data = {"hooks": {}, "other_key": "should_survive", "nested": {"x": 1}}
-        tmp.write(json.dumps(data))
-        sentinel_path = Path(tmp.name)
-
-    # Monkey-patch SETTINGS_PATH temporarily via env isn't easy; test logic directly.
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("install_claude_hooks", INSTALL_SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[union-attr]
-
-    src_hooks = json.loads(HOOKS_SETTINGS.read_text())
-    data["hooks"] = src_hooks
-    sentinel_path.write_text(json.dumps(data))
-
-    # Simulate what --apply does.
-    loaded = json.loads(sentinel_path.read_text())
-    loaded["hooks"] = src_hooks
-    sentinel_path.write_text(json.dumps(loaded))
-
-    result = json.loads(sentinel_path.read_text())
-    assert result.get("other_key") == "should_survive", "Non-hook key was lost"
-    assert result.get("nested") == {"x": 1}, "Nested non-hook key was lost"
-    sentinel_path.unlink(missing_ok=True)
-
-
-def test_lint_finds_if_alternation() -> None:
-    """--lint-only exits 1 when the source file has `if` with `|`."""
-    result = _run_install("--lint-only")
-    # Current state has L1 violations — lint MUST find them.
-    # If lint exits 0, either the violations are gone (S31 done) or the lint is broken.
-    # We accept either as progress; the important thing is lint runs without crashing.
-    assert result.returncode in (0, 1), f"Unexpected exit code {result.returncode}: {result.stderr}"
+def test_versioned_source_has_no_other_lint_finding() -> None:
+    """Everything except the S31 backlog is already clean — and must stay so."""
+    proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
+    rest = [f for f in json.loads(proc.stdout)["findings"] if f["rule"] not in ("L1",)]
+    assert rest == [], rest

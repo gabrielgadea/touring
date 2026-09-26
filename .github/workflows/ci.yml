@@ -240,6 +240,17 @@ jobs:
           shellcheck -S warning client/omarchy/bin/*.sh client/omarchy/hooks/*/*
           client/omarchy/vendor/omarchy-plugin-validate client/omarchy/skills-deck
           python3 -m pytest client/omarchy/tests -q
+      - name: client/hooks — seção hooks global versionada (S48/S49, plano 2026-09-25)
+        # client/claude/hooks.settings.json é a FONTE da seção hooks do ~/.claude/settings.json
+        # (scripts/install_claude_hooks.py --apply). O CI não vê o settings vivo, mas vê a fonte:
+        # o lint (`if` de regra única, `if` só nos 5 eventos de ferramenta, script de projeto no
+        # global, timeout declarado) e check/apply contra arquivos de rascunho. O teste da S31 é
+        # xfail(strict): vermelho declarado enquanto os seis `if` com `|` estiverem na fonte —
+        # quando saírem, o XPASS reprova e obriga a tirar o marcador. Os testes que leem o
+        # settings do operador fazem skip com o motivo; os demais rodam com HOME de rascunho.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m pytest client/hooks/tests -q -rs
       - name: mutants config — 19 minutos rendendo zero, lidos como aprovação
         # `additional_cargo_args = ["--all-targets"]` ficava sob um comentário que
         # dizia "Skip bench/doctest targets". --all-targets faz o contrário: INCLUI
