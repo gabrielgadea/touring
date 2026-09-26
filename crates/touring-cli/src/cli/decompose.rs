@@ -813,8 +813,12 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         Ok(v) => v,
         Err(_) => return result,
     };
-    val.as_object_mut()
-        .map(|m| m.insert("sorted_by_priority".to_string(), serde_json::json!(by_priority)));
+    val.as_object_mut().map(|m| {
+        m.insert(
+            "sorted_by_priority".to_string(),
+            serde_json::json!(by_priority),
+        )
+    });
     val.to_string()
 }
 /// Handle decompose-event subcommand from touring-hook binary.

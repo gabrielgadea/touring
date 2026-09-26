@@ -214,7 +214,11 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
         .execute(
             "UPDATE task_decompositions SET status = 'finalized', metrics = ?1, updated_at = ?2, \
              archived_at = COALESCE(archived_at, ?2) WHERE task_id = ?3",
-            params![serde_json::to_string(&metrics).unwrap_or_default(), now, task_id],
+            params![
+                serde_json::to_string(&metrics).unwrap_or_default(),
+                now,
+                task_id
+            ],
         )
         .is_ok_and(|rows| rows > 0);
 
@@ -266,9 +270,8 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
     // The SAME terminal-status list `finalize` and the retention routine use.
     let terminal = touring_foundation::task_lifecycle::terminal_status_sql_list();
 
-    let where_clause = format!(
-        "status IN ({terminal}) AND archived_at IS NULL AND updated_at < ?1"
-    );
+    let where_clause =
+        format!("status IN ({terminal}) AND archived_at IS NULL AND updated_at < ?1");
     let candidates: i64 = db
         .conn_ref()
         .query_row(
@@ -567,6 +570,3 @@ pub fn cli_decompose_status(rt: &mut HookRuntime, _payload: &serde_json::Value) 
 // ─────────────────────────────────────────────────────────────────────────────
 // S1.8: parallel_groups — ready subtasks grouped by parallel_group
 // ─────────────────────────────────────────────────────────────────────────────
-
-
-

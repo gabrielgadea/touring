@@ -34,9 +34,9 @@ use touring_orchestration::tasks::{TasksfileCompiler, parse_yaml};
 pub fn parse_priority(value: &serde_json::Value) -> Result<i64, String> {
     const ACCEPTED: &str = "high, normal, low, or an integer (e.g. 100)";
     match value {
-        serde_json::Value::Number(n) => n
-            .as_i64()
-            .ok_or_else(|| format!("priority {n} is not an accepted integer — accepted: {ACCEPTED}")),
+        serde_json::Value::Number(n) => n.as_i64().ok_or_else(|| {
+            format!("priority {n} is not an accepted integer — accepted: {ACCEPTED}")
+        }),
         serde_json::Value::String(s) => {
             let t = s.trim().to_ascii_lowercase();
             match t.as_str() {
@@ -44,7 +44,9 @@ pub fn parse_priority(value: &serde_json::Value) -> Result<i64, String> {
                 "normal" => Ok(128),
                 "low" | "l" | "lo" => Ok(200),
                 _ => t.parse::<i64>().map_err(|_| {
-                    format!("priority '{s}' is neither a bucket nor a number — accepted: {ACCEPTED}")
+                    format!(
+                        "priority '{s}' is neither a bucket nor a number — accepted: {ACCEPTED}"
+                    )
                 }),
             }
         }
@@ -1036,7 +1038,6 @@ pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -
     .to_string()
 }
 
-
 // ─── Utilitários compartilhados pelos submódulos ───────────────────────
 //
 // Vivem no pai porque `lifecycle` E `wayfinder` os consomem: pôr um no
@@ -1148,9 +1149,18 @@ mod tests_p1_priority {
     #[test]
     fn round_trip_canonical_values() {
         // The exact integer is preserved when the canonical token is used.
-        assert_eq!(parse_priority(&serde_json::json!(priority_label(50))), Ok(50));
-        assert_eq!(parse_priority(&serde_json::json!(priority_label(128))), Ok(128));
-        assert_eq!(parse_priority(&serde_json::json!(priority_label(200))), Ok(200));
+        assert_eq!(
+            parse_priority(&serde_json::json!(priority_label(50))),
+            Ok(50)
+        );
+        assert_eq!(
+            parse_priority(&serde_json::json!(priority_label(128))),
+            Ok(128)
+        );
+        assert_eq!(
+            parse_priority(&serde_json::json!(priority_label(200))),
+            Ok(200)
+        );
     }
 
     #[test]

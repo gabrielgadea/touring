@@ -31,12 +31,7 @@ fn ready_eligible(
 /// order, and a guard trusting `ready[0]` mispredicted the claim (analise-d4,
 /// 24/09/2026: all at priority 128, ready showed A6 first, claim delivered
 /// A3a because '3' < '6'). One function, one truth about "what comes first".
-fn queue_order(
-    a_priority: i32,
-    a_id: &str,
-    b_priority: i32,
-    b_id: &str,
-) -> std::cmp::Ordering {
+fn queue_order(a_priority: i32, a_id: &str, b_priority: i32, b_id: &str) -> std::cmp::Ordering {
     a_priority.cmp(&b_priority).then_with(|| a_id.cmp(b_id))
 }
 
@@ -195,7 +190,12 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             if !unblocked || completed.contains(&short_subtask_id(&c.id)) {
                 return false;
             }
-            if !ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch) {
+            if !ready_eligible(
+                &c.status,
+                c.claimed_by.as_deref(),
+                c.claim_expires_at,
+                now_epoch,
+            ) {
                 return false;
             }
             if c.autonomy.as_deref() == Some("hitl") {
@@ -303,8 +303,17 @@ fn claim_named_subtask(
             pending_deps.join(", ")
         ));
     }
-    if !ready_eligible(&c.status, c.claimed_by.as_deref(), c.claim_expires_at, now_epoch) {
-        let reason = match (c.status.as_str(), c.claimed_by.as_deref(), c.claim_expires_at) {
+    if !ready_eligible(
+        &c.status,
+        c.claimed_by.as_deref(),
+        c.claim_expires_at,
+        now_epoch,
+    ) {
+        let reason = match (
+            c.status.as_str(),
+            c.claimed_by.as_deref(),
+            c.claim_expires_at,
+        ) {
             ("in_progress", Some(by), Some(exp)) if exp >= now_epoch => {
                 let when = chrono::DateTime::from_timestamp(exp, 0)
                     .map(|t| t.format("%Y-%m-%d %H:%M UTC").to_string())
@@ -517,7 +526,10 @@ pub fn cli_decompose_renew(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         _ => {}
     }
 
-    if let Some(thief) = payload.get("_test_swap_claimed_by").and_then(|v| v.as_str()) {
+    if let Some(thief) = payload
+        .get("_test_swap_claimed_by")
+        .and_then(|v| v.as_str())
+    {
         // The field only acts when THIS process armed the seams (a Rust static
         // the daemon never flips and no RPC can reach). Unarmed: refused with a
         // named error, and the owner never moves.
@@ -960,8 +972,7 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 depends_on: deps,
                 parallel_group: r.get::<_, Option<String>>(3)?,
                 priority: r.get::<_, i32>(4)?,
-                claim_live: claimed_by.is_some()
-                    && claim_expires_at.is_some_and(|e| e > now_epoch),
+                claim_live: claimed_by.is_some() && claim_expires_at.is_some_and(|e| e > now_epoch),
                 claimed_by,
                 claim_expires_at,
                 hitl: autonomy.as_deref() == Some("hitl"),
@@ -1166,4 +1177,3 @@ pub use crate::cli_handlers_decompose_workflow::{
 // ─────────────────────────────────────────────────────────────────────────────
 // Wave P1 — Unit tests for priority enum mapping
 // ─────────────────────────────────────────────────────────────────────────────
-

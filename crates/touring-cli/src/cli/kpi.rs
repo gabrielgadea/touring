@@ -233,7 +233,6 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // Loading + path resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
-
 mod code_mode;
 mod sources;
 
@@ -321,7 +320,10 @@ fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
             // lenses with 2 dry rounds saves 1 round across all 174 ledgers.
             let news: Vec<u64> = rounds
                 .iter()
-                .filter_map(|r| r.pointer("/new_findings").and_then(serde_json::Value::as_u64))
+                .filter_map(|r| {
+                    r.pointer("/new_findings")
+                        .and_then(serde_json::Value::as_u64)
+                })
                 .collect();
             if news.len() != rounds.len() {
                 // A round whose yield is unreadable cannot prove where the
@@ -689,11 +691,7 @@ fn flow_compliance_breakdown(
             agg.complete += 1;
         }
     }
-    if map.is_empty() {
-        None
-    } else {
-        Some(map)
-    }
+    if map.is_empty() { None } else { Some(map) }
 }
 
 fn ratio_opt(num: u64, den: u64) -> Option<f64> {
@@ -893,7 +891,10 @@ fn persist_snapshot(
     }
     let month = date.get(0..7).unwrap_or("0000-00");
     let dir = snapshot_dir(
-        std::env::var("HOME").ok().as_deref().map(std::path::Path::new),
+        std::env::var("HOME")
+            .ok()
+            .as_deref()
+            .map(std::path::Path::new),
         month,
     );
     std::fs::create_dir_all(&dir)?;
@@ -1684,7 +1685,10 @@ mod tests {
             &std::env::temp_dir().join("claude-1000/sess-x/scratchpad/proj"),
         )
         .expect_err("the CC scratchpad is ephemeral too");
-        assert!(err2.to_string().contains("ephemeral project root"), "{err2}");
+        assert!(
+            err2.to_string().contains("ephemeral project root"),
+            "{err2}"
+        );
         // A real root resolves the canonical tree (no env mutation in the test).
         let dir = snapshot_dir(Some(std::path::Path::new("/home/x")), "2026-09");
         assert_eq!(
@@ -1780,7 +1784,10 @@ mod tests {
         .expect("write log");
         // Aggregate: started = 3, complete = 1 → 1/3 (the abandoned arm is noise).
         let agg = flow_compliance_from_log(&log, proj).expect("aggregate speaks");
-        assert!((agg - 1.0 / 3.0).abs() < 1e-9, "aggregate started-conditional, got {agg}");
+        assert!(
+            (agg - 1.0 / 3.0).abs() < 1e-9,
+            "aggregate started-conditional, got {agg}"
+        );
         assert_eq!(
             flow_compliance_for_flow(&log, proj, "work-outer"),
             Some(0.5),

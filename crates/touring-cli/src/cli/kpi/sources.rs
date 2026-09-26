@@ -335,4 +335,3 @@ pub(crate) fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
         _ => None,
     }
 }
-
