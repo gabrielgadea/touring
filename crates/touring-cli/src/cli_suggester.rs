@@ -6564,6 +6564,30 @@ mod actor_isolation_tests {
     }
 
     #[test]
+    fn g1_burst_window_is_per_session() {
+        // S217 (25/09/2026): the G1 remedy once listed ANOTHER CC session's commands in
+        // the same project and proposed re-running them here (observed before S23).
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let a = session_key(&json!({"session_id": "s217-a"}));
+        let b = session_key(&json!({"session_id": "s217-b"}));
+        let _ = burst_gate(root, &a, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &a, "grep -rn beta crates/");
+        assert!(
+            !denied(&burst_gate(root, &b, "grep -c gamma README.md")),
+            "session B inherited session A's burst"
+        );
+        let _ = burst_gate(root, &b, "grep -l delta docs/x.md");
+        let third = burst_gate(root, &b, "grep -n epsilon src/e.rs");
+        assert!(denied(&third), "control: B's own third inspection denies");
+        let remedy = third.unwrap_or_default();
+        assert!(
+            !remedy.contains("alpha") && !remedy.contains("beta"),
+            "B's remedy carries A's commands: {remedy}"
+        );
+    }
+
+    #[test]
     fn bypass_budget_isolated_per_actor() {
         let dir = tempfile::tempdir().expect("tempdir");
         let root = dir.path();
