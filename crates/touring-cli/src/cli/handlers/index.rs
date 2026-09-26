@@ -1510,54 +1510,37 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // differ from a warm one in 24 wiring lines (measured on the isolated copy).
     // The payload key keeps its name; it now counts consumer rows whose kind
     // changed in this pass, so a warm rebuild over an unchanged tree reports 0.
-    let (kinds_backfilled, backfill_error) = match rt
+    //
+    // I17 (2026-09-25) + S222 (2026-09-25): the definers pass resolves what no
+    // producer carries, and `extern` is branded LAST, over what neither pass
+    // resolved — both inside ONE storage call shared with `touring wiring repair
+    // --resolve-kinds`, so the rebuild and the repair can never diverge. Branded
+    // inside the producers pass (the order until S222), `extern` overwrote the
+    // definers' verdicts: 1.868 of the analise's 2.395 `extern` rows were names
+    // their own definitor declares. The counts are NET, per the pass that set
+    // each row's final kind — a warm rebuild over an unchanged tree reports 0.
+    let (kinds, backfill_error) = match rt
         .ctx
         .knowledge
-        .resolve_consumer_kinds_from_producers(!aborted_memory_pressure)
+        .resolve_consumer_kinds(!aborted_memory_pressure)
     {
-        Ok(n) => {
-            if n > 0 {
+        Ok(resolution) => {
+            if resolution.changed() > 0 {
                 tracing::info!(
-                    kinds_resolved = n,
-                    "wiring_map consumer kinds resolved from producers"
+                    from_producers = resolution.from_producers,
+                    from_definers = resolution.from_definers,
+                    extern_marked = resolution.extern_marked,
+                    "wiring_map consumer kinds resolved"
                 );
             }
-            (n, None)
+            (Some(resolution), None)
         }
         Err(e) => {
             tracing::error!(
                 error = %e,
                 "wiring_map consumer-kind resolution FAILED \u{2014} kinds may mix two walks after this rebuild"
             );
-            (0, Some(e.to_string()))
-        }
-    };
-
-    // I17 (2026-09-25): the sibling pass — kinds no producer carries resolve
-    // from the DEFINITOR's (or the consumer's own) symbol table, and names the
-    // definitor imports from outside become `external_reexport`. What stays
-    // `unknown` after it has no definition ANYWHERE: the phantom predicate the
-    // purge requires. Runs after the producers pass, same rebuild, same report.
-    let (kinds_definers, definers_error) = match rt
-        .ctx
-        .knowledge
-        .resolve_consumer_kinds_from_definers()
-    {
-        Ok(n) => {
-            if n > 0 {
-                tracing::info!(
-                    kinds_resolved_definers = n,
-                    "wiring_map consumer kinds resolved from definers"
-                );
-            }
-            (n, None)
-        }
-        Err(e) => {
-            tracing::error!(
-                error = %e,
-                "wiring_map definer kind resolution FAILED \u{2014} kind_unknown may over-report"
-            );
-            (0, Some(e.to_string()))
+            (None, Some(e.to_string()))
         }
     };
 
@@ -1642,13 +1625,13 @@ pub fn cli_index_rebuild(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "max_indexable_file_bytes": max_indexable_file_bytes,
         // 2026-08-19: outcome of the unknown-kind repair. `backfill_error`
         // non-null means the wiring_map is still polluted — never silent.
-        "kinds_backfilled": kinds_backfilled,
+        "kinds_backfilled": kinds.map_or(0, |k| k.from_producers),
         "backfill_error": backfill_error,
-        // I17 (2026-09-25): outcome of the definer-side resolution (module /
-        // private / self-reference / external_reexport). `definers_error`
-        // non-null means `unknown` may over-report — never silent.
-        "kinds_definers": kinds_definers,
-        "definers_error": definers_error,
+        // I17 + S222 (2026-09-25): the definer-side resolution (module /
+        // private / self-reference / external_reexport) and the sealed-walk
+        // `extern` — same call, so `backfill_error` covers all three passes.
+        "kinds_definers": kinds.map_or(0, |k| k.from_definers),
+        "kinds_extern": kinds.map_or(0, |k| k.extern_marked),
         // I16 (2026-09-13): the seal, the deterministic kind pass, the atomic
         // wiring writes and the policy sweep — each reported, never silent.
         "generation": generation,
@@ -2377,7 +2360,7 @@ mod wiring_repair_visibility_tests {
     /// The repair call must not discard its `Result`.
     #[test]
     fn the_unknown_kind_repair_never_swallows_its_error() {
-        let call = "resolve_consumer_kinds_from_producers(";
+        let call = "resolve_consumer_kinds(";
         let at = SOURCE
             .find(call)
             .expect("cli_index_rebuild must still run the unknown-kind repair");
@@ -2412,7 +2395,7 @@ mod wiring_repair_visibility_tests {
     #[test]
     fn the_extern_pass_is_gated_on_a_complete_walk() {
         let at = SOURCE
-            .find("resolve_consumer_kinds_from_producers(")
+            .find("resolve_consumer_kinds(")
             .expect("the repair call must still exist");
         let tail = &SOURCE[at..];
         let args = touring_foundation::truncate_str(tail, 80);
