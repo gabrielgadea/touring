@@ -2293,7 +2293,11 @@ fn ready_excludes_live_claims_and_get_names_the_owner() {
         !ready_ids.contains(&claimed_id.as_str()),
         "a live-claimed subtask is NOT ready: {ready_ids:?}"
     );
-    assert_eq!(ready_ids.len(), 1, "the free subtask stays ready: {ready_ids:?}");
+    assert_eq!(
+        ready_ids.len(),
+        1,
+        "the free subtask stays ready: {ready_ids:?}"
+    );
 
     // get: every subtask names its owner, lease and liveness.
     let got = parse_json(&cli_decompose_get(
@@ -2450,7 +2454,10 @@ fn claim_subtask_names_terminal_status_and_unknown_ids() {
     ));
     assert_eq!(missing["claimed"], serde_json::json!(false), "{missing}");
     assert!(
-        missing["reason"].as_str().unwrap_or("").contains("not found"),
+        missing["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("not found"),
         "an unknown id says so: {missing}"
     );
 }
@@ -2584,7 +2591,10 @@ fn ready_lists_in_the_exact_order_claim_would_deliver() {
         .as_str()
         .unwrap_or("")
         .to_string();
-    assert!(first.ends_with("S-03"), "ready's first is the queue's first: {ready}");
+    assert!(
+        first.ends_with("S-03"),
+        "ready's first is the queue's first: {ready}"
+    );
 
     let c = parse_json(&cli_decompose_claim(
         &mut rt,
@@ -2619,7 +2629,13 @@ fn ready_first_excluding_hitl_is_what_claim_delivers() {
     ));
     // ready still lists S-03 first — marked.
     let items = ready["ready_subtasks"].as_array().expect("array");
-    assert!(items[0]["subtask_id"].as_str().unwrap_or("").ends_with("S-03"), "{ready}");
+    assert!(
+        items[0]["subtask_id"]
+            .as_str()
+            .unwrap_or("")
+            .ends_with("S-03"),
+        "{ready}"
+    );
     assert_eq!(items[0]["hitl"].as_bool(), Some(true), "{ready}");
     // The first EXCLUDING hitl predicts the pool claim.
     let first_free = items
@@ -2678,8 +2694,16 @@ fn ready_by_priority_flag_matches_the_default_order() {
         order(&flagged),
         "the flag changes nothing — flagged ≡ plain: {plain} vs {flagged}"
     );
-    assert_eq!(flagged["sorted_by_priority"], serde_json::json!(true), "{flagged}");
-    assert_eq!(plain["sorted_by_priority"], serde_json::json!(false), "{plain}");
+    assert_eq!(
+        flagged["sorted_by_priority"],
+        serde_json::json!(true),
+        "{flagged}"
+    );
+    assert_eq!(
+        plain["sorted_by_priority"],
+        serde_json::json!(false),
+        "{plain}"
+    );
 }
 
 /// analise-d4 → touring-36 (2026-09-24): no verb could RENEW a lease — the
@@ -2810,7 +2834,10 @@ fn renew_names_terminal_status_and_unknown_ids() {
     ));
     assert_eq!(missing["renewed"], serde_json::json!(false), "{missing}");
     assert!(
-        missing["reason"].as_str().unwrap_or("").contains("not found"),
+        missing["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("not found"),
         "an unknown id says so: {missing}"
     );
 }
@@ -2831,7 +2858,10 @@ fn renew_race_seam_is_gated_and_the_where_defends_the_race() {
         &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 3600}),
     );
     let owner_of = |rt: &mut HookRuntime| {
-        let got = parse_json(&cli_decompose_get(rt, &serde_json::json!({"task_id": task_id})));
+        let got = parse_json(&cli_decompose_get(
+            rt,
+            &serde_json::json!({"task_id": task_id}),
+        ));
         got["subtasks"].as_array().expect("array")[0]["claimed_by"]
             .as_str()
             .unwrap_or("")
@@ -2854,7 +2884,11 @@ fn renew_race_seam_is_gated_and_the_where_defends_the_race() {
             .contains("seam de teste desativado"),
         "the field unarmed is refused, named: {refused}"
     );
-    assert_eq!(owner_of(&mut rt), "eu", "an unarmed seam never moves the owner");
+    assert_eq!(
+        owner_of(&mut rt),
+        "eu",
+        "an unarmed seam never moves the owner"
+    );
 
     // ARMED (this test binary): the swap happens BETWEEN the check and the
     // write — the UPDATE changes 0 rows and the refusal names the race.
