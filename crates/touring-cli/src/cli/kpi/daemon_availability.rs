@@ -34,8 +34,6 @@ const ANSWERED: &[&str] = &["daemon-json", "daemon-empty"];
 const UNUSABLE: &[&str] = &["daemon-nonjson"];
 /// The daemon was asked and could not be reached; the hook fell back to standalone.
 const UNAVAILABLE: &[&str] = &["daemon-unavailable"];
-/// The contract suite's synthetic sessions — not real traffic.
-const SYNTHETIC_SESSION_PREFIX: &str = "hooks-contract-";
 
 /// Testable core (the wrapper resolves `$HOME`, process-global and unsafe to mutate in
 /// parallel tests): ratio over the records of `path` newer than `now_ms - window_ms`.
@@ -56,9 +54,11 @@ pub(crate) fn daemon_availability_from(path: &Path, now_ms: u64, window_ms: u64)
         .filter_map(|line| serde_json::from_str::<Value>(line).ok())
     {
         let in_window = record["ts_ms"].as_u64().is_some_and(|ts| ts >= since);
+        // The contract suite's synthetic sessions are not real traffic — one predicate
+        // with the learning side (touring_foundation::synthetic_session).
         let synthetic = record["session_id"]
             .as_str()
-            .is_some_and(|s| s.starts_with(SYNTHETIC_SESSION_PREFIX));
+            .is_some_and(touring_foundation::synthetic_session::is_synthetic_session_id);
         if !in_window || synthetic {
             continue;
         }

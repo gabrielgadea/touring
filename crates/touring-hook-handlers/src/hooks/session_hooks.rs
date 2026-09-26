@@ -222,10 +222,7 @@ pub fn run_session_start_returning(
             .map(|qt| qt.metrics()),
     );
 
-    // EC44: Persist enriched insights so next session load_latest() returns RL-aware data.
-    if let Err(e) = current_insights.save(&data_dir) {
-        tracing::debug!("session insights save failed (non-critical): {e}");
-    }
+    persist_session_insights(&current_insights, &data_dir, &session_id);
 
     if let Some(prior) = SessionInsights::load_latest(&data_dir) {
         // EC45: First real caller of summary_line() — injects compact prior session
@@ -359,6 +356,21 @@ pub fn run_session_start_returning(
 /// `()` because the function is a side-effect initializer (the runtime state
 /// is the side effect; no value is propagated). Failures degrade to solo mode
 /// (runtime.cross_agent_ledger stays `None`).
+/// EC44: persist enriched insights so the next session's `load_latest()` returns RL-aware
+/// data — never for a synthetic (test-harness) session, whose insights would become the
+/// next real session's "prior" (2026-09-26).
+fn persist_session_insights(
+    insights: &SessionInsights,
+    data_dir: &std::path::Path,
+    session_id: &str,
+) {
+    if touring_foundation::synthetic_session::is_synthetic_session_id(session_id) {
+        tracing::debug!(%session_id, "synthetic session: insights not persisted");
+    } else if let Err(e) = insights.save(data_dir) {
+        tracing::debug!("session insights save failed (non-critical): {e}");
+    }
+}
+
 fn open_cross_agent_ledger(runtime: &mut HookRuntime, session_id: &str) {
     let actor = ActorId::derive(session_id, "primary");
     runtime.actor_id = Some(actor.clone());
@@ -482,6 +494,17 @@ pub fn run_session_stop(
     let session_id = validated
         .session_id
         .unwrap_or_else(|| "unknown".to_string());
+
+    // A synthetic (test-harness) session is observed, never learned from: no access record,
+    // rewards, snapshots, bandit, CRDT, AgenticRL, file summaries nor gotcha decay
+    // (2026-09-26). The per-session caches are still flushed — that is hygiene, not learning.
+    if touring_foundation::synthetic_session::is_synthetic_session_id(&session_id) {
+        tracing::debug!(%session_id, "synthetic session: stop persists no learning");
+        crate::post_edit::flush_dedup();
+        crate::post_write::flush_dedup();
+        crate::pre_edit::flush_cache();
+        return Ok(());
+    }
 
     // Record a session end marker in the access log
     let _ = runtime
@@ -1204,5 +1227,72 @@ mod tests {
             .as_ref()
             .expect("snapshot should be loaded by session-start");
         assert_eq!(loaded.session_id, "sess-abc");
+    }
+
+    fn seed_knowledge(rt: &mut HookRuntime) {
+        let row = super::super::knowledge::FileKnowledge {
+            file_path: "src/lib.rs".into(),
+            language: Some("rust".into()),
+            line_count: 3,
+            symbol_count: 1,
+            read_count: 1,
+            last_read_at: None,
+            imports_json: Some("[]".into()),
+            symbols_json: Some("[]".into()),
+            content_hash: None,
+            notes: None,
+        };
+        rt.ctx.knowledge.upsert(&row).expect("seed knowledge");
+    }
+
+    fn insights_files(rt: &HookRuntime) -> usize {
+        std::fs::read_dir(rt.project_root.join(".claude/data"))
+            .map(|dir| {
+                dir.filter_map(Result::ok)
+                    .filter(|e| {
+                        e.file_name()
+                            .to_string_lossy()
+                            .starts_with("session_insights_")
+                    })
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    fn start(rt: &mut HookRuntime, session_id: &str) {
+        let input =
+            serde_json::json!({"session_id": session_id, "hook_event_name": "SessionStart"});
+        let _ = run_session_start_returning(rt, &input);
+    }
+
+    /// 2026-09-26: the analise contract suite mints `hooks-contract-*` sessions and every
+    /// run persisted one `session_insights_*.json` (69 found in that project) — so the next
+    /// REAL session loaded a synthetic one as its "prior" and computed its trend against it.
+    #[test]
+    fn synthetic_session_start_persists_no_insights() {
+        let (_tmp, mut rt) = setup();
+        seed_knowledge(&mut rt);
+        start(&mut rt, "hooks-contract-4f1c");
+        assert_eq!(insights_files(&rt), 0);
+    }
+
+    /// Positive control: the gate is on the session's origin, not on persistence itself.
+    #[test]
+    fn real_session_start_still_persists_insights() {
+        let (_tmp, mut rt) = setup();
+        seed_knowledge(&mut rt);
+        start(&mut rt, "0b4d1f2e-9a3c-4e5f-8a7b-1c2d3e4f5a6b");
+        assert_eq!(insights_files(&rt), 1);
+    }
+
+    /// A synthetic session's stop writes no learning: no access record, rewards, snapshots,
+    /// bandit, CRDT, AgenticRL, file summaries nor gotcha decay. `test_session_stop_records_end`
+    /// above is the positive control (a real stop records the end marker).
+    #[test]
+    fn synthetic_session_stop_records_no_learning() {
+        let (_tmp, mut rt) = setup();
+        let input = serde_json::json!({"session_id": "hooks-contract-4f1c"});
+        assert!(run_session_stop(&mut rt, &input).is_ok());
+        assert_eq!(rt.ctx.knowledge.access_count("__session_end__").unwrap(), 0);
     }
 }
