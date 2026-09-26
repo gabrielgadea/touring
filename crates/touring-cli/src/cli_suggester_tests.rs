@@ -2850,6 +2850,36 @@ mod code_mode_gates_w1 {
 
     #[test]
     #[serial(t3_env)]
+    fn g6_outra_sessao_nao_herda_contador() {
+        // Retry cego é a MESMA sessão repetindo o que já tem no contexto; outra sessão
+        // rodando o mesmo comando nunca viu o resultado (26/09/2026: a suíte de contrato,
+        // uma sessão nova por chamada, era negada como "retry" das rodadas anteriores).
+        let proj = Path::new("/tmp/w1-g6-sessao");
+        let cmd = bash("rg -n 'y' src/main.rs");
+        for s in ["sa", "sb", "sc"] {
+            assert!(
+                code_mode_gates(proj, s, "Bash", &cmd).is_none(),
+                "{s} nunca viu o comando"
+            );
+        }
+        // Controle: a mesma sessão repetindo continua escalando.
+        assert!(code_mode_gates(proj, "sa", "Bash", &cmd).is_some());
+    }
+
+    #[test]
+    #[serial(t3_env)]
+    fn g6_comando_diferente_na_mesma_sessao_e_chamada_nova() {
+        // A chave é sessão E input: dois comandos distintos da mesma sessão não são
+        // repetição (fora das classes de inspeção, para o G1 não confundir a leitura).
+        let proj = Path::new("/tmp/w1-g6-input");
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_none());
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p beta")).is_none());
+        // Controle: repetir o primeiro, na mesma sessão, é repetição (advisory).
+        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_some());
+    }
+
+    #[test]
+    #[serial(t3_env)]
     fn g6_mutacao_no_meio_reseta_a_repeticao() {
         // ler-depois-de-editar NÃO é retry cego: a época avança com o Edit.
         let proj = Path::new("/tmp/w1-g6-epoch");

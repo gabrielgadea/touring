@@ -3877,6 +3877,19 @@ fn g6_allowlisted(cmd: &str) -> bool {
 
 /// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
 /// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
+/// G6 ledger key: the session AND the input. A blind retry is the same session repeating
+/// what it already holds in context; another session running the same command has never
+/// seen the result. Keyed by input alone, fresh sessions were denied as "retries" of each
+/// other (26/09/2026 — the contract suite, one session per call, within 300 s).
+fn g6_key(project_root: &Path, session: &str, tool_name: &str, tool_input: &Value) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    tool_name.hash(&mut hasher);
+    tool_input.to_string().hash(&mut hasher);
+    hasher.finish()
+}
+
 fn g6_seen() -> &'static moka::sync::Cache<u64, (u32, u64)> {
     static C: OnceLock<moka::sync::Cache<u64, (u32, u64)>> = OnceLock::new();
     C.get_or_init(|| {
@@ -5667,7 +5680,7 @@ pub(crate) fn code_mode_gates(
     // ANTES do T3-B: retry cego byte-idêntico é o sinal mais específico e o G6
     // o consome inteiro (advisory → deny); o que passa daqui é inspeção NOVA.
     if !g6_allowlisted(cmd) {
-        let h = input_hash(project_root, tool_name, tool_input);
+        let h = g6_key(project_root, session, tool_name, tool_input);
         let epoch = mutation_epoch().get(&project).unwrap_or(0);
         match g6_seen().get(&h) {
             None => g6_seen().insert(h, (0, epoch)),
