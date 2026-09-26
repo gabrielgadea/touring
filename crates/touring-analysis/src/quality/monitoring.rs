@@ -12,7 +12,7 @@
 //! | `no-otel-exporter` | no `opentelemetry-otlp` / `opentelemetry-prometheus` reference (no telemetry export) | Rust |
 //! | `no-subscriber-init` | `main` function without `tracing_subscriber::fmt::init()` (logger never initialized) | Rust |
 //! | `py-print-in-prod` | `print(` in Python non-test code (no logging) | Python |
-//! | `py-no-logging` | Python project with no `import logging` reference | Python |
+//! | `py-no-logging` | Python entry point (`if __name__ ==`) with no logger in any spelling (S512) | Python |
 //!
 //! **Disjoint** from D12 arch-consistency (which keys on logging style
 //! consistency; F4.10 keys on observability *presence*).
@@ -63,7 +63,17 @@ const OTEL_PROMETHEUS: &[u8] = b"opentelemetry-prometheus";
 const TRACING_SUB_INIT: &[u8] = b"tracing_subscriber::fmt::init";
 const TRACING_SUB_TRY_INIT: &[u8] = b"tracing_subscriber::fmt::try_init";
 const PY_PRINT: &[u8] = b"print(";
-const PY_LOGGING: &[u8] = b"import logging";
+/// Every spelling of a Python logger (S512, 26/09/2026): `from logging import`,
+/// `structlog` and `loguru` were read as "no logging" and flagged.
+const PY_LOGGERS: &[&[u8]] = &[
+    b"import logging",
+    b"from logging import",
+    b"logging.getLogger",
+    b"structlog",
+    b"loguru",
+];
+/// The module-level guard that makes a Python file an entry point.
+const PY_MAIN_GUARD: &[u8] = b"if __name__ ==";
 
 fn count_in_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> usize {
     memmem::find_iter(bytes, needle)
@@ -144,8 +154,14 @@ fn push_python_findings(report: &mut MonitoringReport, bytes: &[u8], regions: &[
             0.6,
         );
     }
-    // Big file with no logging
-    if report.total_lines >= 50 && !has_in_executable(bytes, regions, PY_LOGGING) {
+    // Big entry point with no logging — S512 (26/09/2026): logging is configured
+    // where the process starts. Gated on size alone it flagged 74,8% of the
+    // analise's eligible scripts (a pure module dropped 1.0 -> 0.904 by growing
+    // from 49 to 50 lines).
+    let logs = PY_LOGGERS
+        .iter()
+        .any(|needle| has_in_executable(bytes, regions, needle));
+    if report.total_lines >= 50 && has_in_executable(bytes, regions, PY_MAIN_GUARD) && !logs {
         report.push(
             "non-trivial file with no `import logging` (no structured logging)",
             1,
@@ -268,6 +284,43 @@ fn main() {
             "{:?}",
             r.findings
         );
+    }
+
+    fn flags_no_logging(src: &str) -> bool {
+        rep(src, "python")
+            .findings
+            .iter()
+            .any(|(m, _)| m.contains("no `import logging`"))
+    }
+
+    /// S512 (26/09/2026): the absence smell fired on every Python file of 50+
+    /// lines without the literal `import logging` — 74,8% of the analise's
+    /// eligible scripts; a pure module dropped 1.0 -> 0.904 by growing from 49 to
+    /// 50 lines, and `from logging import getLogger` / `structlog` were false
+    /// positives. Logging is configured where the process starts.
+    #[test]
+    fn py_logging_absence_is_an_entry_point_smell_and_any_logger_counts() {
+        let mut module = String::from("\"\"\"Pure helpers.\"\"\"\n");
+        let mut i = 0;
+        while module.lines().count() < 60 {
+            module.push_str(&format!("def f{i}(x):\n    return x + {i}\n\n"));
+            i += 1;
+        }
+        assert!(
+            !flags_no_logging(&module),
+            "a library module is no entry point"
+        );
+        let entry = format!("{module}\nif __name__ == \"__main__\":\n    f0(1)\n");
+        assert!(flags_no_logging(&entry), "an entry point that never logs");
+        for logger in [
+            "import logging",
+            "from logging import getLogger",
+            "import structlog",
+            "from loguru import logger",
+        ] {
+            let with = format!("{logger}\n{entry}");
+            assert!(!flags_no_logging(&with), "{logger} is a logger");
+        }
     }
 
     #[test]
