@@ -71,6 +71,29 @@ impl ConfigSecurityAnalyzer {
     /// or block comments (mirrors `SecurityAnalyzer::analyze`).
     #[must_use]
     pub fn analyze(&self, source: &str, lang: &str) -> ConfigReport {
+        let mut misconfigs = self.line_matches(source);
+        if lang == "python" && is_django_settings(source) {
+            misconfigs.extend(django_debug_true(source));
+        }
+        drop_non_executable(source, lang, &mut misconfigs);
+
+        let score = if misconfigs.is_empty() {
+            1.0
+        } else {
+            let sum: f32 = misconfigs.iter().map(|m| m.severity).sum();
+            (1.0 - sum / 10.0).clamp(0.0, 1.0)
+        };
+
+        ConfigReport {
+            lang: lang.to_string(),
+            misconfigs,
+            score,
+        }
+    }
+
+    /// Every rule hit, line by line (split out of `analyze` on 25/09/2026 when S53's
+    /// Django pass pushed its cyclomatic complexity to 16).
+    fn line_matches(&self, source: &str) -> Vec<VulnMatch> {
         let mut misconfigs: Vec<VulnMatch> = Vec::new();
         let mut offset = 0usize;
         for raw_line in source.lines() {
@@ -100,28 +123,19 @@ impl ConfigSecurityAnalyzer {
             // containment only.
             offset += raw_line.len() + 1;
         }
+        misconfigs
+    }
+}
 
-        // AST-aware precision pass (mirrors SecurityAnalyzer): drop a misconfig
-        // inside a comment or `#[cfg(test)]` corpus — doc/fixture, not a setting.
-        if !misconfigs.is_empty() {
-            let regions = super::code_regions::non_executable_regions(source, lang);
-            if !regions.is_empty() {
-                misconfigs.retain(|m| !super::code_regions::offset_suppressed(m.span.0, &regions));
-            }
-        }
-
-        let score = if misconfigs.is_empty() {
-            1.0
-        } else {
-            let sum: f32 = misconfigs.iter().map(|m| m.severity).sum();
-            (1.0 - sum / 10.0).clamp(0.0, 1.0)
-        };
-
-        ConfigReport {
-            lang: lang.to_string(),
-            misconfigs,
-            score,
-        }
+/// AST-aware precision pass (mirrors SecurityAnalyzer): drop a misconfig inside a
+/// comment or `#[cfg(test)]` corpus — doc/fixture, not a setting.
+fn drop_non_executable(source: &str, lang: &str, misconfigs: &mut Vec<VulnMatch>) {
+    if misconfigs.is_empty() {
+        return;
+    }
+    let regions = super::code_regions::non_executable_regions(source, lang);
+    if !regions.is_empty() {
+        misconfigs.retain(|m| !super::code_regions::offset_suppressed(m.span.0, &regions));
     }
 }
 
@@ -129,6 +143,37 @@ impl Default for ConfigSecurityAnalyzer {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// A Django settings module: `DEBUG` there is the framework's switch, not a script
+/// flag. Markers are Django's own setting names (S53, 25/09/2026).
+fn is_django_settings(source: &str) -> bool {
+    ["INSTALLED_APPS", "ROOT_URLCONF", "ALLOWED_HOSTS"]
+        .iter()
+        .any(|marker| source.contains(marker))
+}
+
+/// CWE-489 — `DEBUG = True` assigned in a Django settings module. Context-scoped:
+/// the same line in a plain script is a CLI flag, and scoring it there would be the
+/// broad-keyword false positive this analyzer's precision rule forbids.
+fn django_debug_true(source: &str) -> Vec<VulnMatch> {
+    let mut offset = 0usize;
+    let mut found = Vec::new();
+    for raw_line in source.lines() {
+        let trimmed = raw_line.trim_start();
+        let assignment = trimmed.split('#').next().unwrap_or("").trim_end();
+        if assignment == "DEBUG = True" || assignment == "DEBUG=True" {
+            let start = offset + (raw_line.len() - trimmed.len());
+            found.push(VulnMatch::new(
+                "active_debug_production".to_string(),
+                (start, offset + raw_line.len()),
+                3.5,
+                489,
+            ));
+        }
+        offset += raw_line.len() + 1;
+    }
+    found
 }
 
 /// Built-in OWASP A05 misconfiguration catalog. Precision-tuned: each matcher
@@ -185,7 +230,22 @@ static RULES: &[ConfigRule] = &[
                 || (l.contains("allow_origin") && l.contains('*'))
                 || (l.contains("allowed_origins") && l.contains('*'))
                 || (l.contains("allow-origin") && l.contains('*'))
+                // S53 (25/09/2026): django-cors-headers and Flask-CORS settings names —
+                // specific enough to need no file context (each scored 1.000 alone).
+                || l.starts_with("cors_allow_all_origins = true")
+                || l.starts_with("cors_allow_all_origins=true")
+                || l.starts_with("cors_origin_allow_all = true")
+                || l.starts_with("cors_origin_allow_all=true")
+                || (l.starts_with("cors_origins") && l.contains('*'))
         },
+    },
+    // CWE-20 — Django `ALLOWED_HOSTS` wildcard: Host-header validation off (S53).
+    // The name is Django's own, so the assignment needs no file context.
+    ConfigRule {
+        name: "django_allowed_hosts_wildcard",
+        cwe_id: 20,
+        severity: 3.0,
+        matches: |l, _r| l.starts_with("allowed_hosts") && l.contains('*'),
     },
     // CWE-489 — active debug / verbose runtime in production. Framework-scoped
     // (Flask) to avoid the Cargo `[profile] debug = true` (debuginfo) false hit.
