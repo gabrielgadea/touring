@@ -52,7 +52,8 @@ fn analyze_f4_7_cicd_dim(target: &Path) -> Result<(f32, String)> {
         crate::verifications::ArtifactClass::CiWorkflow,
     );
     if !present {
-        return Ok(crate::verifications::absent_artifact_score(
+        return Ok(crate::verifications::absent_artifact_score_at(
+            target,
             "F4.7",
             crate::verifications::ArtifactClass::CiWorkflow,
         ));

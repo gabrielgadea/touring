@@ -725,8 +725,24 @@ pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, boo
             Err(_) => (String::new(), false),
         }
     };
-    if present || !class.inherits_from_repo_root() {
+    if present {
         return (out, present);
+    }
+    inherited_artifact_source(target, class).unwrap_or((out, present))
+}
+
+/// The artifact a scope WITHOUT its own inherits, if any (split out of
+/// [`read_artifact_source`] on 25/09/2026 when S59 pushed its complexity to 16).
+fn inherited_artifact_source(target: &Path, class: ArtifactClass) -> Option<(String, bool)> {
+    // S59 (25/09/2026): a README does not inherit at crate/dir scope (each crate
+    // carries its own), but a SOURCE FILE scored alone is documented by the README
+    // nearest to it — its package's, else the repository root's. Measured: a module
+    // under analise/scripts/utils scored F3.11 0.3 "no README*" with a 65 KB root README.
+    if class == ArtifactClass::Readme && is_source_file(target) {
+        return nearest_readme_upward(target).map(|p| concat_artifacts(&[p]));
+    }
+    if !class.inherits_from_repo_root() {
+        return None;
     }
     // Walk-up inheritance (see [`ArtifactClass::inherits_from_repo_root`]): a
     // member crate/module/path lacking its own workspace-level artifact inherits
@@ -735,10 +751,53 @@ pub fn read_artifact_source(target: &Path, class: ArtifactClass) -> (String, boo
     // SHALLOWLY there (depth ≤ 2 — `R/CHANGELOG.md`, `R/.github/workflows/**`,
     // `R/docs/**/adr`) so it never deep-walks every member subtree (the F2.6
     // walk-up over-scan lesson — an existence read, never a huge-file content scan).
-    match find_repo_root(target) {
-        Some(root) => concat_artifacts(&resolve_artifacts_shallow(&root, class, 2)),
-        None => (out, present),
+    find_repo_root(target).map(|root| concat_artifacts(&resolve_artifacts_shallow(&root, class, 2)))
+}
+
+/// The README nearest to a source file, walking up to its repository root (S59): a
+/// package README shadows the root one; outside a repository there is none.
+fn nearest_readme_upward(target: &Path) -> Option<PathBuf> {
+    let root = find_repo_root(target)?;
+    let mut dir = std::fs::canonicalize(target).ok()?.parent()?.to_path_buf();
+    loop {
+        if let Some(readme) = readme_in(&dir) {
+            return Some(readme);
+        }
+        if dir == root {
+            return None;
+        }
+        dir = dir.parent()?.to_path_buf();
     }
+}
+
+/// The README directly inside `dir` (first by name, for determinism).
+fn readme_in(dir: &Path) -> Option<PathBuf> {
+    let mut found: Vec<PathBuf> = std::fs::read_dir(dir)
+        .ok()?
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|p| p.is_file() && ArtifactClass::Readme.matches(p))
+        .collect();
+    found.sort();
+    found.into_iter().next()
+}
+
+/// [`absent_artifact_score`] for a concrete `target` (S59, 25/09/2026): a SOURCE
+/// FILE outside any repository has no repository to carry a README, CHANGELOG,
+/// architecture doc or CI pipeline, so those universal artifact dims are N/A there —
+/// never four absent-artifact Fails for one loose file. In a repository whose root
+/// lacks the artifact, the cap stays: that absence is the repository's defect.
+pub fn absent_artifact_score_at(target: &Path, dim: &str, class: ArtifactClass) -> (f32, String) {
+    if class.absent_is_defect() && is_source_file(target) && find_repo_root(target).is_none() {
+        return (
+            1.0,
+            format!(
+                "[N/A] {dim}: source file outside any repository — no repository artifact \
+                 ({class:?}) can apply (excluded from composite)"
+            ),
+        );
+    }
+    absent_artifact_score(dim, class)
 }
 
 /// Concatenate the source of resolved artifact files, bounded by
@@ -1480,6 +1539,29 @@ mod tests {
         assert!(ArtifactClass::Manifest.matches(Path::new("/x/Cargo.toml")));
         assert!(ArtifactClass::Manifest.matches(Path::new("/x/pyproject.toml")));
         assert!(!ArtifactClass::Manifest.matches(Path::new("/x/config.toml")));
+    }
+
+    #[test]
+    fn nearest_readme_upward_prefers_the_package_readme_over_the_root_one() {
+        // S59: a package README shadows the root's; outside a repository there is none.
+        let repo = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(repo.path().join(".git")).expect(".git");
+        std::fs::write(repo.path().join("README.md"), "# root\n").expect("root readme");
+        let pkg = repo.path().join("packages").join("pkg");
+        std::fs::create_dir_all(pkg.join("src")).expect("dirs");
+        std::fs::write(pkg.join("README.md"), "# pkg\n").expect("pkg readme");
+        std::fs::write(pkg.join("src").join("m.py"), "x = 1\n").expect("module");
+        std::fs::write(repo.path().join("top.py"), "x = 1\n").expect("top module");
+        let from_pkg = nearest_readme_upward(&pkg.join("src").join("m.py")).expect("pkg readme");
+        assert!(from_pkg.ends_with("packages/pkg/README.md"), "{from_pkg:?}");
+        let from_top = nearest_readme_upward(&repo.path().join("top.py")).expect("root readme");
+        assert_eq!(
+            from_top,
+            std::fs::canonicalize(repo.path().join("README.md")).expect("canon")
+        );
+        let loose = tempfile::tempdir().expect("tempdir");
+        std::fs::write(loose.path().join("l.py"), "x = 1\n").expect("loose");
+        assert!(nearest_readme_upward(&loose.path().join("l.py")).is_none());
     }
 
     #[test]

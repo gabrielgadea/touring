@@ -64,7 +64,8 @@ fn analyze_arch_doc_dim(target: &Path) -> Result<(f32, String)> {
         crate::verifications::ArtifactClass::ArchDoc,
     );
     if !present {
-        return Ok(crate::verifications::absent_artifact_score(
+        return Ok(crate::verifications::absent_artifact_score_at(
+            target,
             "F3.10",
             crate::verifications::ArtifactClass::ArchDoc,
         ));

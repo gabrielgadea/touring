@@ -63,7 +63,8 @@ fn analyze_changelog_dim(target: &Path) -> Result<(f32, String)> {
         crate::verifications::ArtifactClass::Changelog,
     );
     if !present {
-        return Ok(crate::verifications::absent_artifact_score(
+        return Ok(crate::verifications::absent_artifact_score_at(
+            target,
             "F3.13",
             crate::verifications::ArtifactClass::Changelog,
         ));

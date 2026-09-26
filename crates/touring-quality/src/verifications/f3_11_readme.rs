@@ -65,11 +65,11 @@ fn analyze_readme_dim(target: &Path) -> Result<(f32, String)> {
         crate::verifications::ArtifactClass::Readme,
     );
     if !present {
-        return Ok((
-            crate::verifications::ARTIFACT_ABSENT_CAP,
-            "F3.11: no README* found in scope — repository has no README \
-             (absent-artifact cap, not diluted density)"
-                .to_string(),
+        // S59: N/A for a source file outside any repository; the cap otherwise.
+        return Ok(crate::verifications::absent_artifact_score_at(
+            target,
+            "F3.11",
+            crate::verifications::ArtifactClass::Readme,
         ));
     }
     let r = analyze_readme(&raw, "markdown");
