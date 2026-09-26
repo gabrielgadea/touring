@@ -58,6 +58,9 @@ pub mod f4_6_build_config;
 pub mod f4_7_cicd;
 pub mod f4_8_deploy;
 pub mod f4_9_iac;
+/// S510: the Python backend of F2.5 (pip-audit/OSV) and F4.5 (`uv lock --check`).
+#[cfg(feature = "workspace-integration")]
+pub(crate) mod python_deps;
 
 /// Trait implemented by all 50 dim verifications.
 pub trait Verification: Send + Sync {
