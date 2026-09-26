@@ -434,6 +434,62 @@ const SAFE_CASES: &[(&str, &str)] = &[
     ),
 ];
 
+// ---------------------------------------------------------------------------
+// S53 — every misconfiguration ALONE drops F2_6; generic lookalikes stay clean
+// ---------------------------------------------------------------------------
+
+/// Django settings markers: `DEBUG = True` is a finding only in such a file.
+const DJANGO_SETTINGS: &str = "\"\"\"Settings.\"\"\"\n\nINSTALLED_APPS = [\"django.contrib.admin\"]\nROOT_URLCONF = \"site.urls\"\n";
+
+/// Measured 25/09/2026, one pattern per file: the four settings forms scored 1.000.
+const MISCONFIG_CASES: &[(&str, &str)] = &[
+    ("django_debug_true", "DEBUG = True\n"),
+    ("django_allowed_hosts_star", "ALLOWED_HOSTS = [\"*\"]\n"),
+    ("cors_allow_all_origins", "CORS_ALLOW_ALL_ORIGINS = True\n"),
+    ("cors_origin_allow_all", "CORS_ORIGIN_ALLOW_ALL = True\n"),
+    ("flask_cors_origins_star", "CORS_ORIGINS = [\"*\"]\n"),
+    ("flask_debug_run", "app.run(debug=True, host=\"0.0.0.0\")\n"),
+    ("cors_middleware_star", "app.add_middleware(CORSMiddleware, allow_origins=[\"*\"])\n"),
+];
+
+/// Lookalikes that are not a production misconfiguration.
+const CONFIG_SAFE_CASES: &[(&str, &str, bool)] = &[
+    // (name, body, inside Django settings?)
+    ("debug_true_in_a_plain_script", "DEBUG = True\n", false),
+    ("django_debug_from_env", "import os\n\nDEBUG = os.environ.get(\"DEBUG\") == \"1\"\n", true),
+    ("django_specific_hosts", "ALLOWED_HOSTS = [\"api.example.org\"]\n", true),
+    ("debug_true_quoted", "DOC = \"never ship DEBUG = True\"\n", true),
+];
+
+fn f2_6_of(body: &str, in_settings: bool) -> f32 {
+    let prefix = if in_settings { DJANGO_SETTINGS } else { "\"\"\"Script.\"\"\"\n\n" };
+    let f = py_file(&format!("{prefix}{body}"));
+    dim_value(&score_py(f.path()), "F2_6")
+}
+
+#[test]
+fn f2_6_detects_each_misconfiguration_alone() {
+    let clean = f2_6_of("DEBUG = False\n", true);
+    let blind: Vec<&str> = MISCONFIG_CASES
+        .iter()
+        .filter(|(_, body)| f2_6_of(body, true) >= clean)
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(blind.is_empty(), "F2_6 blind to {blind:?} (clean={clean:.3})");
+}
+
+#[test]
+fn f2_6_lookalikes_stay_clean() {
+    let clean = f2_6_of("DEBUG = False\n", true);
+    assert!(clean >= 0.99, "control: the clean settings file scores {clean:.3}");
+    let flagged: Vec<(&str, f32)> = CONFIG_SAFE_CASES
+        .iter()
+        .map(|(name, body, in_settings)| (*name, f2_6_of(body, *in_settings)))
+        .filter(|(_, v)| *v < clean)
+        .collect();
+    assert!(flagged.is_empty(), "F2_6 flagged lookalikes {flagged:?} (clean={clean:.3})");
+}
+
 fn f2_1_of_body(body: &str) -> f32 {
     let f = py_file(&format!("{SINK_HEADER}{body}"));
     dim_value(&score_py(f.path()), "F2_1")
