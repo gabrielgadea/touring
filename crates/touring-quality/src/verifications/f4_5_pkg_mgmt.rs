@@ -41,6 +41,11 @@ impl Verification for F4_5_PkgMgmt {
 #[cfg(feature = "workspace-integration")]
 fn analyze_pkg_mgmt(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::DepHealthAnalyzer;
+    // S510 (2026-09-26): a Python root gets the Python backend — this answered
+    // `[N/A]` for every Python project.
+    if let Some(root) = crate::verifications::python_deps::python_root(target) {
+        return Ok(crate::verifications::python_deps::f4_5(&root));
+    }
     let report = DepHealthAnalyzer::new().analyze(target);
 
     if !report.manifest_scoped {
@@ -213,6 +218,66 @@ mod tests {
                 s.value
             );
             assert!(s.evidence.contains("BLOCK"));
+        }
+
+        /// S510 (26/09/2026): F4.5 answered N/A for every Python project. A
+        /// `uv.lock` that no longer matches `pyproject.toml` means `uv sync
+        /// --frozen` installs something the manifest does not declare — the
+        /// package-management P0. Driven by the real `uv` on a project with no
+        /// dependencies (offline, deterministic); without `uv` the dimension
+        /// must say UNMEASURED, never pass.
+        #[test]
+        fn f4_5_uv_lock_out_of_sync_is_flagged() {
+            let dir = tempfile::tempdir().expect("tmpdir");
+            let manifest = |version: &str| {
+                format!(
+                    "[project]\nname = \"probe\"\nversion = \"{version}\"\n\
+                     requires-python = \">=3.10\"\ndependencies = []\n"
+                )
+            };
+            std::fs::write(dir.path().join("pyproject.toml"), manifest("0.1.0"))
+                .expect("pyproject");
+            let uv_present = std::process::Command::new("uv")
+                .args(["lock", "--offline"])
+                .current_dir(dir.path())
+                .output()
+                .is_ok_and(|o| o.status.success());
+            let in_sync = F4_5_PkgMgmt.check(dir.path()).expect("check");
+            if !uv_present {
+                assert_eq!(
+                    in_sync.status,
+                    crate::DimStatus::Warn,
+                    "{}",
+                    in_sync.evidence
+                );
+                assert!(
+                    in_sync.evidence.contains("UNMEASURED"),
+                    "{}",
+                    in_sync.evidence
+                );
+                return;
+            }
+            assert_eq!(
+                in_sync.status,
+                crate::DimStatus::Pass,
+                "{}",
+                in_sync.evidence
+            );
+            assert!(in_sync.evidence.contains("uv.lock"), "{}", in_sync.evidence);
+
+            std::fs::write(dir.path().join("pyproject.toml"), manifest("0.2.0")).expect("bump");
+            let drifted = F4_5_PkgMgmt.check(dir.path()).expect("check");
+            assert_eq!(
+                drifted.status,
+                crate::DimStatus::Fail,
+                "{}",
+                drifted.evidence
+            );
+            assert!(
+                drifted.evidence.contains("out of sync"),
+                "{}",
+                drifted.evidence
+            );
         }
 
         #[test]

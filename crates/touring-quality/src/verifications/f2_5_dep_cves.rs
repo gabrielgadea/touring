@@ -173,6 +173,15 @@ mod real_engine {
     /// Returns `(score, evidence)`; `0.0` (BLOCK) when ≥1 advisory matches the
     /// resolved tree, `1.0` otherwise (incl. graceful offline / no-lock).
     pub(super) fn scan(target: &Path) -> (f32, String) {
+        // S510 (2026-09-26): a Python root is audited by the Python backend —
+        // before, a directory holding only a `uv.lock` fell to the Rust path and
+        // was reported "no Cargo.lock", a verdict about the wrong ecosystem.
+        if let Some(root) = crate::verifications::python_deps::python_root(target) {
+            return crate::verifications::python_deps::f2_5(
+                &root,
+                &crate::verifications::python_deps::AuditConfig::from_env(),
+            );
+        }
         if !is_rust_manifest(target) {
             // W3 (2026-07-02): non-Cargo target → NotApplicable (excluded from
             // the composite), not a silent Pass. A JS/Python/Go project has no
@@ -506,6 +515,30 @@ mod tests {
                 "ecosystem named: {}",
                 s.evidence
             );
+        }
+
+        /// S510 (26/09/2026): a Python root (a `uv.lock`, no `Cargo.toml`) is
+        /// audited by the Python backend — the Rust path answered "no Cargo.lock"
+        /// for the analise, a verdict about the wrong ecosystem. Without a fresh
+        /// OSV audit it is UNMEASURED (Warn): a P0 gate never passes on the
+        /// absence of its evidence, and never blocks on it either.
+        #[test]
+        fn a_python_root_is_audited_by_the_python_backend_not_the_rust_path() {
+            let dir = tempfile::tempdir().expect("tmpdir");
+            std::fs::write(
+                dir.path().join("pyproject.toml"),
+                "[project]\nname = \"probe\"\nversion = \"0.1.0\"\ndependencies = []\n",
+            )
+            .expect("pyproject");
+            std::fs::write(
+                dir.path().join("uv.lock"),
+                "version = 1\n# s510 probe lock\n",
+            )
+            .expect("uv.lock");
+            let s = F2_5_DepCves.check(dir.path()).expect("check");
+            assert!(!s.evidence.contains("Cargo"), "{}", s.evidence);
+            assert!(s.evidence.contains("Python"), "{}", s.evidence);
+            assert_eq!(s.status, crate::DimStatus::Warn, "{}", s.evidence);
         }
 
         /// Cross-audit 14/09/2026 (R2-3): no lockfile means no resolved tree and
