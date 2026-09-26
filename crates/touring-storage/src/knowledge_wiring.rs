@@ -1281,77 +1281,6 @@ impl FileKnowledgeDB {
         Ok(rows)
     }
 
-    /// Re-resolve `symbol_kind = 'unknown'` consumer rows from known-kind
-    /// producer rows (Wave H+1, 2026-06-11 — closes the doctor
-    /// `wiring_diagnostic` pollution warning).
-    ///
-    /// Two pollution sources exist: (a) imports resolved to a facade mod.rs
-    /// (`pub use` re-export) where no producer row lives, and (b) consumers
-    /// indexed BEFORE their producer during a rebuild walk (the INSERT-time
-    /// COALESCE saw an empty table and froze 'unknown'). Both are fixable
-    /// after the fact: the kind of a symbol name is recoverable from any
-    /// producer row. Returns the number of rows repaired.
-    /// `mark_extern` gates the SECOND pass only. Pass 1 (inherit the kind from a
-    /// known producer) adds information that is correct regardless of how much of
-    /// the tree was walked. Pass 2 concludes "no producer exists anywhere,
-    /// therefore this symbol is defined OUTSIDE the workspace" — a conclusion that
-    /// is only sound over a COMPLETE walk. Called with `false` after a partial
-    /// walk, it leaves those rows `unknown` so a later complete rebuild can still
-    /// resolve them; `extern` is terminal, and a wrong `extern` never gets a
-    /// second look.
-    ///
-    /// Observed 20/08/2026 on `analise`: a rebuild that aborted at 22.994/37.295
-    /// files under memory pressure marked 2.401 rows `extern` — with 38% of the
-    /// producers never read. The sweep and the phantom purge already skip on
-    /// `aborted_memory_pressure` for exactly this reason; this pass did not.
-    pub fn backfill_unknown_consumer_kinds(
-        &self,
-        mark_extern: bool,
-    ) -> Result<usize, rusqlite::Error> {
-        let n = self.conn_ref().execute(
-            "UPDATE wiring_map AS w
-             SET symbol_kind = (
-                 SELECT p.symbol_kind FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown'
-                 LIMIT 1)
-             WHERE w.symbol_kind = 'unknown'
-               AND EXISTS (
-                 SELECT 1 FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown')",
-            [],
-        )?;
-        // Second pass: rows whose symbol name has NO producer row anywhere in
-        // the index are wiring to symbols defined OUTSIDE the workspace (e.g.
-        // `pub use pretty_assertions::assert_eq` facades) — structurally
-        // unrecoverable, and not schema degradation. Mark them 'extern'.
-        // Sound ONLY over a complete walk (see `mark_extern` above).
-        if !mark_extern {
-            if n > 0 {
-                Self::invalidate_wiring_modules_cache();
-            }
-            return Ok(n);
-        }
-        let m = self.conn_ref().execute(
-            "UPDATE wiring_map AS w
-             SET symbol_kind = 'extern'
-             WHERE w.symbol_kind = 'unknown'
-               AND NOT EXISTS (
-                 SELECT 1 FROM wiring_map p
-                 WHERE p.symbol_name = w.symbol_name
-                   AND p.consumer_file IS NULL
-                   AND p.symbol_kind != 'unknown')",
-            [],
-        )?;
-        if n + m > 0 {
-            Self::invalidate_wiring_modules_cache();
-        }
-        Ok(n + m)
-    }
-
     /// The single, deterministic resolution of every consumer row's kind from
     /// the FINAL producer table — the pass that makes a cold rebuild equal a warm
     /// one (I16, 2026-09-13).
@@ -1359,7 +1288,7 @@ impl FileKnowledgeDB {
     /// At record time a consumer row copies the kind of whatever producer row
     /// happens to exist: on a warm rebuild that is the OLD row of a module not yet
     /// re-walked, on a cold one it is nothing (`unknown`, later repaired by
-    /// [`Self::backfill_unknown_consumer_kinds`] through a `LIMIT 1` with no
+    /// the since-retired unknown-only backfill) through a `LIMIT 1` with no
     /// order). Measured on the isolated per-project copy: `symbols` identical
     /// between a cold and a warm rebuild, `wiring_map` different in 24 lines, every
     /// one of them a consumer kind picked by that arbitrary homonym
@@ -4291,11 +4220,14 @@ mod backfill_tests {
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "unknown");
         db.register_pub_symbol("crates/a/src/engine.rs", "Engine", "struct", "public")
             .unwrap();
-        let repaired = db.backfill_unknown_consumer_kinds(true).unwrap();
-        assert_eq!(repaired, 1, "exactly the frozen row must be repaired");
+        let repaired = db.resolve_consumer_kinds(true).unwrap();
+        assert_eq!(
+            repaired.from_producers, 1,
+            "exactly the frozen row must be repaired"
+        );
         assert_eq!(kind_of(&db, "crates/a/src/engine.rs", "Engine"), "struct");
         // Idempotent: a second pass has nothing left to do.
-        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 0);
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().changed(), 0);
     }
 
     // Wave H+1 normalization: `use m::{X as Y}` keys the row by the ORIGINAL
@@ -4322,8 +4254,9 @@ mod backfill_tests {
         assert_eq!(kind_of(&db, "crates/a/src/svc.rs", "*"), "glob_import");
     }
 
-    // Wave H+1 second backfill pass: a consumer of a symbol with NO producer
-    // anywhere (external-crate re-export) is 'extern', not schema degradation.
+    // Wave H+1 second pass (now the sealed-walk pass of `resolve_consumer_kinds`):
+    // a consumer of a symbol with NO definition anywhere (external-crate
+    // re-export) is 'extern', not schema degradation.
     /// The behavioural half of the partial-walk guard: after an INCOMPLETE walk
     /// the same row must stay `unknown`, because "no producer anywhere" is not a
     /// conclusion a 62%-complete index is entitled to draw. `extern` is terminal
@@ -4339,8 +4272,8 @@ mod backfill_tests {
         )
         .unwrap();
 
-        // mark_extern = false → pass 1 only; nothing to inherit, so zero repairs.
-        assert_eq!(db.backfill_unknown_consumer_kinds(false).unwrap(), 0);
+        // mark_extern = false → no `extern` pass; nothing to inherit, so no change.
+        assert_eq!(db.resolve_consumer_kinds(false).unwrap().changed(), 0);
         assert_eq!(
             kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
             "unknown",
@@ -4348,7 +4281,7 @@ mod backfill_tests {
         );
 
         // A later COMPLETE walk is still free to conclude `extern`.
-        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 1);
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().extern_marked, 1);
         assert_eq!(
             kind_of(&db, "crates/a/src/uses_unseen.rs", "NotYetWalked"),
             "extern"
@@ -4369,7 +4302,7 @@ mod backfill_tests {
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "unknown"
         );
-        assert_eq!(db.backfill_unknown_consumer_kinds(true).unwrap(), 1);
+        assert_eq!(db.resolve_consumer_kinds(true).unwrap().extern_marked, 1);
         assert_eq!(
             kind_of(&db, "crates/a/src/test_util.rs", "assert_eq"),
             "extern"
