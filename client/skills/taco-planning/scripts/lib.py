@@ -19,6 +19,7 @@ import logging
 import os
 import re
 import subprocess
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
@@ -231,12 +232,44 @@ def safe_load_json(path: Path) -> dict[str, Any] | None:
 # ── Touring CLI wrappers (fail-open) ──────────────────────────────────────
 
 
+def _claims_project_daemon(directory: Path) -> bool:
+    """Mirror of `TouringConfig::daemon_per_project_opt_in` plus the bound-socket test
+    (touring-foundation `config/paths.rs`): a directory claims a per-project daemon when
+    `.touring/daemon.sock` exists or `.touring/touring.toml` sets `[daemon] per_project`
+    to a real boolean true. A malformed file reads as no opt-in, as it does there."""
+    if (directory / ".touring" / "daemon.sock").exists():
+        return True
+    try:
+        config = tomllib.loads((directory / ".touring" / "touring.toml").read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return False
+    daemon = config.get("daemon")
+    return isinstance(daemon, dict) and daemon.get("per_project") is True
+
+
+def touring_env(start: Path | None = None) -> dict[str, str]:
+    """Environment for a `touring` subprocess that reaches the PROJECT's daemon.
+
+    Every Claude Code session exports TOURING_DAEMON_SOCKET (the global daemon), and
+    the explicit variable beats the per-project walk-up. Inside a tree that claims its
+    own daemon the collector therefore read the wrong index (S73, 26/09/2026); there
+    the two variables are dropped so the client's walk-up decides. Elsewhere the
+    environment passes through untouched.
+    """
+    env = dict(os.environ)
+    here = (start or Path.cwd()).resolve()
+    if any(_claims_project_daemon(d) for d in (here, *here.parents)):
+        env.pop("TOURING_DAEMON_SOCKET", None)
+        env.pop("TOURING_DAEMON_SOCK", None)
+    return env
+
+
 def touring_available() -> bool:
     """True iff `touring --version` returns 0."""
     try:
         return subprocess.run(
             ["touring", "--version"],
-            capture_output=True, text=True, timeout=2, check=False,
+            capture_output=True, text=True, timeout=2, check=False, env=touring_env(),
         ).returncode == 0
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
@@ -249,7 +282,7 @@ def run_touring(args: list[str], *, timeout: int = 30) -> dict[str, Any] | None:
     try:
         result = subprocess.run(
             ["touring", *args],
-            capture_output=True, text=True, timeout=timeout, check=False,
+            capture_output=True, text=True, timeout=timeout, check=False, env=touring_env(),
         )
         if result.returncode != 0 and not result.stdout:
             return None
@@ -268,7 +301,7 @@ def touring_memory_store(key: str, value: str, *, tier: str = "semantic") -> boo
     try:
         subprocess.run(
             ["touring", "memory", "store", key, value, "--tier", tier],
-            timeout=5, check=False, capture_output=True,
+            timeout=5, check=False, capture_output=True, env=touring_env(),
         )
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -283,7 +316,7 @@ def touring_learning_reward(tool: str, value: float, context: str = "") -> bool:
         args = ["touring", "learning", "reward", tool, str(value)]
         if context:
             args.append(context)
-        subprocess.run(args, timeout=3, check=False, capture_output=True)
+        subprocess.run(args, timeout=3, check=False, capture_output=True, env=touring_env())
         return True
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return False
