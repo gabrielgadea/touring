@@ -489,7 +489,10 @@ mod journal_v2_tests {
         assert_eq!(rec["hint"]["sim"], 0.87);
         let meta_sem = JournalMeta::default();
         let rec_sem = journal_record("run-2", "bash", "out", 0, 5, None, 0, &meta_sem);
-        assert!(rec_sem["hint"].is_null(), "no match → null, never a fabricated hint");
+        assert!(
+            rec_sem["hint"].is_null(),
+            "no match → null, never a fabricated hint"
+        );
         assert_eq!(rec["tmp_bytes"], 4096);
         assert_eq!(rec["bytes_elided"], 3);
     }
