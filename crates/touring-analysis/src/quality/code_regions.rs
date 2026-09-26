@@ -211,6 +211,17 @@ pub fn non_executable_regions_segmented(
     merge(all)
 }
 
+/// `src` with Python comment and string-literal interiors blanked to spaces, byte
+/// offsets and newlines preserved: a byte that survives unchanged is CODE.
+///
+/// `python_sinks` (S51) needs it and [`non_executable_regions`] cannot give it: that
+/// function leaves strings executable on purpose, because the XSS payload of a
+/// generated page lives INSIDE a string and must stay visible to the registry. The
+/// Python sinks are call tokens, so for them a token inside a string is quoted text.
+pub(crate) fn python_code_mask(src: &str) -> Vec<u8> {
+    scan(src, &PYTHON).1
+}
+
 /// True when `offset` falls inside one of the (sorted, non-overlapping) ranges.
 pub fn offset_suppressed(offset: usize, regions: &[(usize, usize)]) -> bool {
     regions.iter().any(|&(s, e)| offset >= s && offset < e)
