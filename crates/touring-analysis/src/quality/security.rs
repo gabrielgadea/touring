@@ -75,58 +75,10 @@ impl SecurityAnalyzer {
         // 1. Antipattern detection (SIMD memchr, touring-analysis native)
         let antipattern_hits = super::antipatterns::detect_antipatterns(source, lang);
 
-        // 2. Vulnerability pattern detection: built-in registry + custom patterns,
-        // EVERY match of each (cross-audit R2, 14/09/2026). With one match per
-        // pattern, the precision pass below dropped a payload quoted in a comment
-        // at the top of a file and took the real sink further down with it.
-        let mut vuln_matches: Vec<VulnMatch> = self.registry.detect_every(source);
-        vuln_matches.extend(
-            self.custom_patterns
-                .iter()
-                .flat_map(|p| p.detect_every(source)),
-        );
-
-        // 2b. AST-aware precision pass (2026-06-21): a vulnerability literal
-        // living in a comment or a `#[cfg(test)]` corpus is documentation /
-        // fixture, not an exploitable sink — drop it. Mirrors Semgrep's
-        // comment-disregard + test-path exclusion, applied at in-file region
-        // granularity (more precise than path exclusion: a real sink in a
-        // production helper sharing a file with a test module is still scanned).
-        // Guarded on non-empty so the lexer runs only for the ~1% of files that
-        // actually produced a match. See `super::code_regions`.
-        if !vuln_matches.is_empty() {
-            let mut regions = super::code_regions::non_executable_regions(source, lang);
-            if lang == "python" {
-                // A docstring documents; it never reaches a sink (cross-audit R2).
-                regions.extend(super::code_regions::python_docstring_regions(source));
-            }
-            if !regions.is_empty() {
-                vuln_matches
-                    .retain(|v| !super::code_regions::offset_suppressed(v.span.0, &regions));
-            }
-        }
-        if super::code_regions::is_shell_language(lang) {
-            vuln_matches.retain(|v| !is_shell_idiom(source, v));
-        }
-        // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler
-        // attribute with a CONSTANT value is inline JS, not CWE-79 — no
-        // untrusted data reaches it (`onclick="rodar('preset')"` in a
-        // Python-generated template failed P0 on a file of 05/09 nobody
-        // touched). A handler is a sink only when the value carries
-        // interpolation or a variable. This filter lives HERE, in the code
-        // judge — never in the shared `XssPattern`, because the concolic /
-        // payload path measures INPUT, where the handler IS the attack.
-        vuln_matches.retain(|v| !is_constant_handler_attribute(source, v));
-        // One finding per pattern, the first that survived: the score keeps the
-        // meaning it had when each pattern reported a single match.
-        let mut seen: Vec<String> = Vec::new();
-        vuln_matches.retain(|v| {
-            let first = !seen.contains(&v.pattern_name);
-            if first {
-                seen.push(v.pattern_name.clone());
-            }
-            first
-        });
+        // 2. Every candidate match, then 2b. the precision pass (split out of this
+        // function on 25/09/2026 — S51 pushed its cyclomatic complexity to 17).
+        let mut vuln_matches = self.candidate_matches(source, lang);
+        retain_exploitable(source, lang, &mut vuln_matches);
 
         // 3. Combined scoring
         let antipattern_score = if antipattern_hits.is_empty() {
@@ -149,6 +101,67 @@ impl SecurityAnalyzer {
             lang: lang.to_string(),
         }
     }
+
+    /// Step 2 of [`Self::analyze`] — vulnerability pattern detection: the built-in
+    /// registry and the custom patterns, EVERY match of each (cross-audit R2, 14/09/2026).
+    /// With one match per pattern, the precision pass dropped a payload quoted in a
+    /// comment at the top of a file and took the real sink further down with it.
+    fn candidate_matches(&self, source: &str, lang: &str) -> Vec<VulnMatch> {
+        let mut vuln_matches: Vec<VulnMatch> = self.registry.detect_every(source);
+        vuln_matches.extend(
+            self.custom_patterns
+                .iter()
+                .flat_map(|p| p.detect_every(source)),
+        );
+        // S51 (25/09/2026): the registry matches PAYLOADS, so a code-shaped Python sink —
+        // `eval(user_value)`, `cur.execute(f"SELECT … {x}")` — scored clean. The code
+        // judge's own detector runs here, BEFORE the region filter, so a sink quoted in
+        // a comment, string or docstring is still dropped.
+        if lang == "python" {
+            vuln_matches.extend(super::python_sinks::detect(source));
+        }
+        vuln_matches
+    }
+}
+
+/// Step 2b of [`SecurityAnalyzer::analyze`] — AST-aware precision pass (2026-06-21): a vulnerability literal living in a
+/// comment or a `#[cfg(test)]` corpus is documentation / fixture, not an exploitable
+/// sink — drop it. Mirrors Semgrep's comment-disregard + test-path exclusion, applied
+/// at in-file region granularity (more precise than path exclusion: a real sink in a
+/// production helper sharing a file with a test module is still scanned). The lexer
+/// runs only for the ~1% of files that produced a match. See `super::code_regions`.
+fn retain_exploitable(source: &str, lang: &str, vuln_matches: &mut Vec<VulnMatch>) {
+    if !vuln_matches.is_empty() {
+        let mut regions = super::code_regions::non_executable_regions(source, lang);
+        if lang == "python" {
+            // A docstring documents; it never reaches a sink (cross-audit R2).
+            regions.extend(super::code_regions::python_docstring_regions(source));
+        }
+        if !regions.is_empty() {
+            vuln_matches.retain(|v| !super::code_regions::offset_suppressed(v.span.0, &regions));
+        }
+    }
+    if super::code_regions::is_shell_language(lang) {
+        vuln_matches.retain(|v| !is_shell_idiom(source, v));
+    }
+    // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler attribute
+    // with a CONSTANT value is inline JS, not CWE-79 — no untrusted data reaches it
+    // (`onclick="rodar('preset')"` in a Python-generated template failed P0 on a file
+    // of 05/09 nobody touched). A handler is a sink only when the value carries
+    // interpolation or a variable. This filter lives HERE, in the code judge — never
+    // in the shared `XssPattern`, because the concolic / payload path measures INPUT,
+    // where the handler IS the attack.
+    vuln_matches.retain(|v| !is_constant_handler_attribute(source, v));
+    // One finding per pattern, the first that survived: the score keeps the meaning it
+    // had when each pattern reported a single match.
+    let mut seen: Vec<String> = Vec::new();
+    vuln_matches.retain(|v| {
+        let first = !seen.contains(&v.pattern_name);
+        if first {
+            seen.push(v.pattern_name.clone());
+        }
+        first
+    });
 }
 
 /// A CMDi match that is ordinary shell syntax in a shell script.
@@ -198,9 +211,7 @@ fn is_constant_handler_attribute(source: &str, m: &VulnMatch) -> bool {
         .find('\n')
         .map_or(source.len(), |i| m.span.1 + i);
     let tail = &source[m.span.1..line_end];
-    let has_taint = tail.contains('{')
-        || tail.contains(".format(")
-        || has_concat_with_ident(tail);
+    let has_taint = tail.contains('{') || tail.contains(".format(") || has_concat_with_ident(tail);
     !has_taint
 }
 

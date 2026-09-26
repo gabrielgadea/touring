@@ -362,6 +362,115 @@ DOCS = "never call os.system(user_input())"
     );
 }
 
+// ---------------------------------------------------------------------------
+// S51 — every sink class ALONE drops F2_1; safe forms stay clean
+// ---------------------------------------------------------------------------
+
+/// Shared prologue: an input SOURCE (`input()`) the sink bodies below consume.
+const SINK_HEADER: &str = "\"\"\"Probe.\"\"\"\nimport ast\nimport os\nimport pickle\nimport subprocess\nimport sys\n\nimport yaml\n\n\ndef handler(conn, blob):\n    \"\"\"Handler.\"\"\"\n    usuario = input(\"nome: \")\n";
+
+/// One sink per case. `m04` holds six sinks, so it passed with ANY one detected — measured
+/// 25/09/2026: eval/exec and SQL built in the `execute` call were each scored 1.000 alone.
+const SINK_CASES: &[(&str, &str)] = &[
+    ("os_system_fstring", "    os.system(f\"ls {usuario}\")\n"),
+    ("os_system_argv", "    os.system(\"ls \" + sys.argv[1])\n"),
+    (
+        "subprocess_shell",
+        "    subprocess.call(\"grep \" + usuario, shell=True)\n",
+    ),
+    ("eval_input", "    eval(input(\"expr: \"))\n"),
+    ("exec_variable", "    exec(usuario)\n"),
+    ("eval_fstring", "    eval(f\"{usuario} + 1\")\n"),
+    ("pickle_loads", "    pickle.loads(blob)\n"),
+    ("yaml_load", "    yaml.load(usuario)\n"),
+    (
+        "sql_fstring",
+        "    conn.execute(f\"SELECT * FROM t WHERE nome = '{usuario}'\")\n",
+    ),
+    (
+        "sql_percent",
+        "    conn.execute(\"SELECT * FROM t WHERE nome = '%s'\" % usuario)\n",
+    ),
+    (
+        "sql_concat",
+        "    conn.execute(\"DELETE FROM t WHERE nome = '\" + usuario + \"'\")\n",
+    ),
+    (
+        "sql_format",
+        "    conn.execute(\"UPDATE t SET a = '{}'\".format(usuario))\n",
+    ),
+    (
+        "sql_fstring_triple",
+        "    conn.executemany(f\"\"\"\n        INSERT INTO t VALUES ('{usuario}')\n    \"\"\", [])\n",
+    ),
+];
+
+/// Forms that carry no injection — each must score as the clean prologue does.
+const SAFE_CASES: &[(&str, &str)] = &[
+    (
+        "subprocess_list",
+        "    subprocess.run([\"ls\", usuario], check=True)\n",
+    ),
+    ("yaml_safe_load", "    yaml.safe_load(usuario)\n"),
+    (
+        "sql_parameterized",
+        "    conn.execute(\"SELECT * FROM t WHERE nome = ?\", (usuario,))\n",
+    ),
+    ("sql_constant_fstring", "    conn.execute(f\"SELECT 1\")\n"),
+    (
+        "execute_non_sql_fstring",
+        "    conn.execute(f\"job-{usuario}\")\n",
+    ),
+    ("method_named_eval", "    conn.eval()\n"),
+    ("literal_eval", "    ast.literal_eval(usuario)\n"),
+    ("eval_constant", "    eval(\"1 + 1\")\n"),
+    (
+        "sink_in_comment",
+        "    # eval(usuario) and conn.execute(f\"SELECT {usuario}\") would be unsafe\n    return usuario\n",
+    ),
+    (
+        "sink_in_string",
+        "    doc = \"exec(usuario); conn.execute(f'SELECT {usuario}')\"\n    return doc\n",
+    ),
+];
+
+fn f2_1_of_body(body: &str) -> f32 {
+    let f = py_file(&format!("{SINK_HEADER}{body}"));
+    dim_value(&score_py(f.path()), "F2_1")
+}
+
+#[test]
+fn f2_1_detects_each_sink_class_alone() {
+    let clean = f2_1_of_body("    return usuario\n");
+    let blind: Vec<&str> = SINK_CASES
+        .iter()
+        .filter(|(_, body)| f2_1_of_body(body) >= clean)
+        .map(|(name, _)| *name)
+        .collect();
+    assert!(
+        blind.is_empty(),
+        "F2_1 blind to {blind:?} (clean={clean:.3})"
+    );
+}
+
+#[test]
+fn f2_1_safe_forms_stay_clean() {
+    let clean = f2_1_of_body("    return usuario\n");
+    assert!(
+        clean >= 0.99,
+        "control: the clean prologue itself scores {clean:.3}"
+    );
+    let flagged: Vec<(&str, f32)> = SAFE_CASES
+        .iter()
+        .map(|(name, body)| (*name, f2_1_of_body(body)))
+        .filter(|(_, v)| *v < clean)
+        .collect();
+    assert!(
+        flagged.is_empty(),
+        "F2_1 flagged safe forms {flagged:?} (clean={clean:.3})"
+    );
+}
+
 #[test]
 fn f2_4_detects_secrets() {
     let secrets = m05_secrets();

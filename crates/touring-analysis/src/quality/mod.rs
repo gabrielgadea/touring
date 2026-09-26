@@ -264,6 +264,10 @@ pub mod perf_tests;
 /// `/othneildrew/best-readme-template` (High reputation, bench 85); backs
 /// the F3.11 dimension.
 pub mod polyglot_semantic;
+/// Python code-shaped injection sinks the payload registry cannot see (S51): dynamic
+/// `eval`/`exec` (CWE-95) and SQL assembled inside `execute` (CWE-89). Fed to
+/// [`security::SecurityAnalyzer::analyze`] before its region filter.
+pub(crate) mod python_sinks;
 pub mod quality_finding;
 pub mod readme;
 pub mod rust_semantic;
