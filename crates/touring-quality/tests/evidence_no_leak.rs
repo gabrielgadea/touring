@@ -36,13 +36,16 @@ fn planted_tree() -> tempfile::TempDir {
 
 fn run_gate(gate: &str, target: &std::path::Path, format: Option<&str>) -> String {
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_touring-quality"));
-    cmd.args(["check", "--gate", gate, "--target"])
-        .arg(target);
+    cmd.args(["check", "--gate", gate, "--target"]).arg(target);
     if let Some(f) = format {
         cmd.args(["--format", f]);
     }
     let out = cmd.output().expect("run touring-quality");
-    format!("{}{}", String::from_utf8_lossy(&out.stdout), String::from_utf8_lossy(&out.stderr))
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
 }
 
 #[test]

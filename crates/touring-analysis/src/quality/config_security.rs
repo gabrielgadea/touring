@@ -321,7 +321,14 @@ fn weak_literal_value(line: &str) -> bool {
     // default (touring-36's positive list); `test`/`default` stay OUT — a bare
     // identifier of that name would false-fire.
     const WEAK: &[&str] = &[
-        "admin", "password", "changeme", "change_me", "password123", "root", "123456", "12345678",
+        "admin",
+        "password",
+        "changeme",
+        "change_me",
+        "password123",
+        "root",
+        "123456",
+        "12345678",
     ];
     WEAK.contains(&bare.as_str())
 }
