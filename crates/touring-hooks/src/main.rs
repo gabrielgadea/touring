@@ -313,8 +313,7 @@ fn main() {
         // Agent Teams hooks — dedicated handlers (not simple lifecycle passthrough)
         "teammate-idle" => touring_hooks::team_hooks::run_teammate_idle(&mut runtime, &input)
             .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
-        "task-completed" => touring_hooks::team_hooks::run_task_completed(&mut runtime, &input)
-            .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
+        "task-completed" => run_task_completed_standalone(&mut runtime, &input),
         "task-created" => touring_hooks::team_hooks::run_task_created(&mut runtime, &input)
             .map_err(touring_hook_runtime::hook_runtime::HookDispatchError::from),
         "subagent-stop" => {
@@ -739,6 +738,21 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
 /// Returns `Some(DaemonResponse)` on success, `None` if the daemon is
 /// unavailable or the request times out. The caller falls back to standalone
 /// execution on `None` — the invariant "hooks never block Claude Code" is preserved.
+/// S219 (25/09/2026): standalone `task-completed` runs the SAME handler the daemon runs.
+/// A cold daemon past the client's 3 s read timeout lands in the standalone path, whose
+/// arm ran only the knowledge/ACO recording — no DAG finalize, no RL reward, no lesson,
+/// and a 0-byte receipt. Same dispatch table, same forwarding: parity by construction.
+fn run_task_completed_standalone(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    let table = touring_hooks::hook_registry::build_dispatch_table();
+    if let Some(handler) = table.get("task-completed") {
+        forward_daemon_output(&handler(runtime, input));
+    }
+    Ok(())
+}
+
 fn try_daemon_request(req: &DaemonRequest) -> Option<DaemonResponse> {
     use std::io::{BufRead, BufReader, Write};
     use std::os::unix::net::UnixStream;
