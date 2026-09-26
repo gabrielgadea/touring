@@ -18,13 +18,30 @@ import re
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parent.parent
 HOOK = REPO / "scripts" / "hooks" / "code_mode_sdk_section.py"
+INSTALADA = REPO / "client" / "hooks" / "code_mode_sdk_section.py"
 SUGGESTER = REPO / "crates" / "touring-cli" / "src" / "cli_suggester.rs"
 
 spec = importlib.util.spec_from_file_location("code_mode_sdk_section", HOOK)
 hook = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(hook)
+
+#: A forma do stub que `touring run --sdk-stub` emite (Protocol com métodos tipados).
+STUB = (
+    "class _Touring(Protocol):\n"
+    "    def ast_blast(self, file_path: str) -> Any:\n"
+    '        """Full dependency tree (blast radius) for a file."""\n'
+    "        ...\n\n"
+    "    def memory_recall(self, query: str) -> Any:\n"
+    '        """Semantic memory recall."""\n'
+    "        ...\n\n"
+    "    def query(self, hook: str, payload: dict) -> Any:\n"
+    '        """Escape hatch: any hook in the read-only allowlist."""\n'
+    "        ...\n"
+)
 
 
 # ── presentation() — resolução por escopo ─────────────────────────────────────
@@ -80,22 +97,73 @@ def test_default_when_nothing_declares(tmp_path, monkeypatch):
 
 
 def test_section_declares_mode_and_origin():
-    body = hook.section("STUB", "code", "TOURING_CODE_MODE (sessão)")
+    body = hook.section(STUB, "code", "TOURING_CODE_MODE (sessão)")
     assert "apresentação `code`" in body
     assert "TOURING_CODE_MODE (sessão)" in body
     assert "NEGADA" in body  # o efeito do modo code é dito com todas as letras
 
 
 def test_section_native_says_induction_off():
-    body = hook.section("STUB", "native", "default")
+    body = hook.section(STUB, "native", "default")
     assert "indução desligada" in body
 
 
 def test_section_has_single_transport_line():
     """Regressão 25/08: a substituição que adicionou a apresentação deixou a
     linha Transporte duplicada — um dump de 2× o custo por sessão."""
-    body = hook.section("STUB", "both", "default")
+    body = hook.section(STUB, "both", "default")
     assert body.count("Transporte:") == 1
+
+
+def test_section_teaches_the_wall_clock_budget():
+    """A cópia instalada ensinava o `--timeout-ms` (28/08) e a testada não; a unificada ensina."""
+    assert "--timeout-ms" in hook.section(STUB, "both", "default")
+
+
+# ── uma cópia só, e a seção inteira sem corte ─────────────────────────────────
+
+
+def test_the_tested_copy_is_the_installed_source():
+    """26/09/2026: ~/.claude/hooks carregava a cópia de client/hooks, que ainda dizia
+    «`grep`/`cat`/`find` é NEGADA» quando o executor já deixava a inspeção isolada passar —
+    e este guard D8 validava scripts/hooks, a OUTRA cópia. Duas cópias derivam; uma só não."""
+    assert HOOK.resolve() == INSTALADA.resolve()
+
+
+def test_section_indexes_every_sdk_method_from_the_stub_itself():
+    """O índice é lido do stub, não transcrito: um método novo no SDK aparece sozinho."""
+    body = hook.section(STUB, "code", "default")
+    for nome in ("ast_blast", "memory_recall", "query"):
+        assert f"`{nome}`" in body, nome
+    assert "--sdk-stub" in body  # o contrato tipado inteiro, sob demanda
+
+
+def test_the_full_stub_is_not_inlined():
+    """O stub medido em 26/09 tinha ~3,3 KB e o teto de 4 KB o cortava no meio de uma
+    docstring: o modelo recebia um contrato tipado quebrado, e a seção consumia 40% do
+    orçamento de 10 KB do SessionStart. A seção traz o índice; o contrato vem sob demanda."""
+    body = hook.section(STUB, "code", "default")
+    assert "class _Touring" not in body
+    assert "Full dependency tree" not in body
+
+
+def test_real_stub_section_fits_the_ceiling_without_any_cut():
+    stub = hook.sdk_stub()
+    if stub is None:
+        pytest.skip("binário touring indisponível — sem stub real para medir")
+    body = hook.section(stub, "code", "default")
+    assert len(body.encode()) <= hook.MAX_BYTES
+    assert hook.caber(body) == body  # controle: o que cabe atravessa intacto
+
+
+def test_a_cut_is_declared_at_a_line_boundary():
+    """A6: limite de saída explícito, nunca truncamento silencioso no meio de um token."""
+    longo = "".join(f"linha {i} " + "x" * 40 + "\n" for i in range(200))
+    cortado = hook.caber(longo, teto=600)
+    assert len(cortado.encode()) <= 600
+    linhas = cortado.rstrip("\n").splitlines()
+    assert "cortada" in linhas[-1] and "--sdk-stub" in linhas[-1]
+    assert linhas[-2].endswith("x" * 40)  # a última linha mantida está inteira
 
 
 # ── guard D8 — o texto declara exatamente o que o executor aplica ─────────────
@@ -132,7 +200,7 @@ def test_d8_declared_classes_match_executor_classes():
     prometendo colapso de classes que o gate não nega (ou o inverso)."""
     classes = _rust_collapsed_classes()
     assert classes, "executor sem classes colapsadas"
-    body = hook.section("STUB", "code", "default")
+    body = hook.section(STUB, "code", "default")
     efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
     for cls in classes:
         assert f"`{cls}`" in efeito, f"classe `{cls}` negada pelo executor mas não declarada"
@@ -148,7 +216,7 @@ def test_d8_declared_trigger_matches_executor_predicate():
     GATILHO: se o executor nega a partir da N-ésima chamada em W segundos, a
     seção tem de dizer N e W — os dois números, do executor, no texto."""
     deny_at, window = _rust_deny_at(), _rust_window_secs()
-    body = hook.section("STUB", "code", "default")
+    body = hook.section(STUB, "code", "default")
     efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
     ordinal = {2: "2ª", 3: "3ª", 4: "4ª"}.get(deny_at, f"{deny_at}ª")
     assert ordinal in efeito, (
@@ -174,12 +242,13 @@ def test_kill_switch_silences(monkeypatch, capsys):
 
 def test_main_emits_valid_hook_json(monkeypatch, capsys):
     monkeypatch.delenv("TOURING_SDK_SECTION_DISABLED", raising=False)
-    monkeypatch.setattr(hook, "sdk_stub", lambda: "STUB")
+    monkeypatch.setattr(hook, "sdk_stub", lambda: STUB)
     monkeypatch.setattr(hook, "presentation", lambda root: ("both", "default"))
     assert hook.main() == 0
     out = json.loads(capsys.readouterr().out)
     assert out["hookSpecificOutput"]["hookEventName"] == "SessionStart"
-    assert "STUB" in out["hookSpecificOutput"]["additionalContext"]
+    contexto = out["hookSpecificOutput"]["additionalContext"]
+    assert "`memory_recall`" in contexto and "--sdk-stub" in contexto
 
 
 def test_main_silent_without_stub(monkeypatch, capsys):

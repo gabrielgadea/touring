@@ -15,6 +15,21 @@ prefix is stable for the session's life"*. Prefixo estável é prefixo cacheáve
 Aqui vale o mesmo: o stub é ordenado lexicograficamente e byte-estável, então
 duas sessões no mesmo projeto emitem exatamente os mesmos bytes.
 
+O índice, não o stub (26/09/2026)
+---------------------------------
+O stub cresceu para ~3,3 KB e o teto de 4 KB passou a cortá-lo no meio de uma
+docstring: o modelo recebia um contrato tipado quebrado, e esta seção sozinha
+consumia 40% do orçamento de 10 KB do SessionStart. A seção agora traz o ÍNDICE
+dos métodos — lido do próprio stub, então um método novo aparece sozinho — e o
+contrato inteiro fica a um comando (`touring run --lang python --sdk-stub`):
+divulgação progressiva (diretriz E5). Se algo ainda exceder o teto, o corte cai
+numa fronteira de linha e é DECLARADO (diretriz A6), nunca silencioso.
+
+Uma cópia só: `scripts/hooks/code_mode_sdk_section.py` é symlink para este arquivo,
+e `~/.claude/hooks/code_mode_sdk_section.py` também. Até 26/09 eram três arquivos: o
+instalado dizia que `grep`/`cat`/`find` isolados eram negados enquanto o executor já
+os deixava passar, e o guard D8 validava a outra cópia.
+
 O que esta seção NÃO faz
 ------------------------
 Não impõe nada. Anúncio ensina a regra; quem a aplica é o executor (os gates
@@ -29,13 +44,16 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 
-# Teto do que esta seção pode custar. O stub real mede ~1,3 KB; um stub que
-# cresça além disto deixou de ser uma seção e virou um dump — e a regra de
-# densidade vale para ela como vale para qualquer injeção.
-MAX_BYTES = 4096
+# Teto do que esta seção pode custar. A seção com o índice mede ~1,5 KB; passar
+# disto é sinal de que voltou a ser um dump — e a regra de densidade vale para
+# ela como vale para qualquer injeção.
+MAX_BYTES = 2048
+
+_METODO = re.compile(r"^\s+def (\w+)\(self", re.MULTILINE)
 
 
 def sdk_stub() -> str | None:
@@ -57,6 +75,11 @@ def sdk_stub() -> str | None:
     if out.returncode != 0 or not out.stdout.strip():
         return None
     return out.stdout.strip()
+
+
+def sdk_index(stub: str) -> list[str]:
+    """Os métodos do objeto `touring`, na ordem do stub — o índice é lido, nunca copiado."""
+    return list(dict.fromkeys(_METODO.findall(stub)))
 
 
 def presentation(project_root: str) -> tuple[str, str]:
@@ -98,14 +121,16 @@ def presentation(project_root: str) -> tuple[str, str]:
 
 
 def section(stub: str, modo: str, origem: str) -> str:
-    """A seção completa: apresentação do escopo, transporte, contrato, e a regra."""
+    """A seção completa: apresentação do escopo, transporte, índice do SDK, e a regra."""
     efeito = {
         "code": (
-            "inspeção `grep`/`cat`/`find` é NEGADA com a rota derivada — "
-            "a rajada inteira vira 1 programa (classes calibradas por medição: "
-            "71% da inspeção atômica). `ls`/`wc`/`sed-n` ISOLADAS passam "
-            "(chamada única domina); em rajada de turno, o T3-B funde qualquer "
-            "classe de inspeção, estas incluídas."
+            "inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a "
+            "RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` "
+            "dentro de 300s volta NEGADA com as duas fundidas em 1 programa "
+            "(a 1ª já executou intacta). Calibrado por medição em 115 "
+            "transcripts: 77,5% do volume de inspeção está em rajadas ≥2, e "
+            "os 22,5% isolados não pagam mais pedágio. Um `touring run` na "
+            "janela zera a contagem."
         ),
         "native": "indução desligada neste escopo — nenhum nudge de code mode.",
         "both": (
@@ -113,6 +138,7 @@ def section(stub: str, modo: str, origem: str) -> str:
             "progressivo (G1) — o laço acumulado é entregue como 1 programa."
         ),
     }[modo]
+    metodos = " · ".join(f"`{m}`" for m in sdk_index(stub))
     return (
         f"[CODE MODE — contrato desta sessão · apresentação `{modo}` ({origem})]\n"
         f"Efeito: {efeito}\n"
@@ -125,11 +151,28 @@ def section(stub: str, modo: str, origem: str) -> str:
         "Quando: a pergunta toca ≥3 arquivos/fatos, ou a mesma classe de inspeção "
         "se repete. Para 1 arquivo já conhecido, a chamada atômica é melhor — "
         "forçar programa no caso simples taxa o caso comum.\n"
-        "`--orchestrate` liga o SDK abaixo, com o qual o programa consulta o daemon "
-        "de dentro do sandbox. `--brief` devolve o digest e DECLARA o que elidiu "
-        "(`elided_lines`). `--harvest <slug>` persiste o programa como snippet.\n\n"
-        f"{stub}\n"
+        "`--orchestrate` liga o SDK: o programa consulta o daemon de dentro do "
+        f"sandbox pelo objeto `touring` — {metodos}. Contrato tipado inteiro, sob "
+        "demanda: `touring run --lang python --sdk-stub`. `--brief` devolve o digest "
+        "e DECLARA o que elidiu (`elided_lines`). `--harvest <slug>` persiste o "
+        "programa como snippet.\n"
     )
+
+
+def caber(body: str, teto: int = MAX_BYTES) -> str:
+    """A seção dentro do teto: o que cabe atravessa intacto; o que não cabe é cortado
+    numa fronteira de linha e o corte é DECLARADO — nunca no meio de um token (A6)."""
+    total = len(body.encode())
+    if total <= teto:
+        return body
+    aviso = (
+        f"[… seção cortada: {{elididos}} B de {total} elididos — "
+        "contrato inteiro: `touring run --lang python --sdk-stub`]\n"
+    )
+    reserva = len(aviso.format(elididos=total).encode())
+    mantido = body.encode()[: max(teto - reserva, 0)].decode(errors="ignore")
+    mantido = mantido[: mantido.rfind("\n") + 1]
+    return mantido + aviso.format(elididos=total - len(mantido.encode()))
 
 
 def main() -> int:
@@ -142,9 +185,7 @@ def main() -> int:
         # honesta — anunciar um SDK indisponível ensinaria uma rota morta.
         return 0
     modo, origem = presentation(os.getcwd())
-    body = section(stub, modo, origem)
-    if len(body.encode()) > MAX_BYTES:
-        body = body.encode()[:MAX_BYTES].decode(errors="ignore")
+    body = caber(section(stub, modo, origem))
     print(
         json.dumps(
             {
