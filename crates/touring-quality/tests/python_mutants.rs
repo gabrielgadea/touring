@@ -435,6 +435,76 @@ const SAFE_CASES: &[(&str, &str)] = &[
 ];
 
 // ---------------------------------------------------------------------------
+// S59 — repository artifacts at FILE scope: nearest README up to the repo root;
+// outside any repository the four repo-artifact dims are N/A, never a Fail
+// ---------------------------------------------------------------------------
+
+const CANONICAL_README: &str = "# probe\n\n## Description\nd\n\n## Installation\ni\n\n## Usage\nu\n\n## Contributing\nc\n\n## Tests\nt\n\n## License\nMIT\n";
+
+/// A scratch repository: `.git` marker, optional root README, and one nested module.
+fn scratch_repo(with_readme: bool) -> (tempfile::TempDir, std::path::PathBuf) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(dir.path().join(".git")).expect(".git");
+    if with_readme {
+        std::fs::write(dir.path().join("README.md"), CANONICAL_README).expect("readme");
+    }
+    let module = dir
+        .path()
+        .join("scripts")
+        .join("utils")
+        .join("mod_probe.py");
+    std::fs::create_dir_all(module.parent().expect("parent")).expect("dirs");
+    std::fs::write(&module, M00_CLEAN).expect("module");
+    (dir, module)
+}
+
+#[test]
+fn repo_artifact_dims_resolve_repo_root_at_file_scope() {
+    // Measured 25/09/2026: a module under analise/scripts/utils scored F3.11 0.3
+    // "no README* found" with a 65 KB README.md at the repository root.
+    let (_repo, module) = scratch_repo(true);
+    let json = score_py(&module);
+    assert_eq!(
+        dim_status(&json, "F3_11"),
+        "Pass",
+        "F3_11 must find the root README: {}",
+        json["dimensions"]["F3_11"]
+    );
+}
+
+#[test]
+fn repo_without_readme_still_fails_f3_11_at_file_scope() {
+    // Control: the walk-up finds a README when one exists — it never invents one.
+    let (_repo, module) = scratch_repo(false);
+    let json = score_py(&module);
+    assert_eq!(
+        dim_status(&json, "F3_11"),
+        "Fail",
+        "{}",
+        json["dimensions"]["F3_11"]
+    );
+}
+
+#[test]
+fn repo_artifact_dims_are_na_for_a_file_outside_any_repository() {
+    // A loose file has no repository to carry a README/CHANGELOG/ADR/CI: N/A, not
+    // four absent-artifact Fails ("an isolated file is born with 4 blockers").
+    let dir = tempfile::tempdir().expect("tempdir");
+    let loose = dir.path().join("solto.py");
+    std::fs::write(&loose, M00_CLEAN).expect("loose");
+    let json = score_py(&loose);
+    let not_na: Vec<(&str, String)> = ["F3_10", "F3_11", "F3_13", "F4_7"]
+        .into_iter()
+        .map(|d| (d, dim_status(&json, d)))
+        .filter(|(_, s)| s != "NotApplicable")
+        .collect();
+    assert!(
+        not_na.is_empty(),
+        "repo-artifact dims not N/A outside a repository: {not_na:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // S53 — every misconfiguration ALONE drops F2_6; generic lookalikes stay clean
 // ---------------------------------------------------------------------------
 
@@ -449,20 +519,39 @@ const MISCONFIG_CASES: &[(&str, &str)] = &[
     ("cors_origin_allow_all", "CORS_ORIGIN_ALLOW_ALL = True\n"),
     ("flask_cors_origins_star", "CORS_ORIGINS = [\"*\"]\n"),
     ("flask_debug_run", "app.run(debug=True, host=\"0.0.0.0\")\n"),
-    ("cors_middleware_star", "app.add_middleware(CORSMiddleware, allow_origins=[\"*\"])\n"),
+    (
+        "cors_middleware_star",
+        "app.add_middleware(CORSMiddleware, allow_origins=[\"*\"])\n",
+    ),
 ];
 
 /// Lookalikes that are not a production misconfiguration.
 const CONFIG_SAFE_CASES: &[(&str, &str, bool)] = &[
     // (name, body, inside Django settings?)
     ("debug_true_in_a_plain_script", "DEBUG = True\n", false),
-    ("django_debug_from_env", "import os\n\nDEBUG = os.environ.get(\"DEBUG\") == \"1\"\n", true),
-    ("django_specific_hosts", "ALLOWED_HOSTS = [\"api.example.org\"]\n", true),
-    ("debug_true_quoted", "DOC = \"never ship DEBUG = True\"\n", true),
+    (
+        "django_debug_from_env",
+        "import os\n\nDEBUG = os.environ.get(\"DEBUG\") == \"1\"\n",
+        true,
+    ),
+    (
+        "django_specific_hosts",
+        "ALLOWED_HOSTS = [\"api.example.org\"]\n",
+        true,
+    ),
+    (
+        "debug_true_quoted",
+        "DOC = \"never ship DEBUG = True\"\n",
+        true,
+    ),
 ];
 
 fn f2_6_of(body: &str, in_settings: bool) -> f32 {
-    let prefix = if in_settings { DJANGO_SETTINGS } else { "\"\"\"Script.\"\"\"\n\n" };
+    let prefix = if in_settings {
+        DJANGO_SETTINGS
+    } else {
+        "\"\"\"Script.\"\"\"\n\n"
+    };
     let f = py_file(&format!("{prefix}{body}"));
     dim_value(&score_py(f.path()), "F2_6")
 }
@@ -475,19 +564,28 @@ fn f2_6_detects_each_misconfiguration_alone() {
         .filter(|(_, body)| f2_6_of(body, true) >= clean)
         .map(|(name, _)| *name)
         .collect();
-    assert!(blind.is_empty(), "F2_6 blind to {blind:?} (clean={clean:.3})");
+    assert!(
+        blind.is_empty(),
+        "F2_6 blind to {blind:?} (clean={clean:.3})"
+    );
 }
 
 #[test]
 fn f2_6_lookalikes_stay_clean() {
     let clean = f2_6_of("DEBUG = False\n", true);
-    assert!(clean >= 0.99, "control: the clean settings file scores {clean:.3}");
+    assert!(
+        clean >= 0.99,
+        "control: the clean settings file scores {clean:.3}"
+    );
     let flagged: Vec<(&str, f32)> = CONFIG_SAFE_CASES
         .iter()
         .map(|(name, body, in_settings)| (*name, f2_6_of(body, *in_settings)))
         .filter(|(_, v)| *v < clean)
         .collect();
-    assert!(flagged.is_empty(), "F2_6 flagged lookalikes {flagged:?} (clean={clean:.3})");
+    assert!(
+        flagged.is_empty(),
+        "F2_6 flagged lookalikes {flagged:?} (clean={clean:.3})"
+    );
 }
 
 fn f2_1_of_body(body: &str) -> f32 {
