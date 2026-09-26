@@ -654,7 +654,11 @@ fn run_lifecycle_event(
 /// prose+JSON) falls back to the canonical `{}` Allow — preserving the "hooks
 /// never block CC" invariant. S214: the daemon answers many events and names
 /// them by hand; this process knows which one invoked it, so it stamps the name.
+/// S224: for the same reason it conforms the answer to that event's contract —
+/// what the platform does not admit on stdout (the `task-completed` receipt's 14
+/// keys) goes to stderr, the diagnostics channel, instead of reaching no one.
 fn forward_daemon_output(output: &str) {
+    use touring_hook_runtime::hook_response;
     if output.is_empty() {
         touring_hook_runtime::hook_trace::set_reason("daemon-empty");
         return;
@@ -662,7 +666,12 @@ fn forward_daemon_output(output: &str) {
     match serde_json::from_str::<serde_json::Value>(output.trim()) {
         Ok(mut value) => {
             touring_hook_runtime::hook_trace::set_reason("daemon-json");
-            if touring_hook_runtime::hook_response::stamp_invoking_event(&mut value) {
+            let stamped = hook_response::stamp_invoking_event(&mut value);
+            let removed = hook_response::split_off_invoking_event_violations(&mut value);
+            if let Some(diagnostics) = &removed {
+                eprintln!("{diagnostics}");
+            }
+            if stamped || removed.is_some() {
                 println!("{value}");
             } else {
                 println!("{output}");

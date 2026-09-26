@@ -470,6 +470,72 @@ pub fn stamp_invoking_event(output: &mut serde_json::Value) -> bool {
         .is_some_and(|event| stamp_event_name(output, event))
 }
 
+/// Top-level fields of Claude Code's `SyncHookJSONOutput` (queried via Context7,
+/// 25/09/2026) — any other key on stdout breaks the platform's output contract.
+pub const TOP_LEVEL_FIELDS: &[&str] = &[
+    "continue",
+    "suppressOutput",
+    "stopReason",
+    "decision",
+    "systemMessage",
+    "terminalSequence",
+    "reason",
+    "hookSpecificOutput",
+];
+
+/// Events that carry NO `hookSpecificOutput` — top-level fields only.
+pub const TOP_LEVEL_ONLY_EVENTS: &[&str] = &[
+    "PreCompact",
+    "PostCompact",
+    "SessionEnd",
+    "TeammateIdle",
+    "TaskCompleted",
+    "TaskCreated",
+    "InstructionsLoaded",
+    "ConfigChange",
+    "WorktreeRemove",
+    "StopFailure",
+];
+
+/// S224 (2026-09-26): conform an answer to Claude Code's output contract for
+/// `event`. Every top-level key outside [`TOP_LEVEL_FIELDS`] — and a
+/// `hookSpecificOutput` on a [`TOP_LEVEL_ONLY_EVENTS`] event — is moved off the
+/// answer and returned, for the caller to write to stderr, the diagnostics
+/// channel. The `task-completed` receipt carried 14 such keys (`event`, `RL`,
+/// `finalize_status`, `diary_hint`, …) on stdout, so it reached no one. `None`
+/// when the answer already conforms, or is not a JSON object.
+pub fn split_off_contract_violations(
+    output: &mut serde_json::Value,
+    event: Option<&str>,
+) -> Option<serde_json::Value> {
+    let answer = output.as_object_mut()?;
+    let mut removed = serde_json::Map::new();
+    let unknown: Vec<String> = answer
+        .keys()
+        .filter(|key| !TOP_LEVEL_FIELDS.contains(&key.as_str()))
+        .cloned()
+        .collect();
+    for key in unknown {
+        if let Some(value) = answer.remove(&key) {
+            removed.insert(key, value);
+        }
+    }
+    if event.is_some_and(|e| TOP_LEVEL_ONLY_EVENTS.contains(&e))
+        && let Some(specific) = answer.remove("hookSpecificOutput")
+    {
+        removed.insert("hookSpecificOutput".to_string(), specific);
+    }
+    (!removed.is_empty()).then_some(serde_json::Value::Object(removed))
+}
+
+/// [`split_off_contract_violations`] with the process's invoking event, if one
+/// was recorded (unset ⇒ only the event-independent rule applies).
+pub fn split_off_invoking_event_violations(
+    output: &mut serde_json::Value,
+) -> Option<serde_json::Value> {
+    split_off_contract_violations(output, INVOKING_EVENT.get().map(String::as_str))
+}
+
 /// Truncate context to stay under Claude Code's 10K limit (9,500 UTF-8 safe).
 ///
 /// `pub` (was `pub(crate)`): `HookRuntime` in the touring-hooks dispatch layer
@@ -488,6 +554,51 @@ pub fn truncate_context(context: &str) -> String {
         &context[..end],
         context.len()
     )
+}
+
+#[cfg(test)]
+mod s224_tests {
+    use super::split_off_contract_violations;
+    use serde_json::json;
+
+    #[test]
+    fn unknown_top_level_keys_leave_the_answer_and_come_back_as_diagnostics() {
+        let mut out =
+            json!({"event": "task-completed", "RL": "reward_signal", "systemMessage": "m"});
+        let removed = split_off_contract_violations(&mut out, Some("TaskCompleted"))
+            .expect("two keys the platform does not know");
+        assert_eq!(out, json!({"systemMessage": "m"}), "the known field stays");
+        assert_eq!(
+            removed,
+            json!({"event": "task-completed", "RL": "reward_signal"})
+        );
+    }
+
+    #[test]
+    fn specific_output_leaves_only_a_top_level_only_event() {
+        let answer =
+            json!({"hookSpecificOutput": {"hookEventName": "X", "additionalContext": "c"}});
+        let mut top_level_only = answer.clone();
+        assert!(
+            split_off_contract_violations(&mut top_level_only, Some("TaskCompleted")).is_some()
+        );
+        assert_eq!(top_level_only, json!({}));
+        let mut specific = answer.clone();
+        assert!(split_off_contract_violations(&mut specific, Some("PostToolUse")).is_none());
+        assert_eq!(specific, answer, "PostToolUse admits hookSpecificOutput");
+        let mut unknown_event = answer.clone();
+        assert!(split_off_contract_violations(&mut unknown_event, None).is_none());
+    }
+
+    #[test]
+    fn a_conforming_answer_is_untouched() {
+        let answer = json!({"decision": "block", "reason": "r", "suppressOutput": true});
+        let mut out = answer.clone();
+        assert!(split_off_contract_violations(&mut out, Some("TaskCompleted")).is_none());
+        assert_eq!(out, answer);
+        let mut not_an_object = json!("text");
+        assert!(split_off_contract_violations(&mut not_an_object, Some("TaskCompleted")).is_none());
+    }
 }
 
 #[cfg(test)]
