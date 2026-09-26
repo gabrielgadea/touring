@@ -214,6 +214,10 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // daemon (F0.3d) × entregas ao mirror na mesma janela. Nasce da sonda
     // F0.3 (post-bash vivo 5/47 atendido, 0/47 no mirror) — ausência exibida.
     out["hooks_complement"] = hooks_complement();
+    // S73 (26/09/2026) — a régua da DISPONIBILIDADE do daemon, do exit_reason
+    // verdadeiro do hook_trace (S14): das invocações que PEDIRAM o daemon,
+    // quantas tiveram resposta usável, em 48 h (piso 0.95). Ausência = null.
+    out["daemon_availability"] = daemon_availability::daemon_availability();
     // P0/S-0.1 (2026-09-04) — a régua da JANELA, do transcript do proprio Claude
     // Code. Todas as demais medem a ROTA (aderencia, reuso, complemento); o
     // recurso mais caro do sistema era o unico sem instrumento, e por isso toda
@@ -234,6 +238,7 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // ─────────────────────────────────────────────────────────────────────────────
 
 mod code_mode;
+mod daemon_availability;
 mod sources;
 
 // Re-exportados: o `mod tests` (55 testes) e todo chamador seguem vendo
