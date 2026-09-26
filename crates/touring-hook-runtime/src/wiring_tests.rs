@@ -1559,6 +1559,45 @@ fn unresolved_class_of(db: &FileKnowledgeDB, symbol: &str, consumer: &str) -> Op
 }
 
 #[test]
+fn a_new_consumer_edge_is_typed_at_record_time_not_left_unknown() {
+    // S223 (25/09/2026): no producer row backs the helper (the private-helper case of
+    // the analise's `_to_snake_case`), so `record_consumer` alone writes `unknown`;
+    // the incremental path must apply the rebuild's definer resolution right away.
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    write_file(&root, "src/helpers.rs", "pub fn unregistered_helper() {}\n");
+    // The definer is INDEXED (its symbol table exists), as in the live case — only
+    // the producer row is missing.
+    db.conn_ref()
+        .execute(
+            "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+             VALUES ('src/helpers.rs', 1, 1, 0,
+                     '[{\"symbol_name\": \"unregistered_helper\", \"kind\": \"function\"}]')",
+            [],
+        )
+        .expect("seed the definer's symbol table");
+    let src = "use crate::helpers::unregistered_helper;\nfn drive() { unregistered_helper(); }\n";
+    let consumer = write_file(&root, "src/consumer.rs", src);
+    record_import_consumers(&db, "src/consumer.rs", &consumer, "rust", src);
+    let kinds: Vec<String> = db
+        .conn_ref()
+        .prepare(
+            "SELECT symbol_kind FROM wiring_map \
+             WHERE symbol_name = 'unregistered_helper' AND consumer_file IS NOT NULL",
+        )
+        .expect("prepare")
+        .query_map([], |r| r.get::<_, String>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert!(!kinds.is_empty(), "control: the consumer edge was recorded");
+    assert!(
+        kinds.iter().all(|k| k != "unknown"),
+        "edge born unknown: {kinds:?}"
+    );
+}
+
+#[test]
 fn a_scope_keyword_is_never_recorded_as_a_symbol() {
     let (_tmp, db) = test_db();
     let root = phantom_ws(&_tmp);
@@ -1567,8 +1606,13 @@ fn a_scope_keyword_is_never_recorded_as_a_symbol() {
         "src/cli/kpi.rs",
         "use super::*;\nuse super::context_budget;\nfn drive() { run(); }\n",
     );
-    record_import_consumers(&db, "src/cli/kpi.rs", &consumer, "rust",
-                            "use super::*;\nuse super::context_budget;\nfn drive() { run(); }\n");
+    record_import_consumers(
+        &db,
+        "src/cli/kpi.rs",
+        &consumer,
+        "rust",
+        "use super::*;\nuse super::context_budget;\nfn drive() { run(); }\n",
+    );
     assert!(
         consumer_rows(&db, "super").is_empty(),
         "a scope keyword must never become a consumer-edge symbol: {:?}",
@@ -1587,7 +1631,10 @@ fn a_fallback_without_chain_or_producer_is_unresolved_never_an_edge() {
         "use crate::helpers::nonexistent_fn;\nfn drive() { nonexistent_fn(); }\n",
     );
     record_import_consumers(
-        &db, "src/consumer.rs", &consumer, "rust",
+        &db,
+        "src/consumer.rs",
+        &consumer,
+        "rust",
         "use crate::helpers::nonexistent_fn;\nfn drive() { nonexistent_fn(); }\n",
     );
     assert!(
@@ -1611,8 +1658,7 @@ fn an_import_that_resolves_to_the_consumer_file_itself_records_nothing() {
                    use crate::mymod::{pub_fn, private_fn};\n\
                    pub fn drive() { pub_fn(); private_fn(); }\n";
     let consumer = write_file(&root, "src/mymod.rs", content);
-    let recorded =
-        record_import_consumers(&db, "src/mymod.rs", &consumer, "rust", content);
+    let recorded = record_import_consumers(&db, "src/mymod.rs", &consumer, "rust", content);
     assert_eq!(recorded, 0, "self-reference is not this pass's class");
     assert!(
         consumer_rows(&db, "pub_fn").is_empty() && consumer_rows(&db, "private_fn").is_empty(),
@@ -1642,11 +1688,15 @@ fn no_ast_resolved_consumer_lacks_its_producer() {
          fn drive() { real_fn(); nonexistent_fn(); }\n",
     );
     record_import_consumers(
-        &db, "src/consumer.rs", &consumer, "rust",
+        &db,
+        "src/consumer.rs",
+        &consumer,
+        "rust",
         "use crate::helpers::{real_fn, nonexistent_fn};\n\
          fn drive() { real_fn(); nonexistent_fn(); }\n",
     );
-    let violations: Vec<(String, String)> = db.conn_ref()
+    let violations: Vec<(String, String)> = db
+        .conn_ref()
         .prepare(
             "SELECT module_file, symbol_name FROM wiring_map \
              WHERE consumer_file IS NOT NULL AND contract_source = 'ast_resolved' \
@@ -1660,5 +1710,8 @@ fn no_ast_resolved_consumer_lacks_its_producer() {
         .expect("query")
         .filter_map(Result::ok)
         .collect();
-    assert!(violations.is_empty(), "ast_resolved consumers without a producer: {violations:?}");
+    assert!(
+        violations.is_empty(),
+        "ast_resolved consumers without a producer: {violations:?}"
+    );
 }
