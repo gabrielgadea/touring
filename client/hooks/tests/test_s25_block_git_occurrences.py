@@ -85,3 +85,25 @@ def test_pure_unstage_passes(cmd: str) -> None:
 
 def test_a_name_that_merely_starts_with_stash_is_not_a_stash() -> None:
     assert not _decision("git stashboard --help")
+
+
+def test_masking_works_when_invoked_through_a_symlink(tmp_path: Path) -> None:
+    """Claude Code runs ~/.claude/hooks/block_git.sh — a SYMLINK. `dirname ${BASH_SOURCE[0]}` is the
+    symlink's directory, where _shell_mask.py does not exist, so the guard silently fell back to the raw
+    command: quoted text was never masked in production (26/09/2026). Every other test here invoked the
+    repo path and passed."""
+    link = tmp_path / "block_git.sh"
+    link.symlink_to(SCRIPT.resolve())
+    quoted = 'tool add S25b "block_git: git stash pop is now judged per occurrence"'
+    result: HookResult = run_hook_sh(
+        link,
+        {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "hooks-contract-s25-symlink",
+         "tool_input": {"command": quoted}},
+    )
+    assert ((result.json or {}).get("hookSpecificOutput") or {}).get("permissionDecision") != "deny", result.stdout
+    real = run_hook_sh(
+        link,
+        {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "hooks-contract-s25-symlink",
+         "tool_input": {"command": "true || git stash pop"}},
+    )
+    assert ((real.json or {}).get("hookSpecificOutput") or {}).get("permissionDecision") == "deny", "control"

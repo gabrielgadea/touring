@@ -23,7 +23,9 @@ CMD=$(printf '%s' "${INPUT}" | jq -r '.tool_input.command // ""' 2>/dev/null)
 # ── SHELL-DATA MASKING ──────────────────────────────────────────────────────────
 # Delegate to _shell_mask.py (standalone Python module) so the masker logic lives
 # in Python source that bash never parses.  Falls back to raw CMD on any error.
-_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# `readlink -f`: Claude Code runs ~/.claude/hooks/block_git.sh, a SYMLINK — the masker lives next to the
+# real file, not next to the link. Without it the masker was never found in production (26/09/2026).
+_SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 _MASKER_PY="${_SCRIPT_DIR}/_shell_mask.py"
 if [[ -x "${_MASKER_PY}" ]]; then
     MASKED_CMD=$(printf '%s' "${CMD}" | python3 "${_MASKER_PY}" 2>/dev/null) || MASKED_CMD="${CMD}"
