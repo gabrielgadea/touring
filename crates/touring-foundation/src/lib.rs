@@ -96,6 +96,8 @@ pub mod schema;
 pub mod schema_guard;
 pub mod security;
 pub mod shared;
+/// Synthetic sessions (test-harness ids) — observed, never learned from.
+pub mod synthetic_session;
 /// The lifecycle vocabulary of a DAG task — the scaffold stages a mirrored
 /// task is born with, and the statuses that mean it is over.
 pub mod task_lifecycle;
