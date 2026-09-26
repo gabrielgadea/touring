@@ -620,6 +620,12 @@ pub fn is_heavy_hook(hook_name: &str) -> bool {
             // `--timeout` does not reach this budget: it only sets the socket
             // read timeout.
             | "cli-pre-task-scout"
+            // `wiring repair --resolve-kinds` (S222) re-resolves every consumer
+            // kind of the wiring_map — 110k rows on the analise — and died at
+            // the light budget on its first live run (26/09/2026:
+            // budget_exceeded, still_running). `--purge-phantom` runs the same
+            // definers pass over every unknown row.
+            | "cli-repair-wiring"
     )
 }
 
