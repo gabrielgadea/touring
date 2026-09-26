@@ -897,9 +897,8 @@ pub fn run(args: &[String]) -> Result<()> {
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
     // Discovery comes FIRST: when the library already holds this work, saying so
     // matters more than offering to store yet another copy of it.
-    let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code).or_else(|| {
-        harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some())
-    });
+    let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code)
+        .or_else(|| harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some()));
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
     // on the USER's code, never the injected SDK (same rule as the hint).
