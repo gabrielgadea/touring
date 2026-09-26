@@ -797,14 +797,16 @@ fn code_lang(file_path: &str) -> Option<Lang> {
 ///
 /// Expects: `[{"name":"foo","kind":"function","is_public":true,"line":1}, ...]`
 /// Filters to `is_public == true` and maps `kind` string to `SymbolKind`.
+///
+/// `None` when any entry does not say whether it is public (S221, 25/09/2026): the
+/// live `{symbol_name, is_definition, …}` shape carries no visibility, and reading
+/// its absence as `false` made every current symbol a `+pub` after any small Edit.
+/// A baseline that cannot state the old surface compares nothing.
 fn parse_pub_symbols_from_json(json: &str) -> Option<Vec<PubSymbol>> {
     let arr: Vec<serde_json::Value> = serde_json::from_str(json).ok()?;
     let mut pub_syms = Vec::new();
     for item in &arr {
-        let is_public = item
-            .get("is_public")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let is_public = item.get("is_public").and_then(serde_json::Value::as_bool)?;
         if !is_public {
             continue;
         }
@@ -1196,6 +1198,20 @@ def simple():
             diff_pub_api_surface("pub fn a() {}", "pub fn b() {}", "lib.rs").is_some(),
             "control: code still reports its surface"
         );
+    }
+
+    /// S221 (25/09/2026): the live `symbols_json` of the analise has the shape
+    /// `{file_path, symbol_name, line, column, is_definition, kind}` — no `is_public`.
+    /// Read as "nothing was public", it turned every current symbol into `+pub` after
+    /// any small Edit. A snapshot that cannot say what was public is not a baseline.
+    #[test]
+    fn a_snapshot_without_visibility_is_not_a_baseline() {
+        let live_shape = r#"[{"file_path":"m.py","symbol_name":"handler","line":1,"column":0,"is_definition":true,"kind":"function"}]"#;
+        let src = "def handler():\n    return 1\n\n\ndef helper():\n    return 2\n";
+        assert_eq!(diff_pub_api_from_snapshot(live_shape, src, "m.py"), None);
+        // Control: a snapshot that DOES carry visibility still reports a real change.
+        let with_visibility = r#"[{"name":"handler","kind":"function","is_public":true,"line":1}]"#;
+        assert!(diff_pub_api_from_snapshot(with_visibility, src, "m.py").is_some());
     }
 
     #[test]
