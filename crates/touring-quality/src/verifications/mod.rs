@@ -1481,6 +1481,24 @@ pub fn run_verification(dim: DimId, target: &Path) -> Result<DimScore> {
     v.check(target)
 }
 
+/// Non-production harness (tests and benchmarks): a payload literal or an insecure
+/// setup there is a detector INPUT, not a deployed sink. Recognised by directory
+/// (`tests/`, `test/`, `benches/`, `bench/`) and — 26/09/2026 — by the file's own test
+/// convention, as Semgrep's default ignore does with `*_test.go`: pytest's
+/// `conftest.py`, `test_*.py` and `*_test.py`. One predicate for F2.1 and F2.6, which
+/// each kept a copy of the directory list and neither saw a `conftest.py`.
+pub(crate) fn is_non_production_harness(path: &str) -> bool {
+    const NON_PRODUCTION_DIRS: [&str; 4] = ["/tests/", "/test/", "/benches/", "/bench/"];
+    if NON_PRODUCTION_DIRS.iter().any(|s| path.contains(s)) {
+        return true;
+    }
+    let name = path.rsplit('/').next().unwrap_or(path);
+    name == "conftest.py"
+        || (name.starts_with("test_") && name.ends_with(".py"))
+        || name.ends_with("_test.py")
+        || name.ends_with("_test.go")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2067,5 +2085,28 @@ mod tests {
             })
             .collect();
         assert_eq!(names, ["live.sh", "real.sh"], "{names:?}");
+    }
+
+    /// 2026-09-26, analise `.claude/hooks`: F2.1 and F2.6 exempt `tests/`/`benches/`
+    /// directories as non-production harness, but a pytest `conftest.py` (or a
+    /// `test_*.py` beside the code) was scored as a deployed sink — its path-traversal
+    /// fixture and `chmod 0o777` setup held the hooks tree below Gold. The harness is
+    /// recognised by the file's own test convention too, not only by its directory.
+    #[test]
+    fn python_test_harness_files_are_non_production_for_f2_1_and_f2_6() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let fixture = "import os\nPAYLOADS = [\n    \"../../../etc/passwd\",\n]\nos.chmod(\"/tmp/x\", 0o777)\n";
+        for harness in ["conftest.py", "test_paths.py", "paths_test.py"] {
+            let p = dir.path().join(harness);
+            std::fs::write(&p, fixture).expect("write");
+            let owasp = f2_1_owasp::F2_1_Owasp.check(&p).expect("f2.1").value;
+            let config = f2_6_config::F2_6_Config.check(&p).expect("f2.6").value;
+            assert_eq!((owasp, config), (1.0, 1.0), "{harness}");
+        }
+        // Control: the same bytes in production code keep failing both dimensions.
+        let prod = dir.path().join("paths.py");
+        std::fs::write(&prod, fixture).expect("write");
+        assert!(f2_1_owasp::F2_1_Owasp.check(&prod).expect("f2.1").value < 1.0);
+        assert!(f2_6_config::F2_6_Config.check(&prod).expect("f2.6").value < 1.0);
     }
 }
