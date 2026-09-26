@@ -33,8 +33,7 @@ fn is_detector_own_source(target: &Path) -> bool {
         .as_deref()
         .map(|c| c.to_string_lossy())
         .unwrap_or_else(|_| target.to_string_lossy());
-    const NON_PRODUCTION_DIRS: [&str; 4] = ["/tests/", "/test/", "/benches/", "/bench/"];
-    if NON_PRODUCTION_DIRS.iter().any(|s| p.contains(s)) {
+    if crate::verifications::is_non_production_harness(&p) {
         return true;
     }
     // Security-detector own source: the ConfigSecurityAnalyzer rule catalog and
