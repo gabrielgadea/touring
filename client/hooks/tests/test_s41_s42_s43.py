@@ -9,12 +9,11 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 import tempfile
 from pathlib import Path
 
 import pytest
-from helpers import CLIENT_HOOKS, HOME, run_hook_sh, HookResult
+from helpers import CLIENT_HOOKS, HOME, run_hook_sh
 
 GLOBAL_HOOKS = HOME / ".claude" / "hooks"
 
@@ -98,86 +97,75 @@ def test_doc_coverage_non_rs_file_is_silent() -> None:
 
 # ── S42: check_context.sh ─────────────────────────────────────────────────────
 
-def test_check_context_output_is_visible() -> None:
+# Every S42/S43 test runs the script against a SCRATCH home: they used to write 92 into the
+# operator's real ~/.claude/context_alert, delete it, and append synthetic entries to the real
+# telemetry — with the telemetry assertions under `if file.exists()`, able to pass on nothing.
+
+def test_check_context_output_is_visible(tmp_path: Path) -> None:
     """S42: when flag file exists, output is JSON on stdout, not just stderr."""
-    flag_path = HOME / ".claude" / "context_alert"
-    flag_path.parent.mkdir(parents=True, exist_ok=True)
-    flag_path.write_text("92")
-    try:
-        payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash",
-                   "session_id": "hooks-contract-s42", "tool_input": {}}
-        result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload)
-        assert result.rc == 0
-        # Must emit JSON stdout (visible to model).
-        assert result.json is not None, (
-            f"Expected JSON stdout from check_context.sh when flag set.\n"
-            f"stdout={result.stdout_raw!r}\nstderr={result.stderr_raw!r}"
-        )
-        ctx = result.additional_context()
-        assert "92%" in ctx or "contexto" in ctx.lower(), f"Expected context percentage in output: {ctx!r}"
-        assert result.schema_ok("PostToolUse")
-    finally:
-        flag_path.unlink(missing_ok=True)
-
-
-def test_check_context_no_flag_is_silent() -> None:
-    """S42: without flag file, script produces no output."""
-    flag_path = HOME / ".claude" / "context_alert"
-    flag_path.unlink(missing_ok=True)
+    (tmp_path / ".claude").mkdir()
+    (tmp_path / ".claude" / "context_alert").write_text("92")
     payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash",
                "session_id": "hooks-contract-s42", "tool_input": {}}
-    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload)
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload, home=tmp_path)
+    assert result.rc == 0
+    # Must emit JSON stdout (visible to model).
+    assert result.json is not None, (
+        f"Expected JSON stdout from check_context.sh when flag set.\n"
+        f"stdout={result.stdout_raw!r}\nstderr={result.stderr_raw!r}"
+    )
+    ctx = result.additional_context()
+    assert "92%" in ctx or "contexto" in ctx.lower(), f"Expected context percentage in output: {ctx!r}"
+    assert result.schema_ok("PostToolUse")
+
+
+def test_check_context_no_flag_is_silent(tmp_path: Path) -> None:
+    """S42: without flag file, script produces no output."""
+    payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash",
+               "session_id": "hooks-contract-s42", "tool_input": {}}
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload, home=tmp_path)
     assert result.rc == 0
     assert result.json is None, f"Unexpected output when no flag: {result.stdout_raw!r}"
 
 
 # ── S43: telemetry_logger.sh ──────────────────────────────────────────────────
 
-def test_telemetry_logger_single_process_valid_ndjson() -> None:
-    """S43: logger uses single jq call, produces valid NDJSON."""
-    import tempfile
-    ndjson_path = Path(tempfile.mktemp(suffix=".ndjson"))
-    env = os.environ.copy()
-    env["HOME"] = str(HOME)
+def _last_telemetry_entry(home: Path) -> dict[str, object]:
+    telemetry_file = home / ".claude" / "touring-telemetry.ndjson"
+    assert telemetry_file.exists(), "the logger wrote no telemetry file"
+    last_line = telemetry_file.read_text().strip().splitlines()[-1]
+    try:
+        return json.loads(last_line)
+    except json.JSONDecodeError as e:
+        pytest.fail(f"Telemetry entry is not valid JSON: {last_line!r} ({e})")
 
+
+def test_telemetry_logger_single_process_valid_ndjson(tmp_path: Path) -> None:
+    """S43: logger uses single jq call, produces valid NDJSON."""
+    (tmp_path / ".claude").mkdir()
     payload = {
         "hook_event_name": "PostToolUse",
         "tool_name": "Write",
         "session_id": "hooks-contract-s43-test",
         "tool_input": {},
     }
-    # Override TELEMETRY_FILE via env substitution not possible with current script.
-    # Run it directly and check output.
-    result = run_hook_sh(CLIENT_HOOKS / "telemetry_logger.sh", payload)
+    result = run_hook_sh(CLIENT_HOOKS / "telemetry_logger.sh", payload, home=tmp_path)
     assert result.rc == 0, f"Script failed: {result.stderr_raw}"
-
-    # Verify the last line appended to the telemetry file is valid JSON.
-    telemetry_file = HOME / ".claude" / "touring-telemetry.ndjson"
-    if telemetry_file.exists():
-        last_line = telemetry_file.read_text().strip().splitlines()[-1]
-        try:
-            entry = json.loads(last_line)
-        except json.JSONDecodeError as e:
-            pytest.fail(f"Telemetry entry is not valid JSON: {last_line!r} ({e})")
-        assert "ts" in entry, f"Missing 'ts' field: {entry}"
-        assert "tool" in entry, f"Missing 'tool' field: {entry}"
-        assert "session" in entry, f"Missing 'session' field: {entry}"
-        assert entry.get("tool") == "Write", f"Expected tool=Write, got {entry.get('tool')!r}"
-        assert entry.get("session") == "hooks-contract-s43-test"
+    entry = _last_telemetry_entry(tmp_path)
+    assert "ts" in entry, f"Missing 'ts' field: {entry}"
+    assert entry.get("tool") == "Write", f"Expected tool=Write, got {entry.get('tool')!r}"
+    assert entry.get("session") == "hooks-contract-s43-test"
 
 
-def test_telemetry_logger_invalid_input_produces_fallback() -> None:
+def test_telemetry_logger_invalid_input_produces_fallback(tmp_path: Path) -> None:
     """S43: malformed stdin (not JSON) still produces a valid NDJSON entry."""
-    script = CLIENT_HOOKS / "telemetry_logger.sh"
+    (tmp_path / ".claude").mkdir()
     proc = subprocess.run(
-        ["bash", str(script)],
+        ["bash", str(CLIENT_HOOKS / "telemetry_logger.sh")],
         input=b"not json at all",
         capture_output=True,
         timeout=5,
+        env={**os.environ, "HOME": str(tmp_path)},
     )
     assert proc.returncode == 0
-    telemetry_file = HOME / ".claude" / "touring-telemetry.ndjson"
-    if telemetry_file.exists():
-        last_line = telemetry_file.read_text().strip().splitlines()[-1]
-        entry = json.loads(last_line)
-        assert "ts" in entry  # fallback entry has at minimum ts/epoch
+    assert "ts" in _last_telemetry_entry(tmp_path)  # fallback entry has at minimum ts/epoch

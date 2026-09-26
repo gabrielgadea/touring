@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
-"""install_claude_hooks.py — S49: manage the global Claude Code hooks section.
+"""install_claude_hooks.py — S49: the global Claude Code hooks section, from a versioned source.
 
-Modes:
-  --check        Exit 1 if settings.json hooks section drifted from hooks.settings.json.
-  --apply        Merge hooks.settings.json into settings.json (preserves all other sections).
-  --propose OUT  Write the proposed merged settings.json to OUT (never touches the real file).
-  --lint-only    Lint hooks.settings.json against known anti-patterns; exit 1 on findings.
-  --generate     Extract current settings.json hooks section → hooks.settings.json (bootstrap).
+Every mode takes --settings PATH and --source PATH (defaults: ~/.claude/settings.json and
+client/claude/hooks.settings.json), so tests and dry runs never touch the real files.
 
-Lint rules (exit 1 = RED, intentional — the current state has violations):
-  L1: `if` field contains `|`, `&&`, `||`, or list separators → single-permission per entry.
-  L2: `if` field used in event outside {PreToolUse, PostToolUse, PostToolUseFailure,
-       PermissionRequest, PermissionDenied} — those are the only events that support `if`.
-  L3: script from a project directory (e.g. analise/) registered in the global settings.
-  L4: hook entry with no `timeout` declared.
+  --check        exit 1 when the settings' hooks section differs from the source
+  --apply        write the source into the settings. Refused when the source ADDS a lint
+                 finding over the live file (pre-existing debt has its own phase — S31);
+                 atomic (.next + rename), the file mode preserved, nothing else touched
+  --propose OUT  write the merged settings to OUT; the real file is never touched
+  --lint-only    lint the source; exit 1 on findings (--json for machine output)
+  --generate     bootstrap the source from the live settings' hooks section
 
-The current state is EXPECTED to fail L1 (the `if` with `|` bug, S31 in the plan) and L3
-(hook_medicao.py, S44). These are the RED tests that the subsequent phases will fix.
+Lint — on each HOOK, where the `if` field lives (the first version read it on the matcher
+GROUP and never fired, 26/09/2026):
+  L1  `if` holds more than one permission rule (`|`, `&&`, a list): the hook never runs
+  L2  `if` on an event outside the five tool events: the hook never runs (Claude Code docs,
+      hooks guide — Context7 26/09/2026)
+  L3  a project's script registered globally by path: every other project pays a process
+  L4  no `timeout`: Claude Code's default is 600 s
 """
+
 from __future__ import annotations
 
 import argparse
@@ -25,6 +28,7 @@ import json
 import os
 import re
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -33,198 +37,165 @@ SETTINGS_PATH = HOME / ".claude" / "settings.json"
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOKS_SETTINGS_PATH = REPO_ROOT / "client" / "claude" / "hooks.settings.json"
 
-# Events that support the `if` field (Claude Code docs, Context7 query 25/09/2026).
-IF_SUPPORTED_EVENTS = {
-    "PreToolUse",
-    "PostToolUse",
-    "PostToolUseFailure",
-    "PermissionRequest",
-    "PermissionDenied",
-}
-
-# Patterns in `if` values that indicate multiple-permission anti-pattern.
-IF_MULTIPATTERN = re.compile(r'[|]|&&|\|\|')
-
-# Project directories that should NOT be in the global settings.
-PROJECT_DIRS = [
-    "/home/gabrielgadea/projects/analise/",
-    "analise/",
-    "projects/analise/",
-]
+IF_SUPPORTED_EVENTS = frozenset(
+    {"PreToolUse", "PostToolUse", "PostToolUseFailure", "PermissionRequest", "PermissionDenied"}
+)
+IF_MULTIPATTERN = re.compile(r"\||&&")
+#: A command that runs a script living inside ONE project, by path.
+PROJECT_SCRIPT = re.compile(r"(\$HOME|~|/home/[^/\s]+)/projects/[^/\s]+/")
 
 
-def load_json(path: Path) -> dict[str, Any]:
-    with open(path) as f:
-        return json.load(f)
+def load_json(path: Path) -> Any:
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
-def save_json(path: Path, data: dict[str, Any]) -> None:
-    with open(path, "w") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
-        f.write("\n")
+def dump(data: Any) -> str:
+    """The settings file's own format (it reserializes byte for byte this way)."""
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
 
 
-def lint_hooks(hooks: dict[str, list[dict]]) -> list[dict[str, str]]:
-    """Return list of lint findings. Empty list = clean."""
-    findings: list[dict[str, str]] = []
+def write_atomic(path: Path, text: str) -> None:
+    """`.next` + rename: a crash mid-write never leaves a half-written settings file."""
+    staged = path.with_name(path.name + ".next")
+    mode = path.stat().st_mode & 0o777 if path.exists() else 0o644
+    try:
+        staged.write_text(text, encoding="utf-8")
+        os.chmod(staged, mode)
+        os.replace(staged, path)
+    except OSError:
+        staged.unlink(missing_ok=True)
+        raise
 
-    for event, entries in hooks.items():
-        if not isinstance(entries, list):
+
+def iter_hooks(hooks: dict[str, Any]) -> Iterator[tuple[str, dict[str, Any], dict[str, Any]]]:
+    for event, groups in hooks.items():
+        for group in groups if isinstance(groups, list) else []:
+            for hook in group.get("hooks", []):
+                yield event, group, hook
+
+
+def _finding(rule: str, event: str, group: dict[str, Any], hook: dict[str, Any], detail: str) -> dict[str, str]:
+    return {
+        "rule": rule,
+        "event": event,
+        "matcher": str(group.get("matcher", "")),
+        "command": str(hook.get("command") or hook.get("prompt", ""))[:200],
+        "if": json.dumps(hook.get("if", group.get("if"))),
+        "detail": detail,
+    }
+
+
+def _if_findings(event: str, group: dict[str, Any], hook: dict[str, Any]) -> list[dict[str, str]]:
+    found = []
+    for if_val in (group.get("if"), hook.get("if")):
+        if if_val is None:
             continue
-        for entry_idx, entry in enumerate(entries):
-            if_val = entry.get("if", "")
-            hook_list = entry.get("hooks", [])
+        if isinstance(if_val, list) or IF_MULTIPATTERN.search(str(if_val)):
+            found.append(_finding("L1", event, group, hook, f"`if` holds more than one rule: {if_val!r}"))
+        if event not in IF_SUPPORTED_EVENTS:
+            found.append(_finding("L2", event, group, hook, f"`if` on {event}, which ignores it: {if_val!r}"))
+    return found
 
-            # L1: `if` with alternation operators (only valid in `matcher` field).
-            if if_val and IF_MULTIPATTERN.search(if_val):
-                findings.append({
-                    "rule": "L1",
-                    "event": event,
-                    "entry_idx": str(entry_idx),
-                    "detail": f"`if` contains alternation/logic operator: {if_val!r}. "
-                              f"Use separate hook entries instead of `|`/`&&`/`||`.",
-                })
 
-            # L2: `if` used in event that does not support it.
-            if if_val and event not in IF_SUPPORTED_EVENTS:
-                findings.append({
-                    "rule": "L2",
-                    "event": event,
-                    "entry_idx": str(entry_idx),
-                    "detail": f"`if` field in event {event!r} which does not support it "
-                              f"(supported: {sorted(IF_SUPPORTED_EVENTS)}). Hook will never fire.",
-                })
-
-            # L3 + L4: per-hook checks.
-            for hook_idx, hook in enumerate(hook_list):
-                cmd = hook.get("command", "")
-                timeout = hook.get("timeout")
-
-                # L3: project-specific script registered globally.
-                for proj_dir in PROJECT_DIRS:
-                    if proj_dir in cmd:
-                        findings.append({
-                            "rule": "L3",
-                            "event": event,
-                            "entry_idx": str(entry_idx),
-                            "hook_idx": str(hook_idx),
-                            "detail": f"Project-specific script registered globally: {cmd!r}. "
-                                      f"Register in the project's .claude/settings.local.json instead.",
-                            "command": cmd,
-                        })
-
-                # L4: no timeout declared.
-                if timeout is None:
-                    findings.append({
-                        "rule": "L4",
-                        "event": event,
-                        "entry_idx": str(entry_idx),
-                        "hook_idx": str(hook_idx),
-                        "detail": f"Hook has no timeout: {cmd!r}. "
-                                  f"Default is 10 min which can stall sessions.",
-                        "command": cmd,
-                    })
-
+def lint_hooks(hooks: dict[str, Any]) -> list[dict[str, str]]:
+    """Every finding of L1-L4. Empty list = clean."""
+    findings: list[dict[str, str]] = []
+    for event, group, hook in iter_hooks(hooks):
+        findings += _if_findings(event, group, hook)
+        command = str(hook.get("command", ""))
+        if PROJECT_SCRIPT.search(command):
+            findings.append(_finding("L3", event, group, hook, f"project script registered globally: {command!r}"))
+        if hook.get("timeout") is None:
+            findings.append(_finding("L4", event, group, hook, "no `timeout` (Claude Code's default is 600 s)"))
     return findings
 
 
+def _key(finding: dict[str, str]) -> tuple[str, ...]:
+    """Identity of a finding across files: position-free, so reordering is not a new finding."""
+    return (finding["rule"], finding["event"], finding["matcher"], finding["command"], finding["if"])
+
+
+def new_findings(source_hooks: dict[str, Any], live_hooks: dict[str, Any]) -> list[dict[str, str]]:
+    old = {_key(f) for f in lint_hooks(live_hooks)}
+    return [f for f in lint_hooks(source_hooks) if _key(f) not in old]
+
+
 def cmd_lint_only(args: argparse.Namespace) -> int:
-    """Lint hooks.settings.json; exit 1 on findings."""
-    source = HOOKS_SETTINGS_PATH if HOOKS_SETTINGS_PATH.exists() else SETTINGS_PATH
-    data = load_json(source)
-    hooks = data.get("hooks", data) if "hooks" in data else data
-    findings = lint_hooks(hooks)
-
-    if findings:
-        print(f"LINT: {len(findings)} finding(s) in {source}:", file=sys.stderr)
-        for f in findings:
-            print(f"  [{f['rule']}] event={f['event']} entry={f.get('entry_idx','?')}: {f['detail']}", file=sys.stderr)
-        return 1
-
-    print(f"LINT: clean ({source})")
-    return 0
+    findings = lint_hooks(load_json(args.source))
+    if args.json:
+        print(json.dumps({"source": str(args.source), "findings": findings}, ensure_ascii=False))
+    for f in findings:
+        print(f"  [{f['rule']}] {f['event']} {f['matcher']!r}: {f['detail']}", file=sys.stderr)
+    if not args.json:
+        print(f"LINT: {len(findings)} finding(s) in {args.source}")
+    return 1 if findings else 0
 
 
 def cmd_check(args: argparse.Namespace) -> int:
-    """Check for drift between hooks.settings.json and settings.json."""
-    if not HOOKS_SETTINGS_PATH.exists():
-        print("ERROR: hooks.settings.json not found — run --generate first", file=sys.stderr)
+    source_hooks = load_json(args.source)
+    live_hooks = load_json(args.settings).get("hooks", {})
+    if json.dumps(source_hooks, sort_keys=True) != json.dumps(live_hooks, sort_keys=True):
+        print(f"DRIFT: {args.settings} hooks differ from {args.source}", file=sys.stderr)
         return 1
-
-    source_hooks = load_json(HOOKS_SETTINGS_PATH)
-    live_settings = load_json(SETTINGS_PATH)
-    live_hooks = live_settings.get("hooks", {})
-
-    source_str = json.dumps(source_hooks, sort_keys=True)
-    live_str = json.dumps(live_hooks, sort_keys=True)
-
-    if source_str != live_str:
-        print("DRIFT DETECTED: settings.json hooks section differs from hooks.settings.json", file=sys.stderr)
-        return 1
-
     print("OK: no drift")
     return 0
 
 
 def cmd_apply(args: argparse.Namespace) -> int:
-    """Merge hooks.settings.json into settings.json."""
-    if not HOOKS_SETTINGS_PATH.exists():
-        print("ERROR: hooks.settings.json not found — run --generate first", file=sys.stderr)
+    source_hooks = load_json(args.source)
+    if not source_hooks:
+        print("REFUSED: empty source — applying it would remove every hook", file=sys.stderr)
         return 1
-
-    source_hooks = load_json(HOOKS_SETTINGS_PATH)
-    live_settings = load_json(SETTINGS_PATH)
-    live_settings["hooks"] = source_hooks
-    save_json(SETTINGS_PATH, live_settings)
-    print(f"APPLIED: hooks section written to {SETTINGS_PATH}")
+    live = load_json(args.settings)
+    added = new_findings(source_hooks, live.get("hooks", {}))
+    if added:
+        print(f"REFUSED: the source adds {len(added)} lint finding(s):", file=sys.stderr)
+        for f in added:
+            print(f"  [{f['rule']}] {f['event']} {f['matcher']!r}: {f['detail']}", file=sys.stderr)
+        return 1
+    live["hooks"] = source_hooks
+    write_atomic(args.settings, dump(live))
+    print(f"APPLIED: hooks section written to {args.settings}")
     return 0
 
 
 def cmd_propose(args: argparse.Namespace) -> int:
-    """Write proposed merged settings.json to output path (dry run)."""
-    if not HOOKS_SETTINGS_PATH.exists():
-        print("ERROR: hooks.settings.json not found — run --generate first", file=sys.stderr)
-        return 1
-
-    source_hooks = load_json(HOOKS_SETTINGS_PATH)
-    live_settings = load_json(SETTINGS_PATH)
-    live_settings["hooks"] = source_hooks
-    out_path = Path(args.propose)
-    save_json(out_path, live_settings)
-    print(f"PROPOSED: merged settings written to {out_path} (real file untouched)")
+    live = load_json(args.settings)
+    live["hooks"] = load_json(args.source)
+    Path(args.propose).write_text(dump(live), encoding="utf-8")
+    print(f"PROPOSED: merged settings written to {args.propose} (real file untouched)")
     return 0
 
 
 def cmd_generate(args: argparse.Namespace) -> int:
-    """Extract hooks section from settings.json → hooks.settings.json (bootstrap)."""
-    live_settings = load_json(SETTINGS_PATH)
-    hooks = live_settings.get("hooks", {})
-    HOOKS_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    save_json(HOOKS_SETTINGS_PATH, hooks)
-    print(f"GENERATED: {HOOKS_SETTINGS_PATH} ({len(hooks)} events)")
+    hooks = load_json(args.settings).get("hooks", {})
+    args.source.parent.mkdir(parents=True, exist_ok=True)
+    write_atomic(args.source, dump(hooks))
+    print(f"GENERATED: {args.source} ({len(hooks)} events)")
     return 0
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Claude hooks section manager (S49)")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Claude Code global hooks section manager (S49)")
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--check", action="store_true", help="Exit 1 if drift detected")
-    group.add_argument("--apply", action="store_true", help="Merge into settings.json")
-    group.add_argument("--propose", metavar="OUT", help="Write proposed settings to OUT (dry run)")
-    group.add_argument("--lint-only", action="store_true", help="Lint rules only; exit 1 on findings")
-    group.add_argument("--generate", action="store_true", help="Bootstrap hooks.settings.json from settings.json")
-    args = parser.parse_args()
-
-    if args.check:
-        return cmd_check(args)
-    if args.apply:
-        return cmd_apply(args)
-    if args.propose:
-        return cmd_propose(args)
-    if args.lint_only:
-        return cmd_lint_only(args)
-    if args.generate:
-        return cmd_generate(args)
+    group.add_argument("--check", action="store_true", help="exit 1 if the live hooks drifted from the source")
+    group.add_argument("--apply", action="store_true", help="write the source into the settings")
+    group.add_argument("--propose", metavar="OUT", help="write the merged settings to OUT (dry run)")
+    group.add_argument("--lint-only", action="store_true", help="lint the source; exit 1 on findings")
+    group.add_argument("--generate", action="store_true", help="bootstrap the source from the settings")
+    parser.add_argument("--settings", type=Path, default=SETTINGS_PATH)
+    parser.add_argument("--source", type=Path, default=HOOKS_SETTINGS_PATH)
+    parser.add_argument("--json", action="store_true", help="--lint-only: machine-readable findings")
+    args = parser.parse_args(argv)
+    for flag, handler in (
+        ("check", cmd_check),
+        ("apply", cmd_apply),
+        ("propose", cmd_propose),
+        ("lint_only", cmd_lint_only),
+        ("generate", cmd_generate),
+    ):
+        if getattr(args, flag):
+            return handler(args)
     return 1
 
 

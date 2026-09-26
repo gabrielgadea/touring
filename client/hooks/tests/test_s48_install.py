@@ -56,6 +56,10 @@ def test_required_scripts_exist_in_client_hooks() -> None:
     assert not missing, f"Missing in client/hooks/: {missing}"
 
 
+@pytest.mark.skipif(
+    not SETTINGS_PATH.exists(),
+    reason="reads the operator's ~/.claude/settings.json, absent on a CI runner (runs on the machine)",
+)
 def test_every_registered_global_script_is_a_symlink_into_repo() -> None:
     """Every .sh script registered in settings.json hooks that lives in ~/.claude/hooks/
     is a symlink pointing into ~/projects/touring/client/hooks/.

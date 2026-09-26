@@ -220,7 +220,7 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_effect.py",
-          "timeout": 60
+          "timeout": 5
         }
       ]
     }
@@ -435,7 +435,7 @@
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook post-bash",
-          "timeout": 10
+          "timeout": 5
         }
       ]
     }
@@ -493,12 +493,12 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py",
-          "timeout": 60
+          "timeout": 5
         },
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py",
-          "timeout": 60
+          "timeout": 15
         }
       ]
     }
@@ -649,7 +649,7 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py",
-          "timeout": 60
+          "timeout": 5
         }
       ]
     }

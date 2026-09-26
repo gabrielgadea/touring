@@ -12,9 +12,6 @@ All forms of remote-delete are covered:
 """
 from __future__ import annotations
 
-import json
-import subprocess
-from pathlib import Path
 
 import pytest
 from helpers import CLIENT_HOOKS, run_hook_sh, HookResult

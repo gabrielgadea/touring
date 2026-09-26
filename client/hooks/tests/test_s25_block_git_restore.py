@@ -11,7 +11,6 @@ Tests:
 """
 from __future__ import annotations
 
-from pathlib import Path
 
 import pytest
 from helpers import CLIENT_HOOKS, run_hook_sh, HookResult
