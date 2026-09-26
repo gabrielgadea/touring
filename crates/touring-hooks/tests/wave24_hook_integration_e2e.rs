@@ -87,8 +87,33 @@ impl PrivateDaemon {
     fn warm(&self, hook: &str, payload: &str) -> bool {
         (0..5).any(|_| {
             run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))
-                .is_some_and(|(stdout, _, _)| !stdout.trim().is_empty())
+                .is_some_and(|(stdout, stderr, _)| answered(&stdout, &stderr))
         })
+    }
+}
+
+/// A hook ANSWERED when it said something beyond the fail-open `{}`. Since S224
+/// (26/09/2026) the task receipts leave stdout — top-level keys outside the event's
+/// contract go to stderr — so a bare `{}` on stdout is also what a silent fallback
+/// prints: counting it as an answer made `warm` vacuous.
+fn answered(stdout: &str, stderr: &str) -> bool {
+    let out = stdout.trim();
+    (!out.is_empty() && out != "{}") || !stderr.trim().is_empty()
+}
+
+impl PrivateDaemon {
+    /// The receipt of a task-* event as S224 delivers it: stdout carries only the
+    /// contract (`{}` for these top-level-only events), the receipt is on stderr.
+    fn task_receipt(&self, hook: &str, payload: &str) -> Option<String> {
+        let (stdout, stderr, exit) =
+            run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))?;
+        assert_eq!(exit, 0, "{hook} must exit 0, got {exit}");
+        assert_eq!(
+            stdout.trim(),
+            "{}",
+            "{hook}: stdout must hold only the event contract"
+        );
+        Some(stderr)
     }
 }
 
@@ -207,19 +232,15 @@ fn task_created_event_returns_scaffolded_receipt() {
         ),
         "the private daemon never answered task-created (5 attempts)"
     );
-    let Some((stdout, _stderr, exit)) = run_with_stdin(
-        "touring-hook",
-        &["task-created"],
-        payload,
-        Some(&daemon.socket),
-    ) else {
+    let Some(receipt) = daemon.task_receipt("task-created", payload) else {
         eprintln!("touring-hook binary not built — skipping task_created test");
         return;
     };
-
-    assert_eq!(exit, 0, "task-created must exit 0, got {exit}");
-    let response = stdout.trim();
-    assert!(!response.is_empty(), "task-created produced empty stdout");
+    let response = receipt.trim();
+    assert!(
+        !response.is_empty(),
+        "task-created produced no receipt on stderr"
+    );
 
     // Three orthogonal signals — losing any one is a real regression.
     assert!(
@@ -255,18 +276,11 @@ fn task_completed_event_returns_full_outcome_receipt() {
         ),
         "the private daemon never answered task-completed (5 attempts)"
     );
-    let Some((stdout, _stderr, exit)) = run_with_stdin(
-        "touring-hook",
-        &["task-completed"],
-        payload,
-        Some(&daemon.socket),
-    ) else {
+    let Some(receipt) = daemon.task_receipt("task-completed", payload) else {
         eprintln!("touring-hook binary not built — skipping task_completed test");
         return;
     };
-
-    assert_eq!(exit, 0, "task-completed must exit 0, got {exit}");
-    let response = stdout.trim();
+    let response = receipt.trim();
     // R33-S3 fix: accept both "archived" (all subtasks terminal) and
     // "partial (pending subtasks)" (no subtasks created — valid for e2e test
     // that doesn't pre-populate the DAG). The hook correctly distinguishes
