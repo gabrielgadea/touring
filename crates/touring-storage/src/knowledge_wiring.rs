@@ -649,6 +649,30 @@ pub struct UnresolvedImport {
     pub language: String,
 }
 
+/// Outcome of [`FileKnowledgeDB::resolve_consumer_kinds`]: consumer rows whose
+/// kind CHANGED (net), attributed to the pass that set the final kind.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct ConsumerKindResolution {
+    /// Final kind set by the producers pass — a stale kind reset to `unknown`
+    /// over a partial walk counts here.
+    pub from_producers: usize,
+    /// Final kind set by the definers pass.
+    pub from_definers: usize,
+    /// Branded `extern` by the sealed-walk pass.
+    pub extern_marked: usize,
+    /// Consumer rows still `unknown` afterwards — what the doctor's
+    /// `kind_unknown` counts.
+    pub unknown_after: usize,
+}
+
+impl ConsumerKindResolution {
+    /// Consumer rows whose kind changed, over the three passes.
+    #[must_use]
+    pub fn changed(&self) -> usize {
+        self.from_producers + self.from_definers + self.extern_marked
+    }
+}
+
 /// A pub symbol's wiring status.
 #[derive(Debug, Clone)]
 pub struct WiringEntry {
@@ -1347,9 +1371,9 @@ impl FileKnowledgeDB {
     ///
     /// 1. the producer of the same name in the same module;
     /// 2. else the homonym producer that sorts first by `(module_file, symbol_kind)`;
-    /// 3. else `extern` — only over a COMPLETE walk (`mark_extern`), for the same
-    ///    reason the backfill gates it: `extern` is terminal, and a producer that
-    ///    was simply never read must not be branded outside the workspace.
+    /// 3. else `unknown` — a name no producer carries is left to the definers
+    ///    pass, and only [`Self::resolve_consumer_kinds`] brands `extern`, AFTER
+    ///    that pass (S222: branded here, it overwrote every definer verdict).
     ///
     /// `glob_import` rows (`use m::*`) are module-level wiring, not a symbol, and
     /// keep their kind. Returns the number of rows whose kind CHANGED, so a second
@@ -1358,16 +1382,13 @@ impl FileKnowledgeDB {
     /// # Errors
     ///
     /// Propagates any `rusqlite` failure.
-    pub fn resolve_consumer_kinds_from_producers(
-        &self,
-        mark_extern: bool,
-    ) -> Result<usize, rusqlite::Error> {
+    fn resolve_consumer_kinds_from_producers(&self) -> Result<usize, rusqlite::Error> {
         // One expression for the resolved kind; repeated in the WHERE so only rows
         // whose kind actually changes are counted (SQLite reports rows matched).
-        // The last arm is the verdict for a name NO producer carries: `extern`
-        // after a complete walk, `unknown` after a partial one — whatever kind the
-        // row held before (a stale copy of a producer that no longer exists) is
-        // never trusted, or a warm rebuild would keep it and a cold one would not.
+        // The last arm is the verdict for a name NO producer carries: `unknown` —
+        // whatever kind the row held before (a stale copy of a producer that no
+        // longer exists) is never trusted, or a warm rebuild would keep it and a
+        // cold one would not.
         const RESOLVED: &str = "COALESCE(
                  (SELECT p.symbol_kind FROM wiring_map p
                   WHERE p.module_file = w.module_file AND p.symbol_name = w.symbol_name
@@ -1377,19 +1398,99 @@ impl FileKnowledgeDB {
                   WHERE p.symbol_name = w.symbol_name
                     AND p.consumer_file IS NULL AND p.symbol_kind != 'unknown'
                   ORDER BY p.module_file, p.symbol_kind LIMIT 1),
-                 ?1)";
+                 'unknown')";
         let sql = format!(
             "UPDATE wiring_map AS w SET symbol_kind = {RESOLVED}
              WHERE w.consumer_file IS NOT NULL
                AND w.symbol_kind != 'glob_import'
                AND w.symbol_kind IS NOT {RESOLVED}"
         );
-        let fallback = if mark_extern { "extern" } else { "unknown" };
-        let n = self.conn_ref().execute(&sql, params![fallback])?;
+        let n = self.conn_ref().execute(&sql, [])?;
         if n > 0 {
             Self::invalidate_wiring_modules_cache();
         }
         Ok(n)
+    }
+
+    /// The consumer-kind step of a sealed rebuild AND of `touring wiring repair
+    /// --resolve-kinds` — one function, so the two can never diverge (S222,
+    /// 2026-09-25). Three passes, in this order:
+    ///
+    /// 1. [`Self::resolve_consumer_kinds_from_producers`] — every kind rewritten
+    ///    from the final producer table; a name no producer carries becomes
+    ///    `unknown` (a stale copy is never trusted, I16);
+    /// 2. [`Self::resolve_consumer_kinds_from_definers`] — the `unknown` rows a
+    ///    definition resolves (symbol tables, reexports, the source and facade
+    ///    belts, I17);
+    /// 3. over a COMPLETE walk only (`mark_extern`), what is still `unknown`
+    ///    becomes `extern` — terminal, so a producer that was simply never read
+    ///    is never branded outside the workspace.
+    ///
+    /// `extern` used to be branded inside pass 1, BEFORE pass 2 could see the
+    /// rows: a sealed rebuild of the analise left 1.868 of its 2.395 `extern`
+    /// rows on names their own definitor declares, and a rerun flip-flopped
+    /// (reset, re-resolve). The counts are NET, attributed to the pass that set
+    /// each row's final kind — a row pass 1 resets and pass 2 restores did not
+    /// change, so a rerun over the same tables reports 0.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure.
+    pub fn resolve_consumer_kinds(
+        &self,
+        mark_extern: bool,
+    ) -> Result<ConsumerKindResolution, rusqlite::Error> {
+        let before = self.consumer_kind_snapshot()?;
+        self.resolve_consumer_kinds_from_producers()?;
+        let after_producers = self.consumer_kind_snapshot()?;
+        self.resolve_consumer_kinds_from_definers()?;
+        let after_definers = if mark_extern {
+            let snapshot = self.consumer_kind_snapshot()?;
+            let n = self.conn_ref().execute(
+                "UPDATE wiring_map SET symbol_kind = 'extern'
+                 WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
+                [],
+            )?;
+            if n > 0 {
+                Self::invalidate_wiring_modules_cache();
+            }
+            Some(snapshot)
+        } else {
+            None
+        };
+        let after = self.consumer_kind_snapshot()?;
+        let mut out = ConsumerKindResolution::default();
+        for (id, kind) in &after {
+            if kind == "unknown" {
+                out.unknown_after += 1;
+            }
+            if before.get(id) == Some(kind) {
+                continue;
+            }
+            if after_producers.get(id) == Some(kind) {
+                out.from_producers += 1;
+            } else if after_definers
+                .as_ref()
+                .is_none_or(|d| d.get(id) == Some(kind))
+            {
+                out.from_definers += 1;
+            } else {
+                out.extern_marked += 1;
+            }
+        }
+        Ok(out)
+    }
+
+    /// `id → symbol_kind` of every consumer row — the before/after frames
+    /// [`Self::resolve_consumer_kinds`] attributes its net changes from.
+    fn consumer_kind_snapshot(
+        &self,
+    ) -> Result<std::collections::HashMap<i64, String>, rusqlite::Error> {
+        let mut stmt = self
+            .conn_ref()
+            .prepare("SELECT id, symbol_kind FROM wiring_map WHERE consumer_file IS NOT NULL")?;
+        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .collect()
     }
 
     /// I17 (2026-09-25, touring-36): resolves the kind of consumer rows that NO
@@ -3261,9 +3362,7 @@ mod consumer_kind_resolution_tests {
             )
             .expect("corrupt");
 
-        let changed = db
-            .resolve_consumer_kinds_from_producers(true)
-            .expect("pass 1");
+        let changed = db.resolve_consumer_kinds(true).expect("pass 1").changed();
         assert_eq!(
             changed, 3,
             "the three symbol rows are rewritten; the glob is untouched"
@@ -3302,9 +3401,7 @@ mod consumer_kind_resolution_tests {
             "glob_import"
         );
 
-        let again = db
-            .resolve_consumer_kinds_from_producers(true)
-            .expect("pass 2");
+        let again = db.resolve_consumer_kinds(true).expect("pass 2").changed();
         assert_eq!(
             again, 0,
             "a second pass over the same producers changes nothing"
@@ -3328,19 +3425,122 @@ mod consumer_kind_resolution_tests {
             kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
             "unknown"
         );
-        db.resolve_consumer_kinds_from_producers(false)
-            .expect("partial walk");
+        db.resolve_consumer_kinds(false).expect("partial walk");
         assert_eq!(
             kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
             "unknown",
             "after a partial walk the row waits for a producer instead of being branded extern"
         );
-        db.resolve_consumer_kinds_from_producers(true)
-            .expect("complete walk");
+        db.resolve_consumer_kinds(true).expect("complete walk");
         assert_eq!(
             kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
             "extern"
         );
+    }
+
+    /// S222 (25/09/2026): the producers pass distrusts every kind no producer
+    /// carries — right for a stale copy (I16), wrong for a kind the definers pass
+    /// derived (I17). With `extern` branded INSIDE the producers pass, a sealed
+    /// rebuild marked the definers' verdicts `extern` before the definers ever saw
+    /// them (1.868 of the analise's 2.395 `extern` rows were declared by their own
+    /// definitor — `_FallbackBreaker`, `_extract_keywords`), and a standalone rerun
+    /// flip-flopped (reset, then re-resolve: 1/1 every run). The orchestrator
+    /// brands `extern` LAST, over what no pass resolved, and counts NET changes.
+    #[test]
+    fn the_sealed_resolution_keeps_definer_kinds_and_brands_extern_last() {
+        let (_tmp, db) = setup();
+        seed_symbols(
+            &db,
+            "crates/a/src/lib.rs",
+            &[("_private_helper", "function")],
+        );
+        db.record_consumer(
+            "crates/a/src/lib.rs",
+            "_private_helper",
+            "crates/a/src/user.rs",
+            Some(1),
+        )
+        .expect("consumer of a private helper");
+        seed_symbols(&db, "crates/a/src/facade.rs", &[]);
+        db.record_consumer(
+            "crates/a/src/facade.rs",
+            "nowhere",
+            "crates/a/src/user.rs",
+            Some(2),
+        )
+        .expect("consumer of a name defined nowhere");
+        // A stale kind copied from a producer that no longer exists (I16).
+        db.conn_ref()
+            .execute(
+                "UPDATE wiring_map SET symbol_kind = 'method'
+                 WHERE symbol_name = 'nowhere' AND consumer_file IS NOT NULL",
+                [],
+            )
+            .expect("stale kind");
+
+        let partial = db.resolve_consumer_kinds(false).expect("partial walk");
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/lib.rs",
+                "_private_helper",
+                "crates/a/src/user.rs"
+            ),
+            "function"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/facade.rs",
+                "nowhere",
+                "crates/a/src/user.rs"
+            ),
+            "unknown",
+            "a stale kind is never trusted, and a partial walk brands nothing extern"
+        );
+        assert_eq!(
+            (
+                partial.from_producers,
+                partial.from_definers,
+                partial.extern_marked
+            ),
+            (1, 1, 0),
+            "{partial:?}"
+        );
+
+        let sealed = db.resolve_consumer_kinds(true).expect("sealed walk");
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/lib.rs",
+                "_private_helper",
+                "crates/a/src/user.rs"
+            ),
+            "function",
+            "a definer verdict is never branded extern"
+        );
+        assert_eq!(
+            kind_of(
+                &db,
+                "crates/a/src/facade.rs",
+                "nowhere",
+                "crates/a/src/user.rs"
+            ),
+            "extern"
+        );
+        assert_eq!(
+            (
+                sealed.from_producers,
+                sealed.from_definers,
+                sealed.extern_marked
+            ),
+            (0, 0, 1),
+            "net: the helper was reset and restored inside the call — not a change. {sealed:?}"
+        );
+
+        let again = db.resolve_consumer_kinds(true).expect("again");
+        assert_eq!(again.changed(), 0, "idempotent: {again:?}");
+        assert_eq!(again.unknown_after, 0, "{again:?}");
     }
 
     // ── I17 (25/09/2026): the definer-side pass ─────────────────────────────

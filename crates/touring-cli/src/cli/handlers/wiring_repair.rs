@@ -28,7 +28,7 @@ use rusqlite::params;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::Command;
-use touring_hook_runtime::knowledge_wiring::WiringOrigin;
+use touring_hook_runtime::knowledge_wiring::{ConsumerKindResolution, WiringOrigin};
 
 /// Default per-run repair batch when the caller does not pass `--limit`.
 /// With chunked greps (~50 symbols each) this stays well under the daemon's
@@ -540,25 +540,22 @@ fn apply_purge(db: &FileKnowledgeDB, producers: &[Producer]) -> Result<usize, St
 /// ```
 /// `--purge-cross-language` answers `{"status": "purged"|"dry_run", "mode":
 /// "purge_cross_language", "edges", "symbols", "orphans_restored", "sample"}`;
+/// `--resolve-kinds` (`"resolve_kinds": true`) answers `{"status":
+/// "repaired"|"dry_run", "mode": "resolve_kinds", "index_state",
+/// "extern_marked", "unknown_before", "kinds_from_producers",
+/// "kinds_from_definers", "unknown_after"}`;
 /// `{"status": "error", "message": "..."}` on failure.
 pub fn cli_repair_wiring(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let dry_run = payload
-        .get("dry_run")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    if payload
-        .get("purge_cross_language")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
+    let flag = |key: &str| payload.get(key).and_then(|v| v.as_bool()).unwrap_or(false);
+    let dry_run = flag("dry_run");
+    if flag("purge_cross_language") {
         return purge_reply(&rt.ctx.knowledge, dry_run);
     }
-    if payload
-        .get("purge_phantom")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
+    if flag("purge_phantom") {
         return phantom_purge_reply(&rt.ctx.knowledge, dry_run);
+    }
+    if flag("resolve_kinds") {
+        return kinds_repair_reply(&rt.ctx.knowledge, dry_run);
     }
     let limit = payload
         .get("limit")
@@ -701,27 +698,38 @@ fn measure_phantoms(
     })
 }
 
-/// The read-only preview: pass + measurement inside a savepoint that is
-/// ALWAYS rolled back — on success or on error (the savepoint is what makes
-/// "dry" a property of the construction, not of the caller's care).
+/// Runs `measure` inside a savepoint that is ALWAYS rolled back — on success or
+/// on error. The savepoint is what makes "dry" a property of the construction,
+/// not of the caller's care: every preview that must run a WRITING pass to
+/// measure it (the phantom purge, the kind repair) goes through here.
+fn in_rolled_back_savepoint<T>(
+    conn: &rusqlite::Connection,
+    name: &'static str,
+    measure: impl FnOnce() -> Result<T, String>,
+) -> Result<T, String> {
+    conn.execute_batch(&format!("SAVEPOINT {name}"))
+        .map_err(|e| purge_error("savepoint", e))?;
+    let measured = measure();
+    let rollback = conn
+        .execute_batch(&format!("ROLLBACK TO {name}; RELEASE {name}"))
+        .map_err(|e| purge_error("rollback", e));
+    match (measured, rollback) {
+        (Ok(outcome), Ok(())) => Ok(outcome),
+        (Err(e), _) | (Ok(_), Err(e)) => Err(e),
+    }
+}
+
+/// The read-only preview: pass + measurement inside [`in_rolled_back_savepoint`].
 fn preview_phantoms(
     db: &FileKnowledgeDB,
     conn: &rusqlite::Connection,
 ) -> Result<PhantomPurgeOutcome, String> {
-    conn.execute_batch("SAVEPOINT purge_phantom_preview")
-        .map_err(|e| purge_error("savepoint", e))?;
-    let measured = db
-        .resolve_consumer_kinds_from_definers()
-        .map_err(|e| purge_error("definer resolution", e))
-        .and_then(|kinds_resolved| measure_phantoms(conn, true, kinds_resolved));
-    let rollback = conn
-        .execute_batch("ROLLBACK TO purge_phantom_preview; RELEASE purge_phantom_preview")
-        .map_err(|e| purge_error("rollback", e));
-    match (measured, rollback) {
-        (Ok(outcome), Ok(())) => Ok(outcome),
-        (Err(e), _) => Err(e),
-        (Ok(_), Err(e)) => Err(e),
-    }
+    in_rolled_back_savepoint(conn, "purge_phantom_preview", || {
+        let kinds_resolved = db
+            .resolve_consumer_kinds_from_definers()
+            .map_err(|e| purge_error("definer resolution", e))?;
+        measure_phantoms(conn, true, kinds_resolved)
+    })
 }
 
 /// Remove every consumer edge that is phantom by [`phantom_predicate`].
@@ -773,6 +781,99 @@ fn phantom_purge_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
             "sample": outcome.sample.iter().map(SampleEdge::to_json).collect::<Vec<_>>(),
         })
         .to_string(),
+        Err(message) => serde_json::json!({ "status": "error", "message": message }).to_string(),
+    }
+}
+
+/// Outcome of [`repair_consumer_kinds`].
+pub(crate) struct KindsRepairOutcome {
+    /// Whether this was a preview-only run (every write rolled back).
+    pub dry_run: bool,
+    /// The index generation state the `extern` verdict was read from.
+    pub index_state: &'static str,
+    /// Whether the sealed-walk pass ran — only over a `complete` generation.
+    pub extern_marked: bool,
+    /// Consumer rows of kind `unknown` before the passes.
+    pub unknown_before: usize,
+    /// The net changes, per pass, and what stayed `unknown`.
+    pub resolution: ConsumerKindResolution,
+}
+
+/// A consumer row whose kind no pass has resolved — what the doctor's
+/// `kind_unknown` counts.
+const UNKNOWN_CONSUMER: &str = "symbol_kind = 'unknown' AND consumer_file IS NOT NULL";
+
+/// S222 (25/09/2026): the consumer-kind resolution on its own, without the full
+/// rebuild it used to ride on (9.6 s against 39 min on the analise) — the SAME
+/// storage call the rebuild makes when it seals
+/// ([`FileKnowledgeDB::resolve_consumer_kinds`]), so the two cannot diverge.
+/// `extern` is terminal — «outside the workspace» — so it is branded only when
+/// the latest index generation is sealed `complete`; a rebuild in progress is
+/// refused, because it runs these passes itself when it seals and a concurrent
+/// write would race it.
+pub(crate) fn repair_consumer_kinds(
+    db: &FileKnowledgeDB,
+    dry_run: bool,
+) -> Result<KindsRepairOutcome, String> {
+    let generation = db
+        .index_generation_state(std::process::id())
+        .map_err(|e| purge_error("index generation", e))?;
+    if generation.state == "building" {
+        return Err(format!(
+            "a rebuild is in progress (generation {}); it resolves the consumer kinds \
+             itself when it seals",
+            generation
+                .generation
+                .map_or_else(|| "?".to_string(), |id| id.to_string())
+        ));
+    }
+    let mark_extern = generation.state == "complete";
+    let conn = db.conn_ref();
+    let unknown_before = count_where(conn, UNKNOWN_CONSUMER)?;
+    let resolve = || {
+        db.resolve_consumer_kinds(mark_extern)
+            .map_err(|e| purge_error("kind resolution", e))
+    };
+    let resolution = if dry_run {
+        in_rolled_back_savepoint(conn, "resolve_kinds_preview", resolve)?
+    } else {
+        resolve()?
+    };
+    Ok(KindsRepairOutcome {
+        dry_run,
+        index_state: generation.state,
+        extern_marked: mark_extern,
+        unknown_before,
+        resolution,
+    })
+}
+
+/// The reply of `touring wiring repair --resolve-kinds [--dry-run]`.
+fn kinds_repair_reply(db: &FileKnowledgeDB, dry_run: bool) -> String {
+    match repair_consumer_kinds(db, dry_run) {
+        Ok(outcome) => {
+            let mut reply = serde_json::json!({
+                "status": if outcome.dry_run { "dry_run" } else { "repaired" },
+                "mode": "resolve_kinds",
+                "dry_run": outcome.dry_run,
+                "index_state": outcome.index_state,
+                "extern_marked": outcome.extern_marked,
+                "unknown_before": outcome.unknown_before,
+                "kinds_changed": outcome.resolution.changed(),
+                "kinds_from_producers": outcome.resolution.from_producers,
+                "kinds_from_definers": outcome.resolution.from_definers,
+                "kinds_extern": outcome.resolution.extern_marked,
+                "unknown_after": outcome.resolution.unknown_after,
+            });
+            if !outcome.extern_marked {
+                reply["note"] = serde_json::json!(format!(
+                    "`extern` is branded only over a sealed walk (index state `{}`); \
+                     `touring index rebuild` seals one",
+                    outcome.index_state
+                ));
+            }
+            reply.to_string()
+        }
         Err(message) => serde_json::json!({ "status": "error", "message": message }).to_string(),
     }
 }
@@ -1074,8 +1175,14 @@ mod tests {
         seed_consumer("src/lib.rs", "helper_fn", "src/consumer.rs");
         // 4. reexporte externo: o definidor importa o nome de fora
         seed_consumer("src/_compat.rs", "AssetCheckResult", "src/consumer.rs");
-        db.record_unresolved_import("dagster", "AssetCheckResult", "src/_compat.rs", None, "rust")
-            .expect("unresolved import");
+        db.record_unresolved_import(
+            "dagster",
+            "AssetCheckResult",
+            "src/_compat.rs",
+            None,
+            "rust",
+        )
+        .expect("unresolved import");
         // 5. a fantasma de verdade: o definidor FOI lido pelo índice e o nome
         //    não está lá (tabela vazia = medido, não ausente)
         seed_symbols("src/lib.rs", &[]);
@@ -1085,7 +1192,11 @@ mod tests {
         seed_consumer("src/facade_init.rs", "lower", "src/consumer.rs");
 
         let preview = purge_phantom_edges(db, true).expect("dry-run");
-        assert_eq!(preview.edges, 1, "só a fantasma é apagável: {:#?}", preview.sample);
+        assert_eq!(
+            preview.edges, 1,
+            "só a fantasma é apagável: {:#?}",
+            preview.sample
+        );
         let applied = purge_phantom_edges(db, false).expect("apply");
         assert_eq!(applied.edges, 1);
 
@@ -1099,8 +1210,14 @@ mod tests {
                 )
                 .ok()
         };
-        assert_eq!(kind("src/mod.rs", "a_bindings", "src/mod.rs").as_deref(), Some("module"));
-        assert_eq!(kind("src/selo.rs", "_INDICE", "src/consumer.rs").as_deref(), Some("const"));
+        assert_eq!(
+            kind("src/mod.rs", "a_bindings", "src/mod.rs").as_deref(),
+            Some("module")
+        );
+        assert_eq!(
+            kind("src/selo.rs", "_INDICE", "src/consumer.rs").as_deref(),
+            Some("const")
+        );
         assert_eq!(
             kind("src/lib.rs", "helper_fn", "src/consumer.rs").as_deref(),
             Some("function")
@@ -1109,7 +1226,11 @@ mod tests {
             kind("src/_compat.rs", "AssetCheckResult", "src/consumer.rs").as_deref(),
             Some("external_reexport")
         );
-        assert_eq!(kind("src/lib.rs", "ghost_fn", "src/consumer.rs"), None, "a fantasma morreu");
+        assert_eq!(
+            kind("src/lib.rs", "ghost_fn", "src/consumer.rs"),
+            None,
+            "a fantasma morreu"
+        );
         assert_eq!(
             kind("src/facade_init.rs", "lower", "src/consumer.rs").as_deref(),
             Some("unknown"),
@@ -1218,6 +1339,161 @@ mod tests {
             )
             .expect("kind");
         assert_eq!(kind, "const", "o modo real persiste a resolução");
+        drop(rt);
+        drop(proj);
+    }
+
+    /// Seeds one consumer row of `symbol_kind = 'unknown'`.
+    fn seed_unknown_consumer(rt: &HookRuntime, module: &str, symbol: &str, consumer: &str) {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .execute(
+                "INSERT INTO wiring_map
+                 (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source)
+                 VALUES (?1, ?2, 'unknown', 'public', ?3, 'ast_resolved')",
+                params![module, symbol, consumer],
+            )
+            .expect("seed unknown consumer");
+    }
+
+    /// Seeds a definitor the index READ, declaring `entries` (`(name, kind)`).
+    fn seed_definitor(rt: &HookRuntime, file: &str, entries: &[(&str, &str)]) {
+        let json = serde_json::to_string(
+            &entries
+                .iter()
+                .map(|(name, kind)| serde_json::json!({"symbol_name": name, "kind": kind}))
+                .collect::<Vec<_>>(),
+        )
+        .expect("json");
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .execute(
+                "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+                 VALUES (?1, 0, 0, 0, ?2)",
+                params![file, json],
+            )
+            .expect("seed definitor");
+    }
+
+    fn consumer_kind(rt: &HookRuntime, module: &str, symbol: &str) -> String {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .query_row(
+                "SELECT symbol_kind FROM wiring_map
+                 WHERE module_file = ?1 AND symbol_name = ?2 AND consumer_file IS NOT NULL",
+                params![module, symbol],
+                |r| r.get(0),
+            )
+            .expect("consumer kind")
+    }
+
+    fn repair_kinds(rt: &mut HookRuntime, dry_run: bool) -> serde_json::Value {
+        let out = cli_repair_wiring(
+            rt,
+            &serde_json::json!({ "resolve_kinds": true, "dry_run": dry_run }),
+        );
+        serde_json::from_str(&out).unwrap_or_else(|e| panic!("reply is not JSON ({e}): {out}"))
+    }
+
+    /// S222 (25/09/2026): the consumer-kind resolution (producers pass + definers
+    /// pass, 9.6 s measured) ran ONLY at the end of `touring index rebuild` — 39 min
+    /// on the analise — so a `kind_unknown` the doctor flagged had no remedy short
+    /// of a full rebuild. `--resolve-kinds` runs the same two passes on their own,
+    /// in the rebuild's order; the dry run measures inside a rolled-back savepoint.
+    #[test]
+    fn resolve_kinds_runs_both_passes_without_a_rebuild() {
+        let (proj, mut rt) = polyglot_project(&[("src/consumer.rs", "fn main() {}\n")]);
+        // resolvable by the PRODUCERS pass: the producer row exists
+        producer(&rt, "src/helpers.rs", "Real");
+        seed_unknown_consumer(&rt, "src/helpers.rs", "Real", "src/consumer.rs");
+        // resolvable by the DEFINERS pass: a private symbol the definitor declares
+        seed_definitor(&rt, "src/selo.rs", &[("_INDICE", "const")]);
+        seed_unknown_consumer(&rt, "src/selo.rs", "_INDICE", "src/consumer.rs");
+        // no definition anywhere: stays `unknown` (no sealed generation → no `extern`)
+        seed_definitor(&rt, "src/lib.rs", &[]);
+        seed_unknown_consumer(&rt, "src/lib.rs", "ghost_fn", "src/consumer.rs");
+
+        let preview = repair_kinds(&mut rt, true);
+        assert_eq!(preview["mode"], "resolve_kinds", "{preview}");
+        assert_eq!(preview["status"], "dry_run", "{preview}");
+        assert_eq!(preview["index_state"], "none", "{preview}");
+        assert_eq!(preview["extern_marked"], false, "{preview}");
+        assert_eq!(
+            (
+                &preview["unknown_before"],
+                &preview["kinds_from_producers"],
+                &preview["kinds_from_definers"],
+                &preview["unknown_after"]
+            ),
+            (&3.into(), &1.into(), &1.into(), &1.into()),
+            "{preview}"
+        );
+        assert_eq!(
+            consumer_kind(&rt, "src/selo.rs", "_INDICE"),
+            "unknown",
+            "a dry run writes nothing — not even the resolution"
+        );
+
+        let run = repair_kinds(&mut rt, false);
+        assert_eq!(run["status"], "repaired", "{run}");
+        assert_eq!(run["unknown_after"], 1, "{run}");
+        assert_eq!(consumer_kind(&rt, "src/helpers.rs", "Real"), "struct");
+        assert_eq!(consumer_kind(&rt, "src/selo.rs", "_INDICE"), "const");
+        assert_eq!(consumer_kind(&rt, "src/lib.rs", "ghost_fn"), "unknown");
+
+        let again = repair_kinds(&mut rt, false);
+        assert_eq!(
+            (
+                &again["kinds_from_producers"],
+                &again["kinds_from_definers"]
+            ),
+            (&0.into(), &0.into()),
+            "idempotent: {again}"
+        );
+        drop(rt);
+        drop(proj);
+    }
+
+    /// `extern` is terminal («outside the workspace») and the producers pass only
+    /// brands it over a COMPLETE walk — the standalone repair reads that verdict
+    /// from the index generation instead of assuming it, and refuses while a
+    /// rebuild is in progress (that rebuild resolves the kinds itself when it
+    /// seals; a concurrent pass would race it).
+    #[test]
+    fn resolve_kinds_marks_extern_only_over_a_sealed_generation() {
+        let (proj, mut rt) = polyglot_project(&[("src/consumer.rs", "fn main() {}\n")]);
+        seed_definitor(&rt, "src/lib.rs", &[]);
+        seed_unknown_consumer(&rt, "src/lib.rs", "ghost_fn", "src/consumer.rs");
+        let me = std::process::id();
+
+        let generation = rt.ctx.knowledge.begin_index_generation(me).expect("begin");
+        let busy = repair_kinds(&mut rt, false);
+        assert_eq!(busy["status"], "error", "{busy}");
+        assert!(
+            busy["message"]
+                .as_str()
+                .is_some_and(|m| m.contains("rebuild is in progress")),
+            "{busy}"
+        );
+        assert_eq!(
+            consumer_kind(&rt, "src/lib.rs", "ghost_fn"),
+            "unknown",
+            "a refused run writes nothing"
+        );
+
+        rt.ctx
+            .knowledge
+            .finish_index_generation(generation, 1, 1, true, None)
+            .expect("seal");
+        let sealed = repair_kinds(&mut rt, false);
+        assert_eq!(sealed["index_state"], "complete", "{sealed}");
+        assert_eq!(sealed["extern_marked"], true, "{sealed}");
+        assert_eq!(sealed["unknown_after"], 0, "{sealed}");
+        assert_eq!(sealed["kinds_extern"], 1, "{sealed}");
+        assert_eq!(consumer_kind(&rt, "src/lib.rs", "ghost_fn"), "extern");
         drop(rt);
         drop(proj);
     }

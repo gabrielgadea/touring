@@ -145,6 +145,13 @@ enum WiringCmd {
         /// `--dry-run` to preview.
         #[arg(long)]
         purge_phantom: bool,
+        /// Resolve consumer kinds (the producers + definers passes) without a
+        /// full rebuild — the step `index rebuild` runs when it seals (9.6 s
+        /// against 39 min on the analise, 25/09/2026). `extern` is branded only
+        /// over a sealed generation; refused while a rebuild is in progress.
+        /// Combine with `--dry-run` to preview.
+        #[arg(long)]
+        resolve_kinds: bool,
     },
 }
 
@@ -302,6 +309,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             offset,
             purge_cross_language,
             purge_phantom,
+            resolve_kinds,
         } => {
             let payload = serde_json::json!({
                 "dry_run": dry_run,
@@ -309,6 +317,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "offset": offset,
                 "purge_cross_language": purge_cross_language,
                 "purge_phantom": purge_phantom,
+                "resolve_kinds": resolve_kinds,
             });
             println!(
                 "{}",
@@ -785,6 +794,7 @@ mod tests {
             offset,
             purge_cross_language,
             purge_phantom,
+            resolve_kinds,
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -793,6 +803,25 @@ mod tests {
         assert!(limit.is_none());
         assert!(offset.is_none());
         assert!(!purge_cross_language);
+        assert!(!purge_phantom);
+        assert!(!resolve_kinds);
+    }
+
+    #[test]
+    fn parses_repair_resolve_kinds() {
+        let cli = WiringCli::try_parse_from(["wiring", "repair", "--resolve-kinds", "--dry-run"])
+            .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            resolve_kinds,
+            purge_phantom,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run);
+        assert!(resolve_kinds);
         assert!(!purge_phantom);
     }
 
@@ -814,9 +843,8 @@ mod tests {
 
     #[test]
     fn parses_repair_purge_phantom() {
-        let cli =
-            WiringCli::try_parse_from(["wiring", "repair", "--purge-phantom", "--dry-run"])
-                .unwrap();
+        let cli = WiringCli::try_parse_from(["wiring", "repair", "--purge-phantom", "--dry-run"])
+            .unwrap();
         let WiringCmd::Repair {
             dry_run,
             purge_phantom,
