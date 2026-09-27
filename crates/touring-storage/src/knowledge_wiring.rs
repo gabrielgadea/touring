@@ -666,6 +666,34 @@ pub struct ConsumerKindResolution {
 }
 
 impl ConsumerKindResolution {
+    /// Attributes each row's NET change to the pass that set its final kind: a
+    /// row pass 1 resets and pass 2 restores did not change, so a rerun over the
+    /// same tables reports 0. `after_definers` is `None` when no `extern` pass ran.
+    fn attribute(
+        before: &std::collections::HashMap<i64, String>,
+        after_producers: &std::collections::HashMap<i64, String>,
+        after_definers: Option<&std::collections::HashMap<i64, String>>,
+        after: &std::collections::HashMap<i64, String>,
+    ) -> Self {
+        let mut out = Self::default();
+        for (id, kind) in after {
+            if kind == "unknown" {
+                out.unknown_after += 1;
+            }
+            if before.get(id) == Some(kind) {
+                continue;
+            }
+            if after_producers.get(id) == Some(kind) {
+                out.from_producers += 1;
+            } else if after_definers.is_none_or(|d| d.get(id) == Some(kind)) {
+                out.from_definers += 1;
+            } else {
+                out.extern_marked += 1;
+            }
+        }
+        out
+    }
+
     /// Consumer rows whose kind changed, over the three passes.
     #[must_use]
     pub fn changed(&self) -> usize {
@@ -1364,8 +1392,55 @@ impl FileKnowledgeDB {
     ///
     /// # Errors
     ///
-    /// Propagates any `rusqlite` failure.
+    /// The passes are ONE write ([`Self::consumer_kinds_atomically`]): pass 1
+    /// resets what pass 2 restores, so a failure between them — a concurrent
+    /// writer's lock, measured on the analise 26/09/2026 (`kind_unknown` 35 →
+    /// 241 under a repair that answered «database is locked») — must roll pass 1
+    /// back rather than leave its resets on disk.
+    ///
+    /// # Errors
+    ///
+    /// Propagates any `rusqlite` failure; nothing the passes wrote survives it.
     pub fn resolve_consumer_kinds(
+        &self,
+        mark_extern: bool,
+    ) -> Result<ConsumerKindResolution, rusqlite::Error> {
+        self.consumer_kinds_atomically(|| self.resolve_consumer_kinds_passes(mark_extern))
+    }
+
+    /// Runs `unit` as one write. On an idle connection, `BEGIN IMMEDIATE` takes
+    /// the write lock up front — inside `busy_timeout`, before any pass runs —
+    /// so the passes never meet a concurrent writer halfway; inside a caller's
+    /// transaction (the dry-run preview's rolled-back savepoint, a rebuild) it
+    /// nests as a SAVEPOINT. Any error, including a failed COMMIT, rolls the
+    /// whole unit back.
+    fn consumer_kinds_atomically<T>(
+        &self,
+        unit: impl FnOnce() -> Result<T, rusqlite::Error>,
+    ) -> Result<T, rusqlite::Error> {
+        let conn = self.conn_ref();
+        let (begin, commit, rollback) = if conn.is_autocommit() {
+            ("BEGIN IMMEDIATE", "COMMIT", "ROLLBACK")
+        } else {
+            (
+                "SAVEPOINT consumer_kinds",
+                "RELEASE consumer_kinds",
+                "ROLLBACK TO consumer_kinds; RELEASE consumer_kinds",
+            )
+        };
+        conn.execute_batch(begin)?;
+        let outcome = unit().and_then(|value| conn.execute_batch(commit).map(|()| value));
+        if outcome.is_err()
+            && let Err(e) = conn.execute_batch(rollback)
+        {
+            tracing::warn!(error = %e, "consumer-kind resolution: rollback failed");
+        }
+        outcome
+    }
+
+    /// The three passes of [`Self::resolve_consumer_kinds`], unguarded — only
+    /// ever run inside [`Self::consumer_kinds_atomically`].
+    fn resolve_consumer_kinds_passes(
         &self,
         mark_extern: bool,
     ) -> Result<ConsumerKindResolution, rusqlite::Error> {
@@ -1374,40 +1449,35 @@ impl FileKnowledgeDB {
         let after_producers = self.consumer_kind_snapshot()?;
         self.resolve_consumer_kinds_from_definers()?;
         let after_definers = if mark_extern {
-            let snapshot = self.consumer_kind_snapshot()?;
-            let n = self.conn_ref().execute(
-                "UPDATE wiring_map SET symbol_kind = 'extern'
-                 WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
-                [],
-            )?;
-            if n > 0 {
-                Self::invalidate_wiring_modules_cache();
-            }
-            Some(snapshot)
+            Some(self.brand_unresolved_consumers_extern()?)
         } else {
             None
         };
         let after = self.consumer_kind_snapshot()?;
-        let mut out = ConsumerKindResolution::default();
-        for (id, kind) in &after {
-            if kind == "unknown" {
-                out.unknown_after += 1;
-            }
-            if before.get(id) == Some(kind) {
-                continue;
-            }
-            if after_producers.get(id) == Some(kind) {
-                out.from_producers += 1;
-            } else if after_definers
-                .as_ref()
-                .is_none_or(|d| d.get(id) == Some(kind))
-            {
-                out.from_definers += 1;
-            } else {
-                out.extern_marked += 1;
-            }
+        Ok(ConsumerKindResolution::attribute(
+            &before,
+            &after_producers,
+            after_definers.as_ref(),
+            &after,
+        ))
+    }
+
+    /// Pass 3 over a sealed walk: every consumer row still `unknown` becomes
+    /// `extern`. Returns the frame taken just BEFORE branding, so the attribution
+    /// can tell the definers' verdicts from the brand.
+    fn brand_unresolved_consumers_extern(
+        &self,
+    ) -> Result<std::collections::HashMap<i64, String>, rusqlite::Error> {
+        let snapshot = self.consumer_kind_snapshot()?;
+        let n = self.conn_ref().execute(
+            "UPDATE wiring_map SET symbol_kind = 'extern'
+             WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL",
+            [],
+        )?;
+        if n > 0 {
+            Self::invalidate_wiring_modules_cache();
         }
-        Ok(out)
+        Ok(snapshot)
     }
 
     /// `id → symbol_kind` of every consumer row — the before/after frames
@@ -3364,6 +3434,42 @@ mod consumer_kind_resolution_tests {
         assert_eq!(
             kind_of(&db, "crates/a/src/lib.rs", "absent", "crates/x/src/u.rs"),
             "extern"
+        );
+    }
+
+    /// 26/09/2026: the passes are ONE unit. The producers pass resets what the
+    /// definers pass restores, and each committed on its own (autocommit): when
+    /// the definers pass met a concurrent writer's lock, the resets stayed on
+    /// disk — the analise's `kind_unknown` went 35 → 241 under a `wiring repair
+    /// --resolve-kinds` that answered «database is locked». A failure anywhere
+    /// must leave every kind as it was.
+    #[test]
+    fn a_failure_after_the_producers_pass_leaves_no_kind_changed() {
+        let (_tmp, db) = setup();
+        db.register_pub_symbol("crates/a/src/lib.rs", "present", "struct", "public")
+            .expect("producer");
+        db.record_consumer("crates/a/src/lib.rs", "gone", "crates/x/src/u.rs", Some(1))
+            .expect("consumer");
+        // A kind no producer carries — the producers pass resets it to `unknown`...
+        db.conn_ref()
+            .execute(
+                "UPDATE wiring_map SET symbol_kind = 'function' WHERE symbol_name = 'gone'",
+                [],
+            )
+            .expect("seed");
+        // ...and a definers pass that cannot read the symbol tables it needs.
+        db.conn_ref()
+            .execute_batch("ALTER TABLE file_knowledge RENAME TO file_knowledge_away")
+            .expect("break the definers pass");
+
+        assert!(
+            db.resolve_consumer_kinds(true).is_err(),
+            "the definers pass fails without file_knowledge"
+        );
+        assert_eq!(
+            kind_of(&db, "crates/a/src/lib.rs", "gone", "crates/x/src/u.rs"),
+            "function",
+            "the producers pass's reset is rolled back with the unit that failed"
         );
     }
 
