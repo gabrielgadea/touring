@@ -158,6 +158,18 @@ done
 | F4.3 Deprecated | API deprecada = breaking change futuro |
 | F4.5 Pkg mgmt | dependência EOL = sem patches de segurança |
 
+### Backend Python (S510/S512, 26/09/2026) — o que a dimensão mede num projeto uv
+
+| Dim | Medida em Python | Fonte |
+|-----|------------------|-------|
+| F2.5 | `uv export --frozen` → `uvx pip-audit==2.10.1 -s osv`; cache por digest do `uv.lock` por 24 h; auditoria ao vivo só com `TOURING_OSV_SCAN=1`; sem auditoria fresca → UNMEASURED (0,5), nunca pass | `touring-quality/src/verifications/python_deps.rs` |
+| F4.5 | `uv lock --check --offline` + dependências de `[project]` sem limite de versão; escopo sem manifesto (ex.: um dir de hooks) sai N/A | idem |
+| F4.10 | `py-no-logging` só em ponto de entrada (`if __name__ ==`) — módulo de biblioteca não é cobrado | `touring-analysis/src/quality/monitoring.rs` |
+| F4.12 | `no-12-factor-config` em Python só em ponto de entrada | `touring-analysis/src/quality/env.rs` |
+
+O veredito lê a SAÍDA de cada ferramenta, nunca só o exit: pip-audit sai 1 tanto com vulnerabilidade
+quanto sem rede, e `uv lock --check` sai 1 tanto com lock velho quanto com falha offline.
+
 ---
 
 ## Mapeamento dimensão → agent (qual agent é dono de quais dims)

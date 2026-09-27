@@ -101,6 +101,11 @@ update-touring --verify-only     # apenas check, não toca
 4. **APENAS** se daemon comprovadamente morto: `touring daemon-ctl restart`
 5. **NUNCA** pular para `pkill` mesmo após N tentativas
 
+**Session-start não derruba mais o daemon (S13, `d730bfbc`, release 30.4.70)**: até ali o handler
+terminava em `emit` → `process::exit(0)` DENTRO do daemon, e cada início de sessão matava o daemon
+compartilhado (510 de 515 session-starts com `daemon-unavailable`; reproduzido em 25/09, 16:59).
+Projeto pinado abaixo de 30.4.70 usa o binário dele e herda o defeito → `touring update --project <root>`.
+
 ## Bypass (apenas em situações documentadas)
 
 Se você é Gabriel (ou outro humano operador) e SABE o que está fazendo:
