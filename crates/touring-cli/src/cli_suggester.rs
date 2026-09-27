@@ -3970,7 +3970,34 @@ fn scan_class_of(cmd: &str) -> Option<&'static str> {
     if appends_to_a_file(cmd) {
         return None;
     }
-    let rest = effective_tokens(cmd);
+    // S213b (26/09/2026): a SEQUENCE is inspection only if every step inspects — the
+    // class came from the first real verb alone, so `grep x f; cargo clippy …` was
+    // `grep` and the remedy replayed a 20-minute clippy (observed live); a `touring
+    // memory store` in its place would have been a replayed write. Navigation,
+    // assignments and `echo`-style separators are neutral; the class is the first
+    // reading step's.
+    let mut class = None;
+    for seg in command_segments(cmd) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            None => {}
+            Some(verb) if NEUTRAL_SEQUENCE_STEPS.contains(verb) => {}
+            Some(_) => {
+                let step = step_class(rest)?;
+                class.get_or_insert(step);
+            }
+        }
+    }
+    class
+}
+
+/// Steps that neither inspect nor do work — they never break an inspection sequence.
+const NEUTRAL_SEQUENCE_STEPS: &[&str] = &["cd", "echo", "printf", "pwd", "true"];
+
+/// The inspection class of ONE step (its wrapper-resolved tokens), or `None` when the
+/// step does something other than inspect.
+fn step_class(rest: &[&str]) -> Option<&'static str> {
     let first = *rest.first()?;
     match first {
         "grep" | "rg" => Some("grep"),
