@@ -893,6 +893,14 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
     }
     record_direct_path_consumers(db, file_path, content);
     record_self_references(db, file_path, language, content);
+    // S223b (26/09/2026): the consumer-scoped kind resolution also runs inside the
+    // import pass, but only over the rows that pass wrote — the direct-path,
+    // inferred and qualified edges above come AFTER it and were born `unknown`
+    // (analise doctor: kind_unknown=10, all `ast_inferred` on private helpers). Once
+    // every row this file owns is written, type them all.
+    if let Err(e) = db.resolve_consumer_kinds_for_consumer(file_path) {
+        tracing::warn!(error = %e, consumer = file_path, "consumer-kind resolution failed; rows stay `unknown` until the next rebuild");
+    }
 }
 
 /// The file's use of its own public symbols (`internal_only`), re-derived like

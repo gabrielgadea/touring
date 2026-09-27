@@ -1597,6 +1597,62 @@ fn a_new_consumer_edge_is_typed_at_record_time_not_left_unknown() {
     );
 }
 
+/// S223b (26/09/2026): the consumer-scoped resolution ran only at the end of the
+/// IMPORT pass — and only when that pass recorded something — so every edge
+/// `refresh_file_wiring` writes AFTER it (direct paths, inferred calls, Python
+/// qualified uses) was born `unknown` and stayed so until a global repair: the
+/// analise doctor showed kind_unknown=10, all `ast_inferred`, on private helpers.
+#[test]
+fn a_refresh_types_the_edges_it_writes_after_the_import_pass() {
+    let tmp = TempDir::new().unwrap();
+    let root = phantom_ws(&tmp);
+    let db_path = root.join(".claude/touring/knowledge.db");
+    std::fs::create_dir_all(db_path.parent().expect("touring dir")).expect("mkdir");
+    let db = FileKnowledgeDB::new(&db_path).expect("open db");
+    assert!(
+        db.workspace_root().is_some(),
+        "control: the canonical layout derives the project root"
+    );
+    write_file(
+        &root,
+        "src/helpers.rs",
+        "pub(crate) fn unregistered_helper() {}\n",
+    );
+    db.conn_ref()
+        .execute(
+            "INSERT INTO file_knowledge (file_path, line_count, symbol_count, read_count, symbols_json)
+             VALUES ('src/helpers.rs', 1, 1, 0,
+                     '[{\"symbol_name\": \"unregistered_helper\", \"kind\": \"function\"}]')",
+            [],
+        )
+        .expect("seed the definer's symbol table");
+    // A direct path, no `use`: the import pass records nothing for it.
+    let src = "fn drive() {\n    crate::helpers::unregistered_helper();\n}\n";
+    write_file(&root, "src/consumer.rs", src);
+
+    refresh_file_wiring(&db, "src/consumer.rs", "rust", src);
+
+    let kinds: Vec<String> = db
+        .conn_ref()
+        .prepare(
+            "SELECT symbol_kind FROM wiring_map \
+             WHERE symbol_name = 'unregistered_helper' AND consumer_file IS NOT NULL",
+        )
+        .expect("prepare")
+        .query_map([], |r| r.get::<_, String>(0))
+        .expect("query")
+        .filter_map(Result::ok)
+        .collect();
+    assert!(
+        !kinds.is_empty(),
+        "control: the direct-path edge was recorded"
+    );
+    assert!(
+        kinds.iter().all(|k| k != "unknown"),
+        "edge written after the import pass born unknown: {kinds:?}"
+    );
+}
+
 #[test]
 fn a_scope_keyword_is_never_recorded_as_a_symbol() {
     let (_tmp, db) = test_db();
