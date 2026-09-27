@@ -573,6 +573,27 @@ fn collect_non_production(node: tree_sitter::Node, source: &str, out: &mut Vec<(
     }
 }
 
+/// Byte ranges of `source` that are not Python CODE: comments and string literals
+/// (docstrings and f-strings included).
+fn python_non_code_ranges(source: &str) -> Vec<(usize, usize)> {
+    let Ok(tree) = parse_thread_local(source, Lang::Python) else {
+        return Vec::new();
+    };
+    let mut ranges = Vec::new();
+    collect_python_non_code(tree.root_node(), &mut ranges);
+    ranges
+}
+
+fn collect_python_non_code(node: tree_sitter::Node, out: &mut Vec<(usize, usize)>) {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "comment" | "string" => out.push((child.start_byte(), child.end_byte())),
+            _ => collect_python_non_code(child, out),
+        }
+    }
+}
+
 /// `#[test]`, `#[tokio::test]`, `#[cfg(test)]`, `#[cfg(all(test, …))]`.
 fn is_test_gate(attribute: &str) -> bool {
     let compact: String = attribute.chars().filter(|c| !c.is_whitespace()).collect();
@@ -630,8 +651,10 @@ fn validate_structural_layer(source: &str, lang: Lang) -> LayerResult {
     }
 
     if lang == Lang::Python {
-        // Bare except: catches everything including KeyboardInterrupt
-        let bare_except = source.matches("except:").count();
+        // Bare except: catches everything including KeyboardInterrupt. Counted in CODE
+        // only, as the Rust branch does (S218): a message saying "except: fallback"
+        // was reported as a bare except (26/09/2026).
+        let bare_except = count_in_production(source, "except:", &python_non_code_ranges(source));
         if bare_except > 0 {
             diagnostics.push(format!(
                 "{bare_except} bare except: detected — use except Exception:"
@@ -1012,6 +1035,29 @@ fn use_data(data: &Data) {
                 .unwrap_or(false),
             "should flag bare except: {:?}",
             result.layers
+        );
+    }
+
+    /// 26/09/2026: `except:` inside a string or a comment is quoted text — a
+    /// script whose message said "except: fallback" was reported as a bare except
+    /// by the post-write hook. The Rust branch already counted only code (S218).
+    #[test]
+    fn test_structural_python_except_in_string_or_comment_is_not_code() {
+        let src =
+            "MSG = \"try: fast except: fallback\"  # except: see above\nDOC = '''\nexcept:\n'''\n";
+        let result = speculate_v2(src, Lang::Python, None, None);
+        let structural = result
+            .layers
+            .iter()
+            .find(|l| l.layer == ValidationLayer::Structural)
+            .expect("structural layer");
+        assert!(
+            !structural
+                .diagnostics
+                .iter()
+                .any(|d| d.contains("bare except")),
+            "quoted `except:` is not a handler: {:?}",
+            structural.diagnostics
         );
     }
 
