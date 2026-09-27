@@ -525,20 +525,37 @@ fn test_function_replacement_suggests_touring() {
         edit_spans_entire_function(old),
         "Should detect function span"
     );
-    let suggestion = suggest_replace_symbol_body(old);
+    let suggestion = suggest_replace_symbol_body(old, "src/calc.py");
     assert!(
-        suggestion.contains("mcp__touring__touring_ast_edit"),
-        "Expected ast_edit suggestion, got: {:?}",
-        suggestion
+        suggestion.contains("touring ast grep src/calc.py"),
+        "the hint names the CLI with the real file, got: {suggestion:?}"
     );
+    // 27/09/2026: it named `mcp__touring__touring_ast_edit`, absent where the MCP server is off.
+    assert!(!suggestion.contains("mcp__"), "{suggestion:?}");
 }
 
 #[test]
 fn test_partial_edit_no_suggestion() {
     let old = "    return x * 2"; // just one line — not a whole function
     assert!(!edit_spans_entire_function(old));
-    let suggestion = suggest_replace_symbol_body(old);
+    let suggestion = suggest_replace_symbol_body(old, "src/calc.py");
     assert!(suggestion.is_empty());
+}
+
+#[test]
+fn test_import_prediction_is_rust_only() {
+    // The predictor builds `use` paths: on Python it emitted Rust syntax (27/09/2026).
+    assert!(predicts_imports("crates/x/src/lib.rs"));
+    for other in ["scripts/a.py", "web/b.ts", "doc.md"] {
+        assert!(!predicts_imports(other), "{other}");
+    }
+}
+
+#[test]
+fn test_only_rust_modules_are_import_producers() {
+    let row = |file: &str| ("Counter".to_string(), file.to_string());
+    assert!(is_rust_producer(&row("crates/x/src/metrics.rs")));
+    assert!(!is_rust_producer(&row(".claude/hooks/gpu/metrics.py")));
 }
 
 #[test]
