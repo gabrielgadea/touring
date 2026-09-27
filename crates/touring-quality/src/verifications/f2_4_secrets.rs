@@ -151,6 +151,62 @@ fn has_non_secret_markers(v: &str) -> bool {
             .any(|b| matches!(b, b'<' | b'>' | b'{' | b'}' | b'\\' | b'(' | b')' | b';'))
         || is_predictable_sequence(v)
         || is_email_like(v)
+        || is_sri_digest(v)
+}
+
+/// A package version or range (`^5.0.1`, `~4.0`, `>=2.0.0-rc.1`, `1.x`, `v3.2.1`):
+/// the value of a dependency entry, never a credential. A dependency's NAME may
+/// mention a token (`registry-auth-token`) while its value is a semver range
+/// (27/09/2026, the kazuba-browser lockfile at F2.4 0.0). Bounded so it waves
+/// nothing else through: a bare number needs a range operator (a numeric secret
+/// stays a secret), parts are ≤ 8 digits, and the pre-release tail is ≤ 16 chars
+/// (`1-<token>` still blocks).
+fn is_version_spec(v: &str) -> bool {
+    let bare = v.trim_start_matches(['^', '~', '>', '<', '=']);
+    let has_op = bare.len() != v.len();
+    let bare = bare.strip_prefix('v').unwrap_or(bare);
+    let (core, tail) = bare.split_once(['-', '+']).unwrap_or((bare, ""));
+    is_version_core(core, has_op) && is_prerelease_tail(tail)
+}
+
+/// `MAJOR[.MINOR[.PATCH]]`: each part ≤ 8 digits (`x`/`*` after the first); a
+/// single part only after a range operator, so a bare number is never a version.
+fn is_version_core(core: &str, has_op: bool) -> bool {
+    let parts: Vec<&str> = core.split('.').collect();
+    let numeric = |p: &str| (1..=8).contains(&p.len()) && p.bytes().all(|b| b.is_ascii_digit());
+    let arity_ok = parts.len() <= 3 && (parts.len() >= 2 || has_op);
+    arity_ok
+        && numeric(parts[0])
+        && parts[1..]
+            .iter()
+            .all(|p| numeric(p) || matches!(*p, "x" | "*"))
+}
+
+/// A semver pre-release/build tail (`rc.1`, `beta-2`): short, so `1-<token>` is no version.
+fn is_prerelease_tail(tail: &str) -> bool {
+    tail.len() <= 16
+        && tail
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'-'))
+}
+
+/// A Subresource Integrity digest — `sha256-`/`sha384-`/`sha512-` + base64 (W3C
+/// SRI; npm lockfiles' `"integrity"`): the hash of a PUBLIC file, published so the
+/// browser can verify it, never a credential. Shape, not exact length: a malformed
+/// digest is a broken integrity check, not a leaked secret (27/09/2026 — every
+/// `package-lock.json` in the analise failed F2.4 at 0.0).
+fn is_sri_digest(v: &str) -> bool {
+    let Some(rest) = ["sha256-", "sha384-", "sha512-"]
+        .iter()
+        .find_map(|p| v.strip_prefix(p))
+    else {
+        return false;
+    };
+    rest.len() >= 40
+        && rest
+            .trim_end_matches('=')
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'+' || b == b'/')
 }
 
 /// A filesystem path or a bare filename: a resource location, never an opaque
@@ -520,6 +576,9 @@ fn is_relative_dir_path(v: &str) -> bool {
     let segments: Vec<&str> = v.trim_end_matches('/').split('/').collect();
     segments.len() >= 3
         && segments.iter().all(|s| {
+            // A LEADING `@` opens an npm scope (`node_modules/@scope/pkg`, 27/09/2026);
+            // base64 never carries `@`, and one mid-segment is still refused.
+            let s = s.strip_prefix('@').unwrap_or(s);
             !s.is_empty()
                 && s.bytes()
                     .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
@@ -1003,7 +1062,7 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
             !is_shell_expansion(rhs)
                 && extract_quoted(rhs)
                     .iter()
-                    .any(|l| !l.is_empty() && !is_readable_placeholder(l))
+                    .any(|l| !l.is_empty() && !is_readable_placeholder(l) && !is_version_spec(l))
         } else {
             looks_like_secret_value_named(rhs)
         };
@@ -1945,6 +2004,96 @@ mod tests {
         assert!(!is_email_like("not-an-email-at-all"));
         assert!(!is_email_like("@nolocal.com"));
         assert!(!is_email_like("missing-tld@example"));
+    }
+
+    /// A Subresource Integrity digest (`sha512-<base64>`) is the hash of a PUBLIC
+    /// file, published so the browser can check it — never a credential. Every
+    /// `package-lock.json` `"integrity"` line and two SRI attributes in the analise
+    /// failed F2.4 at 0.0 (27/09/2026). The fixtures are sha digests of fixed strings.
+    #[test]
+    fn subresource_integrity_digests_are_not_secrets() {
+        let d512 = "whRSHehmd1RgwAg9T8r+qPGyyLUd5jltqBcUqh6MOY6p1BFc7rIf5Xs125V1Nd3TU8oG6Up5YEu01cEyWPYKKw==";
+        let d384 = "oA82yqy4rUSVNPL38+ZqPgYvvmkFVLam3lXhIHryXCqfPCJNlz8zXmsluYIZusSW";
+        // Control: the bare digest IS high-entropy — without the algorithm prefix the
+        // detector must still see a token, so the exemption below is not vacuous.
+        assert!(looks_like_secret_value(d512));
+
+        let sri512 = format!("sha512-{d512}");
+        let sri384 = format!("sha384-{d384}");
+        assert!(!looks_like_secret_value(&sri512));
+        assert!(!looks_like_secret_value_named(&sri384));
+
+        let lock =
+            format!("{{\n  \"node_modules/x\": {{\n    \"integrity\": \"{sri512}\",\n  }}\n}}\n");
+        assert!(
+            score(&lock).value > 0.0,
+            "an npm lockfile integrity line must not block: {}",
+            score(&lock).evidence
+        );
+        let html =
+            format!("<script src=\"https://cdn.example/x.js\" integrity=\"{sri384}\"></script>\n");
+        assert!(
+            score(&html).value > 0.0,
+            "an SRI attribute must not block: {}",
+            score(&html).evidence
+        );
+    }
+
+    /// A nested scoped npm package path is a resource location: the `@` that opens a
+    /// scope segment kept it out of `is_relative_dir_path`, and an 81-char lockfile key
+    /// at entropy 4.53 blocked F2.4 (27/09/2026, kazuba-browser/package-lock.json).
+    #[test]
+    fn npm_scoped_package_paths_are_not_secrets() {
+        let key = "node_modules/@hookz/qs/node_modules/@wry-context/equality-7b2kq-9xjzv4f";
+        assert!(
+            shannon_entropy(key) >= 4.5,
+            "premise: the key must reach the entropy path"
+        );
+        assert!(!looks_like_secret_value(key));
+        let lock = format!(
+            "{{\n  \"packages\": {{\n    \"{key}\": {{\n      \"dev\": true\n    }}\n  }}\n}}\n"
+        );
+        assert!(
+            score(&lock).value > 0.0,
+            "a scoped npm package path must not block: {}",
+            score(&lock).evidence
+        );
+        // Control: an `@` in the MIDDLE of a segment opens no scope.
+        assert!(!is_relative_dir_path("aB3x/Kq9@mZ7w-r2/yT5u"));
+    }
+
+    /// A dependency whose NAME mentions a token (`registry-auth-token`, a real npm
+    /// package) has a VERSION RANGE as its value, never a credential — it held the
+    /// kazuba-browser lockfile at F2.4 0.0 as a secret-named assignment (27/09/2026).
+    #[test]
+    fn dependency_version_ranges_are_not_secrets() {
+        let lock = "{\n  \"dependencies\": {\n    \"registry-auth-token\": \"^5.0.1\",\n    \"@octokit/auth-token\": \"~4.0.0\"\n  }\n}\n";
+        assert!(
+            score(lock).value > 0.0,
+            "a version range under a token-named dependency must not block: {}",
+            score(lock).evidence
+        );
+        // Control: the same kind of name with a credential-shaped value still blocks.
+        let leak = "{\n  \"auth_token\": \"aB3xK9mQ7zR2wY5tE8uI1oP4\"\n}\n";
+        assert_eq!(
+            score(leak).value,
+            0.0,
+            "premise: a real-looking token must block"
+        );
+
+        for v in ["^5.0.1", "~4.0", ">=2.0.0-rc.1", "1.x", "v3.2.1", "^5"] {
+            assert!(is_version_spec(v), "{v} is a version spec");
+        }
+        // The bounds: a bare number, an over-long part and a token-sized tail are not versions.
+        for v in [
+            "8392017483",
+            "1.123456789",
+            "1-aB3xK9mQ7zR2wY5tE8uI1oP4sD6fG",
+            "",
+            "x.1",
+        ] {
+            assert!(!is_version_spec(v), "{v:?} must not pass as a version");
+        }
     }
 
     #[test]
