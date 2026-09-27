@@ -1,6 +1,6 @@
 # Touring CLI — Index & CLI Command Ranks (slim)
 
-> **Auto-load** | **Version**: v5.3 (slim) | **Touring**: v30.3.0
+> **Auto-load** | **Version**: v5.3 (slim) | **Touring**: `touring --version` (o número muda a cada release; per-project: `.touring/bin/touring --version`, que sai em stderr)
 > **TIER 4-9 (Session / Generate / Learning / Hooks / Search / Utility)**: `~/.claude/skills/Touring/references/touring-cli-tiers-4-9.md` (load on demand)
 > **Per-module deep reference** (7 módulos): `~/.claude/skills/Touring/references/touring-cli-{overview,hooks,intelligence,tasks,rl-quality,generate,meta}.md`
 > **Mirror full** (skill master): `~/.claude/skills/Touring/SKILL.md`
