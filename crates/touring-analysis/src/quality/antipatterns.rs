@@ -78,6 +78,14 @@ pub struct AntipatternCount {
     pub first_line: usize,
 }
 
+/// Offsets of `pattern` in `bytes`; with a `code_mask`, only those whose first byte
+/// survived the mask — i.e. that start in CODE, not inside a literal or a comment.
+fn occurrences(bytes: &[u8], pattern: &[u8], code_mask: Option<&[u8]>) -> Vec<usize> {
+    memmem::find_iter(bytes, pattern)
+        .filter(|&off| code_mask.is_none_or(|mask| mask.get(off) == bytes.get(off)))
+        .collect()
+}
+
 /// Count every antipattern rule of `lang` in `source`, sorted by message. `path`, when
 /// known, lets directory conventions apply (a `scripts/` file is a program).
 pub fn count_antipatterns(source: &str, lang: &str, path: Option<&Path>) -> Vec<AntipatternCount> {
@@ -90,8 +98,14 @@ pub fn count_antipatterns(source: &str, lang: &str, path: Option<&Path>) -> Vec<
     let bytes = source.as_bytes();
     let mut counts: Vec<AntipatternCount> = Vec::new();
     let mut rust_test_regions: Option<Vec<(usize, usize)>> = None;
+    // Every Rust and Python pattern is a CODE token, so an occurrence inside a string
+    // literal or a comment is quoted text — the pattern table itself (`b".unwrap()"`)
+    // and a message saying "except: fallback" were reported (26/09/2026). Not for
+    // TypeScript, whose `@ts-ignore` lives in a comment by definition.
+    let code_mask =
+        matches!(lang, "rust" | "python").then(|| super::code_regions::code_mask(source, lang));
     for (pattern, message) in patterns_for(lang) {
-        let mut offsets: Vec<usize> = memmem::find_iter(bytes, pattern).collect();
+        let mut offsets = occurrences(bytes, pattern, code_mask.as_deref());
         if lang == "python" && pattern == b"print(" {
             offsets = debug_prints(source, offsets, cli_script);
         }
@@ -464,6 +478,33 @@ mod tests {
         assert_eq!(w.len(), 1);
         let first = w.first().expect("one except pattern");
         assert_eq!(first.1, 3, "except: is on line 3");
+    }
+
+    /// 26/09/2026: a pattern inside a string literal or a comment is quoted text —
+    /// `"… except: fallback"` in a message was reported as a bare except, the same
+    /// way the Rust branch already skips literals and comments.
+    #[test]
+    fn python_patterns_inside_strings_and_comments_are_not_code() {
+        let source = "MSG = \"try: fast except: fallback\"  # except: see above\nHINT = 'print(x) to debug'\n";
+        let w = detect_antipatterns(source, "python");
+        assert!(w.is_empty(), "quoted patterns are not code: {w:?}");
+    }
+
+    /// The Rust half: the pattern TABLE of this very module (`b".unwrap()"`,
+    /// `"panic!("`) was reported as production `.unwrap()`/`panic!()` by the
+    /// post-edit hook; the real call beside it must still be counted.
+    #[test]
+    fn rust_patterns_inside_literals_and_comments_are_not_code() {
+        let quoted = "const P: &[u8] = b\".unwrap()\";\nconst M: &str = \"panic!(boom)\"; // todo!() later\nconst R: &str = r#\"transmute(\"#;\n";
+        assert!(
+            detect_antipatterns(quoted, "rust").is_empty(),
+            "quoted patterns are not code: {:?}",
+            detect_antipatterns(quoted, "rust")
+        );
+        let real = format!("{quoted}fn f(x: Option<u8>) -> u8 {{ x.unwrap() }}\n");
+        let w = detect_antipatterns(&real, "rust");
+        assert_eq!(w.len(), 1, "only the real call: {w:?}");
+        assert_eq!(w[0].1, 4, "the real `.unwrap()` is on line 4");
     }
 
     #[test]

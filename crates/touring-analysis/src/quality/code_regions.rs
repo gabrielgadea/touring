@@ -219,7 +219,16 @@ pub fn non_executable_regions_segmented(
 /// generated page lives INSIDE a string and must stay visible to the registry. The
 /// Python sinks are call tokens, so for them a token inside a string is quoted text.
 pub(crate) fn python_code_mask(src: &str) -> Vec<u8> {
-    scan(src, &PYTHON).1
+    code_mask(src, "python")
+}
+
+/// [`python_code_mask`] for any language the scanner has a lexical spec for (Rust's
+/// raw strings and char literals included): comment and string-literal interiors
+/// blanked, so a byte that survives unchanged is CODE. The antipattern counter needs
+/// it for Rust too — its own pattern table (`b".unwrap()"`) was reported as
+/// `.unwrap()` in production (26/09/2026).
+pub(crate) fn code_mask(src: &str, lang: &str) -> Vec<u8> {
+    scan(src, syntax_for(lang)).1
 }
 
 /// True when `offset` falls inside one of the (sorted, non-overlapping) ranges.
