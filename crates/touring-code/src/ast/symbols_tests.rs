@@ -200,6 +200,36 @@ router = make_router()\n";
     );
 }
 
+/// 26/09/2026: `PRESIDENTE, GOVERNADOR, SENADOR, PREFEITO = "1", "3", "5", "11"` at
+/// module level (analise, `scripts/eleitoral/teto_campo_tse.py`) left all four names
+/// out of the symbol table — the query matched only `left: (identifier)` — so every
+/// `tse.SENADOR` consumer read as a phantom and kept the doctor's `kind_unknown` > 0.
+/// Each name of a tuple-unpacked module binding is its own symbol.
+#[test]
+fn test_module_tuple_unpacking_defines_every_name() {
+    let source = "PRESIDENTE, GOVERNADOR, SENADOR = \"1\", \"3\", \"5\"\n\
+(low, high) = 0, 9\n\
+PLAIN = 1\n\
+def f():\n    inner_a, inner_b = 1, 2\n    return inner_a + inner_b\n";
+    let symbols = extract_symbols(source, Lang::Python).unwrap();
+    let kind_of = |n: &str| {
+        symbols
+            .iter()
+            .find(|s| s.name == n)
+            .map(|s| s.kind.as_str().to_string())
+    };
+    let names: Vec<(&String, &str)> = symbols.iter().map(|s| (&s.name, s.kind.as_str())).collect();
+    for name in ["PRESIDENTE", "GOVERNADOR", "SENADOR"] {
+        assert_eq!(kind_of(name).as_deref(), Some("const"), "{name}: {names:?}");
+    }
+    assert_eq!(kind_of("low").as_deref(), Some("variable"), "{names:?}");
+    assert_eq!(kind_of("high").as_deref(), Some("variable"), "{names:?}");
+    // controls: the plain binding is unchanged; a function-local unpacking is not a
+    // module symbol
+    assert_eq!(kind_of("PLAIN").as_deref(), Some("const"), "{names:?}");
+    assert_eq!(kind_of("inner_a"), None, "{names:?}");
+}
+
 #[test]
 fn test_extract_typescript_namespace() {
     let source = "namespace Utils {\n  export function helper() {}\n}\n\nfunction main() {}";
