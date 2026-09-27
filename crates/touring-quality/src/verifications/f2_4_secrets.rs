@@ -377,6 +377,15 @@ fn has_connstring_creds(line: &str) -> bool {
         && !pass.contains('{')
         && !pass.contains('}')
         && !is_readable_placeholder(pass)
+        && !is_regex_class(userinfo)
+}
+
+/// A `userinfo` written as a regex character class — `[^:]+:[^@]+`,
+/// `[a-z]*:[A-Za-z0-9]+` — DESCRIBES the credential slot of a DSN: the pattern a
+/// validator ships, not a leak (26/09/2026: it zeroed F2.4 of `analise/.claude/hooks`
+/// on `secrets_detector.py`'s own connection-string regex).
+fn is_regex_class(s: &str) -> bool {
+    s.contains("[^") || s.contains("]+") || s.contains("]*") || s.contains("]{")
 }
 
 /// The code-vs-literal predicate: ONE source, shared with the OWASP A05
@@ -1974,6 +1983,26 @@ mod tests {
         assert!(has_connstring_creds(
             "postgres://admin:s3cr3tP4ssw0rd@db.example.com:5432/app"
         ));
+    }
+
+    /// 26/09/2026: a DSN *validator* ships the regex of the credential slot — the
+    /// userinfo is a character class (`[^:]+:[^@]+`), and the «password» the rule
+    /// extracted was `]+:[^@]+`. It zeroed F2.4 of `analise/.claude/hooks` on
+    /// `secrets_detector.py`'s own connection-string pattern. A class DESCRIBES a
+    /// credential; it is not one.
+    #[test]
+    fn a_connection_string_regex_is_a_pattern_not_a_credential() {
+        assert!(!has_connstring_creds(
+            r#"    "dsn": r"(?:postgresql|mysql|mongodb)://[^:]+:[^@]+@[^/]+","#
+        ));
+        assert!(!has_connstring_creds(
+            r"DSN_RE = re.compile(r'redis://[a-z]*:[A-Za-z0-9]+@[\w.]+')"
+        ));
+        // controls: a real mixed-class password still blocks; a doc stand-in passes
+        assert!(has_connstring_creds(
+            "postgres://admin:s3cr3tP4ssw0rd@db.example.com:5432/app"
+        ));
+        assert!(!has_connstring_creds("postgres://user:pass@localhost/db"));
     }
 
     // ── S2 (2026-09-01): text-level API for the pre-write signal layer ──
