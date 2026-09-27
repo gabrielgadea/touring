@@ -63,7 +63,7 @@ where
             .into_iter()
             .filter(|(file, _)| !same_file(file, rel_path))
             .collect();
-        if sites.is_empty() {
+        if sites.is_empty() || sites.len() > MAX_ANALOGOUS_SITES {
             continue;
         }
         let mut files: Vec<&str> = Vec::new();
@@ -100,6 +100,12 @@ where
 
 /// Changed callees looked up per edit — bounds the index cost of a big edit.
 const MAX_CALLEES: usize = 5;
+/// Above this many call sites a name is a library/builtin method, not a project function
+/// whose callers can be compared: matching is by exact NAME, so `append` resolved to 26,019
+/// sites in 3,600 files, `to_string` to 3,795, `iter` to 3,142 (27/09/2026, the first hour
+/// after S31 revived pre-edit — every Python/Rust edit carried two or three such lines).
+/// Project functions whose callers C08 exists for sit far below it.
+const MAX_ANALOGOUS_SITES: usize = 200;
 /// Sites named in one signal; the rest is a count.
 const MAX_SITES_SHOWN: usize = 4;
 
@@ -258,6 +264,32 @@ mod tests {
                 && text.contains("crates/b/src/summary.rs:7"),
             "{text}"
         );
+    }
+
+    #[test]
+    fn a_name_with_more_sites_than_a_project_function_has_is_skipped() {
+        // `append` / `to_string` / `iter` resolved to thousands of sites by exact name (27/09/2026).
+        let many = |n: usize| {
+            move |_: &str| -> Vec<(String, usize)> {
+                (0..n)
+                    .map(|i| (format!("crates/x/src/m{i}.rs"), 1))
+                    .collect()
+            }
+        };
+        let (old, new) = ("v.append(a);", "v.append(a, b);");
+        assert!(
+            cross_caller_signals(
+                "crates/a/src/main.rs",
+                old,
+                new,
+                many(MAX_ANALOGOUS_SITES + 1)
+            )
+            .is_empty(),
+            "one site over the cap is a library name, not a project function"
+        );
+        let at_cap =
+            cross_caller_signals("crates/a/src/main.rs", old, new, many(MAX_ANALOGOUS_SITES));
+        assert_eq!(at_cap.len(), 1, "the cap itself still speaks: {at_cap:?}");
     }
 
     #[test]

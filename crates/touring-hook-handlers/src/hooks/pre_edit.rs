@@ -226,7 +226,7 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     }
 
     // Append touring suggestion if old_string spans an entire function
-    let suggestion = suggest_replace_symbol_body(old_string);
+    let suggestion = suggest_replace_symbol_body(old_string, &rel_path);
     if !suggestion.is_empty() {
         if !context.is_empty() {
             context.push_str(" | ");
@@ -240,32 +240,22 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // For Rust files: merge antipattern warnings and import suggestions via RRF so
     // items that rank high in both lists are surfaced first. Uses merge_signals_rrf
     // (unscored RRF) since both sources produce plain string lists.
-    // For non-Rust files: only import prediction applies.
-    if !new_string.is_empty() {
-        if rel_path.ends_with(".rs") {
-            let antipatterns = check_rust_antipatterns(new_string);
-            let unresolved: Vec<String> =
-                detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path)
-                    .into_iter()
-                    .take(3)
-                    .map(|s| format!("import needed: {s}"))
-                    .collect();
-            // RRF fusion: items present in both lists rank highest.
-            let merged = merge_signals_rrf(&[antipatterns, unresolved], 60.0);
-            for sig in &merged {
-                if !context.is_empty() {
-                    context.push_str(" | ");
-                }
-                context.push_str(sig);
+    // Non-Rust files get neither: see `predicts_imports`.
+    if !new_string.is_empty() && predicts_imports(&rel_path) {
+        let antipatterns = check_rust_antipatterns(new_string);
+        let unresolved: Vec<String> =
+            detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path)
+                .into_iter()
+                .take(3)
+                .map(|s| format!("import needed: {s}"))
+                .collect();
+        // RRF fusion: items present in both lists rank highest.
+        let merged = merge_signals_rrf(&[antipatterns, unresolved], 60.0);
+        for sig in &merged {
+            if !context.is_empty() {
+                context.push_str(" | ");
             }
-        } else {
-            let unresolved = detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path);
-            for suggestion in unresolved.iter().take(3) {
-                if !context.is_empty() {
-                    context.push_str(" | ");
-                }
-                context.push_str(&format!("import needed: {suggestion}"));
-            }
+            context.push_str(sig);
         }
     }
 
@@ -1322,14 +1312,35 @@ pub(crate) fn edit_spans_entire_function(old_string: &str) -> bool {
     has_fn_start && has_fn_end && line_count >= 3
 }
 
-/// If old_string spans an entire function, suggest using touring_ast_edit.
-pub(crate) fn suggest_replace_symbol_body(old_string: &str) -> String {
+/// If old_string spans an entire function, point at the structural rewrite the CLI offers.
+///
+/// It used to name the MCP tool `mcp__touring__touring_ast_edit`, which does not exist where
+/// the touring MCP server is disabled (the analise project, measured 27/09/2026 once S31 revived
+/// this handler) — a hint that names a tool the session cannot call is the D8 anti-pattern.
+/// `touring ast grep … --rewrite` exists in every setup and previews the rewrite by the AST;
+/// the file is derived, only the pattern and its replacement are left to the reader.
+pub(crate) fn suggest_replace_symbol_body(old_string: &str, rel_path: &str) -> String {
     if !edit_spans_entire_function(old_string) {
         return String::new();
     }
-    "💡 Touring: `mcp__touring__touring_ast_edit` é mais preciso \
-     para substituir funções completas — garante sintaxe e referências"
-        .to_string()
+    format!(
+        "💡 a edição cobre uma função inteira — prévia pela AST (sintaxe garantida): \
+         `touring ast grep {rel_path} '<padrão>' --rewrite '<novo>'`"
+    )
+}
+
+/// Whether the import prediction applies to `rel_path`.
+///
+/// `detect_unresolved_types` builds Rust `use` paths, so on any other language it emitted Rust
+/// syntax: a Python edit read "import needed: `use crate::.claude::hooks::gpu::metrics.py::Counter`"
+/// (27/09/2026, the first hour after S31 revived this handler).
+fn predicts_imports(rel_path: &str) -> bool {
+    rel_path.ends_with(".rs")
+}
+
+/// A `(symbol_name, module_file)` producer row a Rust file can `use`: its module file is Rust.
+fn is_rust_producer(row: &(String, String)) -> bool {
+    row.1.ends_with(".rs")
 }
 
 /// Check new_string content for known Rust anti-patterns when editing .rs files.
@@ -1435,9 +1446,14 @@ fn detect_unresolved_types(
     // Step 2 (S3, 2026-09-02): producer rows for exactly these names — one
     // indexed `IN` lookup instead of `all_pub_symbols()` scanning the whole
     // wiring map on every edit; same-crate producers first.
+    // Only Rust producers: a `use` path into a `.py`/`.ts` module is no import a Rust file can
+    // make (27/09/2026: `Counter` in a doc comment resolved to `.claude/hooks/gpu/metrics.py`).
     let known_modules: Vec<(String, String)> = db
         .find_pub_symbols_by_name(&unresolved, Some(current_file))
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .into_iter()
+        .filter(is_rust_producer)
+        .collect();
 
     // Step 3: crate-aware `use` path (B2 fix → S3 `suggest_imports_for`)
     let ast_suggestions = touring_code::ast::wiring::suggest_imports_for(
