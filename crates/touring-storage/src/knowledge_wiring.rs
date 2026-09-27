@@ -1510,7 +1510,7 @@ impl FileKnowledgeDB {
     /// What stays `unknown` after this pass has no definition ANYWHERE — the
     /// predicate the phantom purge requires (`wiring_repair`).
     pub fn resolve_consumer_kinds_from_definers(&self) -> Result<usize, rusqlite::Error> {
-        self.resolve_consumer_kinds_where(None)
+        self.resolve_consumer_kinds_where(None, None)
     }
 
     /// S223 (2026-09-25): [`Self::resolve_consumer_kinds_from_definers`] scoped to the
@@ -1524,21 +1524,37 @@ impl FileKnowledgeDB {
         consumer_file: &str,
     ) -> Result<usize, rusqlite::Error> {
         let consumer = self.canonicalize_module_path(consumer_file);
-        self.resolve_consumer_kinds_where(Some(consumer.as_ref()))
+        self.resolve_consumer_kinds_where(Some(consumer.as_ref()), None)
+    }
+
+    /// 27/09/2026: the other half — the rows that point AT `module_file`. A consumer
+    /// recorded before its definer exists (a RED test written before the function) is
+    /// born `unknown`, and [`Self::resolve_consumer_kinds_for_consumer`] only runs again
+    /// when that CONSUMER is refreshed; the definer's own refresh never re-typed it. Seen
+    /// on the analise: `extrair_rds`, test at 14:06, function at 14:42, doctor
+    /// `kind_unknown=1` until the next rebuild.
+    pub fn resolve_consumer_kinds_for_producer(
+        &self,
+        module_file: &str,
+    ) -> Result<usize, rusqlite::Error> {
+        let module = self.canonicalize_module_path(module_file);
+        self.resolve_consumer_kinds_where(None, Some(module.as_ref()))
     }
 
     fn resolve_consumer_kinds_where(
         &self,
         consumer: Option<&str>,
+        module: Option<&str>,
     ) -> Result<usize, rusqlite::Error> {
         let conn = self.conn_ref();
         let mut stmt = conn.prepare(
             "SELECT DISTINCT module_file, symbol_name, consumer_file FROM wiring_map
              WHERE symbol_kind = 'unknown' AND consumer_file IS NOT NULL
-               AND (?1 IS NULL OR consumer_file = ?1)",
+               AND (?1 IS NULL OR consumer_file = ?1)
+               AND (?2 IS NULL OR module_file = ?2)",
         )?;
         let candidates: Vec<(String, String, String)> = stmt
-            .query_map(params![consumer], |row| {
+            .query_map(params![consumer, module], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
             })?
             .collect::<Result<_, _>>()?;
@@ -3640,6 +3656,52 @@ mod consumer_kind_resolution_tests {
             kind("src/other.rs"),
             "unknown",
             "scope: another consumer stays untouched"
+        );
+    }
+
+    #[test]
+    fn producer_scoped_resolution_types_a_consumer_recorded_before_its_definer() {
+        // 27/09/2026 (analise doctor kind_unknown=1): a RED test imported `extrair_rds` at
+        // 14:06, the function landed in its module at 14:42, and the edge stayed `unknown` —
+        // the consumer-scoped pass only runs when the CONSUMER is refreshed. The producer-scoped
+        // pass types the rows that point AT the file just refreshed, and no other producer's.
+        let tmp = TempDir::new().expect("tempdir");
+        let db_dir = tmp.path().join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("canonical layout");
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
+        // `.rs` paths: the real case was Python in a polyglot db, but the pass is
+        // language-agnostic and this db is not polyglot (it would not record `.py` rows).
+        db.record_consumer("src/conversao.rs", "extrair_rds", "tests/coleta.rs", Some(1))
+            .expect("consumer before its definer");
+        db.record_consumer("src/other.rs", "later_helper", "tests/coleta.rs", Some(2))
+            .expect("another producer");
+        let kind = |module: &str| -> String {
+            db.conn_ref()
+                .query_row(
+                    "SELECT symbol_kind FROM wiring_map WHERE module_file = ?1
+                     AND consumer_file IS NOT NULL",
+                    [module],
+                    |row| row.get(0),
+                )
+                .expect("row")
+        };
+        assert_eq!(
+            db.resolve_consumer_kinds_for_consumer("tests/coleta.rs")
+                .expect("consumer pass"),
+            0,
+            "control: nothing defines either symbol yet"
+        );
+        seed_symbols(&db, "src/conversao.rs", &[("extrair_rds", "function")]);
+        seed_symbols(&db, "src/other.rs", &[("later_helper", "function")]);
+        let resolved = db
+            .resolve_consumer_kinds_for_producer("src/conversao.rs")
+            .expect("producer pass");
+        assert_eq!(resolved, 1);
+        assert_eq!(kind("src/conversao.rs"), "function");
+        assert_eq!(
+            kind("src/other.rs"),
+            "unknown",
+            "scope: another producer stays untouched"
         );
     }
 

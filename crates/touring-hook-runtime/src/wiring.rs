@@ -901,6 +901,13 @@ pub fn refresh_file_wiring(db: &FileKnowledgeDB, file_path: &str, language: &str
     if let Err(e) = db.resolve_consumer_kinds_for_consumer(file_path) {
         tracing::warn!(error = %e, consumer = file_path, "consumer-kind resolution failed; rows stay `unknown` until the next rebuild");
     }
+    // 27/09/2026: and the rows that point AT this file. A consumer written before its
+    // definer (a RED test before the function) was born `unknown`, and only a refresh of
+    // that consumer re-typed it — the definer's own refresh never did (analise doctor
+    // kind_unknown=1: `extrair_rds`, test 14:06, function 14:42).
+    if let Err(e) = db.resolve_consumer_kinds_for_producer(file_path) {
+        tracing::warn!(error = %e, producer = file_path, "producer-side kind resolution failed; rows stay `unknown` until the next rebuild");
+    }
 }
 
 /// The file's use of its own public symbols (`internal_only`), re-derived like
