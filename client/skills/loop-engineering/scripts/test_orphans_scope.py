@@ -113,6 +113,26 @@ class OrphanScopeTest(unittest.TestCase):
         self.assertFalse(ok)
         self.assertIn("a.py::NOVO", detail)
 
+    def test_two_scopes_sharing_a_bundle_keep_separate_baselines(self):
+        # kills: ONE `orphans-scoped.txt` per bundle. 27/09/2026 the plan judged two targets with one bundle; the
+        # second scope re-recorded the file with its own 7 names and the next run of the first read 7794 orphans
+        # as NEW against it.
+        (self.root / "scripts" / "outro").mkdir(parents=True)
+        (self.root / "scripts" / "outro" / "c.py").write_text("C = 1\n")
+        other = self.root / "scripts" / "outro"
+        both = _orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/outro/c.py", "C"))
+        self._run_clause(both)  # scope A records
+        with mock.patch.object(lc, "run", return_value=(0, both, "")):
+            ok_b, detail_b = lc.clause_orphans(other, self.bundle)  # scope B records its own
+        self.assertTrue(ok_b, detail_b)
+        self.assertEqual(self._baseline(), {"scripts/eleitoral/a.py::A"}, "scope B must not overwrite A")
+        ok_a, detail_a = self._run_clause(
+            _orphans_json(("scripts/eleitoral/a.py", "A"), ("scripts/eleitoral/a.py", "NOVO"), ("scripts/outro/c.py", "C"))
+        )
+        self.assertFalse(ok_a)
+        self.assertIn("a.py::NOVO", detail_a)
+        self.assertIn("baseline=1", detail_a, "A still compares against its own 1-name baseline")
+
     def _with_baseline_a(self):
         base = self.bundle / ".baseline"
         base.mkdir()
