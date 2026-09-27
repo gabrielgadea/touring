@@ -1653,6 +1653,38 @@ fn a_refresh_types_the_edges_it_writes_after_the_import_pass() {
     );
 }
 
+/// 27/09/2026: the other order — the consumer's edge exists before its definer declares the
+/// symbol (a RED test written before the function; analise `extrair_rds`, test 14:06, function
+/// 14:42), so the consumer-scoped pass left it `unknown` and only a refresh of the CONSUMER
+/// would re-type it. The DEFINER's own refresh must.
+#[test]
+fn the_definers_refresh_types_an_edge_recorded_before_it() {
+    let tmp = TempDir::new().unwrap();
+    let root = phantom_ws(&tmp);
+    let db_path = root.join(".claude/touring/knowledge.db");
+    std::fs::create_dir_all(db_path.parent().expect("touring dir")).expect("mkdir");
+    let db = FileKnowledgeDB::new(&db_path).expect("open db");
+    db.record_consumer("src/helpers.rs", "late_helper", "src/consumer.rs", None)
+        .expect("edge recorded before the definer declares the symbol");
+    let kind = || -> String {
+        db.conn_ref()
+            .query_row(
+                "SELECT symbol_kind FROM wiring_map \
+                 WHERE symbol_name = 'late_helper' AND consumer_file = 'src/consumer.rs'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("row")
+    };
+    assert_eq!(kind(), "unknown", "control: nothing declares it yet");
+    let src = "pub fn late_helper() {}\n";
+    write_file(&root, "src/helpers.rs", src);
+
+    refresh_file_wiring(&db, "src/helpers.rs", "rust", src);
+
+    assert_ne!(kind(), "unknown", "the definer's refresh left the edge untyped");
+}
+
 #[test]
 fn a_scope_keyword_is_never_recorded_as_a_symbol() {
     let (_tmp, db) = test_db();
