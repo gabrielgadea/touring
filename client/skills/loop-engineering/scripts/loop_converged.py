@@ -236,6 +236,34 @@ def _baseline_names_the_scope(baseline, scope: Path, index_root: Path) -> bool:
 
 NEW_ORPHANS_FILE = "orphans-new-last-run.txt"
 NEW_ORPHANS_SHOWN = 5
+BASELINE_FILE = "orphans-scoped.txt"
+BASELINE_OWNER = "orphans-scoped.scope"
+
+
+def _baseline_file(bundle: Path, scope: Path) -> Path:
+    """The orphan baseline of THIS scope inside the bundle (27/09/2026, test_orphans_scope.py).
+
+    One ``orphans-scoped.txt`` per bundle flip-flopped when a plan judged two targets with one bundle: the
+    second scope re-recorded it with its own 7 names, and the next run of the first read 7794 orphans as NEW.
+    The legacy name stays the baseline of the scope that claimed it (``orphans-scoped.scope`` names it), so a
+    single-scope bundle is unchanged; any other scope gets its own file, named after its resolved path.
+    """
+    base = bundle / ".baseline"
+    here = str(Path(scope).resolve())
+    owner = base / BASELINE_OWNER
+    if not owner.exists() or owner.read_text().strip() == here:
+        return base / BASELINE_FILE
+    return base / f"orphans-scoped-{re.sub(r'[^A-Za-z0-9._-]+', '_', here.strip('/'))}.txt"
+
+
+def _claim_baseline(base_file: Path, scope: Path, names=None) -> None:
+    """Write `names` (when given) and, for the legacy file, record which scope owns it."""
+    base_file.parent.mkdir(parents=True, exist_ok=True)
+    if names is not None:
+        base_file.write_text("\n".join(names))
+    owner = base_file.parent / BASELINE_OWNER
+    if base_file.name == BASELINE_FILE and not owner.exists():
+        owner.write_text(str(Path(scope).resolve()))
 
 
 def _report_new_orphans(new, list_file: Path) -> str:
@@ -326,7 +354,7 @@ def clause_orphans(scope, bundle: Path):
                    for o in orphans if _record_path(o)):
             return None, (f"unmeasured: {len(orphans)} orphan records in the wiring corpus, none under "
                           f"{tree} — absence of records is not absence of orphans")
-    base_file = bundle / ".baseline" / "orphans-scoped.txt"
+    base_file = _baseline_file(bundle, scope)
     if base_file.exists():
         baseline = set(base_file.read_text().splitlines())
         # 2026-09-14 (test_orphans_scope.py): a baseline that names NOTHING in the scope was recorded blind —
@@ -341,17 +369,17 @@ def clause_orphans(scope, bundle: Path):
         # what someone reads six months from now. Measured: the branch fired once, 14/09 16:34, on the
         # analise round, and that round's ledger says PASS on a clause that measured nothing.
         if in_scope and not _baseline_names_the_scope(baseline, scope, index_root):
-            base_file.write_text("\n".join(in_scope))
+            _claim_baseline(base_file, scope, in_scope)
             return None, (
                 f"unmeasured: {len(in_scope)} scoped orphans, and the previous baseline named "
                 f"{len(baseline)} symbols with none of them in scope — it was recorded blind, so there "
                 "was nothing to compare against. Re-recorded now; the NEXT run measures against it."
             )
+        _claim_baseline(base_file, scope)  # a legacy baseline compared against becomes this scope's
         new = [s for s in in_scope if s not in baseline]
         detail = f"scoped orphans={len(in_scope)} baseline={len(baseline)}"
         return not new, detail + _report_new_orphans(new, base_file.parent / NEW_ORPHANS_FILE)
-    base_file.parent.mkdir(parents=True, exist_ok=True)
-    base_file.write_text("\n".join(in_scope))
+    _claim_baseline(base_file, scope, in_scope)
     # The first run RECORDS and answers True: three tests in test_orphans_scope.py enshrine that contract
     # (a covered tree with a named baseline is a real zero). The hole that made it dangerous — a fresh
     # SPELLING of the scope opening a fresh, empty baseline — is closed upstream, in `_global_baseline_dir`.
