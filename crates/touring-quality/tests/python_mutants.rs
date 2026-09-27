@@ -445,6 +445,8 @@ const CANONICAL_README: &str = "# probe\n\n## Description\nd\n\n## Installation\
 fn scratch_repo(with_readme: bool) -> (tempfile::TempDir, std::path::PathBuf) {
     let dir = tempfile::tempdir().expect("tempdir");
     std::fs::create_dir(dir.path().join(".git")).expect(".git");
+    // a repository as `git init` leaves it — a `.git` without HEAD is not one
+    std::fs::write(dir.path().join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
     if with_readme {
         std::fs::write(dir.path().join("README.md"), CANONICAL_README).expect("readme");
     }

@@ -272,10 +272,20 @@ pub fn detect_kind(target: &Path) -> ScopeKind {
             return ScopeKind::Crate;
         }
     }
-    if target.join(".git").exists() || target.join("README.md").exists() {
+    if has_git_marker(target) || target.join("README.md").exists() {
         return ScopeKind::Repo;
     }
     ScopeKind::Path
+}
+
+/// Whether `dir` is the root of a git repository by git's own rule: a `.git` FILE
+/// (a worktree or submodule's `gitdir:` pointer) or a `.git` directory holding
+/// `HEAD`. A stray `.git` directory is not one — `analise/.claude/.git` holds only a
+/// GitKraken `gk/` folder, and read as a root it hid the repository's CI from every
+/// scope under `.claude` (26/09/2026).
+pub(crate) fn has_git_marker(dir: &Path) -> bool {
+    let git = dir.join(".git");
+    git.is_file() || git.join("HEAD").is_file()
 }
 
 /// Physical line count of a single file (0 if unreadable).

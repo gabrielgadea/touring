@@ -837,7 +837,7 @@ fn find_repo_root(start: &Path) -> Option<PathBuf> {
         start.parent().map(Path::to_path_buf)
     };
     while let Some(dir) = cur {
-        if dir.join(".git").exists() {
+        if crate::scope::has_git_marker(&dir) {
             return Some(dir);
         }
         if std::fs::read_to_string(dir.join("Cargo.toml"))
@@ -1504,6 +1504,13 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
+    /// A repository root as `git init` leaves it: `.git/HEAD` present — the marker
+    /// [`find_repo_root`] accepts (an empty or stray `.git` directory is not a repo).
+    fn mark_git_repo(root: &Path) {
+        std::fs::create_dir_all(root.join(".git")).expect(".git");
+        std::fs::write(root.join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
+    }
+
     /// Mutation-testing trees are near-identical clones of the source by
     /// construction — enumerating them made F1.3 report 51% duplication on a
     /// package whose real src/ duplication was 3.1% (2026-08-02).
@@ -1566,7 +1573,7 @@ mod tests {
     fn nearest_readme_upward_prefers_the_package_readme_over_the_root_one() {
         // S59: a package README shadows the root's; outside a repository there is none.
         let repo = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir(repo.path().join(".git")).expect(".git");
+        mark_git_repo(repo.path());
         std::fs::write(repo.path().join("README.md"), "# root\n").expect("root readme");
         let pkg = repo.path().join("packages").join("pkg");
         std::fs::create_dir_all(pkg.join("src")).expect("dirs");
@@ -1753,7 +1760,7 @@ mod tests {
     #[test]
     fn find_repo_root_stops_at_git_marker() {
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         let nested = root.path().join("crates/a/src");
         std::fs::create_dir_all(&nested).unwrap();
         let found = find_repo_root(&nested).expect("repo root found via .git");
@@ -1768,7 +1775,7 @@ mod tests {
         // Fixture: a repo root (marked by `.git`) shipping a CHANGELOG, holding a
         // member crate that has NEITHER a CHANGELOG nor a README of its own.
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         std::fs::write(
             root.path().join("CHANGELOG.md"),
             "# Changelog\n## 1.0\n- init\n",
@@ -1796,11 +1803,51 @@ mod tests {
         // A repo root that genuinely lacks the artifact → member still absent
         // (walk-up inherits truthfully; it never fabricates presence).
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         let crate_dir = root.path().join("crates/member");
         std::fs::create_dir_all(&crate_dir).unwrap();
         let (_, present) = read_artifact_source(&crate_dir, ArtifactClass::CiWorkflow);
         assert!(!present, "no CI anywhere → honestly absent, not fabricated");
+    }
+
+    /// 26/09/2026: `analise/.claude/.git` is a 4 KB directory holding only a GitKraken
+    /// `gk/` folder — not a repository (`git -C .claude rev-parse` resolves to the
+    /// outer one). Taken as a root marker, it cut the walk-up short and `.claude/hooks`
+    /// scored F4.7 «repository lacks it» beside the root's `.github/workflows/ci.yml`,
+    /// the very job that runs those hooks' tests. A marker is what git accepts: a
+    /// `.git` FILE (worktree/submodule) or a `.git` directory holding `HEAD`.
+    #[test]
+    fn a_stray_git_directory_without_head_is_not_a_repo_root() {
+        let root = tempfile::tempdir().expect("tempdir");
+        mark_git_repo(root.path());
+        std::fs::create_dir_all(root.path().join(".github/workflows")).unwrap();
+        std::fs::write(
+            root.path().join(".github/workflows/ci.yml"),
+            "on: push\njobs: {}\n",
+        )
+        .unwrap();
+        let tool_dir = root.path().join(".claude");
+        std::fs::create_dir_all(tool_dir.join(".git/gk")).unwrap();
+        let member = tool_dir.join("hooks");
+        std::fs::create_dir_all(&member).unwrap();
+        std::fs::write(member.join("h.py"), "x = 1\n").unwrap();
+
+        let (_, present) = read_artifact_source(&member, ArtifactClass::CiWorkflow);
+        assert!(
+            present,
+            "the stray `.git/gk` must not hide the repository root's CI"
+        );
+        assert_eq!(
+            find_repo_root(&member),
+            Some(std::fs::canonicalize(root.path()).unwrap())
+        );
+
+        // control: a real nested repository (HEAD present) still stops the walk-up
+        std::fs::write(tool_dir.join(".git/HEAD"), "ref: refs/heads/main\n").unwrap();
+        assert_eq!(
+            find_repo_root(&member),
+            Some(std::fs::canonicalize(&tool_dir).unwrap())
+        );
     }
 
     #[test]
@@ -1808,7 +1855,7 @@ mod tests {
         // A `.rs` source file scored for an artifact dim it does NOT match must
         // never be read AS that artifact (the file-scope fidelity fix).
         let root = tempfile::tempdir().expect("tempdir");
-        std::fs::create_dir_all(root.path().join(".git")).unwrap();
+        mark_git_repo(root.path());
         std::fs::write(root.path().join("CHANGELOG.md"), "# Changelog\n## 1.0\n").unwrap();
         let src = root.path().join("crates/m/src");
         std::fs::create_dir_all(&src).unwrap();
