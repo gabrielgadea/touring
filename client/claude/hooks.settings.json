@@ -6,7 +6,119 @@
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook pre-read",
-          "if": "Read(*.rs|*.py|*.ts|*.tsx|*.js|*.jsx|*.go|*.java|*.c|*.cpp|*.h|*.toml|*.json|*.yaml|*.yml|*.sh|*.sql)",
+          "if": "Read(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.sql)",
           "timeout": 10,
           "statusMessage": "Touring: analyzing file context..."
         },
@@ -24,24 +136,240 @@
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook pre-edit",
-          "if": "Edit(*.rs|*.py|*.ts|*.tsx|*.js|*.jsx|*.go|*.java|*.c|*.cpp|*.h|*.toml|*.json|*.yaml|*.yml|*.sh|*.sql)",
+          "if": "Edit(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.sql)",
           "timeout": 10,
           "statusMessage": "Touring: analyzing blast radius..."
         },
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
-          "if": "Edit(*.rs|*.py|*.ts|*.tsx|*.js|*.jsx|*.go|*.java|*.c|*.cpp|*.h|*.toml|*.json|*.yaml|*.yml|*.sh|*.sql)",
+          "if": "Edit(*.rs)",
           "timeout": 10,
           "statusMessage": "Touring: syntax pre-check..."
         },
         {
-          "type": "prompt",
-          "prompt": "A hook is about to edit a critical Rust module. The edit changes: old_string=$ARGUMENTS.tool_input.old_string to new_string=$ARGUMENTS.tool_input.new_string in file $ARGUMENTS.tool_input.file_path. Does this edit preserve the module's public API contract (pub functions, pub types, pub trait impls)? If it removes or renames a pub item, answer no. Otherwise answer yes.",
-          "if": "Edit(*/lib.rs|*/mod.rs|*/main.rs)",
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.py)",
           "timeout": 10,
-          "model": "haiku",
-          "statusMessage": "Touring: semantic API check..."
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.sql)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
         },
         {
           "type": "command",
@@ -63,7 +391,119 @@
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook pre-write",
-          "if": "Write(*.rs|*.py|*.ts|*.tsx|*.js|*.jsx|*.go|*.java|*.c|*.cpp|*.h|*.toml|*.json|*.yaml|*.yml|*.sh|*.sql)",
+          "if": "Write(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.sql)",
           "timeout": 10,
           "statusMessage": "Touring: speculative validation..."
         },
@@ -234,13 +674,6 @@
           "command": "$HOME/.claude/hooks/touring-hook post-edit",
           "timeout": 10,
           "statusMessage": "Touring: verifying edit quality..."
-        },
-        {
-          "type": "agent",
-          "prompt": "A Rust module's lib.rs or mod.rs was just edited. Check if any pub items were removed or renamed by comparing the edit's old_string vs new_string in $ARGUMENTS. If a pub function, type, or trait was removed, respond with decision: block. Otherwise respond with decision: allow.",
-          "if": "Edit(*/lib.rs|*/mod.rs)",
-          "timeout": 30,
-          "statusMessage": "Touring: verifying API contract..."
         },
         {
           "type": "command",

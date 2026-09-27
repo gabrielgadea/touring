@@ -17,11 +17,10 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parents[3]
 INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_claude_hooks.py"
 HOOKS_SETTINGS = REPO_ROOT / "client" / "claude" / "hooks.settings.json"
+TOURING_PROJECT_HOOKS = REPO_ROOT / "client" / "claude" / "touring-project.hooks.settings.json"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
@@ -143,15 +142,24 @@ def test_versioned_source_is_valid() -> None:
     assert hooks, "empty source: an --apply would wipe every global hook"
 
 
-@pytest.mark.xfail(strict=True, reason="S31: six `if` fields with `|` still in the source (the dead hooks)")
 def test_if_fields_are_single_permission_rule() -> None:
+    """S31 (27/09/2026): the six `if` with `|` never matched, so four handlers never ran; each is now
+    one entry per extension. Was a strict xfail while the dead hooks stayed in the source."""
     proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
     rules = [f["rule"] for f in json.loads(proc.stdout)["findings"]]
     assert "L1" not in rules and "L2" not in rules, rules
 
 
-def test_versioned_source_has_no_other_lint_finding() -> None:
-    """Everything except the S31 backlog is already clean — and must stay so."""
+def test_touring_project_source_lints_clean() -> None:
+    """D5-A: the Rust API-contract prompt/agent hooks left the global settings for the touring project's
+    (`.claude/` is git-ignored there, so this versioned copy is what `--apply --settings` installs)."""
+    proc = _run("--lint-only", "--source", str(TOURING_PROJECT_HOOKS), "--json")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert json.loads(proc.stdout)["findings"] == []
+
+
+def test_versioned_source_has_no_lint_finding() -> None:
+    """Every rule stays clean in the global source — no backlog exception left after S31."""
     proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
-    rest = [f for f in json.loads(proc.stdout)["findings"] if f["rule"] not in ("L1",)]
-    assert rest == [], rest
+    findings = json.loads(proc.stdout)["findings"]
+    assert findings == [], findings

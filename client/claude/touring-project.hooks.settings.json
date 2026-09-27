@@ -1,0 +1,54 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "A hook is about to edit a critical Rust module. The edit changes: old_string=$ARGUMENTS.tool_input.old_string to new_string=$ARGUMENTS.tool_input.new_string in file $ARGUMENTS.tool_input.file_path. Does this edit preserve the module's public API contract (pub functions, pub types, pub trait impls)? If it removes or renames a pub item, answer no. Otherwise answer yes.",
+          "if": "Edit(**/lib.rs)",
+          "timeout": 10,
+          "model": "haiku",
+          "statusMessage": "Touring: semantic API check..."
+        },
+        {
+          "type": "prompt",
+          "prompt": "A hook is about to edit a critical Rust module. The edit changes: old_string=$ARGUMENTS.tool_input.old_string to new_string=$ARGUMENTS.tool_input.new_string in file $ARGUMENTS.tool_input.file_path. Does this edit preserve the module's public API contract (pub functions, pub types, pub trait impls)? If it removes or renames a pub item, answer no. Otherwise answer yes.",
+          "if": "Edit(**/mod.rs)",
+          "timeout": 10,
+          "model": "haiku",
+          "statusMessage": "Touring: semantic API check..."
+        },
+        {
+          "type": "prompt",
+          "prompt": "A hook is about to edit a critical Rust module. The edit changes: old_string=$ARGUMENTS.tool_input.old_string to new_string=$ARGUMENTS.tool_input.new_string in file $ARGUMENTS.tool_input.file_path. Does this edit preserve the module's public API contract (pub functions, pub types, pub trait impls)? If it removes or renames a pub item, answer no. Otherwise answer yes.",
+          "if": "Edit(**/main.rs)",
+          "timeout": 10,
+          "model": "haiku",
+          "statusMessage": "Touring: semantic API check..."
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "agent",
+          "prompt": "A Rust module's lib.rs or mod.rs was just edited. Check if any pub items were removed or renamed by comparing the edit's old_string vs new_string in $ARGUMENTS. If a pub function, type, or trait was removed, respond with decision: block. Otherwise respond with decision: allow.",
+          "if": "Edit(**/lib.rs)",
+          "timeout": 30,
+          "statusMessage": "Touring: verifying API contract..."
+        },
+        {
+          "type": "agent",
+          "prompt": "A Rust module's lib.rs or mod.rs was just edited. Check if any pub items were removed or renamed by comparing the edit's old_string vs new_string in $ARGUMENTS. If a pub function, type, or trait was removed, respond with decision: block. Otherwise respond with decision: allow.",
+          "if": "Edit(**/mod.rs)",
+          "timeout": 30,
+          "statusMessage": "Touring: verifying API contract..."
+        }
+      ]
+    }
+  ]
+}
