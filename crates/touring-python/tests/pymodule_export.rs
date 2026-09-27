@@ -46,12 +46,22 @@ fn the_pymodule_lives_in_the_cdylib_crate() {
 
 /// The export-table proof: build the cdylib and read its dynamic symbols —
 /// the exact check the month-long defect would have failed.
+///
+/// The build runs in its OWN target dir. Sharing `target/` let `-p
+/// touring-python` (features: `bind-python` only) overwrite the no-hash
+/// `libtouring_bindings.rlib` of the running `cargo test --workspace`
+/// (crate-type rlib+cdylib ⇒ no hash in the file name), and the doctest phase
+/// then broke in 14 crates with `could not find wasm in touring_bindings` —
+/// caught red-handed by an rlib watcher on 27/09/2026 after three runs blamed
+/// a "concurrent cargo".
 #[test]
 fn the_cdylib_exports_pyinit_claude_learning_kernel() {
     let root = workspace_root();
+    let target = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("pymodule-export");
     let build = Command::new("cargo")
         .args(["build", "-p", "touring-python"])
         .current_dir(&root)
+        .env("CARGO_TARGET_DIR", &target)
         .output()
         .expect("spawn cargo build");
     assert!(
@@ -59,7 +69,7 @@ fn the_cdylib_exports_pyinit_claude_learning_kernel() {
         "cargo build -p touring-python failed: {}",
         String::from_utf8_lossy(&build.stderr)
     );
-    let so = root.join("target/debug/libclaude_learning_kernel.so");
+    let so = target.join("debug/libclaude_learning_kernel.so");
     let nm = Command::new("nm")
         .args(["-D", so.to_str().expect("utf8 path")])
         .output()
