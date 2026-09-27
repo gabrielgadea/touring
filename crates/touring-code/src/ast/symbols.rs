@@ -1255,8 +1255,11 @@ pub fn extract_symbols_with_pool(
 /// The node that DEFINES a captured name, with the key that dedups it: the name's
 /// parent — or, for a tuple-unpacked binding (`A, B = 1, 2`), the enclosing
 /// assignment keyed by the name's OWN range, so every name of the tuple is its own
-/// symbol instead of the first one shadowing the rest (26/09/2026).
-fn defining_node(name: tree_sitter::Node) -> Option<(tree_sitter::Node, (usize, usize))> {
+/// symbol instead of the first one shadowing the rest (26/09/2026). Shared by the
+/// index path (`incremental_pipeline::run_query`) so the two cannot drift apart.
+pub(crate) fn defining_node(
+    name: tree_sitter::Node,
+) -> Option<(tree_sitter::Node, (usize, usize))> {
     let parent = name.parent()?;
     if matches!(parent.kind(), "pattern_list" | "tuple_pattern") {
         return Some((parent.parent()?, (name.start_byte(), name.end_byte())));
