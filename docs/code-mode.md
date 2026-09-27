@@ -151,16 +151,21 @@ SIGKILL (stderr vazio, exit negativo) um run legítimo de `--timeout-ms 180000` 
 stderr vazio passou a ser nomeado como kill de resource cap na `failure.message`, nunca
 confundível com o exit do programa.
 
-**As janelas de rajada (G1/G10/par write→run) são por (projeto, sessão, classe) desde 30/08.**
+**As janelas de rajada (G1/G10/par write→run) são por (projeto, ator, classe): o ator é a sessão
+desde 30/08 e a sessão mais o agente desde 25/09 (S23, `session_key` em `cli_suggester.rs`).**
 Os ledgers vivem no daemon — um processo para N sessões CC. Chaveados só por projeto, um deny
 carregava comandos de OUTRA sessão no remédio e inflava a contagem de quem não fez a rajada
-(medido pela `analise-a2`: paths de scratchpad alheios na rota sugerida).
+(medido pela `analise-a2`: paths de scratchpad alheios na rota sugerida). Chaveados só pela
+sessão, um subagente — que herda o `session_id` do pai — gastava as janelas do pai com os
+próprios greps e bypasses (medido ao vivo); desde a S23 cada subagente tem janela própria
+(`agent_id` no payload), e um payload sem `session_id` cai numa chave `anon` só dele, nunca num
+slot partilhado com sessões reais. A mesma chave de ator vale para G3, G7, G11 e T3-B.
 
-**O G6 (repetição byte-idêntica) também é por sessão desde 26/09 (`daa295cd`, 30.4.75).** Ficou
+**O G6 (repetição byte-idêntica) também é por ator desde 26/09 (`daa295cd`, 30.4.75).** Ficou
 de fora da correção de 30/08 e seguia chaveado só por (raiz, ferramenta, input): uma sessão NOVA
 que repetisse o comando de outra em 300 s era negada como "retry cego" — a suíte de contrato do
-analise (uma sessão sintética por chamada) negava do 2º run em diante. `g6_key` inclui a sessão;
-provado ao vivo com a suíte rodada 2× em 22 s.
+analise (uma sessão sintética por chamada) negava do 2º run em diante. `g6_key` inclui o ator
+(sessão + agente); provado ao vivo com a suíte rodada 2× em 22 s.
 
 ## `--orchestrate` — o SDK `touring.*` dentro do sandbox
 
