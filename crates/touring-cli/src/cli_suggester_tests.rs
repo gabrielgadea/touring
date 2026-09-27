@@ -2530,6 +2530,34 @@ mod code_mode_gates_w1 {
         assert_eq!(scan_class_of("grep -rn foo src 2> /dev/null"), Some("grep"));
     }
 
+    /// S213b (26/09/2026) — uma SEQUÊNCIA só é inspeção se todo passo inspeciona. A classe
+    /// vinha do 1º verbo real: `cd t && grep -m1 x Cargo.toml; timeout 1200 cargo clippy …`
+    /// virou `grep` e o remédio da rajada propôs reexecutar 20 min de clippy (observado ao
+    /// vivo); com um `touring memory store` no lugar, reexecutaria uma escrita.
+    #[test]
+    fn a_sequence_with_a_step_that_does_work_is_never_inspection() {
+        use super::super::scan_class_of;
+        for worker in [
+            "cd /x && grep -m1 -n edition Cargo.toml; timeout 1200 cargo clippy --workspace; rustfmt --check a.rs",
+            "grep -n foo src/lib.rs && touring memory store k v",
+            "cat a.txt\npytest -q tests/",
+        ] {
+            assert_eq!(
+                scan_class_of(worker),
+                None,
+                "a working sequence classified as inspection: {worker}"
+            );
+        }
+        // controls: sequences of reads — with navigation, echo separators and an
+        // assignment — stay inspection, classed by their first reading step
+        assert_eq!(
+            scan_class_of("cd /x && grep -n foo a.rs; echo ===; cat b.rs"),
+            Some("grep")
+        );
+        assert_eq!(scan_class_of("ls src; wc -l src/lib.rs"), Some("ls"));
+        assert_eq!(scan_class_of("P=1\ncat f | head -5"), Some("cat"));
+    }
+
     /// S212 (25/09/2026) — o remédio do G10 NUNCA reexecuta o que já rodou. O ledger traz a
     /// rajada inteira em ordem; só o ÚLTIMO comando foi negado — os anteriores JÁ executaram,
     /// inclusive escritas (gravar memória, commitar). Reexecutá-los repetia efeitos: observado
