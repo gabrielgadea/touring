@@ -87,6 +87,7 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
     let raw = crate::verifications::read_target_source(target)?;
     let lang = crate::verifications::lang_of(target);
 
+    let mut paired_note = String::new();
     let (test_fns, pub_fns) = if lang == "python" {
         // Python: module-level `def foo(` / `async def foo(` where name does
         // not start with `_` (private by convention). Module-level = no
@@ -104,14 +105,23 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
                 !name.starts_with('_')
             })
             .count();
-        // Test functions: lines starting with `def test_` at any indent.
-        let py_test = raw
-            .lines()
-            .filter(|l| {
-                let t = l.trim_start();
-                t.starts_with("def test_") || t.starts_with("async def test_")
-            })
-            .count();
+        // The module's own tests plus those of the pytest files that pair with it
+        // (26/09/2026: counting only in-file made every module under pytest's layout
+        // score 0.000 by construction).
+        let mut py_test = count_python_tests(&raw);
+        let paired = paired_python_tests(target);
+        for file in &paired {
+            py_test += std::fs::read_to_string(file)
+                .map(|src| count_python_tests(&src))
+                .unwrap_or(0);
+        }
+        if !paired.is_empty() {
+            let names: Vec<String> = paired
+                .iter()
+                .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+                .collect();
+            paired_note = format!(", paired with {}", names.join(" + "));
+        }
         (py_test, py_pub)
     } else {
         let t = raw.matches(concat!("#[", "test]")).count()
@@ -129,9 +139,53 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
         (test_fns as f32 / pub_fns as f32).min(1.0)
     };
     let evidence = format!(
-        "test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3} ({lang})"
+        "test presence: test fns={test_fns}, public fns={pub_fns}, ratio={value:.3} ({lang}{paired_note})"
     );
     Ok((value, evidence))
+}
+
+/// `def test_…` / `async def test_…` at any indent — pytest's collection rule for
+/// functions and methods.
+fn count_python_tests(src: &str) -> usize {
+    src.lines()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with("def test_") || t.starts_with("async def test_")
+        })
+        .count()
+}
+
+/// The pytest files that, by pytest's naming convention, test the Python module
+/// `target`: `test_<m>.py` / `<m>_test.py` beside it, and `tests/test_<m>.py` in its
+/// directory or in any ancestor up to the repository root (bounded). A test file or
+/// `conftest.py` pairs with nothing — it is not a unit under test.
+fn paired_python_tests(target: &Path) -> Vec<std::path::PathBuf> {
+    let Some(stem) = target.file_stem().and_then(|s| s.to_str()) else {
+        return Vec::new();
+    };
+    if stem.starts_with("test_") || stem.ends_with("_test") || stem == "conftest" {
+        return Vec::new();
+    }
+    let Some(dir) = std::fs::canonicalize(target)
+        .ok()
+        .and_then(|abs| abs.parent().map(Path::to_path_buf))
+    else {
+        return Vec::new();
+    };
+    let test_name = format!("test_{stem}.py");
+    let mut candidates = vec![dir.join(&test_name), dir.join(format!("{stem}_test.py"))];
+    let root = super::find_repo_root(&dir);
+    let mut cur = Some(dir);
+    for _ in 0..8 {
+        let Some(d) = cur else { break };
+        candidates.push(d.join("tests").join(&test_name));
+        if root.as_deref() == Some(d.as_path()) {
+            break;
+        }
+        cur = d.parent().map(Path::to_path_buf);
+    }
+    candidates.dedup();
+    candidates.into_iter().filter(|p| p.is_file()).collect()
 }
 
 #[cfg(test)]
@@ -223,5 +277,56 @@ mod tests {
             s.value
         );
         assert!(s.evidence.contains("REAL line coverage"));
+    }
+
+    /// 26/09/2026 (report from the analise-af session): with no coverage artifact the
+    /// Python proxy counted `def test_` INSIDE the module itself, so under pytest's
+    /// layout (`tests/test_<m>.py`) every module scored 0.000 by construction —
+    /// `manuela_poa_rmpa.py` read «test fns=0» beside 26 tests at 94.5 % real coverage,
+    /// and `loop_converged` stuck on F3.1 in any Python scope. The proxy now pairs a
+    /// module with its tests by pytest's naming convention.
+    #[test]
+    fn python_module_counts_the_tests_its_pytest_file_pairs_with() {
+        let repo = tempfile::tempdir().expect("tmpdir");
+        std::fs::create_dir_all(repo.path().join(".git")).expect(".git");
+        std::fs::write(repo.path().join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
+        let two_public = "def a():\n    return 1\n\n\ndef b():\n    return 2\n";
+        let pkg = repo.path().join("pkg");
+        std::fs::create_dir_all(pkg.join("tests")).expect("mkdir");
+        std::fs::write(pkg.join("mod.py"), two_public).expect("module");
+        std::fs::write(
+            pkg.join("tests/test_mod.py"),
+            "def test_a():\n    assert True\n\n\ndef test_b():\n    assert True\n",
+        )
+        .expect("tests");
+        // a module deep in the tree, tested from the repository-level tests/ dir
+        std::fs::create_dir_all(repo.path().join("src/app")).expect("mkdir");
+        std::fs::create_dir_all(repo.path().join("tests")).expect("mkdir");
+        std::fs::write(repo.path().join("src/app/deep.py"), two_public).expect("deep");
+        std::fs::write(
+            repo.path().join("tests/test_deep.py"),
+            "def test_a():\n    assert True\n",
+        )
+        .expect("deep tests");
+        // control: no test file pairs with this module
+        std::fs::write(pkg.join("lonely.py"), two_public).expect("lonely");
+
+        let paired = F3_1_Coverage.check(&pkg.join("mod.py")).expect("check");
+        assert_eq!(paired.value, 1.0, "{}", paired.evidence);
+        assert!(
+            paired.evidence.contains("test_mod.py"),
+            "{}",
+            paired.evidence
+        );
+        let deep = F3_1_Coverage
+            .check(&repo.path().join("src/app/deep.py"))
+            .expect("check");
+        assert!((deep.value - 0.5).abs() < 1e-6, "{}", deep.evidence);
+        let lonely = F3_1_Coverage.check(&pkg.join("lonely.py")).expect("check");
+        assert_eq!(
+            lonely.value, 0.0,
+            "control: nothing pairs — {}",
+            lonely.evidence
+        );
     }
 }
