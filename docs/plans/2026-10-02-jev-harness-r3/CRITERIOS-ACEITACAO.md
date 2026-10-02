@@ -567,3 +567,9 @@ docstring do `rewrite` e um comentário de teste afirmavam a razão errada do E9
 `4f1d3ecbc4ca9e3df7457719b6f7bddf500fca39d854de2b8ef8201304d0922d`), com `/tmp/r3s4g/on-events.jsonl` (178 linhas) e com o diff do `31aa69ed` (só docstring e um
 comentário de teste). Dois trechos antigos diziam mais do que o medido e ganharam nota, sem reescrever o registro: o "NUNCA" do desenho (E9.8-p, na seção de
 flag) e o E5.3 (anulado pela E6.1).
+
+**E9.8-q (02/10/2026, escrito às 18:02 -03:00 — antes da rodada 3).** Réplica da rodada 2 para tirar a ressalva "1 rodada, sem repetição". Nenhuma
+mudança de procedimento: mesmo código (`2f297e58`, mais o docstring do `31aa69ed`), mesmas regras do E9.8-n, mesmas 200 entradas
+(`s4_inputs.jsonl` sha256 `7af62ab0390fb933…`), base nova e virgem `/tmp/r3s4h/{on,off,ctl}`, saída `s4-ab-run3.json`. **Regra de leitura fixada antes:** o S4 só é
+"reproduzido" se a rodada 3 também der `passes = true` (controle OFF×ctl 0/200, ON×OFF 0/200, `on_events ≥ 1`, 0 contaminação do journal real). Se der VOID ou
+qualquer diferença, os dois resultados são reportados lado a lado, o S4 passa a "passou em 1 de 2 rodadas" e a diferença é investigada, nunca contornada.
