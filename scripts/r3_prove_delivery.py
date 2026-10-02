@@ -132,6 +132,36 @@ def run_hook(argv, payload, shadow, state_dir=None) -> bytes:
     return subprocess.run(argv, input=json.dumps(payload).encode(), env=env, capture_output=True, timeout=60).stdout
 
 
+CONTENT_KEYS = ("additionalContext", "systemMessage", "reason", "stopReason", "permissionDecisionReason",
+                "decision", "permissionDecision", "updatedInput")
+
+
+def _json_has_content(o) -> bool:
+    if isinstance(o, dict):
+        return any(_json_has_content(v) if k not in CONTENT_KEYS else _is_filled(v) or _json_has_content(v) for k, v in o.items())
+    if isinstance(o, list):
+        return any(_json_has_content(v) for v in o)
+    return False
+
+
+def _is_filled(v) -> bool:
+    return bool(v.strip()) if isinstance(v, str) else bool(v)
+
+
+def has_content(raw: bytes) -> bool:
+    """A hook answer has something to compare only if it injects text or decides. `{}\\n` (the real silence of the hooks,
+    measured 02/10), whitespace and a protocol envelope with empty fields are silence; non-JSON bytes are content."""
+    text = raw.decode("utf-8", "replace").strip()
+    if not text:
+        return False
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return True
+    # Only an object/list speaks the hook protocol; a bare scalar (`0`, `"x"`) is bytes outside it, i.e. content.
+    return _json_has_content(parsed) if isinstance(parsed, (dict, list)) else True
+
+
 def s4_byte_identical(argv, inputs, toml=None) -> dict:
     """ON vs OFF per input, plus a CONTROL (OFF vs OFF). Every run starts from a FRESH scratch project: the suggester's
     300 s dedup cache would otherwise make a repeated input differ with no flag involved. A control that differs means
@@ -151,7 +181,7 @@ def s4_byte_identical(argv, inputs, toml=None) -> dict:
                 n_diff += 1
                 first = i if first is None else first
             n_ctl += outs[1] != outs[2]
-            n_nonempty += bool(outs[0] or outs[1])   # the strength of the proof: how many comparisons had something to compare
+            n_nonempty += has_content(outs[0]) or has_content(outs[1])   # the strength of the proof: how many comparisons had something to compare
     base = {"n": len(inputs), "n_diff": n_diff, "n_control_diff": n_ctl, "control_identical": n_ctl == 0,
             "n_nonempty": n_nonempty, "identical": not n_diff and bool(inputs), "first_diff_input": first}
     if n_ctl:
