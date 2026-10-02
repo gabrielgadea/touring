@@ -1,0 +1,45 @@
+{
+  "phase": "S-1",
+  "entities": [
+    {
+      "entity_id": "phase:S-1",
+      "type": "phase",
+      "description": "Contrato de eventos do shadow r3: esquema FECHADO (3 kinds), privacidade provada por teste (teto 80 chars, session_hash, whitelist do Jev), registry de use_case com os limiares pre-registrados. 8 testes, 7 mutantes mortos (3 sobreviveram na 1a rodada por guards se mascararem \u2014 testes reforcados)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-1|produces|memory:loop:task_1790956285165149342:S-1:done",
+      "source": "phase:S-1",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-1:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-1:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}
