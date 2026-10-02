@@ -339,3 +339,31 @@ mutante morto), não por S4.
 **E5.4 — S3 tem o denominador dito:** elegíveis = ofertas que FECHAM (consumed/window/replaced) numa janela de 24 h
 com o shadow ligado; uma oferta pendente quando a sessão acaba não emite linha por desenho e é contada à parte
 (`pending_at_end`), nunca escondida.
+
+---
+
+# Errata 6 — 02/10/2026 15:17:24 BRT — registrada DEPOIS do resultado do S4 (e por isso só pode ENFRAQUECER afirmações)
+
+> O shadow está ligado desde 15:09:22 (daemon 30.4.91). O S4 foi executado e **não foi demonstrável** pelo método
+> pré-registrado. Esta errata declara o alcance real do que foi provado; **não move nenhum limiar, não troca um
+> não-resultado por aprovação e não toca A1/A2.**
+
+**E6.1 — S4 (byte-idêntico) NÃO provado de ponta a ponta contra o binário real.** Rodado com as 200 entradas reais,
+no modo standalone, em projeto de rascunho novo por execução, com controle OFF×OFF (determinístico, 0 divergências):
+`cli-suggest` devolveu **0 bytes nas 200 entradas** (e também 0 bytes para `cat` de código, `grep -rn` e `find`, que
+no daemon geram nudge: o standalone não emite para esse hook) ⇒ prova **ANULADA** (`passes: null`, exit 2);
+`pre-bash` devolveu 1 saída não-vazia em 200 ⇒ "passa", mas com UMA comparação com conteúdo, sem força. A injeção do
+`pre-bash` depende de falha anterior do mesmo comando, e semear essa falha pelo `post-bash` num projeto limpo não a
+reproduziu. **O que sustenta a identidade**: por construção (o contexto entra por referência imutável; a decisão de
+produção é calculada antes e devolvida por valor) e os testes de unidade com mutante morto (A1: chamada em `pre_bash`,
+valor de `bytes` e do sha da 1ª linha; A2: decisão de produção intocada, gate da flag, janela K). Um S4 forte exigiria
+A/B de dois daemons por projeto (um com a flag ON, outro OFF) com as mesmas entradas — fica para o r4.
+**E6.2 — S3 mede-se pelo contador durável de ofertas**, `code_mode_arm.json:code.offered` (base 485 às 15:15:50,
+`r3-data/s3_baseline.json`), contra as linhas `a2_offer_closed`; ofertas naturais são ~16/dia, então a janela de 24 h
+do S3 pré-registrado NÃO cabe nesta sessão: o que se reporta é o intervalo medido, declarado como interino.
+**E6.3 — o B0 online não é o B0 do replay.** O `post-tool-rl` roda com atraso (~3-5 s) e a janela do shadow ordena por
+CHEGADA do hook: o `cmd_heads` de um evento real incluiu o comando anterior à oferta; a produção também tem TTL de 60 s
+e chave de ator. O replay ordena pelo transcript (`classify_route_outcome` puro). Os dois medem coisas próximas, não
+idênticas, e o relatório não os mistura.
+**E6.4 — latência do braço local online.** A 1ª decisão do B-L carrega o modelo (3.621 ms, carga preguiçosa); as
+seguintes levam ~377 ms. A latência do B-L é reportada sobre decisões aquecidas, com a 1ª separada.
