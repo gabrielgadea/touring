@@ -62,19 +62,37 @@ def _a2_arm(name, a, f):
     return {"C-A2-1": c1, "C-A2-2": c2, "C-A2-3": c3, "C-A2-4": c4, "passes": c1 and c2 and c3, "underpowered": under}
 
 
+def _and3(*vals):
+    """Three-valued AND: a KNOWN failure decides (False); an unknown is never a pass (None); only all-known-True is True."""
+    if any(v is False for v in vals):
+        return False
+    return None if any(v is None for v in vals) else True
+
+
+def _known_ge(x, floor):
+    return None if x is None else _ge(x, floor)   # an absent measurement is unknown, not zero and not a pass
+
+
 def verdict_a1(r: dict) -> dict:
+    """The REAL replay emits no `followed_recall` (it needs the A2 gold) and `harm: null` (it needs the cross-vendor
+    raters), so those are UNKNOWN — and a known failure of another clause still decides."""
     f = uc.REGISTRY["a1_relevance"]["floors"]
     out = {"use_case": "a1_relevance", "arms": {}}
     for name, a in r["arms"].items():
         out["arms"][name] = {"valid": _ge(a["exempt_retained"], f["exempt_retained"])}  # one EXEMPT drop kills the arm
     d = r["arms"]["B-D"]
-    harm = min(d["harm"]["lower_ci_a"], d["harm"]["lower_ci_b"])  # the WORSE of the two raters decides
-    c1 = (out["arms"]["B-D"]["valid"] and _ge(d["bytes_saved"], f["bytes_saved_rule"])
-          and _ge(d["followed_recall"], f["followed_recall_rule"]))
-    c2 = _ge(harm, f["harm_lower_ci"])
+    c1 = _and3(out["arms"]["B-D"]["valid"], _known_ge(d.get("bytes_saved"), f["bytes_saved_rule"]),
+               _known_ge(d.get("followed_recall"), f["followed_recall_rule"]))
+    h = d.get("harm")
+    c2 = None if h is None else _ge(min(h["lower_ci_a"], h["lower_ci_b"]), f["harm_lower_ci"])  # the WORSE rater decides
     out["arms"]["B-D"].update({"C-A1-1": c1, "C-A1-2": c2})
-    if not (c1 and c2):
+    out["harm_moot"] = c1 is False and c2 is None   # the harm check cannot change a verdict C-A1-1 already fixed
+    if c1 is False or c2 is False:
         return {**out, "verdict": "NAO_ADOTADO_PELOS_DADOS"}
+    if c1 is None:
+        return {**out, "verdict": "INCONCLUSIVO_SEM_GOLD"}
+    if c2 is None:
+        return {**out, "verdict": "INCONCLUSIVO_SEM_HARM"}
     winners = []
     for name, a in r["arms"].items():
         if name == "B-D":

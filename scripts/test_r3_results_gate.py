@@ -34,6 +34,40 @@ def a1_results():
     }
 
 
+def real_a1(**b_d):
+    """The shape the REAL replay emits (r3_replay_a1.py): no `followed_recall` (it needs the A2 gold) and `harm: null`
+    (it needs the cross-vendor raters). The first version of the gate only ever saw a fixture with every field filled and
+    crashed with TypeError on the first real file."""
+    arm = {"bytes_totais": 149773, "bytes_mantidos": 133382, "bytes_saved": 0.1094, "n_blocos": 262, "n_exempt": 128,
+           "exempt_retained": 1.0, "harm": None}
+    arm.update(b_d)
+    return {"use_case": "a1_relevance", "arms": {"B-D": arm}}
+
+
+def test_a1_real_shape_with_failed_bytes_is_not_adopted_and_harm_is_moot():
+    out = gate.verdict_a1(real_a1())                                  # 0.1094 < 0.25: definitive, whatever recall/harm are
+    assert out["verdict"] == "NAO_ADOTADO_PELOS_DADOS" and out["arms"]["B-D"]["C-A1-1"] is False
+    assert out["arms"]["B-D"]["C-A1-2"] is None and out["harm_moot"] is True
+
+
+def test_a1_unknown_is_never_a_pass_it_is_inconclusive_with_the_reason():
+    ok_bytes = real_a1(bytes_saved=0.30)                              # bytes pass, recall AND harm still unknown
+    assert gate.verdict_a1(ok_bytes)["verdict"] == "INCONCLUSIVO_SEM_GOLD"
+    with_recall = real_a1(bytes_saved=0.30, followed_recall=1.0)      # recall known, harm unknown
+    assert gate.verdict_a1(with_recall)["verdict"] == "INCONCLUSIVO_SEM_HARM"
+
+
+def test_a1_a_known_failure_decides_even_when_other_fields_are_unknown():
+    assert gate.verdict_a1(real_a1(bytes_saved=0.9, exempt_retained=0.99))["verdict"] == "NAO_ADOTADO_PELOS_DADOS"   # EXEMPT drop kills it
+    assert gate.verdict_a1(real_a1(bytes_saved=0.9, followed_recall=0.97))["verdict"] == "NAO_ADOTADO_PELOS_DADOS"   # recall < 1.00
+    bad_harm = real_a1(bytes_saved=0.30, followed_recall=1.0, harm={"lower_ci_a": 0.95, "lower_ci_b": 0.80})
+    assert gate.verdict_a1(bad_harm)["verdict"] == "NAO_ADOTADO_PELOS_DADOS"                                          # worse rater decides
+
+
+def test_a1_complete_results_still_reach_the_model_verdicts():
+    assert gate.verdict_a1(a1_results())["verdict"] == "MODELO_PASSA"
+
+
 def test_verdict_is_computed_from_frozen_thresholds_not_edited_by_hand():
     assert gate.verdict_a2(a2_results())["verdict"] == "PASSA"
     # one hair under the pre-registered +0.05 floor fails C-A2-1; exactly on it passes
