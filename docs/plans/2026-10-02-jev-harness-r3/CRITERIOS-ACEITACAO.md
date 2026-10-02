@@ -632,3 +632,12 @@ teto**. Passada 1 = 25 chamadas. Passada 2 (≤ 25) só se a passada 1 diferir d
 também |p2 − p1|. **E11.3 — re-pontuação.** B-J com os p vivos no lugar dos do cache, contra o MESMO gold registrado, com o pontuador puro; veredito pelo gate.
 O veredito primário continua o registrado; saem a concordância do B-J (registrada × com p vivos) e os dois vereditos. **E11.4 — saldo:** ~486 − chamadas feitas
 (a ferramenta imprime o total e as rotas do journal: o esperado é `api` = chamadas, `cache` = 0).
+
+**E11.5 — resultado (19:31 -03:00, depois da execução).** Rodaram as 2 passadas (a passada 1 diferiu do cache em 17 de 25 payloads, então a regra disparou a 2ª): **50
+chamadas, todas `api`, 0 `cache`, 0 erros**; saldo ~436. Passada 1 × cache: 8/25 iguais, máx |Δ| = 0,02, média 0,0084 ⇒ **"estável"** pela tolerância 0,05; passada
+2 × passada 1: 13/25 iguais, máx 0,02, média 0,0068. Latência real (n = 50): mediana 368 ms, p95 446 ms, máx 574 ms. **Re-pontuação do B-J (E11.3):** o texto do E11.3 dizia
+"os p vivos" sem dizer qual passada; a ferramenta usou a **passada 1**, e eu pontuei também a **passada 2** com a mesma função, para não escolher a que convém:
+concordância do B-J **0,8353 (cache) · 0,9176 (passada 1) · 0,8000 (passada 2)**, B0 = 0,9059; Δ vs B0 −0,0706 · +0,0118 (IC inferior 0,0000) · −0,1059; τ 0,46 · 0,47 · 0,47;
+precisão 0,806 · 0,892 · 0,887; **veredito do gate nas três: `NAO_ADOTADO_PELOS_DADOS`** (C-A2-1 e C-A2-3 falsos nas três). **Leitura:** o veredito é robusto ao ruído do
+Jev; a concordância do B-J, não (amplitude de 10 itens em 85, porque os p ficam entre 0,31 e 0,50 e o τ cai em 0,46–0,47). O veredito primário e o gold registrado não
+mudam. Artefatos: `r3-data/jev_recheck/` (`recheck.json`, `predictions-a2-jevlive{,-1,-2}.jsonl`, `jev_journal_recheck.jsonl`).
