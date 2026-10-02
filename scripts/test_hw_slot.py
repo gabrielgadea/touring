@@ -261,3 +261,64 @@ def test_no_hold_and_wait_between_classes(env, tmp_path):
 def test_status_lists_both_classes(env):
     names = [s["slot"] for s in json.loads(run(env, "--status").stdout)["slots"]]
     assert names == ["rust-1", "heavy-1", "heavy-2"]
+
+
+# ── VRAM gate and the thermal abort DURING the job (asked by the analise coordinator, 02/10/2026) ──
+
+def test_min_vram_gate_blocks_and_names_the_reason(env):
+    env["HW_SLOT_VRAM_FREE_GB"] = "2"
+    r = run(env, "--wait", "1", "--min-vram-gb", "4", "--", "true")
+    assert r.returncode == 75 and "vram" in r.stderr and "2" in r.stderr
+    env["HW_SLOT_VRAM_FREE_GB"] = "6"
+    assert run(env, "--wait", "1", "--min-vram-gb", "4", "--", "true").returncode == 0
+
+
+def test_vram_gate_is_off_by_default(env):
+    env["HW_SLOT_VRAM_FREE_GB"] = "0.1"  # almost no VRAM, but nobody asked for the gate
+    assert run(env, "--wait", "1", "--", "true").returncode == 0
+
+
+def test_unmeasured_vram_proceeds_with_a_warning(env, tmp_path):
+    env.pop("HW_SLOT_VRAM_FREE_GB", None)
+    env["PATH"] = str(tmp_path)  # no nvidia-smi anywhere
+    r = subprocess.run([sys.executable, str(SCRIPT), "--wait", "1", "--min-vram-gb", "4", "--", sys.executable, "-c", "pass"],
+                       env=env, capture_output=True, text=True, timeout=20)
+    assert r.returncode == 0 and "vram unmeasured" in r.stderr
+
+
+def _abort_env(env, temp="95"):
+    env.update(HW_SLOT_TEMP_C=temp, HW_SLOT_WATCH_SECS="0.05", HW_SLOT_ABORT_SAMPLES="3")
+    return env
+
+
+def test_abort_temp_kills_the_job_and_names_the_temperature(env):
+    t0 = time.time()
+    r = run(_abort_env(env), "--max-temp", "99", "--abort-temp", "90", "--", "sleep", "30")
+    assert r.returncode == 75 and "ABORT" in r.stderr and "95" in r.stderr
+    assert time.time() - t0 < 10  # the 30 s job did not run to completion
+
+
+def test_abort_temp_is_off_by_default(env):
+    r = run(_abort_env(env), "--max-temp", "99", "--", "sleep", "1")
+    assert r.returncode == 0
+
+
+def test_abort_needs_the_configured_number_of_consecutive_samples(env):
+    e = _abort_env(env)
+    e["HW_SLOT_ABORT_SAMPLES"] = "1000"  # 1 s job at 0.05 s ⇒ ~20 samples: never reaches the threshold
+    assert run(e, "--max-temp", "99", "--abort-temp", "90", "--", "sleep", "1").returncode == 0
+
+
+def test_abort_kills_the_whole_process_group_not_only_the_direct_child(env):
+    r = run(_abort_env(env), "--max-temp", "99", "--abort-temp", "90", "--", "bash", "-c", "sleep 30 & echo $!; wait")
+    grandchild = int(r.stdout.split()[0])
+    assert r.returncode == 75
+    time.sleep(0.3)
+    with pytest.raises(ProcessLookupError):
+        os.kill(grandchild, 0)
+
+
+def test_abort_is_recorded_in_the_log(env):
+    run(_abort_env(env), "--label", "hot", "--max-temp", "99", "--abort-temp", "90", "--", "sleep", "30")
+    rec = json.loads(Path(env["HW_SLOT_LOG"]).read_text().splitlines()[-1])
+    assert rec["aborted"] is True and rec["label"] == "hot" and rec["rc"] == 75
