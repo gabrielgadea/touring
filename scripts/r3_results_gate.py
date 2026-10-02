@@ -37,22 +37,29 @@ def verdict_a2(r: dict) -> dict:
         return {**base, "verdict": "GOLD_INSUFICIENTE"}
     if _ge(r["b0"]["agreement"], f["b0_sufficient_agreement"]):
         return {**base, "verdict": "REGEX_BASTA"}
-    passing, c1_any = [], False
-    for name, a in r["arms"].items():
-        c1 = _ge(a["delta_vs_b0"], f["delta_agreement"]) and a["delta_ci_low"] > 0
-        c2 = all(_ge(s["agreement_model"] - s["agreement_b0"], f["stratum_regression"])
-                 for s in a.get("strata", {}).values() if s["n_test"] >= MIN_STRATUM_N)
-        c3 = _ge(a["precision"], f["precision"]) and _ge(a["coverage"], f["coverage"])
-        cap = f["p95_ms_local"] if name in LOCAL_ARMS else f["p95_ms_api"]
-        c4 = None if a.get("latency_p95_ms") is None else a["latency_p95_ms"] <= cap  # reported, never a quality failure
-        ok = c1 and c2 and c3
-        base["arms"][name] = {"C-A2-1": c1, "C-A2-2": c2, "C-A2-3": c3, "C-A2-4": c4, "passes": ok}
-        c1_any |= c1
-        if ok:
-            passing.append((a["delta_vs_b0"], name))
+    arms = {name: _a2_arm(name, a, f) for name, a in r["arms"].items()}
+    base["arms"] = arms
+    passing = [(r["arms"][n]["delta_vs_b0"], n) for n, e in arms.items() if e["passes"]]
     if passing:
         return {**base, "verdict": "PASSA", "best_arm": max(passing)[1]}
-    return {**base, "verdict": "PARCIAL" if c1_any else "NAO_ADOTADO_PELOS_DADOS"}
+    # PASSA > PARCIAL > INCONCLUSIVO_POR_POTENCIA > NAO_ADOTADO_PELOS_DADOS (CRITERIOS Errata 3, E3.2)
+    if any(e["C-A2-1"] for e in arms.values()):
+        return {**base, "verdict": "PARCIAL"}
+    under = any(e["underpowered"] for e in arms.values())
+    return {**base, "verdict": "INCONCLUSIVO_POR_POTENCIA" if under else "NAO_ADOTADO_PELOS_DADOS"}
+
+
+def _a2_arm(name, a, f):
+    """The four pre-registered criteria for ONE model arm (plus the Errata 3 underpowered flag)."""
+    c1 = _ge(a["delta_vs_b0"], f["delta_agreement"]) and a["delta_ci_low"] > 0
+    # Errata 3 (E3.2): the effect is at/above the floor but the CI crosses zero ⇒ the sample cannot decide
+    under = _ge(a["delta_vs_b0"], f["delta_agreement"]) and not a["delta_ci_low"] > 0
+    c2 = all(_ge(s["agreement_model"] - s["agreement_b0"], f["stratum_regression"])
+             for s in a.get("strata", {}).values() if s["n_test"] >= MIN_STRATUM_N)
+    c3 = _ge(a["precision"], f["precision"]) and _ge(a["coverage"], f["coverage"])
+    cap = f["p95_ms_local"] if name in LOCAL_ARMS else f["p95_ms_api"]
+    c4 = None if a.get("latency_p95_ms") is None else a["latency_p95_ms"] <= cap  # reported, never a quality failure
+    return {"C-A2-1": c1, "C-A2-2": c2, "C-A2-3": c3, "C-A2-4": c4, "passes": c1 and c2 and c3, "underpowered": under}
 
 
 def verdict_a1(r: dict) -> dict:

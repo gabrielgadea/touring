@@ -197,3 +197,31 @@ cada desacordo vai à fila de desempate e é fechado por um terceiro juiz (Claud
 **E2.4 — cegueira.** O pacote entregue aos adjudicadores contém só `item_id`, texto do nudge e os ≤ 3 comandos
 (`scripts/r3_adjudication.py::pack`); a decisão de B0 vive num arquivo-chave que eles não recebem; a ordem é
 embaralhada por seed.
+
+---
+
+# Errata 3 — 02/10/2026 13:06:55 BRT — registrada ANTES de existir qualquer rótulo de adjudicação
+
+> Motivos (todos verificados, nenhum depende de resultado de braço): (i) o extrator achou **198 ofertas
+> (136 followed / 62 not-followed por B0) em 16 sessões** — o 1º relatório de 114 era bug de recall
+> (âncora `^` no marcador; o Claude Code embrulha o deny em `PreToolUse:Bash hook error: `), corrigido com teste de
+> recall; os transcripts só existem desde 02/09 (retenção), então 26/08–01/09 é irrecuperável; (ii) o
+> **Kimi K3 esgotou a cota semanal** (403 às 12:57) — um dos dois adjudicadores deixou de existir.
+> **Nenhum limiar muda.** Esta errata só fixa o TAMANHO da amostra e a COMPOSIÇÃO dos adjudicadores.
+
+**E3.1 — amostra = todas as ofertas.** O "n = 240, 120/120" da E1.3 é inatingível (o estrato `not-followed`
+tem 62). Não há amostragem: **todas as 198 ofertas são adjudicadas** (sem variância de amostragem). A estratificação
+por decisão de B0 passa a valer para a DIVISÃO `audit-val`/`audit-test` (40/60, seed 20261002, por sessão),
+garantindo `not-followed` nas duas metades.
+**E3.2 — potência (declarada antes do dado).** Com ≈ 119 itens em `audit-test`, o IC95% do delta de acordo
+tem meia-largura ≈ ±0,07; logo C-A2-1 (delta ≥ +0,05 com limite inferior > 0) só passa se o efeito real for
+folgado. Para não rotular falta de potência como "o modelo não funciona", o veredito ganha o estado
+**`INCONCLUSIVO_POR_POTENCIA`**: nenhum braço passa C-A2-1 por causa do IC, **mas** algum braço tem delta ≥ +0,05.
+Ele NÃO promove nada (equivale a "sem adoção"); só diz que a amostra não decide. Ordem dos vereditos:
+PASSA > PARCIAL > INCONCLUSIVO_POR_POTENCIA > NAO_ADOTADO_PELOS_DADOS.
+**E3.3 — adjudicadores.** Substituição do Kimi, **divulgada como limitação**: rater 1 = MiniMax em sessão **nova**
+(a que não portou o B0 e, portanto, não conhece a lógica do classificador); rater 2 = **subagente Claude em contexto
+limpo, cego à decisão de B0** (mesma família do agente julgado — risco de ponto cego compartilhado, mitigado pelo
+κ reportado e pelo desempate registrado). Se uma segunda sessão MiniMax/outra família ficar disponível a tempo,
+ela substitui o rater 2 antes de qualquer rótulo existir. O κ ≥ 0,60 (§2) e o resto do protocolo (E2.1–E2.4) valem
+sem mudança; o relatório final cita explicitamente esta limitação.
