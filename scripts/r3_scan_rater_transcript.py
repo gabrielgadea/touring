@@ -31,9 +31,11 @@ def _allowed(path: str, extra=()) -> bool:
     return any(p.endswith(f) for f in ALLOWED_FILES + tuple(extra)) or any(p.endswith(d) for d in ALLOWED_DIRS)
 
 
-def scan(path, model="minimax", extra_allowed=()) -> dict:
+def scan(path, model="minimax", extra_allowed=(), extra_forbidden=(), forbidden_tools=()) -> dict:
     """`model` is the substring EVERY assistant turn must carry (rater 1: minimax; the Claude tie-break judge: claude);
-    `extra_allowed` adds output-file suffixes (the tie-break judge's own file). Nothing else relaxes."""
+    `extra_allowed` adds output-file suffixes (the tie-break judge's own file). `extra_forbidden` adds path tokens and
+    `forbidden_tools` adds tool names that invalidate the transcript (Errata 10: a later judge must not read the rater-1
+    file, which the default allow-list names, and must not delegate). Only `extra_allowed` relaxes."""
     models, violations, n_calls, n_turns = set(), [], 0, 0
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         try:
@@ -47,7 +49,9 @@ def scan(path, model="minimax", extra_allowed=()) -> dict:
         for call in _calls(e):
             n_calls += 1
             text = json.dumps(call.get("input", {}), ensure_ascii=False)
-            for tok in FORBIDDEN:
+            if call.get("name") in forbidden_tools:
+                violations.append({"kind": "forbidden_tool", "tool": call.get("name")})
+            for tok in tuple(FORBIDDEN) + tuple(extra_forbidden):
                 if tok in text:
                     violations.append({"kind": "forbidden_token", "token": tok, "tool": call.get("name")})
             for hp in HOME_PATH.findall(text):
@@ -68,8 +72,11 @@ def main(argv=None) -> int:
     ap.add_argument("transcript")
     ap.add_argument("--model", default="minimax", help="substring every assistant turn's model must carry")
     ap.add_argument("--allow-file", action="append", default=[], help="extra allowed output-file suffix (repeatable)")
+    ap.add_argument("--forbid", action="append", default=[], help="extra forbidden path token (repeatable)")
+    ap.add_argument("--forbid-tool", action="append", default=[], help="tool name that invalidates the transcript (repeatable)")
     a = ap.parse_args(argv)
-    out = scan(a.transcript, model=a.model, extra_allowed=tuple(a.allow_file))
+    out = scan(a.transcript, model=a.model, extra_allowed=tuple(a.allow_file), extra_forbidden=tuple(a.forbid),
+               forbidden_tools=tuple(a.forbid_tool))
     print(json.dumps(out, ensure_ascii=False, indent=1))
     return 2 if out["valid"] is None else 0 if out["valid"] else 1
 
