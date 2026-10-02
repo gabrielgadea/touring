@@ -641,3 +641,32 @@ concordância do B-J **0,8353 (cache) · 0,9176 (passada 1) · 0,8000 (passada 2
 precisão 0,806 · 0,892 · 0,887; **veredito do gate nas três: `NAO_ADOTADO_PELOS_DADOS`** (C-A2-1 e C-A2-3 falsos nas três). **Leitura:** o veredito é robusto ao ruído do
 Jev; a concordância do B-J, não (amplitude de 10 itens em 85, porque os p ficam entre 0,31 e 0,50 e o τ cai em 0,46–0,47). O veredito primário e o gold registrado não
 mudam. Artefatos: `r3-data/jev_recheck/` (`recheck.json`, `predictions-a2-jevlive{,-1,-2}.jsonl`, `jev_journal_recheck.jsonl`).
+
+---
+
+# Errata 12 — 02/10/2026 19:35 -03:00 — r4 mínimo (B-L com texto truncado), pré-registrado ANTES de rodar
+
+> Autorização: o Gabriel, no item 2 do canvas, escolheu "A. r4 mínimo: só o B-L (Laya local) com texto truncado de ≤200 caracteres, pré-registrado".
+> Escopo: **só isso**. A3, A4, Tier B, S-9b e o C-A2-3 com margem não fazem parte, e o veredito registrado do A2 não muda.
+
+**E12.1 — divergência do r3, achada ao preparar o r4 e verificada no código.** O B-L do r3 rodou o checkpoint **inglês** (raiz de `convaiinnovations/laya`:
+encoder ModernBERT-large, `max_len` 512), **não** o "multilíngue" que o pré-registro nomeia (CRITERIOS:71, plan.md:25). Prova: `laya.Agent(subfolder=None)` é o
+default, `r3_arms.py:84` e `r3_replay_a2.py` não passam `subfolder`, e o multilíngue só carrega com `subfolder="multilingual"` (`laya/agent.py:514` e `:1861`;
+encoder mmBERT-base, `max_len` 1024). O resultado do B-L do r3 vale, portanto, para o checkpoint inglês com o payload redigido. Divulgada; não altera o veredito.
+(O levantamento do `touring-a4` apontou isto; a parte dele sobre "200 chars não cabem na cabeça" estava errada: `head_max_len` orça as opções da cabeça, o texto do estado
+entra por `max_len`; e a alegação de que o venv do Laya não existe também: ele existe e `import laya` funciona.)
+
+**E12.2 — hipótese primária, única.** **B-LT-EN** = checkpoint inglês (o mesmo do r3), pergunta idêntica à do r3, estado = texto truncado, passa os critérios C-A2-1..3 do r3 (Errata 8) contra
+o B0. Comparar com o B-L do r3 isola o efeito do texto. **B-LT-ML** = checkpoint multilíngue (o que o pré-registro nomeou) é **secundário/exploratório**: se ele passar e o
+primário não, sai como "exploratório, exigiria réplica" e **não** sustenta a hipótese.
+**E12.3 — entrada, fixada.** `Recommended route: <rota_proposta>`, `Next commands:` e até 3 comandos; cada texto com os espaços colapsados e cortado em **200** caracteres
+(política de dados do §1/E4.2); nada mais do item (nem a decisão do B0, nem a sessão). O texto não é gravado em nenhuma saída (as predições são números); local, CPU, sem rede.
+**E12.4 — pontuação.** Os 180 itens congelados; τ em `audit-val` pela regra da Errata 8; teste em `audit-test`; **gold registrado** (`adj_merge_final/gold_a2.jsonl`, κ 0,7707); IC bootstrap do
+pontuador; veredito **por braço** pelo gate, computado sobre UM braço (`evaluate`). O gate trata nomes de braço novos como braços de API (teto de latência 800 ms; C-A2-4 só é reportado).
+AUC de polaridade reportado, sem inversão (E8.8).
+**E12.5 — expectativa registrada antes de ver, para não racionalizar depois.** O B-L do r3 teve AUC 0,12 (inverso) e o `noul` zero-shot não mediu "seguida" numa sonda sintética (AUC
+0,500). Minha probabilidade a priori de o B-LT-EN passar é **baixa (< 0,2)**. Se o AUC dele continuar < 0,5, a leitura é "o `noul` zero-shot do Laya não mede seguida, com texto ou sem" e **fecha aqui**;
+não se escolhe outra pergunta depois de ver o resultado (isso seria um r5 novo, pré-registrado antes).
+**E12.6 — execução.** `hw-slot -- python3 scripts/r4_replay_text.py` (CPU, 2 threads, 2 checkpoints); saídas em `~/.claude/touring/r4-replay/`; o corpus congelado e `r3-replay/` não são
+regravados. Ferramenta: `scripts/r4_replay_text.py` (15 testes, mutação 17/17). Um smoke test com `--limit` e `--out-dir` descartável existe para provar que a chamada real ao modelo funciona
+(estado como texto, `subfolder`) e **nunca é a rodada registrada**; correção de bug que ele revele é divulgada, desenho não muda.
