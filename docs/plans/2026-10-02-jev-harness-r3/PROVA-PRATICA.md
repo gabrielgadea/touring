@@ -70,7 +70,8 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 | Verificação | Quem | Resultado |
 |---|---|---|
 | Pontuador do A2 reimplementado só a partir da Errata 8 | subagente Claude de contexto limpo | **todos os números e o veredito batem** (só o p95 do B-L difere na 2ª casa, por método de percentil) |
-| Auditoria cruzada de todo o código r3 (emissores Rust, scripts, contratos) | `touring-auditor` | score composto **0,92**; 7 achados, todos verificados: 1 era leitura de versão antiga do relatório, 3 corrigidos (gate C-A2-2 por vácuo; 9 testes Rust no-op; "quase tudo em 0,5" errado), 2 declarados sem correção (`MAX_PENDING`, arquivo solto), 1 confirmado só em parte (B-J do cache); recontou 8 números, 6 batem e os 2 restantes eram o item já reescrito e a frase errada |
+| Auditoria cruzada de todo o código r3 (emissores Rust, scripts, contratos) | `touring-auditor` | score composto **0,92**; 7 achados, todos verificados: 4 corrigidos (gate C-A2-2 por vácuo; 9 testes Rust no-op; "quase tudo em 0,5" errado; `MAX_PENDING` sem linha, só no código até a próxima release), 1 falso-positivo (arquivo solto que nunca existiu), 1 era leitura de versão antiga do relatório, 1 confirmado só em parte (B-J do cache); recontou 8 números, 6 batem e os 2 restantes eram o item já reescrito e a frase errada |
+| `doctor` (9 checks) e `e2e` | CLI | `doctor` **todo ok** depois de limpar resíduos de wiring (`kind_unknown` 2 → 0); `e2e` 0,846 (faixa documentada 0,846–0,857) |
 | Rater 1 e juiz de desempate | subagentes MiniMax e Claude de contexto limpo | validados por código (`r3_scan_rater_transcript.py`), não por leitura |
 | Sonda de polaridade do `noul` do Laya | `touring-a4` | hipótese pré-declarada **não confirmada** (AUC 0,500 em 8 casos sintéticos) |
 | Juiz de convergência (`loop_converged.py`) | código | **`converged: true`** (DAG 14/14, qualidade Gold 0,8745, 0 P0 BLOCK, escopo inteiro medido; 3 cláusulas N/A) |
