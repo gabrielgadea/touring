@@ -1717,6 +1717,33 @@ mod tests {
     }
 
     #[test]
+    fn repeated_insight_key_upserts_instead_of_piling_up() {
+        // O eco medido em produção (7.506 linhas idênticas, 2026-10-01):
+        // chave endereçada por conteúdo + upsert = 1 linha por finding,
+        // com access_count registrando as reemissões.
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let mem = RlmMemory::new(&dir.path().join("m.db")).expect("rlm");
+        let key = crate::rl::evolution::insights::insight_key(
+            "cila",
+            "Insufficient compliance data for CILA progression analysis",
+        );
+        let mut e1 = RichMemoryEntry::new(&key, "local", "Insufficient compliance data for CILA progression analysis");
+        mem.store_rich(&e1).expect("primeira emissão");
+        e1.embedding = None;
+        mem.store_rich(&e1).expect("reemissão (tick seguinte)");
+        let (n, ac): (i64, i64) = mem
+            .conn
+            .query_row(
+                "SELECT COUNT(*), access_count FROM memory_entries WHERE key = ?1",
+                rusqlite::params![key],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .expect("linha");
+        assert_eq!(n, 1, "a reemissão upserta — nunca empilha");
+        assert_eq!(ac, 2, "as duas emissões ficam registradas no access_count");
+    }
+
+    #[test]
     fn cell_to_epoch_handles_all_storage_classes() {
         // Native INTEGER epoch (a fresh INTEGER-affinity RLM table).
         assert_eq!(

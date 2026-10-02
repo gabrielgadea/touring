@@ -109,6 +109,11 @@ enum MemoryCmd {
         key: String,
         /// The tag, e.g. `#kind:snippet` or `purpose:map-rendering`.
         tag: String,
+        /// Provenance recorded in `memory_tags.source`: `explicit` (default,
+        /// highest trust) or `jev` (System One model derivation — reversible
+        /// by `DELETE FROM memory_tags WHERE source='jev'`; S-5.7).
+        #[arg(long, default_value = "explicit")]
+        source: String,
     },
     /// List the faceted hashtags attached to an entry.
     Tags {
@@ -380,9 +385,9 @@ const KNOWN_FLAGS: &[&str] = &["--tier", "--type", "--limit", "--sort"];
 /// dispatcher stays a thin routing table.
 fn run_tag_query(cmd: MemoryCmd) -> anyhow::Result<()> {
     let (name, payload) = match cmd {
-        MemoryCmd::Tag { key, tag } => (
+        MemoryCmd::Tag { key, tag, source } => (
             "cli-memory-tag-add",
-            serde_json::json!({ "key": key, "tag": tag }),
+            serde_json::json!({ "key": key, "tag": tag, "source": source }),
         ),
         MemoryCmd::Tags { key } => ("cli-memory-tags", serde_json::json!({ "key": key })),
         MemoryCmd::Query { query, limit } => (

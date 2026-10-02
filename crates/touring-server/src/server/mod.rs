@@ -1192,11 +1192,17 @@ impl TouringServer {
                     if !insights.is_empty() {
                         info!("Evolution engine: {} insights generated", insights.len());
 
-                        // Store insights as memory entries
+                        // Store insights as memory entries. The key is
+                        // content-addressed (REGRA #17) — the same finding
+                        // upserts instead of piling up a row per tick
+                        // (7,506 identical rows measured 2026-10-01).
                         let store_lock = store.lock().await;
                         for insight in &insights {
                             let entry = MemoryEntry::new(
-                                format!("insight:{}:{}", insight.category, insight.created_at),
+                                touring_intelligence::rl::evolution::insights::insight_key(
+                                    &insight.category,
+                                    &insight.message,
+                                ),
                                 "reference",
                                 &insight.message,
                             )

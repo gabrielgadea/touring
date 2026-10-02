@@ -970,3 +970,339 @@ fn prompt_enhance_derives_values_from_the_prompt() {
         "the derivable values must travel: {ctx}"
     );
 }
+
+// Mutex de serialização dos testes que tocam envs process-wide
+// (TOURING_INTENT_JOURNAL / LAYA_STUDENT_URL / TOURING_LAYA_INTENT): a lição
+// deste arquivo aplicada à família inteira de vars — o S-2 (shadow) virou o
+// terceiro tocador e a guerra foi medida 3/3 na suíte (01/10).
+pub(crate) static JOURNAL_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+// S-3.2 (plan 2026-09-30, W3) — decision journal: prova de emissão, skip marcado,
+// corrida de writers e fail-open. UM único teste cobre tudo em sequência porque
+// TOURING_INTENT_JOURNAL é process-wide e os testes rodam em threads paralelas
+// (a versão em dois testes perdeu o arquivo: um removeu a var do outro — medido).
+#[test]
+fn journal_written_for_human_skip_for_machine_concurrent_and_never_breaks_reply() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let dir = std::env::temp_dir().join(format!("intent-journal-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("tmp journal dir");
+    let file = dir.join("journal.jsonl");
+    let _ = std::fs::remove_file(&file);
+    // SAFETY: esta var só é lida pelo emissor de journal; nenhum outro teste a toca,
+    // e linhas de terceiros no arquivo não afetam as asserções (`.any()`).
+    unsafe { std::env::set_var("TOURING_INTENT_JOURNAL", &file) };
+
+    compose_json("refactor AuthValidator in src/auth.rs");
+    compose_json("<task-notification>{\"status\":\"completed\"}</task-notification>");
+
+    // Corrida: 8 threads × 50 prompts humanos — a linha nunca intercala
+    // (regressão medida em produção: 4/84 linhas com dois JSONs concatenados).
+    std::thread::scope(|s| {
+        for t in 0..8 {
+            s.spawn(move || {
+                for i in 0..50 {
+                    compose_json(&format!("explique a decisão {t}/{i} do daemon"));
+                }
+            });
+        }
+    });
+
+    let text = std::fs::read_to_string(&file).expect("journal written");
+    let mut parsed = 0usize;
+    for (n, line) in text.lines().enumerate() {
+        serde_json::from_str::<serde_json::Value>(line)
+            .unwrap_or_else(|e| panic!("line {n} is not valid JSON: {e}: {line:?}"));
+        parsed += 1;
+    }
+    // Outros testes paralelos também escrevem neste arquivo (a var é process-wide):
+    // o piso exato são as 402 daqui; o que não pode existir é linha corrompida.
+    assert!(parsed >= 402, "2 linhas iniciais + 400 da corrida: {parsed}");
+    let lines: Vec<serde_json::Value> = text
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    assert!(
+        lines.iter().any(|l| l["skipped_automated"] == false
+            && l["source"] == "keyword"
+            && l["cila_level"].is_u64()),
+        "human prompt must journal a classification"
+    );
+    assert!(
+        lines.iter().any(|l| l["skipped_automated"] == true),
+        "machine payload must journal the skip"
+    );
+
+    // fail-open: journal impossível não pode derrubar a resposta do hook
+    unsafe { std::env::set_var("TOURING_INTENT_JOURNAL", "/proc/impossible/deeply/journal.jsonl") };
+    let json = compose_json("explique o daemon");
+    assert!(json["hookSpecificOutput"]["additionalContext"].is_string());
+    unsafe { std::env::remove_var("TOURING_INTENT_JOURNAL") };
+}
+
+// S-2/S-3 (plan r2) — shadow-matrix: o aluno SEMPRE é perguntado; claim real só
+// com flag ON + ≥τ; toda resposta não-claimada vira linha `laya_shadow` com
+// latência, e a decisão nunca muda. Sob o JOURNAL_ENV_LOCK (envs process-wide).
+#[test]
+fn student_shadow_matrix_journals_would_be_answers_without_changing_decisions() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // Ordem fixa JOURNAL → STUDENT: bloqueia classificadores paralelos até as
+    // envs serem restauradas; daqui em diante só chamadas `_inner`.
+    let _sguard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let journal = std::env::temp_dir().join(format!("shadow-journal-{}", std::process::id()));
+    let _ = std::fs::remove_file(&journal);
+    // SAFETY: sob o JOURNAL_ENV_LOCK; restaura ao final.
+    unsafe {
+        std::env::set_var("TOURING_INTENT_JOURNAL", &journal);
+        std::env::remove_var("TOURING_LAYA_INTENT");
+    }
+
+    // (a) abaixo do τ (0,4) com a flag ON: sem claim, linha shadow com latência
+    let low = spawn_student_stub(
+        r#"{"answers":{"intent":{"type":"choice","choice":"debug","probabilities":{"debug":0.4,"code":0.3}}}}"#,
+    );
+    unsafe {
+        std::env::set_var("LAYA_STUDENT_URL", &low);
+        std::env::set_var("TOURING_LAYA_INTENT", "1");
+    }
+    assert!(student_classify_inner("prompt a").is_none(), "0.4 < τ — nunca claim");
+    let lines = std::fs::read_to_string(&journal).unwrap_or_default();
+    let shadow = lines
+        .lines()
+        .find(|l| l.contains("\"laya_shadow\"") && l.contains("\"DEBUG\""))
+        .unwrap_or_else(|| panic!("linha shadow esperada, veio: {lines}"));
+    assert!(shadow.contains("\"latency_ms\""), "S-3: a shadow carrega a latência: {shadow}");
+
+    // (b) flag OFF (shadow mode): mesmo com 0.9 NÃO clama — e mesmo assim grava
+    let mid = spawn_student_stub(
+        r#"{"answers":{"intent":{"type":"choice","choice":"plan","probabilities":{"plan":0.9}}}}"#,
+    );
+    unsafe {
+        std::env::remove_var("TOURING_LAYA_INTENT");
+        std::env::set_var("LAYA_STUDENT_URL", &mid);
+    }
+    assert!(student_classify_inner("prompt b").is_none(), "flag OFF — shadow, não claim");
+    let lines2 = std::fs::read_to_string(&journal).unwrap_or_default();
+    assert!(
+        lines2.lines().any(|l| l.contains("\"laya_shadow\"") && l.contains("\"PLAN\"")),
+        "shadow-mode esperado com a flag OFF"
+    );
+
+    // (c) servidor fora: fail-open, NENHUMA linha shadow nova
+    unsafe { std::env::set_var("LAYA_STUDENT_URL", "http://127.0.0.1:1") };
+    let before = std::fs::read_to_string(&journal).unwrap_or_default().lines().count();
+    assert!(student_classify_inner("prompt c").is_none());
+    let after = std::fs::read_to_string(&journal).unwrap_or_default().lines().count();
+    assert_eq!(before, after, "server down → nenhuma linha shadow");
+
+    // (d) flag ON + resposta ≥ τ: claim REAL, que não vira shadow
+    let high = spawn_student_stub(
+        r#"{"answers":{"intent":{"type":"choice","choice":"code","probabilities":{"code":0.9}}}}"#,
+    );
+    unsafe {
+        std::env::set_var("LAYA_STUDENT_URL", &high);
+        std::env::set_var("TOURING_LAYA_INTENT", "1");
+    }
+    let claimed = student_classify_inner("prompt d");
+    assert!(matches!(claimed, Some((Intent::Code, p)) if p >= STUDENT_TAU));
+    let lines3 = std::fs::read_to_string(&journal).unwrap_or_default();
+    assert!(
+        !lines3.lines().any(|l| l.contains("\"laya_shadow\"") && l.contains("\"CODE\"")),
+        "claim real nunca vira shadow"
+    );
+
+    // SAFETY: restauração do ambiente do processo de teste.
+    unsafe {
+        std::env::remove_var("TOURING_LAYA_INTENT");
+        std::env::remove_var("LAYA_STUDENT_URL");
+        std::env::remove_var("TOURING_INTENT_JOURNAL");
+    }
+}
+
+// S-3 (plan r2) — contrato de latência do journal: TODA linha, decision ou
+// shadow, carrega `latency_ms` inteiro ≥ 0 — é o que a régua KPI lê. `as_u64`
+// reprova ausência e negativo de uma vez: o assert é o tipo, não comparação.
+#[test]
+fn journal_line_carries_latency_ms_non_negative() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // Ordem fixa JOURNAL → STUDENT (ver student_classify_inner).
+    let _sguard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let journal = std::env::temp_dir().join(format!("latency-journal-{}", std::process::id()));
+    let _ = std::fs::remove_file(&journal);
+    // SAFETY: sob o JOURNAL_ENV_LOCK; restaura ao final.
+    unsafe {
+        std::env::set_var("TOURING_INTENT_JOURNAL", &journal);
+        std::env::remove_var("TOURING_LAYA_INTENT");
+    }
+
+    // Linha decision (keyword path): journal_intent_decision é o emissor da
+    // linha — compose_json chamaria student_classify (locked), deadlock sob o
+    // STUDENT_ENV_LOCK que este teste segura.
+    let details = classify_with_details_inner("explique o daemon");
+    journal_intent_decision(&details, "compose_json", 0);
+    // …e linha shadow (flag OFF: o aluno responde e vira shadow, nunca claim).
+    let stub = spawn_student_stub(
+        r#"{"answers":{"intent":{"type":"choice","choice":"plan","probabilities":{"plan":0.9}}}}"#,
+    );
+    unsafe { std::env::set_var("LAYA_STUDENT_URL", &stub) };
+    assert!(student_classify_inner("prompt latencia").is_none(), "flag OFF — shadow");
+
+    let text = std::fs::read_to_string(&journal).expect("journal escrito");
+    let lines: Vec<serde_json::Value> = text
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect();
+    let decision = lines
+        .iter()
+        .find(|v| v["skipped_automated"] == false && v["source"] != "laya_shadow")
+        .expect("linha decision");
+    let shadow = lines
+        .iter()
+        .find(|v| v["source"] == "laya_shadow")
+        .expect("linha shadow");
+    for (kind, line) in [("decision", decision), ("shadow", shadow)] {
+        line["latency_ms"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("{kind}: latency_ms ausente ou não-u64: {line}"));
+    }
+
+    // SAFETY: restauração do ambiente do processo de teste.
+    unsafe {
+        std::env::remove_var("LAYA_STUDENT_URL");
+        std::env::remove_var("TOURING_INTENT_JOURNAL");
+    }
+}
+
+/// One-shot stub server: accepts ONE connection, answers `response_json`, exits.
+#[cfg(test)]
+fn spawn_student_stub(response_json: &str) -> String {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind stub");
+    let addr = listener.local_addr().expect("addr");
+    let body = response_json.to_string();
+    std::thread::spawn(move || {
+        if let Ok((mut stream, _)) = listener.accept() {
+            use std::io::{Read, Write};
+            let mut chunk = [0u8; 8192];
+            let _ = stream.read(&mut chunk);
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(resp.as_bytes());
+        }
+    });
+    format!("http://{addr}")
+}
+
+// S-8 (plan r2) — semantic bash gate: o DESCONHECIDO recebe Score do aluno;
+// advisory sempre, None em flag OFF/falha; conhecidos nunca pagam a chamada.
+#[test]
+fn semantic_bash_gate_scores_unknown_and_skips_rest() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // Ordem fixa JOURNAL → STUDENT: o stub one-shot não pode ser consumido por
+    // um classify paralelo (ver student_classify_inner).
+    let _sguard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    assert!(is_known_program("ls") && is_known_program("cargo") && is_known_program("rm"));
+    assert!(!is_known_program("zdbt") && !is_known_program("find-de"));
+
+    // (a) flag ON + stub score 2,0 (read-only): Some((2,0, _))
+    let stub = spawn_student_stub(
+        r#"{"answers":{"reversibility":{"type":"score","score":2.0,"probabilities":{"0":0.0,"1":0.1,"2":0.9},"confidence":0.9}}}"#,
+    );
+    unsafe {
+        std::env::set_var("LAYA_STUDENT_URL", &stub);
+        std::env::set_var("TOURING_CEG_SEMANTIC_GATE", "1");
+    }
+    let got = semantic_reversibility("zdbt --compress /var/data");
+    assert!(matches!(got, Some((s, _)) if (s - 2.0).abs() < 1e-9), "score viajou: {got:?}");
+
+    // (b) flag OFF: None sem chamar
+    unsafe { std::env::remove_var("TOURING_CEG_SEMANTIC_GATE") };
+    assert!(semantic_reversibility("zdbt --compress /var/data").is_none());
+
+    // (c) flag ON + servidor fora: fail-open None
+    unsafe {
+        std::env::set_var("TOURING_CEG_SEMANTIC_GATE", "1");
+        std::env::set_var("LAYA_STUDENT_URL", "http://127.0.0.1:1");
+    }
+    assert!(semantic_reversibility("zdbt --compress /var/data").is_none());
+
+    unsafe {
+        std::env::remove_var("TOURING_CEG_SEMANTIC_GATE");
+        std::env::remove_var("LAYA_STUDENT_URL");
+    }
+}
+
+// W4.4 — student path (TOURING_LAYA_INTENT): decide acima do τ, keyword abaixo,
+// nunca chama com a flag off, nunca quebra com o servidor fora. O servidor-falso
+// só responde alto-τ para o prompt-marcador — qualquer outro prompt recebe
+// resposta abaixo do τ, então testes paralelos seguem no caminho keyword
+// esperado por eles (a lição das envs process-wide, medida neste arquivo).
+#[test]
+fn w44_student_decides_above_tau_keyword_everywhere_else() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // Ordem fixa JOURNAL → STUDENT (ver student_classify_inner).
+    let _sguard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    use std::io::{Read, Write};
+    const MARKER: &str = "refatore o parser-xyz-w44";
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind efêmero");
+    let addr = listener.local_addr().expect("addr");
+    std::thread::spawn(move || {
+        for stream in listener.incoming() {
+            let Ok(mut s) = stream else { continue };
+            let mut buf = vec![0u8; 16384];
+            let n = s.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]).to_string();
+            let high = req.contains(MARKER);
+            let body = if high {
+                r#"{"model":"laya-w42-intent","answers":{"intent":{"type":"choice","choice":"refactor","probabilities":{"refactor":0.9,"code":0.1},"confidence":0.9}},"usage":{}}"#.to_string()
+            } else {
+                r#"{"model":"laya-w42-intent","answers":{"intent":{"type":"choice","choice":"refactor","probabilities":{"refactor":0.5,"code":0.5},"confidence":0.1}},"usage":{}}"#.to_string()
+            };
+            let resp = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(), body
+            );
+            let _ = s.write_all(resp.as_bytes());
+        }
+    });
+
+    // SAFETY: mesma justificativa dos testes de journal — vars só deste processo.
+    unsafe { std::env::set_var("LAYA_STUDENT_URL", format!("http://{addr}")) };
+    unsafe { std::env::set_var("TOURING_LAYA_INTENT", "1") };
+
+    // 1. acima do τ: o aluno decide, e a fonte é registrada
+    let details = classify_with_details_inner(MARKER);
+    assert_eq!(details.intent, Intent::Refactor);
+    assert_eq!(details.source, "laya");
+    assert!(details.confidence >= 0.6);
+
+    // 2. abaixo do τ: keyword (o servidor respondeu, mas baixo)
+    let d2 = classify_with_details_inner("explique a arquitetura do daemon");
+    assert_eq!(d2.source, "keyword");
+
+    // 3. flag off: o aluno nunca é chamado, mesmo com o servidor no ar
+    unsafe { std::env::remove_var("TOURING_LAYA_INTENT") };
+    let d3 = classify_with_details_inner(MARKER);
+    assert_eq!(d3.source, "keyword");
+
+    // 4. servidor fora: keyword, sem exceção (porta 9 = discard)
+    unsafe { std::env::set_var("TOURING_LAYA_INTENT", "1") };
+    unsafe { std::env::set_var("LAYA_STUDENT_URL", "http://127.0.0.1:9") };
+    let d4 = classify_with_details_inner(MARKER);
+    assert_eq!(d4.source, "keyword");
+
+    unsafe { std::env::remove_var("TOURING_LAYA_INTENT") };
+    unsafe { std::env::remove_var("LAYA_STUDENT_URL") };
+}
+
+// REGRA #0 (01/10): compose_details era órfão pub com zero consumidores —
+// a suíte é a superfície de diagnóstico documentada e agora a consome.
+#[test]
+fn compose_details_surfaces_classification_and_null_for_machine_payload() {
+    let d = compose_details("refatore o parser de hooks");
+    assert!(d["intent"].is_string(), "diagnóstico carrega o intent: {d}");
+    assert!(d["cila_level"].is_u64(), "diagnóstico carrega o nível CILA: {d}");
+    let null = compose_details("<task-notification>{\"status\":\"completed\"}</task-notification>");
+    assert!(null.is_null(), "payload de máquina não tem classificação: {null}");
+}

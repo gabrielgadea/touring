@@ -97,6 +97,22 @@ impl Insight {
 #[derive(Debug)]
 pub struct InsightEngine;
 
+/// Content-addressed memory key for an insight (REGRA #17: deterministic from
+/// the message, never from the tick that produced it). The evolution engine runs
+/// on an interval; a key derived from `created_at` turned every re-emission of an
+/// unchanged finding into a NEW row — 7,506 identical "Insufficient compliance
+/// data" rows measured in production (2026-10-01, root cause by touring-02:
+/// the producer of `cila=` data does not exist, so the analyzer emits the same
+/// constant text every 300 s). With the key derived from the content, the
+/// store's upsert (`ON CONFLICT(key) DO UPDATE`) collapses re-emissions into
+/// one row per distinct finding — no DELETE policy needed.
+pub fn insight_key(category: &str, message: &str) -> String {
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(message.as_bytes());
+    let hex: String = digest[..6].iter().map(|b| format!("{b:02x}")).collect();
+    format!("insight:{category}:{hex}")
+}
+
 impl InsightEngine {
     /// Convert analysis results into a severity-sorted list of insights.
     pub fn generate(results: &[AnalysisResult]) -> Vec<Insight> {
@@ -234,5 +250,16 @@ mod tests {
     fn test_severity_ordering() {
         assert!(Severity::Critical > Severity::Warning);
         assert!(Severity::Warning > Severity::Info);
+    }
+
+    #[test]
+    fn insight_key_is_content_addressed_and_deterministic() {
+        let k1 = insight_key("cila", "Insufficient compliance data for CILA progression analysis");
+        let k2 = insight_key("cila", "Insufficient compliance data for CILA progression analysis");
+        assert_eq!(k1, k2, "a mesma mensagem SEMPRE produz a mesma chave (REGRA #17)");
+        let k3 = insight_key("cila", "CILA adoption is low");
+        assert_ne!(k1, k3, "conteúdo distinto, chave distinta");
+        assert!(k1.starts_with("insight:cila:"));
+        assert_eq!(k1.len(), "insight:cila:".len() + 12, "12 hex do sha256 — sem timestamp");
     }
 }
