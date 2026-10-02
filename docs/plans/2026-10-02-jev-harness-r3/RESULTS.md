@@ -92,13 +92,29 @@ Cláusulas do gate — B-L: C-A2-1 ✗ · C-A2-2 ✓ · C-A2-3 ✗ · C-A2-4 ✗
 
 ## 5. O que depende do Gabriel
 
-1. **Veto ou aceite do desvio E3.3-bis / Errata 7** (rater 1 = subagente MiniMax de contexto limpo; o `merge`, o desempate e o veredito já foram calculados com ele — se vetar, o gold cai e o A2 volta a `GOLD_INSUFICIENTE`).
-2. **Go/no-go do r4** (A3, A4 e Tier B não foram aprovados nem tocados).
-3. Propagar a 30.4.91 aos pinados? Parar a unit `r3-shadow-evaluator`? Autorizar gasto da API Jev (~486 chamadas restantes)?
+**Decididas por ele em 02/10 (resposta ao canvas de 5 decisões):** (1) E3.3-bis: *"lance um juiz cego sonnet"* — o desvio **segue em aberto** até o resultado desse juiz (Errata 10, §8); (2) **r4 mínimo aprovado**
+(só o B-L com texto truncado; feito, §7); (3) a unit `r3-shadow-evaluator` fica **até 15:09 de 03/10** (como o r4 mínimo foi aprovado, não a paro sozinha depois: decide ele); (4) **não propagar** a 30.4.91 agora; (5) **até ~50 chamadas Jev** (feitas: 50, saldo ~436; §4).
+**Ainda dependem dele:** o veto ou aceite do E3.3-bis (veja o resultado do juiz cego, §8); a unit depois de 03/10 15:09; a propagação quando houver release com ganho; e se quer um r5 (A3, A4, Tier B, S-9b e C-A2-3 com margem **não** foram aprovados nem tocados).
 
 ## 6. Candidatos do r4 (advisory — nada é promovido sem o go dele)
 
-- **B-L com o texto truncado (≤ 200 chars) previsto no §1**, pré-registrado antes de rodar — é a pergunta que este r3 não respondeu; e um tipo de pergunta do Laya que meça "seguida" de forma calibrada (o `noul` não mediu).
+- ~~B-L com o texto truncado (≤ 200 chars) previsto no §1~~ — **respondida pelo r4 mínimo (§7): não passa** (AUC 0,331 no primário). Resta, para um r5 só se ele pedir: um tipo de pergunta do Laya que meça "seguida" de forma calibrada (o `noul` não mediu, com texto ou sem).
 - S-9b: emissão A1 nos 4 pontos do `cli_suggester`.
 - Janela S3 de 24 h; B0 online ordenado por evento, não por chegada.
 - Critério C-A2-3: escolher τ com margem (p. ex. precisão ≥ 0,95 em `val`) em vez de na borda.
+
+## 7. r4 mínimo (Errata 12) — B-L (Laya local) com texto truncado de ≤ 200 caracteres
+
+Pré-registrado em `f9ceb88a` (19:35:43) e rodado depois (19:37:30–19:41:54), sob `hw-slot`, em CPU. Estado do modelo = rota + até 3 comandos seguintes, cada um com espaços colapsados e cortado em 200 caracteres; mesma pergunta `noul` do r3; os mesmos 180 itens congelados (171 no gold); gold registrado; pontuador puro; veredito do gate sobre um braço por vez.
+
+| Braço | checkpoint | concordância | Δ vs B0 (B0 = 0,9059) | IC95 % inf. | precisão | cobertura | τ | AUC vs gold | veredito (gate) |
+|---|---|---|---|---|---|---|---|---|---|
+| **B-LT-EN** (primário) | inglês (ModernBERT-large, 512/192) | **0,3176** | −0,5882 | −0,7176 | 0,000 | 0,000 | 0,9998 | **0,331** | `NAO_ADOTADO_PELOS_DADOS` |
+| B-LT-ML (exploratório) | multilíngue (mmBERT-base, 1024/256) | 0,3059 | −0,6000 | −0,7294 | 0,429 | 0,082 | 0,9997 | 0,551 | `NAO_ADOTADO_PELOS_DADOS` |
+| B-L do r3 (referência) | inglês, payload redigido | 0,7059 | −0,2000 | −0,2941 | 0,699 | 0,977 | 0,0731 | 0,120 | `NAO_ADOTADO_PELOS_DADOS` |
+
+**Leitura (a regra estava fixada antes, E12.5):** o AUC do primário ficou abaixo de 0,5 (0,331: o p é **maior** nos "não seguidos", 0,79, do que nos "seguidos", 0,72), então o `noul` zero-shot do Laya **não mede "seguida", nem com texto nem sem**, e o r4 mínimo fecha aqui. O texto melhorou o AUC (0,120 → 0,331) sem torná-lo útil. A concordância baixa **não** é p degenerado (167 valores distintos entre 0,16 e 0,9998): vem da regra de ponto de operação da Errata 8, que só acha τ com precisão ≥ 0,90 em `val` na cauda extrema (cobertura de 1,2 %). A probabilidade a priori que registrei antes de ver (< 0,2) condiz. O B-LT-ML tem AUC 0,551, que é acaso; um braço secundário não sustenta a hipótese (E12.2).
+
+**Divergência do r3 descoberta no caminho, medida e não só lida (E12.1, E12.8):** o B-L do r3 rodou o checkpoint **inglês** (`laya.Agent` sem `subfolder` reporta `encoder: answerdotai/ModernBERT-large`, 512/192, temperaturas [1,637; 1,251; 1,983] que o próprio `laya` avisa serem inválidas), não o "multilíngue" que o pré-registro nomeia. O veredito do A2 não muda; o resultado do B-L do r3 vale para o checkpoint inglês com o payload redigido.
+
+**Limitações:** 1 rodada; só a pergunta `noul` do r3 foi testada (não as outras cabeças do checkpoint); o texto é cortado em 200 caracteres (pelo levantamento do `touring-a4`, 408 de 534 comandos do corpus passam disso); latência em CPU com o chip a 91–94 °C (mediana: inglês 1.068 ms, multilíngue 390 ms).

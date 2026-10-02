@@ -23,7 +23,7 @@ Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*
 | Vereditos A1/A2 pelos critérios congelados | **Computados**: A1 NAO_ADOTADO, A2 NAO_ADOTADO (gold κ = 0,77; reimplementação independente bate) | RESULTS §1 |
 | Gold do A2 (2 avaliadores cross-vendor + desempate) | **Existe** (171 itens), com limitações de família/desvio E3.3-bis; verificado por código | RESULTS §4, Errata 7 |
 | Byte-identidade ON×OFF (S4) | **Passa, forte** em 3 hooks (175 · 57 · 71 comparações com conteúdo; 0/200 diferenças; controle 0/200); `post-tool-rl` anulado; reproduzido numa réplica pré-registrada (rodada 3, contagens idênticas). A rodada 1 foi VOID por defeito do meu harness, corrigido e pré-registrado antes da rodada 2 | RESULTS §2, §3.12; §7.3 abaixo |
-| Valor dos modelos (Jev/Laya) no A2 | **Medido, negativo para a entrada recebida**: B0 0,906 · B-J 0,835 (0,80–0,92 em 3 amostras da mesma API: o Jev não é estável bit a bit, e o veredito é o mesmo nas três) · B-L 0,706 de acordo com o gold; braços só viram features redigidas (≠ B0/gold). Não prova que um modelo COM texto falharia | RESULTS §1, §4 |
+| Valor dos modelos (Jev/Laya) no A2 | **Medido, negativo para a entrada recebida**: B0 0,906 · B-J 0,835 (0,80–0,92 em 3 amostras da mesma API: o Jev não é estável bit a bit, e o veredito é o mesmo nas três) · B-L 0,706 de acordo com o gold; braços só viram features redigidas (≠ B0/gold). **O r4 mínimo testou o Laya COM texto truncado (≤ 200 chars): também não passa** (AUC 0,331; RESULTS §7); outros modelos e outras perguntas não foram testados | RESULTS §1, §4 |
 | A1 online nos 4 pontos do `cli_suggester` | **Não feito** (S-9b) | RESULTS §4 |
 
 ## 1. Ambiente da prova
@@ -113,7 +113,7 @@ tail -n 5 ~/.claude/touring/logs/r3_events.jsonl ~/.claude/touring/logs/r3_shado
 
 ## 7. O que NÃO está provado (e por quê)
 
-1. **Que um modelo COM acesso ao texto dos comandos não superaria o B0.** O A2 mediu Jev e Laya só com features redigidas (1º token dos comandos); o B-L deveria ter recebido texto truncado pelo §1 e não recebeu. É a pergunta aberta do r4.
+1. **Que QUALQUER modelo com texto não superaria o B0.** O r4 mínimo testou **uma** pergunta (`noul`) do Laya com o texto truncado e ela não mede "seguida" (AUC 0,331 no checkpoint inglês; 0,551 no multilíngue). O Jev nunca recebe texto (privacidade), e outras cabeças do Laya não foram testadas.
 2. **O que o `noul` do Laya mede.** AUC 0,12 contra o gold (associação inversa sistemática) e 0,500 numa sonda sintética de 8 casos: não é P(seguida), e não se inverte (E8.8).
 3. **S4**: provado em `pre-bash`, `cli-suggest` e `post-bash` numa rodada de 200 entradas (base virgem, comandos com caminho relativo); `post-tool-rl` não emitiu nada em nenhum braço, então não há o que comparar. Foram 2 rodadas passando (a 3ª, réplica pré-registrada, com contagens idênticas); entradas e produto são determinísticos, então a réplica prova reprodutibilidade e não independência de ambiente (RESULTS §4).
 4. **S3**: ~1 oferta/34 min; a janela de 24 h exigiria o shadow ligado até amanhã.
