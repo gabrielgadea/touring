@@ -17,7 +17,7 @@ PRE = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "abc"
 
 def test_rewrite_makes_every_real_path_relative_and_prefixes_the_session():
     out = ab.rewrite(PRE, ROOT)
-    assert "/home/gabrielgadea" not in json.dumps(out)                    # a pinned daemon refuses a request that names it
+    assert "/home/gabrielgadea" not in json.dumps(out)                    # no hook may read the live repository or home
     assert out["cwd"] == ROOT and out["transcript_path"] == ROOT + "/t.jsonl" and out["session_id"] == "s4ab-abc"
     cmd = out["tool_input"]["command"]
     assert cmd == "grep -n x crates/a.rs ~/.claude/x home/.claude/rules" and ROOT not in cmd
