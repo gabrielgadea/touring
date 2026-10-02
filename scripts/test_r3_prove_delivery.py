@@ -94,6 +94,48 @@ def test_s4_every_run_gets_a_fresh_scratch_project_and_the_payload_cwd_points_at
     assert not marker.exists()                                              # the payload cwd named the scratch project
 
 
+def _event(**over):
+    base = {"v": 1, "kind": "a1_block", "use_case": "a1_relevance", "ts_ms": 1790000000000, "session_hash": "0123456789ab",
+            "hook": "pre-bash", "bytes": 120, "first_line_sha": "0123456789abcdef", "first_line_head": "[TOURING] a short head"}
+    base.update(over)
+    return base
+
+
+def test_s6_passes_only_when_every_line_is_valid_and_has_no_long_free_text(tmp_path):
+    f = tmp_path / "e.jsonl"
+    f.write_text("".join(json.dumps(_event(ts_ms=1790000000000 + i)) + "\n" for i in range(3)))
+    out = pd.s6_privacy(f)
+    assert out["passes"] is True and out["n"] == 3 and out["n_invalid"] == 0 and out["n_privacy"] == 0
+
+
+def test_s6_fails_on_free_text_over_80_chars_an_unknown_key_and_a_garbage_line(tmp_path):
+    f = tmp_path / "bad.jsonl"
+    f.write_text("\n".join([json.dumps(_event()), json.dumps(_event(first_line_head="x" * 81)),
+                            json.dumps({**_event(), "prompt": "a free text key"}), "not json at all"]) + "\n")
+    out = pd.s6_privacy(f)
+    assert out["passes"] is False and out["n"] == 4
+    # each net must count ON ITS OWN (the three bad lines are caught by BOTH, so a sum would hide a net that is off)
+    assert out["n_invalid"] >= 3 and out["n_privacy"] >= 3   # long text, forbidden key, garbage line
+    assert "x" * 20 not in json.dumps(out)       # the report names the violation, never echoes the offending text
+
+
+def test_s6_a_line_only_the_closed_schema_catches_still_fails(tmp_path):
+    """A missing required field carries no free text, so the privacy scan is silent: only the schema net can fail it."""
+    ev = _event()
+    del ev["first_line_sha"]
+    f = tmp_path / "schema_only.jsonl"
+    f.write_text(json.dumps(ev) + "\n")
+    out = pd.s6_privacy(f)
+    assert out["passes"] is False and out["n_invalid"] == 1 and out["n_privacy"] == 0
+
+
+def test_s6_no_events_is_no_signal_never_a_pass(tmp_path):
+    f = tmp_path / "empty.jsonl"
+    f.write_text("")
+    assert pd.s6_privacy(f)["passes"] is None
+    assert pd.s6_privacy(tmp_path / "missing.jsonl")["passes"] is None
+
+
 def test_s4_cli_exit_codes_0_pass_1_diff_2_void(tmp_path, capsys):
     """The CLI maps the verdict to an exit code: a VOID proof (nondeterministic control) is 2, never a pass."""
     inputs = tmp_path / "in.jsonl"

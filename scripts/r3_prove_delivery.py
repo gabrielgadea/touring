@@ -25,6 +25,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import r3_event_schema as ev_schema
+
 S1_RATIO, S1_ABS_MS, MIN_N = 1.10, 20.0, 200
 # Errata 5 (E5.1): the two hooks where the A2 observer runs — `cli-suggest` (record_route_offer) and `post-tool-rl`
 # (claim_route_reward, every Bash). S1/S1b/S2 cover BOTH; the worst verdict decides.
@@ -95,6 +97,29 @@ def s1b_verdict(prior_daily_p95s, after, min_n=MIN_N) -> dict:
 LIVE_STATE_VARS = ("TOURING_HOOK_TRACE_FILE", "TOURING_DAEMON_SOCKET", "TOURING_DAEMON_SOCK")
 
 
+def s6_privacy(events_file) -> dict:
+    """S6: every line is valid in the CLOSED event schema (an unknown key is a violation) and carries no free text over
+    the 80-char cap. Reuses r3_event_schema (the evaluator's own gate) — no second regex. No lines ⇒ no signal, never a
+    pass; the report counts violations and NEVER echoes the offending text."""
+    p = Path(events_file)
+    if not p.exists():
+        return {"passes": None, "n": 0, "reason": "no events file"}
+    n = bad_schema = bad_privacy = 0
+    for line in p.read_text(errors="replace").splitlines():
+        if not line.strip():
+            continue
+        n += 1
+        try:
+            event = json.loads(line)
+        except ValueError:
+            event = None
+        bad_schema += event is None or not isinstance(event, dict) or bool(ev_schema.validate_event(event))
+        bad_privacy += bool(ev_schema.scan_privacy(line))
+    if not n:
+        return {"passes": None, "n": 0, "reason": "no events in the file"}
+    return {"passes": not (bad_schema or bad_privacy), "n": n, "n_invalid": bad_schema, "n_privacy": bad_privacy}
+
+
 def run_hook(argv, payload, shadow, state_dir=None) -> bytes:
     """One STANDALONE hook run. With `state_dir` the run is isolated: the live trace/daemon are unreachable (a standalone
     run is slow and would inflate the very p95 S1b reads) and the project root + events file are the scratch dir, so
@@ -163,7 +188,14 @@ def main(argv=None):
     p4.add_argument("--argv-json", required=True)
     p4.add_argument("--inputs", required=True)
     p4.add_argument("--toml", help="project .touring/touring.toml copied into every scratch project (realistic gating)")
+    p6 = sub.add_parser("s6")
+    p6.add_argument("--events", action="append", required=True, help="events/shadow journal; repeatable")
     a = ap.parse_args(argv)
+    if a.cmd == "s6":
+        res = {f: s6_privacy(f) for f in a.events}
+        print(json.dumps(res, indent=1))
+        deciding = [r["passes"] for r in res.values()]
+        return 1 if any(v is False for v in deciding) else (2 if any(v is None for v in deciding) else 0)
     if a.cmd == "s4":
         inputs = [json.loads(x) for x in Path(a.inputs).read_text().splitlines() if x.strip()]
         out = s4_byte_identical(json.loads(a.argv_json), inputs, toml=a.toml)
