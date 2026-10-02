@@ -4685,3 +4685,331 @@ mod autoresearch_replay {
         println!("METRIC={col}");
     }
 }
+
+// ── r3 shadow A2 (S-8, plan 2026-10-02-jev-harness-r3) ───────────────────────────
+//
+// O shadow só OBSERVA o ciclo de vida da oferta de rota. Estes testes provam as três
+// obrigações: flag OFF não faz nada, a decisão de produção é a mesma com a flag ligada
+// (inclusive quando a emissão FALHA), e cada oferta fecha com UMA linha. Cada teste roda
+// na própria thread com um sink por-thread (`test_sink`) — nunca o journal real, nunca um
+// global compartilhado com o vizinho paralelo.
+mod r3_shadow_a2 {
+    use crate::cli_suggester::r3_a2::{Registry, pending_for, test_sink};
+    use crate::cli_suggester::{claim_route_reward, record_route_offer, session_key};
+    use serde_json::{Value, json};
+    use std::cell::RefCell;
+    use std::path::Path;
+    use std::rc::Rc;
+    use touring_foundation::code_mode::CodeModePresentation;
+    use touring_hook_runtime::r3_shadow::{dropped_event_count, emit_r3_event_at, session_hash};
+
+    type Lines = Rc<RefCell<Vec<Value>>>;
+
+    /// A project dir whose `.touring/touring.toml` says `[shadow] r3 = <flag>` (`None` ⇒ no file).
+    fn project(flag: Option<bool>) -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        if let Some(on) = flag {
+            let toml = dir.path().join(".touring/touring.toml");
+            std::fs::create_dir_all(toml.parent().expect("parent")).expect("mkdir");
+            std::fs::write(&toml, format!("[shadow]\nr3 = {on}\n")).expect("write toml");
+        }
+        dir
+    }
+
+    /// Every event this thread emits lands here instead of the real journal.
+    fn capture() -> Lines {
+        let lines: Lines = Rc::default();
+        let sink = Rc::clone(&lines);
+        test_sink::install(move |e| {
+            sink.borrow_mut().push(e.clone());
+            true
+        });
+        lines
+    }
+
+    /// An env var in the test environment would override the toml and void the premise.
+    fn env_flag_is_set() -> bool {
+        std::env::var_os(touring_hook_runtime::r3_shadow::ENV_FLAG).is_some()
+    }
+
+    /// Production's own sequence: offer, then these PostToolUse commands (`""` = a tool
+    /// without a command, e.g. a `Read`).
+    const SEQ: [&str; 5] = [
+        "",
+        "ls -la",
+        "touring run --lang bash --code 'ls'",
+        "touring run --code 'x'",
+        "TOURING_CODE_MODE=native cat /a/b",
+    ];
+
+    /// What production decided for each command: `(mode, value)` or `None`.
+    fn drive(root: &Path, session: &str) -> Vec<Option<(String, f64)>> {
+        let payload = json!({"session_id": session});
+        record_route_offer(root, session, CodeModePresentation::Code);
+        SEQ.iter()
+            .map(|cmd| claim_route_reward(root, &payload, cmd).map(|(o, v)| (o.mode, v)))
+            .collect()
+    }
+
+    #[test]
+    fn r3_flag_off_does_no_io() {
+        if env_flag_is_set() {
+            return;
+        }
+        for flag in [None, Some(false)] {
+            let root = project(flag);
+            let lines = capture();
+            drive(root.path(), "r3-off");
+            assert!(
+                lines.borrow().is_empty(),
+                "flag {flag:?}: no line may be written"
+            );
+            assert!(
+                !pending_for(root.path(), "r3-off"),
+                "flag {flag:?}: the shadow must not even record the offer"
+            );
+        }
+    }
+
+    #[test]
+    fn r3_closed_offer_emits_exactly_one_line() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        let payload = json!({"session_id": "r3-one-line"});
+        record_route_offer(root.path(), "r3-one-line", CodeModePresentation::Code);
+        assert!(lines.borrow().is_empty(), "opening an offer writes nothing");
+        claim_route_reward(root.path(), &payload, "ls -la");
+        assert!(
+            lines.borrow().is_empty(),
+            "a Bash without a verdict does not close it"
+        );
+
+        claim_route_reward(root.path(), &payload, "touring run --lang bash --code 'ls'");
+        assert_eq!(lines.borrow().len(), 1, "closed ⇒ exactly one line");
+        let e = lines.borrow()[0].clone();
+        assert_eq!(e["kind"], "a2_offer_closed");
+        assert_eq!(e["use_case"], "a2_outcome");
+        assert_eq!(e["closed_by"], "consumed");
+        assert_eq!(e["mode"], "code");
+        assert_eq!(
+            e["baseline_value"], 0.5,
+            "the verdict production returned, verbatim"
+        );
+        assert_eq!(e["baseline_followed"], true);
+        assert_eq!(
+            e["cmd_heads"],
+            json!(["ls -la", "touring run --lang bash --code 'ls'"])
+        );
+        assert_eq!(e["session_hash"], session_hash("r3-one-line").as_str());
+
+        // Nothing is pending any more: the rest of the sequence adds no line.
+        for cmd in SEQ {
+            claim_route_reward(root.path(), &payload, cmd);
+        }
+        assert_eq!(lines.borrow().len(), 1, "a closed offer never emits twice");
+    }
+
+    #[test]
+    fn r3_window_closes_after_k_bash_without_a_verdict() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        let payload = json!({"session_id": "r3-window"});
+        record_route_offer(root.path(), "r3-window", CodeModePresentation::Both);
+        for cmd in ["ls", "pwd"] {
+            claim_route_reward(root.path(), &payload, cmd);
+        }
+        assert!(lines.borrow().is_empty(), "2 of K=3: still open");
+        claim_route_reward(root.path(), &payload, "git status");
+        assert_eq!(lines.borrow().len(), 1);
+        let e = lines.borrow()[0].clone();
+        assert_eq!(e["closed_by"], "window");
+        assert_eq!(e["mode"], "both");
+        assert!(e["baseline_value"].is_null(), "no verdict ⇒ null, never 0");
+        assert_eq!(e["baseline_followed"], false);
+        assert_eq!(e["cmd_heads"], json!(["ls", "pwd", "git status"]));
+
+        // The shadow's window is NOT production's: `None` never consumed the offer, so a
+        // `touring run` after the window is still credited — and adds no second line.
+        let credited =
+            claim_route_reward(root.path(), &payload, "touring run --lang bash --code 'ls'");
+        assert!(credited.is_some(), "production still holds the offer");
+        assert_eq!(lines.borrow().len(), 1);
+    }
+
+    #[test]
+    fn r3_replaced_offer_closes_with_one_line() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        let payload = json!({"session_id": "r3-replaced"});
+        record_route_offer(root.path(), "r3-replaced", CodeModePresentation::Code);
+        claim_route_reward(root.path(), &payload, "ls");
+        record_route_offer(root.path(), "r3-replaced", CodeModePresentation::Code);
+        assert_eq!(
+            lines.borrow().len(),
+            1,
+            "the replaced offer closes immediately"
+        );
+        let first = lines.borrow()[0].clone();
+        assert_eq!(first["closed_by"], "replaced");
+        assert!(first["baseline_value"].is_null());
+        assert_eq!(first["cmd_heads"], json!(["ls"]));
+
+        claim_route_reward(root.path(), &payload, "touring run --lang bash --code 'ls'");
+        assert_eq!(lines.borrow().len(), 2, "the new offer closes on its own");
+        assert_eq!(lines.borrow()[1]["closed_by"], "consumed");
+        assert_eq!(
+            lines.borrow()[1]["cmd_heads"],
+            json!(["touring run --lang bash --code 'ls'"])
+        );
+    }
+
+    #[test]
+    fn r3_claim_route_reward_is_identical_with_the_flag_on() {
+        if env_flag_is_set() {
+            return;
+        }
+        let off = project(Some(false));
+        let on = project(Some(true));
+        let lines = capture();
+        let without = drive(off.path(), "r3-same");
+        let with = drive(on.path(), "r3-same");
+        assert_eq!(without, with, "the shadow must not change one decision");
+        assert!(
+            !lines.borrow().is_empty(),
+            "sanity: the ON run really did observe"
+        );
+        assert_eq!(
+            without,
+            vec![None, None, Some(("code".to_string(), 0.5)), None, None],
+            "and those are production's own decisions"
+        );
+    }
+
+    #[test]
+    fn r3_emission_failure_never_changes_the_return() {
+        if env_flag_is_set() {
+            return;
+        }
+        let off = project(Some(false));
+        let on = project(Some(true));
+        // A REAL failing write — the emitter's own swallow-and-count path, not a stub:
+        // `/proc` cannot hold the journal's parent directory.
+        test_sink::install(|e| {
+            emit_r3_event_at(Path::new("/proc/r3-shadow-probe/r3_events.jsonl"), e)
+        });
+        let before = dropped_event_count();
+        let without = drive(off.path(), "r3-fail");
+        let with = drive(on.path(), "r3-fail");
+        assert_eq!(without, with, "a failed emission must not touch the return");
+        assert!(
+            dropped_event_count() > before,
+            "the failure is counted, never silent"
+        );
+    }
+
+    fn strings_in(v: &Value, out: &mut Vec<String>) {
+        match v {
+            Value::String(s) => out.push(s.clone()),
+            Value::Array(a) => a.iter().for_each(|x| strings_in(x, out)),
+            Value::Object(m) => m.values().for_each(|x| strings_in(x, out)),
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn r3_event_lines_never_carry_text_over_80_chars() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        let payload = json!({"session_id": "r3-long"});
+        record_route_offer(root.path(), "r3-long", CodeModePresentation::Code);
+        let long = format!("echo {}", "x".repeat(300));
+        claim_route_reward(root.path(), &payload, &long);
+        claim_route_reward(root.path(), &payload, "pwd");
+        claim_route_reward(root.path(), &payload, &"ç".repeat(200));
+        assert_eq!(lines.borrow().len(), 1);
+        let mut all = Vec::new();
+        strings_in(&lines.borrow()[0], &mut all);
+        assert!(!all.is_empty());
+        assert!(
+            all.iter().all(|s| s.chars().count() <= 80),
+            "S6: no string over 80 chars in any key: {all:?}"
+        );
+        assert_eq!(
+            lines.borrow()[0]["cmd_heads"][0]
+                .as_str()
+                .map(|s| s.chars().count()),
+            Some(80)
+        );
+    }
+
+    #[test]
+    fn r3_event_names_the_session_not_the_agent() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        let payload = json!({"session_id": "sess-a", "agent_id": "ag1"});
+        let actor = session_key(&payload);
+        assert!(
+            actor.contains("agent:ag1"),
+            "premise: the actor key carries the agent"
+        );
+        record_route_offer(root.path(), &actor, CodeModePresentation::Code);
+        claim_route_reward(root.path(), &payload, "touring run --lang bash --code 'ls'");
+        assert_eq!(lines.borrow().len(), 1);
+        assert_eq!(
+            lines.borrow()[0]["session_hash"],
+            session_hash("sess-a").as_str()
+        );
+    }
+
+    #[test]
+    fn r3_actors_do_not_close_each_others_offers() {
+        if env_flag_is_set() {
+            return;
+        }
+        let root = project(Some(true));
+        let lines = capture();
+        record_route_offer(root.path(), "r3-a", CodeModePresentation::Code);
+        record_route_offer(root.path(), "r3-b", CodeModePresentation::Code);
+        claim_route_reward(
+            root.path(),
+            &json!({"session_id": "r3-a"}),
+            "touring run --lang bash --code 'ls'",
+        );
+        assert_eq!(lines.borrow().len(), 1);
+        assert_eq!(
+            lines.borrow()[0]["session_hash"],
+            session_hash("r3-a").as_str()
+        );
+        assert!(
+            pending_for(root.path(), "r3-b"),
+            "the other actor's offer is untouched"
+        );
+    }
+
+    #[test]
+    fn r3_pending_offers_are_capped_oldest_first() {
+        let reg = Registry::new();
+        let mut sink = |_: &Value| {};
+        for i in 0..1030u64 {
+            reg.offer(&format!("k{i}"), "s", "code", i, &mut sink);
+        }
+        assert_eq!(reg.len(), 1024, "the registry never grows past its cap");
+        assert!(!reg.is_pending("k0"), "the oldest went first");
+        assert!(reg.is_pending("k1029"), "the newest is kept");
+    }
+}
