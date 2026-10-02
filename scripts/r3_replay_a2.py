@@ -389,7 +389,18 @@ def main() -> int:
     bj = braço_jev(eventos, cache_path=SAIDA / "cache-a2.jsonl",
                    cache_only=args.cache_only)
     _dump(itens, eventos, {"B-L": bl, "B-J": bj})
+    if args.gold:
+        _score_with_gold(args.gold)
     return 0
+
+
+def _score_with_gold(gold_path: str) -> None:
+    """Errata 8 (E8.10): `--gold` was accepted and IGNORED until 02/10/2026 (`_dump` always wrote `agreement: null`).
+    It now scores the arms against the gold with the pure scorer — no model call, no API call."""
+    import r3_score_a2
+    res = r3_score_a2.score_files(SAIDA / "predictions-a2.jsonl", gold_path)
+    (SAIDA / "results-a2.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"-> {SAIDA/'results-a2.json'} (scored against {res['population']['n_gold']} gold items)")
 
 
 def _dump(itens, eventos, preds: dict) -> None:
