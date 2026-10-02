@@ -177,3 +177,23 @@ errar. C-A2-2 passa a ser por estrato de B0 (n_test ≥ 20), com o mesmo limiar 
 **E1.4 — A2, janela.** K = 3 chamadas **Bash** (não "3 ferramentas quaisquer"), da mesma `session_id`,
 cortada na próxima oferta da mesma sessão (uma oferta nova substitui a anterior:
 `record_route_offer` insere pela chave da sessão, `:4536`).
+
+---
+
+# Errata 2 — 02/10/2026 12:56:50 BRT — registrada ANTES de existir qualquer rótulo de adjudicação
+
+> Esclarece COMO o κ e o gold são calculados (a pré-condição do §2 não dizia sobre qual conjunto de classes).
+> **Nenhum limiar muda** (κ ≥ 0,60 segue valendo). Fixado em `scripts/r3_adjudication.py` (6 mutantes mortos) antes de
+> qualquer pacote ser gerado; nenhum rótulo existia.
+
+**E2.1 — κ sobre o binário primário.** O κ de Cohen entre os dois adjudicadores é calculado sobre
+`followed` × `not-followed` (a mesma métrica primária da Errata 1, E1.2). `ignored` × `bypass` **não** é
+desacordo. Um κ de 3 classes é reportado como secundário.
+**E2.2 — `indeterminate`.** Item que qualquer dos dois adjudicadores marca `indeterminate` é excluído do κ e
+do gold e **contado** (`n_indeterminate`).
+**E2.3 — gold e desempate.** Gold = acordo dos dois (Kimi K3 e MiniMax, cegos entre si e à decisão de B0);
+cada desacordo vai à fila de desempate e é fechado por um terceiro juiz (Claude Sonnet), registrado com
+`provenance = tiebreak`. Desempate `indeterminate` mantém o item fora do gold.
+**E2.4 — cegueira.** O pacote entregue aos adjudicadores contém só `item_id`, texto do nudge e os ≤ 3 comandos
+(`scripts/r3_adjudication.py::pack`); a decisão de B0 vive num arquivo-chave que eles não recebem; a ordem é
+embaralhada por seed.
