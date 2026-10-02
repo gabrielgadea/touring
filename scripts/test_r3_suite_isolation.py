@@ -35,6 +35,7 @@ SUITES = [
     "test_r3_a1_kpi.py",
     "test_r3_freeze_dataset.py",
     "test_r3_replay_a1.py",
+    "test_r3_arms.py",
 ]
 # O que NÃO pode mudar: a saida dos replays e o corpus congelado.
 DIRETORIOS_PROTEGIDOS = [
