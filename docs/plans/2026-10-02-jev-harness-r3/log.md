@@ -52,3 +52,11 @@ Emissor A1 em pre_bash::run_returning (blast 7), observe-only, default OFF, comm
 ## 2026-10-02T15:15:15.456896-03:00 — S-13 done
 
 Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapshot da toolchain, canal default); verificado AO VIVO: touring 30.4.91, daemon novo com ambiente limpo (sem TOURING_CODE_MODE/R3_SHADOW), doctor ok, CUDA ok. NÃO propagado a pinados. Shadow ligado só em .touring/touring.toml; primeiro evento real a2_offer_closed em 15:10:20; avaliador (unit transitória) ativo e kpi shadow measured. Incidente: o job de fundo da ferramenta é parado aos 30min, o release foi relançado desacoplado.
+
+## 2026-10-02T16:02:24.382025-03:00 — S-12 done
+
+Provas de entrega executadas ao vivo na 30.4.91 e gravadas: S1a/S1b/S2/S5/S6 PASSAM; S3 interino; S4 fraco (pre-bash 1/200) e anulado (cli-suggest 0/200), predicado corrigido em 18691c14. A1 online PROVADO ao vivo pelo daemon (2 a1_block reais via gatilho reproduzido; achado 'zero eventos' era taxa-base zero, retratado). Sondas contaminam a amostra A1 (declarado).
+
+## 2026-10-02T16:02:24.715725-03:00 — S-14 done
+
+RESULTS.md e PROVA-PRATICA.md escritos com numeros mecanicos regenerados (gate A1 NAO_ADOTADO_PELOS_DADOS, A2 GOLD_INSUFICIENTE) e limitacoes declaradas. S-5/S-6 seguem abertas: dependem do avaliador 1 nao-Claude (Gabriel).
