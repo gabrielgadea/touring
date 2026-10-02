@@ -12,7 +12,8 @@
 #
 # Cache: $TOURING_QUALITY_CACHE_DIR/<sha256>.json, the key hashing the ENGINE
 # (mtime+size), the ARGUMENTS, and the target listing (mtime+size+path of tracked
-# AND untracked files, capped at 100k).
+# AND untracked files, capped at 100k; a Python module file adds the pytest files
+# F3.1 pairs with it).
 #
 # Environment:
 #   TOURING_QUALITY_BIN              engine (default: <this workspace>/target/release/touring-quality)
@@ -212,6 +213,34 @@ done
 # It carries the ARGUMENTS too: keyed without them, a cached report answered
 # `--fail-below 0.95` with exit 0 on a composite of 0.85, and `--dims F2.1` with
 # the full report of another invocation (cross-audit 14/09/2026, C1).
+
+# The pytest files F3.1 pairs with a Python module — the rule of
+# f3_1_coverage.rs `paired_python_tests`, mirrored: test_<m>.py and <m>_test.py
+# beside it, and tests/test_<m>.py in its directory or in any ancestor up to the
+# repository root (8 levels at most). A test file or conftest.py pairs with nothing.
+# The engine counts their tests, so each one that exists must move the key: keyed
+# by the module's stat alone, a module scored before its test existed kept
+# «test fns=0» from cache (27/09/2026 — 0.93 Silver served, 0.98 Diamond measured).
+paired_pytest_files() {
+  local file="$1" stem dir root d i c
+  stem="$(basename "$file" .py)"
+  case "$stem" in test_*|*_test|conftest) return 0 ;; esac
+  dir="$(dirname "$file")"
+  root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || true)"
+  local candidates=("$dir/test_$stem.py" "$dir/${stem}_test.py")
+  d="$dir"
+  for ((i = 0; i < 8; i++)); do
+    candidates+=("$d/tests/test_$stem.py")
+    [[ -n "$root" && "$d" == "$root" ]] && break
+    [[ "$d" == "/" ]] && break
+    d="$(dirname "$d")"
+  done
+  for c in "${candidates[@]}"; do
+    if [[ -f "$c" ]]; then printf '%s\n' "$c"; fi
+  done
+  return 0
+}
+
 compute_hash() {
   local target="$TARGET_REAL"
   local listing=""
@@ -236,6 +265,13 @@ compute_hash() {
     fi
   else
     listing="$(stat -c '%Y %s %n' "$target" 2>/dev/null || true)"
+    # Only after the target itself answered: an unreadable target stays empty
+    # and still exits 3 below.
+    if [[ -n "$listing" && "$target" == *.py ]]; then
+      local paired
+      paired="$(paired_pytest_files "$target" | xargs -r -d '\n' stat -c '%Y %s %n' 2>/dev/null || true)"
+      if [[ -n "$paired" ]]; then listing+=$'\n'"$paired"; fi
+    fi
   fi
   if [[ -z "$listing" ]]; then
     echo "touring-quality-score: empty or unreadable target, nothing to score: $target" >&2

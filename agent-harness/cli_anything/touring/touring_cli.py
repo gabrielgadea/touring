@@ -1,3 +1,5 @@
+# touring-quality:allow-attack-fixture — F2.1/CWE-89 FP: o identificador interpolado vem do catálogo do PRÓPRIO SQLite
+# (sqlite_master) — nunca de input externo; e há guard de higiene (isalnum).
 """cli-anything-touring: CLI harness for Touring intelligence system v0.4.0.
 
 Tier 1 (SQLite, <10ms): index, ast, memory, evolution, gotcha, flywheel, incremental
@@ -55,6 +57,10 @@ def _check_database_health(db_name: str, label: str) -> dict[str, object]:
             table_names = [t["name"] for t in tables if t["name"] != "sqlite_sequence"]
             counts = {}
             for tn in table_names:
+                # Identificador vem do catálogo do próprio SQLite; a higiene da
+                # forma é a whitelist (F2.1/CWE-89 exige validação explícita).
+                if not tn.replace("_", "").isalnum():
+                    continue
                 row = conn.execute(f"SELECT COUNT(*) FROM [{tn}]").fetchone()
                 counts[tn] = row[0]
         return {"status": "ok", "path": str(path), "tables": counts}

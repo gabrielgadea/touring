@@ -289,6 +289,49 @@ def test_an_untracked_file_invalidates_the_cache(env):
     assert engine_calls(env) == 2, "a new untracked file is measured, not served stale"
 
 
+def _python_module(env: dict) -> Path:
+    pkg = env["target"] / "pkg"
+    pkg.mkdir()
+    mod = pkg / "mod.py"
+    mod.write_text("def api():\n    return 1\n", encoding="utf-8")
+    return mod
+
+
+@pytest.mark.parametrize(
+    "paired",
+    ["test_mod.py", "mod_test.py", "tests/test_mod.py", "../tests/test_mod.py"],
+    ids=["beside", "suffix", "tests-dir", "ancestor-tests-dir"],
+)
+def test_a_paired_pytest_file_invalidates_a_python_module_s_cache(env, paired):
+    """F3.1 pairs a Python module with its pytest files (f3_1_coverage.rs
+    `paired_python_tests`, 26/09/2026), so a FILE target's score depends on files
+    other than the target. Keyed by the target's stat alone, a module scored before
+    its test existed kept «test fns=0» from cache (27/09/2026, analise: the same
+    module read 0.93 Silver from cache and 0.98 Diamond measured)."""
+    mod = _python_module(env)
+    run(env, "score", str(mod))
+    test_file = (mod.parent / paired).resolve()
+    test_file.parent.mkdir(parents=True, exist_ok=True)
+    test_file.write_text("def test_api():\n    pass\n", encoding="utf-8")
+    run(env, "score", str(mod))
+    assert engine_calls(env) == 2, f"a new paired test ({paired}) is measured, not served stale"
+    with test_file.open("a", encoding="utf-8") as f:
+        f.write("\n\ndef test_more():\n    pass\n")
+    run(env, "score", str(mod))
+    assert engine_calls(env) == 3, "an edited paired test moves the key too"
+
+
+def test_an_unrelated_test_file_keeps_serving_the_cache(env):
+    """Control: the key widens to the PAIRED files only — the test of another module,
+    or a test file scored as the target, leaves the cache serving."""
+    mod = _python_module(env)
+    run(env, "score", str(mod))
+    (mod.parent / "tests").mkdir()
+    (mod.parent / "tests" / "test_other.py").write_text("def test_x():\n    pass\n", encoding="utf-8")
+    run(env, "score", str(mod))
+    assert engine_calls(env) == 1
+
+
 def test_a_descendant_of_the_engine_never_inherits_the_lock(env):
     """Cross-audit 14/09/2026 (C10): with fd 9 inherited, a long-lived grandchild
     held the lock after the engine exited and every later score exited 75."""
