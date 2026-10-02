@@ -73,6 +73,26 @@ def test_the_backslash_fix_does_not_hide_a_real_out_of_scope_path(tmp_path):
     assert out["valid"] is False and any(v["path"].endswith("s3_baseline.json") for v in out["violations"])
 
 
+TB_OUT = f"{R}/adj_out/adj_tiebreak.jsonl"
+
+
+def test_the_tiebreak_judge_runs_on_claude_and_may_write_only_its_own_file(tmp_path):
+    """The tie-break judge (Errata 7, E7.5) is a CLEAN-context Claude subagent: the model rule flips and ONE extra
+    output file is allowed — nothing else relaxes."""
+    calls = [("Read", {"file_path": INSTR}), ("Read", {"file_path": PACK}), ("Write", {"file_path": TB_OUT, "content": "x"})]
+    ok = write(tmp_path, turn(model="claude-sonnet-5-5", calls=calls))
+    assert sc.scan(ok, model="claude", extra_allowed=("adj_out/adj_tiebreak.jsonl",))["valid"] is True
+    # default (MiniMax) rule: a Claude turn and the unlisted output file both invalidate
+    bad = sc.scan(ok)
+    assert bad["valid"] is False and {v["kind"] for v in bad["violations"]} == {"not_expected_model", "out_of_scope_path"}
+
+
+def test_a_minimax_turn_fails_the_claude_rule_and_other_files_stay_forbidden(tmp_path):
+    f = write(tmp_path, turn(model="MiniMax-M3.1", calls=CLEAN + [("Read", {"file_path": f"{R}/adj_pack/key.jsonl"})]))
+    out = sc.scan(f, model="claude", extra_allowed=("adj_out/adj_tiebreak.jsonl",))
+    assert out["valid"] is False and {v["kind"] for v in out["violations"]} >= {"not_expected_model", "forbidden_token"}
+
+
 def test_the_adj_out_directory_alone_is_allowed(tmp_path):
     out = sc.scan(write(tmp_path, turn(calls=CLEAN + [("Bash", {"command": f"ls {R}/adj_out"})])))
     assert out["valid"] is True
@@ -80,7 +100,7 @@ def test_the_adj_out_directory_alone_is_allowed(tmp_path):
 
 def test_a_claude_turn_invalidates_even_with_clean_calls(tmp_path):
     out = sc.scan(write(tmp_path, turn(calls=CLEAN), turn(model="claude-sonnet-5-5", calls=CLEAN)))
-    assert out["valid"] is False and any(v["kind"] == "not_minimax" for v in out["violations"])
+    assert out["valid"] is False and any(v["kind"] == "not_expected_model" for v in out["violations"])
 
 
 def test_an_empty_model_id_is_not_minimax(tmp_path):
