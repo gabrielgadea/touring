@@ -65,6 +65,19 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 - `touring e2e -j`: overall **0,857** (baseline mediana 0,857) · ast 0,776 · wiring 0,810 · knowledge 0,900 · quality 1,000 · learning 0,886 · index 0,849 (vs 0,852: diluição de cobertura 5643/7537, não regressão de qualidade).
 - Cadeia de gates do `propagate-release --stop-before-propagate`: rc = 0 em 8 min 37 s (gates, build, rótulo, testes pós-build, snapshot da toolchain, canal default).
 
+## 4b. Verificação independente (feita por quem não escreveu o código)
+
+| Verificação | Quem | Resultado |
+|---|---|---|
+| Pontuador do A2 reimplementado só a partir da Errata 8 | subagente Claude de contexto limpo | **todos os números e o veredito batem** (só o p95 do B-L difere na 2ª casa, por método de percentil) |
+| Auditoria cruzada de todo o código r3 (emissores Rust, scripts, contratos) | `touring-auditor` | score composto **0,92**; 7 achados, todos verificados: 1 era leitura de versão antiga do relatório, 3 corrigidos (gate C-A2-2 por vácuo; 9 testes Rust no-op; "quase tudo em 0,5" errado), 2 declarados sem correção (`MAX_PENDING`, arquivo solto), 1 confirmado só em parte (B-J do cache); recontou 8 números, 6 batem e os 2 restantes eram o item já reescrito e a frase errada |
+| Rater 1 e juiz de desempate | subagentes MiniMax e Claude de contexto limpo | validados por código (`r3_scan_rater_transcript.py`), não por leitura |
+| Sonda de polaridade do `noul` do Laya | `touring-a4` | hipótese pré-declarada **não confirmada** (AUC 0,500 em 8 casos sintéticos) |
+| Juiz de convergência (`loop_converged.py`) | código | **`converged: true`** (DAG 14/14, qualidade Gold 0,8745, 0 P0 BLOCK, escopo inteiro medido; 3 cláusulas N/A) |
+| Correção dos testes Rust, `hw-slot --class rust` | cargo | ambiente limpo **18 passam**; `TOURING_R3_SHADOW=1` **9 falham em voz alta** (antes: verdes); `fmt` e `clippy -D warnings` limpos |
+
+O `touring-4b` recebeu a mesma tarefa de reimplementação mas não confirmou o recebimento (provável mensagem retida por permission mode); foi coberta pelo subagente.
+
 ## 5. Testes e mutantes (a prova de que os testes provam)
 
 | Módulo | Testes | Mutantes mortos |
@@ -74,6 +87,8 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 | `scripts/r3_prove_delivery.py` | **38** | 19 (anteriores) **+ 6** do fix S4 (cópia hermética, baseline verde impresso antes) |
 | `scripts/r3_score_a2.py` (pontuador do A2, Errata 8) | **20** (inclui fixture calculado à mão) | **18/18** (1 equivalente identificado e trocado) |
 | `scripts/r3_scan_rater_transcript.py` (E7.2) | **29** | **13/13** |
+| `scripts/r3_results_gate.py` | **18** | **2/2** do fix do C-A2-2 (o 2º só morreu depois de fortalecer o teste) |
+| `r3_shadow.rs` (guardas de ambiente dos testes) | 18 passam / 9 falham com a flag forçada | a guarda agora é audível |
 | Emissor A1 (`pre_bash.rs`, S-9) | testes de unidade + S1a | 4/4 (a 1ª entrega tinha 1/4 e foi recusada) |
 
 Limite da prova: os harnesses de mutação vivem no scratchpad da sessão (não no repo); os resultados estão registrados em `phases/S-*.md` e no `log.md`. Os testes que eles exercitam estão no repo e rodam sem eles.
