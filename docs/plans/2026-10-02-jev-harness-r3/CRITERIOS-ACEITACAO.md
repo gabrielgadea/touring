@@ -450,3 +450,32 @@ quanto o resultado depende dele.
 Nenhuma inversão é aplicada: se o AUC vier ≪ 0,5 o braço é reportado como está e a polaridade vai para o r4.
 **E8.9 — latência** de `predictions-a2.jsonl` (p95 sobre as predições sem erro). **E8.10 — ligação:** `--gold` do
 replay passa a chamar o pontuador (`scripts/r3_score_a2.py`, puro, sem chamada de modelo nem de API).
+
+---
+
+# Errata 9 — 02/10/2026 17:20 BRT — S4 forte (A/B de daemons por projeto), registrada ANTES de qualquer saída ON/OFF/controle
+
+> Motivo: a E6.1 deixou o S4 "fraco/anulado" (standalone, projeto limpo → quase tudo `{}`) e disse que um S4 forte exigiria
+> A/B de dois daemons por projeto. O mecanismo (W12.5) existe e está em uso (daemons por projeto de konverter e analise,
+> verificado por `daemon-ctl list-all`). Esta Errata muda COMO o S4 é medido; limiares e demais critérios ficam como estão.
+> Achado de operação: `touring init-project --root X` **ignora `--root`** e inicializa o diretório atual; o scaffold roda
+> sempre com `cwd` = o projeto.
+
+**E9.1 — desenho.** Três projetos descartáveis idênticos (`/tmp/r3s4/{on,off,ctl}`), toolchain 30.4.91 (a que tem os
+emissores), `[daemon] per_project = true`, `[code_mode] mode = "code"`, diferindo SÓ em `[shadow] r3` (true / false /
+false). Cada projeto tem o próprio daemon (auto-spawn pelo 1º hook); nenhum estado é compartilhado.
+**E9.2 — entradas.** As 200 entradas reais de `r3-data/s4_inputs.jsonl` (sha 7af62ab0390fb933), mesma ordem e mesmos
+`session_id`, `cwd` = raiz do projeto. Para cada entrada, em lockstep (ON, OFF, controle, sem pausa), os hooks `pre-bash` e
+`cli-suggest` pelo caminho do daemon; a saída é comparada byte a byte.
+**E9.3 — validade.** O controle (OFF × controle) tem de ser byte-idêntico em todas as comparações; senão o resultado é
+**VOID** (`passes = None`) e nenhuma diferença é atribuída à flag (o dedup "há Ns" é relógio de parede: se for a causa,
+é reportado como causa, nunca contornado).
+**E9.4 — força** (por hook, com `has_content` do commit 18691c14): `n_nonempty ≥ 50` ⇒ **forte**; 1–49 ⇒ **fraco**; 0 ⇒ **anulado**.
+**E9.5 — a flag tem de ter efeito no braço ON.** Pelo menos 1 evento (`a2_offer_closed` ou `a1_block`) gravado pelo daemon
+ON; sem isso o A/B não diz nada sobre o emissor e é reportado como "emissor ocioso".
+**E9.6 — isolamento do journal real.** O experimento NÃO pode escrever no `r3_events.jsonl` do shadow vivo. Uma sondagem de
+3 entradas com `session_id` únicos roda ANTES, e o journal real é varrido pelos hashes desses ids; se algum evento do
+experimento cair lá, o experimento é ABORTADO (e a contaminação, declarada com os hashes).
+**E9.7 — veredito.** S4-forte `passes` ⇔ controle idêntico E ON == OFF em todas as comparações; a classificação de força
+vem da E9.4. Se resultar "forte", substitui a classificação "fraco/anulado" da Errata 6; se resultar VOID ou fraco, o
+S4 segue como estava e o motivo é registrado. Limpeza: daemons parados com `daemon-ctl stop --socket` (REGRA #19), nunca `pkill`.
