@@ -68,6 +68,33 @@ def test_a1_complete_results_still_reach_the_model_verdicts():
     assert gate.verdict_a1(a1_results())["verdict"] == "MODELO_PASSA"
 
 
+def test_a2_c2_with_no_judgeable_stratum_is_unmeasured_never_a_pass():
+    """Cross-audit 02/10 finding 6: `all()` over an empty iterable is True, so an arm whose strata were ALL below
+    n_test 20 got C-A2-2 = True without a single stratum having been judged."""
+    r = a2_results()
+    for s in r["arms"]["B-L"]["strata"].values():
+        s["n_test"] = 19
+    small = gate.verdict_a2(r)["arms"]["B-L"]
+    assert small["C-A2-2"] is None and small["passes"] is False
+    r["arms"]["B-L"]["strata"] = {}
+    none = gate.verdict_a2(r)["arms"]["B-L"]
+    assert none["C-A2-2"] is None and none["passes"] is False
+
+
+def test_a2_c2_judges_the_strata_that_are_big_enough_and_ignores_the_small_one():
+    """The REAL shape (02/10): `followed` n=66 is judged, `not_followed` n=19 is not — one judged stratum decides."""
+    r = a2_results()
+    r["arms"]["B-L"]["strata"] = {"followed": {"n_test": 66, "agreement_model": 0.91, "agreement_b0": 0.88},
+                                  "not_followed": {"n_test": 19, "agreement_model": 0.0, "agreement_b0": 1.0}}
+    assert gate.verdict_a2(r)["arms"]["B-L"]["C-A2-2"] is True
+    r["arms"]["B-L"]["strata"]["followed"]["agreement_model"] = 0.80          # −0.08 < −0.03 in the judged stratum
+    assert gate.verdict_a2(r)["arms"]["B-L"]["C-A2-2"] is False
+    # every judged stratum counts, not just the first: here only the SECOND (n >= 20) regresses
+    r["arms"]["B-L"]["strata"]["followed"]["agreement_model"] = 0.91
+    r["arms"]["B-L"]["strata"]["not_followed"] = {"n_test": 30, "agreement_model": 0.60, "agreement_b0": 0.90}
+    assert gate.verdict_a2(r)["arms"]["B-L"]["C-A2-2"] is False
+
+
 def test_verdict_is_computed_from_frozen_thresholds_not_edited_by_hand():
     assert gate.verdict_a2(a2_results())["verdict"] == "PASSA"
     # one hair under the pre-registered +0.05 floor fails C-A2-1; exactly on it passes
