@@ -68,6 +68,31 @@ def test_a2_a_regressing_stratum_makes_the_arm_partial_not_pass():
     assert out["arms"]["B-L"]["C-A2-2"] is False and out["verdict"] == "PARCIAL"
 
 
+def test_a2_underpowered_effect_is_inconclusive_not_a_failure():
+    """Errata 3 (E3.2): delta >= the floor but the CI crosses zero = the sample cannot decide."""
+    r = a2_results()
+    r["arms"]["B-L"].update(delta_vs_b0=0.07, delta_ci_low=-0.01)
+    out = gate.verdict_a2(r)
+    assert out["verdict"] == "INCONCLUSIVO_POR_POTENCIA" and out["arms"]["B-L"]["underpowered"] is True
+
+
+def test_a2_underpowered_never_outranks_a_real_pass_or_a_partial():
+    r = a2_results()
+    r["arms"]["B-J"] = dict(r["arms"]["B-L"], delta_vs_b0=0.07, delta_ci_low=-0.01)  # underpowered sibling
+    assert gate.verdict_a2(r)["verdict"] == "PASSA"                                    # B-L passes outright
+    r = a2_results()
+    r["arms"]["B-L"]["strata"]["b0_followed"].update(agreement_model=0.80, agreement_b0=0.88)  # B-L only PARTIAL
+    r["arms"]["B-J"] = dict(r["arms"]["B-L"], delta_vs_b0=0.07, delta_ci_low=-0.01)
+    assert gate.verdict_a2(r)["verdict"] == "PARCIAL"
+
+
+def test_a2_a_delta_below_the_floor_is_not_inconclusive_it_is_not_adopted():
+    r = a2_results()
+    r["arms"]["B-L"].update(delta_vs_b0=0.03, delta_ci_low=-0.05, precision=0.80, coverage=0.10)
+    out = gate.verdict_a2(r)
+    assert out["verdict"] == "NAO_ADOTADO_PELOS_DADOS" and out["arms"]["B-L"]["underpowered"] is False
+
+
 def test_a2_small_strata_are_not_judged():
     r = a2_results()
     r["arms"]["B-L"]["strata"]["b0_followed"].update(n_test=19, agreement_model=0.10, agreement_b0=0.99)
