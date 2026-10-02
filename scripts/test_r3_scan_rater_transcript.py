@@ -60,6 +60,19 @@ def test_a_tilde_path_outside_scope_invalidates(tmp_path):
     assert out["valid"] is False
 
 
+def test_a_shell_line_continuation_backslash_is_not_part_of_the_path(tmp_path):
+    """Found 02/10 on the real rater-1 transcript: `python3 x.py <pack> \\` + newline made the regex capture
+    `<pack>\\` (an 'out of scope' path that was exactly the allowed file). The backslash is shell syntax, not path."""
+    cmd = f"cd /tmp && python3 x.py {PACK} \\\n  --flag 1 {PACK}\\\n"
+    assert sc.scan(write(tmp_path, turn(calls=CLEAN + [("Bash", {"command": cmd})])))["valid"] is True
+
+
+def test_the_backslash_fix_does_not_hide_a_real_out_of_scope_path(tmp_path):
+    cmd = f"cat {R}/s3_baseline.json \\\n  | head"
+    out = sc.scan(write(tmp_path, turn(calls=CLEAN + [("Bash", {"command": cmd})])))
+    assert out["valid"] is False and any(v["path"].endswith("s3_baseline.json") for v in out["violations"])
+
+
 def test_the_adj_out_directory_alone_is_allowed(tmp_path):
     out = sc.scan(write(tmp_path, turn(calls=CLEAN + [("Bash", {"command": f"ls {R}/adj_out"})])))
     assert out["valid"] is True
