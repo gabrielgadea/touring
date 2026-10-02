@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import r3_event_schema as schema  # noqa: E402
 import r3_prove_delivery as pd  # noqa: E402
 
-BASE = Path("/tmp/r3s4")
+BASE = Path("/tmp/r3s4b")     # pristine projects: the first set (/tmp/r3s4) took the exploratory probes (E9.8-g) and was discarded
 NAMES = ("on", "off", "ctl")
 HOOKS = ("pre-bash", "cli-suggest", "post-bash", "post-tool-rl")
 SHIM = Path.home() / ".claude/hooks/touring-hook"

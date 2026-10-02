@@ -500,3 +500,6 @@ arquivo de sondagem NA FASE MEDIDA (o aquecimento é excluído). Emissor ocioso 
 (g) **Divulgação das sondagens exploratórias anteriores ao registro:** 6 e 20 entradas pelo daemon do `on` para descobrir (b)-(c)
 (8 saídas não vazias de `cli-suggest` em 20, 2 eventos no arquivo de sondagem), e o 4º projeto para (e). Nenhuma comparação ON×OFF foi feita.
 (h) **Ferramenta:** `scripts/r3_s4_ab.py` (18 testes; mutação hermética 12/12). Limpeza: `daemon-ctl stop --project`, nunca `pkill`.
+**E9.8-i (17:40 BRT)** — A rodada real usa projetos VIRGENS em `/tmp/r3s4b/{on,off,ctl}`: o 1º conjunto (`/tmp/r3s4`) recebeu as sondagens
+exploratórias de (g) — o daemon, a sessão e o banco do `on` já tinham estado enquanto `off`/`ctl` eram novos — e foi descartado
+(daemons parados com `daemon-ctl stop --project`, SIGTERM; os daemons global, de konverter e de analise ficaram intactos).
