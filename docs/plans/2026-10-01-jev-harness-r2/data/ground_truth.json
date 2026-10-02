@@ -1,0 +1,1191 @@
+{
+  "status": "DEGRADED",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-10-01T22:59:20+00:00",
+  "intent": "jev-harness r2: temperature scaling aluno, shadow-matrix prompt_enhance, latency_ms decision journal, starvation gate KPI decision, corpus 1200, composite scoring, score-gate recall",
+  "duration_ms": 2114,
+  "daemon_degraded": true,
+  "extracted": {
+    "symbols": [
+      "latency_ms",
+      "prompt_enhance"
+    ],
+    "paths": []
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 2,
+    "gotchas_found": 0,
+    "lessons_applied": 10,
+    "orphan_count": 1,
+    "paths_inspected": 0
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.89"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=4"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (127 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "warning",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=100500 producers=12520 consumers=87980 pub=11557 kind_unknown=1 non_wireable=0 unread=0 abs_paths=0"
+      },
+      {
+        "name": "index_generation",
+        "status": "ok",
+        "detail": "generation 45 complete at 2026-09-24 00:43:15 (5409 files, 94804 symbols)"
+      },
+      {
+        "name": "gpu_embeddings",
+        "status": "ok",
+        "detail": "cuda — 433 texts embedded on the GPU by this daemon"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "code_mode": {
+      "adoption_ratio": 0.4820717131474104,
+      "bash_calls": 251,
+      "gates": {
+        "g10_exec_burst": {
+          "denied": 1,
+          "followed": 1
+        },
+        "g1_burst": {
+          "denied": 19,
+          "followed": 2
+        },
+        "g2_pipe_exit": {
+          "denied": 0,
+          "followed": 2
+        },
+        "g3_edit_sem_read": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "denied": 1,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "denied": 0,
+          "followed": 3
+        },
+        "g9_sed_inline": {
+          "denied": 0,
+          "followed": 0
+        }
+      },
+      "runs": 121
+    },
+    "composite_health_score": 0.4887,
+    "daemon_health": {
+      "components": [
+        {
+          "name": "knowledge_db",
+          "note": "always initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "linucb_bandit",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "symbol_store",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "crdt_graph",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "predictor",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "cognitive_runtime",
+          "note": "initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "enrichment_pipeline",
+          "note": "auto-triggered at session-start",
+          "status": "active"
+        },
+        {
+          "name": "gotcha_db",
+          "note": "integrated in knowledge_db",
+          "status": "healthy"
+        }
+      ],
+      "healthy_count": 7,
+      "total_count": 8
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 30,
+      "activity_post_write_count": 11,
+      "activity_pre_compact_count": 3,
+      "activity_pre_edit_count": 21,
+      "actor_budget_timeout_count": 0,
+      "actor_queue_wait": {
+        "count": 12970,
+        "max_us": 1464319,
+        "p50_us": 79,
+        "p90_us": 127,
+        "p999_us": 1042431,
+        "p99_us": 196607
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 25,
+      "adoption_touring_count": 80,
+      "ann_search_latency": {
+        "count": 57,
+        "max_us": 24767,
+        "p50_us": 8767,
+        "p90_us": 16959,
+        "p999_us": 24767,
+        "p99_us": 24767
+      },
+      "antipattern_converted_count": 0,
+      "bash_calls_total_count": 251,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 4,
+      "ceg_captured_count": 251,
+      "ceg_fast_path_count": 247,
+      "ceg_sandboxed_count": 0,
+      "code_mode_arm_followed_both_count": 0,
+      "code_mode_arm_followed_code_count": 8,
+      "code_mode_arm_followed_native_count": 0,
+      "code_mode_arm_offered_both_count": 0,
+      "code_mode_arm_offered_code_count": 13,
+      "code_mode_arm_offered_native_count": 0,
+      "code_mode_bytes_elided_total": 81070,
+      "code_mode_runs_count": 121,
+      "code_mode_subcall_bytes_total": 0,
+      "code_mode_subcalls_count": 0,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 2,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 761,
+      "e3_counterfactual_observed_count": 0,
+      "embedding_cuda_fallback_count": 0,
+      "embedding_cuda_fallback_reason": "",
+      "embedding_device": "cuda",
+      "embedding_latency": {
+        "count": 434,
+        "max_us": 19903,
+        "p50_us": 2809,
+        "p90_us": 12047,
+        "p999_us": 19903,
+        "p99_us": 17711
+      },
+      "embedding_texts_cpu_count": 0,
+      "embedding_texts_cuda_count": 434,
+      "enrichment_context_bytes_total": 126369,
+      "enrichment_emit_count": 166,
+      "enrichment_mean_bytes_per_emit": 761.2590361445783,
+      "exec_heredoc_inline_seen_count": 22,
+      "g10_write_run_pair_denied_count": 0,
+      "g1_inspect_burst_denied_count": 13,
+      "g1_inspect_first_passed_count": 30,
+      "g1_post_deny_other_count": 1,
+      "g1_post_deny_same_class_count": 4,
+      "g4_observed_count": 46,
+      "g5_observed_count": 4,
+      "gate_events": {
+        "g10_exec_burst": {
+          "bypassed": 0,
+          "denied": 1,
+          "emitted": 0,
+          "followed": 1
+        },
+        "g1_burst": {
+          "bypassed": 0,
+          "denied": 19,
+          "emitted": 0,
+          "followed": 2
+        },
+        "g2_pipe_exit": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 2,
+          "followed": 2
+        },
+        "g3_edit_sem_read": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 1,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "bypassed": 0,
+          "denied": 1,
+          "emitted": 1,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 3,
+          "followed": 3
+        },
+        "g9_sed_inline": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        }
+      },
+      "gate_fatigue": {
+        "bypass_ratio": 0.0,
+        "bypassed_total": 0,
+        "denied_total": 21,
+        "per_gate": [
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 19,
+            "fp_candidate": false,
+            "gate": "g1_burst"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g2_pipe_exit"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g3_edit_sem_read"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g6_redundant"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 1,
+            "fp_candidate": false,
+            "gate": "g7_reinspect"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g8_loop_rewrite"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g9_sed_inline"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 1,
+            "fp_candidate": false,
+            "gate": "g10_exec_burst"
+          }
+        ]
+      },
+      "gate_metrics_daily_flush_count": 1,
+      "health_delta_compute_count": 8,
+      "health_delta_improvement_count": 1,
+      "health_delta_outstanding": 13,
+      "health_delta_record_count": 21,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 1,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_by_name": {
+        "ceg-observe": 251,
+        "cli-ast-blast": 34,
+        "cli-ast-find": 5,
+        "cli-ast-meta": 34,
+        "cli-code-mode-run": 121,
+        "cli-decompose-add": 9,
+        "cli-decompose-create": 3,
+        "cli-decompose-get": 217,
+        "cli-decompose-ready": 25,
+        "cli-decompose-status": 1,
+        "cli-decompose-update": 9,
+        "cli-e2e": 2,
+        "cli-flywheel-status": 338,
+        "cli-gate-metrics": 345,
+        "cli-gotcha-match": 1,
+        "cli-health-delta-status": 335,
+        "cli-incremental-status": 337,
+        "cli-index-find": 6,
+        "cli-index-status": 346,
+        "cli-kpi": 1909,
+        "cli-learning-reward": 1,
+        "cli-learning-status": 6039,
+        "cli-memory-link": 9,
+        "cli-memory-query": 7,
+        "cli-memory-recall": 57,
+        "cli-memory-store": 33,
+        "cli-resource-monitor-status": 335,
+        "cli-session-list": 337,
+        "cli-suggest": 346,
+        "cli-wiring-cycles": 1,
+        "cli-wiring-impact": 3,
+        "cli-wiring-modules": 1,
+        "cli-wiring-orphans": 32,
+        "cli-wiring-status": 338,
+        "cwd-changed": 12,
+        "instructions-loaded": 42,
+        "post-bash": 230,
+        "post-compact": 3,
+        "post-edit": 30,
+        "post-read": 46,
+        "post-tool-batch": 331,
+        "post-tool-failure": 19,
+        "post-tool-rl": 343,
+        "post-write": 11,
+        "pre-bash": 251,
+        "pre-compact": 3,
+        "pre-edit": 21,
+        "pre-edit-prevention": 21,
+        "pre-read": 32,
+        "pre-write": 8,
+        "session-start": 3,
+        "subagent-start": 7,
+        "subagent-stop": 27,
+        "task-sync-stop": 1,
+        "teammate-idle": 8
+      },
+      "hook_dispatch_latency": {
+        "count": 13315,
+        "max_us": 2500607,
+        "p50_us": 755,
+        "p90_us": 455679,
+        "p999_us": 974335,
+        "p99_us": 695807
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "m3_delegation_advised_count": 1,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 1825.3984375,
+      "memory_virt_mb": 16527130.390625,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 0,
+      "native_injection_code_route_count": 52,
+      "native_injection_followed_count": 30,
+      "native_injection_resisted_count": 47,
+      "phrase_query_match_count": 156,
+      "pillar_induction_emitted_count": 1,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.5633802816901409,
+      "pre_edit_full": 31,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.6896551724137931,
+      "pre_write_full": 18,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 10,
+      "query_cache_hit_ratio": 0.023752969121140145,
+      "query_cache_invalidate_count": 32,
+      "query_cache_miss_count": 411,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 901984,
+      "rkyv_dispatch_count": 11274,
+      "rkyv_dispatch_latency": {
+        "count": 11273,
+        "max_us": 1574911,
+        "p50_us": 954,
+        "p90_us": 502527,
+        "p999_us": 1218559,
+        "p99_us": 717823
+      },
+      "rkyv_mean_bytes": 80.00567677842824,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 11273,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 134,
+      "suggestion_uptake_followed_count": 16,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 61,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 31,
+      "tantivy_stream_flush_count": 30,
+      "tantivy_stream_flush_docs_count": 31,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 1000,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 129,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 134,
+      "workflow_antipattern_detected_count": 37
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 8,
+      "improvement_count": 1,
+      "outstanding": 13,
+      "record_count": 21,
+      "recovery_count": 0,
+      "regression_count": 1,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.4652631578947368,
+      "file_count": 5462,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 322364,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 5462,
+      "index_generation": {
+        "detail": "generation 45 complete at 2026-09-24 00:43:15 (5409 files, 94804 symbols)",
+        "files": 5409,
+        "finished_at": "2026-09-24 00:43:15",
+        "generation": 45,
+        "owner_pid": 1574377,
+        "started_at": "2026-09-24 00:37:52",
+        "state": "complete",
+        "symbols": 94804
+      },
+      "initialized": true,
+      "symbol_count": 322364
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.9925265882489378,
+        "update_count": 11
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "corpus_pending": 0,
+      "ema_reward": 0.17022057636766635,
+      "last_td_error": 0.8454142612770053,
+      "linucb_loaded": true,
+      "mean_td_error": 1.427140625,
+      "update_count": 50770
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.48403033990529076,
+        "cycle_count": 16,
+        "max_depth": 12,
+        "modularity_q": 0.16664758112260003,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2504,
+        "total_functions": 15551,
+        "total_nodes": 1402
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.058823529411764705,
+        "depth": 0.4,
+        "equality": 0.5159696600947092,
+        "modularity": 0.44443172074840004,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3519,
+      "signal_normalized": 0.3518909167973676
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-09-24T03:17:25.619219979+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:02.597085125+00:00",
+          "objective": "",
+          "session_id": "31",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:45:17.371599589+00:00"
+        },
+        {
+          "created_at": "2026-08-31T17:14:07.230842782+00:00",
+          "objective": "",
+          "session_id": "27",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:43:55.449751163+00:00"
+        },
+        {
+          "created_at": "2026-08-31T15:47:43.952933671+00:00",
+          "objective": "",
+          "session_id": "26",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:35.389687622+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:46:02.575573405+00:00",
+          "objective": "",
+          "session_id": "29",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:13.088781713+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:35:15.929264938+00:00",
+          "objective": "",
+          "session_id": "28",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:38:24.356049974+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:00.176903804+00:00",
+          "objective": "",
+          "session_id": "30",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:37:37.913050531+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:36.791698024+00:00",
+          "objective": "",
+          "session_id": "25",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:36:58.845654394+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:19.702827263+00:00",
+          "objective": "",
+          "session_id": "24",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:35:00.412769017+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:02.038133072+00:00",
+          "objective": "",
+          "session_id": "23",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:34:10.023717399+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:30:47.910615451+00:00",
+          "objective": "",
+          "session_id": "22",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:33:14.134498601+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:50.978686499+00:00",
+          "objective": "",
+          "session_id": "21",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:32:45.269227323+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:37.656923416+00:00",
+          "objective": "",
+          "session_id": "20",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:19:48.249461566+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:20.173475648+00:00",
+          "objective": "Verificar type=code em fragments ADW antes de recomendar C",
+          "session_id": "19",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:16:32.858191716+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:06.232865776+00:00",
+          "objective": "",
+          "session_id": "18",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:11:53.996622097+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:52.995482838+00:00",
+          "objective": "",
+          "session_id": "17",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:53:17.145950302+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:39.982530919+00:00",
+          "objective": "Persistir explanation.md + v4 digest em memória",
+          "session_id": "16",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:52:14.508842671+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:26.860222833+00:00",
+          "objective": "Explicar Top-5 Aprimoramentos + 5 Candidatas",
+          "session_id": "15",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:32:27.956670056+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:50.420715266+00:00",
+          "objective": "",
+          "session_id": "14",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:22:19.649507388+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:27.095782624+00:00",
+          "objective": "",
+          "session_id": "12",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:21:33.295885734+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 1767,
+        "detail": {
+          "_elided_array_len": 1052
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 7431,
+        "bash_count": 9714,
+        "coedit_pairs": 15072,
+        "edit_count": 3068,
+        "gotcha_count": 13,
+        "relation_count": 32679,
+        "task_metrics_count": 399
+      },
+      "module_count": 1487,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 761,
+      "total_consumers": 8945,
+      "total_pub_symbols": 8836
+    }
+  },
+  "e2e": {
+    "version": "30.4.89",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1790895559",
+    "overall_score": 0.8561142179739973,
+    "overall_status": "pass",
+    "total_duration_ms": 590,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 0.8452717391304347,
+        "weight": 2.0,
+        "duration_ms": 36,
+        "metrics": {
+          "coverage_pct": "74.2",
+          "disk_files": 7360,
+          "indexed_files": 5462,
+          "knowledge_files": 5559,
+          "relation_count": 32679,
+          "symbol_count": 322364,
+          "symbols_per_file": 59.019406810692054,
+          "tantivy_commits": 61,
+          "tantivy_docs": 113937,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 3102,
+          "tantivy_upserts": 1000
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "pass",
+        "score": 0.8100136703239817,
+        "weight": 2.0,
+        "duration_ms": 250,
+        "metrics": {
+          "avg_integration_score": 0.9192021575572513,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "90.3",
+          "functional_chains": 152,
+          "modules_below_threshold": 69,
+          "orphan_count": 1278,
+          "orphan_rate_pct": "9.7",
+          "total_consumers": 87980,
+          "total_pub_symbols": 13162,
+          "wiring_score": 0.8100136703239817
+        },
+        "issues": [],
+        "tests_run": 4,
+        "tests_passed": 4
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 34,
+        "metrics": {
+          "access_count": 7431,
+          "active_gotchas": 0,
+          "avg_line_count": 789.5026083828027,
+          "avg_symbol_density": 0.08014773818624263,
+          "bash_outcome_count": 9714,
+          "coedit_pairs": 15072,
+          "edit_history_count": 3068,
+          "file_knowledge_count": 5559,
+          "gotcha_hit_rate_pct": "2987015.4",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 55,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 7431,
+            "bash_count": 9714,
+            "coedit_pairs": 15072,
+            "edit_count": 3068,
+            "gotcha_count": 13,
+            "relation_count": 32679,
+            "task_metrics_count": 399
+          },
+          "knowledge_score": 0.9980212268393596,
+          "language_distribution": {
+            "c": 3,
+            "css": 7,
+            "example": 1,
+            "graphql": 1,
+            "html": 4,
+            "javascript": 1086,
+            "json": 266,
+            "jsonc": 1,
+            "jsonl": 1,
+            "log": 3,
+            "markdown": 1032,
+            "out": 12,
+            "output": 165,
+            "python": 501,
+            "rust": 2142,
+            "scm": 1,
+            "service": 3,
+            "shell": 77,
+            "timer": 1,
+            "toml": 147,
+            "txt": 42,
+            "typescript": 28,
+            "unknown": 6,
+            "yaml": 29
+          },
+          "languages": 24,
+          "memory_entries": 20229
+        },
+        "issues": [
+          "55 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7757999999999999,
+        "weight": 2.0,
+        "duration_ms": 240,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 0,
+          "languages": {
+            "json": 2,
+            "markdown": 7,
+            "python": 3,
+            "rust": 5,
+            "shell": 5,
+            "toml": 3,
+            "yaml": 5
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 758
+        },
+        "issues": [],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 1.5,
+        "duration_ms": 23,
+        "metrics": {
+          "antipattern_rate_pct": "0.0",
+          "avg_error_coverage": "0.052",
+          "avg_quality_score": "0.951",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 0,
+          "max_complexity": 64,
+          "top_offenders": [],
+          "total_antipatterns": 0,
+          "total_unwraps": 9
+        },
+        "issues": [],
+        "tests_run": 30,
+        "tests_passed": 30
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 4,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.17022057636766635,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 50770
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 5,
+      "phases_warned": 1,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 82,
+      "total_issues": 1,
+      "top_issues": [
+        "[KNOWLEDGE] 55 hot file(s) edited 3+ times in 7d"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 1,
+        "hit_rate": 0.4652631578947368,
+        "hits": 442,
+        "misses": 508
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 2,
+      "detail": {
+        "cycle_count": 2,
+        "cycles": {
+          "_elided_array_len": 2
+        }
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 416
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 761,
+      "diagnostics": {
+        "_elided_array_len": 761
+      },
+      "internal_only": {
+        "_elided_array_len": 2547
+      },
+      "internal_only_count": 2547,
+      "orphan_count": 761,
+      "orphans": {
+        "_elided_array_len": 761
+      },
+      "resolution": {
+        "heuristic_edges": 77047,
+        "name_only_candidates": 6388,
+        "origin_breakdown": [
+          {
+            "origin": "ast_declared",
+            "rows": 12522
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 10931
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 77047
+          }
+        ],
+        "top_unresolved_modules_debt_only": {
+          "_elided_array_len": 10
+        },
+        "unresolved_by_class": [
+          {
+            "call_sites": 5763,
+            "class": "external"
+          },
+          {
+            "call_sites": 401,
+            "class": "scope_keyword"
+          },
+          {
+            "call_sites": 185,
+            "class": "workspace_unresolved"
+          },
+          {
+            "call_sites": 22,
+            "class": "unmeasured"
+          },
+          {
+            "call_sites": 17,
+            "class": "ambiguous_alias"
+          }
+        ],
+        "unresolved_samples": {
+          "_elided_array_len": 5
+        }
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 761,
+      "findings": {
+        "_elided_array_len": 761
+      }
+    }
+  },
+  "wiring_orphans": {
+    "_elided_array_len": 761
+  },
+  "evolution_drift": {},
+  "memory_lessons": [
+    {
+      "key": "checkpoint:s32-pre-edit:2026-10-01",
+      "score": 0.2959433353031736,
+      "source": "ann",
+      "stored_at": "2026-10-01 02:07:21",
+      "value": "Checkpoint pré-L3 (REGRA #11 v2 + blast 46): editando crates/touring-hook-runtime/src/prompt_enhance.rs para S-3.2 (emissor de intent_journal). Snapshot do arquivo em docs/plans/2026-09-30-jev-harness-potencializacao/checkpoints/prompt_enhance.rs.pre-s32. Árvore tem WIP de outras sessões (scripts/touring-quality-score etc.) — nenhum commit -A; snapshot é por-arquivo."
+    },
+    {
+      "key": "checkpoint:w44-pre-edit:2026-10-01",
+      "score": 0.32930413978001355,
+      "source": "ann",
+      "stored_at": "2026-10-01 12:37:19",
+      "value": "Checkpoint pré-L3 W4.4 (blast 46, 3ª edição no arquivo): prompt_enhance.rs ganha student_classify via TcpStream (servidor do aluno :8971), flag TOURING_LAYA_INTENT (default-OFF), τ=0.6 calibrado no test (acc 0.926, suporte 22.5%), fallback keyword, journal com source=laya|keyword. Aluno provado: acc 0.608 (> keyword 0.536, > Jev 0.533, piso 0.85×professor), p99 24.4ms, ECE 0.174 sub-confiante monotônico. Snapshot prompt_enhance.rs.pre-w44."
+    },
+    {
+      "key": "decisao:g0-filtro-payload-automatico:2026-09-22",
+      "score": 0.3348069385269473,
+      "source": "ann",
+      "stored_at": "2026-09-23 00:37:54",
+      "value": "G0 aprovado por Gabriel e implementado: prompt_enhance.rs ganhou AUTOMATED_PAYLOAD_PREFIXES (14 prefixos) + is_automated_payload(), consultado por compose_json e run_user_prompt_submit; payload de máquina recebe {skipped: automated_payload, suppressOutput} e nenhum intent/CILA. 6 testes novos (incl. guard D8 cruzado que exige a mesma lista no executor e nas amostras), prova por mutação mata 3, suíte do crate 434 verde, clippy limpo. MEDIDA que fundamentou: no corpus G1 de 800 prompts, 160 (20%) eram payload de máquina — 134 'Another Claude session sent a message'; e o PROFESSOR (sonnet) rotulou 45 deles como analysis/debug, ou seja 28% receberiam modo de trabalho mesmo com bom classificador → por isso filtro determinístico, não modelo. GOTCHA de deploy: update-touring NÃO alcança as sessões; o shim serve ~/.touring/toolchains/<default>/bin — era 30.4.62 enquanto a fonte estava em 30.4.63. Propagar exige scripts/propagate-release.sh <versão> (bump do workspace ANTES)."
+    },
+    {
+      "key": "snippet:auto:9a604428542e",
+      "score": 0.48318639397621155,
+      "source": "tfidf:memory",
+      "stored_at": "2026-10-01 01:30:01",
+      "value": "snippet:auto:9a604428542e \ncd /home/gabrielgadea/projects/touring\necho \"########## AST META (blast/quality) ##########\"\nfor f in crates/touring-hook-runtime/src/prompt_enhance.rs crates/touring-intelligence/src/rl/memory/tags.rs; do\n  echo \"--- $f\"\n  timeout 60 touring ast meta \"$f\" --depth summary -j 2>/dev/null | head -c 700\n  echo\ndone\necho\necho \"########## 1) prompt_enhance.rs — onde o CILA/intent sai ##########\"\ngrep -n \"fn .*intent\\|fn .*cila\\|fn classify\\|CILA_LEVEL\\|fn compose_json\\|is_a…"
+    },
+    {
+      "key": "vgp:create:crates/touring-hooks-shared/src/latency_marker.rs:latency_marker",
+      "score": 0.39418548345565796,
+      "source": "tfidf:memory",
+      "stored_at": "2026-06-10 15:47:03",
+      "value": "vgp:create:crates/touring-hooks-shared/src/latency_marker.rs:latency_marker {\"symbol\":\"latency_marker\",\"status\":\"verified\"}"
+    },
+    {
+      "key": "lesson:priorizar-por-volume-medido:2026-09-22",
+      "score": 0.28302788846521315,
+      "source": "ann",
+      "stored_at": "2026-09-22 17:48:43",
+      "value": "Ao ranquear pontos de integração, medir o VOLUME real de cada decisão antes de priorizar pelo ganho por decisão. Na rodada 1 da pesquisa Jev, o roteador do factory ficou em 1º pelo ganho (120 s → 0,1 s), mas tinha 9 roteamentos na vida (touring 5, analise 4, 1 outcome); o classificador de intent do prompt-enhance roda em ~2.553 prompts humanos e errava nos dois extremos. Valor = volume × custo do erro × ganho. Como verificar: stats.json do factory, contagem de prompts nos transcripts, contadores de hooks. Relacionado: numero-plausivel-sobrevive-a-observacao."
+    },
+    {
+      "key": "doc:touring-hooks:FASE7:pre-read-design",
+      "score": 0.2775818441466748,
+      "source": "ann",
+      "stored_at": "2026-04-11 21:22:00",
+      "value": "pre_read.rs philosophy: HIGH-SIGNAL-ONLY context injection. SILENCE IS THE DEFAULT. Only inject when actionable, non-derivable, specific to THIS file. Target latency: 10ms."
+    },
+    {
+      "key": "architecture:predictive-vectors",
+      "score": 0.26784021408072173,
+      "source": "ann",
+      "stored_at": "2026-04-20 21:19:45",
+      "value": "Tres pontos de decisao otimizaveis no ciclo Claude Code<->Touring: (1) PreToolUse[Task*] — mutar input com blast radius HNSW antes de Claude escolher task (compute_predictive_blast_injection, 40ms budget, threshold >3 modules); (2) PostToolUse[TaskList] — hint delegacao via LinUCB (8 arms, 25 dims, EV margin 0.15, try_lock anti-deadlock); (3) PreToolUse[EnterPlanMode] — MCTS shadow rollout com Tarjan SCC (12s budget, 200ms actor join). Todos advisory, exit 0 sempre. D5: 9 AtomicU64 counters nos tres vetores expostos via gate-metrics."
+    },
+    {
+      "key": "create:crates/touring-hooks-shared/src/latency_marker.rs",
+      "score": 0.2916833162307739,
+      "source": "tfidf:memory",
+      "stored_at": "2026-06-10 15:47:04",
+      "value": "create:crates/touring-hooks-shared/src/latency_marker.rs {\"path\":\"crates/touring-hooks-shared/src/latency_marker.rs\",\"intent\":\"Fronteira 2: relocate leaf-safe shared submodule latency_marker from touring-hooks to the leaf crate\",\"kind\":\"RustModule\",\"grade\":\"?\",\"idempotency_key\":\"224fc7aa44194762\",\"vgp\":[{\"symbol\":\"latency_marker\",\"status\":\"verified_existing\"}],\"orphan_delta\":0,\"created_at\":1781106424.080532}"
+    },
+    {
+      "key": "snippet:auto:7a06024e0c2f",
+      "score": 0.2798921763896942,
+      "source": "tfidf:memory",
+      "stored_at": "2026-10-01 01:31:57",
+      "value": "snippet:auto:7a06024e0c2f \nimport json\ndef meta(f):\n    try:\n        r = touring.ast_meta(f, \"summary\")\n        if isinstance(r, dict):\n            return {k: r.get(k) for k in (\"blast_radius\", \"quality_score\", \"cognitive_score\", \"fan_in\", \"fan_out\", \"source\")}\n    except Exception as e:\n        return {\"err\": str(e)[:80]}\n    return {\"raw\": str(r)[:200]}\nprint(\"META prompt_enhance:\", json.dumps(meta(\"crates/touring-hook-runtime/src/prompt_enhance.rs\")))\nprint(\"META tags:\", json.dumps(meta(\"crat…"
+    }
+  ],
+  "gotcha_per_file": {},
+  "vgp_verifications": [
+    {
+      "name": "prompt_enhance",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "latency_ms",
+      "verified": false,
+      "suggestion": ""
+    }
+  ],
+  "ast_overviews": {},
+  "ast_blasts": {}
+}

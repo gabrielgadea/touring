@@ -1,0 +1,4279 @@
+{
+  "subtask": "S-1.1",
+  "n": 100,
+  "seed": 20260930,
+  "db": "/home/gabrielgadea/projects/touring/.claude/touring/memory.db",
+  "vocabulary": [
+    "snippet",
+    "doc",
+    "script",
+    "map",
+    "plan",
+    "strategy",
+    "lesson",
+    "gotcha",
+    "decision",
+    "process",
+    "module",
+    "runbook",
+    "insight",
+    "outcome",
+    "case",
+    "observation",
+    "pattern",
+    "reference",
+    "note",
+    "project",
+    "followup",
+    "text"
+  ],
+  "vocabulary_source": "Facet::Kind::seed_values() — tags.rs:251-278",
+  "generated_at": "2026-09-30T22:55:20-0300",
+  "summary": {
+    "n_requested": 100,
+    "measured": 100,
+    "unmeasured": 0,
+    "accuracy_vs_production_tag": 0.08,
+    "accuracy_vs_g1_teacher": 0.6,
+    "prod_no_reference": 0,
+    "g1_no_reference": 95,
+    "responses_with_confidence": 100,
+    "responses_with_probabilities": 100,
+    "ece_vs_production_tag": 0.51,
+    "ece_vs_g1": 0.5,
+    "calibration_curve_vs_production_tag": [
+      {
+        "bin": "[0.0,0.2)",
+        "n": 0,
+        "accuracy": null,
+        "mean_confidence": null
+      },
+      {
+        "bin": "[0.2,0.4)",
+        "n": 38,
+        "accuracy": 0.0526,
+        "mean_confidence": 0.3042
+      },
+      {
+        "bin": "[0.4,0.6)",
+        "n": 15,
+        "accuracy": 0.0667,
+        "mean_confidence": 0.4933
+      },
+      {
+        "bin": "[0.6,0.8)",
+        "n": 15,
+        "accuracy": 0.0667,
+        "mean_confidence": 0.6947
+      },
+      {
+        "bin": "[0.8,1.0)",
+        "n": 32,
+        "accuracy": 0.125,
+        "mean_confidence": 0.9256
+      }
+    ],
+    "calibration_curve_vs_g1": [
+      {
+        "bin": "[0.0,0.2)",
+        "n": 0,
+        "accuracy": null,
+        "mean_confidence": null
+      },
+      {
+        "bin": "[0.2,0.4)",
+        "n": 0,
+        "accuracy": null,
+        "mean_confidence": null
+      },
+      {
+        "bin": "[0.4,0.6)",
+        "n": 1,
+        "accuracy": 1.0,
+        "mean_confidence": 0.5
+      },
+      {
+        "bin": "[0.6,0.8)",
+        "n": 1,
+        "accuracy": 1.0,
+        "mean_confidence": 0.75
+      },
+      {
+        "bin": "[0.8,1.0)",
+        "n": 3,
+        "accuracy": 0.3333,
+        "mean_confidence": 0.9167
+      }
+    ],
+    "predicted_distribution": {
+      "outcome": 35,
+      "doc": 1,
+      "module": 1,
+      "observation": 29,
+      "lesson": 5,
+      "gotcha": 20,
+      "plan": 1,
+      "case": 1,
+      "insight": 1,
+      "snippet": 2,
+      "pattern": 1,
+      "reference": 1,
+      "script": 1,
+      "followup": 1
+    },
+    "by_reference_class": {
+      "fix": {
+        "g1": 1,
+        "g1_correct": 0
+      },
+      "gotcha": {
+        "g1": 1,
+        "g1_correct": 1,
+        "prod": 1,
+        "prod_correct": 1
+      },
+      "insight": {
+        "prod": 46,
+        "prod_correct": 1
+      },
+      "lesson": {
+        "prod": 47,
+        "prod_correct": 3,
+        "g1": 1,
+        "g1_correct": 1
+      },
+      "observation": {
+        "prod": 1,
+        "prod_correct": 1
+      },
+      "pattern": {
+        "g1": 1,
+        "g1_correct": 1
+      },
+      "reference": {
+        "prod": 3,
+        "prod_correct": 1
+      },
+      "report": {
+        "g1": 1,
+        "g1_correct": 0
+      },
+      "snippet": {
+        "prod": 2,
+        "prod_correct": 1
+      }
+    },
+    "latency_ms": {
+      "p50": 371.9,
+      "max": 557.5
+    },
+    "vocabulary_coverage": {
+      "values_in_production_but_outside_vocabulary": {},
+      "tags_outside_vocabulary": 0,
+      "rows_touching_outside_vocabulary": 0
+    }
+  },
+  "rows": [
+    {
+      "key": "audit:INT-3.1:todo-stubs-replaced",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:5ba8e051b55a",
+      "g1_label": "fix",
+      "answer": "outcome",
+      "confidence": 0.8,
+      "probabilities": {
+        "followup": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.0,
+        "decision": 0.0,
+        "text": 0.01,
+        "process": 0.0,
+        "doc": 0.0,
+        "map": 0.0,
+        "strategy": 0.0,
+        "runbook": 0.0,
+        "case": 0.01,
+        "pattern": 0.0,
+        "project": 0.01,
+        "gotcha": 0.0,
+        "insight": 0.04,
+        "note": 0.01,
+        "observation": 0.09,
+        "plan": 0.0,
+        "reference": 0.0,
+        "module": 0.0,
+        "outcome": 0.8200000000000001,
+        "script": 0.0
+      },
+      "latency_ms": 375.7,
+      "route": "api"
+    },
+    {
+      "key": "ceg-extraction-baseline-2026-06-09",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:77936b748fa8",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.62,
+      "probabilities": {
+        "note": 0.01,
+        "text": 0.01,
+        "outcome": 0.65,
+        "script": 0.0,
+        "followup": 0.0,
+        "case": 0.01,
+        "lesson": 0.09,
+        "map": 0.0,
+        "runbook": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "module": 0.0,
+        "plan": 0.01,
+        "pattern": 0.0,
+        "process": 0.01,
+        "observation": 0.12,
+        "gotcha": 0.0,
+        "doc": 0.0,
+        "project": 0.09,
+        "reference": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 364.0,
+      "route": "api"
+    },
+    {
+      "key": "ceg-p4.5-dry-run-cache-2026-05-18",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:0fce490dfaa5",
+      "g1_label": null,
+      "answer": "doc",
+      "confidence": 0.35,
+      "probabilities": {
+        "note": 0.01,
+        "snippet": 0.0,
+        "map": 0.03,
+        "project": 0.13,
+        "followup": 0.0,
+        "process": 0.04,
+        "text": 0.01,
+        "outcome": 0.01,
+        "pattern": 0.0,
+        "case": 0.03,
+        "script": 0.0,
+        "runbook": 0.0,
+        "module": 0.05,
+        "lesson": 0.0,
+        "insight": 0.11,
+        "doc": 0.39,
+        "gotcha": 0.17,
+        "decision": 0.0,
+        "reference": 0.0,
+        "plan": 0.01,
+        "observation": 0.01,
+        "strategy": 0.0
+      },
+      "latency_ms": 371.4,
+      "route": "api"
+    },
+    {
+      "key": "create:crates/touring-hooks/src/shared/federation/mod.rs",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:e6c370e23af1",
+      "g1_label": null,
+      "answer": "module",
+      "confidence": 0.89,
+      "probabilities": {
+        "doc": 0.09,
+        "gotcha": 0.0,
+        "decision": 0.0,
+        "process": 0.0,
+        "snippet": 0.0,
+        "text": 0.0,
+        "runbook": 0.0,
+        "map": 0.0,
+        "reference": 0.0,
+        "followup": 0.0,
+        "outcome": 0.0,
+        "insight": 0.01,
+        "strategy": 0.0,
+        "lesson": 0.0,
+        "case": 0.0,
+        "observation": 0.0,
+        "pattern": 0.0,
+        "module": 0.9,
+        "note": 0.0,
+        "script": 0.0,
+        "plan": 0.0,
+        "project": 0.0
+      },
+      "latency_ms": 360.9,
+      "route": "api"
+    },
+    {
+      "key": "disk:targets:2026-08-08",
+      "current_tag": "observation",
+      "kind_tags_all": [
+        {
+          "value": "observation",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:47267fa083f6",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.99,
+      "probabilities": {
+        "strategy": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "note": 0.0,
+        "runbook": 0.0,
+        "followup": 0.0,
+        "gotcha": 0.0,
+        "snippet": 0.0,
+        "project": 0.0,
+        "process": 0.0,
+        "reference": 0.0,
+        "insight": 0.0,
+        "observation": 0.99,
+        "lesson": 0.0,
+        "module": 0.0,
+        "case": 0.0,
+        "map": 0.0,
+        "outcome": 0.01,
+        "pattern": 0.0,
+        "script": 0.0,
+        "text": 0.0,
+        "doc": 0.0
+      },
+      "latency_ms": 381.2,
+      "route": "api"
+    },
+    {
+      "key": "edit:fuzz/fuzz_targets/fuzz_polyglot_rewrite.rs:outcome",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:4dcf5f51b7b0",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.46,
+      "probabilities": {
+        "process": 0.0,
+        "case": 0.01,
+        "snippet": 0.01,
+        "runbook": 0.0,
+        "followup": 0.01,
+        "observation": 0.0,
+        "outcome": 0.49,
+        "note": 0.05,
+        "gotcha": 0.03,
+        "module": 0.0,
+        "decision": 0.21000000000000002,
+        "reference": 0.01,
+        "text": 0.06999999999999999,
+        "script": 0.0,
+        "lesson": 0.01,
+        "insight": 0.04,
+        "doc": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "project": 0.0,
+        "plan": 0.060000000000000005
+      },
+      "latency_ms": 351.9,
+      "route": "api"
+    },
+    {
+      "key": "es1-p2-dormant-backend-discovery-2026-06-01",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:f42825ed4c3f",
+      "g1_label": null,
+      "answer": "lesson",
+      "confidence": 0.79,
+      "probabilities": {
+        "note": 0.0,
+        "snippet": 0.0,
+        "map": 0.0,
+        "project": 0.0,
+        "followup": 0.0,
+        "process": 0.0,
+        "text": 0.0,
+        "outcome": 0.0,
+        "pattern": 0.0,
+        "runbook": 0.0,
+        "case": 0.01,
+        "script": 0.0,
+        "module": 0.0,
+        "lesson": 0.81,
+        "insight": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.18,
+        "decision": 0.0,
+        "reference": 0.0,
+        "plan": 0.0,
+        "observation": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 355.1,
+      "route": "api"
+    },
+    {
+      "key": "flow-state:strategy-outer:43224dc4d9af-e8b4e057",
+      "current_tag": "reference",
+      "kind_tags_all": [
+        {
+          "value": "reference",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:3cf472ce4b87",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.67,
+      "probabilities": {
+        "outcome": 0.0,
+        "snippet": 0.04,
+        "strategy": 0.12,
+        "decision": 0.0,
+        "gotcha": 0.69,
+        "insight": 0.0,
+        "case": 0.0,
+        "reference": 0.01,
+        "process": 0.01,
+        "lesson": 0.04,
+        "runbook": 0.01,
+        "observation": 0.0,
+        "script": 0.02,
+        "module": 0.0,
+        "note": 0.0,
+        "pattern": 0.0,
+        "project": 0.03,
+        "text": 0.0,
+        "plan": 0.03,
+        "map": 0.0,
+        "doc": 0.0,
+        "followup": 0.0
+      },
+      "latency_ms": 352.5,
+      "route": "api"
+    },
+    {
+      "key": "flow-state:work-outer:43224dc4d9af-547537c7",
+      "current_tag": "reference",
+      "kind_tags_all": [
+        {
+          "value": "reference",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ed19ec86c7cd",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.65,
+      "probabilities": {
+        "outcome": 0.0,
+        "text": 0.0,
+        "strategy": 0.02,
+        "runbook": 0.01,
+        "decision": 0.0,
+        "followup": 0.0,
+        "project": 0.03,
+        "note": 0.0,
+        "script": 0.02,
+        "process": 0.02,
+        "doc": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "reference": 0.01,
+        "lesson": 0.09,
+        "module": 0.0,
+        "snippet": 0.05,
+        "plan": 0.07,
+        "case": 0.0,
+        "insight": 0.0,
+        "gotcha": 0.68,
+        "observation": 0.0
+      },
+      "latency_ms": 490.8,
+      "route": "api"
+    },
+    {
+      "key": "followup:es3-p2:supervised-x8:2026-06-01",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:cef2a88a4422",
+      "g1_label": null,
+      "answer": "plan",
+      "confidence": 0.45,
+      "probabilities": {
+        "followup": 0.05,
+        "script": 0.0,
+        "decision": 0.01,
+        "map": 0.0,
+        "gotcha": 0.15,
+        "note": 0.01,
+        "strategy": 0.01,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "doc": 0.0,
+        "insight": 0.0,
+        "case": 0.0,
+        "module": 0.0,
+        "project": 0.0,
+        "text": 0.0,
+        "plan": 0.49,
+        "outcome": 0.0,
+        "observation": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.28,
+        "pattern": 0.0,
+        "process": 0.0
+      },
+      "latency_ms": 337.6,
+      "route": "api"
+    },
+    {
+      "key": "full-review-W1-sec01-sec03-2026-06-13",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:8e06add8d7a5",
+      "g1_label": null,
+      "answer": "case",
+      "confidence": 0.26,
+      "probabilities": {
+        "text": 0.04,
+        "process": 0.02,
+        "lesson": 0.25,
+        "pattern": 0.0,
+        "snippet": 0.0,
+        "reference": 0.0,
+        "case": 0.3,
+        "observation": 0.01,
+        "script": 0.0,
+        "doc": 0.03,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "note": 0.01,
+        "decision": 0.01,
+        "strategy": 0.01,
+        "map": 0.0,
+        "gotcha": 0.02,
+        "module": 0.0,
+        "followup": 0.0,
+        "insight": 0.0,
+        "project": 0.07,
+        "outcome": 0.23
+      },
+      "latency_ms": 350.2,
+      "route": "api"
+    },
+    {
+      "key": "gotcha:touring-hook-binary-crate-2026-05-10",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7bc9e3ae7a0a",
+      "g1_label": "gotcha",
+      "answer": "gotcha",
+      "confidence": 1.0,
+      "probabilities": {
+        "gotcha": 1.0,
+        "text": 0.0,
+        "runbook": 0.0,
+        "case": 0.0,
+        "map": 0.0,
+        "insight": 0.0,
+        "note": 0.0,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "plan": 0.0,
+        "snippet": 0.0,
+        "module": 0.0,
+        "process": 0.0,
+        "outcome": 0.0,
+        "script": 0.0,
+        "decision": 0.0,
+        "followup": 0.0,
+        "doc": 0.0,
+        "observation": 0.0,
+        "reference": 0.0,
+        "project": 0.0,
+        "lesson": 0.0
+      },
+      "latency_ms": 394.2,
+      "route": "api"
+    },
+    {
+      "key": "harness-consolidation-DIAMOND-FINAL-2026-06-26",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:1e1520d0b2c8",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.52,
+      "probabilities": {
+        "pattern": 0.0,
+        "text": 0.01,
+        "outcome": 0.56,
+        "script": 0.0,
+        "followup": 0.0,
+        "case": 0.04,
+        "lesson": 0.31,
+        "map": 0.0,
+        "plan": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "module": 0.0,
+        "runbook": 0.0,
+        "strategy": 0.01,
+        "process": 0.0,
+        "gotcha": 0.0,
+        "doc": 0.0,
+        "observation": 0.02,
+        "project": 0.05,
+        "reference": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 362.4,
+      "route": "api"
+    },
+    {
+      "key": "infra:cycle_improvement_2026_05_14:index_rebuild_cleanup",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7c37a145d1cb",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.54,
+      "probabilities": {
+        "pattern": 0.0,
+        "note": 0.0,
+        "project": 0.0,
+        "insight": 0.37,
+        "map": 0.0,
+        "followup": 0.0,
+        "process": 0.0,
+        "reference": 0.0,
+        "snippet": 0.0,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "lesson": 0.02,
+        "plan": 0.0,
+        "text": 0.0,
+        "case": 0.03,
+        "module": 0.0,
+        "gotcha": 0.5700000000000001,
+        "script": 0.0,
+        "outcome": 0.0,
+        "runbook": 0.0,
+        "observation": 0.0
+      },
+      "latency_ms": 351.5,
+      "route": "api"
+    },
+    {
+      "key": "infra:cycle_improvement_2026_05_14:warning_cleanup_27",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:195a632dbabe",
+      "g1_label": null,
+      "answer": "lesson",
+      "confidence": 0.65,
+      "probabilities": {
+        "strategy": 0.0,
+        "observation": 0.01,
+        "outcome": 0.02,
+        "followup": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "process": 0.0,
+        "text": 0.0,
+        "decision": 0.0,
+        "reference": 0.0,
+        "gotcha": 0.22,
+        "insight": 0.01,
+        "runbook": 0.0,
+        "project": 0.0,
+        "snippet": 0.0,
+        "script": 0.0,
+        "case": 0.01,
+        "plan": 0.0,
+        "pattern": 0.04,
+        "module": 0.0,
+        "lesson": 0.68,
+        "doc": 0.0
+      },
+      "latency_ms": 337.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1787616246",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:b294a02c914b",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "plan": 0.0,
+        "module": 0.0,
+        "doc": 0.0,
+        "lesson": 0.01,
+        "runbook": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "project": 0.01,
+        "reference": 0.0,
+        "gotcha": 0.23,
+        "case": 0.01,
+        "insight": 0.23,
+        "strategy": 0.0,
+        "process": 0.0,
+        "pattern": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.03,
+        "text": 0.02,
+        "observation": 0.34,
+        "map": 0.0,
+        "note": 0.12,
+        "decision": 0.0
+      },
+      "latency_ms": 360.4,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1787836935",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:98ecf3548825",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.31,
+      "probabilities": {
+        "lesson": 0.01,
+        "project": 0.01,
+        "followup": 0.0,
+        "script": 0.0,
+        "insight": 0.24,
+        "map": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.03,
+        "process": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.23,
+        "case": 0.01,
+        "note": 0.11,
+        "decision": 0.0,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "text": 0.02,
+        "plan": 0.0,
+        "module": 0.0,
+        "observation": 0.34,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 351.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1787877299",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:e041a8102f12",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.26,
+      "probabilities": {
+        "note": 0.11,
+        "project": 0.01,
+        "map": 0.0,
+        "snippet": 0.0,
+        "followup": 0.01,
+        "process": 0.0,
+        "runbook": 0.0,
+        "outcome": 0.03,
+        "case": 0.0,
+        "pattern": 0.0,
+        "script": 0.0,
+        "text": 0.02,
+        "module": 0.0,
+        "lesson": 0.01,
+        "insight": 0.3,
+        "doc": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.2,
+        "reference": 0.0,
+        "strategy": 0.0,
+        "observation": 0.31,
+        "plan": 0.0
+      },
+      "latency_ms": 426.2,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1787943559",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:23881c4ff3cc",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.27,
+      "probabilities": {
+        "followup": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.02,
+        "decision": 0.0,
+        "text": 0.02,
+        "process": 0.0,
+        "map": 0.0,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "runbook": 0.0,
+        "case": 0.01,
+        "pattern": 0.0,
+        "project": 0.01,
+        "gotcha": 0.22,
+        "insight": 0.24,
+        "note": 0.12,
+        "observation": 0.32,
+        "plan": 0.0,
+        "reference": 0.0,
+        "module": 0.0,
+        "outcome": 0.04,
+        "script": 0.0
+      },
+      "latency_ms": 354.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1787972059",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7ae0098b1b8d",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "insight": 0.26,
+        "strategy": 0.0,
+        "case": 0.01,
+        "outcome": 0.02,
+        "gotcha": 0.23,
+        "note": 0.1,
+        "observation": 0.34,
+        "reference": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "text": 0.01,
+        "followup": 0.0,
+        "script": 0.0,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "pattern": 0.0,
+        "project": 0.01,
+        "module": 0.0,
+        "lesson": 0.02,
+        "snippet": 0.0,
+        "decision": 0.0,
+        "map": 0.0
+      },
+      "latency_ms": 360.4,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1788036859",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:928827da9f0b",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "note": 0.08,
+        "process": 0.0,
+        "pattern": 0.0,
+        "plan": 0.0,
+        "followup": 0.0,
+        "gotcha": 0.22,
+        "reference": 0.0,
+        "decision": 0.0,
+        "script": 0.0,
+        "case": 0.01,
+        "observation": 0.34,
+        "insight": 0.28,
+        "doc": 0.0,
+        "runbook": 0.0,
+        "lesson": 0.01,
+        "map": 0.0,
+        "strategy": 0.0,
+        "project": 0.01,
+        "snippet": 0.0,
+        "outcome": 0.03,
+        "module": 0.0,
+        "text": 0.02
+      },
+      "latency_ms": 363.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1788048859",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:8581dfe14e8b",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "plan": 0.0,
+        "module": 0.0,
+        "doc": 0.0,
+        "lesson": 0.01,
+        "followup": 0.0,
+        "script": 0.0,
+        "runbook": 0.0,
+        "project": 0.01,
+        "gotcha": 0.2,
+        "reference": 0.0,
+        "case": 0.01,
+        "insight": 0.25,
+        "strategy": 0.0,
+        "process": 0.0,
+        "pattern": 0.0,
+        "text": 0.02,
+        "outcome": 0.03,
+        "map": 0.0,
+        "observation": 0.35000000000000003,
+        "snippet": 0.0,
+        "note": 0.12,
+        "decision": 0.0
+      },
+      "latency_ms": 352.5,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1788107059",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:3185aa741b96",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.29,
+      "probabilities": {
+        "process": 0.0,
+        "script": 0.0,
+        "outcome": 0.03,
+        "doc": 0.0,
+        "plan": 0.0,
+        "insight": 0.24000000000000002,
+        "runbook": 0.0,
+        "followup": 0.01,
+        "project": 0.01,
+        "snippet": 0.0,
+        "text": 0.02,
+        "module": 0.0,
+        "map": 0.0,
+        "note": 0.14,
+        "gotcha": 0.19,
+        "decision": 0.0,
+        "case": 0.01,
+        "reference": 0.0,
+        "observation": 0.33,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "lesson": 0.02
+      },
+      "latency_ms": 395.0,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1788204197",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:df6ce7095371",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.31,
+      "probabilities": {
+        "script": 0.0,
+        "project": 0.01,
+        "process": 0.0,
+        "map": 0.0,
+        "case": 0.01,
+        "doc": 0.0,
+        "text": 0.02,
+        "pattern": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.0,
+        "strategy": 0.0,
+        "lesson": 0.01,
+        "insight": 0.24,
+        "outcome": 0.03,
+        "observation": 0.35000000000000003,
+        "gotcha": 0.18,
+        "followup": 0.0,
+        "module": 0.0,
+        "reference": 0.0,
+        "note": 0.15,
+        "plan": 0.0,
+        "decision": 0.0
+      },
+      "latency_ms": 341.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1788970524",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ffe07509c66c",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.34,
+      "probabilities": {
+        "plan": 0.0,
+        "strategy": 0.0,
+        "doc": 0.0,
+        "insight": 0.24000000000000002,
+        "note": 0.12,
+        "decision": 0.0,
+        "script": 0.0,
+        "case": 0.01,
+        "pattern": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "project": 0.01,
+        "text": 0.01,
+        "outcome": 0.03,
+        "observation": 0.38,
+        "followup": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "gotcha": 0.19,
+        "reference": 0.0,
+        "module": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 380.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789260773",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:1b359eaf4e9c",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.33,
+      "probabilities": {
+        "text": 0.01,
+        "strategy": 0.0,
+        "outcome": 0.03,
+        "script": 0.0,
+        "followup": 0.0,
+        "case": 0.01,
+        "lesson": 0.02,
+        "map": 0.0,
+        "plan": 0.0,
+        "note": 0.12,
+        "decision": 0.0,
+        "insight": 0.22,
+        "module": 0.0,
+        "pattern": 0.0,
+        "runbook": 0.0,
+        "process": 0.0,
+        "gotcha": 0.21,
+        "observation": 0.37,
+        "doc": 0.0,
+        "project": 0.01,
+        "reference": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 353.3,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789354373",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ebff0369f238",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.27,
+      "probabilities": {
+        "insight": 0.31,
+        "strategy": 0.0,
+        "case": 0.01,
+        "outcome": 0.02,
+        "gotcha": 0.22,
+        "observation": 0.32,
+        "note": 0.09,
+        "reference": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "map": 0.0,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "pattern": 0.0,
+        "project": 0.01,
+        "lesson": 0.01,
+        "text": 0.01,
+        "decision": 0.0,
+        "snippet": 0.0,
+        "module": 0.0
+      },
+      "latency_ms": 344.3,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789529312",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ffd09b7e3859",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.33,
+      "probabilities": {
+        "map": 0.0,
+        "module": 0.0,
+        "note": 0.13,
+        "script": 0.0,
+        "doc": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "case": 0.01,
+        "lesson": 0.01,
+        "gotcha": 0.18,
+        "project": 0.01,
+        "text": 0.02,
+        "reference": 0.0,
+        "outcome": 0.02,
+        "observation": 0.37,
+        "process": 0.0,
+        "decision": 0.0,
+        "insight": 0.25,
+        "followup": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 351.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789539512",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:142cc996e2c9",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.31,
+      "probabilities": {
+        "snippet": 0.0,
+        "decision": 0.0,
+        "insight": 0.28,
+        "strategy": 0.0,
+        "followup": 0.0,
+        "outcome": 0.02,
+        "note": 0.09,
+        "runbook": 0.0,
+        "script": 0.0,
+        "gotcha": 0.21,
+        "process": 0.0,
+        "case": 0.01,
+        "project": 0.01,
+        "map": 0.0,
+        "pattern": 0.0,
+        "observation": 0.34,
+        "plan": 0.0,
+        "doc": 0.0,
+        "lesson": 0.02,
+        "text": 0.02,
+        "reference": 0.0,
+        "module": 0.0
+      },
+      "latency_ms": 392.0,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789592612",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:e361ba62bb77",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "outcome": 0.03,
+        "snippet": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "gotcha": 0.22,
+        "insight": 0.24000000000000002,
+        "case": 0.01,
+        "reference": 0.0,
+        "process": 0.0,
+        "lesson": 0.02,
+        "runbook": 0.0,
+        "observation": 0.34,
+        "script": 0.0,
+        "module": 0.0,
+        "note": 0.11,
+        "pattern": 0.0,
+        "project": 0.01,
+        "text": 0.02,
+        "plan": 0.0,
+        "map": 0.0,
+        "doc": 0.0,
+        "followup": 0.0
+      },
+      "latency_ms": 337.0,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789618039",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:9e8411a13c96",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "observation": 0.34,
+        "case": 0.01,
+        "decision": 0.0,
+        "insight": 0.26,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "module": 0.0,
+        "outcome": 0.03,
+        "pattern": 0.0,
+        "map": 0.0,
+        "note": 0.11,
+        "runbook": 0.0,
+        "reference": 0.0,
+        "followup": 0.01,
+        "gotcha": 0.2,
+        "lesson": 0.01,
+        "text": 0.02,
+        "script": 0.0,
+        "project": 0.01,
+        "doc": 0.0,
+        "snippet": 0.0,
+        "process": 0.0
+      },
+      "latency_ms": 557.5,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789680139",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:5729fae3696d",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "decision": 0.0,
+        "pattern": 0.0,
+        "case": 0.01,
+        "project": 0.01,
+        "text": 0.01,
+        "script": 0.0,
+        "lesson": 0.01,
+        "followup": 0.01,
+        "snippet": 0.0,
+        "module": 0.0,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "outcome": 0.02,
+        "process": 0.0,
+        "insight": 0.25,
+        "gotcha": 0.23,
+        "map": 0.0,
+        "note": 0.11,
+        "doc": 0.0,
+        "reference": 0.0,
+        "observation": 0.34
+      },
+      "latency_ms": 339.4,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789725139",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c93a9791b3fd",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "snippet": 0.0,
+        "text": 0.02,
+        "followup": 0.0,
+        "insight": 0.26,
+        "outcome": 0.03,
+        "case": 0.01,
+        "decision": 0.0,
+        "project": 0.01,
+        "script": 0.0,
+        "process": 0.0,
+        "plan": 0.0,
+        "observation": 0.34,
+        "reference": 0.0,
+        "gotcha": 0.2,
+        "runbook": 0.0,
+        "lesson": 0.02,
+        "map": 0.0,
+        "pattern": 0.0,
+        "note": 0.11,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "module": 0.0
+      },
+      "latency_ms": 378.3,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789838735",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:4e87e3dfa78c",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.32,
+      "probabilities": {
+        "followup": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "map": 0.0,
+        "text": 0.01,
+        "doc": 0.0,
+        "process": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "runbook": 0.0,
+        "pattern": 0.0,
+        "case": 0.01,
+        "project": 0.01,
+        "gotcha": 0.19,
+        "insight": 0.28,
+        "note": 0.11,
+        "observation": 0.36,
+        "plan": 0.0,
+        "reference": 0.0,
+        "module": 0.0,
+        "outcome": 0.02,
+        "script": 0.0
+      },
+      "latency_ms": 347.2,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1789959035",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:233f140f3f8f",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.31,
+      "probabilities": {
+        "map": 0.0,
+        "module": 0.0,
+        "note": 0.09,
+        "script": 0.0,
+        "doc": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "lesson": 0.02,
+        "case": 0.01,
+        "pattern": 0.0,
+        "text": 0.01,
+        "project": 0.01,
+        "gotcha": 0.24,
+        "reference": 0.0,
+        "outcome": 0.02,
+        "observation": 0.35000000000000003,
+        "process": 0.0,
+        "insight": 0.25,
+        "decision": 0.0,
+        "followup": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 335.8,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790082682",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:bd7105562ff1",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.31,
+      "probabilities": {
+        "lesson": 0.01,
+        "project": 0.01,
+        "followup": 0.0,
+        "script": 0.0,
+        "insight": 0.26,
+        "process": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.04,
+        "map": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.18,
+        "case": 0.01,
+        "note": 0.12,
+        "observation": 0.35000000000000003,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "module": 0.0,
+        "plan": 0.0,
+        "text": 0.02,
+        "decision": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 377.6,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790250516",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:85d53a0abbff",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.35,
+      "probabilities": {
+        "pattern": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.18,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "case": 0.01,
+        "process": 0.0,
+        "followup": 0.01,
+        "text": 0.02,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "insight": 0.22,
+        "module": 0.0,
+        "runbook": 0.0,
+        "outcome": 0.04,
+        "script": 0.0,
+        "observation": 0.39,
+        "map": 0.0,
+        "reference": 0.0,
+        "note": 0.11,
+        "project": 0.01
+      },
+      "latency_ms": 353.0,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790296416",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:e2dc021d26bb",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.32,
+      "probabilities": {
+        "lesson": 0.01,
+        "project": 0.01,
+        "script": 0.0,
+        "followup": 0.01,
+        "insight": 0.22,
+        "map": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.04,
+        "process": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.22,
+        "case": 0.01,
+        "note": 0.1,
+        "decision": 0.0,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "module": 0.0,
+        "plan": 0.0,
+        "text": 0.02,
+        "observation": 0.36,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 435.2,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790339557",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:68a044b07ce1",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.32,
+      "probabilities": {
+        "pattern": 0.0,
+        "note": 0.11,
+        "decision": 0.0,
+        "gotcha": 0.2,
+        "strategy": 0.0,
+        "plan": 0.0,
+        "case": 0.01,
+        "process": 0.0,
+        "followup": 0.0,
+        "text": 0.01,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "insight": 0.26,
+        "module": 0.0,
+        "runbook": 0.0,
+        "outcome": 0.03,
+        "script": 0.0,
+        "observation": 0.36,
+        "map": 0.0,
+        "reference": 0.0,
+        "doc": 0.0,
+        "project": 0.01
+      },
+      "latency_ms": 557.2,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790354857",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:561623a682a9",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.25,
+      "probabilities": {
+        "note": 0.11,
+        "followup": 0.0,
+        "case": 0.01,
+        "module": 0.0,
+        "pattern": 0.0,
+        "gotcha": 0.26,
+        "insight": 0.26,
+        "outcome": 0.02,
+        "script": 0.0,
+        "observation": 0.3,
+        "map": 0.0,
+        "plan": 0.0,
+        "reference": 0.0,
+        "text": 0.02,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "process": 0.0,
+        "project": 0.01,
+        "runbook": 0.0,
+        "lesson": 0.01,
+        "doc": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 379.1,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790635698",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:74c13cdfce55",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.28,
+      "probabilities": {
+        "project": 0.01,
+        "case": 0.01,
+        "process": 0.0,
+        "module": 0.0,
+        "doc": 0.0,
+        "observation": 0.32,
+        "strategy": 0.0,
+        "note": 0.12,
+        "reference": 0.0,
+        "script": 0.0,
+        "lesson": 0.02,
+        "plan": 0.0,
+        "gotcha": 0.24,
+        "map": 0.0,
+        "text": 0.02,
+        "runbook": 0.0,
+        "snippet": 0.0,
+        "followup": 0.0,
+        "decision": 0.0,
+        "insight": 0.23,
+        "outcome": 0.03,
+        "pattern": 0.0
+      },
+      "latency_ms": 368.3,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790639898",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:41093be73de2",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.27,
+      "probabilities": {
+        "pattern": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.23,
+        "strategy": 0.0,
+        "doc": 0.0,
+        "case": 0.01,
+        "process": 0.0,
+        "followup": 0.0,
+        "snippet": 0.0,
+        "text": 0.02,
+        "lesson": 0.02,
+        "module": 0.0,
+        "insight": 0.26,
+        "runbook": 0.0,
+        "outcome": 0.03,
+        "script": 0.0,
+        "observation": 0.31,
+        "map": 0.0,
+        "reference": 0.0,
+        "note": 0.11,
+        "project": 0.01
+      },
+      "latency_ms": 458.5,
+      "route": "api"
+    },
+    {
+      "key": "insight:cila_progression:1790672598",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:6f6a990b482b",
+      "g1_label": null,
+      "answer": "observation",
+      "confidence": 0.3,
+      "probabilities": {
+        "insight": 0.27,
+        "strategy": 0.0,
+        "case": 0.01,
+        "gotcha": 0.19,
+        "outcome": 0.03,
+        "note": 0.1,
+        "reference": 0.0,
+        "observation": 0.34,
+        "process": 0.0,
+        "doc": 0.0,
+        "text": 0.02,
+        "plan": 0.0,
+        "script": 0.0,
+        "runbook": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "lesson": 0.02,
+        "project": 0.02,
+        "snippet": 0.0,
+        "decision": 0.0,
+        "followup": 0.0
+      },
+      "latency_ms": 384.2,
+      "route": "api"
+    },
+    {
+      "key": "lesson:audit:VulnerabilityPattern-Debug-bound",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:d08cb74cdf52",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.47,
+      "probabilities": {
+        "script": 0.0,
+        "project": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "case": 0.0,
+        "doc": 0.01,
+        "text": 0.0,
+        "pattern": 0.03,
+        "runbook": 0.0,
+        "outcome": 0.0,
+        "followup": 0.0,
+        "lesson": 0.43,
+        "gotcha": 0.51,
+        "insight": 0.02,
+        "observation": 0.0,
+        "strategy": 0.0,
+        "snippet": 0.0,
+        "module": 0.0,
+        "note": 0.0,
+        "reference": 0.0,
+        "plan": 0.0,
+        "decision": 0.0
+      },
+      "latency_ms": 449.5,
+      "route": "api"
+    },
+    {
+      "key": "lesson:cross-audit:2026-05-06:final",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:f984af27ae85",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.79,
+      "probabilities": {
+        "gotcha": 0.01,
+        "text": 0.0,
+        "runbook": 0.0,
+        "insight": 0.02,
+        "map": 0.0,
+        "case": 0.0,
+        "note": 0.0,
+        "strategy": 0.0,
+        "module": 0.0,
+        "plan": 0.0,
+        "snippet": 0.0,
+        "pattern": 0.0,
+        "process": 0.0,
+        "outcome": 0.81,
+        "script": 0.0,
+        "decision": 0.0,
+        "followup": 0.0,
+        "doc": 0.0,
+        "observation": 0.12,
+        "project": 0.03,
+        "reference": 0.0,
+        "lesson": 0.0
+      },
+      "latency_ms": 371.9,
+      "route": "api"
+    },
+    {
+      "key": "lesson:dead-code:cli-handlers:2026-04-07",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:da951ab2bbac",
+      "g1_label": "lesson",
+      "answer": "lesson",
+      "confidence": 0.5,
+      "probabilities": {
+        "doc": 0.0,
+        "project": 0.0,
+        "decision": 0.0,
+        "text": 0.0,
+        "snippet": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "runbook": 0.0,
+        "reference": 0.0,
+        "followup": 0.0,
+        "outcome": 0.0,
+        "insight": 0.05,
+        "strategy": 0.0,
+        "lesson": 0.53,
+        "case": 0.01,
+        "observation": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "note": 0.0,
+        "script": 0.0,
+        "plan": 0.0,
+        "gotcha": 0.4
+      },
+      "latency_ms": 389.1,
+      "route": "api"
+    },
+    {
+      "key": "lesson:engineer:inferlets:D8.2",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:fed6e4f6025e",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.98,
+      "probabilities": {
+        "lesson": 0.01,
+        "project": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "insight": 0.01,
+        "process": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.0,
+        "map": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.98,
+        "case": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "module": 0.0,
+        "observation": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 402.6,
+      "route": "api"
+    },
+    {
+      "key": "lesson:engineer:knowledge.rs:hook-baseline-bug",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:428168fc3ed0",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.99,
+      "probabilities": {
+        "insight": 0.0,
+        "project": 0.0,
+        "text": 0.0,
+        "gotcha": 1.0,
+        "lesson": 0.0,
+        "followup": 0.0,
+        "observation": 0.0,
+        "process": 0.0,
+        "case": 0.0,
+        "runbook": 0.0,
+        "module": 0.0,
+        "map": 0.0,
+        "strategy": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "snippet": 0.0,
+        "doc": 0.0,
+        "pattern": 0.0,
+        "outcome": 0.0,
+        "script": 0.0,
+        "reference": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 388.7,
+      "route": "api"
+    },
+    {
+      "key": "lesson:engineer:touring-hooks:EvidenceForwarder_trait",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c6751358123c",
+      "g1_label": null,
+      "answer": "insight",
+      "confidence": 0.38,
+      "probabilities": {
+        "insight": 0.42,
+        "strategy": 0.01,
+        "case": 0.0,
+        "outcome": 0.0,
+        "gotcha": 0.0,
+        "observation": 0.0,
+        "reference": 0.0,
+        "note": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "script": 0.0,
+        "runbook": 0.0,
+        "doc": 0.12,
+        "pattern": 0.08,
+        "module": 0.03,
+        "lesson": 0.31,
+        "project": 0.0,
+        "snippet": 0.0,
+        "decision": 0.03,
+        "followup": 0.0
+      },
+      "latency_ms": 395.3,
+      "route": "api"
+    },
+    {
+      "key": "lesson:touring-hooks:From<rusqlite::Error>",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:4e3cf6a78bed",
+      "g1_label": null,
+      "answer": "snippet",
+      "confidence": 0.25,
+      "probabilities": {
+        "script": 0.0,
+        "project": 0.0,
+        "process": 0.01,
+        "map": 0.0,
+        "case": 0.03,
+        "doc": 0.12,
+        "text": 0.0,
+        "strategy": 0.04,
+        "runbook": 0.0,
+        "outcome": 0.0,
+        "snippet": 0.3,
+        "lesson": 0.19,
+        "insight": 0.05,
+        "gotcha": 0.03,
+        "observation": 0.0,
+        "pattern": 0.09,
+        "followup": 0.0,
+        "module": 0.02,
+        "reference": 0.0,
+        "note": 0.01,
+        "plan": 0.0,
+        "decision": 0.11
+      },
+      "latency_ms": 367.1,
+      "route": "api"
+    },
+    {
+      "key": "loop:task_1785699543075533970:C1:done",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:37b0426f7bd1",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.48,
+      "probabilities": {
+        "lesson": 0.11,
+        "script": 0.0,
+        "outcome": 0.51,
+        "doc": 0.01,
+        "plan": 0.0,
+        "insight": 0.0,
+        "runbook": 0.0,
+        "followup": 0.0,
+        "project": 0.01,
+        "snippet": 0.0,
+        "text": 0.01,
+        "module": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "gotcha": 0.21,
+        "decision": 0.0,
+        "reference": 0.0,
+        "case": 0.11,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "observation": 0.01,
+        "process": 0.02
+      },
+      "latency_ms": 332.2,
+      "route": "api"
+    },
+    {
+      "key": "loop:task_1786491608579767475:F5:done",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7b089f4becb1",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.27,
+      "probabilities": {
+        "outcome": 0.31,
+        "process": 0.07,
+        "script": 0.0,
+        "gotcha": 0.17,
+        "strategy": 0.01,
+        "insight": 0.0,
+        "map": 0.0,
+        "followup": 0.0,
+        "pattern": 0.0,
+        "runbook": 0.01,
+        "snippet": 0.0,
+        "observation": 0.01,
+        "doc": 0.01,
+        "text": 0.01,
+        "decision": 0.0,
+        "case": 0.07,
+        "module": 0.01,
+        "plan": 0.0,
+        "project": 0.05,
+        "note": 0.0,
+        "reference": 0.0,
+        "lesson": 0.27
+      },
+      "latency_ms": 341.2,
+      "route": "api"
+    },
+    {
+      "key": "orphan:cli-scout-dead-fork:2026-06-05",
+      "current_tag": "gotcha",
+      "kind_tags_all": [
+        {
+          "value": "gotcha",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:f586399b5dce",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.94,
+      "probabilities": {
+        "note": 0.02,
+        "followup": 0.01,
+        "case": 0.0,
+        "module": 0.0,
+        "pattern": 0.0,
+        "gotcha": 0.95,
+        "insight": 0.0,
+        "outcome": 0.0,
+        "script": 0.0,
+        "observation": 0.0,
+        "map": 0.0,
+        "plan": 0.02,
+        "reference": 0.0,
+        "text": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "process": 0.0,
+        "project": 0.0,
+        "runbook": 0.0,
+        "lesson": 0.0,
+        "doc": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 362.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-135cee2b:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:0c6936107b95",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.64,
+      "probabilities": {
+        "gotcha": 0.33,
+        "text": 0.0,
+        "runbook": 0.0,
+        "case": 0.0,
+        "map": 0.0,
+        "insight": 0.0,
+        "note": 0.0,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "plan": 0.0,
+        "snippet": 0.0,
+        "module": 0.0,
+        "process": 0.0,
+        "outcome": 0.66,
+        "script": 0.0,
+        "decision": 0.0,
+        "followup": 0.0,
+        "doc": 0.0,
+        "observation": 0.0,
+        "reference": 0.0,
+        "project": 0.0,
+        "lesson": 0.01
+      },
+      "latency_ms": 397.0,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-171b6b6d:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:615caad2bf46",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.85,
+      "probabilities": {
+        "note": 0.0,
+        "process": 0.0,
+        "pattern": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.13,
+        "reference": 0.0,
+        "case": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "observation": 0.0,
+        "insight": 0.0,
+        "doc": 0.0,
+        "runbook": 0.0,
+        "lesson": 0.01,
+        "map": 0.0,
+        "project": 0.0,
+        "strategy": 0.0,
+        "text": 0.0,
+        "outcome": 0.86,
+        "module": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 349.4,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-1ef0b29c:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:0ba677131815",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.94,
+      "probabilities": {
+        "pattern": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.04,
+        "case": 0.0,
+        "process": 0.0,
+        "followup": 0.0,
+        "text": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "module": 0.0,
+        "insight": 0.0,
+        "runbook": 0.0,
+        "outcome": 0.95,
+        "script": 0.0,
+        "observation": 0.0,
+        "map": 0.0,
+        "reference": 0.0,
+        "note": 0.0,
+        "project": 0.0
+      },
+      "latency_ms": 349.2,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-22f46233:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:0c7bbfbf1d9d",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.6,
+      "probabilities": {
+        "plan": 0.0,
+        "module": 0.0,
+        "doc": 0.0,
+        "lesson": 0.0,
+        "runbook": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "project": 0.0,
+        "reference": 0.0,
+        "gotcha": 0.37,
+        "case": 0.0,
+        "insight": 0.0,
+        "strategy": 0.0,
+        "process": 0.0,
+        "pattern": 0.0,
+        "text": 0.0,
+        "map": 0.0,
+        "outcome": 0.63,
+        "observation": 0.0,
+        "snippet": 0.0,
+        "note": 0.0,
+        "decision": 0.0
+      },
+      "latency_ms": 367.8,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-33c41141:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:12f421780b2d",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.82,
+      "probabilities": {
+        "lesson": 0.01,
+        "project": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "insight": 0.0,
+        "process": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.84,
+        "map": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.14,
+        "case": 0.0,
+        "note": 0.0,
+        "observation": 0.0,
+        "reference": 0.0,
+        "runbook": 0.01,
+        "module": 0.0,
+        "plan": 0.0,
+        "decision": 0.0,
+        "text": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 394.4,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-373d836b:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ea5beecf6b98",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.98,
+      "probabilities": {
+        "runbook": 0.0,
+        "text": 0.0,
+        "strategy": 0.0,
+        "followup": 0.0,
+        "decision": 0.0,
+        "outcome": 0.99,
+        "project": 0.0,
+        "note": 0.0,
+        "script": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "lesson": 0.0,
+        "reference": 0.0,
+        "module": 0.0,
+        "snippet": 0.0,
+        "plan": 0.0,
+        "case": 0.0,
+        "insight": 0.0,
+        "gotcha": 0.01,
+        "observation": 0.0
+      },
+      "latency_ms": 369.6,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-418d7c82:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:be1caa1dddeb",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.91,
+      "probabilities": {
+        "snippet": 0.01,
+        "project": 0.0,
+        "plan": 0.0,
+        "pattern": 0.0,
+        "observation": 0.0,
+        "outcome": 0.92,
+        "decision": 0.0,
+        "note": 0.0,
+        "doc": 0.0,
+        "runbook": 0.01,
+        "strategy": 0.0,
+        "followup": 0.0,
+        "case": 0.0,
+        "process": 0.0,
+        "module": 0.0,
+        "map": 0.0,
+        "lesson": 0.01,
+        "script": 0.01,
+        "text": 0.0,
+        "insight": 0.0,
+        "gotcha": 0.04,
+        "reference": 0.0
+      },
+      "latency_ms": 355.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-41c3e9cb:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:83457fe3da68",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.97,
+      "probabilities": {
+        "lesson": 0.02,
+        "project": 0.0,
+        "script": 0.0,
+        "followup": 0.0,
+        "insight": 0.0,
+        "process": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.97,
+        "map": 0.0,
+        "doc": 0.0,
+        "gotcha": 0.01,
+        "case": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "reference": 0.0,
+        "runbook": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "module": 0.0,
+        "observation": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 362.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-5651e6e7:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:0e3bd8f7ab0a",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.72,
+      "probabilities": {
+        "pattern": 0.0,
+        "doc": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "gotcha": 0.15000000000000002,
+        "plan": 0.0,
+        "case": 0.0,
+        "process": 0.0,
+        "followup": 0.0,
+        "snippet": 0.0,
+        "text": 0.0,
+        "lesson": 0.1,
+        "module": 0.0,
+        "insight": 0.0,
+        "outcome": 0.75,
+        "runbook": 0.0,
+        "script": 0.0,
+        "observation": 0.0,
+        "map": 0.0,
+        "reference": 0.0,
+        "note": 0.0,
+        "project": 0.0
+      },
+      "latency_ms": 387.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-57b90db7:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:45ecd4f8c485",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.93,
+      "probabilities": {
+        "runbook": 0.0,
+        "outcome": 0.9400000000000001,
+        "strategy": 0.0,
+        "text": 0.0,
+        "decision": 0.0,
+        "followup": 0.0,
+        "project": 0.0,
+        "note": 0.0,
+        "script": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "reference": 0.0,
+        "lesson": 0.0,
+        "module": 0.0,
+        "snippet": 0.0,
+        "plan": 0.0,
+        "case": 0.0,
+        "insight": 0.0,
+        "gotcha": 0.06,
+        "observation": 0.0
+      },
+      "latency_ms": 350.9,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-69981ac4:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c0f020f3046d",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.87,
+      "probabilities": {
+        "insight": 0.0,
+        "project": 0.0,
+        "followup": 0.0,
+        "gotcha": 0.09999999999999999,
+        "lesson": 0.01,
+        "case": 0.0,
+        "module": 0.0,
+        "process": 0.0,
+        "observation": 0.0,
+        "runbook": 0.01,
+        "map": 0.0,
+        "text": 0.0,
+        "strategy": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "snippet": 0.0,
+        "doc": 0.0,
+        "pattern": 0.0,
+        "outcome": 0.88,
+        "reference": 0.0,
+        "script": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 380.6,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-6c5123dc:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:3ce054a30cd8",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.76,
+      "probabilities": {
+        "pattern": 0.0,
+        "note": 0.0,
+        "project": 0.0,
+        "insight": 0.0,
+        "snippet": 0.0,
+        "followup": 0.0,
+        "lesson": 0.01,
+        "reference": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "map": 0.0,
+        "plan": 0.0,
+        "text": 0.0,
+        "case": 0.0,
+        "module": 0.0,
+        "gotcha": 0.21,
+        "script": 0.0,
+        "outcome": 0.78,
+        "observation": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 373.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-7769189c:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:62af5f2c7af3",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.94,
+      "probabilities": {
+        "reference": 0.0,
+        "process": 0.0,
+        "lesson": 0.01,
+        "script": 0.0,
+        "snippet": 0.0,
+        "pattern": 0.0,
+        "runbook": 0.0,
+        "observation": 0.0,
+        "text": 0.0,
+        "doc": 0.0,
+        "case": 0.0,
+        "plan": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "map": 0.0,
+        "gotcha": 0.04,
+        "module": 0.0,
+        "followup": 0.0,
+        "insight": 0.0,
+        "project": 0.0,
+        "outcome": 0.95
+      },
+      "latency_ms": 368.8,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-7bf30bfa:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:eec8622e9b9d",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.46,
+      "probabilities": {
+        "decision": 0.0,
+        "project": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "case": 0.0,
+        "doc": 0.0,
+        "text": 0.0,
+        "followup": 0.0,
+        "runbook": 0.0,
+        "outcome": 0.43,
+        "pattern": 0.0,
+        "lesson": 0.05,
+        "gotcha": 0.5,
+        "strategy": 0.0,
+        "observation": 0.0,
+        "insight": 0.0,
+        "snippet": 0.0,
+        "module": 0.0,
+        "reference": 0.0,
+        "note": 0.0,
+        "plan": 0.0,
+        "script": 0.02
+      },
+      "latency_ms": 439.8,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-8461c5d4:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:b4757e8a4d77",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.86,
+      "probabilities": {
+        "map": 0.0,
+        "module": 0.0,
+        "note": 0.0,
+        "script": 0.0,
+        "doc": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "case": 0.0,
+        "lesson": 0.01,
+        "project": 0.0,
+        "text": 0.0,
+        "gotcha": 0.12,
+        "observation": 0.0,
+        "outcome": 0.87,
+        "reference": 0.0,
+        "process": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "followup": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 342.7,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-889c8d12:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:2bba026396db",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.98,
+      "probabilities": {
+        "outcome": 0.99,
+        "followup": 0.0,
+        "note": 0.0,
+        "lesson": 0.0,
+        "snippet": 0.0,
+        "script": 0.0,
+        "map": 0.0,
+        "observation": 0.0,
+        "plan": 0.0,
+        "insight": 0.0,
+        "module": 0.0,
+        "text": 0.01,
+        "process": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "case": 0.0,
+        "project": 0.0,
+        "doc": 0.0,
+        "runbook": 0.0,
+        "gotcha": 0.0,
+        "reference": 0.0
+      },
+      "latency_ms": 412.7,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-96fe9599:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:11672089ac68",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.92,
+      "probabilities": {
+        "reference": 0.0,
+        "process": 0.0,
+        "case": 0.0,
+        "script": 0.01,
+        "snippet": 0.0,
+        "lesson": 0.01,
+        "pattern": 0.0,
+        "observation": 0.0,
+        "outcome": 0.92,
+        "doc": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "note": 0.0,
+        "map": 0.0,
+        "gotcha": 0.06,
+        "module": 0.0,
+        "followup": 0.0,
+        "insight": 0.0,
+        "project": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 374.3,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-9acf4e6d:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ac8c01977d85",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.84,
+      "probabilities": {
+        "strategy": 0.0,
+        "observation": 0.0,
+        "outcome": 0.12,
+        "followup": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "process": 0.0,
+        "text": 0.0,
+        "decision": 0.0,
+        "reference": 0.0,
+        "gotcha": 0.86,
+        "insight": 0.0,
+        "runbook": 0.0,
+        "project": 0.0,
+        "snippet": 0.0,
+        "script": 0.0,
+        "case": 0.0,
+        "doc": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "plan": 0.0,
+        "lesson": 0.02
+      },
+      "latency_ms": 362.5,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-a267f93c:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:8d1f2ba6c4d8",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.99,
+      "probabilities": {
+        "followup": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "lesson": 0.0,
+        "strategy": 0.0,
+        "plan": 0.0,
+        "module": 0.0,
+        "outcome": 1.0,
+        "doc": 0.0,
+        "insight": 0.0,
+        "snippet": 0.0,
+        "process": 0.0,
+        "project": 0.0,
+        "reference": 0.0,
+        "decision": 0.0,
+        "observation": 0.0,
+        "pattern": 0.0,
+        "script": 0.0,
+        "gotcha": 0.0,
+        "case": 0.0,
+        "runbook": 0.0,
+        "text": 0.0
+      },
+      "latency_ms": 338.9,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-a5b48c1c:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:fea142ef142a",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.59,
+      "probabilities": {
+        "process": 0.0,
+        "case": 0.0,
+        "snippet": 0.0,
+        "runbook": 0.0,
+        "followup": 0.0,
+        "observation": 0.0,
+        "outcome": 0.62,
+        "note": 0.0,
+        "gotcha": 0.36,
+        "module": 0.0,
+        "decision": 0.0,
+        "reference": 0.0,
+        "script": 0.0,
+        "text": 0.0,
+        "insight": 0.0,
+        "lesson": 0.02,
+        "doc": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "project": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 396.0,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-aab4e462:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:63b3fcb2ef17",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.94,
+      "probabilities": {
+        "decision": 0.0,
+        "pattern": 0.0,
+        "text": 0.0,
+        "project": 0.0,
+        "case": 0.0,
+        "script": 0.01,
+        "lesson": 0.01,
+        "followup": 0.0,
+        "snippet": 0.0,
+        "module": 0.0,
+        "runbook": 0.01,
+        "map": 0.0,
+        "strategy": 0.0,
+        "outcome": 0.94,
+        "process": 0.0,
+        "plan": 0.0,
+        "gotcha": 0.03,
+        "insight": 0.0,
+        "note": 0.0,
+        "doc": 0.0,
+        "reference": 0.0,
+        "observation": 0.0
+      },
+      "latency_ms": 408.2,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-ad26b51c:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:114d940ef63e",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.97,
+      "probabilities": {
+        "runbook": 0.0,
+        "doc": 0.0,
+        "note": 0.0,
+        "lesson": 0.01,
+        "map": 0.0,
+        "plan": 0.0,
+        "module": 0.0,
+        "outcome": 0.97,
+        "strategy": 0.0,
+        "insight": 0.0,
+        "snippet": 0.0,
+        "process": 0.0,
+        "project": 0.0,
+        "reference": 0.0,
+        "script": 0.0,
+        "pattern": 0.0,
+        "observation": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.02,
+        "case": 0.0,
+        "followup": 0.0,
+        "text": 0.0
+      },
+      "latency_ms": 382.5,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-c08b52c6:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:29a6ca56efc1",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.83,
+      "probabilities": {
+        "insight": 0.0,
+        "project": 0.0,
+        "followup": 0.0,
+        "gotcha": 0.85,
+        "lesson": 0.01,
+        "case": 0.0,
+        "module": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "runbook": 0.0,
+        "text": 0.0,
+        "observation": 0.0,
+        "strategy": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.14,
+        "pattern": 0.0,
+        "doc": 0.0,
+        "script": 0.0,
+        "reference": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 346.1,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-c8f7fcbe:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:75c69102e1e4",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.97,
+      "probabilities": {
+        "strategy": 0.0,
+        "observation": 0.0,
+        "outcome": 0.98,
+        "followup": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "process": 0.0,
+        "text": 0.0,
+        "reference": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.01,
+        "insight": 0.0,
+        "runbook": 0.0,
+        "project": 0.0,
+        "snippet": 0.0,
+        "script": 0.0,
+        "case": 0.0,
+        "plan": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "lesson": 0.01,
+        "doc": 0.0
+      },
+      "latency_ms": 354.7,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-d78c3250:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:631c6ec37e59",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.92,
+      "probabilities": {
+        "outcome": 0.93,
+        "followup": 0.0,
+        "note": 0.0,
+        "lesson": 0.01,
+        "snippet": 0.0,
+        "script": 0.01,
+        "map": 0.0,
+        "observation": 0.0,
+        "plan": 0.0,
+        "insight": 0.0,
+        "process": 0.0,
+        "module": 0.0,
+        "text": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "case": 0.0,
+        "project": 0.0,
+        "runbook": 0.01,
+        "doc": 0.0,
+        "gotcha": 0.03,
+        "reference": 0.0
+      },
+      "latency_ms": 374.0,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-f285f401:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:072e162799ca",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.87,
+      "probabilities": {
+        "insight": 0.0,
+        "strategy": 0.0,
+        "case": 0.0,
+        "gotcha": 0.09999999999999999,
+        "outcome": 0.88,
+        "note": 0.0,
+        "reference": 0.0,
+        "observation": 0.0,
+        "process": 0.0,
+        "map": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "script": 0.01,
+        "runbook": 0.0,
+        "doc": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "project": 0.0,
+        "followup": 0.0,
+        "decision": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.01
+      },
+      "latency_ms": 387.8,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-f536f88f:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:f425a8c6acf4",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.62,
+      "probabilities": {
+        "plan": 0.0,
+        "note": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "script": 0.0,
+        "map": 0.0,
+        "pattern": 0.0,
+        "process": 0.0,
+        "case": 0.0,
+        "text": 0.0,
+        "project": 0.0,
+        "outcome": 0.65,
+        "observation": 0.0,
+        "followup": 0.0,
+        "snippet": 0.0,
+        "lesson": 0.0,
+        "gotcha": 0.35,
+        "reference": 0.0,
+        "module": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 358.4,
+      "route": "api"
+    },
+    {
+      "key": "outcome:bash:transcript-fc4034fc:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:898a7de881ad",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.74,
+      "probabilities": {
+        "project": 0.0,
+        "pattern": 0.0,
+        "outcome": 0.76,
+        "script": 0.0,
+        "followup": 0.0,
+        "case": 0.0,
+        "lesson": 0.13,
+        "map": 0.0,
+        "runbook": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "module": 0.0,
+        "note": 0.0,
+        "plan": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "observation": 0.0,
+        "gotcha": 0.11,
+        "text": 0.0,
+        "reference": 0.0,
+        "snippet": 0.0
+      },
+      "latency_ms": 405.7,
+      "route": "api"
+    },
+    {
+      "key": "outcome:edit:transcript-41462bba:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7b1f0d860e5e",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.47,
+      "probabilities": {
+        "decision": 0.0,
+        "pattern": 0.0,
+        "text": 0.0,
+        "project": 0.0,
+        "case": 0.02,
+        "script": 0.0,
+        "lesson": 0.06999999999999999,
+        "followup": 0.0,
+        "snippet": 0.04,
+        "module": 0.0,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "outcome": 0.36,
+        "process": 0.01,
+        "insight": 0.0,
+        "gotcha": 0.5,
+        "map": 0.0,
+        "note": 0.0,
+        "doc": 0.0,
+        "reference": 0.0,
+        "observation": 0.0
+      },
+      "latency_ms": 382.6,
+      "route": "api"
+    },
+    {
+      "key": "outcome:edit:transcript-a74bdb8b:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c509342ece69",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.65,
+      "probabilities": {
+        "pattern": 0.0,
+        "note": 0.0,
+        "project": 0.0,
+        "insight": 0.0,
+        "snippet": 0.04,
+        "followup": 0.0,
+        "process": 0.0,
+        "reference": 0.0,
+        "map": 0.0,
+        "doc": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "lesson": 0.01,
+        "module": 0.01,
+        "text": 0.0,
+        "case": 0.01,
+        "plan": 0.0,
+        "gotcha": 0.26,
+        "script": 0.0,
+        "outcome": 0.67,
+        "observation": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 377.0,
+      "route": "api"
+    },
+    {
+      "key": "outcome:edit:transcript-bf8947a0:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:56269905bc88",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.35,
+      "probabilities": {
+        "note": 0.0,
+        "project": 0.0,
+        "map": 0.0,
+        "snippet": 0.07,
+        "followup": 0.0,
+        "process": 0.0,
+        "script": 0.01,
+        "outcome": 0.32,
+        "pattern": 0.0,
+        "text": 0.0,
+        "case": 0.02,
+        "runbook": 0.0,
+        "module": 0.0,
+        "lesson": 0.18000000000000002,
+        "insight": 0.01,
+        "doc": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.39,
+        "reference": 0.0,
+        "plan": 0.0,
+        "observation": 0.0,
+        "strategy": 0.0
+      },
+      "latency_ms": 398.2,
+      "route": "api"
+    },
+    {
+      "key": "outcome:edit:transcript-dd08f0ef:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:5c31fca333fd",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.34,
+      "probabilities": {
+        "plan": 0.0,
+        "strategy": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "doc": 0.0,
+        "note": 0.0,
+        "script": 0.02,
+        "case": 0.03,
+        "pattern": 0.0,
+        "process": 0.01,
+        "map": 0.0,
+        "project": 0.0,
+        "text": 0.01,
+        "outcome": 0.29000000000000004,
+        "observation": 0.0,
+        "followup": 0.0,
+        "snippet": 0.14,
+        "lesson": 0.12,
+        "gotcha": 0.38,
+        "reference": 0.0,
+        "module": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 390.2,
+      "route": "api"
+    },
+    {
+      "key": "outcome:edit:transcript-f5ce1e1a:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:055ab7eca32d",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.52,
+      "probabilities": {
+        "project": 0.0,
+        "text": 0.0,
+        "process": 0.01,
+        "script": 0.0,
+        "outcome": 0.55,
+        "module": 0.0,
+        "lesson": 0.02,
+        "decision": 0.0,
+        "plan": 0.0,
+        "note": 0.0,
+        "followup": 0.0,
+        "map": 0.0,
+        "insight": 0.0,
+        "snippet": 0.04,
+        "gotcha": 0.36,
+        "reference": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "case": 0.02,
+        "doc": 0.0,
+        "observation": 0.0,
+        "runbook": 0.0
+      },
+      "latency_ms": 386.6,
+      "route": "api"
+    },
+    {
+      "key": "outcome:other:transcript-f82a7143:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:88ece7f001b4",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.87,
+      "probabilities": {
+        "project": 0.0,
+        "case": 0.0,
+        "process": 0.0,
+        "observation": 0.0,
+        "doc": 0.0,
+        "module": 0.0,
+        "strategy": 0.0,
+        "note": 0.0,
+        "reference": 0.0,
+        "script": 0.01,
+        "followup": 0.0,
+        "plan": 0.02,
+        "gotcha": 0.89,
+        "map": 0.0,
+        "text": 0.0,
+        "runbook": 0.0,
+        "lesson": 0.02,
+        "snippet": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "outcome": 0.06,
+        "pattern": 0.0
+      },
+      "latency_ms": 352.9,
+      "route": "api"
+    },
+    {
+      "key": "outcome:read:transcript-11eed856:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:02574ae09633",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.77,
+      "probabilities": {
+        "snippet": 0.0,
+        "insight": 0.0,
+        "followup": 0.0,
+        "text": 0.0,
+        "outcome": 0.2,
+        "case": 0.0,
+        "decision": 0.0,
+        "project": 0.0,
+        "script": 0.0,
+        "process": 0.0,
+        "plan": 0.0,
+        "observation": 0.0,
+        "reference": 0.0,
+        "gotcha": 0.79,
+        "runbook": 0.0,
+        "lesson": 0.01,
+        "strategy": 0.0,
+        "pattern": 0.0,
+        "note": 0.0,
+        "doc": 0.0,
+        "map": 0.0,
+        "module": 0.0
+      },
+      "latency_ms": 346.2,
+      "route": "api"
+    },
+    {
+      "key": "outcome:write:transcript-ac245185:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:107fdc16ec58",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.49,
+      "probabilities": {
+        "note": 0.0,
+        "process": 0.0,
+        "pattern": 0.0,
+        "plan": 0.0,
+        "followup": 0.0,
+        "gotcha": 0.52,
+        "reference": 0.0,
+        "case": 0.0,
+        "script": 0.01,
+        "decision": 0.0,
+        "observation": 0.0,
+        "insight": 0.0,
+        "doc": 0.01,
+        "runbook": 0.0,
+        "lesson": 0.22,
+        "map": 0.0,
+        "project": 0.0,
+        "strategy": 0.0,
+        "snippet": 0.09,
+        "outcome": 0.15000000000000002,
+        "module": 0.0,
+        "text": 0.0
+      },
+      "latency_ms": 417.6,
+      "route": "api"
+    },
+    {
+      "key": "outcome:write:transcript-f395cd8f:failure",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:2c7f71c709e5",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.56,
+      "probabilities": {
+        "note": 0.0,
+        "followup": 0.0,
+        "case": 0.01,
+        "module": 0.01,
+        "pattern": 0.0,
+        "gotcha": 0.59,
+        "insight": 0.01,
+        "outcome": 0.13,
+        "script": 0.02,
+        "observation": 0.0,
+        "map": 0.0,
+        "plan": 0.0,
+        "reference": 0.0,
+        "text": 0.0,
+        "decision": 0.0,
+        "strategy": 0.0,
+        "process": 0.0,
+        "project": 0.0,
+        "runbook": 0.0,
+        "lesson": 0.13,
+        "doc": 0.0,
+        "snippet": 0.1
+      },
+      "latency_ms": 399.6,
+      "route": "api"
+    },
+    {
+      "key": "pattern:fix:arm_effectiveness_key",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:ddf657a11bc4",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 0.93,
+      "probabilities": {
+        "insight": 0.01,
+        "strategy": 0.0,
+        "case": 0.0,
+        "gotcha": 0.95,
+        "outcome": 0.0,
+        "note": 0.0,
+        "reference": 0.0,
+        "observation": 0.0,
+        "process": 0.0,
+        "doc": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "map": 0.0,
+        "runbook": 0.0,
+        "followup": 0.0,
+        "pattern": 0.01,
+        "module": 0.0,
+        "lesson": 0.0,
+        "project": 0.0,
+        "decision": 0.0,
+        "snippet": 0.03,
+        "script": 0.0
+      },
+      "latency_ms": 352.3,
+      "route": "api"
+    },
+    {
+      "key": "pattern:rust:hook-syntax-error-vs-cargo-check",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c707a7faa5d8",
+      "g1_label": null,
+      "answer": "gotcha",
+      "confidence": 1.0,
+      "probabilities": {
+        "project": 0.0,
+        "strategy": 0.0,
+        "process": 0.0,
+        "gotcha": 1.0,
+        "case": 0.0,
+        "script": 0.0,
+        "pattern": 0.0,
+        "module": 0.0,
+        "note": 0.0,
+        "reference": 0.0,
+        "text": 0.0,
+        "followup": 0.0,
+        "runbook": 0.0,
+        "map": 0.0,
+        "snippet": 0.0,
+        "doc": 0.0,
+        "plan": 0.0,
+        "lesson": 0.0,
+        "outcome": 0.0,
+        "decision": 0.0,
+        "observation": 0.0,
+        "insight": 0.0
+      },
+      "latency_ms": 397.7,
+      "route": "api"
+    },
+    {
+      "key": "pattern:rust:sqlite-count-unwrap-or-zero",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:30fc8328eb1b",
+      "g1_label": "pattern",
+      "answer": "pattern",
+      "confidence": 0.75,
+      "probabilities": {
+        "insight": 0.0,
+        "project": 0.0,
+        "doc": 0.0,
+        "note": 0.0,
+        "snippet": 0.0,
+        "outcome": 0.0,
+        "runbook": 0.0,
+        "text": 0.0,
+        "plan": 0.0,
+        "observation": 0.0,
+        "process": 0.0,
+        "decision": 0.04,
+        "lesson": 0.17,
+        "strategy": 0.0,
+        "script": 0.0,
+        "module": 0.0,
+        "gotcha": 0.02,
+        "followup": 0.0,
+        "case": 0.0,
+        "reference": 0.0,
+        "pattern": 0.77,
+        "map": 0.0
+      },
+      "latency_ms": 387.7,
+      "route": "api"
+    },
+    {
+      "key": "report:phase:task_1789257125505670436:P6",
+      "current_tag": "reference",
+      "kind_tags_all": [
+        {
+          "value": "reference",
+          "source": "auto"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:39097c4bffa5",
+      "g1_label": "report",
+      "answer": "reference",
+      "confidence": 0.95,
+      "probabilities": {
+        "strategy": 0.0,
+        "plan": 0.03,
+        "decision": 0.0,
+        "note": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.0,
+        "gotcha": 0.0,
+        "followup": 0.0,
+        "project": 0.0,
+        "insight": 0.0,
+        "reference": 0.96,
+        "process": 0.0,
+        "observation": 0.0,
+        "map": 0.0,
+        "module": 0.0,
+        "script": 0.0,
+        "case": 0.0,
+        "pattern": 0.0,
+        "outcome": 0.0,
+        "lesson": 0.0,
+        "text": 0.0,
+        "doc": 0.01
+      },
+      "latency_ms": 450.7,
+      "route": "api"
+    },
+    {
+      "key": "snippet:auto:2175a111b379",
+      "current_tag": "snippet",
+      "kind_tags_all": [
+        {
+          "value": "snippet",
+          "source": "explicit"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:26bb4722f260",
+      "g1_label": null,
+      "answer": "script",
+      "confidence": 0.49,
+      "probabilities": {
+        "decision": 0.0,
+        "project": 0.0,
+        "case": 0.0,
+        "text": 0.0,
+        "pattern": 0.0,
+        "script": 0.52,
+        "lesson": 0.0,
+        "followup": 0.0,
+        "snippet": 0.48,
+        "module": 0.0,
+        "runbook": 0.0,
+        "plan": 0.0,
+        "strategy": 0.0,
+        "outcome": 0.0,
+        "process": 0.0,
+        "insight": 0.0,
+        "gotcha": 0.0,
+        "map": 0.0,
+        "note": 0.0,
+        "doc": 0.0,
+        "reference": 0.0,
+        "observation": 0.0
+      },
+      "latency_ms": 369.8,
+      "route": "api"
+    },
+    {
+      "key": "snippet:docs/memory-hashtag-library.md#L38",
+      "current_tag": "snippet",
+      "kind_tags_all": [
+        {
+          "value": "snippet",
+          "source": "code_sync"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:e57aa6688f9b",
+      "g1_label": null,
+      "answer": "snippet",
+      "confidence": 0.98,
+      "probabilities": {
+        "process": 0.0,
+        "case": 0.0,
+        "runbook": 0.0,
+        "snippet": 0.99,
+        "followup": 0.0,
+        "observation": 0.0,
+        "outcome": 0.0,
+        "note": 0.0,
+        "gotcha": 0.0,
+        "module": 0.0,
+        "decision": 0.0,
+        "text": 0.0,
+        "reference": 0.0,
+        "script": 0.0,
+        "lesson": 0.0,
+        "insight": 0.0,
+        "doc": 0.01,
+        "map": 0.0,
+        "pattern": 0.0,
+        "strategy": 0.0,
+        "project": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 381.8,
+      "route": "api"
+    },
+    {
+      "key": "task:bwq6kn2ko:stopped",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:d248641c37da",
+      "g1_label": null,
+      "answer": "followup",
+      "confidence": 0.29,
+      "probabilities": {
+        "snippet": 0.0,
+        "decision": 0.0,
+        "insight": 0.0,
+        "strategy": 0.0,
+        "followup": 0.34,
+        "outcome": 0.12,
+        "note": 0.12,
+        "runbook": 0.0,
+        "process": 0.0,
+        "gotcha": 0.05,
+        "script": 0.0,
+        "case": 0.09,
+        "project": 0.05,
+        "map": 0.0,
+        "pattern": 0.0,
+        "observation": 0.01,
+        "plan": 0.02,
+        "doc": 0.0,
+        "module": 0.0,
+        "text": 0.02,
+        "reference": 0.0,
+        "lesson": 0.18000000000000002
+      },
+      "latency_ms": 389.9,
+      "route": "api"
+    },
+    {
+      "key": "vgp:create:/home/gabrielgadea/.claude/rust/crates/touring-foundation/src/moka_policies.rs:FileKnowledgeDB",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:c59ab3ac5aa0",
+      "g1_label": null,
+      "answer": "lesson",
+      "confidence": 0.29,
+      "probabilities": {
+        "insight": 0.0,
+        "strategy": 0.0,
+        "case": 0.0,
+        "outcome": 0.17,
+        "gotcha": 0.01,
+        "note": 0.04,
+        "observation": 0.02,
+        "reference": 0.01,
+        "process": 0.0,
+        "doc": 0.04,
+        "script": 0.0,
+        "plan": 0.0,
+        "map": 0.01,
+        "runbook": 0.0,
+        "text": 0.02,
+        "pattern": 0.0,
+        "lesson": 0.34,
+        "project": 0.08,
+        "module": 0.22,
+        "decision": 0.0,
+        "snippet": 0.04,
+        "followup": 0.0
+      },
+      "latency_ms": 418.0,
+      "route": "api"
+    },
+    {
+      "key": "vgp:create:crates/touring-hooks-shared/src/command_hash.rs:command_hash",
+      "current_tag": "lesson",
+      "kind_tags_all": [
+        {
+          "value": "lesson",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:17eeef5eb637",
+      "g1_label": null,
+      "answer": "lesson",
+      "confidence": 0.4,
+      "probabilities": {
+        "insight": 0.0,
+        "project": 0.06,
+        "text": 0.01,
+        "gotcha": 0.0,
+        "lesson": 0.44,
+        "case": 0.0,
+        "observation": 0.01,
+        "process": 0.0,
+        "map": 0.01,
+        "runbook": 0.0,
+        "module": 0.07,
+        "followup": 0.0,
+        "strategy": 0.0,
+        "note": 0.02,
+        "decision": 0.0,
+        "snippet": 0.03,
+        "outcome": 0.33,
+        "pattern": 0.0,
+        "doc": 0.01,
+        "reference": 0.01,
+        "script": 0.0,
+        "plan": 0.0
+      },
+      "latency_ms": 350.3,
+      "route": "api"
+    },
+    {
+      "key": "vgp:plan:task_1777847410285511707:GeneratorKind",
+      "current_tag": "insight",
+      "kind_tags_all": [
+        {
+          "value": "insight",
+          "source": "backfill"
+        }
+      ],
+      "ambiguous_kind": [],
+      "g1_id": "m:7da2176aa852",
+      "g1_label": null,
+      "answer": "outcome",
+      "confidence": 0.33,
+      "probabilities": {
+        "note": 0.0,
+        "plan": 0.0,
+        "doc": 0.03,
+        "outcome": 0.37,
+        "observation": 0.19,
+        "strategy": 0.0,
+        "reference": 0.02,
+        "pattern": 0.0,
+        "decision": 0.0,
+        "gotcha": 0.0,
+        "process": 0.0,
+        "case": 0.0,
+        "snippet": 0.0,
+        "insight": 0.33,
+        "runbook": 0.0,
+        "module": 0.05,
+        "lesson": 0.0,
+        "text": 0.0,
+        "project": 0.01,
+        "map": 0.0,
+        "followup": 0.0,
+        "script": 0.0
+      },
+      "latency_ms": 391.2,
+      "route": "api"
+    }
+  ],
+  "summary_corrected": "2026-10-01: curva de calibracao recalculada para AS DUAS referencias; a versao anterior so acumulava para g1 e produziu o numero 95/100 que era na verdade g1_no_reference"
+}

@@ -49,6 +49,14 @@ def render_diorama(layers): ...
 - `post_write`/`post_edit` sincronizam a cada escrita (fail-open); remover o codetag do código **remove a memória** (tombstone — o código é a fonte da verdade).
 - Batch: `touring memory sync-tags --dir <pasta>` (respeita .gitignore).
 
+## Teto de rótulos flat (invariante S-9)
+
+Um `choice` plano degrada a acurácia **em silêncio** quando cresce: a medição da doc do cookbook (citada em `scripts/w42_prepare_items.py:27-31`) é **77 rótulos flat → 0,425 de acurácia**. O teto é **20 rótulos flat** (`MAX_FLAT_LABELS`).
+
+- **Falha ALTO no import**, não no treino: `check_flat_label_limit()` roda no topo do módulo, então um `choice` grande demais nunca chega a gastar GPU — a degradação não se instala em silêncio.
+- A exceção **nomeia a rota**: a mensagem não diz "reduza", diz para **decompor hierarquicamente com beam search paralelo** — nunca alargar a lista e aceitar a queda.
+- Guardado por `scripts/test_w42_prepare_items.py` (teto exato passa, teto+1 levanta).
+
 ## Consulta
 
 ```bash

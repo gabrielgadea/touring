@@ -1,0 +1,20 @@
+{
+ "n_queries": 33,
+ "n_yes_pairs": 6,
+ "candidates_missing_from_live_recall": 20,
+ "current": {
+  "top1": 4,
+  "mrr": 0.1212
+ },
+ "jev": {
+  "top1": 5,
+  "mrr": 0.1515
+ },
+ "score_gate": {
+  "top1": 4,
+  "mrr": 0.1212,
+  "gate_tau": 1.0,
+  "injected_share": 0.3111
+ },
+ "caveat": "33 queries / 6 yes — ler direção+magnitude, não significância; proxy RRF = ordem do recall vivo por score desc"
+}
