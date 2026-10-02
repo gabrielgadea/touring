@@ -18,17 +18,44 @@ Definitions pinned here BEFORE any label exists (they refine, never move, a thre
 import argparse
 import json
 import random
+import re
 from pathlib import Path
 
 from r3_use_cases import REGISTRY, SEED
 
 LABELS = ("followed", "ignored", "bypass", "indeterminate")
 KAPPA_FLOOR = REGISTRY["a2_outcome"]["floors"]["kappa_gold"]
-BLIND_FIELDS = ("item_id", "nudge_head", "cmds")  # nothing else ever reaches a rater
+# The three fields of a REAL extractor row a rater may see (r3_extract_a2_offers.extract_session): the route the
+# nudge recommended and the next commands. Nothing else ever reaches a rater.
+BLIND_FIELDS = ("item_id", "rota_proposta", "cmds")
+
+# Errata 4 (E4.3): the pack leaves the machine for an external vendor and the text is no longer truncated, so an item
+# carrying a credential is WITHHELD (and counted), never sent. `r3_event_schema.scan_privacy` is the wrong tool here:
+# it forbids free text in a shadow line, which is exactly what this pack is made of. A false positive only withholds an
+# item (counted); a false negative leaks — so the net errs wide.
+SECRET_PATTERNS = {
+    "api_key_sk": r"\bsk-[A-Za-z0-9_-]{20,}",
+    "aws_access_key": r"\bAKIA[0-9A-Z]{16}\b",
+    "github_token": r"\bgh[pousr]_[A-Za-z0-9]{30,}",
+    "slack_token": r"\bxox[abprs]-[A-Za-z0-9-]{10,}",
+    "private_key_block": r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    "bearer_token": r"(?i)\bbearer\s+[A-Za-z0-9._~+/=-]{20,}",
+    "jwt": r"\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}",
+    # no leading \b (`MYSERVICE_TOKEN=` — `_` is a word char) and an optional quote before the separator (`"token": "…"`)
+    "assignment_secret": r"(?i)(?:api[_-]?key|secret|token|passw(?:or)?d|passwd)['\"]?\s*[=:]\s*['\"]?[A-Za-z0-9/+_.=-]{12,}",
+}
+_SECRET_RES = {name: re.compile(p) for name, p in SECRET_PATTERNS.items()}
+
+
+def secret_findings(text: str) -> list:
+    """Names of the credential patterns found in `text` (never the matched value)."""
+    return [name for name, rx in _SECRET_RES.items() if rx.search(text)]
+
 
 INSTRUCTIONS = """# Adjudicação cega — A2 (a oferta de rota foi seguida?)
 
-Para cada item você recebe o texto do nudge e os PRÓXIMOS 3 comandos Bash da mesma sessão.
+Para cada item você recebe a ROTA que o nudge recomendou (`rota_proposta`, um programa a executar) e os PRÓXIMOS
+comandos Bash da mesma sessão (`cmds`, até 3). Os textos vêm COMPLETOS, sem truncagem.
 Responda UMA linha JSON por item em `adj_<seu-nome>.jsonl`: {"item_id": "...", "label": "..."}.
 
 - `followed`      — nas 3 chamadas o agente executou a ação recomendada (a mesma rota, ou equivalente semântico).
@@ -50,10 +77,21 @@ def cohen_kappa(a, b) -> float:
     return (po - pe) / (1.0 - pe)
 
 
+def _blind_text(row) -> str:
+    return "\n".join([row["rota_proposta"], *row["cmds"]])  # raw text, NOT json.dumps: escaping hides `"token": "…"`
+
+
 def pack(sample, out_dir, seed=SEED):
+    """Write the blind pack (`pack_blind.jsonl`) + the key file + `withheld.json` (item → pattern names, no values)."""
     out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
     rows = list(sample)
+    no_route = [r["item_id"] for r in rows if not (r.get("rota_proposta") or "").strip()]
+    if no_route:  # nothing to judge the commands against: refuse, never ship a blind item
+        raise ValueError(f"{len(no_route)} row(s) without rota_proposta (no recommended action): {no_route[:5]}")
+    out.mkdir(parents=True, exist_ok=True)
+    withheld = {r["item_id"]: hits for r in rows if (hits := secret_findings(_blind_text(r)))}
+    rows = [r for r in rows if r["item_id"] not in withheld]
+    (out / "withheld.json").write_text(json.dumps(withheld, ensure_ascii=False, indent=1))
     random.Random(seed).shuffle(rows)  # the order carries no information about B0 or time
     with (out / "pack_blind.jsonl").open("w") as f:
         for r in rows:

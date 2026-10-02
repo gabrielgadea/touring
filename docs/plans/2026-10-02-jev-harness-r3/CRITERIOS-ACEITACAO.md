@@ -225,3 +225,58 @@ limpo, cego à decisão de B0** (mesma família do agente julgado — risco de p
 κ reportado e pelo desempate registrado). Se uma segunda sessão MiniMax/outra família ficar disponível a tempo,
 ela substitui o rater 2 antes de qualquer rótulo existir. O κ ≥ 0,60 (§2) e o resto do protocolo (E2.1–E2.4) valem
 sem mudança; o relatório final cita explicitamente esta limitação.
+
+---
+
+# Errata 4 — 02/10/2026 13:20:22 BRT — registrada ANTES de existir qualquer rótulo e ANTES da re-extração
+
+> Motivos (medidos pela coordenação ao verificar o dataset congelado, antes de gerar o pacote cego; nenhum
+> depende de resultado de braço). **(i) Falsos positivos de oferta**: dos 199 candidatos nos transcripts, 179
+> são `tool_result` com `is_error = true` (deny genuíno) e **20 são o marcador CITADO** na saída de outro comando
+> (`is_error = false`) — a prova comportamental do `propagate`, `grep` sobre transcripts, e até a saída da própria
+> sessão de coordenação (auto-contaminação). Quatro dos falsos **têm rota casada**: a regex
+> `touring run --lang … --code '…'` sozinha não discrimina. **(ii) Truncagem**: o B0 foi calculado sobre a janela
+> completa, mas o dataset guarda `cmds[:200]`; reaplicando o B0 sobre o texto guardado, **9 de 198 decisões mudam**
+> (todas `followed → not-followed`). O adjudicador cego discordaria do B0 por apresentação, não por mérito da regra;
+> e um braço de modelo que lê o mesmo texto truncado ganharia vantagem de visão compartilhada sobre o B0.
+> **Nenhum limiar muda.**
+
+**E4.1 — definição de oferta.** Oferta = `tool_result` com `is_error == true` cujo conteúdo contém o marcador
+`[CODE MODE · rajada]` (o deny do G1 é erro de hook por construção). Citação (`is_error = false`) **não é oferta**.
+Esta definição substitui "o marcador aparece no texto" (Errata 1/E3.1). "Todas as ofertas são adjudicadas" (E3.1)
+segue valendo, sobre a população CORRIGIDA; os "198 = 136/62" da Errata 3 ficam superados e o n real é reportado
+após a re-extração. As candidatas excluídas por citação são **contadas** (`n_excluded_quoted`), nunca descartadas
+em silêncio.
+**E4.2 — texto completo.** `cmds` e `rota_proposta` passam a ser guardados **sem truncagem** (em `r3-data/`, fora
+do repo). Invariante guardada por teste e por mutação: `B0(cmds guardados) == b0_decisao guardado` para todo item,
+de modo que a decisão do B0 e o que o adjudicador vê vêm do MESMO texto. Cada braço de modelo pode truncar ao
+próprio contexto (Laya: 1024 tokens) — isso é parte do que o braço é, e é reportado.
+**E4.3 — saída para terceiros.** O pacote vai a um vendor externo; como o texto deixa de ser truncado, passa por
+`r3_event_schema.scan_privacy` antes de sair. Item com segredo detectado não é enviado: é contado
+(`n_withheld_privacy`) e fica fora do gold.
+**E4.4 — o que NÃO muda.** Limiares, κ ≥ 0,60, E2.1–E2.4, os estados de veredito da Errata 3 e a divisão
+`audit-val`/`audit-test` (40/60, seed 20261002, por sessão) — recomputada sobre a população corrigida. A potência
+declarada em E3.2 (≈ ±0,07) vale como ordem de grandeza e é recalculada com o n final antes de qualquer resultado.
+
+## Errata 4 — adendo, 02/10/2026 13:25:14 BRT — ainda ANTES de existir qualquer rótulo
+
+> Duas coisas, ambas achadas pela verificação independente do dataset re-congelado. **Nenhum limiar muda.**
+
+**E4.3 (retificada) — o instrumento de privacidade citado estava ERRADO.** A E4.3 acima manda passar o pacote por
+`r3_event_schema.scan_privacy`. Esse detector proíbe **texto livre** em linha de shadow — isto é, marcaria 100% dos itens
+de um pacote cujo conteúdo É texto — e não procura credenciais. O instrumento correto é
+`r3_adjudication.secret_findings` (8 famílias de credencial; varre o texto BRUTO, não o `json.dumps`, que escapa as
+aspas e esconde `"token": "…"`), aplicado em `pack` à `rota_proposta` e aos `cmds`. Item com achado é **retido**,
+**contado** (`withheld.json`: item → nomes dos padrões, jamais o valor) e fica fora do gold. Provado com controle
+positivo por padrão e 16/16 mutantes mortos (`scripts/test_r3_adjudication.py`); sem controle positivo, "0 retidos"
+não seria medida.
+**E4.5 — a `rota_proposta` estava cortada em 51% dos itens.** O extrator lia o programa com `'(.*?)'`; o deny o embute em
+shell-quoting, com aspa interna escapada `'\''`, e a regex fechava na primeira. Medido nas 180 ofertas genuínas: **91
+(51%) com a rota cortada** e 1 com rota vazia. Mesma família da E4.2 (o avaliador vê ≠ o que o nudge ofereceu). O B0 não
+lê a rota, então a decisão de B0 não muda; mas o avaliador cego e os braços de modelo a leem. Correção: extrair o
+programa como shell-quoting (`'[^']*'` e `\'`), com re-extração e re-congelamento **antes** do pacote. Invariantes de
+aceite: `rota cortada em '\''` = 0 e `rota None/vazia` = 0.
+**E4.6 — n provisório.** Após E4.1–E4.2 o dataset tem **n = 180 (132 followed / 48 not-followed; 66/24 em cada metade)**,
+verificado de forma independente. Os "198 = 136/62" da Errata 3 e o "≈ 119 itens em `audit-test`" da E3.2 ficam
+superados: `audit-test` tem 90, e a meia-largura do IC do delta passa a ≈ ±0,08. A E3.2 já previa exatamente isso (o
+estado `INCONCLUSIVO_POR_POTENCIA` existe para a amostra que não decide). O n é refeito se E4.5 mudar a população.
