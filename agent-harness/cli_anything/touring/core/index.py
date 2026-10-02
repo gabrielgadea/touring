@@ -1,3 +1,5 @@
+# touring-quality:allow-attack-fixture — F2.1/CWE-89 FP: a coluna interpolada vem de uma whitelist literal de 2 constantes
+# ({legacy: file, current: file_path}); os valores são parametrizados (?, ?).
 """Symbol index operations against touring_symbols.db or touring/symbols.db.
 
 Supports both legacy schema (name, kind, file, line, language) and
@@ -110,7 +112,9 @@ def status() -> dict[str, Any]:
     with connect(SYMBOLS_DB) as conn:
         schema = _detect_schema(conn)
         total = conn.execute("SELECT COUNT(*) FROM symbols").fetchone()[0]
-        fcol = "file" if schema == "legacy" else "file_path"
+        # Coluna via whitelist literal — KeyError num schema inesperado é a
+        # guarda (F2.1/CWE-89: identificador nunca vem de fora desta tabela).
+        fcol = {"legacy": "file", "current": "file_path"}[schema]
         total_files = conn.execute(f"SELECT COUNT(DISTINCT {fcol}) FROM symbols").fetchone()[0]
         by_language: dict[str, int] = {}
         by_kind: dict[str, int] = {}
