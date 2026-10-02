@@ -1,40 +1,46 @@
 ---
 type: Results
 title: "r3 — Resultados mecânicos (A1 relevância · A2 desfecho de rota)"
-description: "Vereditos dos critérios congelados aplicados por r3_results_gate.py, provas de entrega S1–S6, defeitos pegos e limitações declaradas"
+description: "Vereditos dos critérios congelados aplicados por r3_results_gate.py (A1 e A2 com gold), provas de entrega S1–S6, defeitos pegos e limitações declaradas"
 plan_id: 2026-10-02-jev-harness-r3
 okf_version: 0.1
 tags: [r3, results, jev, laya, shadow]
-timestamp: 2026-10-02T16:10:00-03:00
+timestamp: 2026-10-02T17:00:00-03:00
 ---
 
 # r3 — Resultados
 
-> Veredito **só** por `scripts/r3_results_gate.py` sobre `r3-replay/{a1,a2}/results-*.json`.
-> Nada abaixo foi decidido por leitura. Critérios: [CRITERIOS-ACEITACAO.md](/CRITERIOS-ACEITACAO.md) (Erratas 1–6).
-> Plano: [plan.md](/plan.md). Prova ao vivo e reprodução: [PROVA-PRATICA.md](/PROVA-PRATICA.md).
+> Veredito **só** por `scripts/r3_results_gate.py`. Nada abaixo foi decidido por leitura.
+> Critérios: [CRITERIOS-ACEITACAO.md](/CRITERIOS-ACEITACAO.md) (Erratas 1–8). Prova viva e reprodução: [PROVA-PRATICA.md](/PROVA-PRATICA.md).
 
 ## 1. Vereditos
 
-| Caso | Veredito mecânico | Por quê (saída do gate, regenerada em 02/10/2026 15:59 BRT) |
+| Caso | Veredito mecânico | Por quê |
 |---|---|---|
-| **A1** relevância das injeções | **NAO_ADOTADO_PELOS_DADOS** | C-A1-1 reprova: B-D economiza `bytes_saved` = **0,1094** (piso 0,25) na partição de decisão `test` (262 blocos, 128 EXEMPT, `exempt_retained` = 1,0). C-A1-2 (harm) é *moot*: não pode mudar o veredito, por isso o pacote cego do A1 foi cancelado (custaria ~115 mil tokens do avaliador não-Claude). |
-| **A2** desfecho de rota | **GOLD_INSUFICIENTE** | κ = `null`: o gold exige 2 avaliadores cross-vendor e o avaliador 1 não-Claude não existe (dependência do Gabriel, E3.3). Sem gold, nenhum braço é pontuado; o gate recusa concluir. |
+| **A1** relevância das injeções | **NAO_ADOTADO_PELOS_DADOS** | C-A1-1 reprova: B-D economiza `bytes_saved` = **0,1094** (piso 0,25) em `test` (262 blocos, 128 EXEMPT, `exempt_retained` = 1,0). C-A1-2 (harm) é *moot*: não muda o veredito, por isso o pacote cego do A1 foi cancelado. |
+| **A2** desfecho de rota | **NAO_ADOTADO_PELOS_DADOS** | Com o gold (κ = 0,7707): **B0 concorda 0,906 com o gold; B-J 0,835; B-L 0,706.** Nenhum braço passa C-A2-1 (Δ ≥ +0,05 com IC > 0) nem C-A2-3 (precisão ≥ 0,90 e cobertura ≥ 0,25). Nenhum está "sem potência" (`underpowered` = false). |
 
-**Leitura honesta.** O A1 não é "adotado" nem "quase": a regra B-D falhou o piso nos dados de decisão. O A2 não é "reprovado": é **não decidido**, e continuará assim até existir o gold.
+**Leitura honesta.** Nos dois casos os dados **não** sustentam adotar um modelo (A1: nem a regra B-D) agora. Isso é diferente de "o modelo não funciona": ver §4 (os braços partiram com **menos informação** que o B0 e o gold).
 
 ### A1 — fragilidade que NÃO foi suavizada
-B-D economiza 35,7 % em `train`, 21,7 % em `val` e 10,9 % em `test`. A partição `test` tem **3 sessões**: o veredito mecânico vale, mas a potência é baixa e isto fica declarado. Os braços de modelo (B-L, B-J) são pontuados por `agreement_com_bd` (C-A1-3); o `bytes_saved` deles **não foi pré-registrado** e não foi inventado depois de ver o número.
+B-D economiza 35,7 % em `train`, 21,7 % em `val` e 10,9 % em `test`, e `test` tem **3 sessões**: o veredito mecânico vale, mas a potência é baixa. O `bytes_saved` dos braços de modelo **não foi pré-registrado** e não foi inventado depois.
 
-### A2 — diagnóstico secundário (NÃO é veredito, NÃO é gold)
-Predições dos braços sobre os 180 itens, 0 erros, comparadas ao rótulo **B0** (uma regra, não verdade): 132 `followed` / 48 `not_followed`.
+### A2 — números (população `audit-test`, n = 85; τ de cada braço escolhido em `audit-val`, n = 86)
+Gold = 171 itens (156 em acordo + 15 do desempate; 116 `followed` / 55 não); κ(Claude cego × MiniMax) = **0,7707**.
 
-| Braço | média p(followed) em B0=followed | em B0=not_followed | separação | AUC vs B0 |
-|---|---|---|---|---|
-| B-L (Laya base, CPU) | 0,075 | 0,149 | −0,074 | **0,002** |
-| B-J (Jev, features redigidas) | 0,467 | 0,446 | +0,021 | 0,871 |
+| | acordo c/ gold | Δ vs B0 | IC95 % inferior | precisão | cobertura | τ (viável?) | AUC vs gold | p95 |
+|---|---|---|---|---|---|---|---|---|
+| **B0** (regra) | **0,9059** | — | — | — | — | — | — | — |
+| **B-J** (Jev, features redigidas) | 0,8353 | −0,0706 | −0,1412 | 0,8056 | 0,8471 | 0,46 (**não**) | 0,734 | 0,0 ms (cache) |
+| **B-L** (Laya base, CPU) | 0,7059 | −0,2000 | −0,2941 | 0,6988 | 0,9765 | 0,0731 (**não**) | **0,120** | 140 ms |
 
-Dois avisos, ambos de **instrumento**: (1) o AUC 0,002 do B-L é quase uma inversão perfeita (1 − 0,002 = 0,998). Zero-shot ruim dá ~0,5, não 0,002; isso aponta para **polaridade não verificada** da chave `noul` lida por `r3_replay_a2._prob_de_resposta`, ou para uma feature que o B0 usa ao contrário. Nenhum veredito depende disto, mas **não se interpreta o B-L até a polaridade ser provada** (item do r4). (2) o B-J tem 12 valores distintos e quase tudo em 0,5 (sem informação), com p95 de 0,0 ms por vir de cache.
+Cláusulas do gate — B-L: C-A2-1 ✗ · C-A2-2 ✓ · C-A2-3 ✗ · C-A2-4 ✗ (140 > 50 ms; só reportado). B-J: ✗ · ✓ · ✗ · ✓ (**0,0 ms vem de cache**: C-A2-4 passa por vácuo).
+**Atenção ao C-A2-2 "✓":** só o estrato `followed` (n = 66) é julgado (n ≥ 20); no estrato `not_followed` (**n = 19, não julgado**) os modelos são muito piores que o B0 (B-L 0,00 · B-J 0,63 · B0 1,00). O ✓ não significa que não houve regressão.
+**B0 não é "suficiente"**: 0,906 < 0,95, então não é o desfecho "regex basta".
+
+**Sensibilidade (E8.7, secundária)** — só o gold em acordo (156 itens; teste n = 77): B0 0,922 · B-L 0,766 (Δ −0,156, IC −0,247) · B-J 0,442 (Δ −0,481, IC −0,597). **Mesmo veredito.** O desempate decidiu 15/15 contra `followed` (juiz Claude, mesma família do rater 2); a sensibilidade mostra que o veredito não depende dele.
+
+**Reimplementação independente** (subagente Claude de contexto limpo, só com o texto da Errata 8, sem ver o meu código): **todos os números e o veredito batem**; só o p95 do B-L difere na 2ª casa por método de percentil (140,07 × 140,12 ms), sem efeito. A tarefa também foi enviada ao `touring-4b`, que não confirmou o recebimento.
 
 ## 2. Entrega (S1–S6) — release 30.4.91, shadow ligado às 15:09:22 BRT
 
@@ -42,42 +48,46 @@ Dois avisos, ambos de **instrumento**: (1) o AUC 0,002 do B-L é quase uma inver
 |---|---|---|
 | **S1a** custo direto | **PASSA** | OFF p99 = 963 ns (limite 50 µs); emissão p99 = 27 µs (limite 1 ms) |
 | **S1b** envelope de latência | **PASSA** | `cli-suggest` p95 550 ms ≤ 583; `post-tool-rl` p95 793 ms ≤ 8294 (n = 206 / 200) |
-| **S1** original (só informativo, Errata 5) | **reprovaria** `cli-suggest` | 401 → 550 ms (limite 441). Declarado: a Errata 5 o rebaixou por estar dentro do ruído natural, mas o número existe |
+| **S1** original (só informativo, Errata 5) | **reprovaria** `cli-suggest` | 401 → 550 ms (limite 441); declarado |
 | **S2** fail-open | **PASSA** | não-ok 0,00 % = linha de base |
-| **S3** volume de ofertas | **interino** | ~1 oferta/34 min no início; janela de 24 h não cabe nesta sessão |
-| **S4** byte-identidade ON×OFF | `pre-bash` **fraco** · `cli-suggest` **anulado** | `pre-bash` passes=True com **1/200** comparações com conteúdo; `cli-suggest` 0/200 (anulado, passes=None). Predicado corrigido em 18691c14; reexecução real não mudou nenhum número |
-| **S5** `touring kpi -j` | **PASSA** | `shadow.status = "measured"`; A1: 16 eventos/16 decisões B-D; A2: 5 eventos/5 decisões B-L |
+| **S3** volume de ofertas | **interino** | ~1 oferta/34 min no início; janela de 24 h não cabe |
+| **S4** byte-identidade ON×OFF | `pre-bash` **fraco** · `cli-suggest` **anulado** | `pre-bash` passes=True com **1/200** comparações com conteúdo; `cli-suggest` 0/200 (anulado) |
+| **S5** `touring kpi -j` | **PASSA** | `shadow.status = "measured"`; A1 e A2 com eventos e decisões |
 | **S6** privacidade | **PASSA** | schema fechado + varredura de segredo nos 2 journals |
 
 ## 3. Defeitos que o método pegou antes de virarem número
 
-1. O pacote cego quebrava com o formato real de evento (fixture inventada) → refeito com teste de contrato via extrator real.
-2. 51 % das rotas estavam cortadas por regex não-gulosa → validado por **dois parsers independentes** (180/180).
-3. O gate quebrava com `harm: null` → lógica de três valores (`harm_moot`, `INCONCLUSIVO_SEM_GOLD`, `INCONCLUSIVO_SEM_HARM`).
-4. Uma suíte de um par **sobrescreveu 3 resultados reais** (caminho calculado no import) → restaurados de `recovery-1431/`; guarda de isolamento provada por hash + `mtime_ns`.
-5. S4 "vazio": harness passava com 0 bytes == 0 bytes → `passes=None` quando toda saída é vazia.
-6. S4 "não-vazio": `{}\n` contava como conteúdo → `has_content` parseia o protocolo do hook (RED 12 falhas → 38 verdes; mutação hermética 6/6 mortos). A suíte completa pegou uma regressão minha (saída `0` é JSON válido) **antes** do commit.
-7. **Falso achado meu, retratado:** "o emissor A1 emitiu zero eventos" não era defeito. Era taxa-base zero: o daemon reiniciou às 18:09Z, o Pensieve nasceu vazio e o `pre_bash` não injetou nada depois (censo do transcript: 125 injeções antes, 0 depois). Reproduzido o gatilho (1 falha + 1 comando de mesma forma), o emissor gravou o `a1_block` na hora (ver PROVA-PRATICA §2).
+1. Pacote cego quebrava com o formato real (fixture inventada) → refeito com teste de contrato via extrator real.
+2. 51 % das rotas cortadas por regex não-gulosa → validado por **dois parsers independentes** (180/180).
+3. O gate quebrava com `harm: null` → lógica de três valores.
+4. Suíte de um par **sobrescreveu 3 resultados reais** → restaurados; guarda de isolamento provada por hash + `mtime_ns`.
+5. S4 "vazio" passava com 0 == 0 bytes → `passes=None`; S4 "não-vazio" contava `{}\n` como conteúdo → `has_content` (38 testes, 6/6 mutantes).
+6. **O `--gold` de `r3_replay_a2.py` era aceito e ignorado** (a comparação ao gold nunca existiu; `agreement: null` sempre) → pontuador `r3_score_a2.py` (20 testes, mutação 18/18; 1 mutante equivalente identificado e trocado), `--gold` ligado a ele.
+7. **O verificador da E7.2 reprovou o rater válido** (falso-positivo: `\` de continuação de linha colada no caminho permitido) → corrigido DEPOIS de ver o transcript, divulgado, com teste e mutação 13/13; um inventário independente concordou. O teste do oráculo também iterava a constante testada (mutante M10 sobreviveu) → lista escrita no teste.
+8. **Falso achado meu, retratado:** "o emissor A1 emitiu zero eventos" era taxa-base zero (daemon reiniciado, Pensieve vazio: 125 injeções antes, 0 depois); reproduzido o gatilho, o emissor gravou o `a1_block`.
+9. **Achado de desenho do critério:** C-A2-3 escolhe τ na **borda** de "precisão ≥ 0,90" em `val`, então a precisão em `test` regride por acaso até para um modelo bom; o teste sintético aleatório de "modelo bom passa" ficou instável por isso e foi trocado por um mundo determinístico.
 
 ## 4. Limitações declaradas (nada disto foi escondido)
 
-- **A1 online cobre só o `pre-bash` (braço Context).** Os 4 pontos de emissão do `cli_suggester` (S-9b) não foram feitos.
-- **A amostra online do A1 (16 eventos, 14 `would_drop`) está contaminada por sondas minhas** (as falhas de `ls` ensinaram o Pensieve; as linhas repetidas viram *drop* por dedup). Prova a tubulação, **não** mede eficácia. A eficácia é a do replay (NAO_ADOTADO).
-- **B0 online ≠ B0 do replay**: ordena por chegada do hook (atraso do `post-tool-rl` ~3–5 s) e tem TTL de 60 s (Errata 6).
-- **S3 interino, S4 não provado ponta a ponta**, e a primeira latência do B-L é 3.621 ms (carga preguiçosa do modelo), depois ~340–380 ms.
-- **Teste do A1 = 3 sessões.** O orçamento restante da API Jev (~486 chamadas) não foi gasto.
+- **Os braços foram informacionalmente prejudicados por desenho.** O B-J só recebe features redigidas (família, modo, `closed_by`, contagem, **1º token** de cada comando); o B-L **também** recebeu esse payload redigido, **não** o texto truncado (≤ 200 chars) que o §1 previa para o modelo local; o B0 e o gold veem a janela completa dos comandos. O veredito vale para **esta entrada**, não para modelos com acesso ao texto.
+- **B-L não é interpretável como P(seguida).** AUC contra o gold = 0,12 (0,09 só com o gold em acordo): associação inversa sistemática (o padrão canônico `touring` + `consumed` recebe o valor mais baixo, ~0,077). A sonda de polaridade do `touring-a4` (8 casos sintéticos, hipótese pré-declarada) deu AUC **0,500** e o caso mais claramente "ignorado" teve o p mais alto: **hipótese não confirmada**, o `noul` não se comporta como P(seguida). Nenhuma inversão foi aplicada (E8.8). Eu leio o 0,12 como estrutura (não sorteio) e o 0,500 sintético como fora-de-distribuição; as duas leituras ficam registradas.
+- **O gold depende de um desempate de mesma família**: o rater 2 (Claude cego) e o juiz de desempate (Claude Sonnet, contexto limpo) são da mesma família do agente julgado (E3.3); o rater 1 foi um subagente MiniMax de contexto limpo da sessão a4 (E3.3-bis; verificado por código, ver Errata 7). O desempate foi 15/15 contra `followed`; a sensibilidade sem ele dá o mesmo veredito.
+- **A1 online cobre só o `pre-bash` (braço Context)**; os 4 pontos do `cli_suggester` (S-9b) não foram feitos. A amostra online do A1 (16 eventos) está contaminada por sondas minhas: prova a tubulação, não a eficácia.
+- **B0 online ≠ B0 do replay** (ordem por chegada do hook, TTL 60 s). **S3 interino**, **S4 não provado ponta a ponta**, 1ª latência do B-L = 3.621 ms (carga do modelo).
+- **Teste do A1 = 3 sessões; teste do A2 = 85 itens** (IC ≈ ±0,08).
 - **Release 30.4.91 NÃO propagado** aos projetos pinados (analise, konverter seguem na 30.4.90).
-- **Juiz de convergência** (15:17, sobre cópia dos arquivos r3): `judge_intact`, `quality_gold` (Gold 0,8737), `no_p0_fail`, `measured_whole_scope` PASSAM; `dag_done` reprova (S-5/S-6/S-12/S-14 abertos); `orphans_base`, `cargo_green`, `cross_audit` são **N/A, não aprovação** (escopo sem `Cargo.toml`; os gates de cargo rodaram no `propagate-release`, rc = 0).
+- **Juiz de convergência**: `judge_intact`, `quality_gold`, `no_p0_fail`, `measured_whole_scope` passam; `orphans_base`, `cargo_green`, `cross_audit` são **N/A, não aprovação** (escopo sem `Cargo.toml`; cargo rodou no `propagate-release`, rc = 0).
 
 ## 5. O que depende do Gabriel
 
-1. **Avaliador 1 não-Claude do A2** (179 itens, `adj_pack/rater_view/`, saída esperada `adj_out/adj_minimax.jsonl`): `/clear` da analise-ef ou sessão MiniMax nova. É o único bloqueio do A2.
-2. **Go/no-go do r4** (A3, A4 e Tier B não foram aprovados e **não** foram tocados).
-3. Se quer propagar a 30.4.91 aos pinados; se quer parar a unit `r3-shadow-evaluator`; se autoriza gasto da API Jev.
+1. **Veto ou aceite do desvio E3.3-bis / Errata 7** (rater 1 = subagente MiniMax de contexto limpo; o `merge`, o desempate e o veredito já foram calculados com ele — se vetar, o gold cai e o A2 volta a `GOLD_INSUFICIENTE`).
+2. **Go/no-go do r4** (A3, A4 e Tier B não foram aprovados nem tocados).
+3. Propagar a 30.4.91 aos pinados? Parar a unit `r3-shadow-evaluator`? Autorizar gasto da API Jev (~486 chamadas restantes)?
 
 ## 6. Candidatos do r4 (advisory — nada é promovido sem o go dele)
 
-- Provar a **polaridade do `noul`** do Laya com casos de verdade independente, antes de qualquer leitura do B-L.
+- **B-L com o texto truncado (≤ 200 chars) previsto no §1**, pré-registrado antes de rodar — é a pergunta que este r3 não respondeu; e um tipo de pergunta do Laya que meça "seguida" de forma calibrada (o `noul` não mediu).
 - S-9b: emissão A1 nos 4 pontos do `cli_suggester`.
-- S4 forte: entradas que gerem contexto de fato (hoje o scratch limpo dá 0 bytes na maioria).
-- Janela S3 de 24 h; B0 online ordenado por evento (não por chegada).
+- S4 forte: entradas que gerem contexto (hoje o scratch limpo dá 0 bytes na maioria).
+- Janela S3 de 24 h; B0 online ordenado por evento, não por chegada.
+- Critério C-A2-3: escolher τ com margem (p. ex. precisão ≥ 0,95 em `val`) em vez de na borda.
