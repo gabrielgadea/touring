@@ -670,3 +670,15 @@ não se escolhe outra pergunta depois de ver o resultado (isso seria um r5 novo,
 **E12.6 — execução.** `hw-slot -- python3 scripts/r4_replay_text.py` (CPU, 2 threads, 2 checkpoints); saídas em `~/.claude/touring/r4-replay/`; o corpus congelado e `r3-replay/` não são
 regravados. Ferramenta: `scripts/r4_replay_text.py` (15 testes, mutação 17/17). Um smoke test com `--limit` e `--out-dir` descartável existe para provar que a chamada real ao modelo funciona
 (estado como texto, `subfolder`) e **nunca é a rodada registrada**; correção de bug que ele revele é divulgada, desenho não muda.
+
+**E10.7 — a tentativa 1 do juiz R3 reprovou na verificação mecânica; única repetição, registrada ANTES de lançá-la (19:37 -03:00).**
+(a) **Fato.** O juiz R3 (tentativa 1) gravou `adj_out/adj_sonnet3.jsonl` (179 linhas, sha256 `2009ff123d93f966…`; modelo `claude-sonnet-5-5` nos 137 turnos, 68 chamadas, 0 `Agent`) e o
+verificador do E10.2 devolveu **exit 1, 1 violação**: `out_of_scope_path` `~/.claude/touring/r3-data/` numa chamada `touring run` cujo programa definia essa raiz como
+**prefixo literal** (`D = ".../r3-data/"`) e abria `D + "adj_pack/rater_view/pack_blind.jsonl"` e o arquivo de saída. Lido só esse trecho: nenhuma listagem de diretório, nenhum
+arquivo proibido (os nomes proibidos seguem pegos por `FORBIDDEN`). **Pela regra do E10.2 a tentativa 1 é inválida**, e o verificador **não é afrouxado** depois de ver a violação.
+(b) **Rótulos da tentativa 1 NÃO lidos e NÃO usados** em nenhuma análise (arquivo mantido como está, hash acima). Divulgação: vi as 4 contagens que o próprio juiz relatou na mensagem final
+(followed 117 · bypass 39 · ignored 22 · indeterminate 1), antes da verificação.
+(c) **Repetição, uma só**, permitida porque a invalidação é **processual e anterior a qualquer resultado**: mesmo desenho do E10.1, saída `adj_out/adj_sonnet3b.jsonl`, e o prompt ganha duas regras
+(caminhos sempre por extenso e completos, nunca montados por prefixo; o pacote pode ser lido por faixas com `Read` ou impresso por faixas com `touring run`, que a tentativa 1 precisou usar porque o pacote
+excede o limite de uma leitura). Verificação: `--allow-file adj_out/adj_sonnet3b.jsonl` e `--forbid adj_sonnet3.jsonl` além das flags do E10.2. **Se a tentativa 2 também reprovar, não há terceira**:
+a análise de sensibilidade sai como "não realizada". O E10.3 (análise) e o E10.4 (regra de leitura) valem sem mudança, com `--r3 adj_out/adj_sonnet3b.jsonl`.
