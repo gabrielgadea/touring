@@ -19,11 +19,17 @@ import argparse
 import json
 import math
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 S1_RATIO, S1_ABS_MS, MIN_N = 1.10, 20.0, 200
+# Errata 5 (E5.1): the two hooks where the A2 observer runs — `cli-suggest` (record_route_offer) and `post-tool-rl`
+# (claim_route_reward, every Bash). S1/S1b/S2 cover BOTH; the worst verdict decides.
+HOOKS = ("cli-suggest", "post-tool-rl")
+DAY_MS = 86_400_000
 S2_MAX_DELTA, S2_MIN_N = 0.005, 50
 BAD_WORDS = ("error", "fail", "timeout", "panic", "unavailable", "refused", "denied-by-error")
 
@@ -64,15 +70,67 @@ def s1_verdict(before, after, min_n=MIN_N) -> dict:
             "p95_after": after["p95"], "limit": limit, "n_before": before["n"], "n_after": after["n"]}
 
 
-def run_hook(argv, payload, shadow) -> bytes:
-    env = dict(os.environ, TOURING_NO_DAEMON="1", TOURING_R3_SHADOW=shadow)
+def daily_p95s(trace, hook, lo, hi, min_n=MIN_N) -> list:
+    """The p95 of each UTC day in [lo, hi] with at least `min_n` rows — the NATURAL envelope (Errata 5, E5.2): measured on
+    the real baseline the daily p95 swings 122-596 ms (cli-suggest) and 315-3244 ms (post-tool-rl) with no shadow at all."""
+    days = {}
+    for r in _rows(trace, hook, lo, hi):
+        if r.get("elapsed_ms") is not None:
+            days.setdefault(int(r["ts_ms"]) // DAY_MS, []).append(float(r["elapsed_ms"]))
+    return sorted(_pctl(sorted(v), 95) for v in days.values() if len(v) >= min_n)
+
+
+def s1b_verdict(prior_daily_p95s, after, min_n=MIN_N) -> dict:
+    """S1b: with the shadow ON the p95 stays inside the natural envelope (<= the WORST prior daily p95). It catches a
+    pathological interaction, not +10% — S1a pins the fine cost. No baseline day or too few ON rows ⇒ no verdict."""
+    if not prior_daily_p95s:
+        return {"passes": None, "reason": "no baseline day with enough samples"}
+    if after["n"] < min_n:
+        return {"passes": None, "reason": f"too few samples (after n={after['n']}, need {min_n})"}
+    ceiling = max(prior_daily_p95s)
+    return {"passes": round(after["p95"], 6) <= round(ceiling, 6), "p95_after": after["p95"], "envelope_max": ceiling,
+            "envelope_min": min(prior_daily_p95s), "n_days": len(prior_daily_p95s), "n_after": after["n"]}
+
+
+LIVE_STATE_VARS = ("TOURING_HOOK_TRACE_FILE", "TOURING_DAEMON_SOCKET", "TOURING_DAEMON_SOCK")
+
+
+def run_hook(argv, payload, shadow, state_dir=None) -> bytes:
+    """One STANDALONE hook run. With `state_dir` the run is isolated: the live trace/daemon are unreachable (a standalone
+    run is slow and would inflate the very p95 S1b reads) and the project root + events file are the scratch dir, so
+    the real journals/counters are never touched."""
+    env = {k: v for k, v in os.environ.items() if k not in LIVE_STATE_VARS}
+    env.update(TOURING_NO_DAEMON="1", TOURING_R3_SHADOW=shadow)
+    if state_dir is not None:
+        Path(state_dir).mkdir(parents=True, exist_ok=True)
+        env.update(TOURING_PROJECT_ROOT=str(state_dir), TOURING_R3_EVENTS_FILE=str(Path(state_dir) / "r3_events.jsonl"))
     return subprocess.run(argv, input=json.dumps(payload).encode(), env=env, capture_output=True, timeout=60).stdout
 
 
-def s4_byte_identical(argv, inputs) -> dict:
-    diffs = [i for i, p in enumerate(inputs) if run_hook(argv, p, "1") != run_hook(argv, p, "0")]
-    return {"identical": not diffs and bool(inputs), "n": len(inputs), "n_diff": len(diffs),
-            "first_diff_input": diffs[0] if diffs else None}
+def s4_byte_identical(argv, inputs, toml=None) -> dict:
+    """ON vs OFF per input, plus a CONTROL (OFF vs OFF). Every run starts from a FRESH scratch project: the suggester's
+    300 s dedup cache would otherwise make a repeated input differ with no flag involved. A control that differs means
+    the hook is not deterministic in this harness, so the proof is VOID (passes=None) — a diff is never blamed on the flag."""
+    n_diff = n_ctl = 0
+    first = None
+    with tempfile.TemporaryDirectory() as tmp:
+        for i, p in enumerate(inputs):
+            outs = []
+            for tag, flag in (("on", "1"), ("off", "0"), ("ctl", "0")):
+                d = Path(tmp) / f"{i}-{tag}"
+                if toml:
+                    (d / ".touring").mkdir(parents=True)
+                    shutil.copy(toml, d / ".touring" / "touring.toml")   # realistic code-mode gating, identical on every run
+                outs.append(run_hook(argv, {**p, "cwd": str(d)}, flag, state_dir=d))
+            if outs[0] != outs[1]:
+                n_diff += 1
+                first = i if first is None else first
+            n_ctl += outs[1] != outs[2]
+    base = {"n": len(inputs), "n_diff": n_diff, "n_control_diff": n_ctl, "control_identical": n_ctl == 0,
+            "identical": not n_diff and bool(inputs), "first_diff_input": first}
+    if n_ctl:
+        return {**base, "passes": None, "reason": "control (OFF x OFF) differs: the hook is not deterministic here, so a diff cannot be attributed to the flag"}
+    return {**base, "passes": base["identical"]}
 
 
 def exit_reasons(trace, hook, lo, hi) -> dict:
@@ -95,30 +153,41 @@ def s2_verdict(base, run) -> dict:
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="r3_prove_delivery")
     sub = ap.add_subparsers(dest="cmd", required=True)
-    for name in ("s1", "s2"):
+    for name in ("s1", "s1b", "s2"):
         p = sub.add_parser(name)
         p.add_argument("--trace", required=True)
-        p.add_argument("--hook", default="cli-suggest")
+        p.add_argument("--hook", action="append", default=None, help=f"repeatable; default: {', '.join(HOOKS)}")
         p.add_argument("--on-ts", type=int, required=True)
         p.add_argument("--lookback-days", type=float, default=7)
     p4 = sub.add_parser("s4")
     p4.add_argument("--argv-json", required=True)
     p4.add_argument("--inputs", required=True)
+    p4.add_argument("--toml", help="project .touring/touring.toml copied into every scratch project (realistic gating)")
     a = ap.parse_args(argv)
     if a.cmd == "s4":
         inputs = [json.loads(x) for x in Path(a.inputs).read_text().splitlines() if x.strip()]
-        out = s4_byte_identical(json.loads(a.argv_json), inputs)
-        ok = out["identical"]
-    else:
-        lb = int(a.lookback_days * 86_400_000)
+        out = s4_byte_identical(json.loads(a.argv_json), inputs, toml=a.toml)
+        print(json.dumps(out, indent=1))
+        return 2 if out["passes"] is None else (0 if out["passes"] else 1)
+    return _per_hook(a)
+
+
+def _per_hook(a) -> int:
+    """S1 (informational), S1b and S2 per hook; the WORST verdict decides, and 'no signal' is never a pass."""
+    lb = int(a.lookback_days * DAY_MS)
+    results = {}
+    for h in a.hook or HOOKS:
         if a.cmd == "s1":
-            out = s1_verdict(*split_windows(a.trace, a.hook, a.on_ts, lb))
+            results[h] = {**s1_verdict(*split_windows(a.trace, h, a.on_ts, lb)), "informational": True}
+        elif a.cmd == "s1b":
+            results[h] = s1b_verdict(daily_p95s(a.trace, h, a.on_ts - lb, a.on_ts - 1), hook_window(a.trace, h, a.on_ts, 10**15))
         else:
-            out = s2_verdict(exit_reasons(a.trace, a.hook, a.on_ts - lb, a.on_ts - 1),
-                             exit_reasons(a.trace, a.hook, a.on_ts, 10**15))
-        ok = out["passes"]
-    print(json.dumps(out, indent=1))
-    return 2 if ok is None else (0 if ok else 1)
+            results[h] = s2_verdict(exit_reasons(a.trace, h, a.on_ts - lb, a.on_ts - 1), exit_reasons(a.trace, h, a.on_ts, 10**15))
+    print(json.dumps(results, indent=1))
+    deciding = [r["passes"] for r in results.values() if not r.get("informational")]
+    if any(v is False for v in deciding):
+        return 1
+    return 2 if any(v is None for v in deciding) else 0
 
 
 if __name__ == "__main__":
