@@ -693,3 +693,15 @@ braços do r3 o carregaram (sem `subfolder`) reporta `encoder: answerdotai/Moder
 `jhu-clsp/mmBERT-base`, 1024, 256, [1; 1; 1]. O E12.1 deixa de ser leitura de código. (b) **Denominador:** o corpus congelado tem 180 itens e o pacote dos avaliadores 179 (um item sem rota); o r4 prediz os 180
 e **pontua os que estão no gold registrado (171)**; `check_alignment` falha alto se o conjunto de `item_id` das predições e o da amostra diferirem. (c) O teste de vazamento do estado ganhou a sentinela de
 `n_cmds` (apontada pelo `touring-a4`; mutação 20/20).
+
+**E12.7 — resultado do r4 mínimo (19:45 -03:00; rodada registrada 19:37:30 → 19:41:54; 180 itens preditos, 171 no gold; `~/.claude/touring/r4-replay/results-a2-text.json`).**
+**Primário B-LT-EN** (checkpoint inglês, texto truncado): concordância **0,3176** (B0 0,9059; B-L do r3 0,7059), Δ vs B0 −0,5882, IC95 % inferior −0,7176, precisão 0,000, cobertura 0,000, τ 0,9998,
+AUC de polaridade **0,331** ⇒ `NAO_ADOTADO_PELOS_DADOS`. **Secundário B-LT-ML** (exploratório): 0,3059, Δ −0,6000, precisão 0,429, cobertura 0,082, τ 0,9997, AUC **0,551** ⇒ `NAO_ADOTADO_PELOS_DADOS`.
+Distribuição dos p (os 171 do gold): B-LT-EN tem 167 valores distintos (0,16–0,9998; mediana 0,78; 153 de 171 ≥ 0,5), com média **0,72 nos seguidos e 0,79 nos não seguidos (invertido)**; o B-L do r3 ficava
+comprimido em ~0,07 (0,05–0,21). A concordância baixa **não** vem de p degenerado: a regra de ponto de operação da Errata 8 (maior cobertura com precisão ≥ 0,90 em val) só acha τ na cauda extrema
+(cobertura 1,2 % em val), e o braço então prediz "não seguida" quase sempre. Latência mediana em CPU: inglês 1.068 ms, multilíngue 390 ms (chip a 91–94 °C). **Leitura pré-registrada (E12.5): AUC do B-LT-EN
+< 0,5 ⇒ o `noul` zero-shot do Laya não mede "seguida", nem com texto nem sem; o r4 mínimo fecha aqui.** A probabilidade a priori que eu registrei (< 0,2) condiz. Limitações: 1 rodada; o texto é cortado em
+200 caracteres (pelo levantamento do `touring-a4`, 408 de 534 comandos do corpus passam disso, então o modelo vê o começo); só a pergunta `noul` do r3 foi testada.
+**E12.9 — retratação (19:45 -03:00).** O E12.8 (commit `0c4b61ed`, 19:45:19) se diz escrito "antes de ler o resultado do r4": **falso**. O r4 rodou de 19:37:30 a 19:41:54 (arquivo de resultado gravado 19:41:53) e eu
+li o resultado **antes** de escrever o E12.8. O E12.8 só corrige texto (checkpoint medido, denominador, sentinela de teste) e nada nele depende do resultado, mas a frase de ordem estava errada, e a ordem
+que vale é a do git: pré-registro `f9ceb88a` 19:35:43 → rodada 19:37:30 → resultado 19:41:53 → E12.8 19:45:19.
