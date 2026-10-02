@@ -361,12 +361,23 @@ mod tests {
         );
     }
 
+    /// These tests assume the shadow flag is NOT forced by the environment. Fail LOUDLY otherwise: a guard that
+    /// skips the body (`if env.is_none() { … }`) turns the observe-only proof into a green no-op when the shell
+    /// carries `TOURING_R3_SHADOW` (cross-audit 02/10/2026, finding 2).
+    fn require_flag_unset() {
+        assert!(
+            std::env::var_os(ENV_FLAG).is_none(),
+            "run these tests with TOURING_R3_SHADOW unset"
+        );
+    }
+
     #[test]
     fn r3_flag_off_does_no_io() {
         // No toml, no env in this process ⇒ OFF, and the verdict is cached: the second
         // call must not need the file (delete-proof: the dir never existed).
         let root = Path::new("/nonexistent/r3-flag-off-probe");
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             assert!(!r3_shadow_enabled(root));
             assert!(!r3_shadow_enabled(root));
         }
@@ -379,7 +390,8 @@ mod tests {
         let toml = dir.path().join(".touring/touring.toml");
         std::fs::create_dir_all(toml.parent().expect("parent")).expect("mkdir");
         std::fs::write(&toml, "[shadow]\nr3 = true\n").expect("write");
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             assert!(r3_shadow_enabled(dir.path()));
             // Rewriting the file does not flip a cached verdict (documented: restart).
             std::fs::write(&toml, "[shadow]\nr3 = false\n").expect("rewrite");
@@ -571,7 +583,8 @@ mod tests {
         let dir = flag_on_dir();
         let events = dir.path().join("events.jsonl");
         let ctx = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsecond line of context";
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             let original = ctx.to_string();
             maybe_emit_a1_block_at(&events, dir.path(), "sess-abc", "pre-bash", ctx);
             assert_eq!(ctx, original.as_str(), "ctx must not be mutated");
@@ -585,7 +598,8 @@ mod tests {
     fn a1_block_write_failure_does_not_propagate() {
         let dir = flag_on_dir();
         let before = dropped_event_count();
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             // `/proc` cannot grow directories — write MUST fail.
             maybe_emit_a1_block_at(
                 Path::new("/proc/r3-a1-probe/events.jsonl"),
@@ -607,7 +621,8 @@ mod tests {
     fn a1_block_exactly_one_line_per_invocation() {
         let dir = flag_on_dir();
         let events = dir.path().join("events.jsonl");
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             for _ in 0..3 {
                 maybe_emit_a1_block_at(
                     &events,
@@ -629,7 +644,8 @@ mod tests {
         let dir = flag_on_dir();
         let events = dir.path().join("events.jsonl");
         let ctx = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsecond line";
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             maybe_emit_a1_block_at(&events, dir.path(), "test-session-xyz", "pre-bash", ctx);
             let text = std::fs::read_to_string(&events).expect("read");
             let line = text.lines().next().expect("at least one line");
@@ -790,7 +806,8 @@ mod tests {
     fn a1_and_a2_kinds_are_distinct() {
         let dir = flag_on_dir();
         let events = dir.path().join("events.jsonl");
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             // Emit one A1 and one A2.
             maybe_emit_a1_block_at(&events, dir.path(), "sess", "pre-bash", "ctx");
             let a2_ev = a2_offer_closed_event(&A2Closed {
@@ -832,7 +849,8 @@ mod tests {
         // Use a nonexistent dir so the toml read fails immediately and is cached.
         let off_root = std::path::Path::new("/nonexistent/r3-cost-off-probe-s1a");
         // Warm-up: populate the cache for this path (file I/O happens once).
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             let _ = r3_shadow_enabled(off_root);
         }
         let mut off_ns: Vec<u64> = Vec::with_capacity(n_off);
@@ -858,7 +876,8 @@ mod tests {
             "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsome context text for s1a cost test";
         let mut emit_ns: Vec<u64> = Vec::with_capacity(n_emit);
 
-        if std::env::var_os(ENV_FLAG).is_none() {
+        require_flag_unset();
+        {
             // Warm-up pass (populates toml cache + creates the file).
             maybe_emit_a1_block_at(&events, dir.path(), "sess-s1a", "pre-bash", ctx);
             emit_ns.clear();
