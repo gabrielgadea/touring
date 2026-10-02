@@ -479,3 +479,24 @@ experimento cair lá, o experimento é ABORTADO (e a contaminação, declarada c
 **E9.7 — veredito.** S4-forte `passes` ⇔ controle idêntico E ON == OFF em todas as comparações; a classificação de força
 vem da E9.4. Se resultar "forte", substitui a classificação "fraco/anulado" da Errata 6; se resultar VOID ou fraco, o
 S4 segue como estava e o motivo é registrado. Limpeza: daemons parados com `daemon-ctl stop --socket` (REGRA #19), nunca `pkill`.
+
+**E9.8 — adendo de operação (17:35 BRT; ainda ANTES de qualquer comparação ON × OFF).** Fatos medidos ao montar o A/B e as
+regras que decorrem deles; nenhum muda limiar nem veredito.
+(a) **Hooks comparados:** `pre-bash`, `cli-suggest`, `post-bash` e `post-tool-rl` (os quatro que uma chamada Bash toca), cada um
+com a sua `n_nonempty`/força (E9.4); o veredito do S4 forte é o AND dos quatro, e a força é reportada por hook.
+(b) **O daemon por projeto recusa pedidos que nomeiam caminhos fora da sua árvore** (`daemon.rs:1905-1922`, `pin_admits`). Regra
+única para os três braços: `/home/gabrielgadea/projects/touring` → `<raiz>`, `/home/gabrielgadea` → `<raiz>/home`,
+`cwd` = `<raiz>`, `transcript_path` = `<raiz>/t.jsonl`; a ÚNICA normalização da saída é `<raiz>` → `@ROOT@`.
+(c) **Ambiente:** todo `TOURING_*` da sessão é removido, exceto `TOURING_PILLAR_INDUCTION_ARMED`; `CLAUDE_PROJECT_DIR=<raiz>` (como
+o Claude Code faz; sem ela o cliente infere a raiz errada); só o ON recebe `TOURING_R3_EVENTS_FILE=/tmp/r3s4/on-events.jsonl`
+(verificado: o daemon herda a variável no spawn). `touring init-project --root X` **ignora `--root`** (usa o cwd).
+(d) **`session_id`** prefixado com `s4ab-` (E9.6 busca no journal real os hashes dos ids prefixados).
+(e) **Desfecho dos comandos:** `post-bash` e `post-tool-rl` recebem `tool_response.exit_code = 1` se `sha256(comando)[0] % 3 == 0`, senão
+0 (≈ 1/3 falha), de modo que o Pensieve aprende e o `pre-bash` injeta contexto como em produção. Verificado antes, num 4º projeto
+descartável (`probe`, fora do A/B): um payload de falha faz o `pre-bash` seguinte devolver "Similar command failed recently
+(similarity=100%)". O payload `exitCode`+`is_error` NÃO foi lido como falha pelo `post-bash`; vale `exit_code`.
+(f) **Ordem:** para cada entrada e cada hook, ON, OFF, controle, nessa ordem e sem pausa. Eventos do ON contados = crescimento do
+arquivo de sondagem NA FASE MEDIDA (o aquecimento é excluído). Emissor ocioso (0 eventos) ⇒ `passes = None`, nunca `True`.
+(g) **Divulgação das sondagens exploratórias anteriores ao registro:** 6 e 20 entradas pelo daemon do `on` para descobrir (b)-(c)
+(8 saídas não vazias de `cli-suggest` em 20, 2 eventos no arquivo de sondagem), e o 4º projeto para (e). Nenhuma comparação ON×OFF foi feita.
+(h) **Ferramenta:** `scripts/r3_s4_ab.py` (18 testes; mutação hermética 12/12). Limpeza: `daemon-ctl stop --project`, nunca `pkill`.
