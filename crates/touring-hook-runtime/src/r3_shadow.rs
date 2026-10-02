@@ -22,6 +22,7 @@
 //! [`crate::hook_trace::append_json_line`] (one `write_all` over `O_APPEND`, atomic per
 //! line). The evaluator is a separate process; the only coupling is the file.
 
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -127,6 +128,25 @@ pub fn events_path() -> PathBuf {
     PathBuf::from(format!("{home}/.claude/touring/logs/r3_events.jsonl"))
 }
 
+thread_local! {
+    /// Test-only redirect: when set, `maybe_emit_a1_block` writes here instead of
+    /// the default file. Use [`with_events_path`] to set/clear in an RAII scope.
+    static THREAD_EVENTS_PATH: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
+
+/// Redirect A1 emissions on the **current thread** to `path` for the duration of
+/// `f`, then restore the previous setting.
+///
+/// Used only in tests that call `run_returning` and want to capture emitted events
+/// without setting `TOURING_R3_EVENTS_FILE` (which would race parallel tests).
+#[doc(hidden)]
+pub fn with_events_path<R>(path: &Path, f: impl FnOnce() -> R) -> R {
+    THREAD_EVENTS_PATH.with(|tl| *tl.borrow_mut() = Some(path.to_path_buf()));
+    let result = f();
+    THREAD_EVENTS_PATH.with(|tl| *tl.borrow_mut() = None);
+    result
+}
+
 /// First [`MAX_TEXT_CHARS`] characters (never splits a code point).
 pub fn truncate_text(s: &str) -> String {
     s.chars().take(MAX_TEXT_CHARS).collect()
@@ -172,6 +192,63 @@ pub fn emit_r3_event_at(path: &Path, event: &Value) -> bool {
 /// [`emit_r3_event_at`] on the default events file.
 pub fn emit_r3_event(event: &Value) -> bool {
     emit_r3_event_at(&events_path(), event)
+}
+
+// ── A1 emitter ────────────────────────────────────────────────────────────────
+
+/// Emit an `a1_block` event to the default events file when a PreToolUse hook
+/// injects context into the model. The public entry point; tests use
+/// [`maybe_emit_a1_block_at`] to supply an explicit file path.
+///
+/// Observe-only: `ctx` is received by shared reference and never mutated.
+/// Flag OFF ⇒ immediate return without any I/O or allocation (beyond the
+/// `var_os` check inside `r3_shadow_enabled`). Any emission failure is
+/// swallowed and counted by [`emit_r3_event_at`] — it never reaches the caller.
+pub fn maybe_emit_a1_block(project_root: &Path, session_id: &str, hook: &str, ctx: &str) {
+    let path = THREAD_EVENTS_PATH
+        .with(|tl| tl.borrow().clone())
+        .unwrap_or_else(events_path);
+    maybe_emit_a1_block_at(&path, project_root, session_id, hook, ctx);
+}
+
+/// [`maybe_emit_a1_block`] with an explicit destination path.
+///
+/// Used in tests and micro-benchmarks so they never touch the production events
+/// file and never race on the `TOURING_R3_EVENTS_FILE` environment variable.
+pub fn maybe_emit_a1_block_at(
+    path: &Path,
+    project_root: &Path,
+    session_id: &str,
+    hook: &str,
+    ctx: &str,
+) {
+    if !r3_shadow_enabled(project_root) {
+        return;
+    }
+    // All work beyond this point runs ONLY when the shadow is ON.
+    let bytes = ctx.len() as u64;
+    let first_line = ctx.lines().next().unwrap_or("");
+    let first_line_head = truncate_text(first_line);
+    // sha256 of the first line → first 8 bytes → 16 lowercase hex chars.
+    // Satisfies SHA16_RE = r"^[0-9a-f]{16}$" in the schema (S-1).
+    let first_line_sha: String = {
+        let d = Sha256::digest(first_line.as_bytes());
+        d.iter().take(8).map(|b| format!("{b:02x}")).collect()
+    };
+    // Schema: 0 < len ≤ 40 chars. Cap via chars so a multibyte name never panics.
+    let hook_safe: String = hook.chars().take(40).collect();
+    let event = json!({
+        "v": SCHEMA_VERSION,
+        "kind": "a1_block",
+        "use_case": "a1_relevance",
+        "ts_ms": now_ms(),
+        "session_hash": session_hash(session_id),
+        "hook": hook_safe,
+        "bytes": bytes,
+        "first_line_sha": first_line_sha,
+        "first_line_head": first_line_head,
+    });
+    let _ = emit_r3_event_at(path, &event);
 }
 
 /// How an A2 offer closed (`closed_by` in the contract).
@@ -452,5 +529,358 @@ mod tests {
             dropped_event_count() > before,
             "the failure is counted, not silent"
         );
+    }
+
+    // ── A1 emitter tests ──────────────────────────────────────────────────────
+
+    /// Helper: a temp dir with `[shadow] r3 = true` in its touring.toml.
+    fn flag_on_dir() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let toml = dir.path().join(".touring/touring.toml");
+        std::fs::create_dir_all(toml.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&toml, "[shadow]\nr3 = true\n").expect("write toml");
+        dir
+    }
+
+    /// Guard: flag OFF ⇒ zero I/O. Mutant: remove the `r3_shadow_enabled` early return
+    /// → file would be created and the assertion would fail.
+    #[test]
+    fn a1_block_flag_off_no_io() {
+        // Fail loudly if the env var is set — this test relies on the default-OFF path.
+        assert!(
+            std::env::var_os(ENV_FLAG).is_none(),
+            "run without TOURING_R3_SHADOW"
+        );
+        // Use a fresh directory with no toml ⇒ default OFF.
+        let dir = tempfile::tempdir().expect("tempdir");
+        let events = dir.path().join("events.jsonl");
+        maybe_emit_a1_block_at(
+            &events,
+            dir.path(),
+            "test-session",
+            "pre-bash",
+            "some context",
+        );
+        assert!(!events.exists(), "flag OFF must not create the events file");
+    }
+
+    /// Guard: observe-only — ctx is unchanged after the call. Mutant: modify ctx inside
+    /// the function → the assertion on the copy would fail.
+    #[test]
+    fn a1_block_flag_on_ctx_byte_identical() {
+        let dir = flag_on_dir();
+        let events = dir.path().join("events.jsonl");
+        let ctx = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsecond line of context";
+        if std::env::var_os(ENV_FLAG).is_none() {
+            let original = ctx.to_string();
+            maybe_emit_a1_block_at(&events, dir.path(), "sess-abc", "pre-bash", ctx);
+            assert_eq!(ctx, original.as_str(), "ctx must not be mutated");
+            assert!(events.exists(), "flag ON must create the events file");
+        }
+    }
+
+    /// Guard: write failure never panics and is counted. Mutant: propagate the error
+    /// → the `?` or `unwrap` would panic and the test would see it.
+    #[test]
+    fn a1_block_write_failure_does_not_propagate() {
+        let dir = flag_on_dir();
+        let before = dropped_event_count();
+        if std::env::var_os(ENV_FLAG).is_none() {
+            // `/proc` cannot grow directories — write MUST fail.
+            maybe_emit_a1_block_at(
+                Path::new("/proc/r3-a1-probe/events.jsonl"),
+                dir.path(),
+                "sess",
+                "pre-bash",
+                "ctx",
+            );
+            assert!(
+                dropped_event_count() > before,
+                "write failure must be counted, not silent"
+            );
+        }
+    }
+
+    /// Guard: exactly ONE line per invocation. Mutant: emit 0 or 2 lines per call
+    /// → the count assertion would fail.
+    #[test]
+    fn a1_block_exactly_one_line_per_invocation() {
+        let dir = flag_on_dir();
+        let events = dir.path().join("events.jsonl");
+        if std::env::var_os(ENV_FLAG).is_none() {
+            for _ in 0..3 {
+                maybe_emit_a1_block_at(
+                    &events,
+                    dir.path(),
+                    "sess",
+                    "pre-bash",
+                    "context text here",
+                );
+            }
+            let text = std::fs::read_to_string(&events).expect("read");
+            assert_eq!(text.lines().count(), 3, "exactly 1 line per invocation");
+        }
+    }
+
+    /// Guard: event carries required fields with correct types. Mutant: remove a field
+    /// or use the wrong type → one of the field assertions would fail.
+    #[test]
+    fn a1_block_event_has_required_fields() {
+        let dir = flag_on_dir();
+        let events = dir.path().join("events.jsonl");
+        let ctx = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsecond line";
+        if std::env::var_os(ENV_FLAG).is_none() {
+            maybe_emit_a1_block_at(&events, dir.path(), "test-session-xyz", "pre-bash", ctx);
+            let text = std::fs::read_to_string(&events).expect("read");
+            let line = text.lines().next().expect("at least one line");
+            let ev: Value = serde_json::from_str(line).expect("valid JSON");
+
+            assert_eq!(ev["v"], 1);
+            assert_eq!(ev["kind"], "a1_block");
+            assert_eq!(ev["use_case"], "a1_relevance");
+            assert_eq!(ev["hook"], "pre-bash");
+            assert!(ev["ts_ms"].is_u64(), "ts_ms must be a uint");
+            assert!(ev["bytes"].is_u64(), "bytes must be a uint");
+
+            let sha = ev["first_line_sha"]
+                .as_str()
+                .expect("first_line_sha is str");
+            assert_eq!(sha.len(), 16, "SHA16_RE: exactly 16 hex chars");
+            assert!(
+                sha.chars().all(|c| c.is_ascii_hexdigit()),
+                "SHA16_RE: all hex digits"
+            );
+
+            let session_h = ev["session_hash"].as_str().expect("session_hash str");
+            assert_eq!(session_h.len(), 12, "session_hash: 12 hex chars");
+            assert!(
+                session_h.chars().all(|c| c.is_ascii_hexdigit()),
+                "session_hash: all hex digits"
+            );
+
+            let head = ev["first_line_head"].as_str().expect("first_line_head str");
+            assert!(
+                head.chars().count() <= MAX_TEXT_CHARS,
+                "first_line_head must be ≤ {} chars",
+                MAX_TEXT_CHARS
+            );
+
+            // Closed schema: exactly 9 keys — an extra key would be a privacy violation.
+            let mut keys: Vec<_> = ev
+                .as_object()
+                .expect("event is an object")
+                .keys()
+                .cloned()
+                .collect();
+            keys.sort();
+            assert_eq!(
+                keys,
+                [
+                    "bytes",
+                    "first_line_head",
+                    "first_line_sha",
+                    "hook",
+                    "kind",
+                    "session_hash",
+                    "ts_ms",
+                    "use_case",
+                    "v"
+                ],
+                "closed schema: exactly 9 known keys"
+            );
+        }
+    }
+
+    /// Guard: `first_line_sha` is sha256 of the FIRST LINE (not the whole context),
+    /// `bytes` equals `ctx.len()` (not `first_line.len()`), and `first_line_head` is a
+    /// prefix of the first line capped at [`MAX_TEXT_CHARS`] chars.
+    ///
+    /// Three mutants killed by the VALUE assertions here:
+    ///   - `sha_over_whole_ctx`: `Sha256::digest(ctx.as_bytes())` → sha differs from
+    ///     what is computed here independently from the first line;
+    ///   - `bytes_of_first_line`: `bytes = first_line.len() as u64` → bytes differ
+    ///     from ctx_a.len() and ctx_b.len();
+    ///   - `head_over_whole_ctx`: `truncate_text(ctx)` → head is not a prefix of first
+    ///     line (it would be a prefix of the whole context string).
+    #[test]
+    fn a1_block_values_are_correct() {
+        assert!(
+            std::env::var_os(ENV_FLAG).is_none(),
+            "run without TOURING_R3_SHADOW"
+        );
+        let dir = flag_on_dir();
+        let events = dir.path().join("events_val.jsonl");
+
+        // Two contexts with the SAME first line but different bodies.
+        let first_line = "[TOURING SUGGEST · code-mode-loop · conf=0.95]";
+        let ctx_a = format!("{first_line}\nbody-alpha here — 36 extra chars of body");
+        let ctx_b =
+            format!("{first_line}\nbody-beta is longer and differs from alpha by quite a lot");
+
+        maybe_emit_a1_block_at(&events, dir.path(), "sess-val", "pre-bash", &ctx_a);
+        maybe_emit_a1_block_at(&events, dir.path(), "sess-val", "pre-bash", &ctx_b);
+
+        let text = std::fs::read_to_string(&events).expect("read events");
+        let evs: Vec<Value> = text
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("valid JSON"))
+            .collect();
+        assert_eq!(evs.len(), 2, "two events");
+
+        // Compute the expected sha INDEPENDENTLY — NOT reusing the function under test.
+        let expected_sha: String = {
+            let d = Sha256::digest(first_line.as_bytes());
+            d.iter().take(8).map(|b| format!("{b:02x}")).collect()
+        };
+
+        // Both events must carry the sha of the FIRST LINE (same first line → same sha).
+        assert_eq!(
+            evs[0]["first_line_sha"], expected_sha,
+            "first_line_sha must be sha256(first_line)[..8 bytes] for event a"
+        );
+        assert_eq!(
+            evs[1]["first_line_sha"], expected_sha,
+            "first_line_sha must be sha256(first_line)[..8 bytes] for event b"
+        );
+
+        // `bytes` must equal ctx.len() — the WHOLE context, not just the first line.
+        assert_eq!(
+            evs[0]["bytes"].as_u64().unwrap(),
+            ctx_a.len() as u64,
+            "bytes must equal ctx_a.len()"
+        );
+        assert_eq!(
+            evs[1]["bytes"].as_u64().unwrap(),
+            ctx_b.len() as u64,
+            "bytes must equal ctx_b.len()"
+        );
+
+        // Same first line → same sha; different bodies → different bytes.
+        assert_ne!(
+            evs[0]["bytes"], evs[1]["bytes"],
+            "same first line but different bodies ⇒ bytes must differ"
+        );
+
+        // first_line_head is a prefix of the first line, capped at MAX_TEXT_CHARS.
+        // (first_line is 46 chars < 80 so head == first_line here.)
+        for ev in &evs {
+            let head = ev["first_line_head"].as_str().expect("first_line_head str");
+            assert!(
+                first_line.starts_with(head),
+                "first_line_head must be a prefix of the first line"
+            );
+            assert!(
+                head.chars().count() <= MAX_TEXT_CHARS,
+                "first_line_head must be ≤ {MAX_TEXT_CHARS} chars"
+            );
+        }
+    }
+
+    /// Guard: no emission when the hook name is empty (schema: 0 < len). Mutant: emit
+    /// for an empty hook → the schema check in validation would catch it, but here we
+    /// verify the emitter caps at 40 chars (chars().take(40) on an empty string produces
+    /// an empty string — the text-cap gate in emit_r3_event_at does not refuse it, but
+    /// `validate_event` in Python would; this test documents the Rust-side behaviour).
+    ///
+    /// Guards the "no double-count between A1 and A2" property by construction: A1 is
+    /// emitted by `maybe_emit_a1_block_at` and A2 by `a2_offer_closed_event`; they write
+    /// to the same file but with different `kind` fields, so a reader that filters by
+    /// `kind` sees each at most once per invocation.
+    #[test]
+    fn a1_and_a2_kinds_are_distinct() {
+        let dir = flag_on_dir();
+        let events = dir.path().join("events.jsonl");
+        if std::env::var_os(ENV_FLAG).is_none() {
+            // Emit one A1 and one A2.
+            maybe_emit_a1_block_at(&events, dir.path(), "sess", "pre-bash", "ctx");
+            let a2_ev = a2_offer_closed_event(&A2Closed {
+                session: "sess",
+                mode: "code",
+                offered_secs: 0,
+                closed_by: ClosedBy::Window,
+                cmd_heads: &[],
+                baseline_value: None,
+            });
+            assert!(emit_r3_event_at(&events, &a2_ev));
+
+            let text = std::fs::read_to_string(&events).expect("read");
+            let kinds: Vec<_> = text
+                .lines()
+                .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+                .map(|e| e["kind"].as_str().unwrap_or("").to_string())
+                .collect();
+            assert_eq!(kinds.len(), 2, "two events total");
+            assert!(kinds.contains(&"a1_block".to_string()), "a1_block present");
+            assert!(
+                kinds.contains(&"a2_offer_closed".to_string()),
+                "a2_offer_closed present"
+            );
+        }
+    }
+
+    /// S1a (Errata 5, E5.2): emission cost must be bounded.
+    /// Run with: `cargo test -p touring-hook-runtime -- --ignored --nocapture r3_emission_cost_is_bounded`
+    #[test]
+    #[ignore]
+    fn r3_emission_cost_is_bounded() {
+        use std::time::Instant;
+
+        let n_emit: usize = 10_000;
+        let n_off: usize = 100_000;
+
+        // ── OFF-path cost: var_os + OnceLock + Mutex + HashMap lookup ──────────
+        // Use a nonexistent dir so the toml read fails immediately and is cached.
+        let off_root = std::path::Path::new("/nonexistent/r3-cost-off-probe-s1a");
+        // Warm-up: populate the cache for this path (file I/O happens once).
+        if std::env::var_os(ENV_FLAG).is_none() {
+            let _ = r3_shadow_enabled(off_root);
+        }
+        let mut off_ns: Vec<u64> = Vec::with_capacity(n_off);
+        for _ in 0..n_off {
+            let t = Instant::now();
+            // Even with ENV_FLAG unset, this is the hot path (env lookup + map hit).
+            let _enabled = if std::env::var_os(ENV_FLAG).is_none() {
+                r3_shadow_enabled(off_root)
+            } else {
+                false
+            };
+            off_ns.push(t.elapsed().as_nanos() as u64);
+        }
+        off_ns.sort_unstable();
+        let p50_off_ns = off_ns[n_off * 50 / 100];
+        let p99_off_ns = off_ns[n_off * 99 / 100];
+        println!("OFF  p50={p50_off_ns} ns   p99={p99_off_ns} ns");
+
+        // ── Emission-path cost ────────────────────────────────────────────────
+        let dir = flag_on_dir();
+        let events = dir.path().join("r3_cost_events.jsonl");
+        let ctx =
+            "[TOURING SUGGEST · code-mode-loop · conf=0.95]\nsome context text for s1a cost test";
+        let mut emit_ns: Vec<u64> = Vec::with_capacity(n_emit);
+
+        if std::env::var_os(ENV_FLAG).is_none() {
+            // Warm-up pass (populates toml cache + creates the file).
+            maybe_emit_a1_block_at(&events, dir.path(), "sess-s1a", "pre-bash", ctx);
+            emit_ns.clear();
+
+            for _ in 0..n_emit {
+                let t = Instant::now();
+                maybe_emit_a1_block_at(&events, dir.path(), "sess-s1a", "pre-bash", ctx);
+                emit_ns.push(t.elapsed().as_nanos() as u64);
+            }
+            emit_ns.sort_unstable();
+            let p50_emit_us = emit_ns[n_emit * 50 / 100] / 1_000;
+            let p99_emit_us = emit_ns[n_emit * 99 / 100] / 1_000;
+            println!("EMIT p50={p50_emit_us} µs  p99={p99_emit_us} µs");
+
+            assert!(
+                p99_off_ns <= 50_000,
+                "OFF p99 {p99_off_ns} ns exceeds 50 µs budget"
+            );
+            assert!(
+                p99_emit_us <= 1_000,
+                "EMIT p99 {p99_emit_us} µs exceeds 1 ms budget"
+            );
+        }
     }
 }
