@@ -367,3 +367,33 @@ e chave de ator. O replay ordena pelo transcript (`classify_route_outcome` puro)
 idênticas, e o relatório não os mistura.
 **E6.4 — latência do braço local online.** A 1ª decisão do B-L carrega o modelo (3.621 ms, carga preguiçosa); as
 seguintes levam ~377 ms. A latência do B-L é reportada sobre decisões aquecidas, com a 1ª separada.
+
+---
+
+# Errata 7 — 02/10/2026 16:25 BRT — registrada ANTES de existir qualquer rótulo do rater 1
+
+> Motivo: o rater 1 da E3.3 ("MiniMax em sessão **nova**") não existe. A analise-ef recusou, o Kimi está sem cota
+> e nenhuma sessão MiniMax nova foi aberta; sem ele o A2 fica `GOLD_INSUFICIENTE` indefinidamente. Hoje
+> `adj_out/` contém só o rótulo do rater 2 (Claude cego); **nenhum arquivo do rater 1 existe** (conferido por `ls`
+> às 16:23). Esta Errata não altera limiar, métrica nem protocolo de κ: muda só QUEM e COMO, e **só enfraquece**.
+
+**E7.1 — desvio proposto.** Rater 1 = **subagente de contexto limpo lançado pela sessão MiniMax `touring-a4`**,
+que herda o modelo MiniMax. O prompt do subagente cita APENAS `rater_view/INSTRUCOES.md` e
+`rater_view/pack_blind.jsonl` e manda gravar `adj_out/adj_minimax.jsonl`. A sessão-mãe NÃO rotula, NÃO resume itens
+e NÃO influencia o subagente além desse prompt. O que a E3.3 protege — o rater não conhecer a lógica do
+classificador B0 — vale para o subagente (contexto vazio), mas a garantia passa a ser **de contexto, não de
+sessão**: a mãe portou o B0. Isto é **limitação E3.3-bis**, divulgada no relatório final.
+
+**E7.2 — verificações mecânicas, ANTES de o rótulo entrar no `merge`** (qualquer falha invalida o rater e o A2
+permanece `GOLD_INSUFICIENTE`; **não se repete com o mesmo rater**):
+(a) o transcript do subagente é varrido por leitura/menção de caminhos proibidos: `key.jsonl`, `withheld.json`,
+`adj_claude.jsonl`, `a2_offers`, `audit_sample`, `predictions-a2`, `results-a2`, `r3-replay`, `r3_b0`,
+`r3_replay_a2`, `r3_arms`, `r3_results_gate`, `RESULTS.md`, `CRITERIOS-ACEITACAO`, `frozen-verified`;
+(b) o modelo registrado no transcript do subagente tem de ser MiniMax (não Claude);
+(c) o formato é validado pelo `r3_adjudication.py merge` (schema fechado, 179 itens, rótulos no domínio).
+
+**E7.3 — o resto vale sem mudança**: κ ≥ 0,60 (§2), E2.1–E2.4, desempate meu cego ao B0, `--gold` no replay A2,
+veredito só por `r3_results_gate.py`. O relatório final cita E3.3-bis, o fato de o rater 2 ser da mesma família do
+agente julgado (E3.3) e o de a mãe do rater 1 conhecer o B0.
+
+**E7.4 — veto.** Se o Gabriel vetar o desvio, o rótulo do rater 1 é descartado e o A2 volta a `GOLD_INSUFICIENTE`.
