@@ -39,7 +39,7 @@ PLANTED = {
 
 def test_pack_never_leaks_the_b0_label(tmp_path):
     adj.pack(SAMPLE, tmp_path, seed=20261002)
-    blind = (tmp_path / "pack_blind.jsonl").read_text()
+    blind = (tmp_path / "rater_view" / "pack_blind.jsonl").read_text()
     for hidden in set(SAMPLE[0]) - set(adj.BLIND_FIELDS):  # every real key except the three the rater may see
         assert f'"{hidden}"' not in blind, hidden
     assert "not_followed" not in blind
@@ -49,6 +49,16 @@ def test_pack_never_leaks_the_b0_label(tmp_path):
     # the hidden fields live ONLY in the key file, which raters never receive
     key = [json.loads(line) for line in (tmp_path / "key.jsonl").read_text().splitlines()]
     assert all("b0_decisao" in k for k in key)
+
+
+def test_the_rater_view_directory_structurally_excludes_the_key(tmp_path):
+    """Blindness by structure, not by instruction: a rater is pointed at `rater_view/` and nothing in it (nor
+    next to a file in it) names the B0 decision. The key lives one level up."""
+    adj.pack(SAMPLE, tmp_path, seed=20261002)
+    assert sorted(p.name for p in (tmp_path / "rater_view").iterdir()) == ["INSTRUCOES.md", "pack_blind.jsonl"]
+    assert (tmp_path / "key.jsonl").exists() and not (tmp_path / "rater_view" / "key.jsonl").exists()
+    view = "".join(p.read_text() for p in (tmp_path / "rater_view").iterdir())
+    assert "b0_decisao" not in view and "key.jsonl" not in view
 
 
 def test_pack_accepts_what_the_real_extractor_emits(tmp_path):
@@ -65,7 +75,7 @@ def test_pack_accepts_what_the_real_extractor_emits(tmp_path):
     rows = [{**r, "item_id": f"a2-{i:05d}", "split": "audit-test"} for i, r in enumerate(ex.extract_session(tmp_path / "sess.jsonl"))]
     assert len(rows) == 1
     adj.pack(rows, tmp_path / "pk")
-    blind = [json.loads(x) for x in (tmp_path / "pk" / "pack_blind.jsonl").read_text().splitlines()]
+    blind = [json.loads(x) for x in (tmp_path / "pk" / "rater_view" / "pack_blind.jsonl").read_text().splitlines()]
     assert [set(b) for b in blind] == [{"item_id", "rota_proposta", "cmds"}]
     assert blind[0]["rota_proposta"] == "grep -n a f; grep -n b g" and len(blind[0]["cmds"]) == 3
 
@@ -91,7 +101,7 @@ def test_secret_findings_leaves_ordinary_commands_alone():
 def test_pack_withholds_an_item_with_a_credential_and_never_writes_it(tmp_path):
     leaky = dict(SAMPLE[3], cmds=SAMPLE[3]["cmds"][:2] + [f"curl -H 'X: {PLANTED['api_key_sk']}' https://x"])
     adj.pack([SAMPLE[0], leaky], tmp_path, seed=1)
-    blind = (tmp_path / "pack_blind.jsonl").read_text()
+    blind = (tmp_path / "rater_view" / "pack_blind.jsonl").read_text()
     assert "a2-00003" not in blind and PLANTED["api_key_sk"] not in blind and "a2-00000" in blind
     withheld = json.loads((tmp_path / "withheld.json").read_text())
     assert list(withheld) == ["a2-00003"] and withheld["a2-00003"]          # which item and WHICH pattern ...
@@ -103,7 +113,7 @@ def test_pack_scans_the_route_text_too_not_only_the_commands(tmp_path):
     """`rota_proposta` also goes to the external vendor: a credential quoted in the recommended program is withheld."""
     leaky = dict(SAMPLE[7], rota_proposta=f"curl -H 'X: {PLANTED['api_key_sk']}' https://x")
     adj.pack([SAMPLE[0], leaky], tmp_path, seed=1)
-    assert PLANTED["api_key_sk"] not in (tmp_path / "pack_blind.jsonl").read_text()
+    assert PLANTED["api_key_sk"] not in (tmp_path / "rater_view" / "pack_blind.jsonl").read_text()
     assert list(json.loads((tmp_path / "withheld.json").read_text())) == ["a2-00007"]
 
 
@@ -111,7 +121,7 @@ def test_pack_scans_the_raw_text_not_its_json_escaping(tmp_path):
     """json.dumps escapes the quotes of an embedded JSON credential and hides it from the scan."""
     leaky = dict(SAMPLE[5], cmds=[f"echo '{PLANTED['json_quoted_secret']}' > /tmp/x"])
     adj.pack([SAMPLE[0], leaky], tmp_path, seed=1)
-    assert "a2-00005" not in (tmp_path / "pack_blind.jsonl").read_text()
+    assert "a2-00005" not in (tmp_path / "rater_view" / "pack_blind.jsonl").read_text()
     assert list(json.loads((tmp_path / "withheld.json").read_text())) == ["a2-00005"]
 
 
@@ -120,7 +130,7 @@ def test_pack_order_is_a_seeded_shuffle(tmp_path):
     adj.pack(SAMPLE, a, seed=20261002)
     adj.pack(SAMPLE, b, seed=20261002)
     adj.pack(SAMPLE, c, seed=7)
-    order = lambda d: [json.loads(x)["item_id"] for x in (d / "pack_blind.jsonl").read_text().splitlines()]  # noqa: E731
+    order = lambda d: [json.loads(x)["item_id"] for x in (d / "rater_view" / "pack_blind.jsonl").read_text().splitlines()]  # noqa: E731
     assert order(a) == order(b) and order(a) != order(c)
     assert order(a) != [s["item_id"] for s in SAMPLE]  # not the original order (blinds position effects)
 

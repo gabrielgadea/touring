@@ -93,13 +93,15 @@ def pack(sample, out_dir, seed=SEED):
     rows = [r for r in rows if r["item_id"] not in withheld]
     (out / "withheld.json").write_text(json.dumps(withheld, ensure_ascii=False, indent=1))
     random.Random(seed).shuffle(rows)  # the order carries no information about B0 or time
-    with (out / "pack_blind.jsonl").open("w") as f:
+    view = out / "rater_view"  # the ONLY directory a rater is pointed at; the key lives one level up, outside it
+    view.mkdir(exist_ok=True)
+    with (view / "pack_blind.jsonl").open("w") as f:
         for r in rows:
             f.write(json.dumps({k: r[k] for k in BLIND_FIELDS}, ensure_ascii=False) + "\n")
     with (out / "key.jsonl").open("w") as f:  # hidden fields: raters never receive this file
         for r in rows:
             f.write(json.dumps({k: v for k, v in r.items() if k not in BLIND_FIELDS[1:]}, ensure_ascii=False) + "\n")
-    (out / "INSTRUCOES.md").write_text(INSTRUCTIONS)
+    (view / "INSTRUCOES.md").write_text(INSTRUCTIONS)
     return out
 
 
