@@ -516,3 +516,30 @@ pareadas ON×OFF, ON×ctl e OFF×ctl; `noise_excess = max(ON×OFF, ON×ctl) − 
 OFF×ctl, senão "excede o ruído"; o agregado é "indistinguível" só se todos os hooks forem e o ON tiver emitido eventos. **O S4 estrito (E9.7)
 não muda** — controle diferente ⇒ VOID — e a leitura "vs ruído" é reportada ao lado, **nunca promovida a PASS do S4**.
 **Ferramenta:** `scripts/r3_s4_ab.py` (23 testes; mutação hermética 17/17).
+
+**E9.8-n (02/10/2026, escrito às 17:40 -03:00 — depois da rodada 1, antes da rodada 2).**
+**(1) Resultado da rodada 1** (17:15:03 → 17:23:50; 200 entradas; 182 eventos do emissor no braço ON; journal real: 0 linhas e 0 hashes de
+contaminação; arquivo `s4-ab-run1-void.json`, sha256 `84b67229148ad1c9…`): **VOID** (`passes = None`) por E9.3. Por hook (n não vazias · ON×OFF ·
+ON×ctl · OFF×ctl): `pre-bash` forte (187) 153·147·**164**; `cli-suggest` forte (57) **0·0·0** (PASS estrito isolado); `post-bash` forte (99)
+68·59·**67**; `post-tool-rl` anulado (0). Leitura secundária "vs ruído" (E9.8-m): indistinguível (excessos −11, 0, +1, 0), nunca promovida.
+**(2) Retratação.** O E9.8-j/k/l/m chamou de "observadas" duas causas do ruído do controle; a segunda (`try_borrow_mut` pulando o registro no
+Pensieve, `post_bash.rs:204-215`) era **leitura de código**, não observação, e foi **falsificada**. Diagnóstico exploratório (projetos
+descartáveis `/tmp/r3s4d|e|f`, SÓ OFF × ctl, nenhum dado do braço ON): pausa 0,2 s → `pre-bash` 7/20 e `post-bash` 4/20 divergem; pausa 2,0 s
+→ 4/20 e 3/20 (a pausa não é a causa; latência p95 13–22 ms, sem timeout); comandos inéditos sem caminho, repetidos 3× em cada daemon →
+12/12 idênticos; **com o texto do comando idêntico nos dois braços → 0/40 nos quatro hooks** (`pre-bash` 21 não vazias, `post-bash` 12,
+`cli-suggest` 9), na mesma pausa de 0,2 s. **Causa:** o `rewrite` embutia a raiz de cada braço (`/tmp/r3s4b/off/…` × `/tmp/r3s4b/ctl/…`) no
+texto do comando; o Pensieve (por processo, em memória, sem persistência — `hook_runtime.rs:913` `Pensieve::new(32).with_threshold(0.4)`)
+grava o comando INTEIRO como hash por token (`post_bash.rs`, FIX6), então daemons idênticos aprenderam vetores diferentes (similaridade
+43/46/47 %, limiar 0,4 cruzado por um e não pelo outro) e, como o estado só cresce, nunca reconvergiram. O defeito era do **harness**, não do
+produto nem da flag. A máscara (j) e a pausa (l) ficam como estão (a máscara cobre só relógio/estatística de banco; não testei a rodada sem ela).
+**(3) Correção de horários.** Os rótulos "17:35", "17:40" e "17:55 BRT" do E9.8, E9.8-i e E9.8-j/k/l/m **não vieram do relógio** e estão errados.
+O que prova a ordem são os commits (`-03:00`): `8d82fc77` 17:03:02 (E9.1–E9.7), `f0e0d1e9` 17:09:00 (harness + E9.8), `39f8f733` 17:09:35
+(E9.8-i), `ca0d2559` 17:13:10 (E9.8-j/k/l/m); a rodada 1 começou às 17:15:03. A ordem declarada ("antes de qualquer comparação") era verdadeira;
+os horários, não.
+**(4) Regra da rodada 2** (única mudança de procedimento): o texto do comando é **byte-idêntico nos três braços** — caminhos reais viram
+**relativos** (`/home/gabrielgadea/projects/touring/x` → `x`; `/home/gabrielgadea/x` → `home/x`), e só `cwd` e `transcript_path` carregam a raiz
+do braço. Base nova e virgem `/tmp/r3s4g/{on,off,ctl}`; a rodada 2 grava `s4-ab.json`. **Não mudam:** E9.3, E9.4, E9.5, E9.7, os limiares, as
+200 entradas (`s4_inputs.jsonl`, sha256 `7af62ab0390fb933…`), a pausa de 0,2 s, a rotação, a máscara, a leitura "vs ruído".
+**(5) Divulgação.** A decisão de reexecutar foi tomada **depois** de ver os números da rodada 1, inclusive ON×OFF; o diagnóstico usou só o
+controle. A rodada 1 permanece no registro: se a rodada 2 também for VOID ou fraca, o S4 fica como estava e o motivo é escrito.
+**Ferramenta:** `scripts/r3_s4_ab.py` (24 testes; mutação hermética 19/19; o mutante "raiz do braço dentro do comando" é morto por teste).

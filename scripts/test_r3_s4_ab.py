@@ -15,16 +15,28 @@ PRE = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "session_id": "abc"
        "tool_input": {"command": "grep -n x /home/gabrielgadea/projects/touring/crates/a.rs ~/.claude/x /home/gabrielgadea/.claude/rules"}}
 
 
-def test_rewrite_moves_every_real_path_inside_the_project_and_prefixes_the_session():
+def test_rewrite_makes_every_real_path_relative_and_prefixes_the_session():
     out = ab.rewrite(PRE, ROOT)
     assert "/home/gabrielgadea" not in json.dumps(out)                    # a pinned daemon refuses a request that names it
     assert out["cwd"] == ROOT and out["transcript_path"] == ROOT + "/t.jsonl" and out["session_id"] == "s4ab-abc"
-    assert ROOT + "/crates/a.rs" in out["tool_input"]["command"] and ROOT + "/home/.claude/rules" in out["tool_input"]["command"]
+    cmd = out["tool_input"]["command"]
+    assert cmd == "grep -n x crates/a.rs ~/.claude/x home/.claude/rules" and ROOT not in cmd
 
 
-def test_rewrite_is_the_same_rule_for_every_arm_modulo_the_root():
+def test_rewrite_handles_the_bare_forms_without_a_trailing_slash():
+    bare = {**PRE, "tool_input": {"command": "cd /home/gabrielgadea/projects/touring && ls /home/gabrielgadea"}}
+    out = ab.rewrite(bare, ROOT)
+    assert out["tool_input"]["command"] == "cd . && ls home"
+    assert ab.rewrite(bare, "/tmp/r3s4/off")["tool_input"] == out["tool_input"]
+
+
+def test_the_command_text_is_byte_identical_in_every_arm_because_the_pensieve_hashes_it():
+    """E9.8-n: a root path inside the command made the arms embed different tokens, so two identical daemons answered
+    differently (measured: control 7/20 and 4/20 apart, 0/40 once the command text is the same)."""
     on, off = ab.rewrite(PRE, "/tmp/r3s4/on"), ab.rewrite(PRE, "/tmp/r3s4/off")
-    assert json.dumps(on).replace("/tmp/r3s4/on", "@") == json.dumps(off).replace("/tmp/r3s4/off", "@")
+    assert on["tool_input"] == off["tool_input"]
+    strip = lambda p, r: json.dumps(p).replace(r, "@")  # noqa: E731
+    assert strip(on, "/tmp/r3s4/on") == strip(off, "/tmp/r3s4/off")      # only cwd/transcript carry the arm's root
 
 
 def test_the_outcome_rule_is_deterministic_and_fails_about_a_third_of_the_commands():

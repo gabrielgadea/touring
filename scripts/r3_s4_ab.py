@@ -32,8 +32,11 @@ KEEP_ENV = {"TOURING_PILLAR_INDUCTION_ARMED"}
 
 
 def rewrite(payload: dict, root: str, prefix: str = PREFIX) -> dict:
-    """A pinned per-project daemon refuses paths outside its tree: real paths move inside the project (same rule for all arms)."""
-    text = json.dumps(payload).replace("/home/gabrielgadea/projects/touring", root).replace("/home/gabrielgadea", root + "/home")
+    """A pinned per-project daemon refuses paths outside its tree, and the Pensieve hashes the WHOLE command (post_bash FIX6): the
+    root of an arm inside the command text made two identical daemons learn different things (E9.8-n). Real paths therefore
+    become RELATIVE (cwd = root), and the command text is byte-identical in every arm."""
+    text = (json.dumps(payload).replace("/home/gabrielgadea/projects/touring/", "").replace("/home/gabrielgadea/projects/touring", ".")
+            .replace("/home/gabrielgadea/", "home/").replace("/home/gabrielgadea", "home"))
     out = json.loads(text)
     out["cwd"] = root
     out["transcript_path"] = root + "/t.jsonl"
