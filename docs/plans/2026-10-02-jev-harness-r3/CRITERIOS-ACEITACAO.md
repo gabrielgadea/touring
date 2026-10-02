@@ -397,3 +397,56 @@ veredito só por `r3_results_gate.py`. O relatório final cita E3.3-bis, o fato 
 agente julgado (E3.3) e o de a mãe do rater 1 conhecer o B0.
 
 **E7.4 — veto.** Se o Gabriel vetar o desvio, o rótulo do rater 1 é descartado e o A2 volta a `GOLD_INSUFICIENTE`.
+
+**E7.5 — execução e achados (escrito às 16:25 BRT, DEPOIS da rotulagem do rater 1; nada aqui altera limiar, métrica ou
+protocolo de κ).**
+(a) **Rater 1** = subagente `a9694…` da sessão MiniMax `touring-a4`; modelo `MiniMax-M3.1-Flash-Preview` nos 93 turnos;
+54 chamadas (Read 35, Bash 18, Write 1, **0 `Agent`**); 179 rótulos (followed 134 · bypass 25 · ignored 19 ·
+indeterminate 1); sha256 `f1ee9d457c47a158`. O prompt dele foi escrito pelo a4, não por mim (diz "os 18 que você já
+rotulou na memória", falso para contexto vazio) e não contém B0 nem rótulo algum.
+(b) **Tentativa anterior sem rótulo no arquivo**: o 1º subagente (`af11…`) rotulou 18 itens só em contexto, delegou lotes a
+sub-subagentes via `Agent` (o prompt que enviei não proibia delegação) e parou sem gravar. Nenhum rótulo dele entrou no
+arquivo final. O relato do a4 ("transcript de 148 B") diverge do arquivo real (923 KB, 19 turnos): vale o transcript.
+(c) **Falso-positivo do verificador, achado e corrigido DEPOIS de ver este transcript**: 8 violações, todas o arquivo
+PERMITIDO `pack_blind.jsonl` com uma `\` de continuação de linha colada. Correção mínima (commit 04e8ff40), teste
+dedicado e mutação 11/11; um inventário independente (outro regex) confirmou que o rater só tocou os 3 arquivos e
+rascunhos em `/tmp`. Re-varredura: válido, 0 violações.
+(d) **κ (Claude cego × MiniMax) = 0,7707** (≥ 0,60): 179 itens, 172 pontuáveis, 7 `indeterminate` fora; **156** com acordo
+(gold), **16** em desacordo (14 bypass×followed, 1 ignored×followed, 1 followed×bypass).
+(e) **E7.6 — desempate.** Eu já fui o rater 2 e vi a fila com os dois rótulos; desempatar eu mesmo faria o gold dos 16
+refletir o rater 2. O desempate foi feito por **subagente Claude (Sonnet) de contexto limpo**, que recebeu só o
+`INSTRUCOES.md` e os 16 `item_id`, validado pelo mesmo verificador (`--model claude --allow-file
+adj_out/adj_tiebreak.jsonl`). Limitação divulgada: mesma família do agente julgado e do rater 2 (E3.3).
+
+---
+
+# Errata 8 — 02/10/2026 16:40 BRT — regras de pontuação do A2 contra o gold, registradas ANTES de qualquer número braço×gold
+
+> Motivo: o `--gold` de `r3_replay_a2.py` era aceito e **ignorado** (`args.gold` nunca é lido; `_dump` sempre grava
+> `agreement: null`); a comparação ao gold (S-6) nunca foi implementada. Estado verificado às 16:3x: o gold existe
+> (171 itens: 156 acordo + 15 desempate; κ = 0,7707), as predições dos braços existem (180 itens, 0 erros, geradas
+> ANTES do gold) e **nenhuma comparação braço×gold foi calculada**. Esta Errata fixa o que o código fará; não altera
+> limiar nem critério (§2), só preenche o que o §2 deixa implícito.
+
+**E8.1 — população.** Gold = itens com `followed` ∈ {True, False} (acordo dos dois ou desempate; `indeterminate` e
+`empty_route` fora, E2.2/E4.7). C-A2-1..3 medem-se na partição `audit-test`; τ de cada braço é escolhido em
+`audit-val` (campo `split` do audit sample congelado).
+**E8.2 — predição.** Braço de modelo: "followed" ⇔ `p_followed ≥ τ`; B0: a própria decisão. Acordo = fração igual ao gold.
+**E8.3 — τ.** Grade = os valores distintos de `p_followed` em `audit-val`. τ = o que **maximiza a cobertura**
+(fração de itens de val com `p ≥ τ`) sujeita a **precisão ≥ 0,90** (precisão = fração `followed` no gold entre os
+cobertos); empate → o maior τ. **Inviável** (nenhum τ dá precisão ≥ 0,90): C-A2-3 reprova por construção
+(`precision`/`coverage` reportados no τ de reserva) e o τ de reserva é o que **maximiza o acordo em val** (empate →
+maior τ). Cobertura 0 ⇒ `precision = 0,0` (nunca `null`: o gate não aceita ausência).
+**E8.4 — B0 suficiente.** `b0.agreement` = acordo do B0 com o gold em `audit-test` (população do §2); o acordo na
+totalidade do gold é reportado ao lado, informativo.
+**E8.5 — IC.** Bootstrap pareado sobre os itens de `audit-test`, 10 000 reamostragens, `random.Random(20261002)`;
+`delta_ci_low` = o valor de posto `int(0,025·N)` dos deltas ordenados.
+**E8.6 — estratos.** Por decisão de B0 (`followed` / `not_followed`) em `audit-test`, com `n_test`, `agreement_model`
+e `agreement_b0`; o gate só julga estratos com n_test ≥ 20.
+**E8.7 — sensibilidade (secundária, nunca muda o veredito).** Tudo repetido só com os itens de gold de proveniência
+`agree` (sem o desempate): o desempate foi 15/15 contra `followed` (mesma família do rater 2), e esta leitura mostra
+quanto o resultado depende dele.
+**E8.8 — diagnóstico de polaridade (não é critério).** AUC de `p_followed` contra o gold, por braço, em todo o gold.
+Nenhuma inversão é aplicada: se o AUC vier ≪ 0,5 o braço é reportado como está e a polaridade vai para o r4.
+**E8.9 — latência** de `predictions-a2.jsonl` (p95 sobre as predições sem erro). **E8.10 — ligação:** `--gold` do
+replay passa a chamar o pontuador (`scripts/r3_score_a2.py`, puro, sem chamada de modelo nem de API).
