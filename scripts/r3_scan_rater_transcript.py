@@ -26,12 +26,14 @@ def _calls(entry):
             yield b
 
 
-def _allowed(path: str) -> bool:
+def _allowed(path: str, extra=()) -> bool:
     p = path.rstrip("/")
-    return any(p.endswith(f) for f in ALLOWED_FILES) or any(p.endswith(d) for d in ALLOWED_DIRS)
+    return any(p.endswith(f) for f in ALLOWED_FILES + tuple(extra)) or any(p.endswith(d) for d in ALLOWED_DIRS)
 
 
-def scan(path) -> dict:
+def scan(path, model="minimax", extra_allowed=()) -> dict:
+    """`model` is the substring EVERY assistant turn must carry (rater 1: minimax; the Claude tie-break judge: claude);
+    `extra_allowed` adds output-file suffixes (the tie-break judge's own file). Nothing else relaxes."""
     models, violations, n_calls, n_turns = set(), [], 0, 0
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         try:
@@ -49,11 +51,11 @@ def scan(path) -> dict:
                 if tok in text:
                     violations.append({"kind": "forbidden_token", "token": tok, "tool": call.get("name")})
             for hp in HOME_PATH.findall(text):
-                if not _allowed(hp):
+                if not _allowed(hp, extra_allowed):
                     violations.append({"kind": "out_of_scope_path", "path": hp[:120], "tool": call.get("name")})
-    bad_models = sorted(m for m in models if "minimax" not in m.lower())
+    bad_models = sorted(m for m in models if model.lower() not in m.lower())
     if bad_models:
-        violations.append({"kind": "not_minimax", "models": bad_models})
+        violations.append({"kind": "not_expected_model", "expected": model, "models": bad_models})
     if not n_turns:
         return {"valid": None, "reason": "no assistant turn in the transcript: no signal", "n_turns": 0,
                 "n_tool_calls": n_calls, "models": sorted(models), "violations": violations}
@@ -64,7 +66,10 @@ def scan(path) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("transcript")
-    out = scan(ap.parse_args(argv).transcript)
+    ap.add_argument("--model", default="minimax", help="substring every assistant turn's model must carry")
+    ap.add_argument("--allow-file", action="append", default=[], help="extra allowed output-file suffix (repeatable)")
+    a = ap.parse_args(argv)
+    out = scan(a.transcript, model=a.model, extra_allowed=tuple(a.allow_file))
     print(json.dumps(out, ensure_ascii=False, indent=1))
     return 2 if out["valid"] is None else 0 if out["valid"] else 1
 
