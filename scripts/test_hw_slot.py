@@ -97,6 +97,25 @@ def test_slot_is_released_by_the_kernel_when_the_holder_dies(env, tmp_path):
     assert run(env, "--wait", "3", "--", "true").returncode == 0
 
 
+def test_a_long_lived_process_started_inside_the_job_never_keeps_the_slot(env):
+    """Incident 02/10/2026: update-touring restarts the GLOBAL daemon inside a job; if the
+    lock fd is inherited, the daemon holds the slot for as long as it lives (days) and
+    the next `hw-slot` waits forever on a job that already finished."""
+    env["HW_SLOT_COUNT"] = "1"
+    job = run(env, "--", "bash", "-c", "setsid sleep 25 >/dev/null 2>&1 & echo $!")
+    stray = int(job.stdout.strip())
+    try:
+        assert job.returncode == 0
+        # the job is over; the daemon-like stray is still alive — the slot must be free
+        os.kill(stray, 0)
+        assert run(env, "--wait", "2", "--", "true").returncode == 0
+    finally:
+        try:
+            os.kill(stray, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
 def test_temperature_gate_blocks_and_names_the_reason(env):
     env["HW_SLOT_TEMP_C"] = "95"
     r = run(env, "--wait", "1", "--max-temp", "88", "--", "true")
