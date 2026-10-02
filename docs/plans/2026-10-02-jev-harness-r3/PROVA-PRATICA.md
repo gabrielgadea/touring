@@ -23,7 +23,7 @@ Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*
 | Vereditos A1/A2 pelos critérios congelados | **Computados**: A1 NAO_ADOTADO, A2 NAO_ADOTADO (gold κ = 0,77; reimplementação independente bate) | RESULTS §1 |
 | Gold do A2 (2 avaliadores cross-vendor + desempate) | **Existe** (171 itens), com limitações de família/desvio E3.3-bis; verificado por código | RESULTS §4, Errata 7 |
 | Byte-identidade ON×OFF (S4) | **Passa, forte** em 3 hooks (175 · 57 · 71 comparações com conteúdo; 0/200 diferenças; controle 0/200); `post-tool-rl` anulado; reproduzido numa réplica pré-registrada (rodada 3, contagens idênticas). A rodada 1 foi VOID por defeito do meu harness, corrigido e pré-registrado antes da rodada 2 | RESULTS §2, §3.12; §7.3 abaixo |
-| Valor dos modelos (Jev/Laya) no A2 | **Medido, negativo para a entrada recebida**: B0 0,906 · B-J 0,835 · B-L 0,706 de acordo com o gold; braços só viram features redigidas (≠ B0/gold). Não prova que um modelo COM texto falharia | RESULTS §1, §4 |
+| Valor dos modelos (Jev/Laya) no A2 | **Medido, negativo para a entrada recebida**: B0 0,906 · B-J 0,835 (0,80–0,92 em 3 amostras da mesma API: o Jev não é estável bit a bit, e o veredito é o mesmo nas três) · B-L 0,706 de acordo com o gold; braços só viram features redigidas (≠ B0/gold). Não prova que um modelo COM texto falharia | RESULTS §1, §4 |
 | A1 online nos 4 pontos do `cli_suggester` | **Não feito** (S-9b) | RESULTS §4 |
 
 ## 1. Ambiente da prova
