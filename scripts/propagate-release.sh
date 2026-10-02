@@ -22,6 +22,8 @@
 #   scripts/propagate-release.sh <versão> --skip-freeze# toolchain já instalada
 #   scripts/propagate-release.sh <versão> --no-default # não muda canal default
 #   scripts/propagate-release.sh <versão> --allow-no-projects # aceita 0 consumidores
+#   scripts/propagate-release.sh <versão> --stop-before-propagate # para antes do passo 5
+#       (2ª etapa, depois do "livre" do dono do projeto: --skip-gates --skip-build --skip-freeze)
 #
 # <versão> é um ARGUMENTO, nunca um exemplo a copiar: estes exemplos citavam
 # 30.4.0 por escrito, e depois do release seguinte copiá-los REBAIXARIA todos os
@@ -57,6 +59,10 @@ ROLLBACK=0
 # Só permite terminar com 0 projetos quando isso for uma decisão explícita
 # (ver o guard fail-closed no passo 5).
 ALLOW_NO_PROJECTS=0
+# Pausa antes do passo 5: o passo 5 REINICIA o daemon per-project de cada
+# consumidor, e o dono de um projeto (outra sessão coordenadora) precisa poder
+# dizer "agora". Sem esta flag o pipeline é contínuo do passo 4 ao 5.
+STOP_BEFORE_PROPAGATE=0
 
 RED=$'\033[31m'; GREEN=$'\033[32m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; RESET=$'\033[0m'
 [ -n "${NO_COLOR:-}" ] && { RED=""; GREEN=""; YELLOW=""; BOLD=""; RESET=""; }
@@ -66,7 +72,7 @@ warn() { echo "${YELLOW}[propagate] WARN${RESET} $*" >&2; }
 die()  { echo "${RED}[propagate] ERRO${RESET} $*" >&2; exit 1; }
 step() { echo; echo "${BOLD}── $* ──${RESET}"; }
 
-usage() { sed -n '2,40p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
+usage() { sed -n '2,42p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 0; }
 
 # Lista os roots registrados em ~/.claude/touring/projects.json (a mesma fonte
 # que `touring update --all-projects` consome), um por linha.
@@ -93,6 +99,7 @@ for arg in "$@"; do
         --skip-freeze) SKIP_FREEZE=1 ;;
         --no-default) NO_DEFAULT=1 ;;
         --allow-no-projects) ALLOW_NO_PROJECTS=1 ;;
+        --stop-before-propagate) STOP_BEFORE_PROPAGATE=1 ;;
         --check-label-only) CHECK_LABEL_ONLY=1 ;;
         --rollback)   ROLLBACK=1 ;;
         -h|--help)    usage ;;
@@ -327,6 +334,14 @@ if [ "$NO_DEFAULT" -eq 1 ]; then
 else
     step "4/6 DEFAULT — canal default → $VERSION"
     run touring toolchain default "$VERSION"
+fi
+
+# ─── PAUSA opcional antes do passo 5 (--stop-before-propagate) ───────────────
+if [ "$STOP_BEFORE_PROPAGATE" -eq 1 ]; then
+    step "PAUSA — gates, build, freeze e default concluídos; passo 5 NÃO executado"
+    log "nenhum daemon de projeto foi tocado. Quando o dono de cada projeto liberar:"
+    log "  scripts/propagate-release.sh $VERSION --skip-gates --skip-build --skip-freeze"
+    exit 0
 fi
 
 # ─── 5. PROPAGATE para todos os projetos (L4) ────────────────────────────────
