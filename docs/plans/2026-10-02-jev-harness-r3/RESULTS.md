@@ -94,7 +94,7 @@ Cláusulas do gate — B-L: C-A2-1 ✗ · C-A2-2 ✓ · C-A2-3 ✗ · C-A2-4 ✗
 
 **Decididas por ele em 02/10 (resposta ao canvas de 5 decisões):** (1) E3.3-bis: *"lance um juiz cego sonnet"* — o desvio **segue em aberto** até o resultado desse juiz (Errata 10, §8); (2) **r4 mínimo aprovado**
 (só o B-L com texto truncado; feito, §7); (3) a unit `r3-shadow-evaluator` fica **até 15:09 de 03/10** (como o r4 mínimo foi aprovado, não a paro sozinha depois: decide ele); (4) **não propagar** a 30.4.91 agora; (5) **até ~50 chamadas Jev** (feitas: 50, saldo ~436; §4).
-**Ainda dependem dele:** o veto ou aceite do E3.3-bis (veja o resultado do juiz cego, §8); a unit depois de 03/10 15:09; a propagação quando houver release com ganho; e se quer um r5 (A3, A4, Tier B, S-9b e C-A2-3 com margem **não** foram aprovados nem tocados).
+**Ainda dependem dele:** o veto ou aceite do E3.3-bis (o juiz cego já rodou: o A2 é robusto a ele, §8, mas o gold é quase todo rótulo Claude); a unit depois de 03/10 15:09; a propagação quando houver release com ganho; e se quer um r5 (A3, A4, Tier B, S-9b e C-A2-3 com margem **não** foram aprovados nem tocados).
 
 ## 6. Candidatos do r4 (advisory — nada é promovido sem o go dele)
 
@@ -118,3 +118,19 @@ Pré-registrado em `f9ceb88a` (19:35:43) e rodado depois (19:37:30–19:41:54), 
 **Divergência do r3 descoberta no caminho, medida e não só lida (E12.1, E12.8):** o B-L do r3 rodou o checkpoint **inglês** (`laya.Agent` sem `subfolder` reporta `encoder: answerdotai/ModernBERT-large`, 512/192, temperaturas [1,637; 1,251; 1,983] que o próprio `laya` avisa serem inválidas), não o "multilíngue" que o pré-registro nomeia. O veredito do A2 não muda; o resultado do B-L do r3 vale para o checkpoint inglês com o payload redigido.
 
 **Limitações:** 1 rodada; só a pergunta `noul` do r3 foi testada (não as outras cabeças do checkpoint); o texto é cortado em 200 caracteres (pelo levantamento do `touring-a4`, 408 de 534 comandos do corpus passam disso); latência em CPU com o chip a 91–94 °C (mediana: inglês 1.068 ms, multilíngue 390 ms).
+
+## 8. Juiz Sonnet cego e sensibilidade ao E3.3-bis (Errata 10)
+
+Pedido por ele (*"lance um juiz cego sonnet"*). **Tentativa 1 reprovou** na verificação mecânica (falso positivo de prefixo de caminho; rótulos descartados sem leitura, E10.7); **tentativa 2 válida** (exit 0, 0 violações, `claude-sonnet-5-5`, 0 `Agent`). O gold registrado e o veredito primário **não mudam**; isto é só sensibilidade.
+
+| leitura | n do gold | B0 | B-J | B-L | veredito (gate) |
+|---|---|---|---|---|---|
+| gold registrado (R1 × R2 + desempate) | 171 | 0,9059 | 0,8353 | 0,7059 | `NAO_ADOTADO_PELOS_DADOS` |
+| maioria de 3 (R1, R2, R3) | 176 | 0,9080 | 0,8391 | 0,6897 | `NAO_ADOTADO_PELOS_DADOS` |
+| unânime (R1, R2, R3 de acordo) | 160 | 0,9231 | 0,4487 | 0,7564 | `NAO_ADOTADO_PELOS_DADOS` |
+
+**κ por par:** R1 (MiniMax) × R2 (Claude) **0,7707** · R1 × R3 (Sonnet) **0,7818** · R2 × R3 **0,9867**. **Pela regra fixada antes (E10.4), o A2 é robusto ao E3.3-bis:** os três vereditos coincidem e κ(R1,R3) ≥ 0,60.
+
+**O que o resultado mostra além disso (não estava no desenho):** (1) o R3, cego, concorda com o gold registrado em **171/171** (R2 170/171; R1 157/171), inclusive nos 15 itens do desempate, que ele decidiu igual; (2) o rater 1 (MiniMax), o único de fora da família, é **sistematicamente mais leniente**: 134 itens "seguida" (R2 117, R3 118) e, nos 16 itens em que diverge do R3, **diz "seguida" 16 de 16**. Como κ(R2,R3) = 0,987, os dois Claude pesam como um voto só.
+
+**O que isto NÃO resolve:** o risco de ponto cego compartilhado da E3.3. O gold registrado é quase todo rótulo da família do agente julgado, e este juiz também é Claude. O veredito não depende do rater 1, mas a independência de família do gold continua sendo uma limitação declarada, e a decisão sobre o E3.3-bis segue com ele.
