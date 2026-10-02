@@ -73,18 +73,19 @@ impl Registry {
         offered_secs: u64,
         sink: &mut dyn FnMut(&Value),
     ) {
-        let replaced = {
+        let (displaced, replaced) = {
             let mut map = self.map.lock().unwrap_or_else(|e| e.into_inner());
-            if map.len() >= MAX_PENDING && !map.contains_key(key) {
+            // At the cap, the OLDEST offer of another actor is displaced by this newer one.
+            let displaced = if map.len() >= MAX_PENDING && !map.contains_key(key) {
                 let oldest = map
                     .iter()
                     .min_by_key(|(_, p)| p.offered_secs)
                     .map(|(k, _)| k.clone());
-                if let Some(oldest) = oldest {
-                    map.remove(&oldest);
-                }
-            }
-            map.insert(
+                oldest.and_then(|k| map.remove(&k))
+            } else {
+                None
+            };
+            let replaced = map.insert(
                 key.to_string(),
                 Pending {
                     session: session.to_string(),
@@ -92,9 +93,12 @@ impl Registry {
                     offered_secs,
                     cmd_heads: Vec::new(),
                 },
-            )
+            );
+            (displaced, replaced)
         };
-        if let Some(prev) = replaced {
+        // A displaced offer still leaves exactly ONE line (cross-audit 02/10/2026, finding 7): S3 counts lines.
+        // It closes as `replaced` — a newer offer took its place in the registry — which keeps the closed schema.
+        for prev in displaced.into_iter().chain(replaced) {
             sink(&prev.closed_event(ClosedBy::Replaced, None));
         }
     }

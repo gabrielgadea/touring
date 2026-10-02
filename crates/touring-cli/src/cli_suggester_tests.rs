@@ -5012,4 +5012,30 @@ mod r3_shadow_a2 {
         assert!(!reg.is_pending("k0"), "the oldest went first");
         assert!(reg.is_pending("k1029"), "the newest is kept");
     }
+
+    /// Cross-audit 02/10/2026 (finding 7): the capacity eviction used to `map.remove` the oldest offer WITHOUT a
+    /// line, so S3 ("every eligible offer leaves exactly one line") silently undercounted past 1024 pending offers.
+    #[test]
+    fn r3_capacity_eviction_still_leaves_one_line_per_offer() {
+        let reg = Registry::new();
+        let lines = std::cell::RefCell::new(Vec::<Value>::new());
+        let mut sink = |e: &Value| lines.borrow_mut().push(e.clone());
+        for i in 0..1030u64 {
+            reg.offer(&format!("k{i}"), "s", "code", i, &mut sink);
+        }
+        let lines = lines.into_inner();
+        // 1030 offers, 1024 still pending: the 6 oldest were displaced, and EACH of them closed exactly one line.
+        assert_eq!(
+            lines.len(),
+            6,
+            "every displaced offer must leave one line (S3 counts lines)"
+        );
+        assert!(
+            lines
+                .iter()
+                .all(|e| e["kind"] == "a2_offer_closed" && e["closed_by"] == "replaced"),
+            "a displaced offer closes as `replaced` (a newer offer took its place in the registry)"
+        );
+        assert_eq!(reg.len(), 1024);
+    }
 }
