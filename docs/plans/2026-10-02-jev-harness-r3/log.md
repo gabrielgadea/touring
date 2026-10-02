@@ -28,3 +28,15 @@ Família shadow no touring kpi -j (por use_case e braço: n distinto, acordo com
 ## 2026-10-02T13:45:34.557544-03:00 — S-11 done
 
 Avaliador de shadow Python (r3_shadow_evaluator.py): offset durável, só linhas completas, esquema fechado, isolamento de braço, arm api só recebe redact_for_jev. Commit cc9c0fa7; 13 testes e 8 mutantes mortos; suíte r3 inteira 118 passed na reexecução nativa.
+
+## 2026-10-02T13:51:38.592850-03:00 — S-2 done
+
+Extrator de ofertas A2 + B0 fiel (commit e79a4e9e). Oferta = tool_result is_error=true (20/200 candidatos eram citação); texto sem truncagem; rota como shell-quoting (dois parsers independentes concordam em 180/180); invariante B0(guardado)==decisão guardada. Refatorado e reverificado: reproduz as 180 ofertas congeladas sem diferença de campo. Custo do processo: 3 defeitos pré-adjudicação achados pela coordenação, ver memória r3-dataset-defeitos-antes-do-rotulo.
+
+## 2026-10-02T13:51:38.929054-03:00 — S-3 done
+
+Porte fiel de injection_family/count_propositions + extrator A1 (commit e79a4e9e): paridade 0,00% com touring kpi nas 7 famílias, 28.106 blocos (14.091 Touring / 14.015 harness; 8.177 EXEMPT); leitura de transcripts ausentes vira skip (corrigido na verificação da coordenação).
+
+## 2026-10-02T13:51:39.274536-03:00 — S-4 done
+
+Congelamento, split e audit sample (commit e79a4e9e): n=180 (132/48), splits 66/24 por metade, 7+8 sessões sem cruzar, MANIFEST.sha256 + --check que pega 1 byte. Teste hermético (R3_FAKE_REPO/EXTERNAL): provado dentro do sandbox e nativo, corpus real intacto por hash+mtime. Pacote cego = 179 (a2-00019 retido: rota vazia, Errata 4 E4.7).
