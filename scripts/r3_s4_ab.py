@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -25,6 +26,7 @@ HOOKS = ("pre-bash", "cli-suggest", "post-bash", "post-tool-rl")
 SHIM = Path.home() / ".claude/hooks/touring-hook"
 JOURNAL = Path.home() / ".claude/touring/logs/r3_events.jsonl"
 STRONG_N = 50                 # E9.4
+NOISE_SLACK, NOISE_FRAC = 2, 0.25   # E9.8-m: the flag "exceeds the noise" iff max(ON-OFF, ON-ctl) - (OFF-ctl) > 2 + 25% of (OFF-ctl)
 PREFIX = "s4ab-"              # E9.2: unique session ids, so the real journal can be searched for contamination
 KEEP_ENV = {"TOURING_PILLAR_INDUCTION_ARMED"}
 
@@ -51,8 +53,21 @@ def post_payload(pre: dict, hook_event: str = "PostToolUse") -> dict:
             "tool_response": {"stdout": "" if code else "ok", "stderr": "s4 failure" if code else "", "exit_code": code, "interrupted": False}}
 
 
+VOLATILE = ((rb"reliability \d+%", b"reliability N%"), (rb"velocity [\d.]+ edits/day", b"velocity V edits/day"),
+            (rb"h\xc3\xa1 \d+s", b"h\xc3\xa1 Ns"))   # E9.8-j: ONLY fields seen varying between OFF and the control (identical arms)
+
+
 def normalise(out: bytes, root: str) -> bytes:
-    return out.replace(root.encode(), b"@ROOT@")
+    out = out.replace(root.encode(), b"@ROOT@")
+    for pattern, repl in VOLATILE:
+        out = re.sub(pattern, repl, out)
+    return out
+
+
+def order_for(i: int) -> tuple:
+    """E9.8-k: rotate ON/OFF/ctl per input, so a fixed call order never lines up with an arm."""
+    k = i % len(NAMES)
+    return NAMES[k:] + NAMES[:k]
 
 
 def hook_env(root: str, extra: dict | None = None) -> dict:
@@ -77,9 +92,15 @@ def compare_hook(rows: list[dict]) -> dict:
     diffs = [i for i, o in enumerate(rows) if o["on"] != o["off"]]
     n_ctl = sum(o["off"] != o["ctl"] for o in rows)
     n_ne = sum(pd.has_content(o["on"]) or pd.has_content(o["off"]) for o in rows)
-    return {"n": len(rows), "n_diff": len(diffs), "n_control_diff": n_ctl, "n_nonempty": n_ne, "strength": classify(n_ne),
-            "passes": None if n_ctl else not diffs, "first_diff_input": diffs[0] if diffs else None,
-            "reason": "control (OFF x ctl) differs: the run is VOID, a diff is never blamed on the flag" if n_ctl else None}
+    n_on_ctl = sum(o["on"] != o["ctl"] for o in rows)
+    odd = [i for i, o in enumerate(rows) if o["on"] != o["off"] or o["off"] != o["ctl"]][:4]
+    cut = lambda b: b[:400].decode(errors="replace")  # noqa: E731
+    excess = max(len(diffs), n_on_ctl) - n_ctl
+    return {"n": len(rows), "n_diff": len(diffs), "n_on_ctl_diff": n_on_ctl, "n_control_diff": n_ctl, "n_nonempty": n_ne,
+            "strength": classify(n_ne), "passes": None if n_ctl else not diffs, "first_diff_input": diffs[0] if diffs else None,
+            "reason": "control (OFF x ctl) differs: the run is VOID, a diff is never blamed on the flag" if n_ctl else None,
+            "noise_excess": excess, "noise_read": "indistinguishable" if excess <= NOISE_SLACK + NOISE_FRAC * n_ctl else "exceeds_noise",
+            "samples": [{"input": i, **{k: cut(rows[i][k]) for k in ("on", "off", "ctl")}} for i in odd]}
 
 
 def compare(outs: list[dict]) -> dict:
@@ -92,7 +113,8 @@ def overall(per_hook: dict, on_events: int) -> dict:
     idle = on_events < 1
     # A difference fails (unless the control voided the run); an idle emitter makes ON == OFF prove nothing (E9.5): no signal.
     passes = None if void else False if diff else None if idle else True
-    return {"passes": passes, "void": void, "any_diff": diff, "on_events": on_events, "idle_emitter": idle,
+    noise = "no_signal_idle_emitter" if idle else ("indistinguishable" if all(v["noise_read"] == "indistinguishable" for v in per_hook.values()) else "exceeds_noise")
+    return {"passes": passes, "void": void, "any_diff": diff, "on_events": on_events, "idle_emitter": idle, "noise_read": noise,
             "strength": {h: v["strength"] for h, v in per_hook.items()}}
 
 
@@ -114,13 +136,20 @@ def spawn_daemons(roots: dict, on_env: dict) -> None:
             time.sleep(2)
 
 
-def drive(rows: list[dict], roots: dict, on_env: dict) -> list[dict]:
+def drive(rows: list[dict], roots: dict, on_env: dict, pause: float = 0.0) -> list[dict]:
+    """Per input and hook, the three arms in a ROTATING order (E9.8-k); `pause` after each call lets a daemon's async work
+    settle (E9.8-l: the Pensieve skips a failure it cannot borrow, a race the control exposes)."""
     outs = []
-    for p in rows:
+    for idx, p in enumerate(rows):
         pres = {n: rewrite(p, roots[n]) for n in NAMES}
         posts = {n: post_payload(pres[n]) for n in NAMES}
-        outs.append({h: {n: call(roots[n], h, (pres if h in ("pre-bash", "cli-suggest") else posts)[n], on_env if n == "on" else None)
-                         for n in NAMES} for h in HOOKS})
+        row = {h: {} for h in HOOKS}
+        for h in HOOKS:
+            for n in order_for(idx):
+                payload = (pres if h in ("pre-bash", "cli-suggest") else posts)[n]
+                row[h][n] = call(roots[n], h, payload, on_env if n == "on" else None)
+                time.sleep(pause)
+        outs.append(row)
     return outs
 
 
@@ -129,16 +158,19 @@ def main(argv=None) -> int:
     ap.add_argument("--inputs", default=str(Path.home() / ".claude/touring/r3-data/s4_inputs.jsonl"))
     ap.add_argument("--out", required=True)
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--events", default=str(BASE / "on-events.jsonl"))
+    ap.add_argument("--base", default=str(BASE), help="directory holding the on/off/ctl projects")
+    ap.add_argument("--events", default="")
+    ap.add_argument("--pause", type=float, default=0.2, help="seconds after every hook call (E9.8-l)")
     a = ap.parse_args(argv)
+    a.events = a.events or str(Path(a.base) / "on-events.jsonl")
     rows = [json.loads(line) for line in Path(a.inputs).read_text().splitlines() if line.strip()]
     rows = rows[: a.limit] if a.limit else rows
-    roots = {n: str(BASE / n) for n in NAMES}
+    roots = {n: str(Path(a.base) / n) for n in NAMES}
     on_env = {"TOURING_R3_EVENTS_FILE": a.events}
     lines_before = JOURNAL.read_text().count("\n") if JOURNAL.exists() else 0
     spawn_daemons(roots, on_env)
     start_events = sum(1 for _ in open(a.events)) if Path(a.events).exists() else 0
-    per_hook = compare(drive(rows, roots, on_env))
+    per_hook = compare(drive(rows, roots, on_env, a.pause))
     events = (sum(1 for _ in open(a.events)) if Path(a.events).exists() else 0) - start_events
     leaked = real_journal_contaminated({PREFIX + str(p.get("session_id", "")) for p in rows}, JOURNAL)
     res = {"n_inputs": len(rows), "per_hook": per_hook, "overall": overall(per_hook, events), "real_journal_contaminated_hashes": leaked,

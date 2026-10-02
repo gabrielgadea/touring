@@ -46,6 +46,39 @@ def test_normalise_hides_only_the_project_root():
     assert ab.normalise(b"see /tmp/r3s4/on/x and /tmp/r3s4/off/y", ROOT) == b"see @ROOT@/x and /tmp/r3s4/off/y"
 
 
+def test_only_the_volatile_fields_seen_in_the_control_are_masked_never_a_decision():
+    raw = b"x: reliability 64% (7d), velocity 0.0 edits/day | repetido (h\xc3\xa1 9s, 1117 B) | Similar command failed recently (similarity=47%)"
+    out = ab.normalise(raw, ROOT)
+    assert b"reliability N%" in out and b"velocity V edits/day" in out and b"h\xc3\xa1 Ns" in out
+    assert b"similarity=47%" in out and b"1117 B" in out          # what the Pensieve DECIDES and the budget are never masked
+
+
+def test_the_call_order_rotates_so_no_arm_is_always_first_or_last():
+    orders = [ab.order_for(i) for i in range(6)]
+    assert all(sorted(o) == sorted(ab.NAMES) for o in orders)
+    assert {o[0] for o in orders[:3]} == set(ab.NAMES) and {o[-1] for o in orders[:3]} == set(ab.NAMES)
+    assert orders[0] == orders[3]
+
+
+def test_the_noise_read_compares_the_flag_with_the_daemon_to_daemon_noise_floor():
+    quiet = ab.compare_hook(rows([CTX] * 10, [CTX] * 10, [CTX] * 10))
+    assert quiet["noise_read"] == "indistinguishable" and quiet["noise_excess"] == 0
+    # ON differs from OFF on 6 inputs while the control (OFF x ctl) is clean: the flag EXCEEDS the noise
+    loud = ab.compare_hook(rows([b"{}"] * 6 + [CTX] * 4, [CTX] * 10, [CTX] * 10))
+    assert loud["noise_read"] == "exceeds_noise" and loud["noise_excess"] == 6
+    # the same 6 diffs with a noisy control (OFF x ctl = 6) are indistinguishable from the noise
+    noisy = ab.compare_hook(rows([b"{}"] * 6 + [CTX] * 4, [CTX] * 10, [b"{}"] * 6 + [CTX] * 4))
+    assert noisy["n_control_diff"] == 6 and noisy["noise_read"] == "indistinguishable"
+
+
+def test_overall_reports_the_noise_read_and_an_idle_emitter_has_no_signal():
+    ok = {h: {"passes": None, "strength": "fraco", "noise_read": "indistinguishable"} for h in ab.HOOKS}
+    assert ab.overall(ok, 3)["noise_read"] == "indistinguishable" and ab.overall(ok, 3)["passes"] is None
+    assert ab.overall(ok, 0)["noise_read"] == "no_signal_idle_emitter"
+    ok["post-bash"]["noise_read"] = "exceeds_noise"
+    assert ab.overall(ok, 3)["noise_read"] == "exceeds_noise"
+
+
 @pytest.mark.parametrize("n,expected", [(0, "anulado"), (1, "fraco"), (49, "fraco"), (50, "forte"), (400, "forte")])
 def test_strength_thresholds_are_the_errata_9_ones(n, expected):
     assert ab.classify(n) == expected
@@ -68,6 +101,12 @@ def test_a_difference_between_on_and_off_fails_and_names_the_first_input():
     assert r["passes"] is False and r["n_diff"] == 1 and r["first_diff_input"] == 1
 
 
+def test_divergent_inputs_come_with_their_bytes_so_the_cause_can_be_read():
+    r = ab.compare_hook(rows([CTX, b"{}", b"a" * 900], [CTX, b"{}", b"b"], [CTX, b"{}", b"b"]))
+    assert [s["input"] for s in r["samples"]] == [2] and r["samples"][0]["on"].startswith("aaa") and len(r["samples"][0]["on"]) == 400
+    assert ab.compare_hook(rows([CTX], [CTX], [CTX]))["samples"] == []
+
+
 def test_a_nondeterministic_control_voids_the_run_even_when_on_equals_off():
     r = ab.compare_hook(rows([CTX, CTX], [CTX, CTX], [CTX, b"{}"]))
     assert r["passes"] is None and r["n_control_diff"] == 1 and "VOID" in r["reason"]
@@ -79,7 +118,7 @@ def test_all_silent_outputs_are_annulled_not_a_pass_of_strength():
 
 
 def per(passes, ne=60):
-    return {h: {"passes": passes, "strength": ab.classify(ne)} for h in ab.HOOKS}
+    return {h: {"passes": passes, "strength": ab.classify(ne), "noise_read": "indistinguishable"} for h in ab.HOOKS}
 
 
 def test_overall_needs_the_flag_to_have_had_an_effect_in_the_on_arm():

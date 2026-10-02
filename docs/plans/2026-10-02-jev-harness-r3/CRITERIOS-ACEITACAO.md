@@ -503,3 +503,16 @@ arquivo de sondagem NA FASE MEDIDA (o aquecimento é excluído). Emissor ocioso 
 **E9.8-i (17:40 BRT)** — A rodada real usa projetos VIRGENS em `/tmp/r3s4b/{on,off,ctl}`: o 1º conjunto (`/tmp/r3s4`) recebeu as sondagens
 exploratórias de (g) — o daemon, a sessão e o banco do `on` já tinham estado enquanto `off`/`ctl` eram novos — e foi descartado
 (daemons parados com `daemon-ctl stop --project`, SIGTERM; os daemons global, de konverter e de analise ficaram intactos).
+**E9.8-j/k/l/m (17:55 BRT — ainda ANTES de qualquer comparação ON × OFF da rodada real).** Duas verificações curtas do encanamento (8
+entradas, em projetos descartáveis `/tmp/r3s4c`) devolveram **VOID**: o controle (OFF × ctl, braços idênticos) diferiu. Causas
+observadas, não supostas: (1) `post-bash` imprime estatísticas de relógio/banco (`reliability N% (7d)`, `velocity V edits/day`) que variam
+entre daemons idênticos, e o dedup do `cli-suggest` carrega `há Ns`; (2) `post-bash` registra a falha no Pensieve com
+`try_borrow_mut` e **pula** o registro quando o Pensieve está emprestado (`post_bash.rs:204-215`), então três daemons com as mesmas
+entradas aprenderam falhas diferentes (o `pre-bash` injetou "Similar command failed recently" no `ctl` e não em `on`/`off`).
+**(j) Mascaramento mínimo:** só `reliability \d+%`, `velocity [\d.]+ edits/day` e `há \d+s` (além de `<raiz>` → `@ROOT@`); NUNCA a
+decisão (`similarity=N%`) nem o orçamento (`N B`). **(k) Ordem:** rotação ON/OFF/ctl por entrada (a ordem fixa alinhava um braço ao 1º/último).
+**(l) Pausa:** 0,2 s após cada chamada, para o trabalho assíncrono do daemon assentar. **(m) Leitura "vs ruído" (SECUNDÁRIA):** contagens
+pareadas ON×OFF, ON×ctl e OFF×ctl; `noise_excess = max(ON×OFF, ON×ctl) − OFF×ctl`; por hook, "indistinguível do ruído" ⇔ excesso ≤ 2 + 25 % de
+OFF×ctl, senão "excede o ruído"; o agregado é "indistinguível" só se todos os hooks forem e o ON tiver emitido eventos. **O S4 estrito (E9.7)
+não muda** — controle diferente ⇒ VOID — e a leitura "vs ruído" é reportada ao lado, **nunca promovida a PASS do S4**.
+**Ferramenta:** `scripts/r3_s4_ab.py` (23 testes; mutação hermética 17/17).
