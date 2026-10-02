@@ -263,6 +263,17 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         Some(ctx) if !ctx.is_empty() => {
             // Truncate to CILA budget — prevents oversized context at low levels.
             let ctx = truncate_str(&ctx, max_chars).to_string();
+            // S-9 (r3 shadow): observe the injection before it reaches the model.
+            // Observe-only — never alters `ctx` or the returned response.
+            {
+                let sid = crate::shared::signals::payload_session(input).unwrap_or("");
+                touring_hook_runtime::r3_shadow::maybe_emit_a1_block(
+                    &runtime.project_root,
+                    sid,
+                    "pre-bash",
+                    &ctx,
+                );
+            }
             HookResponse::Context {
                 context: ctx,
                 event_name: Some("PreToolUse".to_string()),
@@ -531,6 +542,114 @@ mod tests {
         let tmp = TempDir::new().unwrap();
         let db = FileKnowledgeDB::new(&tmp.path().join("test.db")).unwrap();
         (tmp, db)
+    }
+
+    /// Guard: the call site in `run_returning` exists and fires.
+    ///
+    /// Mutant killed: `call_site_removed_from_pre_bash` — removing the
+    /// `maybe_emit_a1_block(…)` call from `run_returning` causes 0 lines to be
+    /// emitted even when `HookResponse::Context` is returned; this assertion fails.
+    ///
+    /// The thread-local [`touring_hook_runtime::r3_shadow::with_events_path`] is used
+    /// so parallel tests never touch the production events file and never race on
+    /// `TOURING_R3_EVENTS_FILE`.
+    #[test]
+    fn a1_block_emitted_at_context_injection() {
+        use sha2::{Digest as _, Sha256};
+        use touring_hook_runtime::r3_shadow;
+
+        assert!(
+            std::env::var_os(r3_shadow::ENV_FLAG).is_none(),
+            "run without TOURING_R3_SHADOW"
+        );
+
+        let tmp = TempDir::new().expect("tempdir");
+
+        // Enable shadow via toml for this project_root.
+        let toml_dir = tmp.path().join(".touring");
+        std::fs::create_dir_all(&toml_dir).expect("mkdir .touring");
+        std::fs::write(toml_dir.join("touring.toml"), "[shadow]\nr3 = true\n")
+            .expect("write touring.toml");
+
+        // Build runtime first, then insert a failed outcome directly into
+        // runtime.knowledge — avoids any DB path or schema-version mismatch.
+        let runtime = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        // Compute short_key the SAME way run_returning does so the DB lookup
+        // matches the stored record (command_shape may return "ruff check", not "ruff").
+        let cmd = "ruff check src/target_file.py";
+        let short_key = crate::shared::bash_ast_validator::command_shape(cmd)
+            .unwrap_or_else(|| extract_command_short(cmd));
+        runtime
+            .ctx
+            .knowledge
+            .record_bash_outcome(&BashOutcome {
+                command: cmd.to_string(),
+                command_short: short_key,
+                exit_code: 1,
+                success: false,
+                error_pattern: Some("E501: line too long".to_string()),
+                file_context: Some("src/target_file.py".to_string()),
+                ..Default::default()
+            })
+            .ok();
+
+        // ── Case 1: input that produces HookResponse::Context ────────────────
+        let input_ctx = serde_json::json!({
+            "session_id": "test-session-callsite",
+            "tool_input": { "command": "ruff check src/target_file.py" }
+        });
+        let events = tmp.path().join("callsite_events.jsonl");
+        let response = r3_shadow::with_events_path(&events, || run_returning(&runtime, &input_ctx));
+
+        match response {
+            HookResponse::Context { ref context, .. } => {
+                // Call site present → exactly 1 a1_block line.
+                let text = std::fs::read_to_string(&events).expect("read events");
+                let lines: Vec<_> = text.lines().collect();
+                assert_eq!(lines.len(), 1, "exactly 1 a1_block per Context injection");
+
+                let ev: serde_json::Value = serde_json::from_str(lines[0]).expect("valid JSON");
+                assert_eq!(ev["kind"], "a1_block");
+                assert_eq!(
+                    ev["bytes"].as_u64().unwrap(),
+                    context.len() as u64,
+                    "bytes must equal the RETURNED context length"
+                );
+                // first_line_sha must be sha256 of first line — computed independently.
+                let first_line = context.lines().next().unwrap_or("");
+                let expected_sha: String = {
+                    let d = Sha256::digest(first_line.as_bytes());
+                    d.iter().take(8).map(|b| format!("{b:02x}")).collect()
+                };
+                assert_eq!(
+                    ev["first_line_sha"], expected_sha,
+                    "first_line_sha must be sha256 of first line of returned context"
+                );
+            }
+            _ => {
+                // Non-Context response → 0 lines expected (Allow/Deny don't inject).
+                let has_lines = events
+                    .exists()
+                    .then(|| std::fs::read_to_string(&events).unwrap_or_default())
+                    .unwrap_or_default();
+                assert!(
+                    has_lines.is_empty(),
+                    "non-Context response must not emit a1_block; got: {has_lines}"
+                );
+                panic!("expected HookResponse::Context — check knowledge DB pre-population");
+            }
+        }
+
+        // ── Case 2: no tool_input → Allow, 0 lines ───────────────────────────
+        let events2 = tmp.path().join("callsite_events2.jsonl");
+        let resp2 = r3_shadow::with_events_path(&events2, || {
+            run_returning(&runtime, &serde_json::json!({}))
+        });
+        assert!(
+            matches!(resp2, HookResponse::Allow),
+            "no tool_input must return Allow"
+        );
+        assert!(!events2.exists(), "Allow response must not emit a1_block");
     }
 
     #[test]
