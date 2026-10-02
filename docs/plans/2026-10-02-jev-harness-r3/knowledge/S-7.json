@@ -1,0 +1,45 @@
+{
+  "phase": "S-7",
+  "entities": [
+    {
+      "entity_id": "phase:S-7",
+      "type": "phase",
+      "description": "Replay A1 (commit 32074ff6): B-D (regra) em test = 262 blocos Touring, 3 sess\u00f5es, bytes_saved 0,1094 < piso 0,25 => NAO_ADOTADO_PELOS_DADOS (mec\u00e2nico, harm irrelevante: harm_moot). Reproduzido por mim com a fun\u00e7\u00e3o de parti\u00e7\u00e3o dele (133 descartados, 128 EXEMPT, 0 descartados). Ressalva de pot\u00eancia declarada: B-D economiza 35,7% em train, 21,7% em val e 10,9% em test (test = 3 sess\u00f5es). B-L e B-J ~ moeda em acordo com B-D. 0 chamadas de API novas. Pacote cego do A1 CANCELADO (in\u00fatil para o veredito)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-7:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-7|produces|memory:loop:task_1790956285165149342:S-7:done",
+      "source": "phase:S-7",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-7:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-7:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-7:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-7:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-7:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}

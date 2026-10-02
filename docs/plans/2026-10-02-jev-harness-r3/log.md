@@ -40,3 +40,7 @@ Porte fiel de injection_family/count_propositions + extrator A1 (commit e79a4e9e
 ## 2026-10-02T13:51:39.274536-03:00 — S-4 done
 
 Congelamento, split e audit sample (commit e79a4e9e): n=180 (132/48), splits 66/24 por metade, 7+8 sessões sem cruzar, MANIFEST.sha256 + --check que pega 1 byte. Teste hermético (R3_FAKE_REPO/EXTERNAL): provado dentro do sandbox e nativo, corpus real intacto por hash+mtime. Pacote cego = 179 (a2-00019 retido: rota vazia, Errata 4 E4.7).
+
+## 2026-10-02T14:35:39.469816-03:00 — S-7 done
+
+Replay A1 (commit 32074ff6): B-D (regra) em test = 262 blocos Touring, 3 sessões, bytes_saved 0,1094 < piso 0,25 => NAO_ADOTADO_PELOS_DADOS (mecânico, harm irrelevante: harm_moot). Reproduzido por mim com a função de partição dele (133 descartados, 128 EXEMPT, 0 descartados). Ressalva de potência declarada: B-D economiza 35,7% em train, 21,7% em val e 10,9% em test (test = 3 sessões). B-L e B-J ~ moeda em acordo com B-D. 0 chamadas de API novas. Pacote cego do A1 CANCELADO (inútil para o veredito).
