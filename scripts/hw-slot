@@ -15,8 +15,11 @@ Classes (design agreed with the analise coordinator, 02/10/2026)
          ALSO takes a heavy slot, so total concurrent heavy jobs stay <= 2.
 
 Contract
-  * Slots are flock'd files whose fd the job inherits: a slot lives as long as any
-    process of the job; SIGKILL of the whole job frees it at once.
+  * Slots are flock'd files held by the WRAPPER for exactly as long as the job runs; the
+    kernel frees them if the wrapper dies. The fd is deliberately NOT inherited: a daemon
+    started inside a job (update-touring restarts the global one) would hold the slot for
+    days — the incident of 02/10/2026. Trade-off: SIGKILL of the wrapper alone frees the
+    slot while its orphaned job keeps running unslotted (rare; the whole-group kill is clean).
   * Re-entrant: the job runs with HW_SLOT_HELD=<lock>@<holder pid>; a nested hw-slot
     covered by it passes straight through (the judge chains scorer + pytest and would
     deadlock itself otherwise). The env is VERIFIED against the kernel lock and the
@@ -71,12 +74,20 @@ def all_names():
     return lock_names("rust") + lock_names("heavy")
 
 
+# Lock-file generation. The first generation (no tag) leaked: its fd was inherited by
+# the job, so the GLOBAL daemon that `update-touring` restarts inside a job kept
+# rust-1/heavy-1 held for as long as it lived (lsof 02/10/2026: touring-daemon fd 3,4).
+# Locks already leaked cannot be released from outside the daemon (REGRA #19), so the
+# fixed code uses fresh file names instead of waiting for the next daemon restart.
+LOCK_GEN = "g2"
+
+
 def lock_path(name):
-    return slot_dir() / f"hw-slot-{name}.lock"
+    return slot_dir() / f"hw-slot-{LOCK_GEN}-{name}.lock"
 
 
 def info_path(name):
-    return slot_dir() / f"hw-slot-{name}.info"
+    return slot_dir() / f"hw-slot-{LOCK_GEN}-{name}.info"
 
 
 def pkg_temp_c():
@@ -185,7 +196,8 @@ def try_acquire_all(classes):
             except BlockingIOError:
                 os.close(fd)
                 continue
-            os.set_inheritable(fd, True)
+            # NOT inheritable (the Python default, stated on purpose): a descendant that
+            # outlives the job — a daemon — must never keep the slot.
             got.append((name, fd))
             break
         else:
@@ -284,7 +296,7 @@ def run_job(a, cmd, held, new):
     env[HELD_ENV] = ",".join(list(held.values()) + [f"{n}@{os.getpid()}" for n, _ in new])
     t0 = time.time()
     try:
-        child = subprocess.Popen(cmd, env=env, pass_fds=tuple(fd for _, fd in new))
+        child = subprocess.Popen(cmd, env=env)  # no pass_fds: the wrapper alone holds the lock
     except OSError as e:
         err(f"não executou {cmd[0]!r}: {e}")
         return 127, t0, None
