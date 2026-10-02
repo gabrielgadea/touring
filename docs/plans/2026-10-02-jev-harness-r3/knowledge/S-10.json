@@ -1,0 +1,45 @@
+{
+  "phase": "S-10",
+  "entities": [
+    {
+      "entity_id": "phase:S-10",
+      "type": "phase",
+      "description": "Fam\u00edlia shadow no touring kpi -j (por use_case e bra\u00e7o: n distinto, acordo com B0, would_drop, p50/p95 por rank). Sem journal => unmeasured, nunca 0; journal pr\u00f3prio, a fam\u00edlia decision intocada. Commit 4f97989a; 12 testes do m\u00f3dulo verdes na reexecu\u00e7\u00e3o independente; 12 mutantes S1-S12 mortos segundo o engenheiro."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-10:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-10|produces|memory:loop:task_1790956285165149342:S-10:done",
+      "source": "phase:S-10",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-10:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-10:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-10:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-10:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-10:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}
