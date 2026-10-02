@@ -44,3 +44,11 @@ Congelamento, split e audit sample (commit e79a4e9e): n=180 (132/48), splits 66/
 ## 2026-10-02T14:35:39.469816-03:00 — S-7 done
 
 Replay A1 (commit 32074ff6): B-D (regra) em test = 262 blocos Touring, 3 sessões, bytes_saved 0,1094 < piso 0,25 => NAO_ADOTADO_PELOS_DADOS (mecânico, harm irrelevante: harm_moot). Reproduzido por mim com a função de partição dele (133 descartados, 128 EXEMPT, 0 descartados). Ressalva de potência declarada: B-D economiza 35,7% em train, 21,7% em val e 10,9% em test (test = 3 sessões). B-L e B-J ~ moeda em acordo com B-D. 0 chamadas de API novas. Pacote cego do A1 CANCELADO (inútil para o veredito).
+
+## 2026-10-02T14:56:32.929498-03:00 — S-9 done
+
+Emissor A1 em pre_bash::run_returning (blast 7), observe-only, default OFF, commit acima. 4/4 mutantes mortos por testes nas minhas execuções (a 1ª entrega do engenheiro tinha 1/4: sobrevivia a remoção do ponto de chamada e o VALOR de sha e bytes). S1a medido: OFF p99 963 ns, emissão p99 27 us. Ressalva declarada: cobre só o que o pre-bash injeta; S-9b (cli_suggester, 4 pontos de emissão) não feito: o A1 online NÃO cobre touring-suggest.
+
+## 2026-10-02T15:15:15.456896-03:00 — S-13 done
+
+Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapshot da toolchain, canal default); verificado AO VIVO: touring 30.4.91, daemon novo com ambiente limpo (sem TOURING_CODE_MODE/R3_SHADOW), doctor ok, CUDA ok. NÃO propagado a pinados. Shadow ligado só em .touring/touring.toml; primeiro evento real a2_offer_closed em 15:10:20; avaliador (unit transitória) ativo e kpi shadow measured. Incidente: o job de fundo da ferramenta é parado aos 30min, o release foi relançado desacoplado.
