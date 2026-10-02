@@ -136,3 +136,44 @@ que é classificado em produção: ele só observa e registra.
 Não treinar especialista, não promover nada a advisory/gate, não propagar a projetos pinados,
 não tocar em A3 (comando destrutivo), A4 (roteamento de modelo) nem no Tier B. O r4 decide, com os
 números deste.
+
+---
+
+# Errata 1 — 02/10/2026 12:48:12 BRT — registrada ANTES de qualquer extração, replay ou chamada de modelo
+
+> Motivo: duas definições do §1 não correspondem ao código. Verificado em
+> [harness-scan-t03](/harness-scan-t03.md) §1.1 e §2.1 e por leitura direta de
+> `cli_suggester.rs:4377-4392`, `:4482-4510`, `:4533-4545` e `:4880-4895`.
+> **Nenhum limiar muda. Nenhum braço foi executado.** Divulgação: os volumes agregados por família
+> do relatório M8 (`explore-v2.md`) já eram conhecidos e orientaram a escolha do ESCOPO (E1.1);
+> nenhum resultado de braço existia. É errata de MÉTRICA (o que se mede), no sentido do cabeçalho.
+
+**E1.1 — A1, unidade de análise.** "Bloco de injeção" passa a significar **apenas blocos emitidos por
+hooks do Touring**, não os do harness do Claude Code nem de outros plugins. Operacionalmente: as
+famílias `touring-suggest`, `code-mode-deny`, `loop-outer`, `past-lessons`, `session-start` e
+`post-tool-echo` (tabela de `context_budget.rs:141-178`). A família `other` é o **catch-all do KPI**
+(`context_budget.rs:184`), e seus maiores blocos são a listagem de skills do harness (≈ 90 KB nos 3
+transcripts medidos) e o buffer do plugin REMEMBER (≈ 22 KB) — o Touring não os emite e nenhum gate
+dele pode descartá-los. Os denominadores de C-A1-1 e C-A1-3 passam a ser os bytes dessas seis
+famílias. C-A1-4 continua sobre o total do KPI, agora com a **decomposição Touring × harness**
+explícita no relatório.
+
+**E1.2 — A2, o baseline é um detector de 1ª ocorrência, não um classificador de 3 classes.**
+`classify_route_outcome` é chamado em cada Bash seguinte e, ao devolver `None`, **não consome a
+oferta** (`cli_suggester.rs:4885-4886`); só devolve `Some` para `touring run `/`touring exec ` (valor
+1,0, ou 0,5 se o programa for trivial) ou para um token de bypass por env (valor 0,0). Ele nunca
+rotula "ignorou". Definição de **B0**: `classify_route_outcome` aplicado *sequencialmente* aos
+próximos **K = 3 comandos Bash** da mesma sessão; o primeiro `Some(v)` decide (`v > 0` ⇒ followed;
+`v = 0` ⇒ not-followed); sem nenhum `Some` ⇒ not-followed. **A métrica primária de A2 passa a ser o
+acordo BINÁRIO em `followed` × `not-followed`** (gold: `followed` contra {`ignored`, `bypass`}); o
+acordo em 3 classes fica como secundário. Sem isto, B0 seria penalizado por construção por uma
+classe que ele não tem.
+
+**E1.3 — A2, estratificação do audit sample.** Estratificar pela **decisão de B0** (followed /
+not-followed) em partes iguais (120/120 de n = 240), não por modo: só o modo `code` tem ofertas
+(`code_mode_arm.json`: `both` e `native` = 0), e o que importa é incluir os casos em que B0 pode
+errar. C-A2-2 passa a ser por estrato de B0 (n_test ≥ 20), com o mesmo limiar (≥ −0,03).
+
+**E1.4 — A2, janela.** K = 3 chamadas **Bash** (não "3 ferramentas quaisquer"), da mesma `session_id`,
+cortada na próxima oferta da mesma sessão (uma oferta nova substitui a anterior:
+`record_route_offer` insere pela chave da sessão, `:4536`).
