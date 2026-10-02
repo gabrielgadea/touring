@@ -15,7 +15,7 @@ FORBIDDEN = ("key.jsonl", "withheld.json", "adj_claude.jsonl", "a2_offers", "aud
              "CRITERIOS-ACEITACAO", "frozen-verified")
 ALLOWED_FILES = ("adj_pack/rater_view/INSTRUCOES.md", "adj_pack/rater_view/pack_blind.jsonl", "adj_out/adj_minimax.jsonl")
 ALLOWED_DIRS = ("adj_pack/rater_view", "adj_out")   # a directory the allowed files live in (cd / ls of THAT dir only)
-HOME_PATH = re.compile(r"(?:/home/[A-Za-z0-9_.-]+|~)/[^\s'\"`;|&<>)(]*")
+HOME_PATH = re.compile(r"(?:/home/[A-Za-z0-9_.-]+|~)/[^\s'\"`;|&<>)(\\]*")   # `\` is shell syntax (line continuation), never path
 
 
 def _calls(entry):
