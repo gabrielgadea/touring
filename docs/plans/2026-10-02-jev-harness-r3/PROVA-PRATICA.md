@@ -10,7 +10,7 @@ timestamp: 2026-10-02T16:12:00-03:00
 
 # r3 — Prova prática
 
-Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*. Resposta direta: **a tubulação do shadow funciona ao vivo, de ponta a ponta, nos dois casos; o valor de produto dos modelos (Jev/Laya) NÃO foi provado** e dois critérios ficaram fracos ou interinos. "Perfeito" não é o que os dados sustentam; o que segue é o que sustentam.
+Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*. Resposta direta: **a tubulação do shadow funciona ao vivo, de ponta a ponta, nos dois casos; o valor dos modelos (Jev/Laya) foi MEDIDO e, com a entrada que receberam, é negativo (nenhum supera o B0 regra)** — e dois critérios ficaram fracos ou interinos. "Perfeito" não é o que os dados sustentam; o que segue é o que sustentam.
 
 ## 0. Quadro-resumo
 
@@ -20,9 +20,10 @@ Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*
 | Emissor A1 (bloco injetado pelo `pre-bash`) | **Funciona ao vivo** (provado nesta sessão, 15:55 BRT) | §2 |
 | Avaliador online (B-D regra, B-L Laya em CPU) → journal → `touring kpi` | **Funciona ao vivo** | §2, §3 |
 | Custo no caminho quente (S1a/S1b), fail-open (S2), privacidade (S6) | **Passam**, medidos | RESULTS §2 |
-| Vereditos A1/A2 pelos critérios congelados | **Computados**: A1 NAO_ADOTADO, A2 GOLD_INSUFICIENTE | RESULTS §1 |
+| Vereditos A1/A2 pelos critérios congelados | **Computados**: A1 NAO_ADOTADO, A2 NAO_ADOTADO (gold κ = 0,77; reimplementação independente bate) | RESULTS §1 |
+| Gold do A2 (2 avaliadores cross-vendor + desempate) | **Existe** (171 itens), com limitações de família/desvio E3.3-bis; verificado por código | RESULTS §4, Errata 7 |
 | Byte-identidade ON×OFF (S4) | **Fraca** (`pre-bash` 1/200) e **anulada** (`cli-suggest` 0/200) | RESULTS §2 |
-| Valor dos modelos (Jev/Laya) no A2 | **Não provado** (falta o gold; polaridade do `noul` do Laya não verificada) | RESULTS §1 |
+| Valor dos modelos (Jev/Laya) no A2 | **Medido, negativo para a entrada recebida**: B0 0,906 · B-J 0,835 · B-L 0,706 de acordo com o gold; braços só viram features redigidas (≠ B0/gold). Não prova que um modelo COM texto falharia | RESULTS §1, §4 |
 | A1 online nos 4 pontos do `cli_suggester` | **Não feito** (S-9b) | RESULTS §4 |
 
 ## 1. Ambiente da prova
@@ -56,7 +57,7 @@ Observado: o `pre-bash` injetou `Similar command failed recently (similarity=74%
 
 ## 3. Prova viva do A2 (tráfego real)
 
-Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cli-suggest` é fechada (consumida, ignorada ou por janela). O `kpi` mostra `a2_outcome`: 5 eventos, 5 decisões do B-L (Laya base, CPU), `agreement = 0.0` com n = 5 contra o B0 online, latência p50 342 ms / p95 3.621 ms (a 1ª decisão paga a carga de ~842 MB do modelo; as seguintes ficam em ~340–380 ms). O B-L decidiu `followed = False` nos 2 primeiros eventos reais, **discordando** do B0. Com n = 5 e sem gold, isso não diz quem tem razão (ver polaridade em RESULTS §1).
+Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cli-suggest` é fechada (consumida, ignorada ou por janela). O `kpi` mostra `a2_outcome`: 5 eventos, 5 decisões do B-L (Laya base, CPU), `agreement = 0.0` com n = 5 contra o B0 online, latência p50 342 ms / p95 3.621 ms (a 1ª decisão paga a carga de ~842 MB do modelo; as seguintes ficam em ~340–380 ms). O B-L decidiu `followed = False` nos 2 primeiros eventos reais, **discordando** do B0. Com n = 5 eventos online e sem gold do tráfego online, isso não diz quem tem razão; a comparação com gold é a do replay (RESULTS §1: o B-L concorda menos com o gold que o B0, 0,706 × 0,906).
 
 ## 4. Entrega e saúde (medidas, não prometidas)
 
@@ -71,6 +72,8 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 | `scripts/r3_adjudication.py` | 27 | 20 |
 | `scripts/r3_results_gate.py` | 16 | 8 |
 | `scripts/r3_prove_delivery.py` | **38** | 19 (anteriores) **+ 6** do fix S4 (cópia hermética, baseline verde impresso antes) |
+| `scripts/r3_score_a2.py` (pontuador do A2, Errata 8) | **20** (inclui fixture calculado à mão) | **18/18** (1 equivalente identificado e trocado) |
+| `scripts/r3_scan_rater_transcript.py` (E7.2) | **29** | **13/13** |
 | Emissor A1 (`pre_bash.rs`, S-9) | testes de unidade + S1a | 4/4 (a 1ª entrega tinha 1/4 e foi recusada) |
 
 Limite da prova: os harnesses de mutação vivem no scratchpad da sessão (não no repo); os resultados estão registrados em `phases/S-*.md` e no `log.md`. Os testes que eles exercitam estão no repo e rodam sem eles.
@@ -81,7 +84,10 @@ Limite da prova: os harnesses de mutação vivem no scratchpad da sessão (não 
 cd ~/projects/touring
 # vereditos mecânicos
 python3 scripts/r3_results_gate.py a1 ~/.claude/touring/r3-replay/a1/results-a1.json
-python3 scripts/r3_results_gate.py a2 ~/.claude/touring/r3-replay/a2/results-a2.json
+python3 scripts/r3_score_a2.py --predictions ~/.claude/touring/r3-replay/a2/predictions-a2.jsonl \
+  --gold ~/.claude/touring/r3-data/adj_merge_final/gold_a2.jsonl --out /tmp/results-a2-gold.json   # puro: sem modelo, sem API
+python3 scripts/r3_results_gate.py a2 /tmp/results-a2-gold.json                                   # NAO_ADOTADO_PELOS_DADOS
+python3 scripts/r3_scan_rater_transcript.py <transcript do rater> [--model claude --allow-file adj_out/adj_tiebreak.jsonl]
 # suítes
 python3 -m pytest scripts/test_r3_prove_delivery.py scripts/test_r3_results_gate.py scripts/test_r3_adjudication.py -q
 # estado vivo do shadow
@@ -91,8 +97,8 @@ tail -n 5 ~/.claude/touring/logs/r3_events.jsonl ~/.claude/touring/logs/r3_shado
 
 ## 7. O que NÃO está provado (e por quê)
 
-1. **Que Jev ou Laya agregam valor.** O A2 está em GOLD_INSUFICIENTE: sem o 2º avaliador não-Claude não há κ nem acordo. Qualquer número de "acerto" aqui seria contra uma regra (B0), não contra a verdade.
-2. **Polaridade do `noul`** (Laya): AUC 0,002 contra o B0 é inversão suspeita de instrumento, não conclusão sobre o modelo.
+1. **Que um modelo COM acesso ao texto dos comandos não superaria o B0.** O A2 mediu Jev e Laya só com features redigidas (1º token dos comandos); o B-L deveria ter recebido texto truncado pelo §1 e não recebeu. É a pergunta aberta do r4.
+2. **O que o `noul` do Laya mede.** AUC 0,12 contra o gold (associação inversa sistemática) e 0,500 numa sonda sintética de 8 casos: não é P(seguida), e não se inverte (E8.8).
 3. **S4 ponta a ponta**: o scratch limpo faz os hooks responderem 0 bytes quase sempre; `pre-bash` tem 1 comparação com conteúdo.
 4. **S3**: ~1 oferta/34 min; a janela de 24 h exigiria o shadow ligado até amanhã.
 5. **A1 fora do `pre-bash`**: `cli_suggester` não emite A1 (S-9b).
