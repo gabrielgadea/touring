@@ -280,3 +280,28 @@ aceite: `rota cortada em '\''` = 0 e `rota None/vazia` = 0.
 verificado de forma independente. Os "198 = 136/62" da Errata 3 e o "≈ 119 itens em `audit-test`" da E3.2 ficam
 superados: `audit-test` tem 90, e a meia-largura do IC do delta passa a ≈ ±0,08. A E3.2 já previa exatamente isso (o
 estado `INCONCLUSIVO_POR_POTENCIA` existe para a amostra que não decide). O n é refeito se E4.5 mudar a população.
+
+## Errata 4 — adendo 2, 02/10/2026 13:38:51 BRT — ainda ANTES de existir qualquer rótulo
+
+> Fecha a E4.5 com a medição final e registra duas regras novas. **Nenhum limiar muda.** O re-congelamento
+> (n = 180, 132 followed / 48 not-followed, 66/24 em cada metade) foi verificado de forma independente.
+
+**E4.5 (retificada) — o invariante de aceite estava mal especificado.** Eu escrevi "rota cortada em `'\''` = 0 e rota
+vazia = 0": tratava o token de escape do shell-quoting como evidência de corte. A medição desfez isso. Um parser de
+shell-quoting PRÓPRIO (que desfaz o escape) e a gramática final do extrator (`--code '(.*)'\n`) concordam na EXTENSÃO
+do programa nas 180 ofertas: 89 rotas idênticas e 91 que diferem só na representação (`guardada == escape(minha)`),
+**0 outras**. O invariante correto é esse — concordância entre dois parsers independentes — e vale como aceite. A
+rota guardada preserva `'\''`; o texto **não** é reescrito para o avaliador (o braço de modelo lê o texto guardado:
+todos os leitores veem o mesmo), e o `INSTRUCOES.md` ensina a leitura. Seis rotas terminam em `'\''` porque o próprio
+programa termina numa aspa.
+**E4.7 — oferta com programa vazio.** 1 oferta (`a2-00019`) traz literalmente `--code ''` no deny (o programa fundido
+não coube no orçamento): é dado, não falha de extração. Sem ação recomendada não há contra o que julgar os comandos:
+o item sai do pacote, é **contado** (`withheld.json`, motivo `empty_route`) e fica fora do gold — o mesmo tratamento do
+`indeterminate` (E2.2). A regra olha o TEXTO da oferta, nunca a decisão de B0, e foi fixada antes de existir rótulo.
+`rota_proposta = None` (a extração não achou o programa) segue recusando o pacote inteiro.
+**E4.8 — o congelamento tem de ser estável.** O teste `test_check_detects_a_single_changed_byte` do S-4 executa o
+congelamento REAL sobre o corpus vivo (e de novo no `finally`): fora do sandbox, regrava a amostra e o manifesto a cada
+execução (observado: `audit_sample.jsonl` regravado às 13:34:46, conteúdo idêntico por hash). Como os `item_id` são
+posicionais, a primeira oferta nova renumera tudo e embaralharia o mapeamento rótulo→item. Medidas: (i) cópia
+verificada com hashes em `r3-data/frozen-verified-*/`; (ii) o gold é juntado por `key.jsonl` (que carrega
+`session`+`ts`), nunca por posição; (iii) o teste passa a ser hermético (diretório temporário) por pedido ao dono.

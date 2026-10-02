@@ -66,7 +66,8 @@ def test_pack_accepts_what_the_real_extractor_emits(tmp_path):
     import r3_extract_a2_offers as ex  # noqa: PLC0415
 
     deny = ("PreToolUse:Bash hook error: [CODE MODE · rajada] 2ª inspeção `grep` em 300s\n"
-            "  touring run --lang bash --code 'grep -n a f; grep -n b g'")
+            "  touring run --lang bash --code 'grep -n a f; grep -n b g'\n"
+            "Sub-chamadas DENTRO do programa não passam por aqui; um `touring run` zera a janela.")  # the real deny has a trailer
     ev = lambda ts, content: json.dumps({"timestamp": ts, "message": {"content": content}})  # noqa: E731
     lines = [ev("2026-09-10T10:00:00Z", [{"type": "tool_result", "is_error": True, "content": deny}])]
     lines += [ev(f"2026-09-10T10:00:0{i}Z", [{"type": "tool_use", "name": "Bash", "input": {"command": c}}])
@@ -80,11 +81,26 @@ def test_pack_accepts_what_the_real_extractor_emits(tmp_path):
     assert blind[0]["rota_proposta"] == "grep -n a f; grep -n b g" and len(blind[0]["cmds"]) == 3
 
 
-def test_pack_refuses_a_row_without_a_route(tmp_path):
-    """No recommended action ⇒ nothing to judge the commands against. Fail LOUD, never ship a blind item."""
-    for bad in (None, "", "   "):
-        with pytest.raises(ValueError, match="a2-00000"):
-            adj.pack([dict(SAMPLE[0], rota_proposta=bad)], tmp_path / "x")
+def test_pack_refuses_a_row_whose_route_was_never_extracted(tmp_path):
+    """`None` = the extractor failed to find the program. Fail LOUD, never ship a blind item."""
+    with pytest.raises(ValueError, match="a2-00000"):
+        adj.pack([dict(SAMPLE[0], rota_proposta=None)], tmp_path / "x")
+
+
+def test_an_offer_whose_deny_carried_an_empty_program_is_withheld_and_counted(tmp_path):
+    """The deny literally said `--code ''` (the fused program did not fit the budget): that is DATA, not an extraction
+    failure. No recommended action ⇒ nothing to judge the commands against ⇒ out of the pack, counted, never silent."""
+    for empty in ("", "   "):
+        out = tmp_path / f"e{len(empty)}"
+        adj.pack([SAMPLE[0], dict(SAMPLE[1], rota_proposta=empty)], out, seed=1)
+        assert "a2-00001" not in (out / "rater_view" / "pack_blind.jsonl").read_text()
+        assert json.loads((out / "withheld.json").read_text()) == {"a2-00001": ["empty_route"]}
+
+
+def test_the_instructions_teach_how_to_read_the_shell_quoting_in_the_route():
+    """The deny embeds the program shell-quoted, so an inner `'` reads `'\\''`. The text is NOT rewritten for the rater
+    (the model arms read the stored text; every reader sees the same one) — the reading rule is taught instead."""
+    assert "'\\''" in adj.INSTRUCTIONS and "rota_proposta" in adj.INSTRUCTIONS
 
 
 @pytest.mark.parametrize("name", sorted(PLANTED))

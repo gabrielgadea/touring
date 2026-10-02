@@ -56,6 +56,8 @@ INSTRUCTIONS = """# Adjudicação cega — A2 (a oferta de rota foi seguida?)
 
 Para cada item você recebe a ROTA que o nudge recomendou (`rota_proposta`, um programa a executar) e os PRÓXIMOS
 comandos Bash da mesma sessão (`cmds`, até 3). Os textos vêm COMPLETOS, sem truncagem.
+Em `rota_proposta` o programa vem em shell-quoting: uma aspa simples interna aparece como `'\\''` — leia como `'`.
+Os `cmds` são o texto literal do comando. Pode haver menos de 3 comandos (ou nenhum): é o que existiu, não um erro.
 Responda UMA linha JSON por item em `adj_<seu-nome>.jsonl`: {"item_id": "...", "label": "..."}.
 
 - `followed`      — nas 3 chamadas o agente executou a ação recomendada (a mesma rota, ou equivalente semântico).
@@ -81,15 +83,24 @@ def _blind_text(row) -> str:
     return "\n".join([row["rota_proposta"], *row["cmds"]])  # raw text, NOT json.dumps: escaping hides `"token": "…"`
 
 
+def _withhold_reasons(row) -> list:
+    """Why an item must not reach a rater (names only, never values). An EMPTY program is data, not a failure: the deny
+    literally said `--code ''` (the fused program did not fit the budget), so there is no recommended action to judge the
+    commands against — withheld and counted, exactly like an `indeterminate` (E2.2)."""
+    if not row["rota_proposta"].strip():
+        return ["empty_route"]
+    return secret_findings(_blind_text(row))
+
+
 def pack(sample, out_dir, seed=SEED):
     """Write the blind pack (`pack_blind.jsonl`) + the key file + `withheld.json` (item → pattern names, no values)."""
     out = Path(out_dir)
     rows = list(sample)
-    no_route = [r["item_id"] for r in rows if not (r.get("rota_proposta") or "").strip()]
-    if no_route:  # nothing to judge the commands against: refuse, never ship a blind item
-        raise ValueError(f"{len(no_route)} row(s) without rota_proposta (no recommended action): {no_route[:5]}")
+    not_extracted = [r["item_id"] for r in rows if r.get("rota_proposta") is None]
+    if not_extracted:  # the extractor never found the program: refuse, never ship a blind item
+        raise ValueError(f"{len(not_extracted)} row(s) with no rota_proposta (extraction failed): {not_extracted[:5]}")
     out.mkdir(parents=True, exist_ok=True)
-    withheld = {r["item_id"]: hits for r in rows if (hits := secret_findings(_blind_text(r)))}
+    withheld = {r["item_id"]: why for r in rows if (why := _withhold_reasons(r))}
     rows = [r for r in rows if r["item_id"] not in withheld]
     (out / "withheld.json").write_text(json.dumps(withheld, ensure_ascii=False, indent=1))
     random.Random(seed).shuffle(rows)  # the order carries no information about B0 or time
