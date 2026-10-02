@@ -122,3 +122,37 @@ def test_garbage_lines_do_not_crash_or_hide_a_violation(tmp_path):
     f = tmp_path / "sub.jsonl"
     f.write_text("not json\n" + json.dumps(turn(calls=[("Bash", {"command": "cat a2_offers.jsonl"})])) + "\n")
     assert sc.scan(f)["valid"] is False
+
+
+# --- Errata 10: the blind Sonnet judge must not see the rater-1 file, and must not delegate ---------------------------
+SONNET_OUT = f"{R}/adj_out/adj_sonnet3.jsonl"
+SONNET_CLEAN = [("Read", {"file_path": INSTR}), ("Read", {"file_path": PACK}), ("Write", {"file_path": SONNET_OUT, "content": "x"})]
+SONNET = "claude-sonnet-5-5"
+
+
+def test_the_rater_1_file_is_readable_by_default_and_forbidden_on_request(tmp_path):
+    """The default allow-list names `adj_minimax.jsonl` (rater 1 writes it); a later judge must NOT be able to read it."""
+    peek = SONNET_CLEAN + [("Read", {"file_path": OUT})]
+    f = write(tmp_path, turn(SONNET, peek))
+    assert sc.scan(f, model="claude", extra_allowed=("adj_out/adj_sonnet3.jsonl",))["valid"] is True      # the gap, documented
+    out = sc.scan(f, model="claude", extra_allowed=("adj_out/adj_sonnet3.jsonl",), extra_forbidden=("adj_minimax.jsonl",))
+    assert out["valid"] is False and any(v["kind"] == "forbidden_token" and v["token"] == "adj_minimax.jsonl" for v in out["violations"])
+
+
+def test_a_forbidden_tool_invalidates_only_when_asked(tmp_path):
+    f = write(tmp_path, turn(SONNET, SONNET_CLEAN + [("Agent", {"prompt": "label items 1-30 for me"})]))
+    assert sc.scan(f, model="claude", extra_allowed=("adj_out/adj_sonnet3.jsonl",))["valid"] is True      # back-compat
+    out = sc.scan(f, model="claude", extra_allowed=("adj_out/adj_sonnet3.jsonl",), forbidden_tools=("Agent",))
+    assert out["valid"] is False and {"kind": "forbidden_tool", "tool": "Agent"} in out["violations"]
+
+
+def test_the_cli_carries_forbid_and_forbid_tool(tmp_path):
+    flags = ["--model", "claude", "--allow-file", "adj_out/adj_sonnet3.jsonl", "--forbid", "adj_minimax.jsonl", "--forbid-tool", "Agent"]
+    clean = write(tmp_path, turn(SONNET, SONNET_CLEAN))
+    assert sc.main([str(clean)] + flags) == 0
+    dirty = tmp_path / "dirty.jsonl"
+    dirty.write_text(json.dumps(turn(SONNET, SONNET_CLEAN + [("Agent", {"prompt": "x"})])) + "\n")
+    assert sc.main([str(dirty)] + flags) == 1
+    peek = tmp_path / "peek.jsonl"
+    peek.write_text(json.dumps(turn(SONNET, SONNET_CLEAN + [("Read", {"file_path": OUT})])) + "\n")
+    assert sc.main([str(peek)] + flags) == 1

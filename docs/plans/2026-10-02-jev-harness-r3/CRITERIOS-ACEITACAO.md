@@ -574,3 +574,41 @@ mudança de procedimento: mesmo código (`2f297e58`, mais o docstring do `31aa69
 "reproduzido" se a rodada 3 também der `passes = true` (controle OFF×ctl 0/200, ON×OFF 0/200, `on_events ≥ 1`, 0 contaminação do journal real). Se der VOID ou
 qualquer diferença, os dois resultados são reportados lado a lado, o S4 passa a "passou em 1 de 2 rodadas" e a diferença é investigada, nunca contornada.
 **Resultado da rodada 3** (início 18:02:04, fim 18:10:55; `s4-ab-run3.json` sha256 `7e9e8cf01be1299b…`): `passes = true`, reproduz a rodada 2 — controle OFF×ctl 0/200 e ON×OFF 0/200 nos 4 hooks, não vazias 175 · 57 · 71 · 0, as MESMAS contagens por hook da rodada 2; 178 eventos no ON (174 `a1_block` + `a2_offer_closed` `replaced` 3 / `window` 1, 33 sessões); 0 linhas novas no journal real e 0 hashes do experimento. **Alcance:** entradas e produto são determinísticos, então a réplica prova reprodutibilidade em estado virgem, não independência de ambiente.
+
+---
+
+# Errata 10 — 02/10/2026 19:26 -03:00 — registrada ANTES de existir qualquer rótulo do juiz Sonnet cego
+
+> Motivo: o Gabriel respondeu ao item 1 do canvas de decisões (E3.3-bis) com "lance um juiz cego sonnet". Leio como: um **3º avaliador cego**, Claude Sonnet de
+> contexto limpo, rotula os 179 itens do pacote; serve de **análise de sensibilidade** ao desvio E3.3-bis. **Não substitui o gold registrado, não revoga nem
+> aceita o E3.3-bis (segue em aberto, decisão dele), e o veredito primário continua o do gold registrado.** Conferido por `ls` às 19:26: `adj_out/` contém só
+> `adj_claude.jsonl`, `adj_minimax.jsonl`, `adj_tiebreak.jsonl`; **`adj_sonnet3.jsonl` não existe**.
+
+**E10.1 — desenho.** Juiz R3 = subagente (ferramenta `Agent`, `model: sonnet`, contexto limpo), cego a: decisão do B0, rótulos dos outros avaliadores, `key.jsonl`,
+gold. Prompt EXATO (a sessão-mãe não rotula, não resume itens e não influencia além dele): *"Leia
+`/home/gabrielgadea/.claude/touring/r3-data/adj_pack/rater_view/INSTRUCOES.md` e rotule os 179 itens de
+`/home/gabrielgadea/.claude/touring/r3-data/adj_pack/rater_view/pack_blind.jsonl` seguindo exatamente as instruções. Grave uma linha JSON por item em
+`/home/gabrielgadea/.claude/touring/r3-data/adj_out/adj_sonnet3.jsonl`, no formato {"item_id": "...", "label": "..."}, e confirme no fim a contagem de linhas
+(deve ser 179). Regras: não leia nenhum outro arquivo e não liste outros diretórios; não use a ferramenta Agent nem delegue a ninguém; não pule nem resuma
+itens; rotule cada item você mesmo, lendo-o."* É da **mesma família** do agente julgado (limitação E3.3, não resolvida por este juiz).
+
+**E10.2 — verificação mecânica, ANTES de qualquer uso do rótulo** (falha ⇒ R3 inválido, a análise de sensibilidade NÃO é feita e isso é reportado; o juiz não
+se repete): `python3 scripts/r3_scan_rater_transcript.py <transcript> --model sonnet --allow-file adj_out/adj_sonnet3.jsonl --forbid adj_minimax.jsonl --forbid
+adj_tiebreak --forbid adj_merge_final --forbid gold_a2 --forbid-tool Agent` (exit 0). Extensão feita para isto (commit da Errata 10): o verificador **permitia por
+padrão ler `adj_out/adj_minimax.jsonl`** (o arquivo do rater 1) e não via delegação; agora há `--forbid` e `--forbid-tool` (32 testes, mutação 17/17). Mais: o
+arquivo tem 179 linhas, um `item_id` por item, rótulos no domínio (`r3_adjudication.py`).
+
+**E10.3 — análise (pré-declarada; nada aqui altera o gold registrado nem a regra do `r3_results_gate.py`).** `scripts/r3_sensitivity_gold.py`
+(12 testes, mutação 14/14): (1) κ de Cohen **por par** — R1×R2 (já registrado, 0,7707), **R1×R3** (MiniMax × Sonnet, a única comparação entre famílias que
+este juiz traz) e R2×R3 (mesma família) —, com a mesma projeção binária (seguida × não seguida) e a mesma exclusão de `indeterminate` do `merge`; (2) **gold
+alternativo por maioria** dos três (um avaliador `indeterminate` se abstém; menos de 2 votos válidos ou empate exclui o item; unanimidade entre os votos válidos
+= `agree`, 2×1 = `tiebreak`), pontuado com o MESMO pontuador (`r3_score_a2.py`, Errata 8) sobre as predições congeladas
+`~/.claude/touring/r3-replay/a2/predictions-a2.jsonl`; a leitura `agree-only` do pontuador é a leitura **unânime**; (3) concordância do R3 com o gold
+registrado (n de itens iguais / n de itens do gold). Saída fora do corpus congelado: `~/.claude/touring/r3-data/adj_sens3/` (nada é regravado em
+`adj_merge_final/` nem em `r3-replay/`). Comando: `python3 scripts/r3_sensitivity_gold.py --r1 adj_out/adj_minimax.jsonl --r2 adj_out/adj_claude.jsonl --r3
+adj_out/adj_sonnet3.jsonl --out-dir adj_sens3 --predictions r3-replay/a2/predictions-a2.jsonl --registered r3-replay/a2/results-a2-gold.json`.
+
+**E10.4 — regra de leitura, fixada antes.** O A2 é "**robusto ao E3.3-bis**" se, e só se, os três vereditos do gate coincidirem: registrado, alternativo por
+maioria e alternativo unânime. Se algum divergir, o resultado é "**sensível ao gold**" e os três vereditos saem lado a lado, com os números dos braços; o veredito
+primário segue o do gold registrado até decisão do Gabriel. Se κ(R1,R3) < 0,60, isso é **evidência contra a confiabilidade do rater 1** e é reportada como tal,
+sem veto automático. Os κ de cada par saem sempre, qualquer que seja o resultado.
