@@ -4,6 +4,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import r3_prove_delivery as pd  # noqa: E402
 
@@ -144,6 +146,34 @@ def test_s4_a_proof_where_every_output_is_empty_is_void_not_a_pass(tmp_path):
     out = pd.s4_byte_identical([sys.executable, str(silent)], [{"i": 1}, {"i": 2}])
     assert out["passes"] is None and out["n_nonempty"] == 0 and "empty" in out["reason"]
     assert out["identical"] is True       # the raw comparison is reported, the VERDICT is what refuses to conclude
+
+
+def test_s4_an_empty_json_object_is_silence_not_content(tmp_path):
+    """Measured 02/10: the real hooks answer `{}\\n` (3 bytes) when they have nothing to say — `bool(b'{}\\n')` is True, so the
+    first harness counted 1/200 'non-empty' pre-bash comparisons that were all silence."""
+    prog = tmp_path / "braces.py"
+    prog.write_text("import sys\nsys.stdout.write('{}\\n')\n")
+    out = pd.s4_byte_identical([sys.executable, str(prog)], [{"i": 1}, {"i": 2}])
+    assert out["passes"] is None and out["n_nonempty"] == 0 and "empty" in out["reason"]
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (b"", False),
+    (b"  \n", False),
+    (b"{}\n", False),
+    (b'{"suppressOutput": true}', False),
+    (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ""}}', False),
+    (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": "  "}}', False),
+    (b'{"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": "x"}}', True),
+    (b'{"systemMessage": "x"}', True),
+    (b'{"decision": "block", "reason": "x"}', True),
+    (b'{"hookSpecificOutput": {"permissionDecision": "deny"}}', True),
+    (b"plain text, not the JSON protocol", True),
+    (b"0", True),          # a bare JSON scalar is valid JSON but not the hook protocol: bytes outside it are content
+    (b'"x"', True),
+])
+def test_has_content_means_the_hook_injects_text_or_decides(raw, expected):
+    assert pd.has_content(raw) is expected
 
 
 def test_s4_counts_the_non_empty_outputs_so_the_strength_of_the_proof_is_visible(tmp_path):
