@@ -28,6 +28,13 @@ Contract
     holder that needs rust and a rust holder that needs heavy cannot deadlock.
   * Pre-check before taking a slot: package temp <= --max-temp (88) and MemAvailable
     >= --min-mem-gb (12). Unmeasured temp warns and proceeds — never silently.
+    Optional (off by default): --min-vram-gb N blocks until N GB of VRAM are FREE
+    (nvidia-smi; unmeasured warns and proceeds) — a training job that grows on the GPU
+    can starve the daemons that hold ORT arenas.
+  * Optional thermal abort DURING the job (--abort-temp C, off by default): package temp
+    above C for HW_SLOT_ABORT_SAMPLES (3) consecutive samples (every HW_SLOT_WATCH_SECS,
+    5 s) sends SIGTERM to the job's whole process group (SIGKILL after 10 s) and exits 75.
+    The entry check alone cannot stop a job that heats the chip after it started.
   * CARGO_BUILD_JOBS / RUST_TEST_THREADS default to 4 when unset (caller wins).
   * Job exit code is transparent. 75 = no slot in time, 64 = usage, 70 = job was green
     but a machine check hit the kernel meanwhile (a green build on a faulting core
@@ -46,6 +53,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -137,16 +145,40 @@ def mce_since(epoch):
     return sum(1 for line in out.splitlines() if re.search(r"machine check", line, re.I))
 
 
-def blockers(max_temp, min_mem, warned):
+def vram_free_gb():
+    """Free VRAM in GB, or None when unmeasured (no nvidia-smi / unreadable)."""
+    if "HW_SLOT_VRAM_FREE_GB" in os.environ:
+        return float(os.environ["HW_SLOT_VRAM_FREE_GB"])
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split()
+        return int(out[0]) / 1024
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return None
+
+
+def blockers(max_temp, min_mem, min_vram, warned):
+    """`warned` is the set of 'unmeasured' notices already printed (each is announced once)."""
     temp, mem = pkg_temp_c(), mem_avail_gb()
     out = []
     if temp is None:
-        if not warned:
+        if "temp" not in warned:
+            warned.add("temp")
             err("temp unmeasured — seguindo sem o gate térmico")
     elif temp > max_temp:
         out.append(f"temp {temp:.0f}C > {max_temp:.0f}C")
     if mem is not None and mem < min_mem:
         out.append(f"mem {mem:.1f}GB < {min_mem:.0f}GB")
+    if min_vram > 0:
+        vram = vram_free_gb()
+        if vram is None:
+            if "vram" not in warned:
+                warned.add("vram")
+                err("vram unmeasured — seguindo sem o gate de VRAM")
+        elif vram < min_vram:
+            out.append(f"vram {vram:.1f}GB < {min_vram:.0f}GB livres")
     return out, temp, mem
 
 
@@ -250,6 +282,9 @@ def parse(argv):
     p.add_argument("--wait", type=float, default=float(os.environ.get("HW_SLOT_WAIT_SECS", "600")))
     p.add_argument("--max-temp", type=float, default=float(os.environ.get("HW_SLOT_MAX_TEMP", "88")))
     p.add_argument("--min-mem-gb", type=float, default=float(os.environ.get("HW_SLOT_MIN_MEM_GB", "12")))
+    p.add_argument("--min-vram-gb", type=float, default=float(os.environ.get("HW_SLOT_MIN_VRAM_GB", "0")))
+    p.add_argument("--abort-temp", type=float,
+                   default=float(os.environ["HW_SLOT_ABORT_TEMP"]) if "HW_SLOT_ABORT_TEMP" in os.environ else None)
     p.add_argument("--label", default="")
     a = p.parse_args(argv)
     if not a.status and not cmd:
@@ -266,11 +301,10 @@ def acquire(a):
     held = inherited_holds()
     needed = ["rust", "heavy"] if a.cls == "rust" else ["heavy"]
     missing = [c for c in needed if not any(n.startswith(c + "-") for n in held)]
-    t0, warned, announced = time.time(), False, False
+    t0, warned, announced = time.time(), set(), False
     poll = float(os.environ.get("HW_SLOT_POLL_SECS", "2"))
     while True:
-        why, temp, mem = blockers(a.max_temp, a.min_mem_gb, warned)
-        warned = True
+        why, temp, mem = blockers(a.max_temp, a.min_mem_gb, a.min_vram_gb, warned)
         if not why:
             new = try_acquire_all(missing) if missing else []
             if new is not None:
@@ -296,14 +330,44 @@ def run_job(a, cmd, held, new):
     env[HELD_ENV] = ",".join(list(held.values()) + [f"{n}@{os.getpid()}" for n, _ in new])
     t0 = time.time()
     try:
-        child = subprocess.Popen(cmd, env=env)  # no pass_fds: the wrapper alone holds the lock
+        # no pass_fds: the wrapper alone holds the lock. The job leads its OWN process group so
+        # a signal (forwarded Ctrl-C, thermal abort) reaches every descendant, not just the child.
+        child = subprocess.Popen(cmd, env=env, process_group=0)
     except OSError as e:
         err(f"não executou {cmd[0]!r}: {e}")
-        return 127, t0, None
+        return 127, t0, None, False
     for sig in (signal.SIGINT, signal.SIGTERM):
-        signal.signal(sig, lambda s, _f: child.send_signal(s))
+        signal.signal(sig, lambda s, _f: _signal_group(child, s))
+    state, stop = {"aborted": False}, threading.Event()
+    if a.abort_temp is not None:
+        threading.Thread(target=_thermal_watchdog, args=(child, a.abort_temp, stop, state), daemon=True).start()
     rc = child.wait()
-    return rc, t0, mce_since(t0)
+    stop.set()
+    return rc, t0, mce_since(t0), state["aborted"]
+
+
+def _signal_group(child, sig):
+    try:
+        os.killpg(child.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _thermal_watchdog(child, limit, stop, state):
+    """Abort the job when the package stays above `limit` for N consecutive samples."""
+    watch = float(os.environ.get("HW_SLOT_WATCH_SECS", "5"))
+    need = int(os.environ.get("HW_SLOT_ABORT_SAMPLES", "3"))
+    strikes = 0
+    while not stop.wait(watch):
+        t = pkg_temp_c()
+        strikes = strikes + 1 if (t is not None and t > limit) else 0
+        if strikes >= need:
+            state["aborted"] = True
+            err(f"⚠ ABORT — pkg {t:.0f}C > {limit:.0f}C por {need} amostras seguidas; encerrando o job")
+            _signal_group(child, signal.SIGTERM)
+            if not stop.wait(10):
+                _signal_group(child, signal.SIGKILL)
+            return
 
 
 def main(argv):
@@ -314,7 +378,9 @@ def main(argv):
     if got is None:
         return EX_TEMPFAIL
     held, new, temp, mem, waited = got
-    rc, t0, mce = run_job(a, cmd, held, new)
+    rc, t0, mce, aborted = run_job(a, cmd, held, new)
+    if aborted:
+        rc = EX_TEMPFAIL  # the job did not complete: never report the child's SIGTERM as its own result
     if mce:
         err(f"⚠ MCE={mce} durante o job — verde NÃO prova o artefato (núcleo defeituoso); relance")
         if rc == 0:
@@ -322,7 +388,7 @@ def main(argv):
     append_log({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "class": a.cls, "label": a.label,
                 "slots": [n for n, _ in new], "passthrough": sorted(held),
                 "cmd": " ".join(cmd)[:160], "waited_s": round(waited, 1),
-                "secs": round(time.time() - t0, 1), "rc": rc, "temp_c": temp,
+                "secs": round(time.time() - t0, 1), "rc": rc, "aborted": aborted, "temp_c": temp,
                 "mem_gb": None if mem is None else round(mem, 1), "mce": mce})
     return rc
 
