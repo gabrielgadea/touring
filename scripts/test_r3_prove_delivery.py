@@ -136,6 +136,23 @@ def test_s6_no_events_is_no_signal_never_a_pass(tmp_path):
     assert pd.s6_privacy(tmp_path / "missing.jsonl")["passes"] is None
 
 
+def test_s4_a_proof_where_every_output_is_empty_is_void_not_a_pass(tmp_path):
+    """Measured on the real hooks: in a clean scratch project `cli-suggest` and `pre-bash` answer 0 bytes for ordinary
+    commands, so 'ON == OFF' would be 0 bytes == 0 bytes for all 200 inputs — a green that proves nothing."""
+    silent = tmp_path / "silent.py"
+    silent.write_text("import sys\nsys.stdout.write('')\n")
+    out = pd.s4_byte_identical([sys.executable, str(silent)], [{"i": 1}, {"i": 2}])
+    assert out["passes"] is None and out["n_nonempty"] == 0 and "empty" in out["reason"]
+    assert out["identical"] is True       # the raw comparison is reported, the VERDICT is what refuses to conclude
+
+
+def test_s4_counts_the_non_empty_outputs_so_the_strength_of_the_proof_is_visible(tmp_path):
+    prog = tmp_path / "mixed.py"
+    prog.write_text("import sys, json\np = json.load(sys.stdin)\nsys.stdout.write('ctx' if p['i'] % 2 else '')\n")
+    out = pd.s4_byte_identical([sys.executable, str(prog)], [{"i": n} for n in range(6)])
+    assert out["passes"] is True and out["n"] == 6 and out["n_nonempty"] == 3
+
+
 def test_s4_cli_exit_codes_0_pass_1_diff_2_void(tmp_path, capsys):
     """The CLI maps the verdict to an exit code: a VOID proof (nondeterministic control) is 2, never a pass."""
     inputs = tmp_path / "in.jsonl"
