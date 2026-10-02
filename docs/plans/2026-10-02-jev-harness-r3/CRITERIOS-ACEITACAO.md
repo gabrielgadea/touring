@@ -547,7 +547,7 @@ controle. A rodada 1 permanece no registro: se a rodada 2 também for VOID ou fr
 **E9.8-o (02/10/2026, escrito às 17:51 -03:00 — depois da rodada 2; só correções e divulgação, nenhum limiar muda).**
 **(1) Rodada 2** (início 17:40:58, fim 17:49:48, de `r3-s4-ab-run2.{start,log}`; `s4-ab.json` sha256 `4f1d3ecbc4ca9e3d…`): `passes = true`; controle
 OFF×ctl **0/200** e ON×OFF **0/200** nos quatro hooks; não vazias 175 (`pre-bash`) · 57 (`cli-suggest`) · 71 (`post-bash`) · 0 (`post-tool-rl`, anulado);
-178 eventos do emissor no ON; nenhum hash do experimento no journal real. As 6 linhas que o journal real ganhou na janela são `a1_block` de duas
+178 eventos do emissor no ON (174 `a1_block` do `pre-bash` + 4 `a2_offer_closed`: `replaced` 3, `window` 1; 33 sessões); nenhum hash do experimento no journal real. As 6 linhas que o journal real ganhou na janela são `a1_block` de duas
 sessões vivas (hashes fora do conjunto do experimento, nenhuma cita `r3s4`).
 **(2) Correção do E9.8-b.** `pin_admits` compara só a raiz do projeto do pedido (`project_root`) com a árvore do daemon
 (`crates/touring-dispatch/src/daemon.rs:144-148` e `:1915`; o `daemon.rs:1905-1922` do E9.8-b omitia o crate) e **nunca lê o texto do comando**. A

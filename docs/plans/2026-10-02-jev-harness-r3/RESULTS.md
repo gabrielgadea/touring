@@ -51,7 +51,7 @@ Cláusulas do gate — B-L: C-A2-1 ✗ · C-A2-2 ✓ · C-A2-3 ✗ · C-A2-4 ✗
 | **S1** original (só informativo, Errata 5) | **reprovaria** `cli-suggest` | 401 → 550 ms (limite 441); declarado |
 | **S2** fail-open | **PASSA** | não-ok 0,00 % = linha de base |
 | **S3** volume de ofertas | **interino** | ~1 oferta/34 min no início; janela de 24 h não cabe |
-| **S4** byte-identidade ON×OFF | **PASSA, forte** em `pre-bash`, `cli-suggest` e `post-bash`; `post-tool-rl` **anulado** (silencioso) | 200 entradas × 3 daemons por projeto (ON/OFF/controle, base virgem, texto de comando idêntico): controle OFF×ctl **0/200** e ON×OFF **0/200** nos 4 hooks; comparações com conteúdo 175 · 57 · 71 · 0; 178 eventos do emissor no ON; 0 hashes do experimento no journal real. A **rodada 1 foi VOID por defeito do meu harness** (§3.12) |
+| **S4** byte-identidade ON×OFF | **PASSA, forte** em `pre-bash`, `cli-suggest` e `post-bash`; `post-tool-rl` **anulado** (silencioso) | 200 entradas × 3 daemons por projeto (ON/OFF/controle, base virgem, texto de comando idêntico): controle OFF×ctl **0/200** e ON×OFF **0/200** nos 4 hooks; comparações com conteúdo 175 · 57 · 71 · 0; 178 eventos do emissor no ON (174 `a1_block` + 4 `a2_offer_closed`, 33 sessões); 0 hashes do experimento no journal real. A **rodada 1 foi VOID por defeito do meu harness** (§3.12) |
 | **S5** `touring kpi -j` | **PASSA** | `shadow.status = "measured"`; A1 e A2 com eventos e decisões |
 | **S6** privacidade | **PASSA** | schema fechado + varredura de segredo nos 2 journals |
 
