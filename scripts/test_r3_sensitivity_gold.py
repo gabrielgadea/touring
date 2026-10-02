@@ -105,6 +105,18 @@ def test_the_cli_writes_the_gold_and_the_summary_next_to_it(tmp_path):
     assert summ["n_scored"] == 2 and "pairwise_kappa" in summ
 
 
+def test_the_report_carries_the_kappa_summary_next_to_the_verdicts_so_a_low_floor_is_never_silent(tmp_path, monkeypatch):
+    fake = {"gold_insufficient": False, "kappa": 0.2, "n_indeterminate": 0, "b0": {"agreement": 1.0}, "arms": {}, "sensitivity_agree_only": {"verdict": "PARCIAL"}}
+    monkeypatch.setattr(sg.score_a2, "score_files", lambda predictions, gold: fake)
+    (tmp_path / "adjudication_summary.json").write_text(json.dumps({"min_kappa_below_floor": True, "pairwise_kappa": {"r1_r3": 0.2}}))
+    registered = tmp_path / "registered.json"
+    registered.write_text(json.dumps({"gold_insufficient": True}))
+    rep = sg.report(tmp_path / "gold_alt3.jsonl", tmp_path / "preds.jsonl", registered)
+    assert rep["summary"] == {"min_kappa_below_floor": True, "pairwise_kappa": {"r1_r3": 0.2}}
+    (tmp_path / "adjudication_summary.json").unlink()
+    assert sg.report(tmp_path / "gold_alt3.jsonl", tmp_path / "preds.jsonl", registered)["summary"] is None
+
+
 def test_the_report_takes_every_verdict_from_the_gate_never_from_prose(tmp_path, monkeypatch):
     fake = {"gold_insufficient": False, "kappa": 0.8, "n_indeterminate": 0, "b0": {"agreement": 1.0}, "arms": {},
             "sensitivity_agree_only": {"verdict": "PARCIAL"}}

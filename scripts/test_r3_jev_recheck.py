@@ -33,6 +33,11 @@ def test_the_second_pass_is_needed_only_when_the_first_one_differs_from_the_cach
     assert rc.needs_second_pass({"max_abs_diff": 0.004}) is True
 
 
+def test_p95_uses_the_replay_index_rule():
+    assert rc.p95([float(i) for i in range(1, 51)]) == 48.0          # index int(0.95 * 50) = 47 into the sorted values
+    assert rc.p95([7.0]) == 7.0 and rc.p95([3.0, 1.0, 2.0]) == 3.0
+
+
 def test_stability_is_read_with_the_preregistered_tolerance():
     assert rc.stability({"max_abs_diff": 0.05}) == "estavel" and rc.stability({"max_abs_diff": 0.0501}) == "instavel"
     assert rc.TOLERANCE == 0.05

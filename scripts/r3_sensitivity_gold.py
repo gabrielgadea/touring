@@ -55,7 +55,9 @@ def report(gold_path, predictions, registered) -> dict:
     """Scores the frozen predictions against the alternative gold; every verdict comes from the gate."""
     res = score_a2.score_files(predictions, gold_path)
     unanimous = (res.get("sensitivity_agree_only") or {}).get("verdict")
-    return {"verdict_registered": gate.verdict_a2(json.loads(Path(registered).read_text(encoding="utf-8")))["verdict"],
+    summ = Path(gold_path).with_name("adjudication_summary.json")
+    return {"summary": json.loads(summ.read_text(encoding="utf-8")) if summ.exists() else None,
+            "verdict_registered": gate.verdict_a2(json.loads(Path(registered).read_text(encoding="utf-8")))["verdict"],
             "verdict_alt_majority": gate.verdict_a2(res)["verdict"], "verdict_alt_unanimous": unanimous, "results": res}
 
 

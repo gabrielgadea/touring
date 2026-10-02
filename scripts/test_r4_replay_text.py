@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import r4_replay_text as r4  # noqa: E402
 
 LEAK = "SENTINEL-SESSION-9f3a"
-ITEM = {"item_id": "a2-00001", "session": LEAK, "split": "audit-test", "b0_decisao": "bypass", "b0_valor": 0.123456, "n_cmds": 2, "ts": 1790000000,
+ITEM = {"item_id": "a2-00001", "session": LEAK, "split": "audit-test", "b0_decisao": "bypass", "b0_valor": 0.123456, "n_cmds": 31337, "ts": 1790000000,
         "rota_proposta": "touring run --lang python --code 'print(1)'", "cmds": ["ls -la", "touring run --lang bash --code 'cat x'"]}
 
 
@@ -33,8 +33,17 @@ def test_a_missing_command_list_is_said_not_invented():
 
 def test_the_state_never_carries_the_decision_the_session_or_any_other_field():
     s = r4.build_state(ITEM)
-    for secret in (LEAK, "bypass", "0.123456", "audit-test", "a2-00001", "1790000000"):
+    for secret in (LEAK, "bypass", "0.123456", "audit-test", "a2-00001", "1790000000", "31337"):    # every field of the item but the two texts
         assert secret not in s
+
+
+def test_the_scored_rows_and_the_frozen_items_must_be_the_same_set_of_item_ids():
+    rows, items = [{"item_id": "a"}, {"item_id": "b"}], [{"item_id": "b"}, {"item_id": "a"}]
+    r4.check_alignment(rows, items)                                          # same set, any order: fine
+    with pytest.raises(SystemExit, match="1 only in the sample"):
+        r4.check_alignment(rows, items + [{"item_id": "c"}])                 # an item the predictions lack would be dropped in silence
+    with pytest.raises(SystemExit, match="1 only in predictions"):
+        r4.check_alignment(rows + [{"item_id": "z"}], items)
 
 
 def test_the_question_is_the_one_the_r3_arm_asked_so_only_the_input_differs():

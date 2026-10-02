@@ -87,6 +87,13 @@ def evaluate(rows, gold_rows, summary) -> dict:
     return {"results": res, "primary": PRIMARY, "verdict_primary": verdict(PRIMARY), "verdict_secondary": verdict("B-LT-ML")}
 
 
+def check_alignment(rows, items) -> None:
+    """The scored rows and the frozen items must be the SAME set: an item present in one and absent in the other would be dropped in silence."""
+    in_rows, in_items = {r["item_id"] for r in rows}, {i["item_id"] for i in items}
+    if in_rows != in_items:
+        raise SystemExit(f"item_id sets differ: {len(in_rows - in_items)} only in predictions, {len(in_items - in_rows)} only in the sample")
+
+
 def _load_agent(subfolder):
     import torch  # noqa: PLC0415 — late: importing this module must not pay torch
     torch.set_num_threads(2)
@@ -103,6 +110,7 @@ def main(argv=None) -> int:
     items = items[: a.limit] if a.limit else items
     rows = [json.loads(line) for line in (rp.SAIDA / "predictions-a2.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
     rows = rows[: len(items)] if a.limit else rows
+    check_alignment(rows, items)
     arm_preds = {}
     for arm in ARMS:
         t0 = time.perf_counter()

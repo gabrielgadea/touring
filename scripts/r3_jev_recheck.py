@@ -54,6 +54,12 @@ def stability(cmp: dict) -> str:
     return "estavel" if cmp["max_abs_diff"] <= TOLERANCE else "instavel"
 
 
+def p95(vals) -> float:
+    """The 95th percentile by the index rule the replay uses (`int(0.95 * n)` into the sorted values)."""
+    v = sorted(vals)
+    return v[min(len(v) - 1, int(0.95 * len(v)))]
+
+
 def run(payloads: dict, call, max_calls: int = MAX_CALLS, already_spent: int = 0) -> dict:
     """One live pass. `call(payload)` returns a probability or None (failure). The cap is checked BEFORE every call."""
     live, errors, n = {}, {}, 0
@@ -133,17 +139,32 @@ def _live(inp: dict, out: Path, cap: int, rp, jev_client) -> tuple:
     return report, dict(p1["live"])
 
 
-def _rescore(inp: dict, live: dict, out: Path, rp) -> dict:
+def _rescore(inp: dict, live: dict, out: Path, rp, name: str = "predictions-a2-jevlive.jsonl") -> dict:
     """B-J rescored with the LIVE probabilities, against the registered gold; the verdict is the gate's."""
     import r3_results_gate as gate
     import r3_score_a2 as score_a2
     preds = [json.loads(line) for line in (rp.SAIDA / "predictions-a2.jsonl").read_text().splitlines() if line.strip()]
-    path = out / "predictions-a2-jevlive.jsonl"
+    path = out / name
     path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in substitute(preds, inp["hash_by_item"], live)), encoding="utf-8")
     res = score_a2.score_files(path, Path(rp.CORPUS) / "adj_merge_final" / "gold_a2.jsonl")
     registered = json.loads((rp.SAIDA / "results-a2-gold.json").read_text(encoding="utf-8"))
+    arm = res["arms"]["B-J"]
     return {"verdict_registered": gate.verdict_a2(registered)["verdict"], "verdict_with_live_p": gate.verdict_a2(res)["verdict"],
-            "agreement_registered": registered["arms"]["B-J"]["agreement"], "agreement_with_live_p": res["arms"]["B-J"]["agreement"]}
+            "agreement_registered": registered["arms"]["B-J"]["agreement"], "agreement_with_live_p": arm["agreement"],
+            **{k: arm[k] for k in ("delta_vs_b0", "delta_ci_low", "precision", "coverage", "tau")}}
+
+
+def _supplement(out: Path, rp, jev_client, schema) -> dict:
+    """No API call: per-pass rescoring and the real latency, computed from the artifacts a live run left in `out`."""
+    rep = json.loads((out / "recheck.json").read_text(encoding="utf-8"))
+    inp = _inputs(rp, jev_client, schema)
+    lat = sorted(json.loads(line)["latency_ms"] for line in (out / "jev_journal_recheck.jsonl").read_text().splitlines() if line.strip())
+    sup = {"latency_ms": {"n": len(lat), "min": lat[0], "median": statistics.median(lat), "p95": p95(lat), "max": lat[-1]}, "rescored_by_pass": {}}
+    for k in ("pass1", "pass2"):
+        if k in rep:
+            sup["rescored_by_pass"][k] = _rescore(inp, rep[k]["live"], out, rp, name=f"predictions-a2-jevlive-{k[-1]}.jsonl")
+    (out / "recheck_supplement.json").write_text(json.dumps(sup, ensure_ascii=False, indent=1), encoding="utf-8")
+    return sup
 
 
 def main(argv=None) -> int:
@@ -151,12 +172,16 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", default=str(Path.home() / ".claude/touring/r3-data/jev_recheck"))
     ap.add_argument("--max-calls", type=int, default=MAX_CALLS)
     ap.add_argument("--dry-run", action="store_true", help="no API call: counts, hashes and the cached probabilities only")
+    ap.add_argument("--supplement", action="store_true", help="no API call: per-pass rescoring and latency from a finished run's artifacts")
     a = ap.parse_args(argv)
     if a.max_calls > MAX_CALLS:
         raise SystemExit(f"--max-calls {a.max_calls} exceeds the authorised cap {MAX_CALLS}")
     import jev_client
     import r3_event_schema as schema
     import r3_replay_a2 as rp
+    if a.supplement:
+        print(json.dumps(_supplement(Path(a.out_dir), rp, jev_client, schema), ensure_ascii=False))
+        return 0
     inp = _inputs(rp, jev_client, schema)
     print(json.dumps({"items": len(inp["items"]), "distinct_payloads": len(inp["distinct"]), "cached": len(inp["cached"]),
                       "missing_in_cache": len(inp["missing"])}))
