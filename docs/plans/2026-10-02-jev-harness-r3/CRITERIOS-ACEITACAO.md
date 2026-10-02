@@ -305,3 +305,37 @@ execução (observado: `audit_sample.jsonl` regravado às 13:34:46, conteúdo id
 posicionais, a primeira oferta nova renumera tudo e embaralharia o mapeamento rótulo→item. Medidas: (i) cópia
 verificada com hashes em `r3-data/frozen-verified-*/`; (ii) o gold é juntado por `key.jsonl` (que carrega
 `session`+`ts`), nunca por posição; (iii) o teste passa a ser hermético (diretório temporário) por pedido ao dono.
+
+---
+
+# Errata 5 — 02/10/2026 13:53:41 BRT — registrada ANTES de o shadow ser ligado: não existe dado online algum
+
+> O S1 pré-registrado não pode falhar por causa do shadow e deixa sem medição o hook que mais executa o
+> observador. Evidência (só dados de BASE, `~/.claude/touring/hook_trace.jsonl`, 474.924 linhas desde 01/09, nenhum
+> com o shadow ligado). **Nenhum limiar de qualidade (A1/A2) muda**; muda como a ENTREGA é provada.
+
+**Medição 1 — onde o observador A2 executa.** `record_route_offer` roda no hook `cli-suggest`
+(`cli_suggester.rs:5695`; n = 30.012 em 7 dias, p95 = 395 ms). `claim_route_reward` roda no hook **`post-tool-rl`**
+(`post_tool_rl.rs:298`, a CADA Bash; n = 26.812, p95 = 875 ms). O S1 só nomeava o primeiro.
+**Medição 2 — o ruído natural do p95.** p95 por dia (n ≥ 200): `cli-suggest` **122 a 596 ms** (amplitude 389%);
+`post-tool-rl` **315 a 3.244 ms** (amplitude 930%). O limite do S1 (1,10 × o p95 da janela anterior, ou +20 ms) está dentro
+dessa variação: o p95 de hoje (518 ms) já excede o limite (≈ 434 ms) **sem nenhum shadow**. Comparar janela com janela
+com margem de 10% reprovaria ou aprovaria por acaso, nunca pelo shadow — não falsifica nada.
+
+**E5.1 — S1 cobre os DOIS hooks** (`cli-suggest` e `post-tool-rl`), e S2 idem (não-ok ≤ +0,5 p.p. sobre a base, que é
+0,00% nos dois).
+**E5.2 — S1 é substituído por dois testes que PODEM falhar:**
+ - **S1a (custo direto):** a emissão de 1 evento num arquivo real tem **p99 ≤ 1 ms** (alvo do plano) e o caminho com a
+   flag OFF tem **p99 ≤ 50 µs**. Medido por teste Rust `#[ignore]` (`r3_emission_cost_is_bounded`) no perfil **debug**:
+   um limite superior conservador (debug é mais lento que release; se passa em debug, passa em release).
+ - **S1b (sanidade fim a fim):** com o shadow ligado e n ≥ 200 por hook, o p95 de cada hook fica **≤ o maior dos 7 p95
+   diários anteriores** (o envelope natural observado). Pega uma interação patológica, não +10%; S1a prende o custo
+   fino. O S1 original (janela contra janela, 1,10×) continua sendo REPORTADO, só não decide.
+**E5.3 — S4 tem o alcance dito:** o modo standalone (`TOURING_NO_DAEMON=1`) prova que a flag não altera o texto
+injetado nas 200 entradas reais; o estado da oferta vive na memória do processo, então o CICLO DE VIDA (oferta → desfecho)
+só existe no daemon e sua identidade é provada pelos testes
+`r3_claim_route_reward_is_identical_with_the_flag_on` e `r3_emission_failure_never_changes_the_return` (cada um com
+mutante morto), não por S4.
+**E5.4 — S3 tem o denominador dito:** elegíveis = ofertas que FECHAM (consumed/window/replaced) numa janela de 24 h
+com o shadow ligado; uma oferta pendente quando a sessão acaba não emite linha por desenho e é contada à parte
+(`pending_at_end`), nunca escondida.
