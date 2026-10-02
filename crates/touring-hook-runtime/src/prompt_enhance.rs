@@ -499,7 +499,105 @@ fn semantic_gate_enabled() -> bool {
 /// aluno pelo DESCONHECIDO. Lista deliberadamente conservadora: na dúvida, NOVEL
 /// (o custo de um falso "desconhecido" é um advisory inócuo, nunca um deny).
 const KNOWN_PROGRAMS: &[&str] = &[
-    "ls", "cat", "grep", "rg", "git", "cargo", "touring", "touring-hook", "touring-daemon", "python3", "python", "echo", "pwd", "cd", "wc", "head", "tail", "find", "sed", "awk", "jq", "curl", "bash", "sh", "mkdir", "cp", "mv", "rm", "touch", "chmod", "ps", "kill", "systemctl", "journalctl", "df", "du", "nvidia-smi", "pytest", "npm", "node", "pip", "pip3", "tar", "zip", "unzip", "make", "rustc", "rustup", "docker", "ssh", "scp", "rsync", "diff", "patch", "xargs", "tee", "sort", "uniq", "tr", "cut", "date", "sleep", "timeout", "nohup", "watch", "man", "which", "file", "stat", "ln", "readlink", "basename", "dirname", "env", "sudo", "apt", "pacman", "snapper", "gh", "tmux", "less", "strings", "nm", "ldd", "lsof", "dmesg", "mount", "dd", "sync", "hostname", "uname", "id", "whoami", "alias", "type", "exit", "true", "false", "test",
+    "ls",
+    "cat",
+    "grep",
+    "rg",
+    "git",
+    "cargo",
+    "touring",
+    "touring-hook",
+    "touring-daemon",
+    "python3",
+    "python",
+    "echo",
+    "pwd",
+    "cd",
+    "wc",
+    "head",
+    "tail",
+    "find",
+    "sed",
+    "awk",
+    "jq",
+    "curl",
+    "bash",
+    "sh",
+    "mkdir",
+    "cp",
+    "mv",
+    "rm",
+    "touch",
+    "chmod",
+    "ps",
+    "kill",
+    "systemctl",
+    "journalctl",
+    "df",
+    "du",
+    "nvidia-smi",
+    "pytest",
+    "npm",
+    "node",
+    "pip",
+    "pip3",
+    "tar",
+    "zip",
+    "unzip",
+    "make",
+    "rustc",
+    "rustup",
+    "docker",
+    "ssh",
+    "scp",
+    "rsync",
+    "diff",
+    "patch",
+    "xargs",
+    "tee",
+    "sort",
+    "uniq",
+    "tr",
+    "cut",
+    "date",
+    "sleep",
+    "timeout",
+    "nohup",
+    "watch",
+    "man",
+    "which",
+    "file",
+    "stat",
+    "ln",
+    "readlink",
+    "basename",
+    "dirname",
+    "env",
+    "sudo",
+    "apt",
+    "pacman",
+    "snapper",
+    "gh",
+    "tmux",
+    "less",
+    "strings",
+    "nm",
+    "ldd",
+    "lsof",
+    "dmesg",
+    "mount",
+    "dd",
+    "sync",
+    "hostname",
+    "uname",
+    "id",
+    "whoami",
+    "alias",
+    "type",
+    "exit",
+    "true",
+    "false",
+    "test",
 ];
 
 /// O short-program é conhecido (as camadas determinísticas já o cobrem)?
@@ -539,11 +637,13 @@ pub fn semantic_reversibility(command: &str) -> Option<(f64, u64)> {
     let started = std::time::Instant::now();
     let payload = student_http_post(&reversibility_request_body(command))?;
     let wire_ms = started.elapsed().as_millis() as u64;
-    let score = payload.get("answers")?.get("reversibility")?.get("score")?.as_f64()?;
+    let score = payload
+        .get("answers")?
+        .get("reversibility")?
+        .get("score")?
+        .as_f64()?;
     Some((score, wire_ms))
 }
-
-
 
 /// Keyword entry: (keyword, exclusive_weight).
 /// exclusive = 2.0 (only appears in one intent), shared = 1.0 (multiple intents).

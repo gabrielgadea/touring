@@ -3671,8 +3671,13 @@ mod consumer_kind_resolution_tests {
         let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).expect("open db");
         // `.rs` paths: the real case was Python in a polyglot db, but the pass is
         // language-agnostic and this db is not polyglot (it would not record `.py` rows).
-        db.record_consumer("src/conversao.rs", "extrair_rds", "tests/coleta.rs", Some(1))
-            .expect("consumer before its definer");
+        db.record_consumer(
+            "src/conversao.rs",
+            "extrair_rds",
+            "tests/coleta.rs",
+            Some(1),
+        )
+        .expect("consumer before its definer");
         db.record_consumer("src/other.rs", "later_helper", "tests/coleta.rs", Some(2))
             .expect("another producer");
         let kind = |module: &str| -> String {
