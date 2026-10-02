@@ -705,3 +705,15 @@ comprimido em ~0,07 (0,05–0,21). A concordância baixa **não** vem de p degen
 **E12.9 — retratação (19:45 -03:00).** O E12.8 (commit `0c4b61ed`, 19:45:19) se diz escrito "antes de ler o resultado do r4": **falso**. O r4 rodou de 19:37:30 a 19:41:54 (arquivo de resultado gravado 19:41:53) e eu
 li o resultado **antes** de escrever o E12.8. O E12.8 só corrige texto (checkpoint medido, denominador, sentinela de teste) e nada nele depende do resultado, mas a frase de ordem estava errada, e a ordem
 que vale é a do git: pré-registro `f9ceb88a` 19:35:43 → rodada 19:37:30 → resultado 19:41:53 → E12.8 19:45:19.
+
+**E10.8 — resultado do juiz R3 (tentativa 2) e da análise do E10.3 (19:49 -03:00).** Verificação do E10.2/E10.7 na tentativa 2: **exit 0, 0 violações**, 162 turnos, 99 chamadas, modelo `claude-sonnet-5-5`, 0 `Agent`
+(com `--forbid adj_sonnet3.jsonl`, `adj_minimax.jsonl`, `adj_tiebreak`, `adj_merge_final`, `gold_a2`); `adj_sonnet3b.jsonl` com 179 linhas (followed 118 · bypass 38 · ignored 21 · indeterminate 2).
+**κ por par** (projeção binária, sem `indeterminate`): R1×R2 **0,7707** · R1×R3 (MiniMax × Sonnet) **0,7818** · R2×R3 (Claude × Sonnet) **0,9867**. **Gold por maioria dos 3:** 176 itens (160 unânimes e 16 em 2×1);
+pontuado pelo pontuador da Errata 8: B0 0,9080 · B-J 0,8391 (Δ −0,0690, IC inf −0,1379) · B-L 0,6897 (Δ −0,2184, IC inf −0,3218); leitura **unânime** (160 itens): B0 0,9231 · B-L 0,7564 · B-J 0,4487.
+**Vereditos do gate: registrado `NAO_ADOTADO_PELOS_DADOS` · maioria `NAO_ADOTADO_PELOS_DADOS` · unânime `NAO_ADOTADO_PELOS_DADOS` ⇒ pela E10.4, o A2 é "robusto ao E3.3-bis".** κ(R1,R3) = 0,78 ≥ 0,60: sem evidência
+contra a confiabilidade do rater 1. O gold registrado e o veredito primário **não mudam**; o E3.3-bis segue para decisão do Gabriel.
+**Dois fatos que o resultado trouxe e que o desenho não previa (reportados, nada foi alterado por eles).** (1) O R3 concorda com o gold registrado em **171/171** (R2: 170/171; R1: 157/171): o R3, cego, decidiu **igual** os 15 itens
+do desempate, então aquela decisão não era artefato do contexto do juiz anterior. (2) O R1 (MiniMax, o único avaliador de fora da família) é **sistematicamente mais leniente**: R1 rotulou 134 itens como seguidos (R2 117, R3 118) e,
+nos 16 itens binários em que R1 e R3 divergem, **R1 diz "seguida" e R3 não em 16 de 16** (0 no sentido oposto). Como κ(R2,R3) = 0,987, os dois Claude pesam como um voto só: a "maioria dos 3" é, na prática, o rótulo dos Claude.
+**Consequência:** o veredito não depende do rater 1 (a leitura sem ele e a unânime dão o mesmo veredito), mas o gold registrado é quase todo rótulo da família do agente julgado; o risco de ponto cego compartilhado da E3.3
+**não foi resolvido por este juiz** (também Claude) e segue declarado. Artefatos: `r3-data/adj_sens3/` (`gold_alt3.jsonl`, `adjudication_summary.json`, `results-a2-alt3.json`).
