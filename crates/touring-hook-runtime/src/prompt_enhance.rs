@@ -319,6 +319,9 @@ const STUDENT_TAU: f64 = 0.6;
 /// the shadow path every classify became a potential student client — a test
 /// that never asked for the student must never become a client (race measured
 /// in the suite 01/10: a parallel test consumed the one-shot stub's accept).
+/// INVARIANT (2026-10-02): o texto do prompt só sai para LOOPBACK — a conexão
+/// passa por student_endpoint, que recusa https (seria downgrade para texto
+/// puro), DNS/remoto e tudo fora de 127.0.0.0/8 e ::1.
 fn student_url() -> String {
     std::env::var("LAYA_STUDENT_URL").unwrap_or_else(|_| {
         #[cfg(test)]
@@ -389,23 +392,66 @@ fn student_http_post(body: &str) -> Option<serde_json::Value> {
     if url.is_empty() {
         return None; // test builds sem LAYA_STUDENT_URL explícita: nunca chama
     }
-    let host_port = url
-        .trim_start_matches("http://")
-        .trim_start_matches("https://")
-        .split('/')
-        .next()?;
+    let addr = student_endpoint(&url)?;
     let request = format!(
-        "POST /v1/systemone HTTP/1.1\r\nHost: {host_port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        "POST /v1/systemone HTTP/1.1\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
     );
-    let mut stream = std::net::TcpStream::connect(host_port).ok()?;
     let timeout = std::time::Duration::from_millis(200);
+    // connect_timeout: o default do connect é o retry do kernel (minutos em
+    // host não roteável) — o teste remote_student_url_never_connects_and_fails_open_fast
+    // prova o caminho recusado em < 100 ms. DNS nunca resolve aqui (só loopback).
+    let mut stream = std::net::TcpStream::connect_timeout(&addr, timeout).ok()?;
     stream.set_read_timeout(Some(timeout)).ok()?;
     stream.set_write_timeout(Some(timeout)).ok()?;
     stream.write_all(request.as_bytes()).ok()?;
     let mut buf = String::new();
     stream.read_to_string(&mut buf).ok()?;
     serde_json::from_str(buf.get(buf.find("\r\n\r\n")? + 4..)?).ok()
+}
+
+/// Só `http://` + host loopback (127.0.0.0/8, [::1], `localhost`) + porta —
+/// o texto do prompt nunca sai desta máquina: a shadow-matrix pergunta ao aluno
+/// a CADA prompt, então uma LAYA_STUDENT_URL mal configurada mandaria o prompt
+/// inteiro a um host remoto. None (fail-open: o caminho keyword decide) para
+/// qualquer outra forma — https seria downgrade para TCP em texto puro, DNS
+/// vazaria para remoto. A recusa deixa UM rastro por processo (um warn por
+/// chamada inundaria o log do hook; zero esconderia a má configuração).
+fn student_endpoint(url: &str) -> Option<std::net::SocketAddr> {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    let reject = |why: &str| {
+        static WARNED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+        if !WARNED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+            tracing::warn!(
+                "prompt_enhance: LAYA_STUDENT_URL recusada ({why}); o texto do prompt só sai para loopback"
+            );
+        }
+        None
+    };
+    let Some(rest) = url.strip_prefix("http://") else {
+        return reject("só http:// — https seria downgrade para texto puro");
+    };
+    let Some(host_port) = rest.split('/').next() else {
+        return reject("URL sem host");
+    };
+    let Some((host, port)) = host_port.rsplit_once(':') else {
+        return reject("sem porta");
+    };
+    let Ok(port) = port.parse::<u16>() else {
+        return reject("porta inválida");
+    };
+    let ip: IpAddr = match host {
+        "localhost" => IpAddr::V4(Ipv4Addr::LOCALHOST),
+        "::1" | "[::1]" => IpAddr::V6(Ipv6Addr::LOCALHOST),
+        _ => match host.parse::<IpAddr>() {
+            Ok(ip) => ip,
+            Err(_) => return reject("host não é IP loopback (DNS/remoto)"),
+        },
+    };
+    if !ip.is_loopback() {
+        return reject("host fora de 127.0.0.0/8 e ::1");
+    }
+    Some(SocketAddr::new(ip, port))
 }
 
 /// Parse WITHOUT the τ gate — the shadow path (S-2, plan r2) needs the raw

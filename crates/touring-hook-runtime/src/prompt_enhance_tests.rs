@@ -1330,6 +1330,58 @@ fn w44_student_decides_above_tau_keyword_everywhere_else() {
     unsafe { std::env::remove_var("LAYA_STUDENT_URL") };
 }
 
+// Hardening (2026-10-02, revisão de segurança do release 30.4.90): o endpoint do
+// aluno aceita SÓ http:// + loopback — o texto do prompt nunca sai desta máquina.
+#[test]
+fn student_endpoint_accepts_only_loopback_http() {
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+    assert_eq!(
+        student_endpoint("http://127.0.0.1:8971"),
+        Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8971))
+    );
+    assert_eq!(
+        student_endpoint("http://localhost:8971"),
+        Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 8971))
+    );
+    assert_eq!(
+        student_endpoint("http://[::1]:8971"),
+        Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8971))
+    );
+    // 127.0.0.0/8 inteiro é loopback
+    assert!(student_endpoint("http://127.0.1.2:8971").is_some());
+    // Recusas: https (downgrade), DNS/remoto, privado-não-loopback, sem porta.
+    for url in [
+        "https://127.0.0.1:8971",
+        "http://example.com:80",
+        "http://10.0.0.5:8971",
+        "http://203.0.113.1:9",
+        "http://127.0.0.1",
+    ] {
+        assert_eq!(student_endpoint(url), None, "{url} devia ser recusada");
+    }
+}
+
+// Comportamental: URL remota NEM TENTA conectar — fail-open no keyword, <100 ms.
+#[test]
+fn remote_student_url_never_connects_and_fails_open_fast() {
+    let _guard = JOURNAL_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // Ordem fixa JOURNAL → STUDENT (ver student_classify_inner).
+    let _sguard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    // SAFETY: sob os locks; restaura ao final. 203.0.113.1 é TEST-NET-3 (RFC
+    // 5737, não roteável): sem o gate, o connect pagaria o retry do kernel —
+    // o <100 ms abaixo prova que a conexão nem é tentada.
+    unsafe { std::env::set_var("LAYA_STUDENT_URL", "http://203.0.113.1:9") };
+    let started = std::time::Instant::now();
+    let got = student_classify_inner("refatore o parser");
+    let elapsed = started.elapsed();
+    unsafe { std::env::remove_var("LAYA_STUDENT_URL") };
+    assert!(got.is_none(), "remoto recusado → keyword path: {got:?}");
+    assert!(
+        elapsed < std::time::Duration::from_millis(100),
+        "o gate recusa antes do connect: {elapsed:?}"
+    );
+}
+
 // REGRA #0 (01/10): compose_details era órfão pub com zero consumidores —
 // a suíte é a superfície de diagnóstico documentada e agora a consome.
 #[test]
