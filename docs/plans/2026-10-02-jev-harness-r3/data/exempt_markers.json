@@ -1,0 +1,18 @@
+{
+ "marcadores": [
+  "MUST",
+  "REGRA #",
+  "CRITICAL",
+  "BLOCK",
+  "deny",
+  "DENY",
+  "hook error",
+  "hook_error",
+  "permission"
+ ],
+ "familias_exempt": [
+  "code-mode-deny"
+ ],
+ "janela_duplicata_turnos": 5,
+ "observacao": "congelado com o dataset: mudar esta lista depois de ver o resultado invalida o braço (CRITERIOS §1, regra do τ)"
+}

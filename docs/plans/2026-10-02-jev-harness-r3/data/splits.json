@@ -1,0 +1,54 @@
+{
+ "seed": 20261002,
+ "audit": {
+  "n_total": 180,
+  "n_val": 90,
+  "n_test": 90,
+  "val_por_b0": {
+   "followed": 66,
+   "not_followed": 24
+  },
+  "test_por_b0": {
+   "not_followed": 24,
+   "followed": 66
+  },
+  "sessoes_val": [
+   "1f1e4e03",
+   "24006143",
+   "4fa78848",
+   "5956fbbc",
+   "5ec1030b",
+   "9a190e03",
+   "b824294f"
+  ],
+  "sessoes_test": [
+   "00fc1e5d",
+   "3d51ad73",
+   "3db9ea13",
+   "4d95646f",
+   "5d8e9b76",
+   "99bf2fa5",
+   "a4203e97",
+   "aa782be4"
+  ],
+  "sessoes_cruzadas": [],
+  "seed": 20261002,
+  "proporcao": {
+   "audit_val": 0.4,
+   "audit_test": 0.6
+  },
+  "unidade": "sessão inteira (o §1 dos critérios proíbe cruzar partições)",
+  "sessoes": 15
+ },
+ "a1_dataset": {
+  "train": 17083,
+  "val": 5779,
+  "test": 5781
+ },
+ "a1_split_por": "sessão, temporal (60/20/20)",
+ "audit_split_por": "sessão, 40/60, estratificado por decisão de B0 (E3.1)",
+ "fonte": {
+  "a2": "a2_offers.jsonl",
+  "a1": "a1_blocks.jsonl"
+ }
+}
