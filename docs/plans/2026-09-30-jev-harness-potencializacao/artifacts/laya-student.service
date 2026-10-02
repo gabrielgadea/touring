@@ -1,0 +1,22 @@
+# Unit systemd-user para o servidor do aluno Laya (W4.4).
+# ARTEFATO — instalação e habilitação são DECISÃO DE GABRIEL.
+# Para instalar:
+#   cp docs/plans/2026-09-30-jev-harness-potencializacao/artifacts/laya-student.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now laya-student.service
+[Unit]
+Description=Laya student (laya-w42-intent) — /v1/systemone local para o hook Touring (W4.4)
+After=graphical-session.target
+
+[Service]
+Type=simple
+Environment=LAYA_STUDENT_PORT=8971
+Environment=LAYA_STUDENT_HOST=127.0.0.1
+Environment=LAYA_DEVICE=cuda
+Environment=PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ExecStart=/usr/bin/python3 /home/gabrielgadea/projects/touring/scripts/laya_student_server.py
+Restart=on-failure
+RestartSec=5
+MemoryMax=6G
+
+[Install]
+WantedBy=default.target

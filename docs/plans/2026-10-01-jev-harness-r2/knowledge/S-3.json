@@ -1,0 +1,45 @@
+{
+  "phase": "S-3",
+  "entities": [
+    {
+      "entity_id": "phase:S-3",
+      "type": "phase",
+      "description": "latency_ms VIVO: decision journal E shadow lines carregam o campo (prova viva: 36ms nas duas, mesmo ts). classify_with_details_timed wrapper (assinatura original intacta), gate single-sourced em parse_student_answer. Race de envs na suite (3 tocadores process-wide) morta com JOURNAL_ENV_LOCK compartilhado \u2014 460/460 x3, clippy limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-3|produces|memory:loop:task_1790895761205640116:S-3:done",
+      "source": "phase:S-3",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-3:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-3:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

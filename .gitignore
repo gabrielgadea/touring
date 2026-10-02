@@ -56,6 +56,17 @@ docs/baselines/*.tar.gz
 # Historical plan data blobs (kept on disk, not in git)
 docs/plans-archive/**/data/ground_truth.json
 
+# Backups de fonte criados por conveniência de sessão dentro de `checkpoints/`
+# (`*.pre-<tag>`): 141 KB dos 224 KB do bundle jev-harness-potencializacao são
+# 2 cópias do mesmo prompt_enhance.rs (docs/audits/cross-audit-2026-10-01-a7.md:71,
+# achado F6 — "um backup de fonte fora do git que ninguém revisa é um segundo
+# lugar onde o código diverge do canônico sem ninguém saber"). Só os BACKUPS:
+# os checkpoints `.toon` de docs/checkpoints/ e pln2/checkpoints/ são artefato
+# de fase e JÁ estão versionados (118 arquivos) — `ignore` não alcança arquivo
+# rastreado, então Ignoring aqui não os desversionaria; o padrão é restrito a
+# `*.pre-*` para não varrer diretório nenhum.
+docs/plans/*/checkpoints/*.pre-*
+
 # ─── Agent/session state — NEVER versioned (2026-08-02, publicação do repo) ───
 # Causa-raiz de vazamento REAL: .touring-cache/tfidf-memory/ indexa TRANSCRIPTS
 # de sessão. Em 25/07 capturou uma GEMINI_API_KEY digitada numa linha de comando

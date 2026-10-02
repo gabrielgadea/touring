@@ -1,0 +1,262 @@
+{
+  "split": "val",
+  "samples": 120,
+  "tau": 0.6,
+  "min_precision": 0.9,
+  "current_temperature": 1.092867136001587,
+  "baseline_at_current_t": {
+    "t": 1.1,
+    "support": 0.2667,
+    "precision_supported": 0.8438,
+    "accuracy": 0.625
+  },
+  "fitted": null,
+  "curve": [
+    {
+      "t": 0.4,
+      "support": 0.775,
+      "precision_supported": 0.7419,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.42,
+      "support": 0.775,
+      "precision_supported": 0.7419,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.44,
+      "support": 0.7417,
+      "precision_supported": 0.764,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.46,
+      "support": 0.725,
+      "precision_supported": 0.7701,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.48,
+      "support": 0.725,
+      "precision_supported": 0.7701,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.5,
+      "support": 0.6917,
+      "precision_supported": 0.7952,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.52,
+      "support": 0.675,
+      "precision_supported": 0.7901,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.54,
+      "support": 0.6667,
+      "precision_supported": 0.7875,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.56,
+      "support": 0.6583,
+      "precision_supported": 0.7975,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.58,
+      "support": 0.6417,
+      "precision_supported": 0.8052,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.6,
+      "support": 0.6083,
+      "precision_supported": 0.8219,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.62,
+      "support": 0.5917,
+      "precision_supported": 0.831,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.64,
+      "support": 0.575,
+      "precision_supported": 0.8406,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.66,
+      "support": 0.5583,
+      "precision_supported": 0.8358,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.68,
+      "support": 0.55,
+      "precision_supported": 0.8485,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.7,
+      "support": 0.5333,
+      "precision_supported": 0.8438,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.72,
+      "support": 0.525,
+      "precision_supported": 0.8413,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.74,
+      "support": 0.5167,
+      "precision_supported": 0.8387,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.76,
+      "support": 0.5083,
+      "precision_supported": 0.8361,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.78,
+      "support": 0.5,
+      "precision_supported": 0.8333,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.8,
+      "support": 0.4583,
+      "precision_supported": 0.8545,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.82,
+      "support": 0.45,
+      "precision_supported": 0.8519,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.84,
+      "support": 0.4417,
+      "precision_supported": 0.8491,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.86,
+      "support": 0.4333,
+      "precision_supported": 0.8462,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.88,
+      "support": 0.4,
+      "precision_supported": 0.8542,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.9,
+      "support": 0.4,
+      "precision_supported": 0.8542,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.92,
+      "support": 0.3917,
+      "precision_supported": 0.8511,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.94,
+      "support": 0.3833,
+      "precision_supported": 0.8696,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.96,
+      "support": 0.3833,
+      "precision_supported": 0.8696,
+      "accuracy": 0.625
+    },
+    {
+      "t": 0.98,
+      "support": 0.3667,
+      "precision_supported": 0.8636,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.0,
+      "support": 0.3583,
+      "precision_supported": 0.8605,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.02,
+      "support": 0.3417,
+      "precision_supported": 0.8537,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.04,
+      "support": 0.3417,
+      "precision_supported": 0.8537,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.06,
+      "support": 0.3,
+      "precision_supported": 0.8611,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.08,
+      "support": 0.2833,
+      "precision_supported": 0.8529,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.1,
+      "support": 0.2667,
+      "precision_supported": 0.8438,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.12,
+      "support": 0.2583,
+      "precision_supported": 0.8387,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.14,
+      "support": 0.2333,
+      "precision_supported": 0.8214,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.16,
+      "support": 0.225,
+      "precision_supported": 0.8148,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.18,
+      "support": 0.2083,
+      "precision_supported": 0.84,
+      "accuracy": 0.625
+    },
+    {
+      "t": 1.2,
+      "support": 0.1917,
+      "precision_supported": 0.8261,
+      "accuracy": 0.625
+    }
+  ]
+}

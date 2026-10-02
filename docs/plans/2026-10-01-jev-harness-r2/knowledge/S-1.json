@@ -1,0 +1,45 @@
+{
+  "phase": "S-1",
+  "entities": [
+    {
+      "entity_id": "phase:S-1",
+      "type": "phase",
+      "description": "W44 temperature scaling: FITTED=None no piso 0,90 (precisao val 0,84-0,86 em todo T; acc global 0,625 \u2014 invariante sob T). Curva medida: T=0,8 dobra suporte (0,267->0,458) @ prec 0,855. O 0,926 da estrategia era precisao@suportado (reproduzido 0,917@T=1,2). Config INTOCADA; decisao do piso escalada a Gabriel (0,90 fica | 0,85 -> T*=0,8 | 0,7 meio-termo). 4 testes verdes; instrumento auditado (target soft vs label duro)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-1|produces|memory:loop:task_1790895761205640116:S-1:done",
+      "source": "phase:S-1",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-1:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-1:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

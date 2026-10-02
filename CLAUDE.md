@@ -57,7 +57,12 @@ timestamp: 2026-08-20T11:15:00-03:00
    `propagate-release.sh`, onde o lado vivo existe).
 
 3. **Gates (REGRA #21 — 0 falhas)**: `cargo check` + `clippy -D warnings` + testes dos
-   crates tocados + `touring e2e -j` (baseline composite 0.8749) antes de declarar pronto.
+   crates tocados + `touring e2e -j` antes de declarar pronto. **Baseline do e2e (mediana
+   n=5, 02/10/2026): 0,857** (min 0,846 · max 0,857); o 0,8749 antigo foi um ponto único de
+   24/07 (já estava abaixo em 25/07). Leia POR COMPONENTE, não pelo overall: ast 0,776 ·
+   wiring 0,809 · index 0,852 · knowledge 0,900 · quality 1,000 são constantes entre
+   execuções (regressão = algum cair); `learning` (0,686↔0,886) mede o bandit e é a única
+   fonte de variação do overall — não gatear por ele.
    Validators por fase do programa: `docs/plans/touring-productization-pln2/validate_*.sh`.
 4. **Débito conhecido**: grafo release-TEST do touring-server quebrado (E0460/E0463,
    fingerprints stale do move F4′) — grafo normal e debug-test compilam; harness E2E
@@ -485,6 +490,14 @@ timestamp: 2026-08-20T11:15:00-03:00
     shim serve `~/.touring/toolchains/<default>/bin`, um snapshot imutável. Código novo
     testado e instalado fica inerte até `scripts/propagate-release.sh <versão>`;
     `TOURING_HOOK_SHIM_TRACE=1` imprime o binário que responde.
+
+31. **Hardware compartilhado (02/10/2026)**: i9-14900HX com as CPUs 8-11 OFFLINE e 6+ sessões
+    na mesma máquina. Todo job pesado passa por `hw-slot` (`scripts/hw-slot`, semáforo flock
+    imposto pelo kernel): `hw-slot --class rust -- cargo test …` (1 por máquina; exit 70 se
+    houve machine check durante um job verde) ou `hw-slot -- <pytest cheio|juiz|OCR>` (até 2);
+    `hw-slot --status` antes de lançar qualquer coisa fora do slot. Nunca MemoryHigh/Max em
+    unit (o oomd mata com RAM livre) e nunca pkill (REGRA #19). Desenho, mutantes e fatos
+    medidos: memória `hw-slot-semaforo-de-hardware`.
 
 ## Referências
 
