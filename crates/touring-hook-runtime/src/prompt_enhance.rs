@@ -148,8 +148,12 @@ pub struct ClassificationResult {
     pub cila_level: u8,
     /// Prompt engineering techniques selected for this intent.
     pub techniques: Vec<Technique>,
-    /// Classification confidence (sum of matched keyword weights).
+    /// Classification confidence (sum of matched keyword weights; with the
+    /// Laya student path, the student's max probability).
     pub confidence: f64,
+    /// Who decided: "keyword" (the deterministic default) or "laya" (the W4.2
+    /// student, only above the calibrated τ — W4.4, flag TOURING_LAYA_INTENT).
+    pub source: &'static str,
 }
 
 /// Map intent to CILA cognitive intensity level.
@@ -181,6 +185,26 @@ pub fn intent_to_cila(intent: &Intent) -> u8 {
 /// all metadata in a single call — suitable for logging, debugging, and
 /// downstream routing decisions.
 pub fn classify_with_details(prompt: &str) -> ClassificationResult {
+    details_from_claim(prompt, student_classify(prompt))
+}
+
+/// (Somente testes) O caminho completo para quem JÁ segura STUDENT_ENV_LOCK —
+/// mesma decisão, sem adquirir o lock de novo (ver student_classify_inner).
+#[cfg(test)]
+pub(crate) fn classify_with_details_inner(prompt: &str) -> ClassificationResult {
+    details_from_claim(prompt, student_classify_inner(prompt))
+}
+
+fn details_from_claim(prompt: &str, claim: Option<(Intent, f64)>) -> ClassificationResult {
+    if let Some((intent, confidence)) = claim {
+        return ClassificationResult {
+            intent,
+            cila_level: intent_to_cila(&intent),
+            techniques: techniques_for(&intent),
+            confidence,
+            source: "laya",
+        };
+    }
     let result = classify(prompt);
     let techniques = techniques_for(&result.intent);
     let cila_level = intent_to_cila(&result.intent);
@@ -190,8 +214,336 @@ pub fn classify_with_details(prompt: &str) -> ClassificationResult {
         cila_level,
         techniques,
         confidence: result.confidence,
+        source: "keyword",
     }
 }
+
+/// S-3 (plan r2): the timed variant — the wrapper measures the whole decision
+/// (student round trip included) so the decision journal carries `latency_ms`
+/// without changing `classify_with_details`' signature (3 call sites + tests).
+pub fn classify_with_details_timed(prompt: &str) -> (ClassificationResult, u64) {
+    let started = std::time::Instant::now();
+    let details = classify_with_details(prompt);
+    (details, started.elapsed().as_millis() as u64)
+}
+
+/// Current time in epoch milliseconds for the journal (no new deps).
+fn intent_journal_now_ms() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
+/// The journal path: TOURING_INTENT_JOURNAL (override explícito) ou o default.
+/// Sob `cfg(test)` o default é um arquivo de tmp do processo — a suíte NUNCA
+/// escreve no journal de produção (a poluição foi medida: ~80 linhas de teste no
+/// journal real em 01/10, encontrado pelo leitor da família decision).
+fn intent_journal_path() -> std::path::PathBuf {
+    if let Ok(p) = std::env::var("TOURING_INTENT_JOURNAL") {
+        return std::path::PathBuf::from(p);
+    }
+    #[cfg(test)]
+    {
+        return std::env::temp_dir().join(format!("intent-journal-tests-{}", std::process::id()));
+    }
+    #[cfg(not(test))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        std::path::PathBuf::from(format!("{home}/.claude/touring/logs/intent_journal.jsonl"))
+    }
+}
+
+/// Append one JSONL line; a failure is traced, never propagated (fail-open —
+/// telemetry must never crash a hook; S-3.2, plan 2026-09-30 W3).
+///
+/// A linha inteira vai num ÚNICO `write_all` sobre O_APPEND: o POSIX garante o
+/// offset atômico por syscall, então writers concorrentes (sessões, threads de
+/// teste) nunca intercalam o conteúdo de uma linha. A forma anterior (`writeln!`)
+/// passava por `write_fmt` em vários pedaços — 4,8% das linhas nasciam com dois
+/// JSONs concatenados (medido: 4/84, touring-02, 01/10).
+fn append_intent_journal(record: &serde_json::Value) {
+    let path = intent_journal_path();
+    // Delega na primitiva compartilhada (single write_all + O_APPEND); fail-open aqui.
+    if let Err(err) = crate::hook_trace::append_json_line(&path, record) {
+        tracing::debug!(?err, "prompt_enhance: intent journal write failed");
+    }
+}
+
+/// S-3.2 (plan 2026-09-30, W3): decision journal for prompt classification —
+/// one append-only JSONL line per classified prompt, written by the hook process
+/// itself, never through the daemon queue (S32b). `path` marks which entry fired
+/// (`compose_json` | `hook_entry`); readers dedup when both fire for one prompt.
+/// This journal is the source the `decision` KPI family reads (S-3.1).
+fn journal_intent_decision(details: &ClassificationResult, path: &str, latency_ms: u64) {
+    append_intent_journal(&serde_json::json!({
+        "ts_ms": intent_journal_now_ms(),
+        "intent": details.intent.as_str(),
+        "cila_level": details.cila_level,
+        "confidence": details.confidence,
+        "source": details.source,
+        "path": path,
+        "latency_ms": latency_ms,
+        "skipped_automated": false,
+    }));
+}
+
+/// The machine-payload counterpart of [`journal_intent_decision`]: proves the
+/// G0 filter fired. Intent is null — nothing was classified.
+fn journal_skip_automated(path: &str) {
+    append_intent_journal(&serde_json::json!({
+        "ts_ms": intent_journal_now_ms(),
+        "intent": serde_json::Value::Null,
+        "source": "keyword",
+        "path": path,
+        "skipped_automated": true,
+    }));
+}
+
+// ── W4.4: Laya student intent classification (flag default-OFF) ─────────────
+//
+// The W4.2 student (laya-w42-intent, fine-tuned RLCD on the G1 corpus) answers
+// intent as a typed Choice over the same 8 classes, served locally over the
+// TypeSafe /v1/systemone wire (scripts/laya_student_server.py). Calibrated on
+// the frozen test split (W4.3, 2026-10-01): max-prob ≥ STUDENT_TAU measures
+// 0.926 accuracy at 22.5% support; everything below falls back to the keyword
+// path — during transition, nothing gets worse. Latency budget: ~25 ms p99
+// server-side; the hook spends < 5 ms on the wire (localhost, no TLS).
+
+/// Measured on the frozen test split (W4.3): max-prob ≥ 0.6 → acc 0.926.
+const STUDENT_TAU: f64 = 0.6;
+
+/// The student server URL (scripts/laya_student_server.py). Tests point this at
+/// an ephemeral TcpListener via LAYA_STUDENT_URL. In TEST BUILDS the default is
+/// EMPTY (never call): env vars are process-global across test threads, and with
+/// the shadow path every classify became a potential student client — a test
+/// that never asked for the student must never become a client (race measured
+/// in the suite 01/10: a parallel test consumed the one-shot stub's accept).
+fn student_url() -> String {
+    std::env::var("LAYA_STUDENT_URL").unwrap_or_else(|_| {
+        #[cfg(test)]
+        {
+            String::new()
+        }
+        #[cfg(not(test))]
+        {
+            "http://127.0.0.1:8971".to_string()
+        }
+    })
+}
+
+/// Flag default-OFF, in the TOURING_PILLAR_INDUCTION_ARMED mold.
+fn student_enabled() -> bool {
+    std::env::var("TOURING_LAYA_INTENT").is_ok_and(|v| !v.is_empty() && v != "0" && v != "false")
+}
+
+/// (Somente testes) Trava do ambiente do aluno na suíte: LAYA_STUDENT_URL /
+/// TOURING_LAYA_INTENT são process-wide. O teste que as modifica segura
+/// JOURNAL_ENV_LOCK → STUDENT_ENV_LOCK (nesta ordem, sempre) e chama as
+/// variantes `_inner`; qualquer outro classificador espera aqui até as envs
+/// serem restauradas e então cai no keyword (student_url() vazio). Sem isso,
+/// um classify concorrente decide com o stub one-shot de outro teste e o
+/// consome (2 panics sob RUST_TEST_THREADS=12, medido 2026-10-02).
+#[cfg(test)]
+pub(crate) static STUDENT_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// The student's class name → our Intent (same 8 classes by construction).
+fn intent_from_name(name: &str) -> Option<Intent> {
+    match name.to_ascii_lowercase().as_str() {
+        "general" => Some(Intent::General),
+        "code" => Some(Intent::Code),
+        "debug" => Some(Intent::Debug),
+        "refactor" => Some(Intent::Refactor),
+        "test" => Some(Intent::Test),
+        "analysis" => Some(Intent::Analysis),
+        "plan" => Some(Intent::Plan),
+        "creative" => Some(Intent::Creative),
+        _ => None,
+    }
+}
+
+/// The JSON body for the student's /v1/systemone: the exact 8 trained classes.
+fn student_request_body(prompt: &str) -> String {
+    serde_json::json!({
+        "state": {"prompt": prompt},
+        "model": "laya-w42-intent",
+        "questions": {
+            "intent": {
+                "type": "choice",
+                "instructions": "What kind of work is the user asking for in `prompt`? Answer with the dominant intent.",
+                // the exact 8 classes the student was trained on — no "other"
+                "criteria": {
+                    "general": null, "code": null, "debug": null, "refactor": null,
+                    "test": null, "analysis": null, "plan": null, "creative": null
+                }
+            }
+        }
+    })
+    .to_string()
+}
+
+/// One blocking POST to the student server; None on any wire failure.
+fn student_http_post(body: &str) -> Option<serde_json::Value> {
+    use std::io::{Read, Write};
+    let url = student_url();
+    if url.is_empty() {
+        return None; // test builds sem LAYA_STUDENT_URL explícita: nunca chama
+    }
+    let host_port = url
+        .trim_start_matches("http://")
+        .trim_start_matches("https://")
+        .split('/')
+        .next()?;
+    let request = format!(
+        "POST /v1/systemone HTTP/1.1\r\nHost: {host_port}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+        body.len()
+    );
+    let mut stream = std::net::TcpStream::connect(host_port).ok()?;
+    let timeout = std::time::Duration::from_millis(200);
+    stream.set_read_timeout(Some(timeout)).ok()?;
+    stream.set_write_timeout(Some(timeout)).ok()?;
+    stream.write_all(request.as_bytes()).ok()?;
+    let mut buf = String::new();
+    stream.read_to_string(&mut buf).ok()?;
+    serde_json::from_str(buf.get(buf.find("\r\n\r\n")? + 4..)?).ok()
+}
+
+/// Parse WITHOUT the τ gate — the shadow path (S-2, plan r2) needs the raw
+/// answer: what the student WOULD have said is journal material even when it is
+/// not a claim. The τ gate lives in the caller's decision, never in the parse.
+fn parse_student_answer_raw(payload: &serde_json::Value) -> Option<(Intent, f64)> {
+    let answer = payload.get("answers")?.get("intent")?;
+    let choice = answer.get("choice")?.as_str()?;
+    let max_prob = answer
+        .get("probabilities")?
+        .as_object()?
+        .values()
+        .filter_map(serde_json::Value::as_f64)
+        .fold(0.0_f64, f64::max);
+    Some((intent_from_name(choice)?, max_prob))
+}
+
+/// Parse + gate: the calibrated τ is the only gate, and it is read from the
+/// student's own probabilities (never from a bare choice string).
+fn parse_student_answer(payload: &serde_json::Value) -> Option<(Intent, f64)> {
+    let (intent, max_prob) = parse_student_answer_raw(payload)?;
+    if max_prob < STUDENT_TAU {
+        return None;
+    }
+    Some((intent, max_prob))
+}
+
+/// S-2 (plan r2, shadow-matrix): the student's would-be answer, journaled with
+/// `source: "laya_shadow"`. The agreement matrix is built while the keyword
+/// path keeps deciding — a shadow line is NEVER a decision (the KPI reads it
+/// as a separate source by construction).
+fn journal_student_shadow(intent: Intent, max_prob: f64, latency_ms: u64) {
+    append_intent_journal(&serde_json::json!({
+        "ts_ms": intent_journal_now_ms(),
+        "intent": intent.as_str(),
+        "confidence": max_prob,
+        "source": "laya_shadow",
+        "path": "shadow",
+        "latency_ms": latency_ms,
+        "skipped_automated": false,
+    }));
+}
+
+/// Ask the student; Some ONLY for a real claim (flag ON + max_prob ≥ τ).
+/// Every answered-but-unclaimed evaluation is journaled as `laya_shadow` —
+/// including with the flag OFF (shadow mode: the keyword path decides, the
+/// journal still learns what the student would have said). None on any failure
+/// (unreachable, slow, malformed) — every one is the keyword path, never a crash.
+fn student_classify(prompt: &str) -> Option<(Intent, f64)> {
+    // (Somente testes) serializa contra o modificador do ambiente do aluno
+    // (STUDENT_ENV_LOCK); em produção não há lock — o hook decide por evento.
+    #[cfg(test)]
+    let _guard = STUDENT_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    student_classify_inner(prompt)
+}
+
+/// O corpo sem o lock — para quem JÁ segura STUDENT_ENV_LOCK (os testes que
+/// modificam as envs do aluno); student_classify ali seria deadlock (o Mutex
+/// do std não é reentrante).
+fn student_classify_inner(prompt: &str) -> Option<(Intent, f64)> {
+    let started = std::time::Instant::now();
+    let payload = student_http_post(&student_request_body(prompt))?;
+    let wire_ms = started.elapsed().as_millis() as u64;
+    let (intent, max_prob) = parse_student_answer_raw(&payload)?;
+    if student_enabled() {
+        // o gate τ vive em parse_student_answer (fonte única do threshold)
+        if let Some(claim) = parse_student_answer(&payload) {
+            return Some(claim);
+        }
+    }
+    journal_student_shadow(intent, max_prob, wire_ms);
+    None
+}
+
+// ── S-8 (plan r2): semantic bash gate (CEG × aluno) ─────────────────────────
+//
+// O caso canônico da doc ("gate the bash tool"): as camadas determinísticas
+// conhecem os padrões comuns — o buraco são os comandos que NINGUÉM viu. Para
+// esses, um reversibility Score do aluno LOCAL (~10ms) vira advisory no
+// pre-bash. ADVISORY SEMPRE: enriquece a decisão, nunca nega por palpite (um
+// gate que nasce bloqueando vira gate que se contorna).
+
+const SEMANTIC_GATE_ENV: &str = "TOURING_CEG_SEMANTIC_GATE";
+
+/// Flag default-OFF, no molde TOURING_LAYA_INTENT.
+fn semantic_gate_enabled() -> bool {
+    std::env::var(SEMANTIC_GATE_ENV).is_ok_and(|v| !v.is_empty() && v != "0" && v != "false")
+}
+
+/// Programas cujo risco as camadas determinísticas já cobrem — o gate só paga o
+/// aluno pelo DESCONHECIDO. Lista deliberadamente conservadora: na dúvida, NOVEL
+/// (o custo de um falso "desconhecido" é um advisory inócuo, nunca um deny).
+const KNOWN_PROGRAMS: &[&str] = &[
+    "ls", "cat", "grep", "rg", "git", "cargo", "touring", "touring-hook", "touring-daemon", "python3", "python", "echo", "pwd", "cd", "wc", "head", "tail", "find", "sed", "awk", "jq", "curl", "bash", "sh", "mkdir", "cp", "mv", "rm", "touch", "chmod", "ps", "kill", "systemctl", "journalctl", "df", "du", "nvidia-smi", "pytest", "npm", "node", "pip", "pip3", "tar", "zip", "unzip", "make", "rustc", "rustup", "docker", "ssh", "scp", "rsync", "diff", "patch", "xargs", "tee", "sort", "uniq", "tr", "cut", "date", "sleep", "timeout", "nohup", "watch", "man", "which", "file", "stat", "ln", "readlink", "basename", "dirname", "env", "sudo", "apt", "pacman", "snapper", "gh", "tmux", "less", "strings", "nm", "ldd", "lsof", "dmesg", "mount", "dd", "sync", "hostname", "uname", "id", "whoami", "alias", "type", "exit", "true", "false", "test",
+];
+
+/// O short-program é conhecido (as camadas determinísticas já o cobrem)?
+pub fn is_known_program(program: &str) -> bool {
+    KNOWN_PROGRAMS.contains(&program)
+}
+
+/// O body /v1/systemone do gate: reversibilidade em 3 níveis (a forma da doc).
+fn reversibility_request_body(command: &str) -> String {
+    serde_json::json!({
+        "state": {"command": command},
+        "model": "laya-w42-intent",
+        "questions": {
+            "reversibility": {
+                "type": "score",
+                "instructions": {
+                    "command": command,
+                    "question": "Rate how reversible this shell command is if run by an agent: 0 = irreversible or destructive (data loss, force-push, drops state), 1 = reversible with cost (build artifacts, downloads, process spawns, edits), 2 = read-only or trivially reversible."
+                },
+                "criteria": [
+                    "irreversible or destructive: loses data, rewrites shared state, or cannot be undone",
+                    "reversible with cost: creates artifacts, downloads, spawns processes, or edits files that a later command can undo",
+                    "read-only or trivially reversible: inspects, lists, prints, or computes without side effects"
+                ]
+            }
+        }
+    })
+    .to_string()
+}
+
+/// (score 0–2, latency_ms) — None em qualquer falha ou com a flag OFF
+/// (fail-open: o gate nunca atrapalha o caminho determinístico).
+pub fn semantic_reversibility(command: &str) -> Option<(f64, u64)> {
+    if !semantic_gate_enabled() {
+        return None;
+    }
+    let started = std::time::Instant::now();
+    let payload = student_http_post(&reversibility_request_body(command))?;
+    let wire_ms = started.elapsed().as_millis() as u64;
+    let score = payload.get("answers")?.get("reversibility")?.get("score")?.as_f64()?;
+    Some((score, wire_ms))
+}
+
+
 
 /// Keyword entry: (keyword, exclusive_weight).
 /// exclusive = 2.0 (only appears in one intent), shared = 1.0 (multiple intents).
@@ -554,10 +906,12 @@ fn prompt_path(prompt: &str) -> Option<String> {
 /// `skipped` reason and `suppressOutput`, and none of the fields above.
 pub fn compose_json(prompt: &str) -> serde_json::Value {
     if is_automated_payload(prompt) {
+        journal_skip_automated("compose_json");
         return skipped_automated_payload();
     }
 
-    let details = classify_with_details(prompt);
+    let (details, latency_ms) = classify_with_details_timed(prompt);
+    journal_intent_decision(&details, "compose_json", latency_ms);
     let context = compose(&details.intent, prompt);
 
     let technique_names: Vec<&str> = details.techniques.iter().map(|t| t.as_str()).collect();
@@ -587,6 +941,11 @@ pub fn compose_json(prompt: &str) -> serde_json::Value {
 
 /// The classification behind [`compose_json`] — for diagnostics and tests, never the wire.
 /// `Null` for a machine payload (nothing was classified).
+/// `pub`, não `#[cfg(test)] pub(crate)`: o consumidor é o `integration_e2e` do
+/// crate `touring-hooks` (tests/integration_e2e.rs:534,585) — `cfg(test)` não
+/// atravessa a fronteira de crate e `pub(crate)` é invisível fora do runtime
+/// (2026-10-02: a medição de "zero consumers" olhou só este crate; E0425 ×2 no
+/// workspace test).
 pub fn compose_details(prompt: &str) -> serde_json::Value {
     if is_automated_payload(prompt) {
         return serde_json::Value::Null;
@@ -634,11 +993,13 @@ pub fn run_user_prompt_submit(runtime: &HookRuntime, input: &serde_json::Value) 
 
     // A background event is not a prompt: nothing to classify, nothing to inject.
     if is_automated_payload(prompt) {
+        journal_skip_automated("hook_entry");
         return HookResponse::Allow;
     }
 
     // Classify intent + CILA level
-    let details = classify_with_details(prompt);
+    let (details, latency_ms) = classify_with_details_timed(prompt);
+    journal_intent_decision(&details, "hook_entry", latency_ms);
 
     // Build enriched context via compose
     let context = compose(&details.intent, prompt);

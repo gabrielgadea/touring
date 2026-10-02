@@ -275,6 +275,13 @@ impl Facet {
                 "project",
                 "followup",
                 "text",
+                // S-5.7 (Gabriel, 2026-10-01): fix/report/audit — 37 of the 73
+                // teacher labels in the G1 split-test live outside the seed
+                // (measured, Jev×Touring G2). The vocabulary grows deliberately;
+                // the lint keeps warning on anything else.
+                "fix",
+                "report",
+                "audit",
             ],
             Facet::Purpose => &[
                 "blast-radius",
@@ -506,6 +513,12 @@ pub fn validate_tag(raw: &str) -> (Result<ParsedTag, Vec<TagViolation>>, Vec<Tag
 pub enum TagSource {
     /// Derived offline over pre-existing entries (lowest trust).
     Backfill,
+    /// Derived by an external System One model (TypeSafe Jev) and written with
+    /// its model id for provenance (S-5.7, 2026-10-01). Measured trust above the
+    /// heuristic backfill — ECE 0.113 with the τ=0.8 gate (Jev×Touring G2) —
+    /// below the deterministic sources. Reversible by construction:
+    /// `DELETE FROM memory_tags WHERE source = 'jev'`.
+    Jev,
     /// Derived deterministically at store time (lang←extension, kind←type).
     Auto,
     /// Re-harvested from an in-code `#tags:` anchor by the snippet indexer.
@@ -519,6 +532,7 @@ impl TagSource {
     pub const fn as_str(self) -> &'static str {
         match self {
             TagSource::Backfill => "backfill",
+            TagSource::Jev => "jev",
             TagSource::Auto => "auto",
             TagSource::CodeSync => "code_sync",
             TagSource::Explicit => "explicit",
@@ -611,7 +625,8 @@ pub fn upsert_tag(
          VALUES (?1, ?2, ?3, ?4, ?5)
          ON CONFLICT(entry_key, full_tag) DO UPDATE SET source = excluded.source
          WHERE excluded.source IN ('explicit', 'code_sync')
-            OR memory_tags.source IN ('backfill', 'auto')",
+            OR memory_tags.source IN ('backfill', 'auto')
+            OR (excluded.source = 'jev' AND memory_tags.source = 'jev')",
         rusqlite::params![
             key,
             tag.facet.as_str(),
@@ -1077,5 +1092,45 @@ mod tests {
         assert_eq!(b, b2);
         // `#nota` has no ':' — markdown-ish tokens never spam the report.
         assert!(ignored.is_empty());
+    }
+
+    // S-5.7 (2026-10-01, Gabriel): deliberate vocabulary growth + the Jev source.
+    #[rstest]
+    fn seed_values_carry_fix_report_audit() {
+        let kinds = Facet::Kind.seed_values();
+        for v in ["fix", "report", "audit"] {
+            assert!(kinds.contains(&v), "seed_values must carry {v}");
+            let (parsed, _) = validate_tag(&format!("#kind:{v}"));
+            assert!(parsed.is_ok(), "#kind:{v} validates without UnseededValue");
+        }
+    }
+
+    #[rstest]
+    fn tag_source_jev_renders_and_orders() {
+        assert_eq!(TagSource::Jev.as_str(), "jev");
+        assert!(TagSource::Backfill < TagSource::Jev);
+        assert!(TagSource::Jev < TagSource::Auto);
+    }
+
+    #[rstest]
+    fn jev_upsert_refreshes_jev_backfill_yields_and_explicit_overrides() {
+        let conn = rusqlite::Connection::open_in_memory().expect("memdb");
+        ensure_tag_schema(&conn).expect("schema");
+        let tag = parse_tag("#kind:fix").expect("valid tag");
+        upsert_tag(&conn, "k1", &tag, TagSource::Jev).expect("first jev");
+        // jev refreshes jev (a second measurement run updates its own tags)
+        upsert_tag(&conn, "k1", &tag, TagSource::Jev).expect("jev refresh");
+        // backfill does NOT override jev
+        upsert_tag(&conn, "k1", &tag, TagSource::Backfill).expect("backfill");
+        let source: String = conn
+            .query_row("SELECT source FROM memory_tags WHERE entry_key='k1'", [], |r| r.get(0))
+            .expect("row");
+        assert_eq!(source, "jev", "backfill must not override jev");
+        // explicit DOES override jev (highest trust wins)
+        upsert_tag(&conn, "k1", &tag, TagSource::Explicit).expect("explicit");
+        let source2: String = conn
+            .query_row("SELECT source FROM memory_tags WHERE entry_key='k1'", [], |r| r.get(0))
+            .expect("row");
+        assert_eq!(source2, "explicit");
     }
 }

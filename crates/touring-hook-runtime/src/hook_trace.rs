@@ -151,12 +151,25 @@ pub fn build_line(
 
 /// Append one line to `path` (creating parents and the file as needed).
 pub fn append_line(path: &Path, line: &HookTraceLine) -> std::io::Result<()> {
+    let value = serde_json::to_value(line).map_err(std::io::Error::other)?;
+    append_json_line(path, &value)
+}
+
+/// Append one arbitrary JSON value as one line (creating parents and the file).
+///
+/// The WHOLE line goes out in a single `write_all` over O_APPEND: POSIX makes
+/// the offset atomic per syscall, so concurrent writers (sessions, test threads)
+/// never interleave one line's bytes. This is the single append path for every
+/// hook-side JSONL journal — anything else (e.g. `writeln!`, which goes through
+/// `write_fmt` in several chunks) measurably produces concatenated lines
+/// (4/84 on the intent journal, 2026-10-01).
+pub fn append_json_line(path: &Path, value: &serde_json::Value) -> std::io::Result<()> {
     if let Some(parent) = path.parent()
         && !parent.as_os_str().is_empty()
     {
         std::fs::create_dir_all(parent)?;
     }
-    let mut json = serde_json::to_string(line).map_err(std::io::Error::other)?;
+    let mut json = serde_json::to_string(value).map_err(std::io::Error::other)?;
     json.push('\n');
     let mut f = std::fs::OpenOptions::new()
         .create(true)

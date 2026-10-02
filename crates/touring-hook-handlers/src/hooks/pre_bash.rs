@@ -237,6 +237,28 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         merged
     };
 
+    // S-8 (plan r2): semantic bash gate — o DESCONHECIDO recebe um reversibility
+    // Score do aluno local como advisory (enriquece, nunca nega por palpite).
+    let merged = {
+        let short = extract_command_short(command);
+        if !short.is_empty() && !touring_hook_runtime::prompt_enhance::is_known_program(&short) {
+            match touring_hook_runtime::prompt_enhance::semantic_reversibility(command) {
+                Some((score, wire_ms)) => {
+                    let note = format!(
+                        "ceg_semantic_reversibility: {score:.2}/2 (aluno local, {wire_ms}ms) — advisory, não bloqueia"
+                    );
+                    Some(match merged {
+                        Some(m) => format!("{m}\n{note}"),
+                        None => note,
+                    })
+                }
+                None => merged,
+            }
+        } else {
+            merged
+        }
+    };
+
     match merged {
         Some(ctx) if !ctx.is_empty() => {
             // Truncate to CILA budget — prevents oversized context at low levels.

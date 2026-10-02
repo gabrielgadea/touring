@@ -218,6 +218,13 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // verdadeiro do hook_trace (S14): das invocações que PEDIRAM o daemon,
     // quantas tiveram resposta usável, em 48 h (piso 0.95). Ausência = null.
     out["daemon_availability"] = daemon_availability::daemon_availability();
+    // S-3.1 (2026-10-01) — a família `decision`: as seis réguas de decisão
+    // tipada (intent_distribution, keyword_fallback_rate, recall_curated_share,
+    // jev_calls_total/latency_p99/confidence_hist), lidas dos journals
+    // append-only em ~/.claude/touring/logs/. A regra que atravessa as seis:
+    // ausência de dado é `unmeasured`, nunca 0 — um 0 lido como "o Jev nunca
+    // caiu para o keyword" aciona a decisão errada e liga a flag.
+    out["decision"] = decision::decision_family();
     // P0/S-0.1 (2026-09-04) — a régua da JANELA, do transcript do proprio Claude
     // Code. Todas as demais medem a ROTA (aderencia, reuso, complemento); o
     // recurso mais caro do sistema era o unico sem instrumento, e por isso toda
@@ -239,6 +246,7 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 
 mod code_mode;
 mod daemon_availability;
+mod decision;
 mod sources;
 
 // Re-exportados: o `mod tests` (55 testes) e todo chamador seguem vendo
