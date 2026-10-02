@@ -136,7 +136,7 @@ def s4_byte_identical(argv, inputs, toml=None) -> dict:
     """ON vs OFF per input, plus a CONTROL (OFF vs OFF). Every run starts from a FRESH scratch project: the suggester's
     300 s dedup cache would otherwise make a repeated input differ with no flag involved. A control that differs means
     the hook is not deterministic in this harness, so the proof is VOID (passes=None) — a diff is never blamed on the flag."""
-    n_diff = n_ctl = 0
+    n_diff = n_ctl = n_nonempty = 0
     first = None
     with tempfile.TemporaryDirectory() as tmp:
         for i, p in enumerate(inputs):
@@ -151,10 +151,13 @@ def s4_byte_identical(argv, inputs, toml=None) -> dict:
                 n_diff += 1
                 first = i if first is None else first
             n_ctl += outs[1] != outs[2]
+            n_nonempty += bool(outs[0] or outs[1])   # the strength of the proof: how many comparisons had something to compare
     base = {"n": len(inputs), "n_diff": n_diff, "n_control_diff": n_ctl, "control_identical": n_ctl == 0,
-            "identical": not n_diff and bool(inputs), "first_diff_input": first}
+            "n_nonempty": n_nonempty, "identical": not n_diff and bool(inputs), "first_diff_input": first}
     if n_ctl:
         return {**base, "passes": None, "reason": "control (OFF x OFF) differs: the hook is not deterministic here, so a diff cannot be attributed to the flag"}
+    if not n_nonempty:   # measured: ordinary commands in a clean project give 0 bytes from both hooks — 0 == 0 proves nothing
+        return {**base, "passes": None, "reason": "every output is empty: byte-identity of nothing proves nothing"}
     return {**base, "passes": base["identical"]}
 
 
