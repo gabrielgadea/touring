@@ -682,3 +682,14 @@ arquivo proibido (os nomes proibidos seguem pegos por `FORBIDDEN`). **Pela regra
 (caminhos sempre por extenso e completos, nunca montados por prefixo; o pacote pode ser lido por faixas com `Read` ou impresso por faixas com `touring run`, que a tentativa 1 precisou usar porque o pacote
 excede o limite de uma leitura). Verificação: `--allow-file adj_out/adj_sonnet3b.jsonl` e `--forbid adj_sonnet3.jsonl` além das flags do E10.2. **Se a tentativa 2 também reprovar, não há terceira**:
 a análise de sensibilidade sai como "não realizada". O E10.3 (análise) e o E10.4 (regra de leitura) valem sem mudança, com `--r3 adj_out/adj_sonnet3b.jsonl`.
+
+**E11.6 — suplemento (19:45 -03:00).** A conferência cruzada do `touring-a4` notou que o p95 (446 ms) e a coluna da passada 2 estavam só na minha conversa, não num artefato:
+`r3_jev_recheck.py --supplement` (sem API) gera `jev_recheck/recheck_supplement.json` e reproduz os números do E11.5. Latência real do Jev (n = 50): **mín 322 ms**, mediana 368 ms, **p95 446 ms**,
+máx 574 ms. A dúvida dele — uma repetição servida por deduplicação do journal em vez da API — se fecha por dois fatos: o journal do cliente é só de escrita (`_journal`, o cache é lido do
+arquivo de cache, que a ferramenta esvazia por chamada) e a menor latência das 50 chamadas é 322 ms, impossível para uma resposta de cache (0 ms nas predições do replay).
+
+**E12.8 — correções ao E12.1/E12.4 (19:45 -03:00, antes de ler o resultado do r4).** (a) **Checkpoint, agora medido** (`scripts/r4_checkpoint_probe.py`, `Agent.cfg` de cada carga): o agente carregado como os
+braços do r3 o carregaram (sem `subfolder`) reporta `encoder: answerdotai/ModernBERT-large`, `max_len 512`, `head_max_len 192`, temperaturas [1,637; 1,251; 1,983]; com `subfolder="multilingual"`,
+`jhu-clsp/mmBERT-base`, 1024, 256, [1; 1; 1]. O E12.1 deixa de ser leitura de código. (b) **Denominador:** o corpus congelado tem 180 itens e o pacote dos avaliadores 179 (um item sem rota); o r4 prediz os 180
+e **pontua os que estão no gold registrado (171)**; `check_alignment` falha alto se o conjunto de `item_id` das predições e o da amostra diferirem. (c) O teste de vazamento do estado ganhou a sentinela de
+`n_cmds` (apontada pelo `touring-a4`; mutação 20/20).
