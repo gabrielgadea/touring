@@ -122,6 +122,8 @@ cross-vendor julgam C-A1-2 de forma independente; o limite inferior usa a união
 
 Flag de ativação **default OFF** (`TOURING_R3_SHADOW`). O shadow NUNCA altera o que é injetado nem o
 que é classificado em produção: ele só observa e registra.
+*(Nota de 02/10, E9.8-p: "NUNCA" é o enunciado de desenho e não foi medido. O que o S4 mediu é saída byte-idêntica com a flag ligada, nos 4 hooks, em
+200 entradas de 1 rodada (RESULTS §2); o resto é projeto mais testes. O "NUNCA" fica revogado como afirmação empírica.)*
 
 ## 5. Estados finais
 
@@ -331,7 +333,7 @@ com margem de 10% reprovaria ou aprovaria por acaso, nunca pelo shadow — não 
  - **S1b (sanidade fim a fim):** com o shadow ligado e n ≥ 200 por hook, o p95 de cada hook fica **≤ o maior dos 7 p95
    diários anteriores** (o envelope natural observado). Pega uma interação patológica, não +10%; S1a prende o custo
    fino. O S1 original (janela contra janela, 1,10×) continua sendo REPORTADO, só não decide.
-**E5.3 — S4 tem o alcance dito:** o modo standalone (`TOURING_NO_DAEMON=1`) prova que a flag não altera o texto
+**E5.3 — S4 tem o alcance dito** *(a prova standalone foi ANULADA pela E6.1, porque o standalone não emite `cli-suggest`; a prova de ponta a ponta é a rodada 2, E9.8-n/o)*: o modo standalone (`TOURING_NO_DAEMON=1`) prova que a flag não altera o texto
 injetado nas 200 entradas reais; o estado da oferta vive na memória do processo, então o CICLO DE VIDA (oferta → desfecho)
 só existe no daemon e sua identidade é provada pelos testes
 `r3_claim_route_reward_is_identical_with_the_flag_on` e `r3_emission_failure_never_changes_the_return` (cada um com
@@ -561,3 +563,7 @@ ON×OFF, e não houve nenhuma. É 1 rodada, sem repetição.
 **(5) Conferência cruzada.** O `touring-a4` (MiniMax, outra sessão) recontou 13 números do E9.8-n(1) contra o JSON da rodada 1 (13/13 iguais; sha256 completo
 `84b67229148ad1c954b15353a6a99bd4aca207aa9df61b073881e7f8e7f15564`) e os horários dos commits `8d82fc77`, `f0e0d1e9`, `39f8f733`, `ca0d2559` (iguais). O
 docstring do `rewrite` e um comentário de teste afirmavam a razão errada do E9.8-b e foram corrigidos; o comportamento do código não mudou desde `2f297e58`.
+**(6) Conferência da rodada 2 pelo `touring-a4`:** todos os números do E9.8-o(1), do `RESULTS` e da `PROVA` batem com o JSON (sha256 completo
+`4f1d3ecbc4ca9e3df7457719b6f7bddf500fca39d854de2b8ef8201304d0922d`), com `/tmp/r3s4g/on-events.jsonl` (178 linhas) e com o diff do `31aa69ed` (só docstring e um
+comentário de teste). Dois trechos antigos diziam mais do que o medido e ganharam nota, sem reescrever o registro: o "NUNCA" do desenho (E9.8-p, na seção de
+flag) e o E5.3 (anulado pela E6.1).
