@@ -1016,7 +1016,10 @@ fn journal_written_for_human_skip_for_machine_concurrent_and_never_breaks_reply(
     }
     // Outros testes paralelos também escrevem neste arquivo (a var é process-wide):
     // o piso exato são as 402 daqui; o que não pode existir é linha corrompida.
-    assert!(parsed >= 402, "2 linhas iniciais + 400 da corrida: {parsed}");
+    assert!(
+        parsed >= 402,
+        "2 linhas iniciais + 400 da corrida: {parsed}"
+    );
     let lines: Vec<serde_json::Value> = text
         .lines()
         .filter_map(|l| serde_json::from_str(l).ok())
@@ -1033,7 +1036,12 @@ fn journal_written_for_human_skip_for_machine_concurrent_and_never_breaks_reply(
     );
 
     // fail-open: journal impossível não pode derrubar a resposta do hook
-    unsafe { std::env::set_var("TOURING_INTENT_JOURNAL", "/proc/impossible/deeply/journal.jsonl") };
+    unsafe {
+        std::env::set_var(
+            "TOURING_INTENT_JOURNAL",
+            "/proc/impossible/deeply/journal.jsonl",
+        )
+    };
     let json = compose_json("explique o daemon");
     assert!(json["hookSpecificOutput"]["additionalContext"].is_string());
     unsafe { std::env::remove_var("TOURING_INTENT_JOURNAL") };
@@ -1064,13 +1072,19 @@ fn student_shadow_matrix_journals_would_be_answers_without_changing_decisions() 
         std::env::set_var("LAYA_STUDENT_URL", &low);
         std::env::set_var("TOURING_LAYA_INTENT", "1");
     }
-    assert!(student_classify_inner("prompt a").is_none(), "0.4 < τ — nunca claim");
+    assert!(
+        student_classify_inner("prompt a").is_none(),
+        "0.4 < τ — nunca claim"
+    );
     let lines = std::fs::read_to_string(&journal).unwrap_or_default();
     let shadow = lines
         .lines()
         .find(|l| l.contains("\"laya_shadow\"") && l.contains("\"DEBUG\""))
         .unwrap_or_else(|| panic!("linha shadow esperada, veio: {lines}"));
-    assert!(shadow.contains("\"latency_ms\""), "S-3: a shadow carrega a latência: {shadow}");
+    assert!(
+        shadow.contains("\"latency_ms\""),
+        "S-3: a shadow carrega a latência: {shadow}"
+    );
 
     // (b) flag OFF (shadow mode): mesmo com 0.9 NÃO clama — e mesmo assim grava
     let mid = spawn_student_stub(
@@ -1080,18 +1094,29 @@ fn student_shadow_matrix_journals_would_be_answers_without_changing_decisions() 
         std::env::remove_var("TOURING_LAYA_INTENT");
         std::env::set_var("LAYA_STUDENT_URL", &mid);
     }
-    assert!(student_classify_inner("prompt b").is_none(), "flag OFF — shadow, não claim");
+    assert!(
+        student_classify_inner("prompt b").is_none(),
+        "flag OFF — shadow, não claim"
+    );
     let lines2 = std::fs::read_to_string(&journal).unwrap_or_default();
     assert!(
-        lines2.lines().any(|l| l.contains("\"laya_shadow\"") && l.contains("\"PLAN\"")),
+        lines2
+            .lines()
+            .any(|l| l.contains("\"laya_shadow\"") && l.contains("\"PLAN\"")),
         "shadow-mode esperado com a flag OFF"
     );
 
     // (c) servidor fora: fail-open, NENHUMA linha shadow nova
     unsafe { std::env::set_var("LAYA_STUDENT_URL", "http://127.0.0.1:1") };
-    let before = std::fs::read_to_string(&journal).unwrap_or_default().lines().count();
+    let before = std::fs::read_to_string(&journal)
+        .unwrap_or_default()
+        .lines()
+        .count();
     assert!(student_classify_inner("prompt c").is_none());
-    let after = std::fs::read_to_string(&journal).unwrap_or_default().lines().count();
+    let after = std::fs::read_to_string(&journal)
+        .unwrap_or_default()
+        .lines()
+        .count();
     assert_eq!(before, after, "server down → nenhuma linha shadow");
 
     // (d) flag ON + resposta ≥ τ: claim REAL, que não vira shadow
@@ -1106,7 +1131,9 @@ fn student_shadow_matrix_journals_would_be_answers_without_changing_decisions() 
     assert!(matches!(claimed, Some((Intent::Code, p)) if p >= STUDENT_TAU));
     let lines3 = std::fs::read_to_string(&journal).unwrap_or_default();
     assert!(
-        !lines3.lines().any(|l| l.contains("\"laya_shadow\"") && l.contains("\"CODE\"")),
+        !lines3
+            .lines()
+            .any(|l| l.contains("\"laya_shadow\"") && l.contains("\"CODE\"")),
         "claim real nunca vira shadow"
     );
 
@@ -1144,7 +1171,10 @@ fn journal_line_carries_latency_ms_non_negative() {
         r#"{"answers":{"intent":{"type":"choice","choice":"plan","probabilities":{"plan":0.9}}}}"#,
     );
     unsafe { std::env::set_var("LAYA_STUDENT_URL", &stub) };
-    assert!(student_classify_inner("prompt latencia").is_none(), "flag OFF — shadow");
+    assert!(
+        student_classify_inner("prompt latencia").is_none(),
+        "flag OFF — shadow"
+    );
 
     let text = std::fs::read_to_string(&journal).expect("journal escrito");
     let lines: Vec<serde_json::Value> = text
@@ -1214,7 +1244,10 @@ fn semantic_bash_gate_scores_unknown_and_skips_rest() {
         std::env::set_var("TOURING_CEG_SEMANTIC_GATE", "1");
     }
     let got = semantic_reversibility("zdbt --compress /var/data");
-    assert!(matches!(got, Some((s, _)) if (s - 2.0).abs() < 1e-9), "score viajou: {got:?}");
+    assert!(
+        matches!(got, Some((s, _)) if (s - 2.0).abs() < 1e-9),
+        "score viajou: {got:?}"
+    );
 
     // (b) flag OFF: None sem chamar
     unsafe { std::env::remove_var("TOURING_CEG_SEMANTIC_GATE") };
@@ -1261,7 +1294,8 @@ fn w44_student_decides_above_tau_keyword_everywhere_else() {
             };
             let resp = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
-                body.len(), body
+                body.len(),
+                body
             );
             let _ = s.write_all(resp.as_bytes());
         }
@@ -1302,7 +1336,13 @@ fn w44_student_decides_above_tau_keyword_everywhere_else() {
 fn compose_details_surfaces_classification_and_null_for_machine_payload() {
     let d = compose_details("refatore o parser de hooks");
     assert!(d["intent"].is_string(), "diagnóstico carrega o intent: {d}");
-    assert!(d["cila_level"].is_u64(), "diagnóstico carrega o nível CILA: {d}");
+    assert!(
+        d["cila_level"].is_u64(),
+        "diagnóstico carrega o nível CILA: {d}"
+    );
     let null = compose_details("<task-notification>{\"status\":\"completed\"}</task-notification>");
-    assert!(null.is_null(), "payload de máquina não tem classificação: {null}");
+    assert!(
+        null.is_null(),
+        "payload de máquina não tem classificação: {null}"
+    );
 }

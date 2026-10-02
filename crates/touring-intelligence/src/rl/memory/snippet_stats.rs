@@ -350,10 +350,7 @@ fn tokens(code: &str) -> std::collections::BTreeSet<String> {
 }
 
 /// Jaccard similarity of two token sets; 0.0 when either is empty.
-fn jaccard(
-    a: &std::collections::BTreeSet<String>,
-    b: &std::collections::BTreeSet<String>,
-) -> f64 {
+fn jaccard(a: &std::collections::BTreeSet<String>, b: &std::collections::BTreeSet<String>) -> f64 {
     if a.is_empty() || b.is_empty() {
         return 0.0;
     }
@@ -605,7 +602,12 @@ mod tests {
         // Um corpo que rodou UMA vez: enrolado, nunca reusado.
         enrol(&conn, "snippet:um", "print('um')\nprint('dois')\n", 1);
         // Um que rodou TRÊS: duas delas são re-execuções.
-        enrol(&conn, "snippet:tres", "print('a')\nprint('b')\nprint('c')\n", 3);
+        enrol(
+            &conn,
+            "snippet:tres",
+            "print('a')\nprint('b')\nprint('c')\n",
+            3,
+        );
 
         let t = ladder_totals(&conn).expect("agregado");
         assert_eq!(t.entries, 2, "dois corpos na escada");
@@ -695,7 +697,9 @@ mod tests {
         enrol(&conn, "snippet:censo", corpo, 2);
 
         assert!(
-            similar_snippets(&conn, corpo, 5).expect("search").is_empty(),
+            similar_snippets(&conn, corpo, 5)
+                .expect("search")
+                .is_empty(),
             "the exact same body is a re-run, not something to discover"
         );
     }
@@ -703,7 +707,11 @@ mod tests {
     #[test]
     fn an_empty_library_or_an_empty_program_finds_nothing() {
         let conn = mem();
-        assert!(similar_snippets(&conn, "x = 1", 5).expect("search").is_empty());
+        assert!(
+            similar_snippets(&conn, "x = 1", 5)
+                .expect("search")
+                .is_empty()
+        );
         enrol(&conn, "snippet:a", "def f():\n    return 1\n", 1);
         assert!(similar_snippets(&conn, "", 5).expect("search").is_empty());
         assert!(

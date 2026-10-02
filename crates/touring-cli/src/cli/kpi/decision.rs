@@ -147,9 +147,8 @@ fn rfc3339_to_ms(s: &str) -> Option<u64> {
         .iter()
         .map(|r| s.get(r.clone())?.parse().ok())
         .collect::<Option<Vec<i64>>>()?;
-    let (year, month, day, hour, minute, second) = (
-        parts[0], parts[1], parts[2], parts[3], parts[4], parts[5],
-    );
+    let (year, month, day, hour, minute, second) =
+        (parts[0], parts[1], parts[2], parts[3], parts[4], parts[5]);
     let seconds = days_from_civil(year, month, day) * 86_400 + hour * 3600 + minute * 60 + second;
     u64::try_from(seconds * 1000).ok()
 }
@@ -182,7 +181,9 @@ pub(crate) fn intent_distribution_from(records: &[Value]) -> Value {
             continue;
         }
         human += 1;
-        let Some(intent) = rec.get("intent").and_then(Value::as_str) else { continue };
+        let Some(intent) = rec.get("intent").and_then(Value::as_str) else {
+            continue;
+        };
         *counts.entry(intent.to_string()).or_insert(0) += 1;
     }
     if human == 0 {
@@ -235,7 +236,9 @@ pub(crate) fn keyword_fallback_rate_from(records: &[Value]) -> Value {
         if rec.get("skipped_automated").and_then(Value::as_bool) == Some(true) {
             continue;
         }
-        let Some(source) = rec.get("source").and_then(Value::as_str) else { continue };
+        let Some(source) = rec.get("source").and_then(Value::as_str) else {
+            continue;
+        };
         *by_source.entry(source.to_string()).or_insert(0) += 1;
         // if/else e não `match`: uma constante num padrão é lida como binding
         // pelo compilador (E0408), e um KPI não pode depender dessa subtileza.
@@ -278,7 +281,12 @@ pub(crate) fn keyword_fallback_rate_from(records: &[Value]) -> Value {
 fn source_map(by_source: &BTreeMap<String, u64>, total: u64) -> Value {
     let map: serde_json::Map<String, Value> = by_source
         .iter()
-        .map(|(k, v)| (k.clone(), json!({ "count": v, "share": round4(*v as f64 / total as f64) })))
+        .map(|(k, v)| {
+            (
+                k.clone(),
+                json!({ "count": v, "share": round4(*v as f64 / total as f64) }),
+            )
+        })
         .collect();
     Value::Object(map)
 }
@@ -388,7 +396,10 @@ pub(crate) fn jev_activity_from(records: &[Value]) -> Value {
         tally.absorb(rec);
     }
     if tally.is_empty() {
-        return unmeasured("no_jev_journal_lines", json!({ "lines_read": records.len() }));
+        return unmeasured(
+            "no_jev_journal_lines",
+            json!({ "lines_read": records.len() }),
+        );
     }
     let mut latencies = tally.latencies;
     json!({
@@ -446,7 +457,11 @@ impl JevTally {
         if let Some(q) = &question {
             *self.by_question.entry(q.clone()).or_insert(0) += 1;
         }
-        match rec.get("route_taken").and_then(Value::as_str).unwrap_or("unknown") {
+        match rec
+            .get("route_taken")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown")
+        {
             "api" => {
                 self.api += 1;
                 if let Some(ms) = rec.get("latency_ms").and_then(Value::as_f64) {
@@ -462,7 +477,9 @@ impl JevTally {
                     .unwrap_or("unknown");
                 *self.fallback_reasons.entry(reason.to_string()).or_insert(0) += 1;
                 if let (Some(q), Some(ts)) = (&question, rec.get("ts").and_then(Value::as_str)) {
-                    self.first_fallback_at.entry(q.clone()).or_insert_with(|| ts.to_string());
+                    self.first_fallback_at
+                        .entry(q.clone())
+                        .or_insert_with(|| ts.to_string());
                 }
             }
             _ => {}
@@ -478,7 +495,9 @@ impl JevTally {
             self.confidences.push(c);
             return;
         }
-        let Some(Value::Object(map)) = rec.get("answers_digest") else { return };
+        let Some(Value::Object(map)) = rec.get("answers_digest") else {
+            return;
+        };
         for answer in map.values() {
             if let Some(c) = answer.get("confidence").and_then(Value::as_f64) {
                 self.confidences.push(c);
@@ -492,7 +511,10 @@ fn question_id_of(record: &Value) -> Option<String> {
     match record.get("question_ids") {
         Some(Value::Array(ids)) if ids.len() == 1 => ids[0].as_str().map(str::to_string),
         Some(Value::Array(ids)) if !ids.is_empty() => Some(format!("multi:{}", ids.len())),
-        _ => record.get("question_id").and_then(Value::as_str).map(str::to_string),
+        _ => record
+            .get("question_id")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
 }
 
@@ -653,7 +675,9 @@ mod tests {
     fn starvation_gate_fires_only_above_threshold_with_flag_on() {
         let starving: Vec<Value> = (0..99)
             .map(|i| json!({ "ts": ts(i), "intent": "code", "source": "keyword" }))
-            .chain(std::iter::once(json!({ "ts": ts(99), "intent": "code", "source": "laya" })))
+            .chain(std::iter::once(
+                json!({ "ts": ts(99), "intent": "code", "source": "laya" }),
+            ))
             .collect();
         let out = starvation_gate_from(&starving, true);
         assert_eq!(out["status"], "unmet");
@@ -677,7 +701,10 @@ mod tests {
         // shadow NÃO entra no universo — contá-la fingiria suporte que não existe.
         let records: Vec<Value> = (0..100)
             .map(|i| json!({ "ts": ts(i), "intent": "code", "source": "keyword" }))
-            .chain((100..400).map(|i| json!({ "ts": ts(i), "intent": "code", "source": "laya_shadow" })))
+            .chain(
+                (100..400)
+                    .map(|i| json!({ "ts": ts(i), "intent": "code", "source": "laya_shadow" })),
+            )
             .collect();
         let out = starvation_gate_from(&records, true);
         assert_eq!(out["status"], "unmet");
@@ -748,7 +775,8 @@ mod tests {
     #[test]
     fn recall_curated_share_separates_zero_candidates_from_no_recall() {
         // Houve recall e ele não ofereceu nada: share 0.0 medido.
-        let out = recall_curated_share_from(&[json!({ "ts": ts(0), "candidates": 0, "injected": 0 })]);
+        let out =
+            recall_curated_share_from(&[json!({ "ts": ts(0), "candidates": 0, "injected": 0 })]);
         assert_eq!(out["status"], "measured");
         assert_eq!(out["curated_share"], 0.0);
     }
@@ -822,7 +850,10 @@ mod tests {
     #[test]
     fn epoch_ms_parses_rfc3339_without_chrono() {
         // 2026-01-01T00:00:00Z
-        assert_eq!(epoch_ms(&json!("2026-01-01T00:00:00Z")), Some(1_767_225_600_000));
+        assert_eq!(
+            epoch_ms(&json!("2026-01-01T00:00:00Z")),
+            Some(1_767_225_600_000)
+        );
     }
 
     #[test]
@@ -868,7 +899,10 @@ mod tests {
         ];
         let out = jev_activity_from(&records);
         assert_eq!(out["fallbacks"], 1);
-        assert_eq!(out["first_fallback_at"]["which_skill"], "2026-10-01T09:02:50-0300");
+        assert_eq!(
+            out["first_fallback_at"]["which_skill"],
+            "2026-10-01T09:02:50-0300"
+        );
         // A contagem por pergunta mostra que o roteiro NÃO está mais caindo:
         // 2 chamadas, 1 fallback — e o carimbo diz quando foi.
         assert_eq!(out["by_question"]["which_skill"], 2);
@@ -886,11 +920,15 @@ mod tests {
         for name in ["intent_journal.jsonl", "jev_journal.jsonl"] {
             let Some(home) = &home else { continue };
             let path = Path::new(home).join(".claude/touring/logs").join(name);
-            let Ok(text) = std::fs::read_to_string(&path) else { continue };
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
             for line in text.lines().filter(|l| !l.trim().is_empty()) {
                 // Uma linha malformada não pode falhar o teste — ela é justamente
                 // o caso que `read_window` trata e que o relatório publica.
-                let Ok(record) = serde_json::from_str::<Value>(line) else { continue };
+                let Ok(record) = serde_json::from_str::<Value>(line) else {
+                    continue;
+                };
                 if let Some(obj) = record.as_object() {
                     for key in TIMESTAMP_KEYS {
                         if obj.contains_key(key) && !seen.iter().any(|s| s == key) {
@@ -903,7 +941,10 @@ mod tests {
         if seen.is_empty() {
             return; // sem journals em disco: nada a fixar ainda
         }
-        let unhandled: Vec<&String> = seen.iter().filter(|k| !TIMESTAMP_KEYS.contains(&k.as_str())).collect();
+        let unhandled: Vec<&String> = seen
+            .iter()
+            .filter(|k| !TIMESTAMP_KEYS.contains(&k.as_str()))
+            .collect();
         assert!(
             unhandled.is_empty(),
             "emissor grava um timestamp que o leitor não conhece: {unhandled:?} (aceitos: {TIMESTAMP_KEYS:?})"
@@ -915,9 +956,13 @@ mod tests {
         // O que o defeito do `ts_ms` teria deixado passar: sem o nome certo, a
         // linha caía no fail-open e entrava como "dentro da janela".
         let old = json!({ "ts_ms": 1_000_000_000_000u64, "intent": "code", "source": "keyword" });
-        let recent = json!({ "ts_ms": 9_999_999_999_999u64, "intent": "code", "source": "keyword" });
+        let recent =
+            json!({ "ts_ms": 9_999_999_999_999u64, "intent": "code", "source": "keyword" });
         let cutoff = 1_800_000_000_000u64;
-        assert!(!within_window(&old, cutoff), "linha de 2021 entrou na janela de 2026");
+        assert!(
+            !within_window(&old, cutoff),
+            "linha de 2021 entrou na janela de 2026"
+        );
         assert!(within_window(&recent, cutoff));
     }
 

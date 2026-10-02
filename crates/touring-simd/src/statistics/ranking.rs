@@ -10,12 +10,12 @@ use statrs::distribution::{ContinuousCDF, Normal};
 /// Wilson score ranker with configurable z-score.
 #[derive(Debug, Clone)]
 pub struct WilsonRanker {
-/// Z-score for confidence level — computed by statrs `inverse_cdf`, never
-/// truncated: 0.95 → **1.959963984540054** (the exact value; the doc-shorthand
-/// "1.96" below is the textbook rounding of it). Measured 24/09/2026
-/// (analise): at (1,1) this yields 0.206549, while the analise's Python —
-/// using z = 1.96 truncated — yields 0.206543; the divergence is on the
-/// TRUNCATING side, not on this one.
+    /// Z-score for confidence level — computed by statrs `inverse_cdf`, never
+    /// truncated: 0.95 → **1.959963984540054** (the exact value; the doc-shorthand
+    /// "1.96" below is the textbook rounding of it). Measured 24/09/2026
+    /// (analise): at (1,1) this yields 0.206549, while the analise's Python —
+    /// using z = 1.96 truncated — yields 0.206543; the divergence is on the
+    /// TRUNCATING side, not on this one.
     z_score: f64,
     /// Parallel threshold for batch operations.
     parallel_threshold: usize,

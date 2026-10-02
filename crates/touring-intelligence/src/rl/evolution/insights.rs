@@ -254,12 +254,25 @@ mod tests {
 
     #[test]
     fn insight_key_is_content_addressed_and_deterministic() {
-        let k1 = insight_key("cila", "Insufficient compliance data for CILA progression analysis");
-        let k2 = insight_key("cila", "Insufficient compliance data for CILA progression analysis");
-        assert_eq!(k1, k2, "a mesma mensagem SEMPRE produz a mesma chave (REGRA #17)");
+        let k1 = insight_key(
+            "cila",
+            "Insufficient compliance data for CILA progression analysis",
+        );
+        let k2 = insight_key(
+            "cila",
+            "Insufficient compliance data for CILA progression analysis",
+        );
+        assert_eq!(
+            k1, k2,
+            "a mesma mensagem SEMPRE produz a mesma chave (REGRA #17)"
+        );
         let k3 = insight_key("cila", "CILA adoption is low");
         assert_ne!(k1, k3, "conteúdo distinto, chave distinta");
         assert!(k1.starts_with("insight:cila:"));
-        assert_eq!(k1.len(), "insight:cila:".len() + 12, "12 hex do sha256 — sem timestamp");
+        assert_eq!(
+            k1.len(),
+            "insight:cila:".len() + 12,
+            "12 hex do sha256 — sem timestamp"
+        );
     }
 }

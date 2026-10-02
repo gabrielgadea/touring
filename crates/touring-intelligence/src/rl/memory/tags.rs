@@ -1123,13 +1123,21 @@ mod tests {
         // backfill does NOT override jev
         upsert_tag(&conn, "k1", &tag, TagSource::Backfill).expect("backfill");
         let source: String = conn
-            .query_row("SELECT source FROM memory_tags WHERE entry_key='k1'", [], |r| r.get(0))
+            .query_row(
+                "SELECT source FROM memory_tags WHERE entry_key='k1'",
+                [],
+                |r| r.get(0),
+            )
             .expect("row");
         assert_eq!(source, "jev", "backfill must not override jev");
         // explicit DOES override jev (highest trust wins)
         upsert_tag(&conn, "k1", &tag, TagSource::Explicit).expect("explicit");
         let source2: String = conn
-            .query_row("SELECT source FROM memory_tags WHERE entry_key='k1'", [], |r| r.get(0))
+            .query_row(
+                "SELECT source FROM memory_tags WHERE entry_key='k1'",
+                [],
+                |r| r.get(0),
+            )
             .expect("row");
         assert_eq!(source2, "explicit");
     }

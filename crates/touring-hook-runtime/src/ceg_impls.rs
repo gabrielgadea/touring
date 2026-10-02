@@ -346,7 +346,11 @@ pub fn cli_memory_tag_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     // S-5.7 (2026-10-01): provenance travels in the payload — `explicit` (the
     // default, highest trust) or `jev` (System One derivation; the refusal
     // names the open route, it never coerces silently).
-    let source = match payload.get("source").and_then(|v| v.as_str()).unwrap_or("explicit") {
+    let source = match payload
+        .get("source")
+        .and_then(|v| v.as_str())
+        .unwrap_or("explicit")
+    {
         "explicit" => tags::TagSource::Explicit,
         "jev" => tags::TagSource::Jev,
         other => {
@@ -356,9 +360,7 @@ pub fn cli_memory_tag_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
             .to_string();
         }
     };
-    match open_tagged_memory_db(rt)
-        .map(|conn| tags::upsert_tag(&conn, key, &tag, source))
-    {
+    match open_tagged_memory_db(rt).map(|conn| tags::upsert_tag(&conn, key, &tag, source)) {
         Ok(Ok(())) => serde_json::json!({
             "status": "tagged",
             "key": key,

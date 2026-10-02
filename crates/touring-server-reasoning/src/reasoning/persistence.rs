@@ -569,12 +569,12 @@ impl CheckpointManager {
              WHERE status IN ({}) AND archived_at IS NULL AND updated_at < ?1",
             touring_foundation::task_lifecycle::terminal_status_sql_list()
         );
-        let count = conn
-            .execute(&sql, params![cutoff_str])
-            .map_err(|source| CheckpointError::Sqlite {
-                context: "Archive failed",
-                source,
-            })?;
+        let count =
+            conn.execute(&sql, params![cutoff_str])
+                .map_err(|source| CheckpointError::Sqlite {
+                    context: "Archive failed",
+                    source,
+                })?;
 
         Ok(count)
     }

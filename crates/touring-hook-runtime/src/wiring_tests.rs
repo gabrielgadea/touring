@@ -1682,7 +1682,11 @@ fn the_definers_refresh_types_an_edge_recorded_before_it() {
 
     refresh_file_wiring(&db, "src/helpers.rs", "rust", src);
 
-    assert_ne!(kind(), "unknown", "the definer's refresh left the edge untyped");
+    assert_ne!(
+        kind(),
+        "unknown",
+        "the definer's refresh left the edge untyped"
+    );
 }
 
 #[test]

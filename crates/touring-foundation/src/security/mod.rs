@@ -43,9 +43,9 @@ pub fn is_code_expression(v: &str) -> bool {
     }
     let core = v.trim_end_matches(')');
     core.contains('.')
-        && core
-            .split('.')
-            .all(|seg| !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_'))
+        && core.split('.').all(|seg| {
+            !seg.is_empty() && seg.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+        })
 }
 
 #[cfg(test)]

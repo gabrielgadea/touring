@@ -35,8 +35,9 @@ fn a_per_command_relaxation_never_reaches_the_daemon() {
         );
     }
     assert!(
-        envs.iter().any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_DAEMON_SOCKET")
-            && *v == Some(std::ffi::OsStr::new("/tmp/x.sock"))),
+        envs.iter()
+            .any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_DAEMON_SOCKET")
+                && *v == Some(std::ffi::OsStr::new("/tmp/x.sock"))),
         "o resto do ambiente segue intacto"
     );
 }
@@ -52,8 +53,9 @@ fn the_deliberate_daemon_mode_survives_the_scrub() {
 
     let envs: Vec<_> = cmd.get_envs().collect();
     assert!(
-        envs.iter().any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_CODE_MODE")
-            && *v == Some(std::ffi::OsStr::new("both"))),
+        envs.iter()
+            .any(|(k, v)| *k == std::ffi::OsStr::new("TOURING_CODE_MODE")
+                && *v == Some(std::ffi::OsStr::new("both"))),
         "o pedido deliberado chega ao daemon como a própria var de apresentação, sem espaços"
     );
 
@@ -80,7 +82,8 @@ fn both_spawn_routes_scrub_before_spawning() {
         .expect("spawn_with_launcher exists")
         .1;
     assert_eq!(
-        body.matches("scrub_per_command_relaxations(&mut cmd").count(),
+        body.matches("scrub_per_command_relaxations(&mut cmd")
+            .count(),
         2,
         "a rota do scope e a direta precisam AMBAS limpar o ambiente"
     );

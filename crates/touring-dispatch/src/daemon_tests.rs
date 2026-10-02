@@ -595,8 +595,7 @@ fn pin_admits_clients_under_nested_markers_of_every_kind() {
         }
         let cwd = base.join("src").join("deep");
         std::fs::create_dir_all(&cwd).expect("cwd");
-        let client_root =
-            touring_foundation::TouringConfig::normalize_project_root(&cwd);
+        let client_root = touring_foundation::TouringConfig::normalize_project_root(&cwd);
         assert!(
             pin_admits(&root, &client_root),
             "{name}: cwd {:?} normaliza para {:?} — dentro da árvore pinada, DEVE ser admitido",
@@ -624,7 +623,10 @@ fn pin_admits_clients_under_nested_markers_of_every_kind() {
     let analise_old = x.join("analise-old");
     std::fs::create_dir_all(&analise).expect("analise");
     std::fs::create_dir_all(&analise_old).expect("analise-old");
-    assert!(!pin_admits(&analise, &analise_old), "irmão com prefixo de nome é FORA");
+    assert!(
+        !pin_admits(&analise, &analise_old),
+        "irmão com prefixo de nome é FORA"
+    );
 
     // A symlink or `..` must never read as a false outside (both sides are
     // canonicalized).

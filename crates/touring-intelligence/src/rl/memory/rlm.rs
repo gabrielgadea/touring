@@ -1727,7 +1727,11 @@ mod tests {
             "cila",
             "Insufficient compliance data for CILA progression analysis",
         );
-        let mut e1 = RichMemoryEntry::new(&key, "local", "Insufficient compliance data for CILA progression analysis");
+        let mut e1 = RichMemoryEntry::new(
+            &key,
+            "local",
+            "Insufficient compliance data for CILA progression analysis",
+        );
         mem.store_rich(&e1).expect("primeira emissão");
         e1.embedding = None;
         mem.store_rich(&e1).expect("reemissão (tick seguinte)");
@@ -2215,7 +2219,11 @@ mod tests {
         // …and the failed bump left no trace.
         let n: i64 = writer
             .conn
-            .query_row("SELECT access_count FROM memory_entries WHERE key = 'k'", [], |r| r.get(0))
+            .query_row(
+                "SELECT access_count FROM memory_entries WHERE key = 'k'",
+                [],
+                |r| r.get(0),
+            )
             .unwrap();
         assert_eq!(n, 0);
     }
@@ -2235,7 +2243,10 @@ mod tests {
                 Some("{\"a\":1}")
             );
             assert_eq!(mem.get_readonly("absent", Some("core")).unwrap(), None);
-            assert_eq!(mem.get_readonly("skill_ranking", None).unwrap().as_deref(), Some("{\"a\":1}"));
+            assert_eq!(
+                mem.get_readonly("skill_ranking", None).unwrap().as_deref(),
+                Some("{\"a\":1}")
+            );
         }
         let after = std::fs::read(&path).unwrap();
         assert_eq!(
@@ -2349,16 +2360,25 @@ mod tests {
         );
         // Exact tier — including the ones the enum never names.
         assert_eq!(
-            reader.get_readonly("lesson", Some("semantic")).unwrap().as_deref(),
+            reader
+                .get_readonly("lesson", Some("semantic"))
+                .unwrap()
+                .as_deref(),
             Some("the lesson")
         );
         assert_eq!(
-            reader.get_readonly("scratch", Some("local")).unwrap().as_deref(),
+            reader
+                .get_readonly("scratch", Some("local"))
+                .unwrap()
+                .as_deref(),
             Some("local note")
         );
         // An unknown tier is an honest None — never a broad-search fallback
         // that makes a mistyped tier look valid.
-        assert_eq!(reader.get_readonly("lesson", Some("semantc")).unwrap(), None);
+        assert_eq!(
+            reader.get_readonly("lesson", Some("semantc")).unwrap(),
+            None
+        );
         assert_eq!(reader.get_readonly("absent", None).unwrap(), None);
     }
 
@@ -2392,6 +2412,10 @@ mod tests {
         assert_eq!(writer.get_str("k", Some("local")).unwrap(), None);
         assert_eq!(count("semantic"), 1, "an absent tier bumps nothing");
         writer.get_str("k", None).unwrap();
-        assert_eq!(count("semantic"), 2, "the tier-less writable read bumps the row");
+        assert_eq!(
+            count("semantic"),
+            2,
+            "the tier-less writable read bumps the row"
+        );
     }
 }

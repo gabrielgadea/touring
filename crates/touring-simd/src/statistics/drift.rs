@@ -237,12 +237,9 @@ mod tests {
     fn ks_exact_oracle(s1: &[f64], s2: &[f64]) -> f64 {
         let count_le = |s: &[f64], v: f64| s.iter().filter(|&&x| x <= v).count() as f64;
         let (n1, n2) = (s1.len() as f64, s2.len() as f64);
-        s1.iter()
-            .chain(s2.iter())
-            .copied()
-            .fold(0.0_f64, |acc, v| {
-                acc.max((count_le(s1, v) / n1 - count_le(s2, v) / n2).abs())
-            })
+        s1.iter().chain(s2.iter()).copied().fold(0.0_f64, |acc, v| {
+            acc.max((count_le(s1, v) / n1 - count_le(s2, v) / n2).abs())
+        })
     }
 
     /// The three minimal cases from the analise's measurement (24/09/2026) —
