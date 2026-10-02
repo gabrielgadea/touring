@@ -612,3 +612,23 @@ adj_out/adj_sonnet3.jsonl --out-dir adj_sens3 --predictions r3-replay/a2/predict
 maioria e alternativo unânime. Se algum divergir, o resultado é "**sensível ao gold**" e os três vereditos saem lado a lado, com os números dos braços; o veredito
 primário segue o do gold registrado até decisão do Gabriel. Se κ(R1,R3) < 0,60, isso é **evidência contra a confiabilidade do rater 1** e é reportada como tal,
 sem veto automático. Os κ de cada par saem sempre, qualquer que seja o resultado.
+
+---
+
+# Errata 11 — 02/10/2026 19:30 -03:00 — registrada ANTES de qualquer chamada à API na reconsulta do Jev
+
+> Motivo: o Gabriel aprovou (item 5 do canvas) "até ~50 chamadas para reconsultar ao vivo os 25 payloads distintos e conferir contra o cache, fechando a
+> proveniência". **Fato achado antes de chamar a API, só por leitura:** a proveniência **já está registrada**. O journal do cliente
+> (`~/.claude/touring/logs/jev_journal.jsonl`) tem, para as 25 chaves do cache com `a2_followed`, exatamente **25 chamadas reais** (`route_taken: api`, modelo
+> reportado `jev-1.13.0`, 02/10 13:54:09–13:59:06, latência 326–400 ms, mediana 358 ms) e 358 respostas servidas do cache. A frase do RESULTS §4
+> ("origem das entradas do cache não está registrada") estava errada e é corrigida no mesmo commit. O que a reconsulta ainda mede é **estabilidade**: o
+> mesmo payload recebe a mesma probabilidade?
+
+**E11.1 — desenho.** `scripts/r3_jev_recheck.py` (11 testes, mutação 14/14). 180 itens → 25 payloads redigidos distintos (validados por
+`validate_jev_payload`: nenhum texto livre sai da máquina). A ferramenta contorna o cache do cliente (arquivo de cache vazio por chamada), grava num journal
+separado (`r3-data/jev_recheck/jev_journal_recheck.jsonl`; o journal vivo e o KPI não são tocados), **recusa `--max-calls` > 50 e não faz a chamada seguinte ao
+teto**. Passada 1 = 25 chamadas. Passada 2 (≤ 25) só se a passada 1 diferir do cache em qualquer payload. Falha de chamada é **erro**, nunca `p = 0`.
+**E11.2 — leitura, fixada antes.** "Estável" ⇔ max |p_vivo − p_cache| ≤ 0,05 em TODOS os payloads (passada 1 × cache); senão "instável". Com passada 2, sai
+também |p2 − p1|. **E11.3 — re-pontuação.** B-J com os p vivos no lugar dos do cache, contra o MESMO gold registrado, com o pontuador puro; veredito pelo gate.
+O veredito primário continua o registrado; saem a concordância do B-J (registrada × com p vivos) e os dois vereditos. **E11.4 — saldo:** ~486 − chamadas feitas
+(a ferramenta imprime o total e as rotas do journal: o esperado é `api` = chamadas, `cache` = 0).
