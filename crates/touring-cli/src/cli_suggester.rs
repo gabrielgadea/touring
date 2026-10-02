@@ -4346,6 +4346,9 @@ fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
     (corpo.replace('\'', "'\\''"), omitidos)
 }
 
+// r3 shadow, A2 — ciclo de vida da oferta de rota, só observado (plan 2026-10-02-jev-harness-r3, S-8).
+mod r3_a2;
+
 /// A rota escrita que a apresentação entregou ao modelo, com o braço que a produziu.
 ///
 /// Contadores de FREQUÊNCIA dizem com que assiduidade um gate age e nada sobre
@@ -4533,15 +4536,19 @@ pub(crate) fn presentation_label(p: CodeModePresentation) -> &'static str {
 pub(crate) fn record_route_offer(project_root: &Path, session: &str, mode: CodeModePresentation) {
     let label = presentation_label(mode);
     let key = format!("{}\u{2}{session}", project_root.display());
+    let offered_secs = now_secs();
     route_offers().insert(
         key,
         RouteOffer {
             mode: label.to_string(),
-            offered_secs: now_secs(),
+            offered_secs,
         },
     );
     // `bump_arm` é o escritor único: ele grava a vista durável E a volátil.
     bump_arm(project_root, label, ArmAxis::Offered);
+    // r3 shadow (observe-only, default OFF): fecha como `replaced` a oferta que ainda
+    // estava pendente nesta sessão e abre a nova. Nada aqui altera o que foi gravado acima.
+    r3_a2::on_offer(project_root, session, label, offered_secs);
 }
 
 /// Onde vive a evidência DURÁVEL do braço, por projeto.
@@ -4878,6 +4885,24 @@ pub(crate) fn arm_choice_from_counts(counts: [(u64, u64); 3]) -> Option<CodeMode
 /// Deixar a regra no chamador a perderia no segundo chamador; aqui ela é
 /// estrutural.
 pub fn claim_route_reward(
+    project_root: &Path,
+    payload: &Value,
+    cmd: &str,
+) -> Option<(RouteOffer, f64)> {
+    let decision = claim_route_reward_decision(project_root, payload, cmd);
+    // r3 shadow (observe-only, default OFF): a decisão acima já está tomada e é devolvida
+    // por valor, intocada — o shadow só a OBSERVA para fechar o ciclo de vida da oferta.
+    r3_a2::on_outcome(
+        project_root,
+        payload,
+        cmd,
+        decision.as_ref().map(|(_, v)| *v),
+    );
+    decision
+}
+
+/// A decisão de produção de [`claim_route_reward`] — o corpo original, sem o shadow.
+fn claim_route_reward_decision(
     project_root: &Path,
     payload: &Value,
     cmd: &str,

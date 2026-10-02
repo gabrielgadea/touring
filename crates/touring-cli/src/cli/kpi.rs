@@ -225,6 +225,11 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // ausência de dado é `unmeasured`, nunca 0 — um 0 lido como "o Jev nunca
     // caiu para o keyword" aciona a decisão errada e liga a flag.
     out["decision"] = decision::decision_family();
+    // S-10 (2026-10-02, plan jev-harness-r3) — a família `shadow`: o que o avaliador
+    // do shadow Jev/Laya registrou em r3_shadow.jsonl (n de eventos, acordo B0×braço,
+    // descartes, latência p50/p95, por use_case). Journal PRÓPRIO — nunca lê nem altera
+    // os da `decision`; sem linha, `unmeasured` (jamais 0).
+    out["shadow"] = shadow::shadow_family();
     // P0/S-0.1 (2026-09-04) — a régua da JANELA, do transcript do proprio Claude
     // Code. Todas as demais medem a ROTA (aderencia, reuso, complemento); o
     // recurso mais caro do sistema era o unico sem instrumento, e por isso toda
@@ -247,6 +252,7 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 mod code_mode;
 mod daemon_availability;
 mod decision;
+mod shadow;
 mod sources;
 
 // Re-exportados: o `mod tests` (55 testes) e todo chamador seguem vendo

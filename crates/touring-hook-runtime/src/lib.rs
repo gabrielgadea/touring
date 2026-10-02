@@ -62,6 +62,9 @@ pub mod protocol;
 // the dispatch crate (was hooks/prompt_enhance.rs) — consumed by both the
 // dispatch hook_registry (UserPromptSubmit) and cli/health.rs (touring-cli).
 pub mod prompt_enhance;
+// r3 shadow (2026-10-02): the observe-only event emitter shared by touring-cli
+// (A2 offer lifecycle, S-8) and — once its blast radius is redesigned — hook_runtime (A1).
+pub mod r3_shadow;
 pub mod runtime;
 pub mod schemas;
 pub mod shared;
