@@ -60,3 +60,11 @@ Provas de entrega executadas ao vivo na 30.4.91 e gravadas: S1a/S1b/S2/S5/S6 PAS
 ## 2026-10-02T16:02:24.715725-03:00 — S-14 done
 
 RESULTS.md e PROVA-PRATICA.md escritos com numeros mecanicos regenerados (gate A1 NAO_ADOTADO_PELOS_DADOS, A2 GOLD_INSUFICIENTE) e limitacoes declaradas. S-5/S-6 seguem abertas: dependem do avaliador 1 nao-Claude (Gabriel).
+
+## 2026-10-02T16:40:15.987202-03:00 — S-5 done
+
+Gold do A2 existe: rater 1 = subagente MiniMax limpo (Errata 7, verificado por scan mecanico; falso-positivo do verificador corrigido e divulgado), rater 2 = Claude cego, kappa 0,7707; desempate por subagente Claude limpo (15 itens contra followed). 171 itens de gold.
+
+## 2026-10-02T16:40:16.363275-03:00 — S-6 done
+
+Comparacao ao gold implementada (r3_score_a2.py, Errata 8, --gold do replay ligado) e executada: A2 = NAO_ADOTADO_PELOS_DADOS (B0 0,906; B-J 0,835; B-L 0,706). Reimplementacao independente bate. Sensibilidade sem desempate: mesmo veredito.
