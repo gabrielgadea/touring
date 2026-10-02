@@ -543,3 +543,21 @@ do braço. Base nova e virgem `/tmp/r3s4g/{on,off,ctl}`; a rodada 2 grava `s4-ab
 **(5) Divulgação.** A decisão de reexecutar foi tomada **depois** de ver os números da rodada 1, inclusive ON×OFF; o diagnóstico usou só o
 controle. A rodada 1 permanece no registro: se a rodada 2 também for VOID ou fraca, o S4 fica como estava e o motivo é escrito.
 **Ferramenta:** `scripts/r3_s4_ab.py` (24 testes; mutação hermética 19/19; o mutante "raiz do braço dentro do comando" é morto por teste).
+
+**E9.8-o (02/10/2026, escrito às 17:51 -03:00 — depois da rodada 2; só correções e divulgação, nenhum limiar muda).**
+**(1) Rodada 2** (início 17:40:58, fim 17:49:48, de `r3-s4-ab-run2.{start,log}`; `s4-ab.json` sha256 `4f1d3ecbc4ca9e3d…`): `passes = true`; controle
+OFF×ctl **0/200** e ON×OFF **0/200** nos quatro hooks; não vazias 175 (`pre-bash`) · 57 (`cli-suggest`) · 71 (`post-bash`) · 0 (`post-tool-rl`, anulado);
+178 eventos do emissor no ON; nenhum hash do experimento no journal real. As 6 linhas que o journal real ganhou na janela são `a1_block` de duas
+sessões vivas (hashes fora do conjunto do experimento, nenhuma cita `r3s4`).
+**(2) Correção do E9.8-b.** `pin_admits` compara só a raiz do projeto do pedido (`project_root`) com a árvore do daemon
+(`crates/touring-dispatch/src/daemon.rs:144-148` e `:1915`; o `daemon.rs:1905-1922` do E9.8-b omitia o crate) e **nunca lê o texto do comando**. A
+reescrita dos caminhos do comando serve à identidade entre braços e a não deixar hook ler o repositório vivo, não ao pin. Achado do `touring-a4`, verificado por mim.
+**(3) Proveniência de horários.** O "17:15:03" da rodada 1 é a hora do lançamento no transcript da sessão; o JSON da rodada 1 não grava tempo, e o fim
+(17:23:50) está em `r3-s4-ab.log`.
+**(4) Limitações do desenho da rodada 2.** Comandos com caminho relativo deixam raso o diretório que o `pre-bash` extrai (`extract_dir`,
+`pre_bash.rs:347-352`, leitura do `touring-a4`), igual nos 3 braços; 99/200 comandos ainda levam algum caminho absoluto (39 só `/dev/null`; 60 com outro, como `/tmp/...`;
+o `touring-a4` contou 92 com um padrão mais estreito), idêntico nos 3 braços. `TOURING_R3_EVENTS_FILE` existe só no ON porque é o tratamento: um eco desse caminho na saída apareceria como diferença
+ON×OFF, e não houve nenhuma. É 1 rodada, sem repetição.
+**(5) Conferência cruzada.** O `touring-a4` (MiniMax, outra sessão) recontou 13 números do E9.8-n(1) contra o JSON da rodada 1 (13/13 iguais; sha256 completo
+`84b67229148ad1c954b15353a6a99bd4aca207aa9df61b073881e7f8e7f15564`) e os horários dos commits `8d82fc77`, `f0e0d1e9`, `39f8f733`, `ca0d2559` (iguais). O
+docstring do `rewrite` e um comentário de teste afirmavam a razão errada do E9.8-b e foram corrigidos; o comportamento do código não mudou desde `2f297e58`.
