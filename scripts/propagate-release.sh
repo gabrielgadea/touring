@@ -146,6 +146,7 @@ else
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)"
+        echo "  ${YELLOW}[dry-run]${RESET} scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot, 1 re-medição)"
     else
         ( cd "$WORKSPACE" && cargo check --workspace ) \
             || die "cargo check falhou — não se propaga build quebrada"
@@ -207,6 +208,12 @@ else
             ( cd "$WORKSPACE" && python3 -m pytest "$rite_test" -q -m "not post_build" ) \
                 || die "teste do rito falhou: ${rite_test##*/} — corrija antes de propagar"
         done
+        # S1a — custo direto do emissor do modo sombra r3 (cross-audit 03/10/2026,
+        # achado D; decisão A do Gabriel). O benchmark é #[ignore] (sensível a
+        # carga) e sem este gate nada o roda. O script faz UMA re-medição e exige
+        # a prova de que o teste rodou (filtro que não casa sai 0 — gate cego).
+        ( cd "$WORKSPACE" && "$WORKSPACE/scripts/r3-s1a-gate" ) \
+            || die "S1a (custo do emissor r3) reprovou — veja a saída acima; o limite é o do teste, não se afrouxa aqui"
         log "${GREEN}gates OK${RESET}"
     fi
 fi
