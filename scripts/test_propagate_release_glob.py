@@ -66,6 +66,12 @@ def _fake_tree(with_rite_test: bool) -> Path:
     (tmp / "scripts").mkdir(parents=True)
     shutil.copy(SCRIPT, tmp / "scripts" / "propagate-release.sh")
     os.chmod(tmp / "scripts" / "propagate-release.sh", 0o755)
+    # The S1a gate (r3, XA-13) has its own tests (test_propagate_release_s1a_gate.py); here it
+    # is a stub that passes: this tree has no hw-slot and no crates to run the benchmark, and
+    # the question under test is the rite glob.
+    s1a = tmp / "scripts" / "r3-s1a-gate"
+    s1a.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+    s1a.chmod(0o755)
     if with_rite_test:
         (tmp / "scripts" / "test_propagate_release_dummy.py").write_text(
             "def test_dummy():\n    assert True\n", encoding="utf-8")
