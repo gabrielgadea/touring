@@ -117,6 +117,9 @@ def evaluate(base, arm_now, events, counters, end_t_ms, daemon_start_ms=None, se
     offers = offered_total(arm_now) - offered_total(base)
     lines = window_closed(events, base_t_ms)
     closed = len(lines)
+    # Os hashes (nao so a contagem) ficam no resultado: contaminacao se prova por INTERSECAO com os arquivos do
+    # experimento, e uma contagem cresce sozinha quando entra sessao viva (touring-a4, M22).
+    hashes = sorted({e["session_hash"] for e in lines if isinstance(e.get("session_hash"), str)})
     window_h = (end_t_ms - base_t_ms) / 3_600_000
     covers = daemon_start_ms is not None and daemon_start_ms <= base_t_ms
     flags = []
@@ -142,7 +145,8 @@ def evaluate(base, arm_now, events, counters, end_t_ms, daemon_start_ms=None, se
         "closed_in_window": closed,
         "unexplained": offers - closed,
         "coverage": round(closed / offers, 4) if offers > 0 else None,
-        "distinct_sessions": len({e.get("session_hash") for e in lines}),
+        "session_hashes": hashes,
+        "distinct_sessions": len(hashes),
         "counters": counters,
         "daemon_start_ms": daemon_start_ms,
         "loss_counter_covers_window": covers,
