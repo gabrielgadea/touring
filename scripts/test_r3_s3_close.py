@@ -132,10 +132,19 @@ def test_an_unsettled_counter_is_flagged_and_the_pass_stands_as_a_lower_bound():
     assert "CONTADOR_AINDA_SE_MOVIA" not in ev_eval(10, 10)["flags"]
 
 
-def test_distinct_sessions_in_the_window_are_reported_for_audit():
-    events = [{"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 + 5, "session_hash": h} for h in ("a", "a", "b")]
-    r = sc.evaluate(BASE, arm(488), events, ZERO, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
-    assert r["distinct_sessions"] == 2
+def test_the_session_hashes_of_the_window_are_recorded_for_a_later_intersection_test():
+    events = [{"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 + 5, "session_hash": h} for h in ("b", "a", "a")]
+    events.append({"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 + 5})  # sem hash: conta a linha, nao a sessao
+    events.append({"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 - 5, "session_hash": "antes-da-base"})
+    r = sc.evaluate(BASE, arm(489), events, ZERO, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
+    assert r["session_hashes"] == ["a", "b"] and r["distinct_sessions"] == 2 and r["closed_in_window"] == 4
+
+
+def test_the_session_hashes_come_out_sorted_so_two_results_can_be_diffed():
+    names = [f"h{i:02d}" for i in reversed(range(20))]  # 20! ordens possiveis: o acaso do set nao empata com a ordenada
+    events = [{"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 + 5, "session_hash": h} for h in names]
+    r = sc.evaluate(BASE, arm(485 + 20), events, ZERO, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
+    assert r["session_hashes"] == sorted(names)
 
 
 def stat_line(start_ticks, comm="touring-daemon"):
