@@ -23,8 +23,12 @@ def ev(n, offered_after_base=True, kind="a2_offer_closed"):
     return [{"kind": kind, "offered_secs": off} for _ in range(n)]
 
 
-def ev_eval(offers, closed, counters=ZERO, hours=24.0, **kw):
-    return sc.evaluate(BASE, arm(485 + offers), ev(closed), counters, BASE_T + int(hours * 3_600_000), **kw)
+DAEMON_BEFORE_BASE = BASE_T - 1_000
+
+
+def ev_eval(offers, closed, counters=ZERO, hours=24.0, daemon_start_ms=DAEMON_BEFORE_BASE, **kw):
+    return sc.evaluate(BASE, arm(485 + offers), ev(closed), counters, BASE_T + int(hours * 3_600_000),
+                       daemon_start_ms=daemon_start_ms, **kw)
 
 
 def test_offered_total_sums_arms_for_the_envelope_and_the_raw_file():
@@ -94,8 +98,84 @@ def test_more_closed_lines_than_offers_is_inconsistent():
 
 
 def test_a_counter_below_the_base_is_unmeasured():
-    r = sc.evaluate(BASE, arm(400), ev(1), ZERO, BASE_T + DAY_MS)
+    r = sc.evaluate(BASE, arm(400), ev(1), ZERO, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
     assert r["status"] == sc.UNMEASURED and r["offers_in_window"] == -85
+
+
+def test_a_status_masked_by_a_higher_one_is_still_reported():
+    r = ev_eval(5, 6, counters={**ZERO, "foreign_lines": 1})
+    assert r["status"] == sc.FAILED and r["also"] == [sc.INCONSISTENT]
+    r = ev_eval(5, 6, hours=1.0)
+    assert r["status"] == sc.INTERIM and r["also"] == [sc.INCONSISTENT]
+    assert ev_eval(10, 10)["also"] == []
+
+
+def test_the_loss_counter_covers_the_window_only_if_the_daemon_started_before_the_base():
+    assert ev_eval(10, 10, daemon_start_ms=BASE_T)["loss_counter_covers_window"] is True
+    r = ev_eval(10, 10, daemon_start_ms=BASE_T + 1)
+    assert r["loss_counter_covers_window"] is False and "DAEMON_REINICIADO_NA_JANELA" in r["flags"]
+
+
+def test_an_unknown_daemon_start_blocks_the_stop_but_not_the_verdict():
+    r = ev_eval(10, 10, daemon_start_ms=None)
+    assert r["status"] == sc.PASS and r["may_stop_unit"] is False and "INICIO_DO_DAEMON_DESCONHECIDO" in r["flags"]
+
+
+def test_a_daemon_restart_in_the_window_blocks_the_stop_even_on_pass():
+    r = ev_eval(10, 10, daemon_start_ms=BASE_T + 5_000)
+    assert r["status"] == sc.PASS and r["may_stop_unit"] is False
+
+
+def test_an_unsettled_counter_is_flagged_and_the_pass_stands_as_a_lower_bound():
+    r = ev_eval(10, 10, settled=False)
+    assert r["status"] == sc.PASS and "CONTADOR_AINDA_SE_MOVIA" in r["flags"]
+    assert "CONTADOR_AINDA_SE_MOVIA" not in ev_eval(10, 10)["flags"]
+
+
+def test_distinct_sessions_in_the_window_are_reported_for_audit():
+    events = [{"kind": "a2_offer_closed", "offered_secs": BASE_T // 1000 + 5, "session_hash": h} for h in ("a", "a", "b")]
+    r = sc.evaluate(BASE, arm(488), events, ZERO, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
+    assert r["distinct_sessions"] == 2
+
+
+def stat_line(start_ticks, comm="touring-daemon"):
+    return f"99 ({comm}) S " + " ".join(["1"] * 18) + f" {start_ticks} " + " ".join(["0"] * 6)
+
+
+def test_proc_start_epoch_reads_field_22_after_the_last_parenthesis():
+    assert sc.proc_start_epoch(stat_line(5000), 1_000_000, 100) == 1_000_050.0
+    assert sc.proc_start_epoch(stat_line(5000, comm="a b) c"), 1_000_000, 100) == 1_000_050.0
+
+
+def fake_proc(tmp_path, pid="321", comm="touring-daemon", ticks=5000, btime=1_000_000):
+    proc = tmp_path / "proc"
+    (proc / pid).mkdir(parents=True)
+    (proc / pid / "comm").write_text(comm + "\n")
+    (proc / pid / "stat").write_text(stat_line(ticks))
+    (proc / "stat").write_text(f"cpu  1 2 3\nbtime {btime}\nprocesses 9\n")
+    pidf = tmp_path / "d.pid"
+    pidf.write_text(pid + "\n")
+    return pidf, proc
+
+
+def test_read_daemon_start_ms_reads_the_pid_file_and_proc(tmp_path):
+    pidf, proc = fake_proc(tmp_path)
+    assert sc.read_daemon_start_ms(pidf, proc=proc, hz=100) == 1_000_050_000
+
+
+def test_read_daemon_start_ms_refuses_a_pid_that_is_not_the_daemon(tmp_path):
+    pidf, proc = fake_proc(tmp_path, comm="touring-mcp")
+    assert sc.read_daemon_start_ms(pidf, proc=proc, hz=100) is None
+
+
+def test_read_daemon_start_ms_is_none_when_anything_is_missing(tmp_path):
+    pidf, proc = fake_proc(tmp_path)
+    assert sc.read_daemon_start_ms(tmp_path / "nao-existe.pid", proc=proc, hz=100) is None
+    pidf.write_text("nao-e-numero\n")
+    assert sc.read_daemon_start_ms(pidf, proc=proc, hz=100) is None
+    pidf, proc = fake_proc(tmp_path / "x")
+    (proc / "stat").write_text("sem btime\n")
+    assert sc.read_daemon_start_ms(pidf, proc=proc, hz=100) is None
 
 
 def test_loss_evidence_outranks_a_short_window():
@@ -113,23 +193,51 @@ class Clock:
         self.t += s
 
 
+def same(v):
+    return v
+
+
 def test_settle_returns_once_the_counter_has_been_quiet_long_enough():
     c = Clock()
-    val, ok = sc.settle(lambda: 7, sleep=c.sleep, clock=c.now, quiet_s=120, max_wait_s=600, poll_s=15)
+    val, ok = sc.settle(lambda: 7, key=same, sleep=c.sleep, clock=c.now, quiet_s=120, max_wait_s=600, poll_s=15)
     assert (val, ok) == (7, True) and c.t == 120
+
+
+def test_settle_defaults_to_the_offered_total_and_returns_the_last_document():
+    c = Clock()
+    docs = iter([arm(5)] * 20)
+    doc, ok = sc.settle(lambda: next(docs), sleep=c.sleep, clock=c.now, quiet_s=30, max_wait_s=600, poll_s=15)
+    assert ok is True and doc == arm(5)
+    c = Clock()
+    n = iter(range(1000))
+    doc, ok = sc.settle(lambda: arm(next(n)), sleep=c.sleep, clock=c.now, quiet_s=120, max_wait_s=60, poll_s=15)
+    assert ok is False and sc.offered_total(doc) >= 4
+
+
+def test_a_repeated_status_is_not_listed_as_also():
+    r = sc.evaluate(BASE, arm(400), ev(1), None, BASE_T + DAY_MS, daemon_start_ms=DAEMON_BEFORE_BASE)
+    assert r["status"] == sc.UNMEASURED and r["also"] == [sc.INCONSISTENT]
+
+
+def test_settle_compares_by_the_key_not_by_the_whole_document():
+    c = Clock()
+    n = iter(range(1000))
+    _, ok = sc.settle(lambda: {"code": {"offered": 5, "followed": next(n)}}, sleep=c.sleep, clock=c.now,
+                      quiet_s=30, max_wait_s=600, poll_s=15)
+    assert ok is True and c.t == 30
 
 
 def test_settle_restarts_the_quiet_period_when_the_counter_moves():
     c = Clock()
     seq = iter([1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2])
-    val, ok = sc.settle(lambda: next(seq), sleep=c.sleep, clock=c.now, quiet_s=30, max_wait_s=600, poll_s=15)
+    val, ok = sc.settle(lambda: next(seq), key=same, sleep=c.sleep, clock=c.now, quiet_s=30, max_wait_s=600, poll_s=15)
     assert (val, ok) == (2, True) and c.t == 60  # moveu na leitura de t=30; quieto de t=30 a t=60
 
 
 def test_settle_gives_up_at_the_ceiling_when_the_counter_never_stops():
     c = Clock()
     n = iter(range(1000))
-    val, ok = sc.settle(lambda: next(n), sleep=c.sleep, clock=c.now, quiet_s=120, max_wait_s=60, poll_s=15)
+    val, ok = sc.settle(lambda: next(n), key=same, sleep=c.sleep, clock=c.now, quiet_s=120, max_wait_s=60, poll_s=15)
     assert ok is False and c.t >= 60
 
 
@@ -185,6 +293,7 @@ def fixture(tmp_path, offers, closed):
 def stubs(monkeypatch):
     stopped = []
     monkeypatch.setattr(sc, "kpi_counters", lambda *a, **k: dict(ZERO))
+    monkeypatch.setattr(sc, "read_daemon_start_ms", lambda *a, **k: 0)  # nasceu antes da base (t_ms = 1000)
     monkeypatch.setattr(sc, "stop_unit", lambda unit=sc.UNIT, **k: stopped.append(unit) or {"stop_rc": 0, "active_after": "inactive"})
     monkeypatch.setattr(sc.time, "time", lambda: 1000 / 1000 + 30 * 3600)  # 30 h depois da base
     return stopped
@@ -206,6 +315,14 @@ def test_main_refuses_to_stop_when_the_verdict_shows_loss(tmp_path, stubs, monke
     rc = sc.main(fixture(tmp_path, 8, 8) + ["--stop-unit"])
     out = json.loads((tmp_path / "out.json").read_text())
     assert rc == 1 and out["status"] == sc.FAILED and stubs == [] and out["stop"] == "recusado_pelo_veredito"
+
+
+def test_main_keeps_the_pass_but_refuses_to_stop_when_the_daemon_restarted_in_the_window(tmp_path, stubs, monkeypatch):
+    monkeypatch.setattr(sc, "read_daemon_start_ms", lambda *a, **k: 5_000)  # depois da base (t_ms = 1000)
+    rc = sc.main(fixture(tmp_path, 8, 8) + ["--stop-unit"])
+    out = json.loads((tmp_path / "out.json").read_text())
+    assert rc == 0 and out["status"] == sc.PASS and stubs == [] and out["stop"] == "recusado_pelo_veredito"
+    assert out["daemon_start_ms"] == 5_000 and "DAEMON_REINICIADO_NA_JANELA" in out["flags"]
 
 
 def test_main_exits_2_and_never_stops_when_a_file_is_unreadable(tmp_path, stubs):
