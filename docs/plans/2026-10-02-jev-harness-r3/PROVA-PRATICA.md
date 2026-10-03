@@ -10,7 +10,7 @@ timestamp: 2026-10-02T16:12:00-03:00
 
 # r3 — Prova prática
 
-Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*. Resposta direta: **a tubulação do shadow funciona ao vivo, de ponta a ponta, nos dois casos; o valor dos modelos (Jev/Laya) foi MEDIDO e, com a entrada que receberam, é negativo (nenhum supera o B0 regra)** — e dois critérios ficaram fracos ou interinos. "Perfeito" não é o que os dados sustentam; o que segue é o que sustentam.
+Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*. Resposta direta: **a tubulação do shadow funciona ao vivo, de ponta a ponta, nos dois casos; o valor dos modelos (Jev/Laya) foi MEDIDO e, com a entrada que receberam, é negativo (nenhum supera o B0 regra)** — e dois critérios ficaram fracos ou não demonstrados (S1b não passa no `cli-suggest`; S3 `NAO_DEMONSTRADO`). "Perfeito" não é o que os dados sustentam; o que segue é o que sustentam.
 
 ## 0. Quadro-resumo
 
@@ -116,7 +116,7 @@ tail -n 5 ~/.claude/touring/logs/r3_events.jsonl ~/.claude/touring/logs/r3_shado
 1. **Que QUALQUER modelo com texto não superaria o B0.** O r4 mínimo testou **uma** pergunta (`noul`) do Laya com o texto truncado e ela não mede "seguida" (AUC 0,331 no checkpoint inglês; 0,551 no multilíngue). O Jev nunca recebe texto (privacidade), e outras cabeças do Laya não foram testadas.
 2. **O que o `noul` do Laya mede.** AUC 0,12 contra o gold (associação inversa sistemática) e 0,500 numa sonda sintética de 8 casos: não é P(seguida), e não se inverte (E8.8).
 3. **S4**: provado em `pre-bash`, `cli-suggest` e `post-bash` numa rodada de 200 entradas (base virgem, comandos com caminho relativo); `post-tool-rl` não emitiu nada em nenhum braço, então não há o que comparar. Foram 2 rodadas passando (a 3ª, réplica pré-registrada, com contagens idênticas); entradas e produto são determinísticos, então a réplica prova reprodutibilidade e não independência de ambiente (RESULTS §4).
-4. **S3**: ~1 oferta/34 min; a janela de 24 h só fecha às 15:10 de 03/10. O fechamento é por código e não depende desta sessão (`scripts/r3_s3_close.py` por timer, Errata 13): o veredito pode sair `PASS`, `NAO_DEMONSTRADO` (déficit de linha sem perda direta; o ensaio das 20:50 já tinha 1 oferta sem linha em 11) ou `REPROVADO`, e só os dois primeiros param a unit. Até lá o S3 é interino.
+4. **S3: `NAO_DEMONSTRADO`** (fechado por código às 15:12 de 03/10 por `scripts/r3_s3_close.py`, Errata 13; `r3-data/s3_close.json`). Janela de 23,936 h: 15 ofertas, 14 linhas `a2_offer_closed`, cobertura 0,9333 (< 0,95), 1 oferta sem linha; contadores de perda 0/0/0; daemon sem reinício desde a base; 1 sessão distinta. Pela regra pré-registrada, déficit sozinho é `NAO_DEMONSTRADO`, não `REPROVADO`, e o script parou a unit `r3-shadow-evaluator` como aprovado. **Não é PASS**: o emissor não perdeu evento, mas a cobertura exigida não foi atingida, e a oferta sem linha pode ser pendência de fim de sessão (a causa não foi provada). Com 1 sessão e 15 ofertas o critério mal passa (tolerar 1 pendente exige N ≥ 20).
 5. **A1 fora do `pre-bash`**: `cli_suggester` não emite A1 (S-9b).
 6. **Propagação**: 30.4.91 só no daemon global; pinados seguem na 30.4.90 (decidido: esperar um release com ganho; o r3 não traz ganho aos pinados).
 
