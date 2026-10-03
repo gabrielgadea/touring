@@ -19,7 +19,7 @@ Pedido do Gabriel: *"me prove que tudo funciona de forma perfeita, na prática"*
 | Emissor A2 (oferta → desfecho) observe-only, default OFF | **Funciona ao vivo** | §3 |
 | Emissor A1 (bloco injetado pelo `pre-bash`) | **Funciona ao vivo** (provado nesta sessão, 15:55 BRT) | §2 |
 | Avaliador online (B-D regra, B-L Laya em CPU) → journal → `touring kpi` | **Funciona ao vivo** | §2, §3 |
-| Custo no caminho quente (S1a/S1b), fail-open (S2), privacidade (S6) | **Passam**, medidos | RESULTS §2 |
+| Custo no caminho quente (S1a/S1b), fail-open (S2), privacidade (S6) | S1a, S2 e S6 **passam**, medidos. **S1b passou com n = 206 e NÃO passa na releitura de 03/10** (`cli-suggest` p95 598 > 583 ms, n = 3.862; atribuição inconclusiva) | RESULTS §2, Errata 14 |
 | Vereditos A1/A2 pelos critérios congelados | **Computados**: A1 NAO_ADOTADO, A2 NAO_ADOTADO (gold κ = 0,77; reimplementação independente bate) | RESULTS §1 |
 | Gold do A2 (2 avaliadores cross-vendor + desempate) | **Existe** (171 itens), com limitações de família/desvio E3.3-bis (desvio **aceito pelo Gabriel**, Errata 13); verificado por código. **Um 3º juiz cego (Sonnet) concorda 171/171 com ele e o veredito do A2 é o mesmo em 3 leituras do gold**; o rater 1 (MiniMax) diverge sempre na mesma direção (16/16, mais "seguida") e o gold é quase todo rótulo Claude | RESULTS §8, Errata 7 e 10 |
 | Byte-identidade ON×OFF (S4) | **Passa, forte** em 3 hooks (175 · 57 · 71 comparações com conteúdo; 0/200 diferenças; controle 0/200); `post-tool-rl` anulado; reproduzido numa réplica pré-registrada (rodada 3, contagens idênticas). A rodada 1 foi VOID por defeito do meu harness, corrigido e pré-registrado antes da rodada 2 | RESULTS §2, §3.12; §7.3 abaixo |
@@ -61,7 +61,7 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 
 ## 4. Entrega e saúde (medidas, não prometidas)
 
-- **S1a** OFF p99 963 ns · emissão p99 27 µs. **S1b** `cli-suggest` p95 550 ms (≤ 583) · `post-tool-rl` p95 793 ms (≤ 8294), n = 206/200. **S2** não-ok 0,00 %. **S6** passa nos 2 journals.
+- **S1a** OFF p99 963 ns · emissão p99 27 µs. **S1b** `cli-suggest` p95 550 ms (≤ 583) · `post-tool-rl` p95 793 ms (≤ 8294), n = 206/200. **S2** não-ok 0,00 %. **S6** passa nos 2 journals. **Releitura 03/10 00:45 (n = 3.862 / 3.812): `cli-suggest` p95 598 ms > 583, o S1b NÃO passa; `post-tool-rl` 918 ms passa; S2 0,00 % e S6 passam** (Errata 14).
 - `touring e2e -j`: overall **0,857** (baseline mediana 0,857) · ast 0,776 · wiring 0,810 · knowledge 0,900 · quality 1,000 · learning 0,886 · index 0,849 (vs 0,852: diluição de cobertura 5643/7537, não regressão de qualidade).
 - Cadeia de gates do `propagate-release --stop-before-propagate`: rc = 0 em 8 min 37 s (gates, build, rótulo, testes pós-build, snapshot da toolchain, canal default).
 
