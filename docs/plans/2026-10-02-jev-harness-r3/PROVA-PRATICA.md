@@ -61,7 +61,7 @@ Desde 15:10:20 BRT o emissor A2 grava `a2_offer_closed` quando uma oferta do `cl
 
 ## 4. Entrega e saúde (medidas, não prometidas)
 
-- **S1a** OFF p99 963 ns · emissão p99 27 µs. **S1b** `cli-suggest` p95 550 ms (≤ 583) · `post-tool-rl` p95 793 ms (≤ 8294), n = 206/200. **S2** não-ok 0,00 %. **S6** passa nos 2 journals. **Releitura 03/10 00:45 (n = 3.862 / 3.812): `cli-suggest` p95 598 ms > 583, o S1b NÃO passa; `post-tool-rl` 918 ms passa; S2 0,00 % e S6 passam** (Errata 14).
+- **S1a** OFF p99 963 ns · emissão p99 27 µs. **S1b** `cli-suggest` p95 550 ms (≤ 583) · `post-tool-rl` p95 793 ms (≤ 8294), n = 206/200. **S2** não-ok 0,00 %. **S6** passa nos 2 journals. **Releitura 03/10 00:45 (n = 3.862 / 3.812): `cli-suggest` p95 598 ms > 583, o S1b NÃO passa; `post-tool-rl` 918 ms passa só pela letra (o envelope 8294 é uma fatia parcial de 25/09; em dias completos é 874 e 918 não passa); S2 0,00 % e S6 passam** (Errata 14, E14.6).
 - `touring e2e -j`: overall **0,857** (baseline mediana 0,857) · ast 0,776 · wiring 0,810 · knowledge 0,900 · quality 1,000 · learning 0,886 · index 0,849 (vs 0,852: diluição de cobertura 5643/7537, não regressão de qualidade).
 - Cadeia de gates do `propagate-release --stop-before-propagate`: rc = 0 em 8 min 37 s (gates, build, rótulo, testes pós-build, snapshot da toolchain, canal default).
 
