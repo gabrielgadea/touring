@@ -249,8 +249,15 @@ def main(argv=None):
     try:
         base = json.loads(pathlib.Path(a.base).read_text())
         arm_path = pathlib.Path(a.arm)
-        arm_now, settled = settle(lambda: json.loads(arm_path.read_text()), quiet_s=a.quiet_s, max_wait_s=a.max_wait_s)
+        def read_arm():
+            return json.loads(arm_path.read_text())
+
+        arm_first, settled = settle(read_arm, quiet_s=a.quiet_s, max_wait_s=a.max_wait_s)
         events, bad = read_events(a.events)
+        # O braco e lido DEPOIS do journal: `bump_arm` precede `on_offer`, entao toda linha lida acima ja tem a sua
+        # oferta neste snapshot (closed <= offers). Ler o braco antes deixava uma oferta que abre e fecha no intervalo
+        # entrar so no numerador, e a cobertura inflava (touring-a4, M21).
+        arm_now = read_arm()
         counters = kpi_counters()
         res = evaluate(base, arm_now, events, counters, int(time.time() * 1000), read_daemon_start_ms(a.pid_file), settled)
     except Exception as exc:  # leitura falhou: nunca para a unit, nunca aprova

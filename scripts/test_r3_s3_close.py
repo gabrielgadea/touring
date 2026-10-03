@@ -325,6 +325,21 @@ def test_main_keeps_the_pass_but_refuses_to_stop_when_the_daemon_restarted_in_th
     assert out["daemon_start_ms"] == 5_000 and "DAEMON_REINICIADO_NA_JANELA" in out["flags"]
 
 
+def test_main_reads_the_arm_after_the_journal_so_no_line_outruns_its_offer(tmp_path, stubs, monkeypatch):
+    argv = fixture(tmp_path, 8, 8)
+    real = sc.read_events
+
+    def read_while_an_offer_closes(path):
+        out = real(path)
+        (tmp_path / "arm.json").write_text(json.dumps({"code": {"offered": 10 + 9}}))  # bump_arm precede a linha
+        return out
+
+    monkeypatch.setattr(sc, "read_events", read_while_an_offer_closes)
+    sc.main(argv)
+    out = json.loads((tmp_path / "out.json").read_text())
+    assert out["offers_in_window"] == 9 and out["closed_in_window"] == 8
+
+
 def test_main_exits_2_and_never_stops_when_a_file_is_unreadable(tmp_path, stubs):
     argv = fixture(tmp_path, 8, 8) + ["--stop-unit"]
     (tmp_path / "arm.json").unlink()
