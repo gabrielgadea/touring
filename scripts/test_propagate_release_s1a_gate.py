@@ -140,9 +140,13 @@ def test_a_real_regression_is_named_as_the_emitter_cost():
 
 
 def test_no_hardware_slot_is_named_and_not_blamed_on_the_emitter():
-    rc, calls, out = run_gate([(75, "hw-slot: sem slot"), (75, "hw-slot: sem slot")])
+    # The runner's own output must not carry the words asserted below: the gate echoes it, and a
+    # runner that printed "sem slot" made this test pass whatever the gate concluded (blind review
+    # of the 04/10 fixes). Only the gate's closing line can say "hw-slot 75".
+    rc, calls, out = run_gate([(75, "lock busy"), (75, "lock busy")])
     assert (rc, calls) == (1, 2), out
-    assert "sem slot" in out and COST_BLAME not in out, out
+    assert "sem slot de hardware (hw-slot 75)" in out, f"the gate itself must name the cause: {out}"
+    assert COST_BLAME not in out, out
 
 
 # ── content invariants: the wiring and the thing it points at ───────────────

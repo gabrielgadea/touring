@@ -274,3 +274,13 @@ def test_familia_harness_nao_entra_no_universe_do_touring(tmp_path: Path) -> Non
         "`other` é o catch-all do KPI e maioritariamente harness (E1.1)"
     )
     assert resumo["touring_only"]["blocks"] == 1 and resumo["harness_only"]["blocks"] == 1
+
+
+def test_paridade_nao_medida_nao_e_reprovacao() -> None:
+    """"Corpus em movimento" e KPI indisponível imprimiam "NAO <<<", a mesma linha de uma divergência
+    real acima de 1% (revisão cega dos consertos de 04/10): quem lê a saída não distinguia uma régua
+    que reprovou de uma que não mediu."""
+    erro = ex.linha_paridade({"erro": "corpus em movimento: a população mudou"})
+    assert "NAO MEDIDA" in erro and "corpus em movimento" in erro and "<<<" not in erro
+    assert ex.linha_paridade({"paridade_1pct": True}).endswith("OK")
+    assert ex.linha_paridade({"paridade_1pct": False}).endswith("NAO <<<")
