@@ -193,9 +193,12 @@ mod consumed_import_tests {
     ///
     /// This is NOT the reproduction of the `kind_unknown` row that appeared on 03/10/2026 (a
     /// `wiring_map` row, `consumer_file = CLAUDE.md`, `consumer_type = rust_import`, written when
-    /// that file was edited). It passes on the unmodified extractor — checked while chasing the
-    /// row — so the row comes from ANOTHER step of the edit path (XA-17 stays open). The
-    /// positive control keeps the test from passing by an extractor that reads nothing at all.
+    /// that file was edited): it passed on the unmodified extractor, which is how that defect was
+    /// traced to ANOTHER step of the edit path. XA-17 was fixed there, in
+    /// `record_direct_path_consumers` (`touring-hook-runtime/src/wiring.rs`, `4c49ab1b`), and its
+    /// reproduction is `a_path_quoted_in_prose_is_not_a_consumer_edge` in `wiring_tests.rs`. This
+    /// test guards a different function and cannot fail against the code before that fix. The
+    /// positive control keeps it from passing by an extractor that reads nothing at all.
     #[test]
     fn prose_and_data_files_are_not_consumers() {
         let prose = "A travessia credita o modulo: `use crate::a::b::Z;`\n\n\
@@ -223,7 +226,9 @@ mod consumed_import_tests {
 
     /// The REAL file, not a paraphrase of it: the row that appeared on 03/10/2026 came from
     /// editing the workspace CLAUDE.md, whose rule 26 writes the example inline and WITHOUT the
-    /// trailing `;` that the paraphrase above had.
+    /// trailing `;` that the paraphrase above had. Like the test above, this pins THIS extractor's
+    /// invariant on the real text; it is not the XA-17 reproduction (see above) and passed before
+    /// that fix too.
     #[test]
     fn the_workspace_claude_md_is_not_a_consumer() {
         let real = include_str!("../../../../CLAUDE.md");

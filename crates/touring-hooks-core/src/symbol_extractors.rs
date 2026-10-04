@@ -762,8 +762,13 @@ impl UnresolvedClass {
 /// resolution there, so they leave `crate` out.
 #[must_use]
 pub fn is_scope_keyword(word: &str) -> bool {
-    matches!(word, "super" | "self" | "Self" | "crate")
+    SCOPE_KEYWORDS.contains(&word)
 }
+
+/// The list [`is_scope_keyword`] decides by, for the callers that need it as DATA: the phantom purge
+/// of `touring wiring repair` builds its SQL from it, so a keyword row written before a pass learned
+/// the rule is purged by the same list that now stops it (cross-audit 04/10/2026, X13).
+pub const SCOPE_KEYWORDS: [&str; 4] = ["super", "self", "Self", "crate"];
 
 /// Classify an unresolved Rust import path, judged in the workspace of
 /// `source_file` — the same one [`resolve_import_path_with_source`] tried, so the
