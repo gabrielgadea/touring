@@ -657,6 +657,83 @@ fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
     );
 }
 
+/// A successful `add` must not carry an `"error"` key at all, not even `null`: the scaffold bridge
+/// decides "the add failed" by looking for the QUOTED WORD in the raw reply
+/// (`hook_decompose_bridge.rs`, `contains("\"error\"")`), so `"error":null` made every mirrored task
+/// log three false "scaffold subtask add failed" warnings. Found by an independent reviewer of the
+/// 04/10/2026 diff — the first version of `add` emitted the key only on failure.
+#[test]
+fn a_successful_add_carries_no_error_key() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "clean reply");
+    let raw = cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": "only", "description": "only"}),
+    );
+    assert!(
+        !raw.contains("\"error\""),
+        "the bridge reads this word as a failure: {raw}"
+    );
+    // And the refusal still carries it, so the bridge keeps seeing real failures.
+    let other = new_plan(&mut rt, "wants the same id");
+    let refused = cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": other, "subtask_id": format!("{task_id}::only"), "description": "stolen"}),
+    );
+    assert!(refused.contains("\"error\""), "a refusal must be visible: {refused}");
+}
+
+/// Reopening through `update` — the way the audit report tells a human to redo a step — must lift
+/// the archive stamp too, not only `add` (independent review of 04/10/2026): the plan would read
+/// `in_progress` and archived at once, and the retention pass (which needs `archived_at IS NULL`)
+/// never un-stamps. The derivation is the ONE place that decides "this plan is open again".
+#[test]
+fn reopening_a_plan_through_update_lifts_the_archive_stamp() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "archived, then a step is redone");
+    let step = add_step(&mut rt, &task_id, "first");
+    close_step(&mut rt, &task_id, &step);
+    let swept = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
+    assert_eq!(swept["archived"], 1, "premise: the retention pass archives it: {swept}");
+    assert!(archived_at_of(&rt, &task_id).is_some(), "premise: stamped");
+
+    let redo = parse_json(&cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": step, "status": "pending"}),
+    ));
+    assert_eq!(redo["subtask_updated"], true, "{redo}");
+
+    assert_eq!(parent_status_of(&rt, &task_id), "pending", "the only step is open again");
+    assert!(
+        archived_at_of(&rt, &task_id).is_none(),
+        "a plan that is open again is live work: it cannot stay archived"
+    );
+}
+
+/// The retention guard must ask the question the derivation asks. The derivation closes a plan only
+/// when every child is `completed`/`done`/`finalized`; a `failed` child keeps it `in_progress`. A parent
+/// closed by a direct write (the RPC door, `status` without `subtask_id`) over a `failed` child is
+/// therefore a plan its own derivation calls unfinished — and the stamp is practically permanent
+/// (touring-a4, 04/10/2026).
+#[test]
+fn archive_leaves_a_plan_with_a_failed_child_alone() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "closed by hand over a failed step");
+    let good = add_step(&mut rt, &task_id, "good");
+    let bad = add_step(&mut rt, &task_id, "bad");
+    close_step(&mut rt, &task_id, &good);
+    let failed = fail_step(&mut rt, &task_id, &bad, None);
+    assert_eq!(failed["retry_scheduled"], false, "premise: no policy, the failure stands");
+    cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "done"}));
+    assert_eq!(parent_status_of(&rt, &task_id), "done", "premise: a direct write closes the parent");
+    age_plan(&rt, &task_id, 8);
+
+    let preview = parse_json(&cli_decompose_archive(&mut rt, &json!({"dry_run": true})));
+    assert_eq!(preview["candidates"], 0, "a failed child is not an over child: {preview}");
+    assert_eq!(auto_archive_pass(&rt.ctx.knowledge), 0, "the automatic pass agrees");
+    assert!(archived_at_of(&rt, &task_id).is_none());
+}
+
 /// The parent is DERIVED from its children by the one `update` production runs. A second copy of
 /// this verb used to sit in `handlers/decompose.rs`, reached only from a test (touring-a4,
 /// 03/10/2026), and it carried two features the live copy had lost — the next tests.

@@ -1751,6 +1751,28 @@ fn a_module_path_that_ends_in_a_scope_keyword_is_never_recorded_as_a_module() {
     );
 }
 
+/// The three places that decide "this word names nothing" share ONE predicate (touring-a4,
+/// 04/10/2026): the `use`-import pass, the module-path pass and `classify_unresolved` each carried a
+/// hand-written list, and a copy is how `use super::*;` became a consumer of a symbol called `super`.
+#[test]
+fn the_scope_keyword_predicate_covers_the_four_words_and_nothing_else() {
+    for word in ["super", "self", "Self", "crate"] {
+        assert!(crate::symbol_extractors::is_scope_keyword(word), "{word}");
+    }
+    for word in ["", "supers", "Super", "selfish", "crates", "cli_handlers"] {
+        assert!(!crate::symbol_extractors::is_scope_keyword(word), "{word:?}");
+    }
+    // The classifier keeps its empty-head rule on top of the predicate.
+    assert_eq!(
+        crate::symbol_extractors::classify_unresolved("", None),
+        crate::symbol_extractors::UnresolvedClass::ScopeKeyword
+    );
+    assert_eq!(
+        crate::symbol_extractors::classify_unresolved("crate::a::b", None),
+        crate::symbol_extractors::UnresolvedClass::ScopeKeyword
+    );
+}
+
 #[test]
 fn a_fallback_without_chain_or_producer_is_unresolved_never_an_edge() {
     let (_tmp, db) = test_db();

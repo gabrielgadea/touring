@@ -752,13 +752,26 @@ impl UnresolvedClass {
     }
 }
 
+/// Whether `word` is a Rust scope keyword (`super`, `self`, `Self`, `crate`): a POSITION in the module
+/// tree, never an item anyone declares, so it can be neither a symbol nor a module name in the wiring
+/// map. The ONE spelling of that list for the three places that decide "this word names nothing"
+/// (`classify_unresolved`, the `use`-import pass and the module-path pass in `wiring.rs`): two of them
+/// grew the list by hand at different times, and a third copy is how `use super::*;` became a
+/// consumer of a symbol called `super` (04/10/2026). The prefix guards in
+/// [`resolve_import_path_with_source`] are NOT this predicate on purpose: `crate::x` has a real
+/// resolution there, so they leave `crate` out.
+#[must_use]
+pub fn is_scope_keyword(word: &str) -> bool {
+    matches!(word, "super" | "self" | "Self" | "crate")
+}
+
 /// Classify an unresolved Rust import path, judged in the workspace of
 /// `source_file` — the same one [`resolve_import_path_with_source`] tried, so the
 /// verdict cannot drift from the attempt that produced it.
 #[must_use]
 pub fn classify_unresolved(module_path: &str, source_file: Option<&str>) -> UnresolvedClass {
     let head = module_path.split("::").next().unwrap_or(module_path).trim();
-    if matches!(head, "super" | "self" | "Self" | "crate" | "") {
+    if head.is_empty() || is_scope_keyword(head) {
         return UnresolvedClass::ScopeKeyword;
     }
     let Some(ws) = workspace_for(source_file).filter(|ws| !ws.crates.is_empty()) else {

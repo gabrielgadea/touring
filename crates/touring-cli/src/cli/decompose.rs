@@ -273,15 +273,13 @@ fn upsert_subtask(
             |r| Ok((r.get(0)?, r.get(1)?)),
         )
         .ok();
-    if let Some((owner, _)) = &prior
-        && owner != def.task_id
-    {
-        return Err(format!(
-            "subtask id {} already belongs to task {owner}",
-            def.scoped_id
-        ));
-    }
-    db.conn_ref()
+    // The ownership check is the conflict arm's own WHERE, so the refusal and the write are ONE
+    // atomic statement: reading the owner first and writing afterwards left a window in which a
+    // concurrent `add` for another task slipped into the conflict arm, overwrote the row's definition
+    // and answered `persisted` for a row it does not own (touring-a4, 04/10/2026). A refused arm
+    // changes zero rows.
+    let written = db
+        .conn_ref()
         .execute(
             "INSERT INTO decomposition_subtasks (subtask_id, task_id, description, depends_on, priority, status, deadline, deadline_behavior, parallel_group, review_required, complexity_hint, retry_policy, attempts, quality_score, created_at, updated_at) \
              VALUES (?1, ?2, ?3, ?4, ?5, 'pending', ?6, ?7, ?8, ?9, NULL, NULL, 0, NULL, ?10, ?10) \
@@ -289,7 +287,8 @@ fn upsert_subtask(
              depends_on = excluded.depends_on, priority = excluded.priority, \
              deadline = excluded.deadline, deadline_behavior = excluded.deadline_behavior, \
              parallel_group = excluded.parallel_group, review_required = excluded.review_required, \
-             updated_at = excluded.updated_at",
+             updated_at = excluded.updated_at \
+             WHERE decomposition_subtasks.task_id = excluded.task_id",
             params![
                 def.scoped_id,
                 def.task_id,
@@ -304,6 +303,20 @@ fn upsert_subtask(
             ],
         )
         .map_err(|e| e.to_string())?;
+    if written == 0 {
+        let owner: String = db
+            .conn_ref()
+            .query_row(
+                "SELECT task_id FROM decomposition_subtasks WHERE subtask_id = ?1",
+                params![def.scoped_id],
+                |r| r.get(0),
+            )
+            .unwrap_or_else(|_| "another task".to_string());
+        return Err(format!(
+            "subtask id {} already belongs to task {owner}",
+            def.scoped_id
+        ));
+    }
     let existed = prior.is_some();
     let status = prior
         .map(|(_, status)| status)
@@ -433,16 +446,21 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             "deadline_behavior" : deadline_behavior }
         ),
     );
-    serde_json::json!(
+    let mut reply = serde_json::json!(
         { "task_id" : task_id, "subtask_id" : subtask_id, "scoped_id" : scoped_id,
         "description" : description, "depends_on" : depends_on, "status" : status,
         "existed" : existed,
         "priority" : crate ::cli_handlers_decompose::priority_label(priority_int),
         "priority_int" : priority_int, "created_at" : now, "persisted" : result.is_ok(),
-        "error" : result.as_ref().err().map(String::as_str),
         "parallel_group" : parallel_group }
-    )
-    .to_string()
+    );
+    // The key exists ONLY on failure: the scaffold bridge reads the quoted word `"error"` in the raw
+    // reply as "the add failed" (`hook_decompose_bridge.rs`), so a `"error":null` on success logged a
+    // false failure for every scaffold stage of every mirrored task (independent review, 04/10/2026).
+    if let Err(reason) = &result {
+        reply["error"] = serde_json::Value::String(reason.clone());
+    }
+    reply.to_string()
 }
 /// Retrieves a task and its full subtask DAG as JSON.
 pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
