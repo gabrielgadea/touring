@@ -112,9 +112,37 @@ def test_a_passed_test_does_not_excuse_a_nonzero_exit():
     """hw-slot exits 70 when a machine check hit a job that was otherwise green (workspace
     rule 31). The summary line says `1 passed`, the exit code says the run is not trustworthy:
     the exit code wins, twice."""
-    rc, calls, _ = run_gate([(70, OK_LINE), (70, OK_LINE)])
+    rc, calls, out = run_gate([(70, OK_LINE), (70, OK_LINE)])
     assert rc != 0, "a nonzero exit must fail the gate even when the output shows 1 passed"
     assert calls == 2
+    assert "machine check" in out, "the refusal must name the machine check, not the emitter's cost"
+
+
+# ── the refusal names the cause it saw, never one it did not measure ────────
+# Cross-audit 04/10/2026, X6: the closing line said "o custo do emissor r3 passou do limite" for
+# ANY nonzero exit. `S1A_CARGO="cargo --broken-flag"` failed twice without running the benchmark
+# and the gate still blamed the emitter's cost.
+
+COST_BLAME = "custo do emissor r3 passou do limite"
+
+
+def test_a_run_that_never_ran_the_test_is_not_blamed_on_the_emitter():
+    rc, calls, out = run_gate([(101, "error: could not compile `touring-hook-runtime`")] * 2)
+    assert (rc, calls) == (1, 2), out
+    assert COST_BLAME not in out, f"nothing was measured, so the cost was not exceeded: {out}"
+    assert "não rodou" in out, f"the refusal must say the test did not run: {out}"
+
+
+def test_a_real_regression_is_named_as_the_emitter_cost():
+    rc, calls, out = run_gate([(101, FAIL_LINE), (101, FAIL_LINE)])
+    assert (rc, calls) == (1, 2), out
+    assert COST_BLAME in out, f"a benchmark that ran and failed IS the cost: {out}"
+
+
+def test_no_hardware_slot_is_named_and_not_blamed_on_the_emitter():
+    rc, calls, out = run_gate([(75, "hw-slot: sem slot"), (75, "hw-slot: sem slot")])
+    assert (rc, calls) == (1, 2), out
+    assert "sem slot" in out and COST_BLAME not in out, out
 
 
 # ── content invariants: the wiring and the thing it points at ───────────────
@@ -153,4 +181,9 @@ def test_the_release_runs_the_gate_in_gate_1_and_announces_it_in_dry_run():
     )
     assert body.count("scripts/r3-s1a-gate") >= 2, \
         "gate 1/6 must call scripts/r3-s1a-gate AND the dry-run branch must announce it"
-    assert "S1a" in body and "die" in body
+    # The CALL and the ABORT as one pair. `"S1a" in body and "die" in body` held with the
+    # `|| die "S1a …"` deleted (a mutant survived it, cross-audit 04/10/2026, X11): "die" is on every
+    # other gate line and "S1a" in the dry-run announcement.
+    raw = RELEASE.read_text(encoding="utf-8")
+    assert re.search(r'"\$WORKSPACE/scripts/r3-s1a-gate" \) \\\n\s*\|\| die "S1a', raw), \
+        "a failed S1a gate must abort the release with the S1a message"

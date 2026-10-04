@@ -266,13 +266,52 @@ def _texts_do_attachment(att: dict) -> list[str]:
     return out
 
 
-def paridade() -> dict:
-    """Mede a paridade com `touring kpi -j` no MESMO INSTANTE (plan S-3).
+def paridade(max_tentativas: int = 3) -> dict:
+    """Mede a paridade com `touring kpi -j` sobre a MESMA população (plan S-3).
 
     Comparar com um JSON de KPI guardado em disco é comparar com o passado: o
     corpus cresce a cada turno, e o KPI lê os 3 transcripts mais recentes
     (context_budget.rs:40). As duas leituras têm de ser do mesmo instante.
+
+    E "o mesmo instante" não basta: o porte e o KPI escolhem, cada um, os 3
+    transcripts mais recentes do PROJETO — de todas as sessões, não só desta —, e
+    outra sessão que escreve entre as duas leituras troca a população. Em
+    04/10/2026 o KPI leu um transcript do touring-a4 que o porte não leu
+    (36.459 + 14.633 = 51.092 B de `code-mode-deny`, exato) e o teste reprovou
+    um porte correto (cross-audit X9). Por isso a lista é lida antes e depois do
+    KPI, e a contagem que o KPI varreu é comparada à do porte: se mudou, repete;
+    se não estabiliza em `max_tentativas`, declara "corpus em movimento" — nunca
+    um veredito sobre populações diferentes. A mesma lição vale para quem lê a
+    razão de uma família: os blocos contados são de todas as sessões do projeto.
     """
+    ultimo = ""
+    for _ in range(max_tentativas):
+        lido = _ler_mesma_populacao()
+        if "erro" in lido:
+            return lido
+        if lido["estavel"]:
+            return _comparar(lido["arquivos"], lido["meu"], lido["kpi"])
+        ultimo = lido["divergencia"]
+    return {"erro": f"corpus em movimento: a população mudou nas {max_tentativas} leituras ({ultimo})"}
+
+
+class _KpiIndisponivel(Exception):
+    """O `touring kpi -j` não devolveu um `context_budget` legível."""
+
+
+def _kpi_context_budget() -> dict:
+    """O `context_budget` do KPI real. Toda falha vira [`_KpiIndisponivel`]: um `touring` fora do
+    PATH levanta `FileNotFoundError`, que é `OSError` e seria lido como "transcripts indisponíveis"."""
+    try:
+        p = subprocess.run(["touring", "kpi", "-j"], capture_output=True, text=True,
+                           timeout=180)
+        return json.loads(p.stdout)["context_budget"]
+    except Exception as e:  # noqa: BLE001 — a falha é o dado, não uma exceção
+        raise _KpiIndisponivel(e) from e
+
+
+def _ler_mesma_populacao() -> dict:
+    """Uma leitura do porte e do KPI, e se as duas viram a mesma população."""
     # A leitura do diretório de transcripts está DENTRO do try: um diretório
     # ausente (CI) levanta FileNotFoundError e uma leitura negada (sandbox)
     # levanta PermissionError, e nenhum dos dois é um erro de teste — é a
@@ -280,14 +319,22 @@ def paridade() -> dict:
     try:
         arquivos = kpi.transcripts_do_kpi(Path(PROJ))
         meu = kpi.agregar(arquivos)
+        k = _kpi_context_budget()
+        depois = kpi.transcripts_do_kpi(Path(PROJ))
+    except _KpiIndisponivel as e:
+        return {"erro": f"KPI indisponível: {e}"}
     except OSError as e:
         return {"erro": f"transcripts indisponiveis: {e}"}
-    try:
-        p = subprocess.run(["touring", "kpi", "-j"], capture_output=True, text=True,
-                           timeout=180)
-        k = json.loads(p.stdout)["context_budget"]
-    except Exception as e:  # noqa: BLE001 — a falha é o dado, não uma exceção
-        return {"erro": f"KPI indisponível: {e}"}
+    antes_nomes = [a.name for a in arquivos]
+    depois_nomes = [d.name for d in depois]
+    estavel = antes_nomes == depois_nomes and k.get("transcripts_scanned") == meu.get("transcripts_scanned")
+    divergencia = (f"antes={[n[:8] for n in antes_nomes]} depois={[n[:8] for n in depois_nomes]} "
+                   f"varridos porte={meu.get('transcripts_scanned')} kpi={k.get('transcripts_scanned')}")
+    return {"arquivos": arquivos, "meu": meu, "kpi": k, "estavel": estavel, "divergencia": divergencia}
+
+
+def _comparar(arquivos: list[Path], meu: dict, k: dict) -> dict:
+    """O veredito de paridade, só para uma população que as duas leituras viram igual."""
     kf = k["by_family"]
     linhas, todos_ok = [], True
     for fam in sorted(set(list(meu["by_family"]) + list(kf))):
