@@ -890,6 +890,19 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         let finalize_result = crate::cli_handlers::cli_decompose_finalize(rt, &finalize_payload);
         let archived = finalize_result.contains("\"archived\":true");
 
+        // 1b. Retention: stamp the closed plans nobody finalized — a plan that derives `done`
+        // from its children never passes `finalize` (that arm is CC-mirrored tasks only), and
+        // `decompose archive` had no caller but a human. Project store AND the global one; only
+        // plans closed for a week with every subtask over (`auto_archive_pass`). Idempotent.
+        // The unit tests of this crate dispatch `task-completed` against the REAL `$HOME`, so there
+        // they sweep the project store only: sweeping the user's global store from a test would
+        // write to data the test does not own. The global arm has its own e2e (private HOME) in
+        // `touring-hooks/tests/dag_lifecycle_closure_e2e.rs`.
+        #[cfg(not(test))]
+        let _retired = crate::cli_handlers_decompose::auto_archive_pass_all_stores(&rt.ctx.knowledge);
+        #[cfg(test)]
+        let _retired = crate::cli_handlers_decompose::auto_archive_pass(&rt.ctx.knowledge);
+
         // 2. Direct RL reward injection — no manual step needed.
         let reward_payload = serde_json::json!({
             "tool": "orchestrate",

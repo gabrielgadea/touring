@@ -12,11 +12,14 @@ use super::*;
 /// O vocabulário é misto por herança: `completed` (closes legados) e `done`
 /// (`loop_phase_close`) são ambos terminais, junto de `finalized`; tratar um
 /// deles como pendente tornaria a conclusão inalcançável (o mesmo cuidado que
-/// `loop_converged.py::clause_dag` já documenta). Um plano sem subtarefas não é
-/// tocado: não há filhos de onde derivar, e sobrescrevê-lo apagaria o status que
-/// o chamador definiu explicitamente.
+/// `loop_converged.py::clause_dag` já documenta). A lista é a da fundação
+/// (`is_terminal_task_status`) — a cópia local que esta função mantinha era a
+/// terceira escrita do mesmo vocabulário, e um status novo na fundação deixava
+/// um plano com todos os filhos nele derivando `in_progress`. Um plano sem
+/// subtarefas não é tocado: não há filhos de onde derivar, e sobrescrevê-lo
+/// apagaria o status que o chamador definiu explicitamente.
 pub(crate) fn refresh_parent_status(db: &FileKnowledgeDB, task_id: &str, now: &str) -> usize {
-    const TERMINAL: [&str; 3] = ["done", "completed", "finalized"];
+    use touring_foundation::task_lifecycle::is_terminal_task_status;
     let statuses: Vec<String> = {
         let Ok(mut stmt) = db
             .conn_ref()
@@ -32,7 +35,7 @@ pub(crate) fn refresh_parent_status(db: &FileKnowledgeDB, task_id: &str, now: &s
     if statuses.is_empty() {
         return 0;
     }
-    let terminal = |s: &String| TERMINAL.contains(&s.as_str());
+    let terminal = |s: &String| is_terminal_task_status(s);
     let derived = if statuses.iter().all(terminal) {
         "done"
     } else if statuses.iter().any(|s| terminal(s) || s == "in_progress") {
@@ -72,10 +75,9 @@ fn parent_status(db: &FileKnowledgeDB, task_id: &str) -> Option<String> {
 /// `pending` or `in_progress` plan the derivation does not change — so everything else stays as
 /// the caller set it: an explicit status on an open plan, and `finalized`. "Closed" is the
 /// foundation's terminal vocabulary minus that stamp, so a terminal status added there is
-/// reopened here without a hand-written list. KNOWN GAP (touring-a4, 03/10/2026):
-/// `refresh_parent_status` above still keeps its own copy of the same three values in `TERMINAL`,
-/// so a status added to the foundation must also be added there until the two are deduplicated —
-/// otherwise a plan whose children all sit in the new status derives `in_progress`, not `done`.
+/// reopened here without a hand-written list. `refresh_parent_status` above reads the same
+/// foundation predicate (the private `TERMINAL` copy that touring-a4 flagged on 03/10/2026 is gone),
+/// so the derivation and this guard cannot disagree about what "closed" means.
 ///
 /// A plan the retention pass had already archived is live work again, so the stamp is lifted:
 /// otherwise the row reads `in_progress` and archived at once, and the pass (which requires
@@ -327,11 +329,8 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
 
     let cutoff = chrono::Utc::now() - chrono::Duration::seconds(older_than_secs as i64);
     let cutoff_str = cutoff.to_rfc3339();
-    // The SAME terminal-status list `finalize` and the retention routine use.
-    let terminal = touring_foundation::task_lifecycle::terminal_status_sql_list();
-
-    let where_clause =
-        format!("status IN ({terminal}) AND archived_at IS NULL AND updated_at < ?1");
+    // The SAME predicate the automatic pass uses — including the open-child guard.
+    let where_clause = archivable_plans_where();
     let candidates: i64 = db
         .conn_ref()
         .query_row(
@@ -381,6 +380,68 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
         "older_than_secs": older_than_secs,
     })
     .to_string()
+}
+
+/// A plan the retention pass may stamp: its own status is terminal, it carries no stamp yet, it was
+/// last touched before the cutoff (`?1`), and NONE of its subtasks is still open.
+///
+/// The last clause is the point. The parent row alone is not evidence of a finished plan: before
+/// the `add` fix, plans were left `done` over pending children, and a stamp on those is permanent —
+/// the only thing that lifts one is an `add` on that very task (`reopen_parent_if_closed`), and
+/// nobody adds to an abandoned plan (touring-a4, 03/10/2026). So the pass derives from the
+/// children instead of trusting the parent. "Open" is the complement of the SUBTASK terminal
+/// vocabulary: `failed`, `skipped` and `cancelled` are over. Both interpolated lists are
+/// compile-time constants.
+fn archivable_plans_where() -> String {
+    format!(
+        "status IN ({plan_terminal}) AND archived_at IS NULL AND updated_at < ?1 \
+         AND NOT EXISTS (SELECT 1 FROM decomposition_subtasks s \
+                         WHERE s.task_id = task_decompositions.task_id \
+                           AND s.status NOT IN ({subtask_terminal}))",
+        plan_terminal = touring_foundation::task_lifecycle::terminal_status_sql_list(),
+        subtask_terminal = terminal_subtask_status_sql_list(),
+    )
+}
+
+/// Closed plans older than this are stamped by the automatic pass. A week keeps a plan that just
+/// finished visible to the session that closed it and to the next one that asks about it.
+pub const AUTO_ARCHIVE_AFTER_SECS: u64 = 7 * 24 * 60 * 60;
+
+/// The retention pass, by itself: stamp `archived_at` on plans closed for longer than
+/// [`AUTO_ARCHIVE_AFTER_SECS`] whose every subtask is over. Returns how many it stamped.
+///
+/// `cli_decompose_archive` was the route into the retention pass and only a human ran it, so
+/// plans that derive `done` without ever passing `finalize` stayed un-stamped for good (the
+/// task-completed hook finalizes CC-mirrored tasks only). One conditional UPDATE, idempotent, and
+/// it never reports 0 for a write that failed — the error is logged instead (the 19/09 lesson).
+pub fn auto_archive_pass(db: &FileKnowledgeDB) -> usize {
+    ensure_decompose_tables(db);
+    let cutoff = chrono::Utc::now() - chrono::Duration::seconds(AUTO_ARCHIVE_AFTER_SECS as i64);
+    let now = chrono::Utc::now().to_rfc3339();
+    match db.conn_ref().execute(
+        &format!(
+            "UPDATE task_decompositions SET archived_at = ?2 WHERE {}",
+            archivable_plans_where()
+        ),
+        params![cutoff.to_rfc3339(), now],
+    ) {
+        Ok(stamped) => stamped,
+        Err(e) => {
+            tracing::warn!(error = %e, "decompose retention pass failed");
+            0
+        }
+    }
+}
+
+/// [`auto_archive_pass`] over every store a plan can live in: the project's and the global one
+/// (`locate_task_store` routes a task to either, and a pass over the project alone would leave the
+/// global plans un-stamped for good — touring-a4, 03/10/2026).
+pub fn auto_archive_pass_all_stores(local: &FileKnowledgeDB) -> usize {
+    let mut stamped = auto_archive_pass(local);
+    if let Some(global) = crate::cli::decompose::open_global_store() {
+        stamped += auto_archive_pass(&global);
+    }
+    stamped
 }
 
 /// Close scaffold stages whose every sibling already finished.
