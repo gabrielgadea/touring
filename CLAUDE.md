@@ -39,6 +39,11 @@ timestamp: 2026-08-20T11:15:00-03:00
    re-espera do doctor (28/08): a estreia da prova reprovou por transiente — project
    actor drenando índice — e o operador leu EXIT=0 porque `| tail` engoliu o exit
    (`${PIPESTATUS[0]}` é a leitura correta; o script agora falha só após 2 tentativas).
+   (d) o gate 1/6 roda o S1a do shadow r3 (`scripts/r3-s1a-gate`, 03/10/2026): o benchmark
+   `r3_emission_cost_is_bounded` é `#[ignore]` e sem chamador ninguém o rodava. O gate faz
+   **uma** re-medição (ruído térmico) e exige a linha `1 passed` — `cargo test -- --ignored
+   <filtro>` sai 0 quando o filtro não casa nada, e um exit não-zero do `hw-slot` (70 =
+   machine check) reprova mesmo com `1 passed` no texto. O limite é o do teste (E5.2).
 2.2. **`update-touring` é versionado (18/08/2026)**: vive em `scripts/update-touring`
    e chega ao PATH por `~/.local/bin/update-touring`, um **symlink** — a mesma forma
    já usada para os binários. Antes existia só em `~/.local/bin/`: a ferramenta que
