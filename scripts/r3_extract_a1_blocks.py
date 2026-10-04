@@ -396,9 +396,17 @@ def main() -> int:
         marca = "" if abs(l["delta_pct"]) <= 1.0 else "  <<<"
         print(f"  {l['family']:18s} meu {l['meu_bytes']:8d}  kpi {l['kpi_bytes']:8d}  "
               f"{l['delta_pct']:+6.2f}%{marca}")
-    print(f"  PARIDADE 1%: {'OK' if par.get('paridade_1pct') else 'NAO <<<'}")
+    print(linha_paridade(par))
     print(f"-> {out}")
     return 0
+
+
+def linha_paridade(par: dict) -> str:
+    """The parity verdict line. A measurement that did not happen is NOT a failed one: "corpus em
+    movimento" or an unavailable KPI printed "NAO <<<", the same line as a real 1% divergence."""
+    if "erro" in par:
+        return f"  PARIDADE 1%: NAO MEDIDA — {par['erro']}"
+    return f"  PARIDADE 1%: {'OK' if par.get('paridade_1pct') else 'NAO <<<'}"
 
 
 if __name__ == "__main__":
