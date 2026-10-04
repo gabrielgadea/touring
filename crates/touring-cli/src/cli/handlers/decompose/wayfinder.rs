@@ -991,14 +991,11 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // "done"/"complete" are accepted as aliases for "completed" (the loop-engineering
     // `loop_phase_close` marks subtasks "done").
     let short_id = |id: &str| id.rsplit("::").next().unwrap_or(id).to_string();
+    // A subtask that is OVER: its dependents may run, and it is neither ready nor blocked.
+    let settled = |status: &str| matches!(status, "completed" | "done" | "complete" | "failed" | "skipped");
     let completed: std::collections::HashSet<String> = subtasks
         .iter()
-        .filter(|s| {
-            matches!(
-                s.status.as_str(),
-                "completed" | "done" | "complete" | "failed" | "skipped"
-            )
-        })
+        .filter(|s| settled(&s.status))
         .map(|s| short_id(&s.subtask_id))
         .collect();
 
@@ -1018,6 +1015,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                     now_epoch,
                 )
         });
+    // `blocked` was the whole complement of `ready`, so a FINISHED subtask was listed as blocked
+    // (cross-audit 03/10/2026 finding I, seen live on a finalized plan on 04/10): only an open
+    // subtask that is not ready is waiting.
+    let blocked: Vec<SubtaskInfo> = blocked.into_iter().filter(|s| !settled(&s.status)).collect();
 
     // The SAME queue order the claim hands out (24/09/2026, analise-d4 via
     // touring-36): ready listed INSERTION order while claim sorted by

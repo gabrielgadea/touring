@@ -84,8 +84,8 @@ fn default_run() -> WorkflowCmd {
 /// Entry point for the `touring workflow` CLI handler — dispatches the `run`
 /// (default), `stats`, `status`, `slowest`, `compare`, and `resume` subcommands of the
 /// task execution visualizer to their respective `cli-workflow-*` daemon
-/// queries and prints each response. `resume` reuses the `cli-workflow-run`
-/// handler with `resume: true`.
+/// queries and prints each response. `resume` asks `cli-workflow-resume` (the
+/// per-subtask state, each subtask's attempts and the next subtask to run).
 pub fn run(args: &[String]) -> anyhow::Result<()> {
     let cli = match WorkflowCli::try_parse_from(args.iter().skip(1)) {
         Ok(cli) => cli,
@@ -122,10 +122,7 @@ fn route(cmd: WorkflowCmd) -> (&'static str, serde_json::Value) {
             "cli-workflow-compare",
             serde_json::json!({ "task_id_a": task_id_a, "task_id_b": task_id_b }),
         ),
-        WorkflowCmd::Resume { task_id } => (
-            "cli-workflow-run",
-            serde_json::json!({ "task_id": task_id, "resume": true }),
-        ),
+        WorkflowCmd::Resume { task_id } => ("cli-workflow-resume", serde_json::json!({ "task_id": task_id })),
     }
 }
 
@@ -213,7 +210,9 @@ mod tests {
     }
 
     /// Each subcommand reaches the handler that answers it. `status` had no route at all, and
-    /// `resume` reuses the run handler on purpose (`resume: true`), not `cli-workflow-resume`.
+    /// `resume` went to the run handler with a `resume: true` the run handler never reads, so the
+    /// documented "resume" answered a plain run report and `cli-workflow-resume` was unreachable
+    /// from the CLI (cross-audit 04/10/2026, X1).
     #[test]
     fn every_subcommand_routes_to_its_handler() {
         let routed = |argv: &[&str]| {
@@ -228,7 +227,8 @@ mod tests {
         assert_eq!(routed(&["workflow", "compare", "a", "b"]).0, "cli-workflow-compare");
         assert_eq!(routed(&["workflow"]).0, "cli-workflow-run");
         let (handler, payload) = routed(&["workflow", "resume", "t"]);
-        assert_eq!((handler, payload["resume"].as_bool()), ("cli-workflow-run", Some(true)));
+        assert_eq!(handler, "cli-workflow-resume");
+        assert_eq!(payload, serde_json::json!({ "task_id": "t" }), "no key the handler does not read");
     }
 
     #[test]
