@@ -559,6 +559,8 @@ def write_phase_report(bundle: Path, plan_id, phase, status, summary, gates, ts,
                   "uma. (claim-ledger, S-5.5)_", ""]
     lines += ["## Knowledge", "", f"Typed abstract: [/knowledge/{phase}.json](/knowledge/{phase}.json)."]
     path.write_text(fm + "\n".join(lines) + "\n")
+    # Written outside the edit tool, so no reindex hook sees it (X14, completed by R5).
+    okf_emit.index_written(path)
     return str(path)
 
 
@@ -596,6 +598,8 @@ def append_log(bundle: Path, phase, status, summary, ts):
             "O plano: [`plan.md`](/plan.md)\n"
         )
         log.write_text(header + entry)
+    # New or appended, the index must hold the entry just written.
+    okf_emit.index_written(log)
     return str(log)
 
 
