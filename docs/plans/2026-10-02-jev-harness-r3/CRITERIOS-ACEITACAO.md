@@ -768,3 +768,20 @@ nos 16 itens binários em que R1 e R3 divergem, **R1 diz "seguida" e R3 não em 
 `cli-suggest`: ON agregado (o que o critério compara) **598** (n = 4.016); fatia ON de 02/10 **588** (n = 3.470); fatia ON de 03/10 até agora **653** (n = 546); envelope **583** com ou sem a fatia parcial. **Todos os recortes ficam acima de 583: o veredito do `cli-suggest` é robusto ao corte.**
 `post-tool-rl`: ON agregado **913** (n = 3.965); fatia 02/10 **927** (n = 3.425); fatia 03/10 **792** (n = 540); envelope literal **8.294**, envelope em dias completos **874**. **As fatias ficam dos dois lados de 874** (927 e 913 acima, 792 abaixo).
 **Correções ao que escrevi:** (1) o `post-tool-rl` sobre o envelope de dias completos é **INDETERMINADO**, não "não passa" como disse o E14.6: o veredito depende de qual fatia do ON se compara; a regra literal dá passa. Quem decide o S1b hoje é o `cli-suggest`, o único cujo veredito não depende do recorte. (2) A tabela do `touring-a4` rotula como "só dia completo" os valores 653 e 792; **são a fatia de 03/10 até agora (4,0 h UTC)**: ainda não existe nenhum dia ON completo em UTC, e o primeiro fecha às 21:00 BRT de hoje (00:00 UTC de 04/10). O rótulo está errado, a substância (sensibilidade ao recorte) vale. (3) Com isso, **todos** os "não passa" do `post-tool-rl` no RESULTS e na PROVA passam a "indeterminado". **A regra e o limiar seguem sem mudança**; a convenção (os dois lados em dias completos, ou a letra) é decisão do Gabriel, e uma leitura honesta do S1b em dias completos só existe a partir de amanhã.
+
+## Errata 15 — o S1b com o 1º dia ON completo (03/10/2026)
+
+**E15.1 — a leitura definitiva do S1b (03/10/2026 21:01:26 -03:00, pelo `date`; log `~/.claude/touring/logs/r3-xa11-s1b-final.txt`; ordem pelo git: `d46b3b1e` → este commit).** Nenhum limiar muda. A regra literal e a leitura em dias completos ficam lado a lado, como no E14.6/E14.7. O dia UTC 03/10 (21:00 BRT de 02/10 → 21:00 BRT de 03/10) é o **primeiro dia ON completo**; ele fechou às 21:00 e o `r3_latency_by_day.py --tz utc` e o `r3_prove_delivery.py s1b` rodaram 86 s depois.
+
+| hook | ON agregado (regra literal) | fatia ON 02/10 (parcial) | **dia ON completo 03/10** | envelope |
+|---|---|---|---|---|
+| `cli-suggest` | **598** (n = 5.097) | 588 (n = 3.470) | **615** (n = 1.623, mediana 3) | 583 (01/10) |
+| `post-tool-rl` | 885 (n = 5.074) | 927 (n = 3.425) | **724** (n = 1.646, mediana 40) | 8.294 literal · **874** em dias completos |
+
+- **`cli-suggest`: 615 > 583. Não passa em nenhum recorte** (agregado, fatia parcial, dia completo). É a mesma conclusão do E14.1, agora sem depender de fatia parcial.
+- **`post-tool-rl`:** passa pela letra (885 ≤ 8.294) e **passa no dia ON completo (724 ≤ 874)**. O agregado (885) e a fatia de 02/10 (927) ficam acima de 874 porque misturam a fatia parcial de 02/10, o mesmo tipo de recorte que o E14.6 apontou no envelope. Sem robustez: há **um** dia ON completo.
+- **Veredito do S1b: NÃO PASSA** (o critério exige os dois hooks, e o `cli-suggest` reprova em todos os recortes).
+
+**O que isto não prova: a causa.** A atribuição segue inconclusiva (E14.3, E14.5): a release 30.4.91 e a flag entraram no mesmo instante e não houve A/B. Contexto fora da regra, só para calibrar a leitura: o envelope é o pior de 7 dias, e o `cli-suggest` **sem** shadow variou de 116 ms (05/09, n = 2.816) a 644 ms (20/09, n = 2.224) nos 30 dias anteriores. O 615 fica dentro dessa faixa; isso não altera o veredito pré-registrado, mas limita o que a reprovação diz sobre custo do shadow.
+
+**Decisão do Gabriel (XA-09, 03/10):** a leitura em dias completos está feita; o A/B de latência (mesmo binário, flag ligada e desligada, simultâneo) fica **adiado** e só entra se um r5 for aberto.
