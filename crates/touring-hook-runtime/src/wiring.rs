@@ -1034,12 +1034,20 @@ pub fn update_wiring_after_edit(db: &FileKnowledgeDB, file_path: &str) {
 /// `update_wiring_after_edit`, so this just re-populates the consumer edges
 /// with direct-path evidence in addition to `use`-import evidence.
 pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, content: &str) {
-    // The scan reads every `crate::`/`super::` path, `use` lines included, so
-    // the path a `pub use` forwards would read as a use of it (18/09/2026).
-    let forwarded = reexported_paths(consumer_file, content);
-    for path in extract_direct_path_expressions(content) {
-        if !forwarded.contains(&path) {
-            record_consumer_from_path(db, &path, consumer_file);
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(consumer_file));
+    // `crate::`/`super::` paths are RUST syntax. Read from the raw text of anything else they
+    // are prose: editing the workspace CLAUDE.md (rule 26 writes the example `use
+    // crate::a::b::Z`) recorded that file as a consumer of a symbol that exists nowhere, and
+    // `touring doctor` went 8/9 with `kind_unknown=1` (03/10/2026, XA-17). A REAL path quoted
+    // in a document would be credited the same way, as a use that never happened.
+    if matches!(lang, Some(touring_code::ast::Lang::Rust)) {
+        // The scan reads every `crate::`/`super::` path, `use` lines included, so
+        // the path a `pub use` forwards would read as a use of it (18/09/2026).
+        let forwarded = reexported_paths(consumer_file, content);
+        for path in extract_direct_path_expressions(content) {
+            if !forwarded.contains(&path) {
+                record_consumer_from_path(db, &path, consumer_file);
+            }
         }
     }
     // W4 (2026-09-02): the inference step the rebuild runs post-walk, now on
@@ -1048,7 +1056,7 @@ pub fn record_direct_path_consumers(db: &FileKnowledgeDB, consumer_file: &str, c
     // lost its `ast_inferred` edges until the next full rebuild, and callees
     // reached by a bare call or a type position read as orphans (measured on
     // `sandbox_executor.rs` → `limits.rs::apply_resource_caps_to`, 02/09).
-    if let Some(lang) = touring_code::ast::Lang::from_path(std::path::Path::new(consumer_file)) {
+    if let Some(lang) = lang {
         let method_names = touring_code::ast::graph::extract_method_calls(content, lang);
         let type_refs = touring_code::ast::graph::extract_type_and_const_refs(content, lang);
         let qualified_calls = touring_code::ast::graph::extract_qualified_calls(content, lang);
