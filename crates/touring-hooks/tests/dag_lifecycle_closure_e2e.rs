@@ -23,7 +23,7 @@ use touring_hooks::cli_handlers_decompose::{
     auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive,
     cli_decompose_reconcile_stages, cli_workflow_stats,
 };
-use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages};
+use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages, reply_failed};
 use touring_hooks::runtime::HookRuntime;
 
 fn setup_runtime() -> (TempDir, HookRuntime) {
@@ -655,6 +655,45 @@ fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
         "in_progress",
         "the parent must be re-derived in the store the INSERT went to"
     );
+}
+
+/// The bridge decides "that call failed" by the VALUE of the reply, never by a key word being present
+/// in the raw text. `contains("\"error\"")` matched the KEY, so `"error":null` — a success that spells
+/// the field out — read as a failure. The `add` reply stopped emitting the key on success, which kept
+/// the old reading right only by accident of the reply's shape, and `create`'s reply is one added
+/// field away from the same trap (touring-a4, 04/10/2026). `reply_failed` parses the reply.
+#[test]
+fn the_bridge_reads_the_value_of_a_reply_not_the_presence_of_a_key() {
+    // A success that spells the field out is still a success.
+    assert!(!reply_failed(r#"{"persisted":true,"error":null,"task_id":"t"}"#));
+    assert!(!reply_failed(r#"{"persisted":true}"#));
+    // The shapes a real failure takes.
+    assert!(reply_failed(r#"{"persisted":false,"task_id":"t"}"#));
+    assert!(reply_failed(r#"{"persisted":true,"error":"boom"}"#));
+    assert!(reply_failed(r#"{"error":"task not found"}"#));
+    // Text that is not JSON keeps the conservative old reading.
+    assert!(reply_failed("garbled \"error\" text"));
+    assert!(!reply_failed("ok"));
+
+    // And the real replies, end to end: a clean create/add is not a failure, a refused add is.
+    let (_tmp, mut rt) = setup_runtime();
+    let created = cli_decompose_create(
+        &mut rt,
+        &json!({"task_type": "plan", "description": "reply shapes", "origin": "touring-cli"}),
+    );
+    assert!(!reply_failed(&created), "a clean create is not a failure: {created}");
+    let task_id = parse_json(&created)["task_id"].as_str().expect("task_id").to_string();
+    let added = cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": "only", "description": "only"}),
+    );
+    assert!(!reply_failed(&added), "a clean add is not a failure: {added}");
+    let other = new_plan(&mut rt, "wants the same id");
+    let refused = cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": other, "subtask_id": format!("{task_id}::only"), "description": "stolen"}),
+    );
+    assert!(reply_failed(&refused), "a refused add is a failure: {refused}");
 }
 
 /// A successful `add` must not carry an `"error"` key at all, not even `null`: the scaffold bridge

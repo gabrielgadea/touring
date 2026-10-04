@@ -79,6 +79,26 @@ pub fn cc_mirror_task_id(cc_id: &str) -> String {
     }
 }
 
+/// Did a decompose reply report a failure? Reads the VALUE of the reply, never the presence of a key
+/// word in its raw text.
+///
+/// The bridge used to ask `reply.contains("\"error\"")`, which matches the KEY: a success that spells
+/// the field out (`"error":null`) read as a failure and logged three false "scaffold subtask add
+/// failed" per mirrored task (04/10/2026). Emitting the key only on failure kept that reading right
+/// by accident of the reply's shape, not by the idiom (touring-a4) — `create`'s reply is one added
+/// field away from the same trap. A failure is `persisted == false` or a non-null `error`. Text that
+/// is not JSON keeps the old conservative reading, so an unparseable reply is never read as clean.
+#[must_use]
+pub fn reply_failed(raw: &str) -> bool {
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(reply) => {
+            reply.get("persisted") == Some(&serde_json::Value::Bool(false))
+                || reply.get("error").is_some_and(|error| !error.is_null())
+        }
+        Err(_) => raw.contains("\"persisted\":false") || raw.contains("\"error\""),
+    }
+}
+
 /// Mirror a CC-originated task into the decompose DAG (idempotent per mirror id).
 ///
 /// Reached from BOTH `task-sync-create` (PostToolUse TaskCreate) and the
@@ -132,7 +152,7 @@ pub fn bridge_task_created(
     });
 
     let result = cli_decompose_create(runtime, &payload);
-    if result.contains("\"persisted\":false") || result.contains("\"error\"") {
+    if reply_failed(&result) {
         tracing::debug!(
             task_id = %task_id,
             result = %result,
@@ -170,7 +190,7 @@ pub fn bridge_task_created(
                 "depends_on": deps,
             }),
         );
-        if add_result.contains("\"error\"") {
+        if reply_failed(&add_result) {
             tracing::warn!(
                 task_id = %mirror_id,
                 stage = stage.name,
