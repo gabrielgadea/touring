@@ -338,7 +338,9 @@ fn check_deadlines(db: &FileKnowledgeDB, task_id: &str) -> usize {
 
 /// S1.3: Retry loop with attempts tracking.
 ///
-/// When a subtask fails, evaluate its retry_policy. If attempts < max_attempts:
+/// When a subtask fails, evaluate its retry_policy. `attempts` counts the retries already
+/// scheduled and `max_attempts` counts executions, so the run that just failed is execution
+/// `attempts + 1`. If `attempts + 1 < max_attempts`:
 ///   - increment attempts
 ///   - reset status to "pending"
 ///
