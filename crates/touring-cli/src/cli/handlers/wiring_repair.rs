@@ -641,17 +641,37 @@ pub(crate) struct PhantomPurgeOutcome {
 /// «no definition» there is UNMEASURED, not phantom (measured on the analise
 /// copy: 2 of 235; the facade `__init__.py` files), so the row is spared and
 /// stays `unknown` for the doctor to keep counting.
-fn phantom_predicate() -> &'static str {
-    "symbol_kind = 'unknown' AND consumer_file IS NOT NULL \
-     AND EXISTS (SELECT 1 FROM file_knowledge fk \
-                 WHERE fk.file_path = wiring_map.module_file) \
-     AND NOT EXISTS (SELECT 1 FROM wiring_map p \
-                     WHERE p.consumer_file IS NULL \
-                       AND p.module_file = wiring_map.module_file \
-                       AND p.symbol_name = wiring_map.symbol_name) \
-     AND NOT EXISTS (SELECT 1 FROM wiring_unresolved u \
-                     WHERE u.consumer_file = wiring_map.module_file \
-                       AND u.symbol_name = wiring_map.symbol_name)"
+///
+/// A second class is phantom whatever its kind: a consumer row whose symbol is a Rust scope keyword
+/// ([`touring_hooks_core::symbol_extractors::SCOPE_KEYWORDS`]). A keyword is a position in the
+/// module tree and names nothing, so no definition can exist for it; 31 such rows (kind `extern`,
+/// written on 01/10/2026 before every pass knew the rule) were out of reach of this purge, which only
+/// looked at `unknown` (cross-audit 04/10/2026, X13). One went when its consumer was re-ingested
+/// during the audit (the measurement that showed the edit path no longer writes them); this branch
+/// purged the other 30, and neither store holds any since. The list is the one the passes use to stop
+/// writing them; the interpolated values are those compile-time constants. This branch has no
+/// guard of its own: its safety is the LANGUAGE's — the four words are reserved, so no item can be
+/// named after them. Should a binding or FFI name ever collide, this would delete a real edge
+/// silently (touring-a4, review of 04/10/2026).
+fn phantom_predicate() -> String {
+    let keywords = touring_hooks_core::symbol_extractors::SCOPE_KEYWORDS
+        .iter()
+        .map(|k| format!("'{k}'"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "((symbol_kind = 'unknown' AND consumer_file IS NOT NULL \
+           AND EXISTS (SELECT 1 FROM file_knowledge fk \
+                       WHERE fk.file_path = wiring_map.module_file) \
+           AND NOT EXISTS (SELECT 1 FROM wiring_map p \
+                           WHERE p.consumer_file IS NULL \
+                             AND p.module_file = wiring_map.module_file \
+                             AND p.symbol_name = wiring_map.symbol_name) \
+           AND NOT EXISTS (SELECT 1 FROM wiring_unresolved u \
+                           WHERE u.consumer_file = wiring_map.module_file \
+                             AND u.symbol_name = wiring_map.symbol_name)) \
+         OR (consumer_file IS NOT NULL AND symbol_name IN ({keywords})))"
+    )
 }
 
 fn count_where(conn: &rusqlite::Connection, predicate: &str) -> Result<usize, String> {
@@ -690,10 +710,11 @@ fn measure_phantoms(
     dry_run: bool,
     kinds_resolved: usize,
 ) -> Result<PhantomPurgeOutcome, String> {
+    let predicate = phantom_predicate();
     Ok(PhantomPurgeOutcome {
-        edges: count_where(conn, phantom_predicate())?,
+        edges: count_where(conn, &predicate)?,
         dry_run,
-        sample: sample_where(conn, phantom_predicate())?,
+        sample: sample_where(conn, &predicate)?,
         kinds_resolved,
     })
 }
@@ -1122,6 +1143,58 @@ mod tests {
             0,
             "idempotent"
         );
+        drop(rt);
+        drop(proj);
+    }
+
+    /// A Rust scope keyword (`super`, `self`, `Self`, `crate`) is a POSITION in the module tree and
+    /// names nothing, so a consumer row for one is phantom whatever kind it was branded with. 31
+    /// such rows (kind `extern`, written on 01/10/2026 before `is_scope_keyword` reached every pass)
+    /// survived in the project store, out of reach of every repair: this purge only looked at
+    /// `unknown` (cross-audit 04/10/2026, X13). The producer row and a real symbol stay.
+    #[test]
+    fn phantom_purge_removes_scope_keyword_consumers_whatever_their_kind() {
+        let (proj, rt) = polyglot_project(&[("src/consumer.rs", "use super::types::T;\n")]);
+        let db = &rt.ctx.knowledge;
+        producer(&rt, "src/helpers.rs", "real_fn");
+        db.record_consumer("src/helpers.rs", "real_fn", "src/consumer.rs", None)
+            .expect("healthy edge");
+        for (kind, keyword) in [("extern", "super"), ("function", "self"), ("unknown", "crate"), ("struct", "Self")] {
+            db.conn_ref()
+                .execute(
+                    "INSERT INTO wiring_map
+                     (module_file, symbol_name, symbol_kind, visibility, consumer_file, contract_source, consumer_type)
+                     VALUES ('src/lib.rs', ?1, ?2, 'public', 'src/consumer.rs', 'ast_resolved', 'rust_import')",
+                    rusqlite::params![keyword, kind],
+                )
+                .expect("seed scope-keyword consumer");
+        }
+        let keyword_rows = || -> i64 {
+            db.conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE symbol_name IN ('super','self','crate','Self') \
+                     AND consumer_file IS NOT NULL",
+                    [],
+                    |r| r.get(0),
+                )
+                .expect("count")
+        };
+
+        let preview = purge_phantom_edges(db, true).expect("dry-run");
+        assert_eq!(preview.edges, 4, "every scope-keyword consumer is phantom, whatever its kind");
+        assert_eq!(keyword_rows(), 4, "a dry run writes nothing");
+        let applied = purge_phantom_edges(db, false).expect("apply");
+        assert_eq!(applied.edges, 4);
+        assert_eq!(keyword_rows(), 0, "the keyword rows are gone");
+        let healthy: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map WHERE symbol_name = 'real_fn' AND consumer_file IS NOT NULL",
+                [],
+                |r| r.get(0),
+            )
+            .expect("count");
+        assert_eq!(healthy, 1, "a real consumer edge survives");
         drop(rt);
         drop(proj);
     }

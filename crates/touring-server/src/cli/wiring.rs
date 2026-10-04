@@ -141,8 +141,10 @@ enum WiringCmd {
         /// Remove PHANTOM consumer edges: rows whose kind is `unknown` and
         /// whose producer exists nowhere — never resolvable by any repair, so
         /// they only pollute the doctor's wiring_diagnostic (24/09/2026,
-        /// touring-36: 8 of them, permanent by construction). Combine with
-        /// `--dry-run` to preview.
+        /// touring-36: 8 of them, permanent by construction) — and rows whose
+        /// symbol is a Rust scope keyword (`super`/`self`/`Self`/`crate`),
+        /// whatever their kind, since a keyword names nothing (04/10/2026: 31
+        /// of them, kind `extern`). Combine with `--dry-run` to preview.
         #[arg(long)]
         purge_phantom: bool,
         /// Resolve consumer kinds (the producers + definers passes) without a
