@@ -844,7 +844,6 @@ fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
     let old_closed = new_plan(&mut rt, "closed long ago");
     let step = add_step(&mut rt, &old_closed, "only");
     close_step(&mut rt, &old_closed, &step);
-    age_plan(&rt, &old_closed, 8);
 
     let fresh_closed = new_plan(&mut rt, "closed just now");
     let step = add_step(&mut rt, &fresh_closed, "only");
@@ -857,12 +856,16 @@ fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
         .conn_ref()
         .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&stale_done])
         .expect("the stale state");
-    age_plan(&rt, &stale_done, 8);
 
     let still_open = new_plan(&mut rt, "open, long ago");
     add_step(&mut rt, &still_open, "open");
-    age_plan(&rt, &still_open, 8);
 
+    // Age them only after every plan exists: creating a plan also runs the retention pass
+    // (see `creating_a_plan_retires_the_closed_ones_nobody_finalized`), and a plan aged early
+    // would be stamped by a later `new_plan` instead of by the pass this test calls.
+    for aged in [&old_closed, &stale_done, &still_open] {
+        age_plan(&rt, aged, 8);
+    }
     let archived = auto_archive_pass(&rt.ctx.knowledge);
 
     assert_eq!(archived, 1, "exactly the plan that is closed AND old AND fully terminal");
@@ -870,6 +873,28 @@ fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
     assert!(archived_at_of(&rt, &fresh_closed).is_none(), "closed today: inside the retention window");
     assert!(archived_at_of(&rt, &stale_done).is_none(), "a `done` row over a pending child is not closed");
     assert!(archived_at_of(&rt, &still_open).is_none(), "open work is never archived");
+}
+
+/// `task-completed` fires a few times a day (hook-trace census, 04/10/2026), so a retention pass that
+/// ran only there would run too seldom to count as automatic. Starting a plan — the beginning of work —
+/// retires the closed ones nobody finalized, in the project store only: a create must not reach into
+/// the user's global store from every hook and test.
+#[test]
+fn creating_a_plan_retires_the_closed_ones_nobody_finalized() {
+    let (_tmp, mut rt) = setup_runtime();
+    let old = new_plan(&mut rt, "closed long ago");
+    let step = add_step(&mut rt, &old, "only");
+    close_step(&mut rt, &old, &step);
+    let fresh = new_plan(&mut rt, "closed just now");
+    let step = add_step(&mut rt, &fresh, "only");
+    close_step(&mut rt, &fresh, &step);
+    age_plan(&rt, &old, 8);
+    assert!(archived_at_of(&rt, &old).is_none(), "premise: nothing swept it yet");
+
+    let _next = new_plan(&mut rt, "the next piece of work");
+
+    assert!(archived_at_of(&rt, &old).is_some(), "starting a plan sweeps the old closed one");
+    assert!(archived_at_of(&rt, &fresh).is_none(), "closed today: inside the retention window");
 }
 
 /// A pass over the project store alone leaves a plan that lives in the GLOBAL store un-stamped for

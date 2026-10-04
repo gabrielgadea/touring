@@ -175,6 +175,11 @@ pub fn cli_decompose_create(rt: &mut HookRuntime, payload: &serde_json::Value) -
     if let Err(e) = &result {
         tracing::debug!("decompose create INSERT failed: {}", e);
     }
+    // Starting a plan is a natural moment to retire the old ones: `task-completed`, the other caller
+    // of the retention pass, fires only a few times a day (hook-trace census, 04/10/2026), too seldom
+    // for a pass to count as automatic. Project store only — a create must not reach into the user's
+    // global store from every hook and test; that arm belongs to `task-completed`.
+    let _retired = crate::cli_handlers_decompose::auto_archive_pass(db);
     crate::cli_handlers_decompose::log_event(
         db,
         &task_id,
