@@ -1,9 +1,15 @@
 """Database discovery and connection management for Touring SQLite databases.
 
-Three databases:
-- touring_symbols.db: 60k+ symbols (name, kind, file, line, language)
-- rlm_memory.db: 73k+ memory entries (key, tier, value, entry_type)
-- touring_knowledge.db: file_knowledge, file_relations, bash_outcomes
+The names below are the LEGACY ones (`.claude/data/`). Touring v5.0+ keeps its stores under
+`.claude/touring/` with other names, and [`CURRENT_NAME`] maps each legacy name to the current one:
+- touring_symbols.db → symbols.db: symbols (name, file_path, line)
+- rlm_memory.db → memory.db: memory_entries (key, tier, value, entry_type)
+- touring_knowledge.db → knowledge.db: file_knowledge, file_relations, bash_outcomes
+- graph.db (LEARNING_DB): the learning state — learning_wilson, learning_drift
+
+Only the symbols name was mapped until 04/10/2026, so the memory and knowledge lookups fell through to
+`~/.claude/data/` (a one-row stub) or to nothing, and the learning tables were read from the memory
+store, where they do not exist (cross-audit 04/10/2026, X15).
 """
 
 from __future__ import annotations
@@ -18,6 +24,14 @@ from pathlib import Path
 SYMBOLS_DB = "touring_symbols.db"
 MEMORY_DB = "rlm_memory.db"
 KNOWLEDGE_DB = "touring_knowledge.db"
+LEARNING_DB = "graph.db"
+
+# Legacy name → the name the same store has under `.claude/touring/` (v5.0+).
+CURRENT_NAME = {
+    SYMBOLS_DB: "symbols.db",
+    MEMORY_DB: "memory.db",
+    KNOWLEDGE_DB: "knowledge.db",
+}
 
 
 def _find_project_root() -> Path | None:
@@ -47,6 +61,7 @@ def get_db_path(db_name: str) -> Path:
         FileNotFoundError: If not found in any location.
     """
     candidates: list[Path] = []
+    current = CURRENT_NAME.get(db_name, db_name)
 
     # 1. Project root (highest priority — has CLAUDE.md)
     root = _find_project_root()
@@ -54,9 +69,7 @@ def get_db_path(db_name: str) -> Path:
         # 1a. New touring DB location (.claude/touring/) — v5.0+ bootstrap
         touring_dir = root / ".claude" / "touring"
         if touring_dir.is_dir():
-            # Map old DB names to new locations
-            alt_name = {"touring_symbols.db": "symbols.db"}.get(db_name, db_name)
-            candidates.append(touring_dir / alt_name)
+            candidates.append(touring_dir / current)
         # 1b. Legacy data location (.claude/data/)
         data_dir = root / ".claude" / "data"
         if data_dir.is_dir():
@@ -72,7 +85,8 @@ def get_db_path(db_name: str) -> Path:
     if cwd_data not in candidates:
         candidates.append(cwd_data)
 
-    # 4. Global fallback
+    # 4. Global fallback: the current store first, then the legacy one.
+    candidates.append(Path.home() / ".claude" / "touring" / current)
     candidates.append(
         Path.home() / ".claude" / "data" / db_name,
     )

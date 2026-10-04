@@ -7,19 +7,50 @@ Run from a project directory with .claude/data/ or .claude/touring/ databases.
 from __future__ import annotations
 
 import json
+import os
+import sqlite3
 import subprocess
 import sys
+from pathlib import Path
+
+HARNESS = Path(__file__).resolve().parents[1]
+PROJECT = HARNESS.parent  # the touring checkout: its `.claude/touring/` holds the real stores
+sys.path.insert(0, str(HARNESS))
 
 
 def run_cli(*args: str) -> tuple[int, str, str]:
-    """Run cli-anything-touring command and capture output."""
+    """Run the harness CLI as a module of THIS checkout, from the project root.
+
+    It called the `cli-anything-touring` executable, which nothing installs: all 19 tests died with
+    FileNotFoundError, so the suite never ran and a regression from 02/10/2026 (`KeyError: 'v5'` in
+    `index status`) went unseen (cross-audit 04/10/2026, X3 and X15). The working directory is pinned
+    because the stores are found by walking up from it.
+    """
+    env = {**os.environ, "PYTHONPATH": os.pathsep.join(p for p in (str(HARNESS), os.environ.get("PYTHONPATH")) if p)}
     result = subprocess.run(
-        ["cli-anything-touring", *args],
+        [sys.executable, "-m", "cli_anything.touring.touring_cli", *args],
         capture_output=True,
         text=True,
         timeout=30,
+        cwd=PROJECT,
+        env=env,
     )
     return result.returncode, result.stdout.strip(), result.stderr.strip()
+
+
+def test_every_detected_schema_has_a_file_column(tmp_path: Path) -> None:
+    """The F2.1 whitelist knew `legacy` and `current`; the detector answers `legacy` or `v5`, so
+    `index status` raised `KeyError: 'v5'` on every current store (cross-audit 04/10/2026, X3)."""
+    from cli_anything.touring.core import index as ix
+
+    for ddl, expected in [
+        ("CREATE TABLE symbols (name, kind, file, line, language)", "file"),
+        ("CREATE TABLE symbols (name, file_path, line)", "file_path"),
+    ]:
+        conn = sqlite3.connect(tmp_path / f"{expected}.db")
+        conn.execute(ddl)
+        assert ix.FILE_COLUMN[ix._detect_schema(conn)] == expected
+        conn.close()
 
 
 def parse_json(stdout: str) -> dict | list:
