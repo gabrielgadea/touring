@@ -67,7 +67,11 @@ timestamp: 2026-08-20T11:15:00-03:00
    24/07 (já estava abaixo em 25/07). Leia POR COMPONENTE, não pelo overall: ast 0,776 ·
    wiring 0,809 · index 0,852 · knowledge 0,900 · quality 1,000 são constantes entre
    execuções (regressão = algum cair); `learning` (0,686↔0,886) mede o bandit e é a única
-   fonte de variação do overall — não gatear por ele.
+   fonte de variação do overall — não gatear por ele. **04/10/2026: `index` 0,852 → 0,982**
+   (cobertura 74,5% → 100%, uma medição; overall 0,887): o 0,852 era diluição, documentos
+   gravados por script fora do caminho que reindexa, que agora passam por
+   `okf_emit.index_written`, e 359 arquivos sem `file_knowledge`, preenchidos pelo
+   `metadata-backfill` (cross-audit X14). Um `index` caindo de novo é escritor novo sem ingest.
    Validators por fase do programa: `docs/plans/touring-productization-pln2/validate_*.sh`.
 4. **Débito conhecido**: grafo release-TEST do touring-server quebrado (E0460/E0463,
    fingerprints stale do move F4′) — grafo normal e debug-test compilam; harness E2E
