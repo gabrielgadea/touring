@@ -32,13 +32,17 @@ produtor responde `null` e parece saudável. A lição está na memória
 - **`add` como upsert** (`upsert_subtask`): `ON CONFLICT(subtask_id) DO UPDATE` nomeia só as colunas
   de definição (descrição, arestas, prioridade, prazo, grupo paralelo, revisão). O que a linha ganha
   por viver — status, `attempts`, `quality_score`, `retry_policy`, reivindicação, `created_at` — fica.
-  Um id que já pertence a **outra** task é recusado (`persisted: false`, o erro nomeia o dono);
-  a resposta traz o status real e `existed`. O pai só é re-derivado quando a linha resultante não é
-  terminal (terminal preservado não muda a derivação nem mexe no relógio do plano).
+  Um id que já pertence a **outra** task é recusado (`persisted: false`, o erro nomeia o dono); a
+  posse é o `WHERE` do próprio conflito, então recusa e escrita são **uma instrução atômica** (zero
+  linhas alteradas = recusa; a primeira versão lia o dono antes e escrevia depois, com janela). A
+  resposta traz o status real e `existed`, e a chave `error` **só existe na falha**. O pai só é
+  re-derivado quando a linha resultante não é terminal.
 - **Retenção** (`archivable_plans_where`): o plano é arquivável se seu status é terminal, sem carimbo,
-  antigo o bastante **e sem nenhuma subtarefa aberta** (a guarda que o touring-a4 pediu: o carimbo é
-  praticamente permanente e a população antiga tem pais `done` sobre filhas pendentes). Vale para
-  `decompose archive` e para o passe automático.
+  antigo o bastante **e nenhuma subtarefa fora de `completed`/`done`/`finalized`** — o vocabulário de
+  PLANO, o mesmo que a derivação usa para fechar (a primeira versão usava o vocabulário de subtarefa,
+  mais largo, e carimbava um pai fechado à mão sobre filha `failed`). Vale para `decompose archive` e
+  para o passe automático. O carimbo é **levantado pela própria derivação** (`refresh_parent_status`)
+  sempre que ela deixa o plano aberto, tanto no `add` quanto no `update`.
 - **Passe automático** (`auto_archive_pass`, janela `AUTO_ARCHIVE_AFTER_SECS` = 7 dias): chamado pelo
   hook `task-completed` (`hook_registry.rs`), no store do projeto **e** no global
   (`open_global_store`, agora o único lugar que escreve o caminho). Idempotente; um erro de escrita é
@@ -72,17 +76,39 @@ O plano global com filha aberta é o caso concreto que a guarda poupa de um cari
 ## 5. Provas
 
 **Testes (RED visto antes, GREEN depois).** `dag_lifecycle_closure_e2e` foi de 20 passando + 7
-falhando (a medida RED, antes de qualquer conserto) para 31/31; `touring-cli --lib` 641;
-`touring-dispatch --lib` 1342; `touring-hooks` inteiro 68 alvos / 1160 testes / 0 falhas;
-`touring-hook-runtime --lib` 486; `clippy -D warnings` limpo nos quatro crates (o único aviso é o
+falhando (a medida RED, antes de qualquer conserto) para 34/34 (31 + 3 dos achados da revisão,
+cada um visto falhar antes); `touring-cli --lib` 641; `touring-dispatch --lib` 1342;
+`touring-hooks` inteiro 68 alvos / 1163 testes / 0 falhas; `touring-hook-runtime --lib` 487;
+`touring-hooks-core --lib` 524; `clippy -D warnings` limpo nos cinco crates (o único aviso é o
 future-incompat do `proc-macro-error2`, dependência).
 
-**Mutação (`mut_z.py`, in-place sob `hw-slot`, sha256 conferido ao restaurar): 12/12 mortos.**
-`subtask_missing` sempre `false` · passe ignora o store global · janela de retenção zero · sem a
-guarda de filha aberta (rota manual e automática) · `add` sem recusa de dono · `add` voltando a zerar
-status · `add` voltando a zerar `attempts`/`quality_score` · `update` sem a linha de execução ·
-`update` sem retry · derivação que só entende `done` · hook `task-completed` sem o passe.
-Cada alvo morreu pelo teste certo (a asserção `... FAILED` do próprio teste, não erro de compilação).
+**Mutação (`mut_z.py` + `mut_z2.py`, in-place sob `hw-slot`, sha256 conferido ao restaurar): 12/12
+na primeira rodada e 17/17 na final.** `subtask_missing` sempre `false` · passe ignora o store global ·
+janela de retenção zero · sem a guarda de filha aberta (rota manual e automática) · posse atômica do
+`add` removida · `add` voltando a zerar status · `add` voltando a zerar `attempts`/`quality_score` ·
+`update` sem a linha de execução · `update` sem retry · derivação que só entende `done` · hook
+`task-completed` sem o passe · `add` emitindo `error` em sucesso · derivação sem levantar o carimbo ·
+guarda de volta ao vocabulário de subtarefa · predicado de palavra de escopo sem `super` · criar
+plano sem o passe. Cada alvo morreu pelo teste certo (a asserção `... FAILED` do próprio teste, não
+erro de compilação).
+
+## 5b. Revisão independente (04/10/2026) — o que ela achou e o que fiz
+
+Duas revisões somente leitura do range `4c49ab1b..77fda791`: a do touring-a4 (sessão paralela) e a de
+um revisor de contexto limpo, sem Bash e sem acesso ao meu raciocínio. Eu já tinha dado o ciclo por
+fechado antes delas; elas acharam coisas que meus testes não alcançavam.
+
+| Achado | Quem | Veredito | O que fiz |
+|---|---|---|---|
+| `add` bem-sucedido devolvia `"error":null` e o bridge trata a presença da chave como falha: 3 avisos falsos por tarefa espelhada | revisor independente | **procede, regressão minha**; confirmado ao vivo | chave só na falha; teste `a_successful_add_carries_no_error_key`; mutante morto |
+| Reabrir por `update --status pending` (o caminho que este relatório indica) deixava o plano `in_progress` e arquivado | revisor independente | procede | o carimbo é levantado em `refresh_parent_status`; teste e mutante |
+| A guarda usava o vocabulário de subtarefa; pai fechado à mão sobre filha `failed` recebia carimbo quase permanente | touring-a4 | procede | guarda no vocabulário de plano; teste `archive_leaves_a_plan_with_a_failed_child_alone`; mutante |
+| Posse do `add` era leitura-depois-escrita (TOCTOU) | touring-a4 | procede, exposição baixa (handles distintos) | posse no `WHERE` do conflito, uma instrução atômica; mutante |
+| Cinco listas de palavra de escopo escritas à mão | touring-a4 | procede para 3 sítios; **2 são intencionais** (sem `crate`: `crate::x` tem resolução própria) | `is_scope_keyword` único nos 3; mutante; não criei o teste estrutural que varre o código por listas (frágil em arquivos cheios de prosa) |
+| `scoped_id` com prefixo de outra task grava a linha na task errada; `update` escreve sem `task_id` no predicado | touring-a4 | endurecimento, **sem falha observada** | **não mudei**: o predicado do `update` tem ~40 chamadores e não vejo caso real; fica nos limites |
+| `use crate;` sozinho perde uma aresta | touring-a4 | procede, forma rara | não reabri |
+| `record_subtask_transition` ignora `done` (o status do `loop_phase_close`); re-adicionar filha `skipped` reabre plano fechado à mão | revisor independente | baixa confiança, paridade com a cópia antiga | não mudei; fica nos limites |
+| Comparação de `updated_at` mistura `T` e espaço; `Local::now()` em `record_task_metrics` | os dois | sem defeito hoje: todo escritor de `task_decompositions.updated_at` grava UTC RFC 3339 | nota latente, sem mudança |
 
 **O defeito que apareceu no caminho (achado H2, não estava na lista).** Ao editar
 `touring-dispatch/src/lifecycle/tests.rs`, `touring doctor` foi a 8/9 com `kind_unknown=1`: a
@@ -94,11 +120,12 @@ RED reproduzido com a linha exata do banco vivo; conserto = a regra que `record_
 aplicava aos `use` (palavra de escopo não é módulo). Depois do restart e de re-derivar o arquivo
 pelo caminho de edição: `kind_unknown=0`.
 
-**Build e restart.** `cargo build --release --workspace` verde (5m17s no primeiro). Foram **três**
+**Build e restart.** `cargo build --release --workspace` verde (5m17s no primeiro). Foram **quatro**
 restarts do daemon global (`update-touring --no-build`), não o "um único" planejado: o 2º por causa
-do conserto de wiring acima, o 3º por causa do gatilho de criação de plano (seção 6). Ambiente do
-daemon final conferido em `/proc/<pid>/environ`: sem `TOURING_CODE_MODE` nem `TOURING_R3_SHADOW`.
-`touring doctor` 9/9.
+do conserto de wiring acima, o 3º por causa do gatilho de criação de plano, o 4º por causa dos
+achados da revisão independente (seção 5b). Ambiente do daemon final (PID 40670) conferido em
+`/proc/<pid>/environ`: sem `TOURING_CODE_MODE` nem `TOURING_R3_SHADOW`. `touring doctor` 9/9 e
+`kind_unknown=0`; um `add` bem-sucedido ao vivo já não traz a chave `error`.
 
 **Emissor r3 religado (`[shadow] r3 = true`, restart).** Prova ao vivo, não suposta: o journal
 `r3_events.jsonl` ficou parado em 431 linhas desde 03/10 21:12 e cresceu para 432 e depois 439 só
@@ -118,7 +145,7 @@ caracteres, hash de sessão e sha — sem texto livre (S6). Gate S1a (`scripts/r
   `task-completed`) carimbou **12 do projeto e 2 do global no mesmo segundo e poupou o global com
   filha aberta**. O censo seguinte confirma: projeto 7 fechados sem carimbo e 0 antigos; global 1
   (o poupado). Exatamente o previsto antes do passe.
-- O gatilho de criação (3º restart) tem teste e RED, mas **não tem
+- O gatilho de criação (3º restart) tem teste, RED e mutante morto, mas **não tem
   evento ao vivo próprio**: o censo já estava zerado (o `task-completed` real o esvaziou às 00:28:36,
   antes do 3º restart), então a sonda de criação (plano finalizado em seguida) não tinha o que varrer.
   A prova dele é o teste `creating_a_plan_retires_the_closed_ones_nobody_finalized`.
@@ -133,7 +160,17 @@ caracteres, hash de sessão e sha — sem texto livre (S6). Gate S1a (`scripts/r
 - `cache_hit_rate` de `touring workflow stats` **não é uma medida**: a heurística original grava
   `cache_hit = (status == "completed")`, então toda subtarefa concluída conta como acerto e a taxa
   dá 1.0. Portada por paridade; não use o número. Candidata a remoção, decisão do Gabriel.
-- O gatilho de criação tem RED e teste verde, mas a mutação "criar sem o passe" é o próprio RED
-  anterior à implementação (não está no `mut_z.py`).
-- A guarda de filha aberta usa o vocabulário **de subtarefa** (`failed`/`skipped`/`cancelled`
-  encerram); um plano com filha `failed` e pai terminal é arquivável.
+- A guarda de filha aberta usa o vocabulário de **plano**: um plano fechado à mão sobre filha
+  `failed`, `skipped` ou `cancelled` **nunca é arquivado** (nem pela rota manual). É a escolha
+  conservadora (um carimbo errado é quase permanente; um plano visível a mais não), mas deixa esses
+  planos nas vistas vivas para sempre. Decisão do Gabriel se quiser outra.
+- O `update` escreve por `WHERE subtask_id = ?` sem `task_id` no predicado, e o `add` aceita um
+  `subtask_id` com `::` de outra task quando a linha ainda não existe (a linha fica na task errada).
+  Sem falha observada; endurecer toca ~40 chamadores. Apontado pelo touring-a4.
+- `record_subtask_transition` não registra o fim de uma subtarefa fechada com `done` (o status do
+  `loop_phase_close.py`): a linha de execução aberta no `in_progress` fica sem fim. Paridade com a
+  cópia antiga.
+- `use crate;` sozinho (a raiz do crate) perde uma aresta com o guard de palavra de escopo; forma rara.
+- A comparação `updated_at < corte` é lexicográfica: segura enquanto todo escritor grava UTC
+  RFC 3339 (hoje todos gravam). Se alguém escrever com `Local::now()`, a janela desloca pelo offset
+  sem erro nenhum.
