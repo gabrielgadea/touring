@@ -217,10 +217,46 @@ DAG `task_1791142397213803492`.
   - o 31×30 precisava ser reconciliado antes do commit (reconciliado).
 - **Revisor de contexto limpo:** §9.1.
 
-**Resíduos declarados:**
-- `max_attempts` é homônimo, com outro sentido, no decomposer do `touring-server-reasoning` (`subtask_budgets` o lê como `max_retries`), que é outra estrutura e não o campo da tabela do decompose.
-- Os 106 descritores que delegam a funções com clap não foram sondados um a um para `--help`, porque executá-los teria efeitos.
+**Resíduos declarados no fechamento do §9:** os dois foram resolvidos no §9.1 (R4 e R1).
 
 ### 9.1 Revisor de contexto limpo e juiz final
 
-_Preenchido no fechamento._
+Um revisor sem o contexto da implementação leu o diff dos consertos e apontou seis achados (confiança entre parênteses). Todos foram consertados com o vermelho visto antes do verde; R3 teve o vermelho por mutação, porque o conserto saiu antes do caso de teste.
+
+| # | Achado do revisor | Conserto | Prova |
+|---|---|---|---|
+| R1 (0,88) | A guarda do `--help` não via handlers que delegam e leem `args` à mão; `init-project --help` cria `.touring/` no cwd | Censo pelo executor dentro do sandbox: cada um dos 141 comandos com `--help`, em HOME e cwd temporários e socket inexistente. **55 não respondiam ajuda**: 19 executaram (`init-project` gravou; família `exec`, `context`, `route`, `eval`, `status`, `doctor`), 6 rodariam com daemon (`kpi`, `mutation-test`, `repo-score`…), 16 erraram, 4 só imprimiam uso. A lista foi **invertida**: `SELF_HELP` tem os 73 medidos como autossuficientes (clap e os 10 masters, cujo script responde pelo argparse). Todo o resto é respondido pelo despachante, e `--` encerra a varredura. `toolchain --help` saía 1 e agora sai 0. | `scripts/test_help_never_executes.py` refaz o censo contra o binário de release: 45 falhas no binário anterior, **0** no novo. Testes unitários `intercepted_help_answers_every_command_but_the_self_helping_ones` e `every_self_help_name_is_a_table_command`; 2 mutantes mortos. Ao vivo, `init-project --help` num diretório vazio deixa 0 entradas. |
+| R2 (0,85) | O teste do caso sem slot era vácuo: o runner falso imprimia "sem slot" e o gate ecoava | Saída neutra no runner; a asserção exige a frase do próprio gate | Mutante do ramo 75 morto; 13/13 |
+| R3 (0,72) | `blocked` sem `cancelled` | O "terminou" estava escrito à mão em 4 sítios do wayfinder, nenhum com `cancelled`. Viraram dois predicados nomeados (`releases_dependents`, `has_finished`). `renew` também recusa uma cancelada. | Caso `cancelled` e `renew` no e2e, com mutante morto; sonda ao vivo pela CLI |
+| R4 (0,70) | O decomposer do reasoning tratava `max_attempts` como retries (doc, default 1, budget) | Doc em execuções, default 2 (mantém um retry), budget `max_retries` e `attempts_used` menos a primeira execução | 119 verdes; 2 mutantes mortos |
+| R5 (0,70) | `loop_phase_close.py` gravava relatório e log sem indexar | `okf_emit.index_written` no relatório, no log novo e no acréscimo | `test_phase_close_index.py` (vermelho visto); 38 verdes |
+| R6 (0,80) | Docstring de `evaluate_retry_policy` desatualizado | Regra atual escrita (`attempts + 1 < max_attempts`) | — |
+
+**Menores, também consertados:**
+- `okf_emit.index_written` resolve o caminho antes do ingest; um caminho relativo nomeava outro arquivo na raiz. Teste com vermelho visto.
+- A paridade do A1 imprime "NAO MEDIDA" quando o corpus está em movimento, em vez de "NAO <<<".
+- O teste de memória do agent-harness gravava no `memory.db` vivo a cada execução. Agora roda num projeto temporário com chave única e afirma que o banco vivo não mudou; mutante morto. As 2 linhas que as minhas execuções tinham deixado foram removidas, junto com o espelho delas no FTS.
+
+**Achado novo no fechamento:** `cargo build -p touring-server --release` é build de subconjunto. Ele não recompila o `touring-daemon`, que é do pacote `touring-hooks`, e grava um `touring` 1,4 MB menor que o do workspace, sob a mesma linha de 26 features no `--version`, que só lista as do pacote. A regra 12 do CLAUDE.md do workspace e o CLAUDE.md do crate mandavam exatamente esse build; os dois foram corrigidos para `--workspace`. O binário em uso saiu do build do workspace: daemon PID 2846976, env limpo.
+
+**Ao vivo, depois do restart:**
+- `live_fix_probe.py`: 15/15. O X13 foi reescrito para medir o escritor: reingerir um arquivo com `use super::*;` não recria a linha, com controle positivo de 80 linhas de consumidor. Entrou também a prova do R3 pela CLI.
+- `touring e2e -j`: 0,8869 (index 0,982 · wiring 0,812 · knowledge 0,900 · ast 0,776 · quality 1,000 · learning 0,886).
+- Gates: touring-cli lib 642, e2e da DAG 39, reasoning 119, `cli::common` 32, toolchain 36; clippy `-D warnings` limpo em touring-server, touring-cli, touring-server-reasoning e touring-hooks; espelho `client/` com 362 arquivos limpo.
+
+**Resíduo declarado:** uma linha de 03/05/2026 no banco do projeto (`task_1777773640685489287`, "validation-final-task") tem status vazio na tarefa e na subtarefa. É fixture de uma validação que gravou no banco vivo. Não quebra nada e não foi apagada: apagar linha do banco vivo não foi pedido.
+
+**Juiz:** `loop_converged.py --task task_1791142397213803492 --scope ~/projects/touring --rust-full --json` → **exit 0, `converged: true`**, depois dos commits `ab47f7af`..`aad45171`. O JSON está em `docs/plans/2026-10-04-work-outer/judge-followups-2026-10-04.json`.
+
+| Cláusula | Resultado | Evidência |
+|---|---|---|
+| judge_intact | PASS | 8 cláusulas, atestado de 01/10, sem drift |
+| dag_done | PASS | 12/12 |
+| quality_gold | PASS | Platinum 0,926 |
+| no_p0_fail | PASS | nenhum P0 |
+| measured_whole_scope | PASS | nenhuma dimensão truncada |
+| orphans_base | PASS | 760 = baseline 760 |
+| cargo_green | PASS | check + test + clippy |
+| cross_audit | **N/A** | "no audit-plan-completion.sh — skipped" |
+
+O `cross_audit` N/A **não é aprovação**: a cláusula pula quando falta o script do plano, e por isso nunca rodou (memória `clausula-de-juiz-que-nunca-roda`). O que fez as vezes dela neste ciclo é independente do juiz: o revisor de contexto limpo (R1 a R6), a mutação (16 mutantes ao todo, todos mortos) e a sonda viva 15/15.
