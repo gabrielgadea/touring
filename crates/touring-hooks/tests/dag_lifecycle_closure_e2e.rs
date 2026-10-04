@@ -18,9 +18,10 @@ use tempfile::TempDir;
 use touring_hooks::cli_handlers::{
     cli_decompose_add, cli_decompose_create, cli_decompose_finalize, cli_decompose_update,
 };
+use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers_decompose::{
-    cli_decompose_archive, cli_decompose_reconcile_stages,
-    cli_decompose_update as handlers_decompose_update,
+    auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive,
+    cli_decompose_reconcile_stages, cli_workflow_stats,
 };
 use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages};
 use touring_hooks::runtime::HookRuntime;
@@ -343,11 +344,8 @@ fn add_step(rt: &mut HookRuntime, task_id: &str, name: &str) -> String {
     scoped
 }
 
-/// Both `cli_decompose_update` implementations share this shape.
-type UpdateDoor = fn(&mut HookRuntime, &serde_json::Value) -> String;
-
-fn close_step_through(door: UpdateDoor, rt: &mut HookRuntime, task_id: &str, scoped: &str) {
-    let reply = parse_json(&door(
+fn close_step(rt: &mut HookRuntime, task_id: &str, scoped: &str) {
+    let reply = parse_json(&cli_decompose_update(
         rt,
         &json!({"task_id": task_id, "subtask_id": scoped, "status": "completed"}),
     ));
@@ -360,7 +358,7 @@ fn add_to_a_done_plan_reopens_it() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "closed, then it grows");
     let first = add_step(&mut rt, &task_id, "first");
-    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    close_step(&mut rt, &task_id, &first);
     assert_eq!(
         parent_status_of(&rt, &task_id),
         "done",
@@ -381,27 +379,125 @@ fn add_to_a_done_plan_reopens_it() {
     );
 }
 
-/// `INSERT OR REPLACE` puts a re-added subtask back to `pending`, over a closed one too.
+/// One value out of the store — the fact, not the report.
+fn scalar<T: rusqlite::types::FromSql>(rt: &HookRuntime, sql: &str, id: &str) -> T {
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .query_row(sql, [id], |row| row.get::<_, T>(0))
+        .unwrap_or_else(|e| panic!("{sql} for {id}: {e}"))
+}
+
+/// `INSERT OR REPLACE` used to put a re-added subtask back to `pending` — over a CLOSED one too —
+/// and to wipe every column the INSERT did not name. Re-adding is a way to restate what a step IS
+/// (its description, its edges); it is not a way to un-do the work the row already carries.
 #[test]
-fn re_adding_a_closed_subtask_reopens_the_plan() {
+fn re_adding_a_closed_subtask_keeps_its_work() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "same step again");
     let first = add_step(&mut rt, &task_id, "first");
-    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    close_step(&mut rt, &task_id, &first);
     assert_eq!(parent_status_of(&rt, &task_id), "done", "premise");
+
+    let reply = parse_json(&cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": first, "description": "first, reworded"}),
+    ));
+
+    assert_eq!(reply["persisted"], true, "{reply}");
+    assert_eq!(reply["existed"], true, "the reply must say it met a row: {reply}");
+    assert_eq!(
+        reply["status"], "completed",
+        "the reply reports the REAL status, not a hard-coded `pending`: {reply}"
+    );
+    assert_eq!(status_of(&rt, &first), "completed", "closed work is not re-opened by a restatement");
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "done",
+        "every subtask is still closed, so the plan is still done"
+    );
+    let described: String = scalar(&rt, "SELECT description FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    assert_eq!(described, "first, reworded", "the restatement itself must land");
+}
+
+/// The columns a REPLACE would have reset, each asserted: a written column list is exactly where
+/// one gets forgotten (touring-a4, 03/10/2026 — attempts, quality_score, retry_policy, the claim).
+#[test]
+fn re_adding_keeps_what_the_row_accumulated() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "a step with a history");
+    let first = add_step(&mut rt, &task_id, "first");
+    close_step(&mut rt, &task_id, &first);
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET attempts = 3, quality_score = 0.9, \
+             retry_policy = '{\"max_attempts\":5}', claimed_by = 'sess-a', \
+             claim_expires_at = 4102444800, created_at = '2026-01-01T00:00:00+00:00' \
+             WHERE subtask_id = ?1",
+            [&first],
+        )
+        .expect("give the row a history");
+
+    add_step(&mut rt, &task_id, "first");
+
+    let attempts: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let quality: f64 = scalar(&rt, "SELECT quality_score FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let policy: String = scalar(&rt, "SELECT retry_policy FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let claimer: String = scalar(&rt, "SELECT claimed_by FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let lease: i64 = scalar(&rt, "SELECT claim_expires_at FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let born: String = scalar(&rt, "SELECT created_at FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    assert_eq!(attempts, 3, "attempts");
+    assert!((quality - 0.9).abs() < 1e-9, "quality_score: {quality}");
+    assert_eq!(policy, "{\"max_attempts\":5}", "retry_policy");
+    assert_eq!(claimer, "sess-a", "a live claim belongs to its session, not to the restatement");
+    assert_eq!(lease, 4102444800, "claim_expires_at");
+    assert_eq!(born, "2026-01-01T00:00:00+00:00", "created_at: the row was not born again");
+}
+
+/// What the old reopen path covered stays covered: a plan marked closed while a child is still
+/// open (the state the pre-fix `add` left behind) is re-derived when that child is re-added.
+#[test]
+fn re_adding_an_open_subtask_still_reopens_a_plan_wrongly_marked_closed() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "marked closed too early");
+    add_step(&mut rt, &task_id, "first");
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&task_id])
+        .expect("the stale state");
 
     add_step(&mut rt, &task_id, "first");
 
     assert_eq!(
-        status_of(&rt, &first),
-        "pending",
-        "premise: INSERT OR REPLACE resets the row"
-    );
-    assert_eq!(
         parent_status_of(&rt, &task_id),
         "pending",
-        "the only subtask is pending again, so the plan cannot stay done"
+        "a `done` plan whose only step is pending is stale"
     );
+}
+
+/// An id that already belongs to ANOTHER plan is refused. The conflict arm updates the existing row
+/// in place, so without the refusal `add` would report `persisted` for a step that never reached the
+/// plan the caller named (`INSERT OR REPLACE` used to MOVE the row, resetting it on the way).
+#[test]
+fn re_adding_an_id_that_belongs_to_another_plan_is_refused() {
+    let (_tmp, mut rt) = setup_runtime();
+    let owner = new_plan(&mut rt, "owns the step");
+    let other = new_plan(&mut rt, "wants the same id");
+    let step = add_step(&mut rt, &owner, "shared");
+
+    let reply = parse_json(&cli_decompose_add(
+        &mut rt,
+        &json!({"task_id": other, "subtask_id": step, "description": "stolen"}),
+    ));
+
+    assert_eq!(reply["persisted"], false, "{reply}");
+    let reason = reply["error"].as_str().unwrap_or("");
+    assert!(reason.contains(&owner), "the refusal must name the owner: {reply}");
+    let kept: String = scalar(&rt, "SELECT task_id FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
+    assert_eq!(kept, owner, "the step stays where it was");
 }
 
 /// Narrow on purpose: a status the caller set on an OPEN plan is theirs. Deriving over it
@@ -448,7 +544,7 @@ fn add_to_a_plan_closed_as_completed_reopens_it_too() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "closed with the other spelling");
     let first = add_step(&mut rt, &task_id, "first");
-    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    close_step(&mut rt, &task_id, &first);
     cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "completed"}));
     assert_eq!(
         parent_status_of(&rt, &task_id),
@@ -474,7 +570,7 @@ fn reopening_a_plan_the_retention_pass_archived_lifts_the_stamp() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "archived, then it grows");
     let first = add_step(&mut rt, &task_id, "first");
-    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    close_step(&mut rt, &task_id, &first);
     let swept = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
     assert_eq!(swept["archived"], 1, "premise: the retention pass archives it: {swept}");
     assert!(archived_at_of(&rt, &task_id).is_some(), "premise: stamped");
@@ -488,6 +584,40 @@ fn reopening_a_plan_the_retention_pass_archived_lifts_the_stamp() {
     );
 }
 
+/// Re-run the CALLING test in a child process whose `HOME` is private. Returns `true` in the parent
+/// (the child ran the case and passed) and `false` in the child, which must then run the case.
+///
+/// `HOME` is read at call time by `locate_task_store`/`open_global_store`, so the case re-runs
+/// itself rather than calling `set_var` in a binary whose tests run in parallel. `--exact` with a
+/// name that matches nothing runs ZERO tests and libtest still exits 0: a rename of the calling fn
+/// would leave the whole case green and unproven, so the child's log must say `1 passed`
+/// (touring-a4, 03/10/2026).
+fn rerun_with_private_home(self_name: &str) -> bool {
+    const CHILD: &str = "DAG_E2E_PRIVATE_HOME_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        return false;
+    }
+    let home = TempDir::new().expect("private HOME");
+    let out = std::process::Command::new(std::env::current_exe().expect("test binary"))
+        .args(["--exact", self_name, "--nocapture", "--test-threads=1"])
+        .env("HOME", home.path())
+        .env(CHILD, "1")
+        .output()
+        .expect("child test process");
+    assert!(
+        out.status.success(),
+        "child failed:\nstdout:\n{}\nstderr:\n{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let log = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        log.contains("1 passed"),
+        "the child must have RUN the case, not zero tests:\n{log}"
+    );
+    true
+}
+
 /// `add` finds the task by `locate_task_store` (the project store first, then the GLOBAL
 /// `$HOME/.claude/touring/knowledge.db`) and the INSERT goes to THAT store, so the parent must be
 /// re-derived in the same one. A fix that read `rt.ctx.knowledge` instead would pass every test
@@ -496,29 +626,7 @@ fn reopening_a_plan_the_retention_pass_archived_lifts_the_stamp() {
 /// rather than calling `set_var` in a binary whose tests run in parallel.
 #[test]
 fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
-    const CHILD: &str = "XA14_GLOBAL_STORE_CHILD";
-    const SELF_NAME: &str = "add_reopens_a_done_plan_that_lives_in_the_global_store";
-    if std::env::var_os(CHILD).is_none() {
-        let home = TempDir::new().expect("private HOME");
-        let out = std::process::Command::new(std::env::current_exe().expect("test binary"))
-            .args(["--exact", SELF_NAME, "--nocapture", "--test-threads=1"])
-            .env("HOME", home.path())
-            .env(CHILD, "1")
-            .output()
-            .expect("child test process");
-        assert!(
-            out.status.success(),
-            "child failed:\nstdout:\n{}\nstderr:\n{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        );
-        // `--exact` with a name that matches nothing runs ZERO tests and libtest still exits 0:
-        // a rename of this fn would leave the whole case green and unproven (touring-a4).
-        let log = String::from_utf8_lossy(&out.stdout);
-        assert!(
-            log.contains("1 passed"),
-            "the child must have RUN the case, not zero tests:\n{log}"
-        );
+    if rerun_with_private_home("add_reopens_a_done_plan_that_lives_in_the_global_store") {
         return;
     }
 
@@ -528,7 +636,7 @@ fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
     let mut global_rt = HookRuntime::new(&home).expect("global-side runtime");
     let task_id = new_plan(&mut global_rt, "lives in the global store");
     let first = add_step(&mut global_rt, &task_id, "first");
-    close_step_through(cli_decompose_update, &mut global_rt, &task_id, &first);
+    close_step(&mut global_rt, &task_id, &first);
     assert_eq!(parent_status_of(&global_rt, &task_id), "done", "premise");
 
     // Another project's runtime: the task is NOT in its store, so add must route to the global one.
@@ -549,37 +657,248 @@ fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
     );
 }
 
-/// Two implementations of `update` exist (`cli/decompose.rs` and `handlers/decompose.rs`) and both
-/// derive the parent. Only the first is live: every production caller goes through
-/// `crate::cli_handlers::` and the second is reached only from tests (touring-a4, 03/10/2026).
-/// The test still pins both so a clean-up that removes the duplicate drops it from this list; a
-/// verb that forgets to derive is how `add` went stale.
+/// The parent is DERIVED from its children by the one `update` production runs. A second copy of
+/// this verb used to sit in `handlers/decompose.rs`, reached only from a test (touring-a4,
+/// 03/10/2026), and it carried two features the live copy had lost — the next tests.
 #[test]
-fn both_update_doors_derive_the_parent_from_its_children() {
-    let doors: [(&str, UpdateDoor); 2] = [
-        ("cli", cli_decompose_update),
-        ("handlers", handlers_decompose_update),
-    ];
-    for (name, door) in doors {
+fn update_derives_the_parent_from_its_children() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "two steps");
+    let a = add_step(&mut rt, &task_id, "a");
+    let b = add_step(&mut rt, &task_id, "b");
+
+    close_step(&mut rt, &task_id, &a);
+    assert_eq!(parent_status_of(&rt, &task_id), "in_progress", "one of two closed");
+
+    close_step(&mut rt, &task_id, &b);
+    assert_eq!(parent_status_of(&rt, &task_id), "done", "every subtask closed");
+}
+
+/// `refresh_parent_status` kept a private copy of the terminal vocabulary that the foundation also
+/// owns (`TERMINAL_TASK_STATUSES`): a status added there left a plan whose children all sat in it
+/// deriving `in_progress`, not `done`. Walking the FOUNDATION'S list keeps the test honest about
+/// which list the code must follow.
+#[test]
+fn the_parent_derivation_closes_on_every_status_the_foundation_calls_terminal() {
+    for status in TERMINAL_TASK_STATUSES {
         let (_tmp, mut rt) = setup_runtime();
-        let task_id = new_plan(&mut rt, name);
-        let a = add_step(&mut rt, &task_id, "a");
-        let b = add_step(&mut rt, &task_id, "b");
-
-        close_step_through(door, &mut rt, &task_id, &a);
-        assert_eq!(
-            parent_status_of(&rt, &task_id),
-            "in_progress",
-            "{name}: one of two closed"
-        );
-
-        close_step_through(door, &mut rt, &task_id, &b);
+        let task_id = new_plan(&mut rt, status);
+        let step = add_step(&mut rt, &task_id, "only");
+        let reply = parse_json(&cli_decompose_update(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": step, "status": status}),
+        ));
+        assert_eq!(reply["subtask_updated"], true, "{reply}");
         assert_eq!(
             parent_status_of(&rt, &task_id),
             "done",
-            "{name}: every subtask closed"
+            "a plan whose only step is `{status}` is closed"
         );
     }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// P4 — what the live `update` writes is what the readers read
+// ───────────────────────────────────────────────────────────────────────
+//
+// `cli-workflow-stats` / `-status` average `subtask_results.duration_ms`, and nothing in production
+// wrote that table: the only writer was the dead copy of `update`. A reader whose producer is
+// missing answers `null` forever and looks healthy — the same shape as a consumer with no producer.
+
+#[test]
+fn a_subtask_that_runs_leaves_the_timing_the_workflow_reader_averages() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "timed");
+    let step = add_step(&mut rt, &task_id, "work");
+    let started = parse_json(&cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": step, "status": "in_progress"}),
+    ));
+    assert_eq!(started["subtask_updated"], true, "{started}");
+    // duration_ms is the difference of two RFC 3339 stamps: let the clock move.
+    std::thread::sleep(std::time::Duration::from_millis(20));
+    close_step(&mut rt, &task_id, &step);
+
+    let rows: i64 = scalar(&rt, "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1", &step);
+    assert_eq!(rows, 1, "one start, one row — the update must write the execution record");
+    let finished: Option<String> =
+        scalar(&rt, "SELECT completed_at FROM subtask_results WHERE subtask_id = ?1", &step);
+    assert!(finished.is_some(), "the close must stamp the row it opened");
+
+    let stats = parse_json(&cli_workflow_stats(&mut rt, &json!({"task_id": task_id})));
+    let average = stats["avg_duration_ms"]
+        .as_f64()
+        .unwrap_or_else(|| panic!("the reader must see a duration, not null: {stats}"));
+    assert!(average >= 15.0, "the measured run lasted at least the sleep: {average}");
+}
+
+fn fail_step(rt: &mut HookRuntime, task_id: &str, step: &str, policy: Option<serde_json::Value>) -> serde_json::Value {
+    let mut payload = json!({"task_id": task_id, "subtask_id": step, "status": "failed"});
+    if let Some(policy) = policy {
+        payload["retry_policy"] = policy;
+    }
+    parse_json(&cli_decompose_update(rt, &payload))
+}
+
+/// The retry loop (S1.3) lived only in the dead copy. A failure that arrives WITH a policy puts the
+/// step back to `pending` and counts the attempt, until the attempts run out.
+#[test]
+fn a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_run_out() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "flaky");
+    let step = add_step(&mut rt, &task_id, "flaky");
+    let policy = || Some(json!({"max_attempts": 2}));
+
+    let first = fail_step(&mut rt, &task_id, &step, policy());
+    assert_eq!(first["retry_scheduled"], true, "{first}");
+    assert_eq!(status_of(&rt, &step), "pending");
+    let second = fail_step(&mut rt, &task_id, &step, policy());
+    assert_eq!(second["retry_scheduled"], true, "{second}");
+    assert_eq!(status_of(&rt, &step), "pending");
+    let third = fail_step(&mut rt, &task_id, &step, policy());
+    assert_eq!(third["retry_scheduled"], false, "the attempts ran out: {third}");
+    assert_eq!(status_of(&rt, &step), "failed", "no attempts left, so the failure stands");
+    let attempts: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
+    assert_eq!(attempts, 2);
+}
+
+/// The default is unchanged: no policy anywhere, no retry. Every subtask `add` creates is in this case.
+#[test]
+fn a_failed_subtask_with_no_policy_stays_failed() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "no policy");
+    let step = add_step(&mut rt, &task_id, "once");
+
+    let reply = fail_step(&mut rt, &task_id, &step, None);
+
+    assert_eq!(reply["retry_scheduled"], false, "{reply}");
+    assert_eq!(status_of(&rt, &step), "failed");
+}
+
+/// `{"subtask_updated":false,"updated":true}` is the payload that made a phase close declare success
+/// over a subtask that did not exist (25/08/2026). `subtask_missing` answers the question the
+/// caller actually has — "did the id I passed match anything?" — and only the dead copy of `update`
+/// said it.
+#[test]
+fn updating_a_subtask_that_does_not_exist_says_so() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "a ghost step");
+    let step = add_step(&mut rt, &task_id, "real");
+
+    let ghost = parse_json(&cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": "no-such-step", "status": "completed"}),
+    ));
+    assert_eq!(ghost["subtask_missing"], true, "{ghost}");
+    assert_eq!(ghost["subtask_updated"], false, "{ghost}");
+
+    let real = parse_json(&cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": step, "status": "completed"}),
+    ));
+    assert_eq!(real["subtask_missing"], false, "{real}");
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// P5 — the retention pass runs by itself, and it derives instead of trusting
+// ───────────────────────────────────────────────────────────────────────
+
+/// Push a plan's `updated_at` into the past; the SQLite format sorts below an RFC 3339 cutoff.
+fn age_plan(rt: &HookRuntime, task_id: &str, days: i64) {
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE task_decompositions SET updated_at = datetime('now', ?2) WHERE task_id = ?1",
+            rusqlite::params![task_id, format!("-{days} days")],
+        )
+        .expect("age the plan");
+}
+
+/// The parent row alone is not evidence of a finished plan: before the `add` fix, 381 plans were
+/// left `done` over pending children, and a stamp on them is permanent (nothing un-stamps a plan
+/// nobody touches again). The pass must DERIVE (touring-a4, 03/10/2026).
+#[test]
+fn archive_leaves_a_closed_plan_with_open_children_alone() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "marked done over pending work");
+    add_step(&mut rt, &task_id, "still open");
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&task_id])
+        .expect("the stale state");
+
+    let preview = parse_json(&cli_decompose_archive(&mut rt, &json!({"dry_run": true})));
+    assert_eq!(preview["candidates"], 0, "an open child is not a candidate: {preview}");
+    let done = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
+
+    assert_eq!(done["archived"], 0, "{done}");
+    assert!(archived_at_of(&rt, &task_id).is_none());
+}
+
+/// The automatic pass: only a plan that has been closed for a week AND has no open child.
+#[test]
+fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
+    let (_tmp, mut rt) = setup_runtime();
+    let old_closed = new_plan(&mut rt, "closed long ago");
+    let step = add_step(&mut rt, &old_closed, "only");
+    close_step(&mut rt, &old_closed, &step);
+    age_plan(&rt, &old_closed, 8);
+
+    let fresh_closed = new_plan(&mut rt, "closed just now");
+    let step = add_step(&mut rt, &fresh_closed, "only");
+    close_step(&mut rt, &fresh_closed, &step);
+
+    let stale_done = new_plan(&mut rt, "marked done over pending work, long ago");
+    add_step(&mut rt, &stale_done, "still open");
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&stale_done])
+        .expect("the stale state");
+    age_plan(&rt, &stale_done, 8);
+
+    let still_open = new_plan(&mut rt, "open, long ago");
+    add_step(&mut rt, &still_open, "open");
+    age_plan(&rt, &still_open, 8);
+
+    let archived = auto_archive_pass(&rt.ctx.knowledge);
+
+    assert_eq!(archived, 1, "exactly the plan that is closed AND old AND fully terminal");
+    assert!(archived_at_of(&rt, &old_closed).is_some(), "closed for 8 days, children done");
+    assert!(archived_at_of(&rt, &fresh_closed).is_none(), "closed today: inside the retention window");
+    assert!(archived_at_of(&rt, &stale_done).is_none(), "a `done` row over a pending child is not closed");
+    assert!(archived_at_of(&rt, &still_open).is_none(), "open work is never archived");
+}
+
+/// A pass over the project store alone leaves a plan that lives in the GLOBAL store un-stamped for
+/// good (`locate_task_store` routes a task to either — touring-a4, 03/10/2026). Private HOME, so the
+/// "global" store is the test's own.
+#[test]
+fn the_automatic_pass_also_reaches_the_global_store() {
+    if rerun_with_private_home("the_automatic_pass_also_reaches_the_global_store") {
+        return;
+    }
+
+    // Child: HOME is private. A runtime rooted AT home keeps its store at the global path.
+    let home = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"));
+    std::fs::create_dir_all(home.join(".claude/data")).expect("data dir");
+    let mut global_rt = HookRuntime::new(&home).expect("global-side runtime");
+    let task_id = new_plan(&mut global_rt, "closed long ago, in the global store");
+    let step = add_step(&mut global_rt, &task_id, "only");
+    close_step(&mut global_rt, &task_id, &step);
+    age_plan(&global_rt, &task_id, 8);
+
+    // Another project's runtime: its own store holds no such plan.
+    let (_tmp, project_rt) = setup_runtime();
+    let stamped = auto_archive_pass_all_stores(&project_rt.ctx.knowledge);
+
+    assert_eq!(stamped, 1, "the global plan, and only it");
+    assert!(
+        archived_at_of(&global_rt, &task_id).is_some(),
+        "the pass must reach the store the plan lives in"
+    );
 }
 
 // ───────────────────────────────────────────────────────────────────────

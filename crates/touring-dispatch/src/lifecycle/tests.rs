@@ -3789,6 +3789,50 @@ fn task_completed_dispatch_includes_diary_hint() {
     );
 }
 
+// Retention: task-completed stamps the closed plans nobody finalized — via dispatch table
+
+/// `decompose archive` had no caller but a human, and a plan that derives `done` from its children
+/// never passes `finalize` (that arm is CC-mirrored tasks only): the hook that already closes the
+/// scaffold stages and finalizes the completed task is the natural place for the pass. A plan closed
+/// 9 days ago with every subtask over is stamped; one closed just now keeps its place in the live views.
+#[test]
+fn task_completed_dispatch_runs_the_decompose_retention_pass() {
+    let (_tmp, mut rt) = make_runtime();
+    crate::cli_handlers_decompose::ensure_decompose_tables(&rt.ctx.knowledge);
+    for (task_id, age) in [("plan-old", "-9 days"), ("plan-fresh", "-1 minutes")] {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .execute(
+                "INSERT INTO task_decompositions (task_id, task_type, description, created_at, \
+                 updated_at, status) VALUES (?1, 'plan', 'closed plan', datetime('now', ?2), \
+                 datetime('now', ?2), 'done')",
+                rusqlite::params![task_id, age],
+            )
+            .expect("seed a closed plan");
+    }
+    let table = crate::hook_registry::build_dispatch_table();
+    let handler = table
+        .get("task-completed")
+        .expect("task-completed must be registered");
+
+    let _ = handler(&mut rt, &serde_json::json!({"task_id": "t-retention", "success": true}));
+
+    let stamp = |task_id: &str| -> Option<String> {
+        rt.ctx
+            .knowledge
+            .conn_ref()
+            .query_row(
+                "SELECT archived_at FROM task_decompositions WHERE task_id = ?1",
+                [task_id],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .expect("the plan row")
+    };
+    assert!(stamp("plan-old").is_some(), "closed for 9 days: the hook must stamp it");
+    assert!(stamp("plan-fresh").is_none(), "closed a minute ago: still inside the retention window");
+}
+
 // R37-S1: scout_tantivy_search_hint — ::scout pending/in_progress → tantivy + ast blast hint
 
 #[test]

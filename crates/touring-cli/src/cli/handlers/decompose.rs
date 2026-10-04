@@ -750,65 +750,6 @@ pub fn cli_decompose_get(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     .to_string()
 }
 
-/// Helper: update optional fields on a subtask row (priority, quality_score).
-fn update_subtask_fields(
-    db: &FileKnowledgeDB,
-    subtask_id: &str,
-    status: Option<&str>,
-    priority: Option<i32>,
-    quality_score: Option<f64>,
-    depends_on: Option<&[String]>,
-) -> i64 {
-    let mut sql = String::from("UPDATE decomposition_subtasks SET ");
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    let mut sets: Vec<String> = Vec::new();
-
-    if let Some(s) = status {
-        sets.push("status = ?1".to_string());
-        params.push(Box::new(s.to_string()));
-    }
-    if let Some(p) = priority {
-        let idx = params.len() + 1;
-        sets.push(format!("priority = ?{}", idx));
-        params.push(Box::new(p));
-    }
-    if let Some(q) = quality_score {
-        let idx = params.len() + 1;
-        sets.push(format!("quality_score = ?{}", idx));
-        params.push(Box::new(q));
-    }
-    // Wave 2026-05-02 (Diagnostic Fix ISSUE-4): persist dependency list updates.
-    // Schema column `depends_on TEXT NOT NULL DEFAULT '[]'` already supports it.
-    // SENTINEL_W2026_05_02_ISSUE_4_DEPENDS_ON_SET — string used to verify the
-    // build pipeline picked up this branch (grep the binary for this token).
-    if let Some(deps) = depends_on {
-        let deps_json = serde_json::to_string(deps).unwrap_or_else(|_| "[]".to_string());
-        let idx = params.len() + 1;
-        sets.push(format!("depends_on = ?{}", idx));
-        params.push(Box::new(deps_json));
-        tracing::info!(
-            "SENTINEL_W2026_05_02_ISSUE_4_DEPENDS_ON_SET applied for {}",
-            subtask_id
-        );
-    }
-
-    if sets.is_empty() {
-        return 0;
-    }
-
-    sql.push_str(&sets.join(", "));
-    let where_idx = params.len() + 1;
-    sql.push_str(&format!(" WHERE subtask_id = ?{}", where_idx));
-    params.push(Box::new(subtask_id.to_string()));
-
-    let refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let result = db.conn_ref().execute(&sql, refs.as_slice());
-    if let Err(ref e) = result {
-        tracing::warn!("update_subtask_fields SQL='{}' err={}", sql, e);
-    }
-    result.unwrap_or(0) as i64
-}
-
 /// Write a resolved DECISION back up to the map that contains it (T3.1).
 ///
 /// A Wayfinder map is only useful while it describes the present. Resolutions
@@ -874,168 +815,34 @@ pub fn propagate_resolution_to_map(
         .unwrap_or(false)
 }
 
-/// Updates a subtask's mutable fields (status, title, dependencies) in place.
-pub fn cli_decompose_update(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let task_id = payload
-        .get("task_id")
-        .and_then(|v| v.as_str())
-        .unwrap_or("");
-    let status = payload.get("status").and_then(|v| v.as_str()).unwrap_or("");
-    let priority = payload
-        .get("priority")
-        .and_then(|v| v.as_i64())
-        .map(|p| p as i32);
-    let quality_score = payload.get("quality_score").and_then(|v| v.as_f64());
-    // Wave 2026-05-02 (Diagnostic Fix ISSUE-4): accept depends_on updates.
-    let depends_on: Option<Vec<String>> = payload.get("depends_on").and_then(|v| {
-        v.as_array().map(|arr| {
-            arr.iter()
-                .filter_map(|x| x.as_str().map(|s| s.to_string()))
-                .filter(|s| !s.is_empty())
-                .collect()
-        })
-    });
-
-    let db = &rt.ctx.knowledge;
-    ensure_decompose_tables(db);
-    let now = chrono::Utc::now().to_rfc3339();
-
-    // P1-S1: Also update subtask-level fields if provided
-    let subtask_id_opt = payload.get("subtask_id").and_then(|v| v.as_str());
-
-    // O status escrito na linha-PAI só vem do chamador quando ele endereçou o
-    // pai (sem `subtask_id`). Endereçando uma subtarefa, o pai é DERIVADO dos
-    // filhos mais abaixo — até 03/08/2026 o status ia direto para o pai em
-    // ambos os casos, e o primeiro `decompose update <task> <fase> --status done`
-    // de um plano multi-fase o marcava inteiro como concluído (Lei L2: o DAG é a
-    // fonte autoritativa de progresso; um pai falsamente `done` corrompe
-    // exatamente o que o gate de convergência mede).
-    let addresses_parent = subtask_id_opt.is_none();
-    let task_affected = if !status.is_empty() && addresses_parent {
-        db.conn_ref()
-            .execute(
-                "UPDATE task_decompositions SET status = ?1, updated_at = ?3 WHERE task_id = ?2",
-                params![status, task_id, now],
-            )
-            .unwrap_or(0)
-    } else {
-        0
-    };
-    let scoped = subtask_id_opt.map(|raw| {
-        if raw.contains("::") {
-            raw.to_string()
-        } else {
-            format!("{}::{}", task_id, raw)
+/// What a status transition leaves behind besides the status itself, for the ONE live
+/// `cli_decompose_update` (`crate::cli::decompose`): the execution record that
+/// `cli-workflow-stats`/`-status` average (Feature C) and, on a failure, the retry decision (S1.3).
+/// Returns whether a retry put the subtask back to `pending`.
+///
+/// A second copy of the `update` verb sat here, reached only from a test, and it was the only
+/// writer of `subtask_results` and the only caller of the retry loop: the readers answered `null`
+/// forever while the verb in production wrote nothing. The behavior moved to the live verb through
+/// this function; the copy is gone (03/10/2026).
+pub(crate) fn record_subtask_transition(
+    db: &FileKnowledgeDB,
+    scoped_id: &str,
+    status: &str,
+    payload: &serde_json::Value,
+) -> bool {
+    match status {
+        "in_progress" => {
+            record_subtask_started(db, scoped_id);
+            false
         }
-    });
-    let subtask_affected = if subtask_id_opt.is_some()
-        || priority.is_some()
-        || quality_score.is_some()
-        || depends_on.is_some()
-    {
-        let raw = subtask_id_opt.unwrap_or(task_id);
-        let scoped = if raw.contains("::") {
-            raw.to_string()
-        } else {
-            format!("{}::{}", task_id, raw)
-        };
-        let status_arg = if status.is_empty() {
-            None
-        } else {
-            Some(status)
-        };
-        update_subtask_fields(
-            db,
-            &scoped,
-            status_arg,
-            priority,
-            quality_score,
-            depends_on.as_deref(),
-        )
-    } else {
-        0
-    };
-
-    // Feature C: Instrument status transitions
-    if let Some(ref scoped_val) = scoped {
-        match status {
-            "in_progress" => {
-                record_subtask_started(db, scoped_val);
-                // S1.4: Wire event audit trail
-                log_event(
-                    db,
-                    task_id,
-                    Some(scoped_val),
-                    "subtask_started",
-                    &serde_json::json!({}),
-                );
-            }
-            "completed" | "failed" => {
-                let output_json = payload
-                    .get("output_json")
-                    .and_then(|v| v.as_str())
-                    .map(String::from);
-                let error_msg = payload
-                    .get("error")
-                    .and_then(|v| v.as_str())
-                    .map(String::from);
-                record_subtask_completed(db, scoped_val, status, output_json, error_msg.clone());
-                // S1.4: Wire event audit trail
-                log_event(
-                    db,
-                    task_id,
-                    Some(scoped_val),
-                    status,
-                    &serde_json::json!({"error": error_msg}),
-                );
-            }
-            _ => {}
+        "completed" | "failed" => {
+            let text_of = |key: &str| payload.get(key).and_then(|v| v.as_str()).map(String::from);
+            record_subtask_completed(db, scoped_id, status, text_of("output_json"), text_of("error"));
+            status == "failed"
+                && evaluate_retry_policy(db, scoped_id, payload.get("retry_policy"))
         }
+        _ => false,
     }
-
-    // S1.3: Retry loop — evaluate retry_policy when status = "failed"
-    let retry_scheduled = if status == "failed" {
-        match scoped {
-            Some(ref s) => evaluate_retry_policy(db, s, payload.get("retry_policy")),
-            None => false,
-        }
-    } else {
-        false
-    };
-
-    // Endereçando uma subtarefa, o pai reflete o estado REAL dos filhos.
-    let task_affected = if addresses_parent {
-        task_affected
-    } else {
-        refresh_parent_status(db, task_id, &now)
-    };
-
-    // T3.1: a resolved DECISION also travels up to the map.
-    let resolution_logged = match scoped.as_deref() {
-        Some(sid) => propagate_resolution_to_map(db, task_id, sid, status, &now),
-        None => false,
-    };
-
-    // `updated` fala da TAREFA-PAI; `subtask_updated`, do subtask. Lado a lado
-    // eles leem como contradição — `{"subtask_updated":false,"updated":true}`
-    // foi exatamente o payload que fez um fechamento de fase declarar sucesso
-    // sobre um subtask que não existia (25/08/2026). `subtask_missing` responde
-    // a pergunta que o chamador de fato tem: "o id que eu passei casou com
-    // alguma coisa?" — nomear o id inexistente é a diferença entre um veredito
-    // e um enigma de dois campos.
-    let subtask_missing = subtask_id_opt.is_some() && subtask_affected == 0;
-    serde_json::json!({
-        "task_id": task_id,
-        "status": status,
-        "updated": task_affected > 0,
-        "subtask_updated": subtask_affected > 0,
-        "subtask_missing": subtask_missing,
-        "resolution_logged": resolution_logged,
-        "priority": priority,
-        "quality_score": quality_score,
-        "retry_scheduled": retry_scheduled
-    })
-    .to_string()
 }
 
 // ─── Utilitários compartilhados pelos submódulos ───────────────────────
