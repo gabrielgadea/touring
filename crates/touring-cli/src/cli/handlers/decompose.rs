@@ -383,7 +383,11 @@ fn evaluate_retry_policy(
         )
         .unwrap_or(0);
 
-    if attempts >= policy.max_attempts as i64 {
+    // `attempts` counts RETRIES already scheduled, so the execution that just failed is number
+    // `attempts + 1`. `max_attempts` counts executions, the first run included: the dead copy this
+    // came from compared the retry counter to it and ran `max_attempts + 1` times (cross-audit
+    // 04/10/2026, X7).
+    if attempts + 1 >= policy.max_attempts as i64 {
         return false; // Give up
     }
 
@@ -400,7 +404,8 @@ fn evaluate_retry_policy(
 /// RetryPolicy schema (stored in the retry_policy column).
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct RetryPolicy {
-    /// Maximum number of attempts before giving up.
+    /// Maximum number of EXECUTIONS, the first run included, before a failure stands: `2` is one
+    /// run and one retry, and `0` or `1` never retries.
     pub max_attempts: usize,
     /// Base backoff delay between attempts, in milliseconds.
     #[serde(default = "default_backoff_ms")]
@@ -420,14 +425,24 @@ fn default_backoff_multiplier() -> f64 {
     2.0
 }
 
-/// Feature C: Record execution start for a subtask.
+/// Feature C: Record execution start for a subtask — once per execution.
+///
+/// One `subtask_results` row is one attempt, and the workflow readers count on it. A repeated
+/// `in_progress` (a status re-sent while the subtask already runs) inserted a second open row, and
+/// the close then stamped both, so one run counted as two finished attempts (cross-audit
+/// 04/10/2026, X4): a start opens a row only when no attempt of that subtask is open. A write that
+/// fails is logged, never dropped in silence (X5) — the attempt would vanish from every rate.
 fn record_subtask_started(db: &FileKnowledgeDB, subtask_id: &str) {
     let id = uuid::Uuid::new_v4().to_string();
     let now = chrono::Utc::now().to_rfc3339();
-    let _ = db.conn_ref().execute(
-        "INSERT INTO subtask_results (id, subtask_id, started_at) VALUES (?1, ?2, ?3)",
+    if let Err(e) = db.conn_ref().execute(
+        "INSERT INTO subtask_results (id, subtask_id, started_at)
+         SELECT ?1, ?2, ?3
+         WHERE NOT EXISTS (SELECT 1 FROM subtask_results WHERE subtask_id = ?2 AND completed_at IS NULL)",
         params![id, subtask_id, now],
-    );
+    ) {
+        tracing::warn!(error = %e, subtask_id, "subtask attempt start not recorded");
+    }
 }
 
 /// Feature C: Record execution completion for a subtask.
@@ -460,10 +475,12 @@ fn record_subtask_completed(
     // nothing is cached. Only `completed` and `failed` reach this writer, so a closed row with 0 is a
     // failure — the workflow readers depend on that (`attempt_outcome`, `ATTEMPT_COMPLETION_RATE`).
     let cache_hit = status == "completed";
-    let _ = db.conn_ref().execute(
+    if let Err(e) = db.conn_ref().execute(
         "UPDATE subtask_results SET completed_at = ?1, duration_ms = ?2, cache_hit = ?3, output_json = ?4, error = ?5 WHERE subtask_id = ?6 AND completed_at IS NULL",
         params![now_str, duration_ms, cache_hit as i32, output_json, error, subtask_id],
-    );
+    ) {
+        tracing::warn!(error = %e, subtask_id, status, "subtask attempt close not recorded");
+    }
 }
 
 /// Creates a new decomposition task (DAG root) from a task type and description, returning its id as JSON.

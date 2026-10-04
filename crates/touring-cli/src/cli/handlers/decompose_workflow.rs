@@ -320,75 +320,35 @@ pub fn cli_workflow_run(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     .to_string()
 }
 
-/// Resumes a previously suspended workflow run for a task, returning the resumed state as JSON.
+/// Resumes a previously suspended workflow run for a task: one row per subtask (each with its LATEST
+/// attempt), every attempt under `attempts`, and the next subtask to run, as JSON.
+///
+/// `subtasks` used to be the `LEFT JOIN` of subtasks and attempts — one row per ATTEMPT — so a
+/// retried subtask counted twice and `completion_pct` disagreed with `cli_workflow_status` for the
+/// same plan (cross-audit 04/10/2026, X2). The counts come from the subtasks; the attempts have
+/// their own key.
 pub fn cli_workflow_resume(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let task_id = payload_params::str_or_empty(payload, "task_id");
 
     let db = &rt.ctx.knowledge;
     ensure_decompose_tables(db);
 
-    // Get task info
     let task = fetch_task_row(db, task_id);
-
-    // Get all subtasks with their execution status
-    let subtasks: Vec<serde_json::Value> = {
-        let mut stmt = match db.conn_ref().prepare(
-            "SELECT st.subtask_id, st.description, st.depends_on, st.status,
-                    sr.started_at, sr.completed_at, sr.duration_ms, sr.cache_hit, sr.error
-             FROM decomposition_subtasks st
-             LEFT JOIN subtask_results sr ON st.subtask_id = sr.subtask_id
-             WHERE st.task_id = ?1
-             ORDER BY st.priority ASC, st.created_at ASC",
-        ) {
-            Ok(s) => s,
-            Err(_) => return serde_json::json!({"error": "db error"}).to_string(),
-        };
-        stmt.query_map(params![task_id], |r| {
-            let status: String = r.get(3)?;
-            let started_at: Option<String> = r.get(4).ok();
-            let completed_at: Option<String> = r.get(5).ok();
-            let duration_ms: Option<i64> = r.get(6).ok();
-            let cache_hit: Option<i32> = r.get(7).ok();
-            let error: Option<String> = r.get(8).ok();
-            let deps_str: String = r.get(2)?;
-            let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_else(|_| vec![]);
-            // Use scoped subtask_id (task_id::subtask_id) to match cli_decompose_add's format
-            let raw_id: String = r.get(0)?;
-            let scoped_id = scoped_subtask_id(&raw_id, task_id);
-            Ok(serde_json::json!({
-                "subtask_id": scoped_id,
-                "description": r.get::<_, String>(1)?,
-                "depends_on": deps,
-                "status": status,
-                "started_at": started_at,
-                "completed_at": completed_at,
-                "duration_ms": duration_ms,
-                "attempt_outcome": attempt_outcome(completed_at.as_deref(), cache_hit),
-                "error": error
-            }))
-        })
-        .map(|rows| rows.filter_map(|r| r.ok()).collect())
-        .unwrap_or_default()
+    let Ok(attempts) = resume_attempts(db, task_id) else {
+        return serde_json::json!({"error": "db error"}).to_string();
+    };
+    let Ok(subtasks) = resume_subtasks(db, task_id, &attempts) else {
+        return serde_json::json!({"error": "db error"}).to_string();
     };
 
-    // Find next subtask to execute (first pending or in_progress)
+    // The next subtask to run: the first one still pending or in progress.
     let next_subtask = subtasks
         .iter()
-        .find(|s| {
-            let status = s.get("status").and_then(|v| v.as_str()).unwrap_or("");
-            status == "pending" || status == "in_progress"
-        })
+        .find(|s| matches!(s["status"].as_str(), Some("pending" | "in_progress")))
         .cloned();
 
-    // Calculate completion percentage
     let total = subtasks.len() as i64;
-    let completed = subtasks
-        .iter()
-        .filter(|s| {
-            let status = s.get("status").and_then(|v| v.as_str()).unwrap_or("");
-            status == "completed"
-        })
-        .count() as i64;
+    let completed = subtasks.iter().filter(|s| s["status"] == "completed").count() as i64;
     let completion_pct = if total > 0 {
         (completed as f64 / total as f64) * 100.0
     } else {
@@ -400,12 +360,88 @@ pub fn cli_workflow_resume(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         "task_id": task_id,
         "task": task,
         "subtasks": subtasks,
+        "attempts": attempts,
         "next_subtask": next_subtask,
         "completion_pct": completion_pct,
         "completed_count": completed,
         "total_count": total
     })
     .to_string()
+}
+
+/// Every attempt of `task_id`'s subtasks, oldest first, each with its outcome (`null` while open).
+fn resume_attempts(db: &FileKnowledgeDB, task_id: &str) -> rusqlite::Result<Vec<serde_json::Value>> {
+    let mut stmt = db.conn_ref().prepare(
+        "SELECT sr.subtask_id, sr.started_at, sr.completed_at, sr.duration_ms, sr.cache_hit, sr.error
+         FROM subtask_results sr
+         JOIN decomposition_subtasks st ON st.subtask_id = sr.subtask_id
+         WHERE st.task_id = ?1
+         ORDER BY sr.started_at ASC, sr.rowid ASC",
+    )?;
+    let rows = stmt.query_map(params![task_id], |r| {
+        let raw_id: String = r.get(0)?;
+        let started_at: Option<String> = r.get(1).ok();
+        let completed_at: Option<String> = r.get(2).ok();
+        let duration_ms: Option<i64> = r.get(3).ok();
+        let cache_hit: Option<i32> = r.get(4).ok();
+        let error: Option<String> = r.get(5).ok();
+        Ok(serde_json::json!({
+            "subtask_id": scoped_subtask_id(&raw_id, task_id),
+            "started_at": started_at,
+            "completed_at": completed_at,
+            "duration_ms": duration_ms,
+            "attempt_outcome": attempt_outcome(completed_at.as_deref(), cache_hit),
+            "error": error
+        }))
+    })?;
+    rows.collect()
+}
+
+/// `task_id`'s subtasks, one row each, in queue order, carrying the LATEST of `attempts` (by start)
+/// and how many attempts it had.
+fn resume_subtasks(
+    db: &FileKnowledgeDB,
+    task_id: &str,
+    attempts: &[serde_json::Value],
+) -> rusqlite::Result<Vec<serde_json::Value>> {
+    let mut stmt = db.conn_ref().prepare(
+        "SELECT subtask_id, description, depends_on, status
+         FROM decomposition_subtasks
+         WHERE task_id = ?1
+         ORDER BY priority ASC, created_at ASC",
+    )?;
+    let rows = stmt.query_map(params![task_id], |r| {
+        Ok((
+            r.get::<_, String>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, String>(3)?,
+        ))
+    })?;
+    let mut subtasks = Vec::new();
+    for row in rows {
+        let (raw_id, description, deps_str, status) = row?;
+        let subtask_id = scoped_subtask_id(&raw_id, task_id);
+        let deps: Vec<String> = serde_json::from_str(&deps_str).unwrap_or_default();
+        let own: Vec<&serde_json::Value> = attempts
+            .iter()
+            .filter(|a| a["subtask_id"] == subtask_id.as_str())
+            .collect();
+        let latest = |key: &str| own.last().map_or(serde_json::Value::Null, |a| a[key].clone());
+        subtasks.push(serde_json::json!({
+            "subtask_id": subtask_id,
+            "description": description,
+            "depends_on": deps,
+            "status": status,
+            "attempt_count": own.len(),
+            "started_at": latest("started_at"),
+            "completed_at": latest("completed_at"),
+            "duration_ms": latest("duration_ms"),
+            "attempt_outcome": latest("attempt_outcome"),
+            "error": latest("error")
+        }));
+    }
+    Ok(subtasks)
 }
 
 /// Feature B4: Return current task/subtask status for polling.

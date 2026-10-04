@@ -20,7 +20,7 @@ use touring_hooks::cli_handlers::{
 };
 use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers_decompose::{
-    auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive,
+    auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive, cli_decompose_ready,
     cli_decompose_reconcile_stages, cli_workflow_compare, cli_workflow_resume, cli_workflow_slowest,
     cli_workflow_stats, cli_workflow_status,
 };
@@ -933,15 +933,26 @@ fn workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts() {
 
     let resume_raw = cli_workflow_resume(&mut rt, &json!({"task_id": task_id}));
     let slowest_raw = cli_workflow_slowest(&mut rt, &json!({"task_id": task_id}));
-    let outcomes: Vec<serde_json::Value> = parse_json(&resume_raw)["subtasks"]
+    let resume = parse_json(&resume_raw);
+    // `subtasks` is one row per SUBTASK, so the counts agree with `status`: the LEFT JOIN on the
+    // attempts gave `flaky` two rows and answered "2 of 3 completed, 66.7%" (cross-audit 04/10, X2).
+    let subtask_rows = resume["subtasks"]
         .as_array()
-        .unwrap_or_else(|| panic!("resume lists the attempts: {resume_raw}"))
+        .unwrap_or_else(|| panic!("resume lists the subtasks: {resume_raw}"));
+    assert_eq!(subtask_rows.len(), 2, "one row per subtask, not per attempt: {resume_raw}");
+    assert_eq!(resume["total_count"], 2, "{resume_raw}");
+    assert_eq!(resume["completed_count"], 1, "{resume_raw}");
+    assert_eq!(resume["completion_pct"], 50.0, "the same state `status` reports: {resume_raw}");
+    let latest: Vec<serde_json::Value> = subtask_rows.iter().map(|row| row["attempt_outcome"].clone()).collect();
+    assert_eq!(latest, [json!("completed"), serde_json::Value::Null], "each subtask carries its LATEST attempt: {resume_raw}");
+    let mut outcomes: Vec<String> = resume["attempts"]
+        .as_array()
+        .unwrap_or_else(|| panic!("resume lists the attempts under their own key: {resume_raw}"))
         .iter()
-        .map(|row| row["attempt_outcome"].clone())
+        .map(|row| row["attempt_outcome"].as_str().unwrap_or("in_flight").to_owned())
         .collect();
-    for expected in [json!("failed"), json!("completed"), serde_json::Value::Null] {
-        assert!(outcomes.contains(&expected), "resume names each attempt's outcome, {expected} among them: {resume_raw}");
-    }
+    outcomes.sort();
+    assert_eq!(outcomes, ["completed", "failed", "in_flight"], "every attempt, each with its outcome: {resume_raw}");
     let mut slowest: Vec<String> = parse_json(&slowest_raw)["slowest"]
         .as_array()
         .unwrap_or_else(|| panic!("slowest lists the finished attempts: {slowest_raw}"))
@@ -965,6 +976,10 @@ fn fail_step(rt: &mut HookRuntime, task_id: &str, step: &str, policy: Option<ser
 
 /// The retry loop (S1.3) lived only in the dead copy. A failure that arrives WITH a policy puts the
 /// step back to `pending` and counts the attempt, until the attempts run out.
+///
+/// `max_attempts` counts EXECUTIONS, the first run included, as its name and docstring say. The
+/// dead copy compared the retry counter to it, so `max_attempts: 2` ran three times; this test
+/// used to pin the three (cross-audit 04/10/2026, X7).
 #[test]
 fn a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_run_out() {
     let (_tmp, mut rt) = setup_runtime();
@@ -973,16 +988,75 @@ fn a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_
     let policy = || Some(json!({"max_attempts": 2}));
 
     let first = fail_step(&mut rt, &task_id, &step, policy());
-    assert_eq!(first["retry_scheduled"], true, "{first}");
+    assert_eq!(first["retry_scheduled"], true, "execution 1 of 2 failed, one left: {first}");
     assert_eq!(status_of(&rt, &step), "pending");
     let second = fail_step(&mut rt, &task_id, &step, policy());
-    assert_eq!(second["retry_scheduled"], true, "{second}");
-    assert_eq!(status_of(&rt, &step), "pending");
-    let third = fail_step(&mut rt, &task_id, &step, policy());
-    assert_eq!(third["retry_scheduled"], false, "the attempts ran out: {third}");
+    assert_eq!(second["retry_scheduled"], false, "execution 2 of 2 failed, none left: {second}");
     assert_eq!(status_of(&rt, &step), "failed", "no attempts left, so the failure stands");
-    let attempts: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
-    assert_eq!(attempts, 2);
+    let retries: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
+    assert_eq!(retries, 1, "two executions are one retry");
+
+    let once = add_step(&mut rt, &task_id, "once");
+    let only = fail_step(&mut rt, &task_id, &once, Some(json!({"max_attempts": 1})));
+    assert_eq!(only["retry_scheduled"], false, "max_attempts 1 is a single execution, no retry: {only}");
+}
+
+/// A repeated `in_progress` is the same execution, not a second one. `record_subtask_started`
+/// inserted a row on every call and the close stamped them all, so one run counted as two finished
+/// attempts in `attempt_completion_rate` (cross-audit 04/10/2026, X4, reproduced live).
+#[test]
+fn a_repeated_in_progress_is_one_attempt() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "twice started");
+    let step = add_step(&mut rt, &task_id, "step");
+    for _ in 0..2 {
+        let reply = parse_json(&cli_decompose_update(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": step, "status": "in_progress"}),
+        ));
+        assert_eq!(reply["subtask_updated"], true, "{reply}");
+    }
+    let open: i64 = scalar(&rt, "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1", &step);
+    assert_eq!(open, 1, "one execution in flight is one row");
+    close_step(&mut rt, &task_id, &step);
+    let finished: i64 = scalar(
+        &rt,
+        "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1 AND completed_at IS NOT NULL",
+        &step,
+    );
+    assert_eq!(finished, 1, "the close finishes that one attempt");
+}
+
+/// `blocked_subtasks` was the complement of the ready partition, so a finished subtask was listed as
+/// blocked (cross-audit 03/10 finding I, still open on 04/10 and seen live on a finalized plan). The
+/// name promises "waiting": only an open subtask that is not ready may be there.
+#[test]
+fn ready_never_lists_a_finished_subtask_as_blocked() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "ready partition");
+    let done = add_step(&mut rt, &task_id, "done");
+    let next = format!("{task_id}::next");
+    let waiting = format!("{task_id}::waiting");
+    for (id, deps) in [(&next, json!([done])), (&waiting, json!([next]))] {
+        let reply = parse_json(&cli_decompose_add(
+            &mut rt,
+            &json!({"task_id": task_id, "subtask_id": id, "description": id, "depends_on": deps}),
+        ));
+        assert_eq!(reply["persisted"], true, "{reply}");
+    }
+    close_step(&mut rt, &task_id, &done);
+
+    let reply = parse_json(&cli_decompose_ready(&mut rt, &json!({"task_id": task_id})));
+    let ids = |key: &str| -> Vec<String> {
+        reply[key]
+            .as_array()
+            .unwrap_or_else(|| panic!("{key} is a list: {reply}"))
+            .iter()
+            .map(|s| s["subtask_id"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    };
+    assert_eq!(ids("ready_subtasks"), [next.as_str()], "{reply}");
+    assert_eq!(ids("blocked_subtasks"), [waiting.as_str()], "the finished one is neither ready nor blocked: {reply}");
 }
 
 /// The default is unchanged: no policy anywhere, no retry. Every subtask `add` creates is in this case.
