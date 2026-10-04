@@ -120,10 +120,14 @@ RED reproduzido com a linha exata do banco vivo; conserto = a regra que `record_
 aplicava aos `use` (palavra de escopo não é módulo). Depois do restart e de re-derivar o arquivo
 pelo caminho de edição: `kind_unknown=0`.
 
-**Build e restart.** `cargo build --release --workspace` verde (5m17s no primeiro). Foram **quatro**
+**Build e restart.** `cargo build --release --workspace` verde (5m17s no primeiro). Foram **cinco**
 restarts do daemon global (`update-touring --no-build`), não o "um único" planejado: o 2º por causa
 do conserto de wiring acima, o 3º por causa do gatilho de criação de plano, o 4º por causa dos
-achados da revisão independente (seção 5b). Ambiente do daemon final (PID 40670) conferido em
+achados da revisão independente (seção 5b), o 5º por causa do `reply_failed` (commit `77c09fd9`): o
+touring-a4 achou, depois de tudo isto, o MESMO idioma frágil (`contains("\"error\"")`) nos dois únicos
+sítios de produção do bridge (`:135` e `:173`, varredura com controle positivo); o helper lê o valor
+do JSON em vez da presença da palavra. Binário final: PID 263464; juiz `--rust-full` exit 0 nele.
+Ambiente do daemon do 4º restart (PID 40670) conferido em
 `/proc/<pid>/environ`: sem `TOURING_CODE_MODE` nem `TOURING_R3_SHADOW`. `touring doctor` 9/9 e
 `kind_unknown=0`; um `add` bem-sucedido ao vivo já não traz a chave `error`.
 
