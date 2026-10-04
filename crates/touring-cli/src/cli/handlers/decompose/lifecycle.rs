@@ -71,8 +71,11 @@ fn parent_status(db: &FileKnowledgeDB, task_id: &str) -> Option<String> {
 /// Deliberately narrow. Only a closed parent can go stale when a pending child arrives — for a
 /// `pending` or `in_progress` plan the derivation does not change — so everything else stays as
 /// the caller set it: an explicit status on an open plan, and `finalized`. "Closed" is the
-/// foundation's terminal vocabulary minus that stamp, so a terminal status added there joins
-/// without a third hand-written list.
+/// foundation's terminal vocabulary minus that stamp, so a terminal status added there is
+/// reopened here without a hand-written list. KNOWN GAP (touring-a4, 03/10/2026):
+/// `refresh_parent_status` above still keeps its own copy of the same three values in `TERMINAL`,
+/// so a status added to the foundation must also be added there until the two are deduplicated —
+/// otherwise a plan whose children all sit in the new status derives `in_progress`, not `done`.
 ///
 /// A plan the retention pass had already archived is live work again, so the stamp is lifted:
 /// otherwise the row reads `in_progress` and archived at once, and the pass (which requires
