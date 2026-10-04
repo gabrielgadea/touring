@@ -367,45 +367,46 @@ pub fn print_help(commands: &[CommandDescriptor]) {
     eprintln!("Use -j for machine-readable JSON output suitable for piping to jq.");
 }
 
-/// Descriptors whose handler reads `args` by hand, with no clap behind it. `--help`/`-h` reached them
-/// as one more argument and they RAN: `touring metadata-backfill --help` started a workspace backfill
-/// on 04/10/2026, and `cc-setup --help` would write the setup. The dispatcher answers help for these
-/// from the descriptor itself ([`hand_parsed_help`]); the clap-backed commands keep their own, richer
-/// help. `hand_parsed_list_matches_the_table_source` keeps this list equal to the table's handlers.
-pub const HAND_PARSED: &[&str] = &[
-    // Hook commands: they read the hook JSON from stdin and ignore `args`.
-    "classify-intent",
-    "cortex",
-    "post-bash",
-    "post-edit",
-    "post-read",
-    "post-tool-rl",
-    "post-write",
-    "pre-bash",
-    "pre-edit",
-    "pre-read",
-    "pre-task-scout",
-    "pre-write",
-    "prompt-enhance",
-    "scan-pii",
-    "session-start",
-    "session-stop",
-    // Tool commands that read their flags inline.
-    "bench-run",
-    "cc-setup",
-    "dsl-query",
-    "mcp-capabilities",
-    "metadata-backfill",
-    "query",
-    "session-summary",
+/// Descriptors that answer `--help`/`-h` THEMSELVES — every other command gets its help line from
+/// the dispatcher ([`intercepted_help`]) and never sees the flag.
+///
+/// The rule used to run the other way: a hand-kept list of commands that DID need interception
+/// (23 names), so a command missing from it took `--help` as one more argument and RAN.
+/// The blind review of the 04/10/2026 fixes found `init-project --help` creating `.touring/` in the
+/// cwd; a census by the executor (every table command run with `--help` in a scratch home, cwd and
+/// daemon socket) then found 55 of 141 commands that did not answer with help: 19 that ran (the
+/// `exec` family, `context`, `route`, `eval`, `status`, `doctor`...), 6 that would have run against a
+/// live daemon (`kpi`, `mutation-test`, `repo-score`...), 16 that failed instead of helping. Listing
+/// the commands that are SAFE inverts the failure: a new command nobody listed is intercepted, and
+/// the worst case is a short help line where clap would have given a long one.
+///
+/// Membership is evidence, not intent: each name below answered help in that census (clap, or a
+/// script's argparse for the masters). `scripts/test_help_never_executes.py` re-runs the census
+/// against the release binary and fails on any command that does not answer with help.
+pub const SELF_HELP: &[&str] = &[
+    // clap (or the handler's own help branch), measured 04/10/2026
+    "assist", "ast", "audit", "backup", "cascade", "clones", "cognitive", "completions", "component",
+    "conflict", "daemon-ctl", "decompose", "definitions", "devrcfile", "diagnostics", "diary", "e2e",
+    "evolution", "file-knowledge", "filters", "find-references", "fix", "flow", "flywheel",
+    "gate-metrics", "generate", "gotcha", "granularity", "graph", "health-delta", "incremental",
+    "index", "inferlets", "init", "jobs", "language", "learning", "license", "mcp-overhead", "mcts",
+    "memory", "migrate", "overlay", "plugin", "projects", "quality-signal", "run", "saga", "search",
+    "session", "shadow", "skip", "snapshot", "source-change", "suggest", "synergy", "tantivy",
+    "tasksfile", "toolchain", "update", "viz", "wiring", "workflow",
+    // masters: forwarded to a skill script whose argparse answers `--help`
+    "adw", "blast", "explore", "factory", "guard", "health", "investigate", "map", "read", "scout",
 ];
 
-/// The help line for a [`HAND_PARSED`] command asked for `--help`/`-h`, or `None` when the command
-/// was not asked for help or answers it itself.
+/// The help line for a command asked for `--help`/`-h`, or `None` when it was not asked or answers
+/// help itself ([`SELF_HELP`]). A `--` ends the scan: `touring exec -- ls --help` hands the flag on.
 #[must_use]
-pub fn hand_parsed_help(cmd: &CommandDescriptor, args: &[String]) -> Option<String> {
-    let asked = args.iter().skip(2).any(|a| a == "--help" || a == "-h");
-    (asked && HAND_PARSED.contains(&cmd.name)).then(|| format!("touring {} — {}", cmd.name, cmd.description))
+pub fn intercepted_help(cmd: &CommandDescriptor, args: &[String]) -> Option<String> {
+    let asked = args
+        .iter()
+        .skip(2)
+        .take_while(|a| a.as_str() != "--")
+        .any(|a| a == "--help" || a == "-h");
+    (asked && !SELF_HELP.contains(&cmd.name)).then(|| format!("touring {} — {}", cmd.name, cmd.description))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -421,52 +422,46 @@ mod tests {
         parts.iter().map(|p| p.to_string()).collect()
     }
 
-    /// `touring metadata-backfill --help` started a workspace backfill (04/10/2026): the handler reads
-    /// `args` by hand and `--help` was one more argument. A hand-parsed command answers help from its
-    /// descriptor; a clap-backed one is left to its own help.
+    /// Every command outside [`SELF_HELP`] is answered by the dispatcher, a `--` hands the flag on,
+    /// and a self-helping command keeps its own help.
     #[test]
-    fn hand_parsed_help_answers_only_hand_parsed_commands_asked_for_help() {
+    fn intercepted_help_answers_every_command_but_the_self_helping_ones() {
         let table = command_table();
         let find = |name: &str| table.iter().find(|c| c.name == name).expect("command in table");
         let backfill = find("metadata-backfill");
-        let help = hand_parsed_help(backfill, &s(&["touring", "metadata-backfill", "--help"]))
-            .expect("a hand-parsed command asked for --help gets the help line");
+        let help = intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--help"]))
+            .expect("a command that reads args by hand gets the help line");
         assert!(help.contains("metadata-backfill") && help.contains(backfill.description), "{help}");
-        assert!(hand_parsed_help(backfill, &s(&["touring", "metadata-backfill", "-h"])).is_some());
-        assert!(hand_parsed_help(backfill, &s(&["touring", "metadata-backfill", "--force"])).is_none());
+        assert!(intercepted_help(backfill, &s(&["touring", "metadata-backfill", "-h"])).is_some());
+        assert!(intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--force"])).is_none());
+        // The case the hand list missed: delegated parsing, no clap behind it.
+        let init = find("init-project");
+        assert!(intercepted_help(init, &s(&["touring", "init-project", "--help"])).is_some());
+        let exec = find("exec");
+        assert!(intercepted_help(exec, &s(&["touring", "exec", "--help"])).is_some());
+        assert!(
+            intercepted_help(exec, &s(&["touring", "exec", "--", "ls", "--help"])).is_none(),
+            "after `--` the flag belongs to the command being passed on"
+        );
         let decompose = find("decompose");
         assert!(
-            hand_parsed_help(decompose, &s(&["touring", "decompose", "--help"])).is_none(),
-            "a clap-backed command keeps its own help"
+            intercepted_help(decompose, &s(&["touring", "decompose", "--help"])).is_none(),
+            "a self-helping command keeps its own help"
         );
     }
 
-    /// A handler that never sees `--help` as help: it ignores `args` (`|_args|`), or reads them inline
-    /// without handing the whole slice to a function that could parse them.
-    fn reads_args_by_hand(handler_head: &str) -> bool {
-        let inline = ["arg_or(", "flag_value(", "has_flag("].iter().any(|p| handler_head.contains(p));
-        handler_head.trim_start().starts_with("|_args|") || (inline && !handler_head.contains("(args)"))
-    }
-
-    /// The list and the table cannot drift: every descriptor whose handler reads `args` by hand (or
-    /// ignores them) is in [`HAND_PARSED`], and nothing else is. Read from the table's SOURCE, the
-    /// declaration reconciled with the executor by a test (D8).
+    /// A name in [`SELF_HELP`] that is not in the table would exempt nothing today and silently
+    /// exempt whatever command later takes the name.
     #[test]
-    fn hand_parsed_list_matches_the_table_source() {
-        let src = include_str!("command_table.rs");
-        let mut found: Vec<&str> = src
-            .split("CommandDescriptor {")
-            .skip(1)
-            .filter_map(|block| {
-                let name = block.split("name: \"").nth(1)?.split('"').next()?;
-                let head: String = block.split("handler:").nth(1)?.chars().take(600).collect();
-                reads_args_by_hand(&head).then_some(name)
-            })
-            .collect();
-        found.sort_unstable();
-        let mut declared = HAND_PARSED.to_vec();
-        declared.sort_unstable();
-        assert_eq!(found, declared, "a hand-parsed handler outside HAND_PARSED runs on --help");
+    fn every_self_help_name_is_a_table_command() {
+        let table = command_table();
+        let stale: Vec<&str> =
+            SELF_HELP.iter().copied().filter(|n| !table.iter().any(|c| c.name == *n)).collect();
+        assert!(stale.is_empty(), "SELF_HELP names with no command: {stale:?}");
+        let mut sorted = SELF_HELP.to_vec();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), SELF_HELP.len(), "SELF_HELP has a duplicate");
     }
 
     /// Regression guard for the export→validate round-trip (2026-08-02).

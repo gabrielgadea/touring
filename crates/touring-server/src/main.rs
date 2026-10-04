@@ -302,9 +302,10 @@ async fn async_main() -> anyhow::Result<()> {
 
     let table = cli::command_table::command_table();
     if let Some(cmd) = table.iter().find(|c| c.name == subcommand) {
-        // A hand-parsed handler would take `--help` as one more argument and RUN (04/10/2026:
-        // `metadata-backfill --help` started a workspace backfill); answer from the descriptor.
-        if let Some(help) = cli::common::hand_parsed_help(cmd, &args) {
+        // A command without its own help would take `--help` as one more argument and RUN (04/10/2026:
+        // `metadata-backfill --help` started a workspace backfill, `init-project --help` wrote
+        // `.touring/`); every command outside `SELF_HELP` is answered from the descriptor.
+        if let Some(help) = cli::common::intercepted_help(cmd, &args) {
             println!("{help}");
             return Ok(());
         }

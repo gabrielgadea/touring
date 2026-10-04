@@ -258,6 +258,10 @@ pub fn run(args: &[String]) -> Result<()> {
             println!("    touring toolchain install --from-source <workspace> <version> [--force]");
             println!("    touring toolchain install --from-url <url> <version> [--force]");
             println!("    touring toolchain remove <version>");
+            // `parse` also lands here for an unknown or incomplete subcommand; only those fail.
+            if matches!(args.get(2).map(String::as_str), Some("--help" | "-h" | "help")) {
+                return Ok(());
+            }
             return Err(anyhow!(
                 "unknown toolchain subcommand; run `touring toolchain --help` or use: init, list, default, install, remove"
             ));
@@ -675,6 +679,18 @@ mod tests {
         let mut v = vec!["touring".to_string(), "toolchain".to_string()];
         v.extend(extras.iter().map(|s| s.to_string()));
         v
+    }
+
+    /// Help that was ASKED FOR is a success; the same text after an unknown subcommand is an error.
+    /// `touring toolchain --help` printed the usage and exited 1 (census of `--help` by the executor,
+    /// 04/10/2026), so a script could not tell a help request from a failed call.
+    #[test]
+    fn asked_for_help_succeeds_and_an_unknown_subcommand_still_fails() {
+        for flag in ["--help", "-h", "help"] {
+            assert!(run(&args(&[flag])).is_ok(), "`touring toolchain {flag}` is a help request");
+        }
+        assert!(run(&args(&["fizzbuzz"])).is_err(), "an unknown subcommand is still an error");
+        assert!(run(&args(&[])).is_err(), "no subcommand is still an error");
     }
 
     #[test]
