@@ -168,10 +168,13 @@ byte-for-byte (Rust source of truth). Schema-drift fails the
 `signal_report_from_journal_and_mirror` roundtrip.
 
 **Critical lesson (lesson:executor-do-comando-nao-e-o-binario-buildado, applied 01/09)**:
-edits to this template require `cargo build -p touring-server --release`
-+ `update-touring` (daemon embeds `touring-cli` via static link). Partial
-rebuilds leave the daemon running a stale `cli-kpi` handler that returns
-`null` for fields defined in the rebuilt sub-crate.
+edits to this template require `cargo build --release --workspace`
++ `update-touring --no-build` (or a full `update-touring`, which runs that build;
+the daemon embeds `touring-cli` via static link). Partial rebuilds leave the
+daemon running a stale `cli-kpi` handler that returns `null` for fields defined
+in the rebuilt sub-crate. `-p touring-server` is itself partial: `touring-daemon`
+lives in `touring-hooks`, and the `touring` it writes unifies features differently
+(04/10/2026: 1,4 MB smaller under the same 26-feature `--version` line).
 
 ### Wave PostToolUse-wiring P1/P2 (01/09/2026, v30.4.29)
 

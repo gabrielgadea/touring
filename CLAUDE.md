@@ -158,9 +158,13 @@ timestamp: 2026-08-20T11:15:00-03:00
     declaração + aderência M1.
 
 12. **Rebuild parcial não atualiza o binário**: `cargo build -p touring-cli` NÃO
-    regenera `touring`/`touring-daemon`, que vêm de `touring-server`, e o daemon embute
-    o CLI por linkagem estática carregando handlers uma vez no boot. Depois de editar um
-    handler RPC: `cargo build -p touring-server --release` + `update-touring`. A
+    regenera `touring` (pacote `touring-server`) nem `touring-daemon` (pacote
+    `touring-hooks`), e o daemon embute o CLI por linkagem estática carregando handlers
+    uma vez no boot. Depois de editar um handler RPC: `cargo build --release --workspace`
+    + `update-touring --no-build` (ou `update-touring` completo, que faz o mesmo build).
+    `-p touring-server` não recompila o daemon e grava o `touring` com outra unificação de
+    features: em 04/10/2026 saiu 1,4 MB menor com a mesma lista de 26 features no
+    `--version`, que só lista as do pacote. A
     superfície SDK do `--orchestrate` e sua entrega estão em
     `docs/plans/2026-08-31-code-mode-sinal/`.
 13. **Hooks: quatro coisas que custam horas**. (a) O campo `if` de um hook aceita
