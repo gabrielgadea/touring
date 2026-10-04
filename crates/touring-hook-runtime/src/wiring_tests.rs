@@ -1712,6 +1712,45 @@ fn a_scope_keyword_is_never_recorded_as_a_symbol() {
     );
 }
 
+/// 04/10/2026 (doctor `wiring_diagnostic` 8/9, `kind_unknown=1`, right after editing
+/// `touring-dispatch/src/lifecycle/tests.rs`). The module-path pass wrote the LAST WORD of each path
+/// as the module name, so `use super::*;` — and the prefixes of `super::super::cli_handlers::run()`
+/// — became consumer edges on a symbol literally named `super`: a row with no producer, in the very
+/// class `a_scope_keyword_is_never_recorded_as_a_symbol` forbids for `use` imports. The rebuild's
+/// end-of-walk sweep removed it; the edit path, which runs this same pass, left it for the doctor.
+#[test]
+fn a_module_path_that_ends_in_a_scope_keyword_is_never_recorded_as_a_module() {
+    let (_tmp, db) = test_db();
+    let root = phantom_ws(&_tmp);
+    write_file(&root, "crates/dispatch/src/lib.rs", "pub mod lifecycle;\npub mod cli_handlers;\n");
+    write_file(&root, "crates/dispatch/src/lifecycle.rs", "mod tests;\npub fn run() {}\n");
+    write_file(&root, "crates/dispatch/src/cli_handlers.rs", "pub fn run() {}\n");
+    let content = "use super::*;\nfn t() { super::super::cli_handlers::run(); }\n";
+    let consumer = write_file(&root, "crates/dispatch/src/lifecycle/tests.rs", content);
+
+    record_module_path_consumers(
+        &db,
+        "crates/dispatch/src/lifecycle/tests.rs",
+        &consumer,
+        content,
+    );
+
+    let keyword_rows: i64 = db
+        .conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM wiring_map WHERE consumer_file IS NOT NULL \
+             AND symbol_name IN ('super', 'self', 'crate', 'Self')",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(
+        keyword_rows, 0,
+        "a scope keyword is not a module: {:?}",
+        consumer_rows(&db, "super")
+    );
+}
+
 #[test]
 fn a_fallback_without_chain_or_producer_is_unresolved_never_an_edge() {
     let (_tmp, db) = test_db();
