@@ -1807,3 +1807,46 @@ fn no_ast_resolved_consumer_lacks_its_producer() {
         "ast_resolved consumers without a producer: {violations:?}"
     );
 }
+
+fn rows_of_consumer_file(db: &FileKnowledgeDB, consumer_file: &str) -> i64 {
+    db.conn_ref()
+        .query_row(
+            "SELECT COUNT(*) FROM wiring_map WHERE consumer_file = ?1",
+            [consumer_file],
+            |r| r.get(0),
+        )
+        .expect("count")
+}
+
+/// XA-17 (03/10/2026). Editing the workspace CLAUDE.md recorded THAT FILE as a consumer of
+/// `src/a/b.rs::Z`, a symbol that exists nowhere, and `touring doctor` went 8/9 with
+/// `kind_unknown=1`. The cause: `record_direct_path_consumers` scanned the raw text of ANY file
+/// for `crate::`/`super::` paths, which are RUST syntax. Rule 26 of that document writes the
+/// example `use crate::a::b::Z`, and the scan read prose as a use. A REAL path quoted in a
+/// document is credited the same way, as a use that never happened.
+#[test]
+fn a_path_quoted_in_prose_is_not_a_consumer_edge() {
+    let (_tmp, db) = test_db();
+    db.register_pub_symbol("crates/a/src/b.rs", "Z", "struct", "public")
+        .unwrap();
+    let prose = "A travessia credita o modulo (`Z` em `use crate::a::b::Z`).\n";
+
+    refresh_file_wiring(&db, "CLAUDE.md", "markdown", prose);
+    refresh_file_wiring(&db, "docs/notes.md", "markdown", prose);
+    for doc in ["CLAUDE.md", "docs/notes.md"] {
+        assert_eq!(
+            rows_of_consumer_file(&db, doc),
+            0,
+            "{doc}: a path written in prose is not a consumer"
+        );
+    }
+
+    // Positive control: a Rust file that names the same path DOES consume. Without it the
+    // assertions above would pass for a scan that records nothing at all.
+    let code = "fn main() {\n    let _ = crate::a::b::Z;\n}\n";
+    refresh_file_wiring(&db, "crates/c/src/main.rs", "rust", code);
+    assert!(
+        rows_of_consumer_file(&db, "crates/c/src/main.rs") >= 1,
+        "positive control: the same path in Rust code is a use"
+    );
+}

@@ -221,6 +221,22 @@ mod consumed_import_tests {
         );
     }
 
+    /// The REAL file, not a paraphrase of it: the row that appeared on 03/10/2026 came from
+    /// editing the workspace CLAUDE.md, whose rule 26 writes the example inline and WITHOUT the
+    /// trailing `;` that the paraphrase above had.
+    #[test]
+    fn the_workspace_claude_md_is_not_a_consumer() {
+        let real = include_str!("../../../../CLAUDE.md");
+        assert!(
+            real.contains("use crate::a::b::Z"),
+            "premise: the example this test is about is still in the file"
+        );
+        assert!(
+            extract_consumed_imports(real, "CLAUDE.md").is_empty(),
+            "the workspace CLAUDE.md must not consume anything"
+        );
+    }
+
     /// The Python extractor reports the ORIGINAL name of `a as b`, and the
     /// filter judges the local one: `No as N` used as `N()` stays a use.
     #[test]
