@@ -189,6 +189,38 @@ mod consumed_import_tests {
             .collect()
     }
 
+    /// A document or a data file holds no `use`: pinned as an invariant of this extractor.
+    ///
+    /// This is NOT the reproduction of the `kind_unknown` row that appeared on 03/10/2026 (a
+    /// `wiring_map` row, `consumer_file = CLAUDE.md`, `consumer_type = rust_import`, written when
+    /// that file was edited). It passes on the unmodified extractor — checked while chasing the
+    /// row — so the row comes from ANOTHER step of the edit path (XA-17 stays open). The
+    /// positive control keeps the test from passing by an extractor that reads nothing at all.
+    #[test]
+    fn prose_and_data_files_are_not_consumers() {
+        let prose = "A travessia credita o modulo: `use crate::a::b::Z;`\n\n\
+                     ```rust\nuse crate::a::b::Z;\n```\n";
+        for path in [
+            "CLAUDE.md",
+            "docs/notes.md",
+            "Cargo.toml",
+            "ci.yml",
+            "data.json",
+            "index.html",
+            "site.css",
+        ] {
+            assert!(
+                extract_consumed_imports(prose, path).is_empty(),
+                "{path}: an example written in prose must not become a consumer edge"
+            );
+        }
+        let code = "use crate::a::b::Z;\n\nfn f() -> Z {\n    Z\n}\n";
+        assert!(
+            !extract_consumed_imports(code, "src/lib.rs").is_empty(),
+            "positive control: a Rust file that uses what it imports still consumes"
+        );
+    }
+
     /// The Python extractor reports the ORIGINAL name of `a as b`, and the
     /// filter judges the local one: `No as N` used as `N()` stays a use.
     #[test]
