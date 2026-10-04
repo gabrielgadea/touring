@@ -169,3 +169,58 @@ O que o juiz NÃO vê: os 16 achados acima passam todos pelo juiz. Ele mede comp
 - **X14:** indexar os relatórios de turno ao gravar, ou tirá-los do denominador (`.gitignore`).
 - **X15:** o `agent-harness` é atualizado para o esquema atual e instalado, ou aposentado.
 - **Pedido da sessão `analise-ef`, que diz falar por você:** um gate de PreToolUse que bloqueie texto de saída com caracteres CJK/cirílico. Ela mediu 1,22% dos blocos do Opus 5.5 e 4,05% do MiniMax. Não comecei, porque é hook novo para todas as sessões. O scanner dela (com 4 controles) está em `~/projects/analise/docs/plans/2026-10-04-integridade-prosa-saida/diagnostics/scan_corrupcao_prosa.py`, não commitado.
+
+## 9. Consertos aplicados (04/10/2026, "recomendações aprovadas, corrija tudo")
+
+**Decisões tomadas pela recomendação aprovada:**
+- **X7:** `max_attempts` conta execuções.
+- **X14:** quem grava o documento também o indexa.
+- **X15:** o harness foi atualizado e a suíte roda sem instalação.
+- **Gate de CJK:** ficou de fora. Era pedido externo, não achado, e não estava entre as recomendações.
+
+DAG `task_1791142397213803492`.
+
+| id | conserto | prova do vermelho (antes) | prova do verde e da discriminação |
+|---|---|---|---|
+| X1 | `touring workflow resume` → `cli-workflow-resume`, sem a chave morta | `every_subcommand_routes_to_its_handler`: `left: "cli-workflow-run"` | verde; mutante (rota antiga) morto; ao vivo: `event: workflow_resume` |
+| X2 | `subtasks`: uma linha por subtarefa (última tentativa + `attempt_count`); `attempts`: todas as tentativas; contagem por subtarefa | e2e: 3 linhas, `completion_pct` 66,7 | verde; mutante morto; ao vivo: 2 linhas, 50%, igual ao `status` |
+| X4 | início de tentativa idempotente (`INSERT … WHERE NOT EXISTS` aberta) | `a_repeated_in_progress_is_one_attempt`: `left: 2` | verde; mutante morto; ao vivo: 1 linha |
+| X5 | as duas escritas de `subtask_results` logam a falha (`tracing::warn!`) | leitura (a falha de escrita não é provocável em teste sem mutar o banco) | clippy limpo |
+| X7 | `attempts + 1 >= max_attempts`: `max_attempts` é o total de execuções; docstring corrigido | e2e: a 2ª falha ainda agendava retry | verde (2 execuções; `max_attempts: 1` = nenhum retry); mutante morto |
+| X8 | `blocked_subtasks` sem as subtarefas encerradas (predicado único `settled`) | e2e: `left: [done, waiting]` | verde; mutante morto; ao vivo: `blocked=[waiting]`. A web (`plans.rs:682`) só lê o comprimento: agora mostra o número certo (touring-a4) |
+| X13 | `--purge-phantom` cobre consumidores com palavra de escopo, de qualquer kind (`SCOPE_KEYWORDS`, fonte única com `is_scope_keyword`) | `left: 0 right: 4` | verde; mutante morto; ao vivo: 30 linhas purgadas (a 31ª tinha saído na reindexação de medição), 0 nos dois bancos, doctor 9/9 |
+| X12 | docstrings do `ast_bridge` deixam de dizer "XA-17 stays open" e nomeiam a reprodução real | — (documentação) | `touring-hooks-core` 524/524 |
+| X6 | o gate S1a nomeia a causa de cada tentativa (custo / machine check 70 / sem slot 75 / gate cego / não rodou) | 3 testes vermelhos | 13/13 verdes; shellcheck limpo; ao vivo: `S1A_CARGO="cargo --broken-flag"` → "o teste não rodou (rc 1 …)" |
+| X11 | o teste do release exige o PAR `gate \|\| die "S1a` | o mutante sobrevivia | o mesmo mutante agora morre (rc 1); arquivo restaurado por sha256 |
+| X9 | `paridade()` lê a lista antes e depois do KPI e compara `transcripts_scanned`; se a população muda, repete e declara "corpus em movimento" | `test_paridade_nunca_compara_populacoes_diferentes` | 23/23 verdes, incluindo a paridade real contra o KPI vivo e a guarda de isolamento |
+| X3 | `agent-harness`: `FILE_COLUMN` com as chaves que o detector devolve (`legacy`, `v5`), usada nas 3 consultas | `KeyError: 'v5'`; teste novo vermelho | verde; ao vivo: `index status` no esquema v5, 365.162 símbolos |
+| X15 | `agent-harness`: nomes atuais dos bancos (`symbols`/`memory`/`knowledge.db`), `LEARNING_DB = graph.db`, global atual antes do legado, testes que rodam o módulo do checkout | 19/19 `FileNotFoundError`; com wrapper, 7 falhas | **20/20** sem instalação |
+| X14 | `okf_emit.index_written` (ajuda única) chamada por `emit()`, pelo `loop_diagnose` (diagnóstico + `log.md`) e pelo hook de turno; 51 documentos já gravados reindexados | 3 arquivos de teste vermelhos | verdes (loop-engineering 285 + 1 pulado); e2e `index` **0,847 → 0,982** |
+| X16 | as 3 memórias ligadas a hubs | BFS: 205/208 | conferido no fechamento |
+
+**Achados novos do ciclo de conserto, também consertados:**
+
+- **X17.** O teste de calibração `test_live_calibration_against_real_files` pulava calado com "daemon/index unavailable". O daemon estava no ar. A causa era o arquivo de fixture com símbolos e sem linha `file_knowledge`. Isso valia para 359 arquivos do projeto, incluindo código Rust.
+  - Remédio do próprio produto: `touring metadata-backfill` (o `file_knowledge` foi de 5.662 para 9.504 linhas; a lacuna do projeto foi de 359 para 0).
+  - O teste agora roda e passa (10/10).
+- **X18.** `cli-metadata-backfill` e `cli-file-knowledge-populate` estavam fora de `is_heavy_hook`. O cliente desistia em 15 s com `budget_exceeded` enquanto o ator continuava trabalhando. Teste `workspace_backfills_are_classified_heavy`; mutante morto.
+- **X19.** `touring metadata-backfill --help` **rodou o backfill** (duas vezes, nesta sessão). 23 descritores da tabela leem `args` à mão ou os ignoram, e `--help` virava só mais um argumento.
+  - `HAND_PARSED` + `hand_parsed_help`, ligados no despachante do `main.rs`.
+  - Teste que lê o código-fonte da tabela e exige a lista igual aos handlers reais. A minha primeira lista tinha 9; o guarda mostrou 23.
+  - Mutante morto. Ao vivo, `metadata-backfill --help` e `pre-bash --help` imprimem a ajuda, e `decompose --help` mantém a ajuda do clap.
+
+**Mutação:** 8/8 mortos (X1, X2, X4, X7, X8, X13, pesados, `HAND_PARSED`), cada arquivo restaurado com sha256 igual. Mais o X11 no shell.
+
+**Revisão independente pós-implementação:**
+- **touring-a4, lente de contrato:** nenhum contrato quebrado. Duas contribuições:
+  - a garantia do ramo de palavra de escopo vem das palavras reservadas da linguagem (escrito no docstring);
+  - o 31×30 precisava ser reconciliado antes do commit (reconciliado).
+- **Revisor de contexto limpo:** §9.1.
+
+**Resíduos declarados:**
+- `max_attempts` é homônimo, com outro sentido, no decomposer do `touring-server-reasoning` (`subtask_budgets` o lê como `max_retries`), que é outra estrutura e não o campo da tabela do decompose.
+- Os 106 descritores que delegam a funções com clap não foram sondados um a um para `--help`, porque executá-los teria efeitos.
+
+### 9.1 Revisor de contexto limpo e juiz final
+
+_Preenchido no fechamento._
