@@ -178,6 +178,42 @@ def test_paridade_declarada_quando_os_transcripts_nao_existem(monkeypatch) -> No
     assert "paridade_1pct" not in r, "sem leitura não há veredito de paridade"
 
 
+def _paridade_simulada(monkeypatch, listas, kpi_varridos):
+    """`paridade()` com o disco e o KPI simulados: `listas` são as leituras sucessivas da lista de
+    transcripts; o porte e o KPI veem os mesmos bytes, só a POPULAÇÃO pode divergir."""
+    import types
+
+    import r3_extract_a1_blocks as ex
+    leituras = iter(listas)
+    monkeypatch.setattr(ex.kpi, "transcripts_do_kpi", lambda _d: next(leituras))
+    monkeypatch.setattr(ex.kpi, "agregar", lambda paths: {
+        "transcripts_scanned": len(paths), "injected_blocks": 1, "by_family": {"x": {"bytes": 10}}})
+    saida = json.dumps({"context_budget": {"transcripts_scanned": kpi_varridos,
+                                           "by_family": {"x": {"bytes": 10, "blocks": 1}}}})
+    monkeypatch.setattr(ex.subprocess, "run", lambda *a, **k: types.SimpleNamespace(stdout=saida))
+    return ex.paridade()
+
+
+def test_paridade_nunca_compara_populacoes_diferentes(monkeypatch) -> None:
+    """O porte e o KPI escolhem, cada um, "os 3 transcripts mais recentes" do PROJETO, de TODAS as
+    sessões. Em 04/10/2026 outra sessão escreveu entre as duas leituras, o KPI leu um transcript que o
+    porte não leu, e o teste reprovou um porte correto (36.459 + 14.633 = 51.092 B, exato;
+    cross-audit X9). População que muda entre as leituras é declarada, nunca vira veredito."""
+    a, b = Path("aaaa.jsonl"), Path("bbbb.jsonl")
+    r = _paridade_simulada(monkeypatch, [[a], [b]] * 5, kpi_varridos=1)
+    assert "erro" in r and "movimento" in r["erro"], r
+    assert "paridade_1pct" not in r, "populações diferentes não dão veredito"
+    r = _paridade_simulada(monkeypatch, [[a], [a]] * 5, kpi_varridos=2)
+    assert "erro" in r and "movimento" in r["erro"], f"o KPI varreu outra quantidade: {r}"
+
+
+def test_paridade_com_populacao_estavel_da_veredito(monkeypatch) -> None:
+    """Controle positivo: a mesma lista antes e depois do KPI e a mesma contagem varrida dão veredito."""
+    a = Path("aaaa.jsonl")
+    r = _paridade_simulada(monkeypatch, [[a], [a]], kpi_varridos=1)
+    assert r.get("paridade_1pct") is True, r
+
+
 def test_agregador_do_kpi_conta_so_o_universe_do_kpi(tmp_path: Path) -> None:
     """O agregado `universe_kpi` conta SÓ `hook_success` (context_budget.rs:222).
 
