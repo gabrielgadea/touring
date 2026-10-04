@@ -185,6 +185,36 @@ def register_artifact(path, key, title, *, facets=(), link_to=None) -> dict:
     return {"memory_key": key, "memory_stored": stored, "memory_linked": linked}
 
 
+def touring_project_of(path) -> Path | None:
+    """The Touring project a path lives in: the nearest ancestor with `.touring/touring.toml`."""
+    for parent in Path(path).resolve().parents:
+        if (parent / ".touring" / "touring.toml").is_file():
+            return parent
+    return None
+
+
+def index_written(path) -> dict:
+    """Hand a document a SCRIPT just wrote to `touring index ingest`. Fail-open.
+
+    A script writes outside the edit tool, so the reindex hook never sees the file. In the touring
+    workspace the turn records, the loop diagnostics and the bundle `log.md` sat as
+    `eligible_not_indexed` — counted in the index's `disk_files`, never in `indexed_files` — and the
+    `index` component of `touring e2e` fell from 0,852 to 0,847 (cross-audit 04/10/2026, X14). The ONE
+    helper for every OKF writer; outside a Touring project there is no index to feed and nothing runs.
+    """
+    root = touring_project_of(path)
+    if root is None:
+        return {"indexed": False, "index_reason": "fora de projeto Touring"}
+    try:
+        p = subprocess.run(["touring", "index", "ingest", str(path)], cwd=root,
+                           capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as exc:
+        return {"indexed": False, "index_reason": f"ingest nao rodou: {exc}"}
+    if p.returncode != 0 or '"status":"ok"' not in p.stdout.replace(" ", ""):
+        return {"indexed": False, "index_reason": f"ingest rc={p.returncode}: {p.stdout.strip()[:160]}"}
+    return {"indexed": True}
+
+
 def emit(out, doc_type, title, description, *, sections=(), tags=(),
          fields=None, body_prefix="", cap=DEFAULT_SECTION_CAP, prev=None,
          timestamp=None, memory_key=None, facets=("#artifact:report",),
@@ -215,7 +245,7 @@ def emit(out, doc_type, title, description, *, sections=(), tags=(),
                             tags=tags, fields=fields)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(fm + body_txt.rstrip() + "\n", encoding="utf-8")
-    result = {"path": str(out), "elided": elided}
+    result = {"path": str(out), "elided": elided, **index_written(out)}
     all_facets = list(facets) + ([f"#process:{process}"] if process else [])
     if no_memory:
         result.update({"memory_key": None, "memory_stored": False,
