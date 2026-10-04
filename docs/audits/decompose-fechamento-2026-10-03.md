@@ -161,13 +161,13 @@ caracteres, hash de sessão e sha — sem texto livre (S6). Gate S1a (`scripts/r
 - O retry só é alcançável quando o payload do `update` traz `retry_policy`: nenhum caminho grava uma
   política válida na coluna (o importador grava `"{}"`, que não desserializa). Portado por paridade
   com o verbo original, sem mudar o padrão de ninguém.
-- `cache_hit_rate` de `touring workflow stats` **não é uma medida**: a heurística original grava
-  `cache_hit = (status == "completed")`, então toda subtarefa concluída conta como acerto e a taxa
-  dá 1.0. Portada por paridade; não use o número. Candidata a remoção, decisão do Gabriel.
+- ~~`cache_hit_rate` de `touring workflow stats` não é uma medida~~ — **substituído por
+  `attempt_completion_rate` em 04/10 (§7)**. A leitura acima também estava incompleta: o denominador
+  contava as tentativas ainda abertas, então a taxa caía conforme o trabalho começava.
 - A guarda de filha aberta usa o vocabulário de **plano**: um plano fechado à mão sobre filha
-  `failed`, `skipped` ou `cancelled` **nunca é arquivado** (nem pela rota manual). É a escolha
-  conservadora (um carimbo errado é quase permanente; um plano visível a mais não), mas deixa esses
-  planos nas vistas vivas para sempre. Decisão do Gabriel se quiser outra.
+  `failed`, `skipped` ou `cancelled` **nunca é arquivado** pela retenção. A regra ficou (§7); o que
+  mudou é que `decompose archive` passou a nomear esses planos (`held`) e a rota de saída, o
+  `finalize`.
 - O `update` escreve por `WHERE subtask_id = ?` sem `task_id` no predicado, e o `add` aceita um
   `subtask_id` com `::` de outra task quando a linha ainda não existe (a linha fica na task errada).
   Sem falha observada; endurecer toca ~40 chamadores. Apontado pelo touring-a4.
@@ -178,3 +178,75 @@ caracteres, hash de sessão e sha — sem texto livre (S6). Gate S1a (`scripts/r
 - A comparação `updated_at < corte` é lexicográfica: segura enquanto todo escritor grava UTC
   RFC 3339 (hoje todos gravam). Se alguém escrever com `Local::now()`, a janela desloca pelo offset
   sem erro nenhum.
+
+## 7. Decisões do canvas de 04/10/2026, implementadas
+
+O Gabriel pediu o canvas das quatro decisões que este relatório deixou abertas; as recomendações do
+§8 do canvas foram implementadas sob o goal dele ("prossiga com a implementação completa"), cada uma
+num commit próprio para poder ser revertida sozinha. A investigação de `subtask_results` e duas
+correções de desenho vieram do touring-a4 (somente leitura, `file:line` por afirmação).
+
+| Item | Decisão | O que mudou |
+|---|---|---|
+| (a) janela de 7 dias e `created_at` no re-add | manter | nada: três leitores ordenam por `priority, created_at`, e o `updated_at` já registra a reescrita |
+| (b) plano fechado à mão sobre filha aberta | manter a guarda e torná-la visível | `decompose archive` devolve `held` (contagem completa), `held_plans` (os 20 mais antigos, com `open_statuses`) e `held_remedy`; falha na consulta vira `held: null` + `held_error`, nunca 0. Os dois predicados (`archivable_plans_where`, `held_plans_where`) são montados das mesmas duas metades. O passe automático não mudou: não tem resposta onde carregar o relatório |
+| (c) `cache_hit_rate` | renomear para o que mede | `attempt_completion_rate` = tentativas `completed` ÷ tentativas **terminadas** (`sr.completed_at IS NOT NULL`), em `stats`, `status` (`summary`) e `compare`. Uma linha de `subtask_results` é uma tentativa: o retry abre linha nova. Por linha, `slowest` e `resume` trazem `attempt_outcome` (`completed`/`failed`/`null`), lido de `completed_at` e nunca deduzido da duração. A coluna `cache_hit` fica (sem migração), com o invariante escrito no escritor: só `completed` e `failed` fecham linha |
+| (d) índice de memória com 161 linhas | juntar entradas em hubs | 161 → 137 linhas (18.544 → 16.240 bytes): 4 arquivos-hub (retomadas, defeitos resolvidos, lições do r3, code mode) com 27 membros e o par estado/execução do r3 numa linha só. Nenhum arquivo de memória apagado; 0 ponteiro quebrado |
+
+Por que o rename e não a remoção: medido, nenhuma das três respostas tinha outra taxa de desfecho, e
+a remoção apagaria a única. E por que por tentativa e não por subtarefa: por subtarefa as respostas
+já trazem `completed` e `failed`; o que a tabela acrescenta é o custo das tentativas.
+
+Consumidores procurados antes de mudar o contrato: em todo o `~/projects`, só a doc da skill, este
+relatório, documentos de sessão e as cópias nos worktrees `touring-wt-q50` e `touring-wt-wiring`
+citam a chave junto do comando. A doc viva (`~/.claude/skills/Touring/references/touring-cli-tasks.md`)
+foi atualizada e o espelho `client/` sincronizado.
+
+Revisão adversarial do touring-a4 (somente leitura, depois de implementar), quatro ajustes aplicados:
+o relatório `held` passou a ser lido DEPOIS do `UPDATE` no caminho real (antes, uma filha que fechasse
+no meio da chamada podia sair carimbada e listada como retida); `slowest` lê `completed_at` em vez de
+deduzir o desfecho da duração (um campo nulável que hoje só o fechador escreve é o que o `cache_hit`
+era); o `held_remedy` diz que só filha `completed`/`done` deixa a derivação fechar o plano; e um teste
+novo fixa `attempt_completion_rate = null` com uma tentativa em voo (o agregado antigo dava 0/1 = 0).
+
+A prova ao vivo achou dois drifts antigos entre a doc e a CLI. `touring workflow status` estava
+documentado e respondia "unrecognized subcommand": o handler `cli-workflow-status` existia e só um teste
+o chamava. Foi ligado à CLI por um `route(cmd) -> (handler, payload)` único, testado subcomando a
+subcomando (`every_subcommand_routes_to_its_handler`), o que também baixou o CC do `run` de 15 para o
+máximo de 8 no arquivo. E `touring workflow resume` usa o handler de `run` com `resume: true`, por
+escolha documentada no código; a doc dizia `cli-workflow-resume` e foi corrigida.
+
+Provas (04/10/2026):
+
+- RED antes de cada mudança: `held` ausente (`left: Null`), `attempt_completion_rate` ausente,
+  `no variant named Status`.
+- `dag_lifecycle_closure_e2e`: 37/37. `touring-cli --lib` + `touring-hooks` inteiro: 1.807 passaram,
+  0 falharam. `touring-server --lib`: 1.641/0. Clippy `-D warnings` limpo em `touring-cli`,
+  `touring-hooks` e `touring-server`.
+- Mutação in-place com restauração por sha256: **11/11 mortos** (predicado dos retidos, relatório
+  ausente no dry-run e no caminho real, rota de saída ausente, janela ignorada, taxa contando
+  tentativas abertas, desfecho sempre `completed`, tentativa aberta virando `failed`, e a chave antiga
+  voltando em cada uma das três respostas). Dois mutantes ficaram de fora por serem equivalentes com
+  os dados de hoje, com o motivo escrito no harness.
+- Ao vivo, daemon PID 1254933 (release desta árvore, ambiente sem `TOURING_CODE_MODE` nem
+  `TOURING_R3_SHADOW`): uma sonda real (`task_1791116724800024594`: uma falha, um retry concluído, uma
+  tentativa aberta, um passo pendente) responde `attempt_completion_rate = 0,5` em `stats` e `status`,
+  igual ao SQL (a definição antiga daria 0,333), sem `cache_hit` em resposta nenhuma; `held` bate com
+  o SQL plano a plano nos dois bancos reais: 0 no projeto, e 1 no global, que é o plano
+  `task_1787627051162160519` (`finalized` em 25/08 sobre filha `pending`). `candidates` no projeto
+  ficou igual ao do binário antigo (8). A sonda foi encerrada por `finalize` e saiu carimbada.
+- Não provado ao vivo: um plano RECÉM-fechado à mão aparecendo em `held`. A CLI `decompose update`
+  exige `<SUBTASK_ID>`, então a rota que fecha o pai sem subtarefa só existe no RPC (hooks/MCP), e o
+  SDK do `--orchestrate` só alcança RPCs de leitura. Esse caminho está provado pelo e2e e pela mutação;
+  o que a prova ao vivo mostra é o plano real que essa rota deixou no banco global.
+
+Limites novos, declarados e não corrigidos (sem falha observada):
+
+- Uma subtarefa fechada com `done` não fecha sua tentativa (§6, `record_subtask_transition`): a
+  linha fica aberta para sempre. Antes ela puxava a taxa para baixo; agora fica fora do denominador,
+  mas essa tentativa também nunca conta como concluída.
+- O `UPDATE` que fecha a tentativa não prende a linha mais recente: duas execuções sobrepostas da
+  mesma filha fecham uma linha arbitrária (touring-a4).
+- `subtask_results` não tem coluna `status`: a equivalência "linha fechada com `cache_hit = 0` é
+  falha" vale porque só `completed` e `failed` chegam ao escritor. Um braço novo nesse `match` a
+  quebra em silêncio.
