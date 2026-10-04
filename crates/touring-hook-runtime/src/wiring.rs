@@ -651,7 +651,7 @@ pub fn record_import_consumers(
         for symbol_name in &imported_symbols {
             // 24/09/2026 (touring-36; doctor wiring_diagnostic kind_unknown=8):
             // (2) a scope keyword is never a symbol — it is born ScopeKeyword.
-            if matches!(symbol_name.as_str(), "super" | "self" | "crate" | "Self") {
+            if crate::symbol_extractors::is_scope_keyword(symbol_name) {
                 let _ = db.record_unresolved_import_classified(
                     &module_path,
                     symbol_name,
@@ -769,7 +769,7 @@ pub fn record_module_path_consumers(
         // `super::super::a::f()`) names no module by its last word: `super` is a position, not an
         // item anyone declares, so the edge would land on a symbol with no producer (doctor
         // `kind_unknown`, 04/10/2026). The rule `record_import_consumers` applies to `use` imports.
-        if matches!(module, "super" | "self" | "crate" | "Self") {
+        if crate::symbol_extractors::is_scope_keyword(module) {
             continue;
         }
         // The DECLARATION comes first, because it is the fact: walking forward

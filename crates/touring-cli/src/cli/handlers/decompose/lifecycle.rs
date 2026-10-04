@@ -43,12 +43,28 @@ pub(crate) fn refresh_parent_status(db: &FileKnowledgeDB, task_id: &str, now: &s
     } else {
         "pending"
     };
-    db.conn_ref()
+    let affected = db
+        .conn_ref()
         .execute(
             "UPDATE task_decompositions SET status = ?1, updated_at = ?3 WHERE task_id = ?2",
             params![derived, task_id, now],
         )
-        .unwrap_or(0)
+        .unwrap_or(0);
+    // A plan the derivation leaves OPEN is live work: it cannot also be archived. The retention pass
+    // requires `archived_at IS NULL` and never un-stamps, so without this a step redone through
+    // `update` (the way a human is told to redo one) left the row `in_progress` and archived at once
+    // (independent review, 04/10/2026). The derivation is the ONE place that decides "open again",
+    // for `add` and `update` alike.
+    if derived != "done" {
+        db.conn_ref()
+            .execute(
+                "UPDATE task_decompositions SET archived_at = NULL \
+                 WHERE task_id = ?1 AND archived_at IS NOT NULL",
+                params![task_id],
+            )
+            .unwrap_or(0);
+    }
+    affected
 }
 
 /// The one terminal status that is a lifecycle STEP and not a derivation: `finalize` writes it
@@ -79,7 +95,8 @@ fn parent_status(db: &FileKnowledgeDB, task_id: &str) -> Option<String> {
 /// foundation predicate (the private `TERMINAL` copy that touring-a4 flagged on 03/10/2026 is gone),
 /// so the derivation and this guard cannot disagree about what "closed" means.
 ///
-/// A plan the retention pass had already archived is live work again, so the stamp is lifted:
+/// A plan the retention pass had already archived is live work again, so the stamp is lifted — by
+/// the derivation itself (`refresh_parent_status`), which every reopening path goes through:
 /// otherwise the row reads `in_progress` and archived at once, and the pass (which requires
 /// `archived_at IS NULL`) never un-stamps it.
 ///
@@ -97,17 +114,7 @@ pub(crate) fn reopen_parent_if_closed(db: &FileKnowledgeDB, task_id: &str, now: 
     if !closed {
         return 0;
     }
-    let affected = refresh_parent_status(db, task_id, now);
-    if !parent_status(db, task_id).is_some_and(|s| is_terminal_task_status(&s)) {
-        db.conn_ref()
-            .execute(
-                "UPDATE task_decompositions SET archived_at = NULL \
-                 WHERE task_id = ?1 AND archived_at IS NOT NULL",
-                params![task_id],
-            )
-            .unwrap_or(0);
-    }
-    affected
+    refresh_parent_status(db, task_id, now)
 }
 
 /// S1.6: Take a checkpoint snapshot of the task state before finalizing.
@@ -389,17 +396,22 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
 /// the `add` fix, plans were left `done` over pending children, and a stamp on those is permanent —
 /// the only thing that lifts one is an `add` on that very task (`reopen_parent_if_closed`), and
 /// nobody adds to an abandoned plan (touring-a4, 03/10/2026). So the pass derives from the
-/// children instead of trusting the parent. "Open" is the complement of the SUBTASK terminal
-/// vocabulary: `failed`, `skipped` and `cancelled` are over. Both interpolated lists are
-/// compile-time constants.
+/// children instead of trusting the parent.
+///
+/// "Over" is the PLAN vocabulary (`completed`/`done`/`finalized`), the same one the derivation uses
+/// to close a plan — not the wider subtask vocabulary. A parent can be closed by a direct write (the
+/// RPC door, `status` without `subtask_id`) over a `failed` child; the derivation calls that plan
+/// unfinished, and the stamp is practically permanent, so the guard may not be looser than the
+/// derivation (touring-a4, 04/10/2026). The cost is that a plan closed by hand over a `failed`,
+/// `skipped` or `cancelled` child stays in the live views — visible, where a wrong stamp would hide
+/// it. The interpolated list is a compile-time constant.
 fn archivable_plans_where() -> String {
     format!(
         "status IN ({plan_terminal}) AND archived_at IS NULL AND updated_at < ?1 \
          AND NOT EXISTS (SELECT 1 FROM decomposition_subtasks s \
                          WHERE s.task_id = task_decompositions.task_id \
-                           AND s.status NOT IN ({subtask_terminal}))",
+                           AND s.status NOT IN ({plan_terminal}))",
         plan_terminal = touring_foundation::task_lifecycle::terminal_status_sql_list(),
-        subtask_terminal = terminal_subtask_status_sql_list(),
     )
 }
 
