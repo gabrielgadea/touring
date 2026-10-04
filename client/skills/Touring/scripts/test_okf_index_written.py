@@ -63,6 +63,23 @@ class IndexWrittenTest(unittest.TestCase):
         self.assertEqual(res, {"indexed": True})
         self.assertEqual(self._calls(log), [["index", "ingest", str(doc)]])
 
+    def test_a_relative_path_is_ingested_as_the_file_it_names(self):
+        """The ingest runs with cwd at the PROJECT ROOT, so a path relative to the caller's cwd named
+        another file there (blind review of the 04/10 fixes): it is resolved before it leaves."""
+        tmp, log, env = self._world(project=True)
+        sub = tmp / "docs" / "plans" / "b"
+        sub.mkdir(parents=True)
+        (sub / "log.md").write_text("# log\n", encoding="utf-8")
+        here = os.getcwd()
+        try:
+            os.chdir(sub)
+            with mock.patch.dict(os.environ, env, clear=True):
+                res = okf_emit.index_written("log.md")
+        finally:
+            os.chdir(here)
+        self.assertEqual(res, {"indexed": True})
+        self.assertEqual(self._calls(log), [["index", "ingest", str((sub / "log.md").resolve())]])
+
     def test_outside_a_touring_project_nothing_runs(self):
         tmp, log, env = self._world(project=False)
         doc = tmp / "d.md"

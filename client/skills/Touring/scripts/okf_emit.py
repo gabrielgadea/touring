@@ -202,6 +202,9 @@ def index_written(path) -> dict:
     `index` component of `touring e2e` fell from 0,852 to 0,847 (cross-audit 04/10/2026, X14). The ONE
     helper for every OKF writer; outside a Touring project there is no index to feed and nothing runs.
     """
+    # Resolved here, once: the ingest runs with cwd at the project root, where a path relative to the
+    # caller's cwd names another file.
+    path = Path(path).resolve()
     root = touring_project_of(path)
     if root is None:
         return {"indexed": False, "index_reason": "fora de projeto Touring"}
