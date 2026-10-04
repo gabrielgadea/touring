@@ -773,6 +773,45 @@ fn archive_leaves_a_plan_with_a_failed_child_alone() {
     assert!(archived_at_of(&rt, &task_id).is_none());
 }
 
+/// A plan the guard holds must be NAMED, not merely left out of `candidates`. A direct write
+/// (`update <task> --status done`, the parent-addressed branch of `cli_decompose_update`) closes a
+/// parent over open children without stamping it, and the guard then holds it until `finalize` — so
+/// a reply that only counts candidates makes those plans invisible to whoever runs `archive`
+/// (decision canvas 04/10/2026, item b-D). The window applies to held plans as it does to candidates.
+#[test]
+fn archive_names_the_plans_it_holds_and_what_holds_them() {
+    let (_tmp, mut rt) = setup_runtime();
+    let held = new_plan(&mut rt, "closed by hand over open work");
+    let good = add_step(&mut rt, &held, "good");
+    let bad = add_step(&mut rt, &held, "bad");
+    add_step(&mut rt, &held, "never started");
+    close_step(&mut rt, &held, &good);
+    fail_step(&mut rt, &held, &bad, None);
+    cli_decompose_update(&mut rt, &json!({"task_id": held, "status": "done"}));
+    assert_eq!(parent_status_of(&rt, &held), "done", "premise: a direct write closes the parent");
+
+    let recent = new_plan(&mut rt, "closed by hand today");
+    add_step(&mut rt, &recent, "open");
+    cli_decompose_update(&mut rt, &json!({"task_id": recent, "status": "done"}));
+    age_plan(&rt, &held, 8);
+
+    let week = 7 * 24 * 60 * 60;
+    for payload in [json!({"dry_run": true, "older_than_secs": week}), json!({"older_than_secs": week})] {
+        let raw = cli_decompose_archive(&mut rt, &payload);
+        let reply = parse_json(&raw);
+        assert_eq!(reply["candidates"], 0, "{reply}");
+        assert_eq!(reply["held"], 1, "only the plan past the window is held: {reply}");
+        let plans = reply["held_plans"].as_array().unwrap_or_else(|| panic!("held_plans must be a list: {reply}"));
+        assert_eq!(plans.len(), 1, "{reply}");
+        assert_eq!(plans[0]["task_id"], held.as_str(), "{reply}");
+        assert_eq!(plans[0]["open_statuses"], json!(["failed", "pending"]), "{reply}");
+        let remedy = reply["held_remedy"].as_str().unwrap_or_default();
+        assert!(remedy.contains("decompose finalize"), "the reply names the route that releases a held plan: {reply}");
+        assert!(!raw.contains("held_error"), "a failure key appears only on failure: {raw}");
+    }
+    assert!(archived_at_of(&rt, &held).is_none(), "naming a held plan never stamps it");
+}
+
 /// The parent is DERIVED from its children by the one `update` production runs. A second copy of
 /// this verb used to sit in `handlers/decompose.rs`, reached only from a test (touring-a4,
 /// 03/10/2026), and it carried two features the live copy had lost — the next tests.

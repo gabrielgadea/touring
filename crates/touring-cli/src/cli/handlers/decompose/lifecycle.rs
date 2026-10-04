@@ -320,7 +320,10 @@ pub fn cli_decompose_finalize(rt: &mut HookRuntime, payload: &serde_json::Value)
 ///
 /// Payload: `{older_than_secs?: u64, dry_run?: bool}`. `older_than_secs`
 /// defaults to 0, meaning every terminal task regardless of age; `dry_run`
-/// reports the count without writing.
+/// reports the count without writing. Every reply also carries `held` (closed
+/// plans past the cutoff that an open child keeps out of `candidates`),
+/// `held_plans` (the oldest 20, each with its `open_statuses`) and
+/// `held_remedy`; a failed lookup answers `held: null` plus `held_error`.
 pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let older_than_secs = payload
         .get("older_than_secs")
@@ -346,15 +349,20 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
             |r| r.get(0),
         )
         .unwrap_or(0);
+    // The plans the guard keeps out of `candidates`, by name. On a real run they are read AFTER the
+    // write: the held set is disjoint from what was just stamped, so "held after the write" is
+    // exactly "still held", and a child that closes mid-call cannot be both stamped and reported
+    // held (touring-a4, 04/10/2026).
 
     if dry_run {
-        return serde_json::json!({
+        let mut reply = serde_json::json!({
             "archived": 0,
             "candidates": candidates,
             "dry_run": true,
             "older_than_secs": older_than_secs,
-        })
-        .to_string();
+        });
+        attach_held(&mut reply, held_plans(db, &cutoff_str));
+        return reply.to_string();
     }
 
     let now = chrono::Utc::now().to_rfc3339();
@@ -371,22 +379,24 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
         Err(e) => {
             // Never answer "0 archived" for a write that did not run: that
             // reads as "nothing to do" and hides a broken retention pass.
-            return serde_json::json!({
+            let mut reply = serde_json::json!({
                 "error": format!("archive failed: {e}"),
                 "candidates": candidates,
                 "archived": 0,
-            })
-            .to_string();
+            });
+            attach_held(&mut reply, held_plans(db, &cutoff_str));
+            return reply.to_string();
         }
     };
 
-    serde_json::json!({
+    let mut reply = serde_json::json!({
         "archived": archived,
         "candidates": candidates,
         "dry_run": false,
         "older_than_secs": older_than_secs,
-    })
-    .to_string()
+    });
+    attach_held(&mut reply, held_plans(db, &cutoff_str));
+    reply.to_string()
 }
 
 /// A plan the retention pass may stamp: its own status is terminal, it carries no stamp yet, it was
@@ -404,15 +414,104 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
 /// unfinished, and the stamp is practically permanent, so the guard may not be looser than the
 /// derivation (touring-a4, 04/10/2026). The cost is that a plan closed by hand over a `failed`,
 /// `skipped` or `cancelled` child stays in the live views — visible, where a wrong stamp would hide
-/// it. The interpolated list is a compile-time constant.
+/// it — and `archive` names every such plan (`held`, `held_plans`) with the way out, so the guard is
+/// never silent. The interpolated list is a compile-time constant.
 fn archivable_plans_where() -> String {
+    format!("{} AND NOT {}", closed_unstamped_before_cutoff(), has_open_child())
+}
+
+/// The plans the guard HOLDS: everything [`archivable_plans_where`] would stamp but for an open
+/// child. Both predicates are built from the same two halves, so they cannot drift apart.
+fn held_plans_where() -> String {
+    format!("{} AND {}", closed_unstamped_before_cutoff(), has_open_child())
+}
+
+/// The half of the retention predicate that looks at the plan row alone: terminal status, no stamp
+/// yet, last touched before the cutoff (`?1`).
+fn closed_unstamped_before_cutoff() -> String {
     format!(
-        "status IN ({plan_terminal}) AND archived_at IS NULL AND updated_at < ?1 \
-         AND NOT EXISTS (SELECT 1 FROM decomposition_subtasks s \
-                         WHERE s.task_id = task_decompositions.task_id \
-                           AND s.status NOT IN ({plan_terminal}))",
-        plan_terminal = touring_foundation::task_lifecycle::terminal_status_sql_list(),
+        "status IN ({}) AND archived_at IS NULL AND updated_at < ?1",
+        touring_foundation::task_lifecycle::terminal_status_sql_list(),
     )
+}
+
+/// The half that looks at the children: a subtask of the outer `task_decompositions` row that the
+/// PLAN vocabulary does not call over. It names the outer table, so it is valid only in a query whose
+/// outer table is `task_decompositions` WITHOUT an alias (`FROM task_decompositions t` would fail with
+/// `no such column`); every caller today is such a query (touring-a4, 04/10/2026).
+fn has_open_child() -> String {
+    format!(
+        "EXISTS (SELECT 1 FROM decomposition_subtasks s \
+                 WHERE s.task_id = task_decompositions.task_id \
+                   AND s.status NOT IN ({}))",
+        touring_foundation::task_lifecycle::terminal_status_sql_list(),
+    )
+}
+
+/// How many held plans a reply lists by name; the count is always complete.
+const HELD_SAMPLE: i64 = 20;
+
+/// The route out of the guard, said where the guard is reported.
+const HELD_REMEDY: &str = "a held plan was closed over a child that is not completed/done; \
+                           `touring decompose finalize <task_id>` archives it whatever its children's status \
+                           (its review gate still applies), and closing every child as completed or done \
+                           lets the derivation close it — a failed, skipped or cancelled child keeps holding it";
+
+/// Held plans past the cutoff: the full count, and the oldest [`HELD_SAMPLE`] with the open statuses
+/// that hold each. The oldest first, because it is the one nobody is coming back to.
+fn held_plans(db: &FileKnowledgeDB, cutoff: &str) -> rusqlite::Result<(i64, Vec<serde_json::Value>)> {
+    let conn = db.conn_ref();
+    let where_clause = held_plans_where();
+    let count: i64 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM task_decompositions WHERE {where_clause}"),
+        params![cutoff],
+        |r| r.get(0),
+    )?;
+    let mut stmt = conn.prepare(&format!(
+        "SELECT task_id, \
+                (SELECT group_concat(DISTINCT s.status) FROM decomposition_subtasks s \
+                 WHERE s.task_id = task_decompositions.task_id AND s.status NOT IN ({})) \
+         FROM task_decompositions WHERE {where_clause} ORDER BY updated_at ASC LIMIT ?2",
+        touring_foundation::task_lifecycle::terminal_status_sql_list(),
+    ))?;
+    let rows = stmt.query_map(params![cutoff, HELD_SAMPLE], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?))
+    })?;
+    let mut plans = Vec::new();
+    for row in rows {
+        let (task_id, open) = row?;
+        plans.push(serde_json::json!({"task_id": task_id, "open_statuses": distinct_statuses(open)}));
+    }
+    Ok((count, plans))
+}
+
+/// A `group_concat` of statuses as a sorted list without repeats.
+fn distinct_statuses(concatenated: Option<String>) -> Vec<String> {
+    let mut statuses: Vec<String> = concatenated
+        .unwrap_or_default()
+        .split(',')
+        .filter(|s| !s.is_empty())
+        .map(str::to_owned)
+        .collect();
+    statuses.sort();
+    statuses.dedup();
+    statuses
+}
+
+/// Put the held report on an `archive` reply. A failed lookup says so under its own key and never
+/// reads as "nothing held" (the 19/09 lesson: a zero for a query that did not run hides the defect).
+fn attach_held(reply: &mut serde_json::Value, held: rusqlite::Result<(i64, Vec<serde_json::Value>)>) {
+    match held {
+        Ok((count, plans)) => {
+            reply["held"] = count.into();
+            reply["held_plans"] = plans.into();
+        }
+        Err(e) => {
+            reply["held"] = serde_json::Value::Null;
+            reply["held_error"] = format!("held-plan lookup failed: {e}").into();
+        }
+    }
+    reply["held_remedy"] = HELD_REMEDY.into();
 }
 
 /// Closed plans older than this are stamped by the automatic pass. A week keeps a plan that just
