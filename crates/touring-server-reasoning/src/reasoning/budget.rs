@@ -43,9 +43,10 @@ pub struct BudgetVector {
     pub subtasks: u32,
     /// Dependency edges contributed (`depends_on` fan-in).
     pub dependencies: u32,
-    /// Retry allowance (`retry_policy.max_attempts`).
+    /// Retry allowance: `retry_policy.max_attempts` minus the first run (`max_attempts` counts
+    /// executions).
     pub max_retries: u32,
-    /// Retry attempts already spent.
+    /// Retries already spent: the subtask's `attempts` (executions) minus the first run.
     pub attempts_used: u32,
 }
 
