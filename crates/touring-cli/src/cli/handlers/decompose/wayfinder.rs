@@ -25,6 +25,20 @@ fn ready_eligible(
     }
 }
 
+/// A subtask whose dependents may run: it is over and did not stop the plan. `done` and
+/// `complete` are aliases for `completed` (`loop_phase_close` marks subtasks `done`). `cancelled`
+/// is left out on purpose: a cancelled dependency was never delivered. Claim, frontier and ready
+/// all ask this, so it is written once (it was four copies of the same literal).
+fn releases_dependents(status: &str) -> bool {
+    matches!(status, "completed" | "done" | "complete" | "failed" | "skipped")
+}
+
+/// A subtask that has ENDED, whatever the outcome: [`releases_dependents`] plus every status in
+/// the canonical terminal list (`cancelled` included). Nothing finished is waiting, nor renewable.
+fn has_finished(status: &str) -> bool {
+    releases_dependents(status) || super::lifecycle::TERMINAL_SUBTASK_STATUSES.contains(&status)
+}
+
 /// The ONE queue order, shared by `claim` (what it would hand out next) and
 /// `ready` (what it lists first): priority ASC, then id ASC. Written twice it
 /// diverged — `claim` sorted by (priority, id) while `ready` listed INSERTION
@@ -109,12 +123,7 @@ pub fn cli_decompose_claim(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 
     let completed: std::collections::HashSet<String> = rows
         .iter()
-        .filter(|c| {
-            matches!(
-                c.status.as_str(),
-                "completed" | "done" | "complete" | "failed" | "skipped"
-            )
-        })
+        .filter(|c| releases_dependents(&c.status))
         .map(|c| short_subtask_id(&c.id))
         .collect();
 
@@ -491,7 +500,7 @@ pub fn cli_decompose_renew(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         ));
     };
     match (status.as_str(), claimed_by.as_deref(), claim_expires_at) {
-        ("completed" | "done" | "complete" | "failed" | "skipped", _, _) => {
+        (s, _, _) if has_finished(s) => {
             return refuse(format!(
                 "subtask '{subtask_id}' is already '{status}' — nothing to renew"
             ));
@@ -792,7 +801,9 @@ pub fn cli_decompose_frontier(rt: &mut HookRuntime, payload: &serde_json::Value)
         .unwrap_or_default()
     };
 
-    let is_done = |s: &str| matches!(s, "completed" | "done" | "complete" | "failed" | "skipped");
+    // The frontier's "open ticket" filters keep the release predicate on purpose: whether a
+    // cancelled decision still gates implementation is a question nobody has decided yet.
+    let is_done = releases_dependents;
     let completed: std::collections::HashSet<String> = rows
         .iter()
         .filter(|t| is_done(&t.status))
@@ -991,11 +1002,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // "done"/"complete" are accepted as aliases for "completed" (the loop-engineering
     // `loop_phase_close` marks subtasks "done").
     let short_id = |id: &str| id.rsplit("::").next().unwrap_or(id).to_string();
-    // A subtask that is OVER: its dependents may run, and it is neither ready nor blocked.
-    let settled = |status: &str| matches!(status, "completed" | "done" | "complete" | "failed" | "skipped");
+    // The subtasks whose dependents may run (`releases_dependents`).
     let completed: std::collections::HashSet<String> = subtasks
         .iter()
-        .filter(|s| settled(&s.status))
+        .filter(|s| releases_dependents(&s.status))
         .map(|s| short_id(&s.subtask_id))
         .collect();
 
@@ -1017,8 +1027,8 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         });
     // `blocked` was the whole complement of `ready`, so a FINISHED subtask was listed as blocked
     // (cross-audit 03/10/2026 finding I, seen live on a finalized plan on 04/10): only an open
-    // subtask that is not ready is waiting.
-    let blocked: Vec<SubtaskInfo> = blocked.into_iter().filter(|s| !settled(&s.status)).collect();
+    // subtask that is not ready is waiting, and `cancelled` is as finished as `completed`.
+    let blocked: Vec<SubtaskInfo> = blocked.into_iter().filter(|s| !has_finished(&s.status)).collect();
 
     // The SAME queue order the claim hands out (24/09/2026, analise-d4 via
     // touring-36): ready listed INSERTION order while claim sorted by

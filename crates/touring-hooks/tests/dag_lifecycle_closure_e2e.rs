@@ -21,7 +21,7 @@ use touring_hooks::cli_handlers::{
 use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers_decompose::{
     auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive, cli_decompose_ready,
-    cli_decompose_reconcile_stages, cli_workflow_compare, cli_workflow_resume, cli_workflow_slowest,
+    cli_decompose_reconcile_stages, cli_decompose_renew, cli_workflow_compare, cli_workflow_resume, cli_workflow_slowest,
     cli_workflow_stats, cli_workflow_status,
 };
 use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages, reply_failed};
@@ -1045,6 +1045,16 @@ fn ready_never_lists_a_finished_subtask_as_blocked() {
         assert_eq!(reply["persisted"], true, "{reply}");
     }
     close_step(&mut rt, &task_id, &done);
+    // `cancelled` is in the canonical terminal list and in none of the four hand-written copies the
+    // wayfinder had (blind review of the 04/10 fixes): with no dependency it is not ready, so the
+    // complement put it in `blocked`, where it would wait forever.
+    let cancelled = add_step(&mut rt, &task_id, "cancelled");
+    let moved = parse_json(&cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": cancelled, "status": "cancelled"}),
+    ));
+    assert_eq!(moved["subtask_updated"], true, "{moved}");
+    assert_eq!(status_of(&rt, &cancelled), "cancelled");
 
     let reply = parse_json(&cli_decompose_ready(&mut rt, &json!({"task_id": task_id})));
     let ids = |key: &str| -> Vec<String> {
@@ -1057,6 +1067,17 @@ fn ready_never_lists_a_finished_subtask_as_blocked() {
     };
     assert_eq!(ids("ready_subtasks"), [next.as_str()], "{reply}");
     assert_eq!(ids("blocked_subtasks"), [waiting.as_str()], "the finished one is neither ready nor blocked: {reply}");
+
+    // The same predicate answers `renew`: a cancelled subtask fell through to renewing a lease.
+    let renew = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &json!({"task_id": task_id, "subtask_id": cancelled, "owner": "me"}),
+    ));
+    assert_eq!(renew["renewed"], false, "{renew}");
+    assert!(
+        renew["reason"].as_str().is_some_and(|r| r.contains("already 'cancelled'")),
+        "the refusal names the status: {renew}"
+    );
 }
 
 /// The default is unchanged: no policy anywhere, no retry. Every subtask `add` creates is in this case.
