@@ -87,8 +87,21 @@ const DURATION_NOT_NULL: &str = " AND sr.duration_ms IS NOT NULL";
 const AVG_DURATION: &str = "AVG(sr.duration_ms)";
 /// Total subtask duration, in milliseconds.
 const SUM_DURATION: &str = "SUM(sr.duration_ms)";
-/// Fraction of subtask results that were cache hits.
-const CACHE_HIT_RATE: &str = "CAST(SUM(sr.cache_hit) AS REAL) / COUNT(*)";
+/// Completed attempts over finished attempts. One `subtask_results` row is one attempt (a retry opens
+/// a new row), and the `cache_hit` column is what the writer sets for an attempt that ended
+/// `completed` — the name is historical, nothing is cached. It used to be published as
+/// `cache_hit_rate` and divided by every row, open ones included (touring-a4, 04/10/2026).
+const ATTEMPT_COMPLETION_RATE: &str = "CAST(SUM(sr.cache_hit) AS REAL) / COUNT(*)";
+/// Only attempts that ended: an open row has no outcome yet, so a task whose every row is open
+/// aggregates to NULL (`None`) instead of 0.
+const FINISHED_ONLY: &str = " AND sr.completed_at IS NOT NULL";
+
+/// What a `subtask_results` row says about its attempt: `completed`, `failed`, or nothing yet. Only
+/// `completed` and `failed` close a row (`record_subtask_transition`), so a closed row whose
+/// `cache_hit` is 0 is a failure.
+fn attempt_outcome(completed_at: Option<&str>, cache_hit: Option<i32>) -> Option<&'static str> {
+    completed_at.map(|_| if cache_hit == Some(1) { "completed" } else { "failed" })
+}
 
 /// Normalise a stored subtask id to the scoped `task_id::subtask_id` form that
 /// `cli_decompose_add` writes, leaving an already-scoped id untouched.
@@ -115,7 +128,8 @@ pub fn cli_workflow_stats(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     let avg_duration_ms: Option<f64> =
         results_aggregate(db, task_id, AVG_DURATION, DURATION_NOT_NULL);
 
-    let cache_hit_rate: Option<f64> = results_aggregate(db, task_id, CACHE_HIT_RATE, "");
+    let attempt_completion_rate: Option<f64> =
+        results_aggregate(db, task_id, ATTEMPT_COMPLETION_RATE, FINISHED_ONLY);
 
     serde_json::json!({
         "task_id": task_id,
@@ -124,7 +138,7 @@ pub fn cli_workflow_stats(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
         "failed": failed,
         "pending": total_subtasks - completed - failed,
         "avg_duration_ms": avg_duration_ms,
-        "cache_hit_rate": cache_hit_rate
+        "attempt_completion_rate": attempt_completion_rate
     })
     .to_string()
 }
@@ -151,11 +165,15 @@ pub fn cli_workflow_slowest(rt: &mut HookRuntime, payload: &serde_json::Value) -
 
     let rows: Vec<serde_json::Value> = stmt
         .query_map(params![task_id, top_n as i64], |r| {
+            let completed_at = r.get::<_, Option<String>>(3)?;
+            // Read from `completed_at`, never inferred from the duration: a nullable column that only
+            // the closer writes today is what `cache_hit` was (touring-a4, 04/10/2026).
+            let outcome = attempt_outcome(completed_at.as_deref(), r.get::<_, Option<i32>>(2)?);
             Ok(serde_json::json!({
                 "subtask_id": r.get::<_, String>(0)?,
                 "duration_ms": r.get::<_, Option<i64>>(1)?,
-                "cache_hit": r.get::<_, Option<i32>>(2)? == Some(1),
-                "completed_at": r.get::<_, Option<String>>(3)?,
+                "attempt_outcome": outcome,
+                "completed_at": completed_at,
                 "description": r.get::<_, String>(4)?
             }))
         })
@@ -187,13 +205,14 @@ pub fn cli_workflow_compare(rt: &mut HookRuntime, payload: &serde_json::Value) -
         let total = subtask_count(db, task_id, None);
         let completed = subtask_count(db, task_id, Some("completed"));
         let avg_ms: Option<f64> = results_aggregate(db, task_id, AVG_DURATION, DURATION_NOT_NULL);
-        let cache_rate: Option<f64> = results_aggregate(db, task_id, CACHE_HIT_RATE, "");
+        let attempt_rate: Option<f64> =
+            results_aggregate(db, task_id, ATTEMPT_COMPLETION_RATE, FINISHED_ONLY);
         serde_json::json!({
             "task_id": task_id,
             "total": total,
             "completed": completed,
             "avg_duration_ms": avg_ms,
-            "cache_hit_rate": cache_rate
+            "attempt_completion_rate": attempt_rate
         })
     }
 
@@ -344,7 +363,7 @@ pub fn cli_workflow_resume(rt: &mut HookRuntime, payload: &serde_json::Value) ->
                 "started_at": started_at,
                 "completed_at": completed_at,
                 "duration_ms": duration_ms,
-                "cache_hit": cache_hit.map(|c| c != 0),
+                "attempt_outcome": attempt_outcome(completed_at.as_deref(), cache_hit),
                 "error": error
             }))
         })
@@ -438,7 +457,8 @@ pub fn cli_workflow_status(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     let avg_duration_ms: Option<f64> =
         results_aggregate(db, task_id, AVG_DURATION, DURATION_NOT_NULL);
 
-    let cache_hit_rate: Option<f64> = results_aggregate(db, task_id, CACHE_HIT_RATE, "");
+    let attempt_completion_rate: Option<f64> =
+        results_aggregate(db, task_id, ATTEMPT_COMPLETION_RATE, FINISHED_ONLY);
 
     // Per-subtask status list (lightweight — no subtask_results JOIN)
     let subtask_statuses: Vec<serde_json::Value> = {
@@ -487,7 +507,7 @@ pub fn cli_workflow_status(rt: &mut HookRuntime, payload: &serde_json::Value) ->
             "completion_pct": completion_pct,
             "total_duration_ms": total_duration_ms,
             "avg_duration_ms": avg_duration_ms,
-            "cache_hit_rate": cache_hit_rate
+            "attempt_completion_rate": attempt_completion_rate
         },
         "subtasks": subtask_statuses
     })

@@ -21,7 +21,8 @@ use touring_hooks::cli_handlers::{
 use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers_decompose::{
     auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive,
-    cli_decompose_reconcile_stages, cli_workflow_stats,
+    cli_decompose_reconcile_stages, cli_workflow_compare, cli_workflow_resume, cli_workflow_slowest,
+    cli_workflow_stats, cli_workflow_status,
 };
 use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages, reply_failed};
 use touring_hooks::runtime::HookRuntime;
@@ -885,6 +886,73 @@ fn a_subtask_that_runs_leaves_the_timing_the_workflow_reader_averages() {
         .as_f64()
         .unwrap_or_else(|| panic!("the reader must see a duration, not null: {stats}"));
     assert!(average >= 15.0, "the measured run lasted at least the sleep: {average}");
+}
+
+/// `cache_hit_rate` named a cache that does not exist: the writer set the column to "this attempt
+/// ended `completed`", and the aggregate divided by EVERY row, open ones included, so the number fell
+/// as work started (touring-a4, 04/10/2026). One `subtask_results` row is one attempt — a retry opens
+/// a new row — so the honest number is completed attempts over FINISHED attempts. Here a failure, a
+/// completed retry and an attempt still running: one of two finished, not one of three.
+#[test]
+fn workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "attempts");
+    let flaky = add_step(&mut rt, &task_id, "flaky");
+    let running = add_step(&mut rt, &task_id, "running");
+    let start = |rt: &mut HookRuntime, step: &str| {
+        let reply = parse_json(&cli_decompose_update(
+            rt,
+            &json!({"task_id": task_id, "subtask_id": step, "status": "in_progress"}),
+        ));
+        assert_eq!(reply["subtask_updated"], true, "{reply}");
+    };
+    start(&mut rt, &flaky);
+    // One attempt in flight and none finished: no outcome yet, so no rate — `null`, never 0
+    // (the old aggregate answered 0/1 here and read as "every attempt failed").
+    let in_flight = cli_workflow_stats(&mut rt, &json!({"task_id": task_id}));
+    assert!(parse_json(&in_flight)["attempt_completion_rate"].is_null(), "{in_flight}");
+    let failed = fail_step(&mut rt, &task_id, &flaky, Some(json!({"max_attempts": 2})));
+    assert_eq!(failed["retry_scheduled"], true, "premise: the failure is retried: {failed}");
+    start(&mut rt, &flaky);
+    close_step(&mut rt, &task_id, &flaky);
+    start(&mut rt, &running);
+
+    let rows: i64 = scalar(
+        &rt,
+        "SELECT COUNT(*) FROM subtask_results sr JOIN decomposition_subtasks st ON st.subtask_id = sr.subtask_id WHERE st.task_id = ?1",
+        &task_id,
+    );
+    assert_eq!(rows, 3, "premise: two attempts of `flaky` and one open attempt of `running`");
+
+    let stats_raw = cli_workflow_stats(&mut rt, &json!({"task_id": task_id}));
+    let status_raw = cli_workflow_status(&mut rt, &json!({"task_id": task_id}));
+    let compare_raw = cli_workflow_compare(&mut rt, &json!({"task_id_a": task_id, "task_id_b": task_id}));
+    assert_eq!(parse_json(&stats_raw)["attempt_completion_rate"], 0.5, "{stats_raw}");
+    assert_eq!(parse_json(&status_raw)["summary"]["attempt_completion_rate"], 0.5, "{status_raw}");
+    assert_eq!(parse_json(&compare_raw)["task_a"]["attempt_completion_rate"], 0.5, "{compare_raw}");
+
+    let resume_raw = cli_workflow_resume(&mut rt, &json!({"task_id": task_id}));
+    let slowest_raw = cli_workflow_slowest(&mut rt, &json!({"task_id": task_id}));
+    let outcomes: Vec<serde_json::Value> = parse_json(&resume_raw)["subtasks"]
+        .as_array()
+        .unwrap_or_else(|| panic!("resume lists the attempts: {resume_raw}"))
+        .iter()
+        .map(|row| row["attempt_outcome"].clone())
+        .collect();
+    for expected in [json!("failed"), json!("completed"), serde_json::Value::Null] {
+        assert!(outcomes.contains(&expected), "resume names each attempt's outcome, {expected} among them: {resume_raw}");
+    }
+    let mut slowest: Vec<String> = parse_json(&slowest_raw)["slowest"]
+        .as_array()
+        .unwrap_or_else(|| panic!("slowest lists the finished attempts: {slowest_raw}"))
+        .iter()
+        .map(|row| row["attempt_outcome"].as_str().unwrap_or("<missing>").to_owned())
+        .collect();
+    slowest.sort();
+    assert_eq!(slowest, ["completed", "failed"], "only finished attempts have a duration: {slowest_raw}");
+    for raw in [&stats_raw, &status_raw, &compare_raw, &resume_raw, &slowest_raw] {
+        assert!(!raw.contains("cache_hit"), "no reply names a cache that does not exist: {raw}");
+    }
 }
 
 fn fail_step(rt: &mut HookRuntime, task_id: &str, step: &str, policy: Option<serde_json::Value>) -> serde_json::Value {

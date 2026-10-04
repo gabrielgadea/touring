@@ -456,7 +456,10 @@ fn record_subtask_completed(
             .map(|started| (now - started.with_timezone(&chrono::Utc)).num_milliseconds())
     });
 
-    let cache_hit = status == "completed"; // Simple heuristic: completed means cache was hit if result was fast
+    // The `cache_hit` column records whether this attempt ended `completed`; the name is historical,
+    // nothing is cached. Only `completed` and `failed` reach this writer, so a closed row with 0 is a
+    // failure — the workflow readers depend on that (`attempt_outcome`, `ATTEMPT_COMPLETION_RATE`).
+    let cache_hit = status == "completed";
     let _ = db.conn_ref().execute(
         "UPDATE subtask_results SET completed_at = ?1, duration_ms = ?2, cache_hit = ?3, output_json = ?4, error = ?5 WHERE subtask_id = ?6 AND completed_at IS NULL",
         params![now_str, duration_ms, cache_hit as i32, output_json, error, subtask_id],
