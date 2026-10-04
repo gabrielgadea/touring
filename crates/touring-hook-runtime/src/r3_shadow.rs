@@ -141,10 +141,18 @@ thread_local! {
 /// without setting `TOURING_R3_EVENTS_FILE` (which would race parallel tests).
 #[doc(hidden)]
 pub fn with_events_path<R>(path: &Path, f: impl FnOnce() -> R) -> R {
-    THREAD_EVENTS_PATH.with(|tl| *tl.borrow_mut() = Some(path.to_path_buf()));
-    let result = f();
-    THREAD_EVENTS_PATH.with(|tl| *tl.borrow_mut() = None);
-    result
+    /// Puts the PREVIOUS redirect back on every exit, a panic in `f` included. The doc used to
+    /// promise this ("restore the previous setting", "RAII scope") while the body cleared to
+    /// `None`, so nesting erased the outer redirect (cross-audit 03/10/2026, finding E).
+    struct Restore(Option<PathBuf>);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            THREAD_EVENTS_PATH.with(|tl| *tl.borrow_mut() = self.0.take());
+        }
+    }
+    let previous = THREAD_EVENTS_PATH.with(|tl| tl.borrow_mut().replace(path.to_path_buf()));
+    let _restore = Restore(previous);
+    f()
 }
 
 /// First [`MAX_TEXT_CHARS`] characters (never splits a code point).
@@ -358,6 +366,49 @@ mod tests {
         assert_eq!(
             toml_declares_r3("[shadow]\nother = 1\n[x]\nr3 = true\n"),
             None
+        );
+    }
+
+    fn current_redirect() -> Option<PathBuf> {
+        THREAD_EVENTS_PATH.with(|tl| tl.borrow().clone())
+    }
+
+    /// The doc promises "restore the previous setting" and an RAII scope (cross-audit 03/10/2026,
+    /// finding E). Nesting must put the OUTER redirect back, not clear it.
+    #[test]
+    fn with_events_path_restores_the_previous_redirect_when_nested() {
+        let outer = Path::new("/r3/outer.jsonl");
+        let inner = Path::new("/r3/inner.jsonl");
+        assert_eq!(current_redirect(), None);
+        with_events_path(outer, || {
+            with_events_path(inner, || {
+                assert_eq!(current_redirect().as_deref(), Some(inner));
+            });
+            assert_eq!(
+                current_redirect().as_deref(),
+                Some(outer),
+                "leaving the inner scope must put the outer redirect back, not clear it"
+            );
+        });
+        assert_eq!(
+            current_redirect(),
+            None,
+            "leaving the outermost scope clears the redirect"
+        );
+    }
+
+    /// A panic inside the closure must not leave the redirect set on the thread.
+    #[test]
+    fn with_events_path_restores_the_redirect_when_the_closure_panics() {
+        let path = Path::new("/r3/panics.jsonl");
+        let caught = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            with_events_path(path, || panic!("r3 probe: the closure panics on purpose"));
+        }));
+        assert!(caught.is_err(), "the closure's panic must still propagate");
+        assert_eq!(
+            current_redirect(),
+            None,
+            "a panic must not leave the redirect set"
         );
     }
 

@@ -20,6 +20,7 @@ use touring_hooks::cli_handlers::{
 };
 use touring_hooks::cli_handlers_decompose::{
     cli_decompose_archive, cli_decompose_reconcile_stages,
+    cli_decompose_update as handlers_decompose_update,
 };
 use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages};
 use touring_hooks::runtime::HookRuntime;
@@ -297,6 +298,288 @@ fn archive_leaves_unfinished_work_alone() {
 
     assert_eq!(done["archived"], 0, "a `created` task is not terminal");
     assert!(archived_at_of(&rt, &task_id).is_none());
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// P3 — `add` re-derives the parent (cross-audit 03/10/2026, finding H)
+// ───────────────────────────────────────────────────────────────────────
+//
+// The parent's status is DERIVED from its children (`refresh_parent_status`) and is
+// recomputed only when a caller addresses a SUBTASK. `add` is the other verb that
+// can invalidate it, and it never recomputed: closing 4 subtasks and then adding 7
+// left the plan `done` with 7 pending children (observed 03/10/2026). Only a CLOSED
+// parent can go stale that way — a pending child changes nothing for a `pending` or
+// `in_progress` plan — so the fix is deliberately narrow.
+
+/// The PARENT row's status, straight from the store — the fact, not the report.
+fn parent_status_of(rt: &HookRuntime, task_id: &str) -> String {
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .query_row(
+            "SELECT status FROM task_decompositions WHERE task_id = ?1",
+            [task_id],
+            |row| row.get::<_, String>(0),
+        )
+        .expect("task row must exist")
+}
+
+fn new_plan(rt: &mut HookRuntime, description: &str) -> String {
+    let created = parse_json(&cli_decompose_create(
+        rt,
+        &json!({"task_type": "plan", "description": description, "origin": "touring-cli"}),
+    ));
+    created["task_id"].as_str().expect("task_id").to_string()
+}
+
+/// Add one subtask and return its scoped id.
+fn add_step(rt: &mut HookRuntime, task_id: &str, name: &str) -> String {
+    let scoped = format!("{task_id}::{name}");
+    let reply = parse_json(&cli_decompose_add(
+        rt,
+        &json!({"task_id": task_id, "subtask_id": scoped, "description": name}),
+    ));
+    assert_eq!(reply["persisted"], true, "the add must land: {reply}");
+    scoped
+}
+
+/// Both `cli_decompose_update` implementations share this shape.
+type UpdateDoor = fn(&mut HookRuntime, &serde_json::Value) -> String;
+
+fn close_step_through(door: UpdateDoor, rt: &mut HookRuntime, task_id: &str, scoped: &str) {
+    let reply = parse_json(&door(
+        rt,
+        &json!({"task_id": task_id, "subtask_id": scoped, "status": "completed"}),
+    ));
+    assert_eq!(reply["subtask_updated"], true, "the close must land: {reply}");
+}
+
+/// The observed defect: close every subtask (the plan derives `done`), then add one.
+#[test]
+fn add_to_a_done_plan_reopens_it() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "closed, then it grows");
+    let first = add_step(&mut rt, &task_id, "first");
+    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "done",
+        "premise: the last open subtask closed, so the plan derives done"
+    );
+
+    add_step(&mut rt, &task_id, "late");
+
+    assert_eq!(
+        open_stage_count(&rt, &task_id),
+        1,
+        "premise: the new subtask is open"
+    );
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "in_progress",
+        "a plan with an open subtask is not done — `done` over pending work is the defect"
+    );
+}
+
+/// `INSERT OR REPLACE` puts a re-added subtask back to `pending`, over a closed one too.
+#[test]
+fn re_adding_a_closed_subtask_reopens_the_plan() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "same step again");
+    let first = add_step(&mut rt, &task_id, "first");
+    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    assert_eq!(parent_status_of(&rt, &task_id), "done", "premise");
+
+    add_step(&mut rt, &task_id, "first");
+
+    assert_eq!(
+        status_of(&rt, &first),
+        "pending",
+        "premise: INSERT OR REPLACE resets the row"
+    );
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "pending",
+        "the only subtask is pending again, so the plan cannot stay done"
+    );
+}
+
+/// Narrow on purpose: a status the caller set on an OPEN plan is theirs. Deriving over it
+/// would read `pending` from all-pending children and rewrite what the caller chose.
+#[test]
+fn add_leaves_the_status_a_caller_set_on_an_open_plan_alone() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "caller-owned status");
+    cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "in_progress"}));
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "in_progress",
+        "premise: a parent-level update sets the status directly"
+    );
+
+    add_step(&mut rt, &task_id, "only");
+
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "in_progress",
+        "add must not derive over an open plan"
+    );
+}
+
+/// `finalized` is a lifecycle step (it stamps the archive), not a derivation: add does not undo it.
+#[test]
+fn add_does_not_reopen_a_finalized_plan() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "finalized, then touched");
+    add_step(&mut rt, &task_id, "only");
+    let finalized = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    assert_eq!(finalized["status"], "finalized", "premise: {finalized}");
+
+    add_step(&mut rt, &task_id, "after");
+
+    assert_eq!(parent_status_of(&rt, &task_id), "finalized");
+}
+
+/// The parent can also be CLOSED with the other spelling: the RPC door takes `{"status":
+/// "completed"}` without a `subtask_id` and writes it straight onto the parent row. A guard that
+/// listed only `done` would leave this spelling of the same defect alive (touring-a4, 03/10/2026).
+#[test]
+fn add_to_a_plan_closed_as_completed_reopens_it_too() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "closed with the other spelling");
+    let first = add_step(&mut rt, &task_id, "first");
+    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "completed"}));
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "completed",
+        "premise: a parent-level update writes the spelling it was given"
+    );
+
+    add_step(&mut rt, &task_id, "late");
+
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "in_progress",
+        "`completed` over a pending subtask is the same defect as `done` over one"
+    );
+}
+
+/// The retention pass stamps `archived_at` on a closed plan. Reopening it by `add` must lift the
+/// stamp: a plan that is `in_progress` and archived at once is live work hidden from every query
+/// that filters on the archive, and the pass never un-stamps (it requires `archived_at IS NULL`).
+/// Without this, the fix would CREATE that state (touring-a4, 03/10/2026; same shape as 30.4.63).
+#[test]
+fn reopening_a_plan_the_retention_pass_archived_lifts_the_stamp() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = new_plan(&mut rt, "archived, then it grows");
+    let first = add_step(&mut rt, &task_id, "first");
+    close_step_through(cli_decompose_update, &mut rt, &task_id, &first);
+    let swept = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
+    assert_eq!(swept["archived"], 1, "premise: the retention pass archives it: {swept}");
+    assert!(archived_at_of(&rt, &task_id).is_some(), "premise: stamped");
+
+    add_step(&mut rt, &task_id, "late");
+
+    assert_eq!(parent_status_of(&rt, &task_id), "in_progress");
+    assert!(
+        archived_at_of(&rt, &task_id).is_none(),
+        "a reopened plan is live work: it cannot stay archived"
+    );
+}
+
+/// `add` finds the task by `locate_task_store` (the project store first, then the GLOBAL
+/// `$HOME/.claude/touring/knowledge.db`) and the INSERT goes to THAT store, so the parent must be
+/// re-derived in the same one. A fix that read `rt.ctx.knowledge` instead would pass every test
+/// above (their tasks are born in the project store) and break here (touring-a4, 03/10/2026).
+/// `HOME` is read at call time, so the case re-runs itself in a child process with a private HOME
+/// rather than calling `set_var` in a binary whose tests run in parallel.
+#[test]
+fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
+    const CHILD: &str = "XA14_GLOBAL_STORE_CHILD";
+    const SELF_NAME: &str = "add_reopens_a_done_plan_that_lives_in_the_global_store";
+    if std::env::var_os(CHILD).is_none() {
+        let home = TempDir::new().expect("private HOME");
+        let out = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args(["--exact", SELF_NAME, "--nocapture", "--test-threads=1"])
+            .env("HOME", home.path())
+            .env(CHILD, "1")
+            .output()
+            .expect("child test process");
+        assert!(
+            out.status.success(),
+            "child failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        // `--exact` with a name that matches nothing runs ZERO tests and libtest still exits 0:
+        // a rename of this fn would leave the whole case green and unproven (touring-a4).
+        let log = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            log.contains("1 passed"),
+            "the child must have RUN the case, not zero tests:\n{log}"
+        );
+        return;
+    }
+
+    // Child: HOME is private. A runtime rooted AT home keeps its store at the global path.
+    let home = std::path::PathBuf::from(std::env::var("HOME").expect("HOME"));
+    std::fs::create_dir_all(home.join(".claude/data")).expect("data dir");
+    let mut global_rt = HookRuntime::new(&home).expect("global-side runtime");
+    let task_id = new_plan(&mut global_rt, "lives in the global store");
+    let first = add_step(&mut global_rt, &task_id, "first");
+    close_step_through(cli_decompose_update, &mut global_rt, &task_id, &first);
+    assert_eq!(parent_status_of(&global_rt, &task_id), "done", "premise");
+
+    // Another project's runtime: the task is NOT in its store, so add must route to the global one.
+    let (_tmp, mut project_rt) = setup_runtime();
+    let reply = parse_json(&cli_decompose_add(
+        &mut project_rt,
+        &json!({"task_id": task_id, "subtask_id": format!("{task_id}::late"), "description": "late"}),
+    ));
+    assert_eq!(
+        reply["persisted"], true,
+        "premise: add must reach the global store: {reply}"
+    );
+
+    assert_eq!(
+        parent_status_of(&global_rt, &task_id),
+        "in_progress",
+        "the parent must be re-derived in the store the INSERT went to"
+    );
+}
+
+/// Two implementations of `update` exist (`cli/decompose.rs` and `handlers/decompose.rs`) and both
+/// derive the parent. Only the first is live: every production caller goes through
+/// `crate::cli_handlers::` and the second is reached only from tests (touring-a4, 03/10/2026).
+/// The test still pins both so a clean-up that removes the duplicate drops it from this list; a
+/// verb that forgets to derive is how `add` went stale.
+#[test]
+fn both_update_doors_derive_the_parent_from_its_children() {
+    let doors: [(&str, UpdateDoor); 2] = [
+        ("cli", cli_decompose_update),
+        ("handlers", handlers_decompose_update),
+    ];
+    for (name, door) in doors {
+        let (_tmp, mut rt) = setup_runtime();
+        let task_id = new_plan(&mut rt, name);
+        let a = add_step(&mut rt, &task_id, "a");
+        let b = add_step(&mut rt, &task_id, "b");
+
+        close_step_through(door, &mut rt, &task_id, &a);
+        assert_eq!(
+            parent_status_of(&rt, &task_id),
+            "in_progress",
+            "{name}: one of two closed"
+        );
+
+        close_step_through(door, &mut rt, &task_id, &b);
+        assert_eq!(
+            parent_status_of(&rt, &task_id),
+            "done",
+            "{name}: every subtask closed"
+        );
+    }
 }
 
 // ───────────────────────────────────────────────────────────────────────
