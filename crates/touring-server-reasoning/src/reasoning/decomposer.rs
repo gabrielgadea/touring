@@ -60,7 +60,10 @@ pub enum ReasoningError {
 /// Retry policy for a subtask execution.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RetryPolicy {
-    /// Maximum retry attempts after failure.
+    /// Maximum number of EXECUTIONS, the first run included: `2` is one run and one retry, and
+    /// `0` or `1` never retries. The same meaning as the decompose CLI's `evaluate_retry_policy`,
+    /// which reads this struct from the persisted `retry_policy` column, and as the subtask's
+    /// `attempts`, which `mark_in_progress` bumps once per run.
     pub max_attempts: u8,
     /// Base delay between retries (exponential backoff applied).
     pub base_delay_ms: u64,
@@ -71,7 +74,9 @@ pub struct RetryPolicy {
 impl Default for RetryPolicy {
     fn default() -> Self {
         Self {
-            max_attempts: 1,
+            // One run and one retry. This was `1` when the field meant retries; the intent (one
+            // retry) is kept, the number follows the unit.
+            max_attempts: 2,
             base_delay_ms: 100,
             timeout_ms: Some(300_000), // 5 min default
         }
@@ -985,8 +990,10 @@ impl Task {
                     wall_ms: wall_ms_u64.min(U32_MAX) as u32,
                     subtasks: 1,
                     dependencies: st.depends_on.len().min(U32_MAX as usize) as u32,
-                    max_retries: u32::from(st.retry_policy.max_attempts),
-                    attempts_used: u32::from(st.attempts),
+                    // `max_attempts` and `attempts` both count executions; the budget's two
+                    // retry dimensions count retries, so the first run is subtracted from each.
+                    max_retries: u32::from(st.retry_policy.max_attempts.saturating_sub(1)),
+                    attempts_used: st.attempts.saturating_sub(1).into(),
                 }
             })
             .collect()
