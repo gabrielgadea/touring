@@ -626,6 +626,12 @@ pub fn is_heavy_hook(hook_name: &str) -> bool {
             // budget_exceeded, still_running). `--purge-phantom` runs the same
             // definers pass over every unknown row.
             | "cli-repair-wiring"
+            // Both walk the whole workspace and write one `file_knowledge` row per file. On
+            // 04/10/2026 the touring workspace lacked 1.449 rows, the backfill passed the light
+            // budget twice, and the client reported `budget_exceeded` while the actor kept writing
+            // (5.662 → 7.009 rows in a minute).
+            | "cli-metadata-backfill"
+            | "cli-file-knowledge-populate"
     )
 }
 

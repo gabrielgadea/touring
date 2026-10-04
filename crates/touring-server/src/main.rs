@@ -302,6 +302,12 @@ async fn async_main() -> anyhow::Result<()> {
 
     let table = cli::command_table::command_table();
     if let Some(cmd) = table.iter().find(|c| c.name == subcommand) {
+        // A hand-parsed handler would take `--help` as one more argument and RUN (04/10/2026:
+        // `metadata-backfill --help` started a workspace backfill); answer from the descriptor.
+        if let Some(help) = cli::common::hand_parsed_help(cmd, &args) {
+            println!("{help}");
+            return Ok(());
+        }
         // A1: heavy-output command families (`wiring`/`viz`/`graph`, whose
         // snapshots reach MBs) default to `--brief` so the LLM context stays
         // lean; `--full` restores the complete output. Small outputs are

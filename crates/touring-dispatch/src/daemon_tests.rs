@@ -341,6 +341,21 @@ fn mutation_test_is_classified_heavy() {
     );
 }
 
+/// `metadata-backfill` and `file-knowledge populate` walk the whole workspace and write one
+/// `file_knowledge` row per file. On 04/10/2026 the touring workspace had 1.449 files with symbols
+/// and no row, the backfill ran past the light 15 s budget twice, and the client reported
+/// `budget_exceeded` while the actor kept writing (5.662 → 7.009 rows in a minute) — the cross-audit
+/// found the gap because a calibration test had been skipping on it in silence.
+#[test]
+fn workspace_backfills_are_classified_heavy() {
+    for hook in ["cli-metadata-backfill", "cli-file-knowledge-populate"] {
+        assert!(
+            is_heavy_hook(hook),
+            "{hook} walks the whole workspace: under the light budget the client gives up while the actor keeps working"
+        );
+    }
+}
+
 /// The three tests above prove the HELPER carries a reason. None of them proved
 /// that the failure BRANCHES call it — and on 09/08/2026 only the saturation
 /// branch was converted, while four others kept returning the empty payload.
