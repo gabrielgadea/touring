@@ -765,6 +765,13 @@ pub fn record_module_path_consumers(
         let Some(module) = path.rsplit("::").next() else {
             continue;
         };
+        // A path that ENDS in a scope keyword (`use super::*;`, the `super::super` prefix of
+        // `super::super::a::f()`) names no module by its last word: `super` is a position, not an
+        // item anyone declares, so the edge would land on a symbol with no producer (doctor
+        // `kind_unknown`, 04/10/2026). The rule `record_import_consumers` applies to `use` imports.
+        if matches!(module, "super" | "self" | "crate" | "Self") {
+            continue;
+        }
         // The DECLARATION comes first, because it is the fact: walking forward
         // from the crate root finds each segment as a `mod` item of the file
         // reached so far. Only then the layout resolver, which probes the
