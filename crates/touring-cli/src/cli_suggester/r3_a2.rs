@@ -123,6 +123,9 @@ impl Registry {
             let Some(pending) = map.get_mut(key) else {
                 return;
             };
+            // The cap (S6) is held three times on purpose: cut here on arrival, cut again by
+            // `a2_offer_closed_event`, and refused by `emit_r3_event_at` if a line still breaks it.
+            // For a head cut here the later two are no-ops, so they do not mean the input can be longer.
             pending.cmd_heads.push(truncate_text(cmd));
             let closed_by = if verdict.is_some() {
                 Some(ClosedBy::Consumed)

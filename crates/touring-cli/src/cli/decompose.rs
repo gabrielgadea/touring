@@ -315,6 +315,11 @@ pub fn cli_decompose_add(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         );
     if let Err(e) = &result {
         tracing::debug!("decompose add INSERT failed: {}", e);
+    } else {
+        // The parent's status is DERIVED from its children, and `add` is a verb that can
+        // invalidate it: a plan closed as done/completed that just received a pending subtask is
+        // open again (cross-audit 03/10/2026, finding H). `db` is the store the INSERT went to.
+        crate::cli_handlers_decompose::reopen_parent_if_closed(db, task_id, &now);
     }
     crate::cli_handlers_decompose::log_event(
         db,

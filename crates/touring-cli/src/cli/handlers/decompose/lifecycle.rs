@@ -48,6 +48,63 @@ pub(crate) fn refresh_parent_status(db: &FileKnowledgeDB, task_id: &str, now: &s
         .unwrap_or(0)
 }
 
+/// The one terminal status that is a lifecycle STEP and not a derivation: `finalize` writes it
+/// and stamps the archive in the same statement.
+const FINALIZED: &str = "finalized";
+
+fn parent_status(db: &FileKnowledgeDB, task_id: &str) -> Option<String> {
+    db.conn_ref()
+        .query_row(
+            "SELECT status FROM task_decompositions WHERE task_id = ?1",
+            params![task_id],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+}
+
+/// A subtask was just added to this plan. If the plan was CLOSED, it is open again.
+///
+/// `refresh_parent_status` runs only when a caller addresses a SUBTASK, and `add` is the other verb
+/// that can invalidate the derivation: closing 4 subtasks and then adding 7 left the plan `done`
+/// with 7 pending children (observed 03/10/2026, cross-audit finding H).
+///
+/// Deliberately narrow. Only a closed parent can go stale when a pending child arrives — for a
+/// `pending` or `in_progress` plan the derivation does not change — so everything else stays as
+/// the caller set it: an explicit status on an open plan, and `finalized`. "Closed" is the
+/// foundation's terminal vocabulary minus that stamp, so a terminal status added there joins
+/// without a third hand-written list.
+///
+/// A plan the retention pass had already archived is live work again, so the stamp is lifted:
+/// otherwise the row reads `in_progress` and archived at once, and the pass (which requires
+/// `archived_at IS NULL`) never un-stamps it.
+///
+/// `db` MUST be the store the subtask was INSERTed into. `locate_task_store` can route a task to
+/// the global store, and the connection behind `rt.ctx.knowledge` points at another file there.
+///
+/// Callers: `cli_decompose_add`, the only production writer of a subtask into an EXISTING plan
+/// (the task-created bridge and the RPC registry both go through it). `import_tasksfile_subtasks`
+/// also INSERTs, but only on the create path, where the parent is born open; if it ever runs over
+/// an existing task it needs this call too.
+pub(crate) fn reopen_parent_if_closed(db: &FileKnowledgeDB, task_id: &str, now: &str) -> usize {
+    use touring_foundation::task_lifecycle::is_terminal_task_status;
+    let closed = parent_status(db, task_id)
+        .is_some_and(|s| is_terminal_task_status(&s) && s != FINALIZED);
+    if !closed {
+        return 0;
+    }
+    let affected = refresh_parent_status(db, task_id, now);
+    if !parent_status(db, task_id).is_some_and(|s| is_terminal_task_status(&s)) {
+        db.conn_ref()
+            .execute(
+                "UPDATE task_decompositions SET archived_at = NULL \
+                 WHERE task_id = ?1 AND archived_at IS NOT NULL",
+                params![task_id],
+            )
+            .unwrap_or(0);
+    }
+    affected
+}
+
 /// S1.6: Take a checkpoint snapshot of the task state before finalizing.
 /// Writes to `decomposition_snapshots` table for post-mortem/replay.
 fn take_snapshot(db: &FileKnowledgeDB, task_id: &str, metrics: &serde_json::Value) {

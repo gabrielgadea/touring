@@ -4732,6 +4732,17 @@ mod r3_shadow_a2 {
         std::env::var_os(touring_hook_runtime::r3_shadow::ENV_FLAG).is_some()
     }
 
+    /// These tests assume the shadow flag is NOT forced by the environment. Fail LOUDLY
+    /// otherwise: a guard that returns early (`if env_flag_is_set() { return; }`) turns the
+    /// observe-only proof into a green no-op when the shell carries `TOURING_R3_SHADOW`
+    /// (cross-audit 03/10/2026, finding C: with the flag forced, 11/11 passed without testing).
+    fn require_flag_unset() {
+        assert!(
+            !env_flag_is_set(),
+            "run these tests with TOURING_R3_SHADOW unset"
+        );
+    }
+
     /// Production's own sequence: offer, then these PostToolUse commands (`""` = a tool
     /// without a command, e.g. a `Read`).
     const SEQ: [&str; 5] = [
@@ -4753,9 +4764,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_flag_off_does_no_io() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         for flag in [None, Some(false)] {
             let root = project(flag);
             let lines = capture();
@@ -4773,9 +4782,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_closed_offer_emits_exactly_one_line() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         let payload = json!({"session_id": "r3-one-line"});
@@ -4814,9 +4821,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_window_closes_after_k_bash_without_a_verdict() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         let payload = json!({"session_id": "r3-window"});
@@ -4844,9 +4849,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_replaced_offer_closes_with_one_line() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         let payload = json!({"session_id": "r3-replaced"});
@@ -4874,9 +4877,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_claim_route_reward_is_identical_with_the_flag_on() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let off = project(Some(false));
         let on = project(Some(true));
         let lines = capture();
@@ -4896,9 +4897,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_emission_failure_never_changes_the_return() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let off = project(Some(false));
         let on = project(Some(true));
         // A REAL failing write — the emitter's own swallow-and-count path, not a stub:
@@ -4927,9 +4926,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_event_lines_never_carry_text_over_80_chars() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         let payload = json!({"session_id": "r3-long"});
@@ -4956,9 +4953,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_event_names_the_session_not_the_agent() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         let payload = json!({"session_id": "sess-a", "agent_id": "ag1"});
@@ -4978,9 +4973,7 @@ mod r3_shadow_a2 {
 
     #[test]
     fn r3_actors_do_not_close_each_others_offers() {
-        if env_flag_is_set() {
-            return;
-        }
+        require_flag_unset();
         let root = project(Some(true));
         let lines = capture();
         record_route_offer(root.path(), "r3-a", CodeModePresentation::Code);
