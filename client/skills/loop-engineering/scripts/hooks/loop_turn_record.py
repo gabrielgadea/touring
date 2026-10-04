@@ -314,7 +314,36 @@ def materialize(marker: dict, out_path: Path, transcript: Path | None = None) ->
         "bytes": len(body),
         "turn_chars": len(text),
         "blocks": blocks,
+        **index_written(out_path),
     }
+
+
+def _okf_emit():
+    """The shared OKF emitter, home of `index_written` — the ONE helper that hands to the index what a
+    script writes. Fail-open: a hook never fails the turn because the arsenal is missing."""
+    here = Path(__file__).absolute()
+    for c in (here.parents[3] / "Touring" / "scripts",
+              here.resolve().parents[3] / "Touring" / "scripts",
+              Path.home() / ".claude" / "skills" / "Touring" / "scripts"):
+        if (c / "okf_emit.py").is_file():
+            if str(c) not in sys.path:
+                sys.path.insert(0, str(c))
+            import okf_emit
+            return okf_emit
+    return None
+
+
+def index_written(path: Path) -> dict:
+    """Hand the record just written to the index (`okf_emit.index_written`). Fail-open.
+
+    This script writes outside the edit tool, so the reindex hook never sees the file: the turn
+    records sat in the touring workspace as `eligible_not_indexed`, counted in the index's
+    `disk_files` and not in `indexed_files` (cross-audit 04/10/2026, X14).
+    """
+    mod = _okf_emit()
+    if mod is None:
+        return {"indexed": False, "index_reason": "okf_emit ausente"}
+    return mod.index_written(path)
 
 
 def record_id(marker: dict | None) -> str:

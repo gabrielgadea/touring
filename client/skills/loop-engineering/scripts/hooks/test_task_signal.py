@@ -190,7 +190,11 @@ def test_live_calibration_against_real_files():
     trivial = ts.assess(str(REPO / "docs/plans/2026-09-03-work-outer/log.md"), str(REPO))
     heavy = ts.assess("crates/touring-cli/src/cli_suggester.rs", str(REPO))
     if not (trivial.get("route") and heavy.get("route")):
-        pytest.skip("daemon/index unavailable — the signal is fail-open by design")
+        # Name the reason the signal SAW. "daemon/index unavailable" was printed for months while the
+        # daemon was up and the markdown fixture simply had no `file_knowledge` row (index-silent),
+        # so this calibration never ran (cross-audit 04/10/2026, X17).
+        pytest.skip(f"signal silent — trivial: {trivial.get('reason')}, heavy: {heavy.get('reason')} "
+                    "(fail-open by design; `touring metadata-backfill` fills missing file_knowledge)")
     assert trivial["arm"] is False, "a 13-line markdown must never arm the gate"
     assert heavy["arm"] is True, "a module with real consumers must arm it"
     assert heavy["route"]["level_n"] > trivial["route"]["level_n"]

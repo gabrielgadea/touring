@@ -257,6 +257,8 @@ def ensure_bundle_log(bundle: Path, plan_id, ts) -> Path:
             + "# Log\n\nPart of the [bundle](/index.md).\n",
             encoding="utf-8",
         )
+        # Written by a script, so the reindex hook never sees it (cross-audit 04/10/2026, X14).
+        okf_emit.index_written(log)
     except Exception:  # noqa: BLE001 — a missing log must never fail the diagnostic
         pass
     return log
@@ -301,6 +303,9 @@ def write_okf_diagnostic(bundle: Path, plan_id, digest, ts):
         "`touring wiring orphans -j`, `touring memory recall`, `touring map`.",
     ]
     path.write_text(fm + "\n".join(body) + "\n")
+    # Escrito por script: o hook de reindex nunca o vê, e o índice o contava como
+    # `eligible_not_indexed` (cross-audit 04/10/2026, X14). Fail-open.
+    okf_emit.index_written(path)
     # O diagnóstico entra no grafo como artefato facetado (#artifact:diagnostic)
     # — sem isso recall/moc só alcançam o resumo, nunca o documento (furo
     # medido 30/08/2026). Fail-open: daemon mudo nunca gata o diagnóstico.
