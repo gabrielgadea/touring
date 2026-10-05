@@ -36,6 +36,9 @@ from loop_marker import _read, active_marker, archive_marker, pending_subtask_id
 
 CONVERGED = Path(__file__).resolve().parent.parent / "loop_converged.py"
 OUTER_GATE = Path(__file__).resolve().parent / "loop_outer_gate.py"
+# Named by path in the handoff demand: a bare `loop_marker.py` was read as
+# scripts/loop_marker.py (05/10/2026), where no such file exists.
+MARKER_SCRIPT = Path(__file__).resolve().parent / "loop_marker.py"
 MAX_CONTINUATIONS = 30
 OUTER_MAX_CONTINUATIONS = 5  # manifest may lower it; the OUTER phase is short
 
@@ -179,7 +182,7 @@ def outer_phase_gate(path, marker):
                 f"\"OUTER\" — step 11 was never executed, so no phase is being gated. "
                 f"Next action: register the real DAG "
                 f"(touring decompose create/add …), then "
-                f"loop_marker.py write --task <task_id> --scope <path> --bundle "
+                f"python3 {MARKER_SCRIPT} write --task <task_id> --scope <path> --bundle "
                 f"{marker.get('bundle') or '<bundle>'} — which flips this marker to "
                 f"status \"active\" and hands the verdict to loop_converged.py.")
             print(json.dumps({"decision": "block", "reason": reason}))
