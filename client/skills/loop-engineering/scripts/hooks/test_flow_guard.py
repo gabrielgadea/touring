@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -736,6 +737,11 @@ def test_later_stops_demand_the_dag_handoff(tmp_path, monkeypatch):
     assert '"decision": "block"' in out
     assert "never entered the INNER" in out
     assert "loop_marker.py write --task" in out, "must carry the exact next command"
+    # The command must be RUNNABLE as written: a bare `loop_marker.py` was guessed as
+    # scripts/loop_marker.py on 05/10/2026, where no such file exists (it lives in hooks/).
+    named = re.search(r"python3 (\S+loop_marker\.py) write", out)
+    assert named, "the next command must name the interpreter and the script's path"
+    assert Path(named.group(1)).is_file(), f"the named script does not exist: {named.group(1)}"
 
 
 def test_a_real_dag_ends_the_handoff_demand(tmp_path, monkeypatch):
