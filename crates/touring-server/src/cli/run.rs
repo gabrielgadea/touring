@@ -765,7 +765,7 @@ fn block_on_async<F: std::future::Future>(future: F) -> F::Output {
 /// CLI entry point for `touring run`. `args[0]` = binary, `args[1]` = "run"; clap parses
 /// `args[1..]` with "run" acting as the program name (same convention as `generate::run`).
 pub fn run(args: &[String]) -> Result<()> {
-    let cli = match RunCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<RunCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

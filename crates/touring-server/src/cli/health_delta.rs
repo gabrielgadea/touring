@@ -67,7 +67,7 @@ enum HealthDeltaCmd {
 /// SQLite audit trail with optional `--since`/`--path`/`--limit` filters) to
 /// the matching `cli-health-delta-*` daemon hook, printing the JSON response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match HealthDeltaCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<HealthDeltaCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

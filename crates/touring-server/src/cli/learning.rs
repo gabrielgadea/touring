@@ -93,7 +93,7 @@ enum ExperimentCmd {
 /// a tool, defaulting to 1.0, via `cli-learning-reward`) to the daemon,
 /// printing the JSON response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match LearningCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<LearningCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

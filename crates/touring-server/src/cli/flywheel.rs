@@ -34,7 +34,7 @@ enum FlywheelCmd {
 /// health, printing the JSON response. Both `status` (default) and its `health`
 /// alias route to the same hook.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match FlywheelCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<FlywheelCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

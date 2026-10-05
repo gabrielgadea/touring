@@ -31,7 +31,7 @@ struct E2eCli {
 /// queries the daemon for the end-to-end composite health score, and prints
 /// the result (human-readable, or raw JSON with `-j`).
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match E2eCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<E2eCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

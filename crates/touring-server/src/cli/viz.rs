@@ -71,7 +71,7 @@ enum VizCmd {
 /// Returns an error if the daemon socket is unreachable or the daemon reports
 /// a failure.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match VizCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<VizCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

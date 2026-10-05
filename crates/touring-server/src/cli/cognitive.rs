@@ -44,7 +44,7 @@ enum CognitiveCmd {
 /// corresponding daemon query (`cli-cognitive-metrics`, `cli-cognitive-engines`, or
 /// `cli-mcts-search` with `mcts_rl`/`got_parallel` mode), printing the daemon's response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match CognitiveCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<CognitiveCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

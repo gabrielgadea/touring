@@ -260,7 +260,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // "decompose" as the program name and args[2] as its subcommand. Passing
     // the full slice would make clap try to match "decompose" itself as a
     // DecomposeCmd variant (spec Q7 resolution, 2026-06-11).
-    let cli = match DecomposeCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DecomposeCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         // --help/--version arrive as clap "errors"; e.exit() prints to the
         // right stream and exits 0 (help) or 2 (real parse error) — matching

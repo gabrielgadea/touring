@@ -57,7 +57,7 @@ fn expand_path(s: &str) -> PathBuf {
 /// (fetches a task via `cli-devrcfile-export` and writes it to a file or
 /// stdout). Prints `--help` when no subcommand is given.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match DevrcfileCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DevrcfileCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -94,7 +94,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             }
         }
         None => {
-            DevrcfileCli::try_parse_from(["devrcfile", "--help"]).unwrap_or_else(|e| e.exit());
+            crate::cli::common::parse_tolerating_json::<DevrcfileCli, _, _>(["devrcfile", "--help"]).unwrap_or_else(|e| e.exit());
         }
     }
     Ok(())

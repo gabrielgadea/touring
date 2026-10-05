@@ -78,5 +78,60 @@ def test_every_command_answers_help_and_runs_nothing(tmp_path: Path) -> None:
     )
 
 
+def _self_help() -> list[str]:
+    src = (REPO / "crates" / "touring-server" / "src" / "cli" / "common.rs").read_text(encoding="utf-8")
+    block = re.search(r"pub const SELF_HELP: &\[&str\] = &\[(.*?)\];", src, re.S)
+    assert block, "SELF_HELP not found in common.rs"
+    return re.findall(r'"([^"]+)"', block.group(1))
+
+
+def _subcommands(name: str, scratch: Path) -> list[str]:
+    rc, out, _ = _ask(scratch, name, "--help")
+    tail = out.split("Commands:", 1)[1] if "Commands:" in out else ""
+    subs = []
+    for line in tail.splitlines():
+        if not line.strip():
+            if subs:
+                break
+            continue
+        m = re.match(r"\s{2,}([a-z][a-z0-9-]*)\s", line + " ")
+        if not m:
+            break
+        if m.group(1) != "help":
+            subs.append(m.group(1))
+    return subs
+
+
+def _ask(scratch: Path, *argv: str) -> tuple[int, str, str]:
+    scratch.mkdir(parents=True, exist_ok=True)
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(scratch), "NO_COLOR": "1",
+           "TOURING_DAEMON_SOCKET": str(scratch / "no-daemon.sock"),
+           "TOURING_DAEMON_SOCK": str(scratch / "no-daemon.sock")}
+    p = subprocess.run([str(BINARY), *argv], cwd=scratch, env=env, capture_output=True, text=True, timeout=30)
+    return p.returncode, (p.stdout or "") + (p.stderr or ""), p.stderr or ""
+
+
+MASTERS = {"adw", "blast", "explore", "factory", "guard", "health", "investigate", "map", "read", "scout"}
+
+
+@pytest.mark.skipif(not BINARY.is_file(), reason=f"release binary not built: {BINARY}")
+def test_the_global_json_flag_is_accepted_after_every_subcommand(tmp_path: Path) -> None:
+    """`-j`/`--json` is a global flag (main.rs: "the handler re-parses globals from any position"), and 35 of the
+    36 clap commands that rejected it at the top level also rejected it after the subcommand, where a user writes
+    it: `touring decompose get <task> -j` exited 2 with "unexpected argument '-j'" (04/10/2026). Probed with
+    `--help` after the flag, so nothing runs; a command that strips the flag prints its help."""
+    offenders = []
+    for name in _self_help():
+        if name in MASTERS:  # forwarded to a script's argparse, which owns its flags
+            continue
+        targets = [[name, s] for s in _subcommands(name, tmp_path / name)] or [[name]]
+        for t in targets:
+            for flag in ("-j", "--json"):
+                _, _, err = _ask(tmp_path / name, *t, flag, "--help")
+                if "unexpected argument" in err:
+                    offenders.append(f"{' '.join(t)} {flag}")
+    assert not offenders, f"{len(offenders)} target(s) reject the global json flag:\n" + "\n".join(offenders[:40])
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-q"]))

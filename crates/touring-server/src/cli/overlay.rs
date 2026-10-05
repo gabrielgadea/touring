@@ -49,7 +49,7 @@ enum OverlayCmd {
 
 /// Run the overlay subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match OverlayCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<OverlayCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

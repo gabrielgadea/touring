@@ -221,7 +221,7 @@ enum SearchCmd {
 
 /// Run the search subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match SearchCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<SearchCli, _, _>(args.iter().skip(1)) {
         Ok(c) => c,
         Err(e) => e.exit(),
     };

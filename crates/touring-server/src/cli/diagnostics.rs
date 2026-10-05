@@ -34,7 +34,7 @@ struct DiagnosticsCli {
 }
 /// D.3.4 CLI — list diagnostics for a file with optional fix candidates.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match DiagnosticsCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DiagnosticsCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

@@ -98,7 +98,7 @@ enum GotchaCmd {
 
 /// Dispatch to the appropriate gotcha subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match GotchaCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<GotchaCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
