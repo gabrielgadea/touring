@@ -293,7 +293,7 @@ A classificação de Rank #4 mudou de **1 skill edit (Touring)** para **7 skills
 
 **Origem externa**: mattpocock/skills. *"Fire this the moment a message doesn't land. The agent re-pitches it with the context you're missing, in plain English, using your CONTEXT.md vocabulary."*
 
-**Gap coberto**: TACO-house tem detecção de misfire via Stop hook (Lei L3 do TACO) e via memória (`memory recall`)。**Mas não há primitive NOMEADO** que o modelo invoque PROACTIVAMENTE quando sente que o usuário "não entendeu o que quis dizer".
+**Gap coberto**: TACO-house tem detecção de misfire via Stop hook (Lei L3 do TACO) e via memória (`memory recall`). **Mas não há primitive NOMEADO** que o modelo invoque PROACTIVAMENTE quando sente que o usuário "não entendeu o que quis dizer".
 
 **O que faz**:
 - Auto-trigger: invocada quando (a) o usuário corrigiu a última frase, ou (b) `touring memory recall "<user_prompt>"` retorna 0 hits relevantes E o usuário repetiu, ou (c) explicitamente `/wait-what`.

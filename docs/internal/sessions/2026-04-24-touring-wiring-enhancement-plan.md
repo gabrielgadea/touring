@@ -153,7 +153,7 @@ impl<'a> ImpactAnalyzer<'a> {
 ```
 
 **Anti-loop**: visited set (FxHashSet<SymbolId>) evita loops infinitos.
-**Performance**: O(max_depth × fan_out × path_length) — típico para代码basecom 50k symbols: < 50ms.
+**Performance**: O(max_depth × fan_out × path_length) — típico para codebase com 50k symbols: < 50ms.
 **Depth default**: 5 (configurável via `--depth N`).
 
 #### D4: Cross-Crate Support
@@ -379,7 +379,7 @@ pub mod acp {
 
 **Casos de uso no Touring**:
 
-1. **Cross-file refactor**: um símbolo em A.rs é usado em B.rs E C.rs simultaneamente — relation triple (A, B, C) não é díade, éトライade
+1. **Cross-file refactor**: um símbolo em A.rs é usado em B.rs E C.rs simultaneamente — relation triple (A, B, C) não é díade, é tríade
 2. **Multi-module imports**: `use foo::{A, B, C}` — uma linha de import conecta 1 a N
 3. **Feature gates**: `#[cfg(all(feature = "X", feature = "Y"))]` — decisão de feature que ativa baseado em 2+ features (hyperedge)
 4. **CRDT merge operations**: merge de 3+ replicas — relação N-ária
