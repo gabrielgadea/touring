@@ -25,7 +25,7 @@ help templating DRY, TypedValueParser pipeline unificado, e feature gate modular
 
 ## Contexto da Análise
 
-### Touring CLI现状 (Ground Truth verificado)
+### Touring CLI: estado atual (Ground Truth verificado)
 
 | Dimensão | Valor |
 |---------|-------|
@@ -426,7 +426,7 @@ SEMANA 7-8 (se Gabriel aprovar)
 
 | Critério | Verificação |
 |----------|-------------|
-| **Cada deliverable é atômico e independently shippable** | D1-D5 cada um é módulo standalone, pode ser выпущен sem os outros |
+| **Cada deliverable é atômico e independently shippable** | D1-D5 cada um é módulo standalone, pode ser lançado sem os outros |
 | **Dependências são explícitas e acíclicas** | D1→D2→D3→D4→D5 (linear), D5 opcional após D2-D4 |
 | **Estimativas são realistas (T-shirt sizing)** | D1=S, D3=M, D2+D4=XL+L, D5=XL — sizing baseado em LOC e scope |
 | **Riscos têm mitigação** | Todos os 5 riscos têm mitigação concreta listada |

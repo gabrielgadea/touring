@@ -38,7 +38,7 @@ impl VoyageModel {
         }
     }
 
-    /// Converts to the公共 `EmbeddingModel` enum variant.
+    /// Converts to the public `EmbeddingModel` enum variant.
     pub fn to_embedding_model(&self) -> EmbeddingModel {
         match self {
             VoyageModel::Voyage2 => EmbeddingModel::Voyage2,

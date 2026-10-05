@@ -40,7 +40,7 @@ buffer de memória, não nudge de decisão**.
 
 `crates/touring-hook-runtime/src/hook_runtime.rs:163` cria
 `{"additionalContext": truncated}`; a escrita definitiva em `:184` e `:204`; a variante com
-`updatedInput` em `:229`. A门面 `crates/touring-hook-runtime/src/hook_runtime_ext.rs:484` é a segunda montagem. Handler
+`updatedInput` em `:229`. A fachada `crates/touring-hook-runtime/src/hook_runtime_ext.rs:484` é a segunda montagem. Handler
 específico: `prompt_enhance.rs:1044-1070`.
 
 **Um gate antes da injeção cabe em `hook_runtime.rs:163-184`** — é o único ponto por onde

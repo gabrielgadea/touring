@@ -521,7 +521,7 @@ VALIDAÇÃO:
 [7] D8 — Docs (PR final — fecha pipeline)
 ```
 
-**Recomendação**: D1+D2 juntos (2h total), D3单独的 (3h), D4+D5+D6 juntos (2.5h), D7+D8 juntos (2h). **Total: ~9.5h** (1 dia +半个).
+**Recomendação**: D1+D2 juntos (2h total), D3 sozinho (3h), D4+D5+D6 juntos (2.5h), D7+D8 juntos (2h). **Total: ~9.5h** (1 dia e meio).
 
 ---
 

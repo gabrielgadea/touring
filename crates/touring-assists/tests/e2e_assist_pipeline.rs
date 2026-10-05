@@ -307,7 +307,7 @@ fn assist_source_change_multi_file_edits() {
 fn assist_source_change_snippet_preserved() {
     let tmp_dir = TempDir::new().expect("temp dir");
     let file_path = tmp_dir.path().join("test.rs");
-    std::fs::write(&file_path, "foo达成;").expect("write");
+    std::fs::write(&file_path, "foo();").expect("write");
 
     let content = std::fs::read_to_string(&file_path).expect("read");
     let ctx = AssistContext::new(1usize, file_path.to_str().unwrap(), &content, 0..3);

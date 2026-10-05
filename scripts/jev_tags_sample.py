@@ -126,7 +126,7 @@ KIND_CRITERIA = {
     "text": "Free-form prose that fits no other kind. The residual class.",
 }
 
-# O G1純粋 rotulou com 9 + `other`. Os três que o G1 usou e a produção NÃO tem
+# O G1 puro rotulou com 9 + `other`. Os três que o G1 usou e a produção NÃO tem
 # são medidos à parte, senão o Jev é julgado contra um vocabulário impossível.
 G1_ONLY_VALUES = ("audit", "report", "fix")
 
