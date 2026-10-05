@@ -34,7 +34,7 @@ struct FixCli {
 /// D.3.3 CLI — apply a fix assist for a diagnostic code.
 #[allow(clippy::needless_borrow, clippy::type_complexity)]
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match FixCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<FixCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

@@ -104,7 +104,7 @@ pub(super) fn assemble_top_level() -> clap::Command {
 /// Parses `args[1..]` (so "completions" acts as the bin-name) and writes
 /// the requested output to stdout.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = CompletionsCli::try_parse_from(args.iter().skip(1)).unwrap_or_else(|e| e.exit());
+    let cli = crate::cli::common::parse_tolerating_json::<CompletionsCli, _, _>(args.iter().skip(1)).unwrap_or_else(|e| e.exit());
 
     let mut top = assemble_top_level();
 

@@ -260,3 +260,20 @@ Um revisor sem o contexto da implementação leu o diff dos consertos e apontou 
 | cross_audit | **N/A** | "no audit-plan-completion.sh — skipped" |
 
 O `cross_audit` N/A **não é aprovação**: a cláusula pula quando falta o script do plano, e por isso nunca rodou (memória `clausula-de-juiz-que-nunca-roda`). O que fez as vezes dela neste ciclo é independente do juiz: o revisor de contexto limpo (R1 a R6), a mutação (16 mutantes ao todo, todos mortos) e a sonda viva 15/15.
+
+### 9.2 A cláusula `cross_audit` passa a rodar, e o que ela achou (05/10/2026)
+
+A cláusula ficou N/A no §9.1 porque o bundle não tinha `audit-plan-completion.sh`. Os dois bundles do ciclo passaram a ter um script que **executa** cada conserto, sem só conferir que ele foi escrito:
+
+| Bundle | Checagens |
+|---|---|
+| `docs/plans/2026-10-04-work-outer/` | relatório e veredito; `workflow resume <tarefa> -j` responde pelo handler próprio com 12/12 subtarefas; `decompose ready` sem terminais em `blocked`; `wiring repair --purge-phantom --dry-run` com 0 arestas; o censo do `--help` pelo binário de release; as suítes herméticas dos consertos e o espelho |
+| `docs/plans/2026-10-04-integridade-prosa/` | pré-registro intacto (sha256); controles C1–C6 e suíte do gate; registro no `settings.json`; sombra avisa, block bloqueia o `SendMessage`, kill switch silencia; o `--criterion` reproduz o veredito do README; a limpeza da corrupção se mantém e o espelho está idêntico |
+
+**O que a cláusula achou na primeira execução:** a checagem 2 reprovou com rc 2, `error: unexpected argument '-j' found`. O `main.rs` afirma que "the handler re-parses globals from any position", mas o censo pelo executor mostrou **35 de 36** comandos clap rejeitando `-j`/`--json` depois do subcomando, num total de 271 alvos (`decompose get X -j`, `workflow resume X -j`, `memory recall … -j`…). O script escreve `-j` onde um usuário escreveria. O teste unitário do despachante nunca via isso, porque o `-j` no topo era removido antes do handler.
+
+**Conserto:** `cli::common::parse_tolerating_json` tenta o parse do clap e, só quando o erro é `UnknownArgument` com o argumento exatamente `-j` ou `--json`, refaz o parse sem essas duas palavras. Um comando que declara `--json` como flag própria continua lendo a flag, e um `-j` depois de `--` é valor e fica. Esse caso foi achado relendo o primeiro conserto, que apagava o `-j` de qualquer posição; caso de teste com vermelho visto. 52 sítios de produção em 51 arquivos passam pela rota tolerante, enquanto os testes seguem chamando o clap direto e fixando a gramática de cada CLI.
+
+**A primeira passada do roteamento deixou dois comandos de fora, e só o executor viu.** O script cortava cada arquivo no primeiro `#[cfg(test)]`, para não tocar nos testes. No `gotcha.rs` esse atributo está na linha 24, num `use`. No `run.rs` há um módulo de teste no meio do arquivo, antes do handler. O resumo do script dizia "50 chamadas em 49 arquivos" e parecia completo. Depois do build, o censo ainda achou 18 alvos: os 8 subcomandos do `gotcha` e o `run`, cada um com `-j` e `--json`. Uma varredura que acompanha as chaves dos blocos de teste confirmou que não sobra nenhum sítio de produção fora da rota.
+
+**Prova:** teste unitário `the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it` (33 verdes em `cli::common`). No executor, `test_the_global_json_flag_is_accepted_after_every_subcommand` em `scripts/test_help_never_executes.py`: 271 alvos no binário 30.4.91, 18 depois da primeira passada, **0** no binário final, ao lado do censo do `--help` (2/2). Os dois `audit-plan-completion.sh` dão 6/6.

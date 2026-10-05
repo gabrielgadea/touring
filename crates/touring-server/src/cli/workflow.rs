@@ -87,7 +87,7 @@ fn default_run() -> WorkflowCmd {
 /// queries and prints each response. `resume` asks `cli-workflow-resume` (the
 /// per-subtask state, each subtask's attempts and the next subtask to run).
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match WorkflowCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<WorkflowCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

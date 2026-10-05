@@ -409,6 +409,41 @@ pub fn intercepted_help(cmd: &CommandDescriptor, args: &[String]) -> Option<Stri
     (asked && !SELF_HELP.contains(&cmd.name)).then(|| format!("touring {} — {}", cmd.name, cmd.description))
 }
 
+/// Parse a clap CLI and tolerate the global `-j`/`--json` where the command does not declare it.
+///
+/// `main.rs` hands every handler the original argv and documents that the handler "re-parses globals from any
+/// position"; the clap handlers fed that argv straight to clap, which refused the flag it did not declare: 35
+/// of the 36 clap commands exited 2 on `touring <cmd> <sub> -j` (04/10/2026, `touring decompose get <task>
+/// -j` among them). The first parse is the command's own, so a command that declares `-j` keeps its meaning;
+/// only when clap rejects exactly `-j` or `--json` as an unknown argument is the parse repeated without the ones
+/// before `--` (after it they are values the user meant).
+/// A clap parse has no side effect, so the second attempt is safe, and any other error comes back as it was.
+pub fn parse_tolerating_json<T, I, S>(argv: I) -> Result<T, clap::Error>
+where
+    T: clap::Parser,
+    I: IntoIterator<Item = S>,
+    S: Into<std::ffi::OsString> + Clone,
+{
+    let argv: Vec<std::ffi::OsString> = argv.into_iter().map(Into::into).collect();
+    match T::try_parse_from(&argv) {
+        Err(e) if rejects_global_json(&e) => {
+            // Only the flags before `--`: after it, a `-j` is a positional value the user meant.
+            let end = argv.iter().position(|a| a == "--").unwrap_or(argv.len());
+            T::try_parse_from(argv.iter().enumerate()
+                .filter(|(i, a)| *i >= end || (*a != "-j" && *a != "--json"))
+                .map(|(_, a)| a))
+        }
+        other => other,
+    }
+}
+
+fn rejects_global_json(e: &clap::Error) -> bool {
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
+    e.kind() == ErrorKind::UnknownArgument
+        && matches!(e.get(ContextKind::InvalidArg),
+                    Some(ContextValue::String(a)) if a == "-j" || a == "--json")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -416,6 +451,46 @@ pub fn intercepted_help(cmd: &CommandDescriptor, args: &[String]) -> Option<Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(clap::Parser, Debug)]
+    #[command(name = "t")]
+    struct NoJson {
+        #[command(subcommand)]
+        cmd: NoJsonCmd,
+    }
+
+    #[derive(clap::Subcommand, Debug)]
+    enum NoJsonCmd {
+        Get { id: String },
+    }
+
+    #[derive(clap::Parser, Debug)]
+    #[command(name = "t")]
+    struct WithJson {
+        #[arg(short = 'j', long = "json")]
+        json: bool,
+    }
+
+    /// The global flag is a no-op where the command has no json mode, the command's own `-j` keeps its meaning,
+    /// and every other unknown argument is still refused.
+    #[test]
+    fn the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it() {
+        for flag in ["-j", "--json"] {
+            let parsed: NoJson = parse_tolerating_json(["t", "get", "x", flag]).expect("the global flag is tolerated");
+            let NoJsonCmd::Get { id } = parsed.cmd;
+            assert_eq!(id, "x");
+        }
+        let own: WithJson = parse_tolerating_json(["t", "-j"]).expect("declared");
+        assert!(own.json, "a command that declares -j keeps it");
+        let err = parse_tolerating_json::<NoJson, _, _>(["t", "get", "x", "--bogus"]).expect_err("still refused");
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+        let help = parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--help"]).expect_err("help is an Err");
+        assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp, "-j before --help still shows the help");
+        // After `--` a `-j` is a value, not the flag: the retry drops only the flags before it.
+        let NoJsonCmd::Get { id } =
+            parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--", "-j"]).expect("value kept").cmd;
+        assert_eq!(id, "-j", "a -j after -- is a positional value and survives the retry");
+    }
     use crate::cli::command_table::command_table;
 
     fn s(parts: &[&str]) -> Vec<String> {

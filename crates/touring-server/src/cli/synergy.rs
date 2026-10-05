@@ -527,7 +527,7 @@ enum SynergyCmd {
 ///   live `gate_metrics` counter value via a daemon query. Degrades
 ///   silently when the daemon is unreachable.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match SynergyCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<SynergyCli, _, _>(args.iter().skip(1)) {
         Ok(c) => c,
         Err(e) => e.exit(),
     };

@@ -58,7 +58,7 @@ enum SagaCmd {
 /// each response. `begin` pairs the trailing args as alternating
 /// `step_id`/`action` entries.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match SagaCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<SagaCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

@@ -49,7 +49,7 @@ enum InferletsCmd {
 /// Returns an error for unknown subcommands, missing required arguments,
 /// or daemon communication failures.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match InferletsCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<InferletsCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
