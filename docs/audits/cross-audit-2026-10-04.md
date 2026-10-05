@@ -277,3 +277,19 @@ A cláusula ficou N/A no §9.1 porque o bundle não tinha `audit-plan-completion
 **A primeira passada do roteamento deixou dois comandos de fora, e só o executor viu.** O script cortava cada arquivo no primeiro `#[cfg(test)]`, para não tocar nos testes. No `gotcha.rs` esse atributo está na linha 24, num `use`. No `run.rs` há um módulo de teste no meio do arquivo, antes do handler. O resumo do script dizia "50 chamadas em 49 arquivos" e parecia completo. Depois do build, o censo ainda achou 18 alvos: os 8 subcomandos do `gotcha` e o `run`, cada um com `-j` e `--json`. Uma varredura que acompanha as chaves dos blocos de teste confirmou que não sobra nenhum sítio de produção fora da rota.
 
 **Prova:** teste unitário `the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it` (33 verdes em `cli::common`). No executor, `test_the_global_json_flag_is_accepted_after_every_subcommand` em `scripts/test_help_never_executes.py`: 271 alvos no binário 30.4.91, 18 depois da primeira passada, **0** no binário final, ao lado do censo do `--help` (2/2). Os dois `audit-plan-completion.sh` dão 6/6.
+
+### 9.3 Release 30.4.92 e propagação (05/10/2026)
+
+A toolchain 30.4.91 era um snapshot anterior a todos os consertos deste relatório, e os projetos pinados ainda estavam na 30.4.90. A 30.4.92 leva tudo, com o rito em duas etapas.
+
+| Etapa | Resultado |
+|---|---|
+| 1 — gates, `update-touring`, freeze, default | `cargo check` e `clippy -D warnings` do workspace, espelho `client/` e espelho no HEAD, referência, testes do rito, S1a: verdes. O daemon global reiniciou com o binário novo (PID 1946829, doctor 5/5, env sem `TOURING_CODE_MODE`). Rótulo: o binário declara 30.4.92. Toolchain 30.4.92 congelada e default → 30.4.92. |
+| "livre" dos donos | analise: a analise-50, dona do trabalho em curso, liberou depois de fechar a fase C7 e a publicação (12h11); a analise-ca liberou a parte dela; o critério da analise-ef (suíte `scripts/eleitoral/tests` fora do ar) foi medido pelo nome do executável, porque o `pgrep -f` casa com o próprio shell da busca. konverter: nenhum processo além do daemon dele. |
+| 2 — propagação, prova, verify | 2 projetos alcançados, os dois daemons per-project reiniciados (analise PID 1951914, konverter PID 1952142, exe da toolchain 30.4.92). A prova comportamental de code mode e CEG deu 40/40. Verify: lock e binário em 30.4.92 nos dois. |
+
+**Prova por projeto, com o binário do próprio projeto e um controle negativo** (`docs/plans/2026-10-05-work-outer/prove_projects.py`, sem efeito colateral): `decompose get X -j --help`, `gotcha list --json --help` e `init-project --help` num cwd vazio. Com o `.touring/bin/touring` do analise e do konverter, os três passam e o cwd continua vazio. Com a toolchain 30.4.90, os três reprovam. As sondas discriminam o build, o que um `--version` não faz. O shim, chamado de dentro de cada projeto, resolve para o `.touring/bin` do projeto.
+
+O primeiro veredito dessa prova saiu "NAO PROVADO" porque o instrumento lia só o stdout do `daemon-ctl list-all`, que escreve a listagem em stderr. Os dois daemons existiam. Corrigido o instrumento, o veredito é "PROVADO".
+
+**Juízes com a cláusula `cross_audit` rodando** (`loop_converged.py --rust-full`, 05/10/2026, depois da release): `task_1791142397213803492` (bundle work-outer de 04/10) e `task_1791163748729547144` (bundle integridade-prosa) deram **exit 0, `converged: true`**, as 8 cláusulas em PASS, `cross_audit` com "cross-audit rc=0". No §9.1 essa cláusula estava N/A. Os JSONs estão em `docs/plans/2026-10-04-work-outer/judge-2026-10-05.json` e `docs/plans/2026-10-04-integridade-prosa/judge-2026-10-05.json`. Qualidade Platinum 0,926, órfãos 760 = baseline, nenhum P0.
