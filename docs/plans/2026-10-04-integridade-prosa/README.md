@@ -85,6 +85,13 @@ copia o `公共` do `voyage.rs` 42 vezes — corrigi-lo reescreveria o registro 
 - `Write`/`Edit` só avisam; bloquear ou não é decisão de Gabriel, com os dados da sombra.
 - O experimento de causa (mesmo prompt, N repetições, 2 checkpoints) exige gasto de API autorizado.
 
+## Juiz
+
+`loop_converged.py --task task_1791163748729547144 --rust-full --json` → **exit 0, `converged: true`** (DAG 7/7,
+Platinum 0,926, nenhum P0, órfãos 760 = a baseline da primeira execução nomeada, cargo check + test + clippy
+verdes). A cláusula `cross_audit` saiu **N/A** por falta do script do plano, o que não é aprovação. Veredito em
+[`judge-2026-10-04.json`](/judge-2026-10-04.json).
+
 ## Próximo passo
 
 Revisar as detecções de `SendMessage` que a sombra acumular (fora as 3 da instalação), rotular pela mesma regra,
