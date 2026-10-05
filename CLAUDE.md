@@ -512,6 +512,17 @@ timestamp: 2026-08-20T11:15:00-03:00
     unit (o oomd mata com RAM livre) e nunca pkill (REGRA #19). Desenho, mutantes e fatos
     medidos: memória `hw-slot-semaforo-de-hardware`.
 
+32. **Gate de integridade da prosa de saída (04/10/2026, em SOMBRA)**: hook PreToolUse
+    `~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py` em `SendMessage|Write|Edit|
+    MultiEdit|NotebookEdit` acusa caractere CJK/kana/hangul/cirílico/árabe/hebraico/devanágari/largura
+    total no texto que sai (grego e tipografia não), e em `Write`/`Edit` só o que o texto novo
+    INTRODUZ. Sombra = registra em `~/.claude/touring/prose_integrity/events.jsonl` e avisa; nunca
+    bloqueia. `TOURING_PROSE_GATE_MODE=block` bloqueia só o `SendMessage` (crases são o escape), e
+    só depois que `--criterion` der `promote: true` (n ≥ 30, Wilson-95 LEGIT ≤ 0,20; o replay de
+    04/10 deu 25 e 0,391). Kill switch humano `TOURING_PROSE_GATE_DISABLED=1`. A resposta no chat e
+    a classe lexical (fragmento em inglês) ficam fora do alcance. Pré-registro, rótulos e resultados:
+    `docs/plans/2026-10-04-integridade-prosa/`.
+
 ## Referências
 
 - Instruções do crate principal: `crates/touring-server/.claude/CLAUDE.md`
