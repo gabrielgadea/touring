@@ -217,6 +217,11 @@ Drift 6ª reconciliação: ledger linha 124 (C1 da release anterior, (c), 11 cit
 lote `2026-10-09-release-30.4.95`); `test_drift_coverage.py` 392→393 (C1 83→84); A1/A2/A3/A4 rc 0 (A3 re-rodado
 depois dos docs novos). DAG: V0d → completed; **V0e5 → in_progress** (o que falta é remedir G3/G11/write→run com uma
 janela de uso DEPOIS deste deploy). Lições no grafo (3 novas). Rewards: propagate-release 1.0 · tdd-mutation 1.0.
-**Nada commitado** (só por ordem do Gabriel). **ABERTOS**: remedição pós-deploy da V0e5 (amanhã, com dados); os 57
-arquivos só-formatação no diff (manter = CI verde; separar = reverter esses caminhos, sem perda); `settings.json`
-hooks ×17 (D1/D2 `failed`, decisão do Gabriel); as pendências antigas do §3.
+**Commitado por ordem do Gabriel** ("mantenha a formatação, faça o commit"), branch
+`feat/2026-09-16-shell-quality-wiring-python`: `be8c6e2a` (57 só-formatação) + `dfe0fd1e` (release + o acumulado
+desde 06/10; 452 arquivos; varredura de segredos com controle positivo limpa; `corpus_a2.jsonl` 50 MB e
+`cache_bruto.json` no `.gitignore` por caminho exato). Sem push.
+**Correção (09/10, ao conferir o plano original)**: D1/D2 NÃO é decisão pendente — a premissa "settings.json ×17" foi
+refutada no próprio plano (proposta §8: 148 entradas = 148 identidades, filtros `if` por extensão; nada a fazer).
+**O QUE FALTA DO PLANO ORIGINAL** (proposta §6, DAG `ready_subtasks` = só V1): V0e5 (remedição pós-deploy) · destino
+das ~606 falhas fora de gate (aceite da V0e) · V1 → V2 → {V3 → V4, V5} → V6 → J.
