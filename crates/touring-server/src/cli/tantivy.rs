@@ -88,10 +88,11 @@ enum TantivyCmd {
 /// Returns an error if the daemon socket is unreachable, the daemon reports a
 /// failure, or required arguments are missing.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<TantivyCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<TantivyCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(TantivyCmd::Stats) {
         TantivyCmd::Stats => {

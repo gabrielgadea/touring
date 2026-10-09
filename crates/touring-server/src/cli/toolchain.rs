@@ -259,7 +259,10 @@ pub fn run(args: &[String]) -> Result<()> {
             println!("    touring toolchain install --from-url <url> <version> [--force]");
             println!("    touring toolchain remove <version>");
             // `parse` also lands here for an unknown or incomplete subcommand; only those fail.
-            if matches!(args.get(2).map(String::as_str), Some("--help" | "-h" | "help")) {
+            if matches!(
+                args.get(2).map(String::as_str),
+                Some("--help" | "-h" | "help")
+            ) {
                 return Ok(());
             }
             return Err(anyhow!(
@@ -687,9 +690,15 @@ mod tests {
     #[test]
     fn asked_for_help_succeeds_and_an_unknown_subcommand_still_fails() {
         for flag in ["--help", "-h", "help"] {
-            assert!(run(&args(&[flag])).is_ok(), "`touring toolchain {flag}` is a help request");
+            assert!(
+                run(&args(&[flag])).is_ok(),
+                "`touring toolchain {flag}` is a help request"
+            );
         }
-        assert!(run(&args(&["fizzbuzz"])).is_err(), "an unknown subcommand is still an error");
+        assert!(
+            run(&args(&["fizzbuzz"])).is_err(),
+            "an unknown subcommand is still an error"
+        );
         assert!(run(&args(&[])).is_err(), "no subcommand is still an error");
     }
 

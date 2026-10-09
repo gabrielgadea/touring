@@ -859,9 +859,14 @@ pub(crate) fn record_subtask_transition(
         }
         "completed" | "failed" => {
             let text_of = |key: &str| payload.get(key).and_then(|v| v.as_str()).map(String::from);
-            record_subtask_completed(db, scoped_id, status, text_of("output_json"), text_of("error"));
-            status == "failed"
-                && evaluate_retry_policy(db, scoped_id, payload.get("retry_policy"))
+            record_subtask_completed(
+                db,
+                scoped_id,
+                status,
+                text_of("output_json"),
+                text_of("error"),
+            );
+            status == "failed" && evaluate_retry_policy(db, scoped_id, payload.get("retry_policy"))
         }
         _ => false,
     }

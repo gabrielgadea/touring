@@ -62,7 +62,8 @@ fn render(report: &AuditReport, compact: bool) -> Result<String> {
 /// clap parses `args[1..]` with "audit" as the program name (same convention as
 /// `run`). The verdict severity becomes the process exit code.
 pub fn run(args: &[String]) -> Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<AuditCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<AuditCli, _, _>(args.iter().skip(1))
+    {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

@@ -85,10 +85,11 @@ enum SuggestCmd {
 /// respective `cli-suggest-*`/`cli-suggestion-*` daemon queries and prints each
 /// response. For `list`, an empty action-type filter is sent as JSON null.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<SuggestCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<SuggestCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(SuggestCmd::Next { query: Vec::new() }) {
         SuggestCmd::Next { query } => {

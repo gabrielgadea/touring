@@ -394,10 +394,11 @@ fn block_on_async<F: std::future::Future>(future: F) -> F::Output {
 /// Clap parses `args[1..]` so "generate" acts as the program name and `args[2]`
 /// becomes the subcommand. When no subcommand is given, defaults to `list-kinds`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<GenerateCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<GenerateCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(GenerateCmd::ListKinds { json: false }) {
         // ── Original subcommands ──────────────────────────────────────────

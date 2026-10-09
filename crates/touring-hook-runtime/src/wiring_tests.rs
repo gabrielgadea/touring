@@ -1722,9 +1722,21 @@ fn a_scope_keyword_is_never_recorded_as_a_symbol() {
 fn a_module_path_that_ends_in_a_scope_keyword_is_never_recorded_as_a_module() {
     let (_tmp, db) = test_db();
     let root = phantom_ws(&_tmp);
-    write_file(&root, "crates/dispatch/src/lib.rs", "pub mod lifecycle;\npub mod cli_handlers;\n");
-    write_file(&root, "crates/dispatch/src/lifecycle.rs", "mod tests;\npub fn run() {}\n");
-    write_file(&root, "crates/dispatch/src/cli_handlers.rs", "pub fn run() {}\n");
+    write_file(
+        &root,
+        "crates/dispatch/src/lib.rs",
+        "pub mod lifecycle;\npub mod cli_handlers;\n",
+    );
+    write_file(
+        &root,
+        "crates/dispatch/src/lifecycle.rs",
+        "mod tests;\npub fn run() {}\n",
+    );
+    write_file(
+        &root,
+        "crates/dispatch/src/cli_handlers.rs",
+        "pub fn run() {}\n",
+    );
     let content = "use super::*;\nfn t() { super::super::cli_handlers::run(); }\n";
     let consumer = write_file(&root, "crates/dispatch/src/lifecycle/tests.rs", content);
 
@@ -1745,7 +1757,8 @@ fn a_module_path_that_ends_in_a_scope_keyword_is_never_recorded_as_a_module() {
         )
         .expect("count");
     assert_eq!(
-        keyword_rows, 0,
+        keyword_rows,
+        0,
         "a scope keyword is not a module: {:?}",
         consumer_rows(&db, "super")
     );
@@ -1760,7 +1773,10 @@ fn the_scope_keyword_predicate_covers_the_four_words_and_nothing_else() {
         assert!(crate::symbol_extractors::is_scope_keyword(word), "{word}");
     }
     for word in ["", "supers", "Super", "selfish", "crates", "cli_handlers"] {
-        assert!(!crate::symbol_extractors::is_scope_keyword(word), "{word:?}");
+        assert!(
+            !crate::symbol_extractors::is_scope_keyword(word),
+            "{word:?}"
+        );
     }
     // The classifier keeps its empty-head rule on top of the predicate.
     assert_eq!(

@@ -385,16 +385,80 @@ pub fn print_help(commands: &[CommandDescriptor]) {
 /// against the release binary and fails on any command that does not answer with help.
 pub const SELF_HELP: &[&str] = &[
     // clap (or the handler's own help branch), measured 04/10/2026
-    "assist", "ast", "audit", "backup", "cascade", "clones", "cognitive", "completions", "component",
-    "conflict", "daemon-ctl", "decompose", "definitions", "devrcfile", "diagnostics", "diary", "e2e",
-    "evolution", "file-knowledge", "filters", "find-references", "fix", "flow", "flywheel",
-    "gate-metrics", "generate", "gotcha", "granularity", "graph", "health-delta", "incremental",
-    "index", "inferlets", "init", "jobs", "language", "learning", "license", "mcp-overhead", "mcts",
-    "memory", "migrate", "overlay", "plugin", "projects", "quality-signal", "run", "saga", "search",
-    "session", "shadow", "skip", "snapshot", "source-change", "suggest", "synergy", "tantivy",
-    "tasksfile", "toolchain", "update", "viz", "wiring", "workflow",
+    "assist",
+    "ast",
+    "audit",
+    "backup",
+    "cascade",
+    "clones",
+    "cognitive",
+    "completions",
+    "component",
+    "conflict",
+    "daemon-ctl",
+    "decompose",
+    "definitions",
+    "devrcfile",
+    "diagnostics",
+    "diary",
+    "e2e",
+    "evolution",
+    "file-knowledge",
+    "filters",
+    "find-references",
+    "fix",
+    "flow",
+    "flywheel",
+    "gate-metrics",
+    "generate",
+    "gotcha",
+    "granularity",
+    "graph",
+    "health-delta",
+    "incremental",
+    "index",
+    "inferlets",
+    "init",
+    "jobs",
+    "language",
+    "learning",
+    "license",
+    "mcp-overhead",
+    "mcts",
+    "memory",
+    "migrate",
+    "overlay",
+    "plugin",
+    "projects",
+    "quality-signal",
+    "run",
+    "saga",
+    "search",
+    "session",
+    "shadow",
+    "skip",
+    "snapshot",
+    "source-change",
+    "suggest",
+    "synergy",
+    "tantivy",
+    "tasksfile",
+    "toolchain",
+    "update",
+    "viz",
+    "wiring",
+    "workflow",
     // masters: forwarded to a skill script whose argparse answers `--help`
-    "adw", "blast", "explore", "factory", "guard", "health", "investigate", "map", "read", "scout",
+    "adw",
+    "blast",
+    "explore",
+    "factory",
+    "guard",
+    "health",
+    "investigate",
+    "map",
+    "read",
+    "scout",
 ];
 
 /// The help line for a command asked for `--help`/`-h`, or `None` when it was not asked or answers
@@ -406,7 +470,8 @@ pub fn intercepted_help(cmd: &CommandDescriptor, args: &[String]) -> Option<Stri
         .skip(2)
         .take_while(|a| a.as_str() != "--")
         .any(|a| a == "--help" || a == "-h");
-    (asked && !SELF_HELP.contains(&cmd.name)).then(|| format!("touring {} — {}", cmd.name, cmd.description))
+    (asked && !SELF_HELP.contains(&cmd.name))
+        .then(|| format!("touring {} — {}", cmd.name, cmd.description))
 }
 
 /// Parse a clap CLI and tolerate the global `-j`/`--json` where the command does not declare it.
@@ -429,9 +494,12 @@ where
         Err(e) if rejects_global_json(&e) => {
             // Only the flags before `--`: after it, a `-j` is a positional value the user meant.
             let end = argv.iter().position(|a| a == "--").unwrap_or(argv.len());
-            T::try_parse_from(argv.iter().enumerate()
-                .filter(|(i, a)| *i >= end || (*a != "-j" && *a != "--json"))
-                .map(|(_, a)| a))
+            T::try_parse_from(
+                argv.iter()
+                    .enumerate()
+                    .filter(|(i, a)| *i >= end || (*a != "-j" && *a != "--json"))
+                    .map(|(_, a)| a),
+            )
         }
         other => other,
     }
@@ -476,20 +544,32 @@ mod tests {
     #[test]
     fn the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it() {
         for flag in ["-j", "--json"] {
-            let parsed: NoJson = parse_tolerating_json(["t", "get", "x", flag]).expect("the global flag is tolerated");
+            let parsed: NoJson = parse_tolerating_json(["t", "get", "x", flag])
+                .expect("the global flag is tolerated");
             let NoJsonCmd::Get { id } = parsed.cmd;
             assert_eq!(id, "x");
         }
         let own: WithJson = parse_tolerating_json(["t", "-j"]).expect("declared");
         assert!(own.json, "a command that declares -j keeps it");
-        let err = parse_tolerating_json::<NoJson, _, _>(["t", "get", "x", "--bogus"]).expect_err("still refused");
+        let err = parse_tolerating_json::<NoJson, _, _>(["t", "get", "x", "--bogus"])
+            .expect_err("still refused");
         assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
-        let help = parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--help"]).expect_err("help is an Err");
-        assert_eq!(help.kind(), clap::error::ErrorKind::DisplayHelp, "-j before --help still shows the help");
+        let help = parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--help"])
+            .expect_err("help is an Err");
+        assert_eq!(
+            help.kind(),
+            clap::error::ErrorKind::DisplayHelp,
+            "-j before --help still shows the help"
+        );
         // After `--` a `-j` is a value, not the flag: the retry drops only the flags before it.
         let NoJsonCmd::Get { id } =
-            parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--", "-j"]).expect("value kept").cmd;
-        assert_eq!(id, "-j", "a -j after -- is a positional value and survives the retry");
+            parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--", "-j"])
+                .expect("value kept")
+                .cmd;
+        assert_eq!(
+            id, "-j",
+            "a -j after -- is a positional value and survives the retry"
+        );
     }
     use crate::cli::command_table::command_table;
 
@@ -502,13 +582,23 @@ mod tests {
     #[test]
     fn intercepted_help_answers_every_command_but_the_self_helping_ones() {
         let table = command_table();
-        let find = |name: &str| table.iter().find(|c| c.name == name).expect("command in table");
+        let find = |name: &str| {
+            table
+                .iter()
+                .find(|c| c.name == name)
+                .expect("command in table")
+        };
         let backfill = find("metadata-backfill");
         let help = intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--help"]))
             .expect("a command that reads args by hand gets the help line");
-        assert!(help.contains("metadata-backfill") && help.contains(backfill.description), "{help}");
+        assert!(
+            help.contains("metadata-backfill") && help.contains(backfill.description),
+            "{help}"
+        );
         assert!(intercepted_help(backfill, &s(&["touring", "metadata-backfill", "-h"])).is_some());
-        assert!(intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--force"])).is_none());
+        assert!(
+            intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--force"])).is_none()
+        );
         // The case the hand list missed: delegated parsing, no clap behind it.
         let init = find("init-project");
         assert!(intercepted_help(init, &s(&["touring", "init-project", "--help"])).is_some());
@@ -530,9 +620,15 @@ mod tests {
     #[test]
     fn every_self_help_name_is_a_table_command() {
         let table = command_table();
-        let stale: Vec<&str> =
-            SELF_HELP.iter().copied().filter(|n| !table.iter().any(|c| c.name == *n)).collect();
-        assert!(stale.is_empty(), "SELF_HELP names with no command: {stale:?}");
+        let stale: Vec<&str> = SELF_HELP
+            .iter()
+            .copied()
+            .filter(|n| !table.iter().any(|c| c.name == *n))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "SELF_HELP names with no command: {stale:?}"
+        );
         let mut sorted = SELF_HELP.to_vec();
         sorted.sort_unstable();
         sorted.dedup();

@@ -48,7 +48,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         .filter(|a| a.as_str() != "-j" && a.as_str() != "--json")
         .cloned()
         .collect();
-    let cli = match crate::cli::common::parse_tolerating_json::<GateMetricsCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<GateMetricsCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

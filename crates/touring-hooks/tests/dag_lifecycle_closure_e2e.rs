@@ -15,16 +15,18 @@
 
 use serde_json::json;
 use tempfile::TempDir;
+use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers::{
     cli_decompose_add, cli_decompose_create, cli_decompose_finalize, cli_decompose_update,
 };
-use touring_foundation::task_lifecycle::TERMINAL_TASK_STATUSES;
 use touring_hooks::cli_handlers_decompose::{
     auto_archive_pass, auto_archive_pass_all_stores, cli_decompose_archive, cli_decompose_ready,
-    cli_decompose_reconcile_stages, cli_decompose_renew, cli_workflow_compare, cli_workflow_resume, cli_workflow_slowest,
-    cli_workflow_stats, cli_workflow_status,
+    cli_decompose_reconcile_stages, cli_decompose_renew, cli_workflow_compare, cli_workflow_resume,
+    cli_workflow_slowest, cli_workflow_stats, cli_workflow_status,
 };
-use touring_hooks::hook_decompose_bridge::{bridge_task_created, close_scaffold_stages, reply_failed};
+use touring_hooks::hook_decompose_bridge::{
+    bridge_task_created, close_scaffold_stages, reply_failed,
+};
 use touring_hooks::runtime::HookRuntime;
 
 fn setup_runtime() -> (TempDir, HookRuntime) {
@@ -350,7 +352,10 @@ fn close_step(rt: &mut HookRuntime, task_id: &str, scoped: &str) {
         rt,
         &json!({"task_id": task_id, "subtask_id": scoped, "status": "completed"}),
     ));
-    assert_eq!(reply["subtask_updated"], true, "the close must land: {reply}");
+    assert_eq!(
+        reply["subtask_updated"], true,
+        "the close must land: {reply}"
+    );
 }
 
 /// The observed defect: close every subtask (the plan derives `done`), then add one.
@@ -406,19 +411,33 @@ fn re_adding_a_closed_subtask_keeps_its_work() {
     ));
 
     assert_eq!(reply["persisted"], true, "{reply}");
-    assert_eq!(reply["existed"], true, "the reply must say it met a row: {reply}");
+    assert_eq!(
+        reply["existed"], true,
+        "the reply must say it met a row: {reply}"
+    );
     assert_eq!(
         reply["status"], "completed",
         "the reply reports the REAL status, not a hard-coded `pending`: {reply}"
     );
-    assert_eq!(status_of(&rt, &first), "completed", "closed work is not re-opened by a restatement");
+    assert_eq!(
+        status_of(&rt, &first),
+        "completed",
+        "closed work is not re-opened by a restatement"
+    );
     assert_eq!(
         parent_status_of(&rt, &task_id),
         "done",
         "every subtask is still closed, so the plan is still done"
     );
-    let described: String = scalar(&rt, "SELECT description FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    assert_eq!(described, "first, reworded", "the restatement itself must land");
+    let described: String = scalar(
+        &rt,
+        "SELECT description FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    assert_eq!(
+        described, "first, reworded",
+        "the restatement itself must land"
+    );
 }
 
 /// The columns a REPLACE would have reset, each asserted: a written column list is exactly where
@@ -443,18 +462,48 @@ fn re_adding_keeps_what_the_row_accumulated() {
 
     add_step(&mut rt, &task_id, "first");
 
-    let attempts: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    let quality: f64 = scalar(&rt, "SELECT quality_score FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    let policy: String = scalar(&rt, "SELECT retry_policy FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    let claimer: String = scalar(&rt, "SELECT claimed_by FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    let lease: i64 = scalar(&rt, "SELECT claim_expires_at FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
-    let born: String = scalar(&rt, "SELECT created_at FROM decomposition_subtasks WHERE subtask_id = ?1", &first);
+    let attempts: i64 = scalar(
+        &rt,
+        "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    let quality: f64 = scalar(
+        &rt,
+        "SELECT quality_score FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    let policy: String = scalar(
+        &rt,
+        "SELECT retry_policy FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    let claimer: String = scalar(
+        &rt,
+        "SELECT claimed_by FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    let lease: i64 = scalar(
+        &rt,
+        "SELECT claim_expires_at FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
+    let born: String = scalar(
+        &rt,
+        "SELECT created_at FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &first,
+    );
     assert_eq!(attempts, 3, "attempts");
     assert!((quality - 0.9).abs() < 1e-9, "quality_score: {quality}");
     assert_eq!(policy, "{\"max_attempts\":5}", "retry_policy");
-    assert_eq!(claimer, "sess-a", "a live claim belongs to its session, not to the restatement");
+    assert_eq!(
+        claimer, "sess-a",
+        "a live claim belongs to its session, not to the restatement"
+    );
     assert_eq!(lease, 4102444800, "claim_expires_at");
-    assert_eq!(born, "2026-01-01T00:00:00+00:00", "created_at: the row was not born again");
+    assert_eq!(
+        born, "2026-01-01T00:00:00+00:00",
+        "created_at: the row was not born again"
+    );
 }
 
 /// What the old reopen path covered stays covered: a plan marked closed while a child is still
@@ -467,7 +516,10 @@ fn re_adding_an_open_subtask_still_reopens_a_plan_wrongly_marked_closed() {
     rt.ctx
         .knowledge
         .conn_ref()
-        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&task_id])
+        .execute(
+            "UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1",
+            [&task_id],
+        )
         .expect("the stale state");
 
     add_step(&mut rt, &task_id, "first");
@@ -496,8 +548,15 @@ fn re_adding_an_id_that_belongs_to_another_plan_is_refused() {
 
     assert_eq!(reply["persisted"], false, "{reply}");
     let reason = reply["error"].as_str().unwrap_or("");
-    assert!(reason.contains(&owner), "the refusal must name the owner: {reply}");
-    let kept: String = scalar(&rt, "SELECT task_id FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
+    assert!(
+        reason.contains(&owner),
+        "the refusal must name the owner: {reply}"
+    );
+    let kept: String = scalar(
+        &rt,
+        "SELECT task_id FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &step,
+    );
     assert_eq!(kept, owner, "the step stays where it was");
 }
 
@@ -507,7 +566,10 @@ fn re_adding_an_id_that_belongs_to_another_plan_is_refused() {
 fn add_leaves_the_status_a_caller_set_on_an_open_plan_alone() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "caller-owned status");
-    cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "in_progress"}));
+    cli_decompose_update(
+        &mut rt,
+        &json!({"task_id": task_id, "status": "in_progress"}),
+    );
     assert_eq!(
         parent_status_of(&rt, &task_id),
         "in_progress",
@@ -529,7 +591,10 @@ fn add_does_not_reopen_a_finalized_plan() {
     let (_tmp, mut rt) = setup_runtime();
     let task_id = new_plan(&mut rt, "finalized, then touched");
     add_step(&mut rt, &task_id, "only");
-    let finalized = parse_json(&cli_decompose_finalize(&mut rt, &json!({"task_id": task_id})));
+    let finalized = parse_json(&cli_decompose_finalize(
+        &mut rt,
+        &json!({"task_id": task_id}),
+    ));
     assert_eq!(finalized["status"], "finalized", "premise: {finalized}");
 
     add_step(&mut rt, &task_id, "after");
@@ -573,7 +638,10 @@ fn reopening_a_plan_the_retention_pass_archived_lifts_the_stamp() {
     let first = add_step(&mut rt, &task_id, "first");
     close_step(&mut rt, &task_id, &first);
     let swept = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
-    assert_eq!(swept["archived"], 1, "premise: the retention pass archives it: {swept}");
+    assert_eq!(
+        swept["archived"], 1,
+        "premise: the retention pass archives it: {swept}"
+    );
     assert!(archived_at_of(&rt, &task_id).is_some(), "premise: stamped");
 
     add_step(&mut rt, &task_id, "late");
@@ -666,7 +734,9 @@ fn add_reopens_a_done_plan_that_lives_in_the_global_store() {
 #[test]
 fn the_bridge_reads_the_value_of_a_reply_not_the_presence_of_a_key() {
     // A success that spells the field out is still a success.
-    assert!(!reply_failed(r#"{"persisted":true,"error":null,"task_id":"t"}"#));
+    assert!(!reply_failed(
+        r#"{"persisted":true,"error":null,"task_id":"t"}"#
+    ));
     assert!(!reply_failed(r#"{"persisted":true}"#));
     // The shapes a real failure takes.
     assert!(reply_failed(r#"{"persisted":false,"task_id":"t"}"#));
@@ -682,19 +752,31 @@ fn the_bridge_reads_the_value_of_a_reply_not_the_presence_of_a_key() {
         &mut rt,
         &json!({"task_type": "plan", "description": "reply shapes", "origin": "touring-cli"}),
     );
-    assert!(!reply_failed(&created), "a clean create is not a failure: {created}");
-    let task_id = parse_json(&created)["task_id"].as_str().expect("task_id").to_string();
+    assert!(
+        !reply_failed(&created),
+        "a clean create is not a failure: {created}"
+    );
+    let task_id = parse_json(&created)["task_id"]
+        .as_str()
+        .expect("task_id")
+        .to_string();
     let added = cli_decompose_add(
         &mut rt,
         &json!({"task_id": task_id, "subtask_id": "only", "description": "only"}),
     );
-    assert!(!reply_failed(&added), "a clean add is not a failure: {added}");
+    assert!(
+        !reply_failed(&added),
+        "a clean add is not a failure: {added}"
+    );
     let other = new_plan(&mut rt, "wants the same id");
     let refused = cli_decompose_add(
         &mut rt,
         &json!({"task_id": other, "subtask_id": format!("{task_id}::only"), "description": "stolen"}),
     );
-    assert!(reply_failed(&refused), "a refused add is a failure: {refused}");
+    assert!(
+        reply_failed(&refused),
+        "a refused add is a failure: {refused}"
+    );
 }
 
 /// A successful `add` must not carry an `"error"` key at all, not even `null`: the scaffold bridge
@@ -720,7 +802,10 @@ fn a_successful_add_carries_no_error_key() {
         &mut rt,
         &json!({"task_id": other, "subtask_id": format!("{task_id}::only"), "description": "stolen"}),
     );
-    assert!(refused.contains("\"error\""), "a refusal must be visible: {refused}");
+    assert!(
+        refused.contains("\"error\""),
+        "a refusal must be visible: {refused}"
+    );
 }
 
 /// Reopening through `update` — the way the audit report tells a human to redo a step — must lift
@@ -734,7 +819,10 @@ fn reopening_a_plan_through_update_lifts_the_archive_stamp() {
     let step = add_step(&mut rt, &task_id, "first");
     close_step(&mut rt, &task_id, &step);
     let swept = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
-    assert_eq!(swept["archived"], 1, "premise: the retention pass archives it: {swept}");
+    assert_eq!(
+        swept["archived"], 1,
+        "premise: the retention pass archives it: {swept}"
+    );
     assert!(archived_at_of(&rt, &task_id).is_some(), "premise: stamped");
 
     let redo = parse_json(&cli_decompose_update(
@@ -743,7 +831,11 @@ fn reopening_a_plan_through_update_lifts_the_archive_stamp() {
     ));
     assert_eq!(redo["subtask_updated"], true, "{redo}");
 
-    assert_eq!(parent_status_of(&rt, &task_id), "pending", "the only step is open again");
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "pending",
+        "the only step is open again"
+    );
     assert!(
         archived_at_of(&rt, &task_id).is_none(),
         "a plan that is open again is live work: it cannot stay archived"
@@ -763,14 +855,28 @@ fn archive_leaves_a_plan_with_a_failed_child_alone() {
     let bad = add_step(&mut rt, &task_id, "bad");
     close_step(&mut rt, &task_id, &good);
     let failed = fail_step(&mut rt, &task_id, &bad, None);
-    assert_eq!(failed["retry_scheduled"], false, "premise: no policy, the failure stands");
+    assert_eq!(
+        failed["retry_scheduled"], false,
+        "premise: no policy, the failure stands"
+    );
     cli_decompose_update(&mut rt, &json!({"task_id": task_id, "status": "done"}));
-    assert_eq!(parent_status_of(&rt, &task_id), "done", "premise: a direct write closes the parent");
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "done",
+        "premise: a direct write closes the parent"
+    );
     age_plan(&rt, &task_id, 8);
 
     let preview = parse_json(&cli_decompose_archive(&mut rt, &json!({"dry_run": true})));
-    assert_eq!(preview["candidates"], 0, "a failed child is not an over child: {preview}");
-    assert_eq!(auto_archive_pass(&rt.ctx.knowledge), 0, "the automatic pass agrees");
+    assert_eq!(
+        preview["candidates"], 0,
+        "a failed child is not an over child: {preview}"
+    );
+    assert_eq!(
+        auto_archive_pass(&rt.ctx.knowledge),
+        0,
+        "the automatic pass agrees"
+    );
     assert!(archived_at_of(&rt, &task_id).is_none());
 }
 
@@ -789,7 +895,11 @@ fn archive_names_the_plans_it_holds_and_what_holds_them() {
     close_step(&mut rt, &held, &good);
     fail_step(&mut rt, &held, &bad, None);
     cli_decompose_update(&mut rt, &json!({"task_id": held, "status": "done"}));
-    assert_eq!(parent_status_of(&rt, &held), "done", "premise: a direct write closes the parent");
+    assert_eq!(
+        parent_status_of(&rt, &held),
+        "done",
+        "premise: a direct write closes the parent"
+    );
 
     let recent = new_plan(&mut rt, "closed by hand today");
     add_step(&mut rt, &recent, "open");
@@ -797,20 +907,41 @@ fn archive_names_the_plans_it_holds_and_what_holds_them() {
     age_plan(&rt, &held, 8);
 
     let week = 7 * 24 * 60 * 60;
-    for payload in [json!({"dry_run": true, "older_than_secs": week}), json!({"older_than_secs": week})] {
+    for payload in [
+        json!({"dry_run": true, "older_than_secs": week}),
+        json!({"older_than_secs": week}),
+    ] {
         let raw = cli_decompose_archive(&mut rt, &payload);
         let reply = parse_json(&raw);
         assert_eq!(reply["candidates"], 0, "{reply}");
-        assert_eq!(reply["held"], 1, "only the plan past the window is held: {reply}");
-        let plans = reply["held_plans"].as_array().unwrap_or_else(|| panic!("held_plans must be a list: {reply}"));
+        assert_eq!(
+            reply["held"], 1,
+            "only the plan past the window is held: {reply}"
+        );
+        let plans = reply["held_plans"]
+            .as_array()
+            .unwrap_or_else(|| panic!("held_plans must be a list: {reply}"));
         assert_eq!(plans.len(), 1, "{reply}");
         assert_eq!(plans[0]["task_id"], held.as_str(), "{reply}");
-        assert_eq!(plans[0]["open_statuses"], json!(["failed", "pending"]), "{reply}");
+        assert_eq!(
+            plans[0]["open_statuses"],
+            json!(["failed", "pending"]),
+            "{reply}"
+        );
         let remedy = reply["held_remedy"].as_str().unwrap_or_default();
-        assert!(remedy.contains("decompose finalize"), "the reply names the route that releases a held plan: {reply}");
-        assert!(!raw.contains("held_error"), "a failure key appears only on failure: {raw}");
+        assert!(
+            remedy.contains("decompose finalize"),
+            "the reply names the route that releases a held plan: {reply}"
+        );
+        assert!(
+            !raw.contains("held_error"),
+            "a failure key appears only on failure: {raw}"
+        );
     }
-    assert!(archived_at_of(&rt, &held).is_none(), "naming a held plan never stamps it");
+    assert!(
+        archived_at_of(&rt, &held).is_none(),
+        "naming a held plan never stamps it"
+    );
 }
 
 /// The parent is DERIVED from its children by the one `update` production runs. A second copy of
@@ -824,10 +955,18 @@ fn update_derives_the_parent_from_its_children() {
     let b = add_step(&mut rt, &task_id, "b");
 
     close_step(&mut rt, &task_id, &a);
-    assert_eq!(parent_status_of(&rt, &task_id), "in_progress", "one of two closed");
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "in_progress",
+        "one of two closed"
+    );
 
     close_step(&mut rt, &task_id, &b);
-    assert_eq!(parent_status_of(&rt, &task_id), "done", "every subtask closed");
+    assert_eq!(
+        parent_status_of(&rt, &task_id),
+        "done",
+        "every subtask closed"
+    );
 }
 
 /// `refresh_parent_status` kept a private copy of the terminal vocabulary that the foundation also
@@ -875,17 +1014,30 @@ fn a_subtask_that_runs_leaves_the_timing_the_workflow_reader_averages() {
     std::thread::sleep(std::time::Duration::from_millis(20));
     close_step(&mut rt, &task_id, &step);
 
-    let rows: i64 = scalar(&rt, "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1", &step);
-    assert_eq!(rows, 1, "one start, one row — the update must write the execution record");
-    let finished: Option<String> =
-        scalar(&rt, "SELECT completed_at FROM subtask_results WHERE subtask_id = ?1", &step);
+    let rows: i64 = scalar(
+        &rt,
+        "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1",
+        &step,
+    );
+    assert_eq!(
+        rows, 1,
+        "one start, one row — the update must write the execution record"
+    );
+    let finished: Option<String> = scalar(
+        &rt,
+        "SELECT completed_at FROM subtask_results WHERE subtask_id = ?1",
+        &step,
+    );
     assert!(finished.is_some(), "the close must stamp the row it opened");
 
     let stats = parse_json(&cli_workflow_stats(&mut rt, &json!({"task_id": task_id})));
     let average = stats["avg_duration_ms"]
         .as_f64()
         .unwrap_or_else(|| panic!("the reader must see a duration, not null: {stats}"));
-    assert!(average >= 15.0, "the measured run lasted at least the sleep: {average}");
+    assert!(
+        average >= 15.0,
+        "the measured run lasted at least the sleep: {average}"
+    );
 }
 
 /// `cache_hit_rate` named a cache that does not exist: the writer set the column to "this attempt
@@ -910,9 +1062,15 @@ fn workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts() {
     // One attempt in flight and none finished: no outcome yet, so no rate — `null`, never 0
     // (the old aggregate answered 0/1 here and read as "every attempt failed").
     let in_flight = cli_workflow_stats(&mut rt, &json!({"task_id": task_id}));
-    assert!(parse_json(&in_flight)["attempt_completion_rate"].is_null(), "{in_flight}");
+    assert!(
+        parse_json(&in_flight)["attempt_completion_rate"].is_null(),
+        "{in_flight}"
+    );
     let failed = fail_step(&mut rt, &task_id, &flaky, Some(json!({"max_attempts": 2})));
-    assert_eq!(failed["retry_scheduled"], true, "premise: the failure is retried: {failed}");
+    assert_eq!(
+        failed["retry_scheduled"], true,
+        "premise: the failure is retried: {failed}"
+    );
     start(&mut rt, &flaky);
     close_step(&mut rt, &task_id, &flaky);
     start(&mut rt, &running);
@@ -922,14 +1080,32 @@ fn workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts() {
         "SELECT COUNT(*) FROM subtask_results sr JOIN decomposition_subtasks st ON st.subtask_id = sr.subtask_id WHERE st.task_id = ?1",
         &task_id,
     );
-    assert_eq!(rows, 3, "premise: two attempts of `flaky` and one open attempt of `running`");
+    assert_eq!(
+        rows, 3,
+        "premise: two attempts of `flaky` and one open attempt of `running`"
+    );
 
     let stats_raw = cli_workflow_stats(&mut rt, &json!({"task_id": task_id}));
     let status_raw = cli_workflow_status(&mut rt, &json!({"task_id": task_id}));
-    let compare_raw = cli_workflow_compare(&mut rt, &json!({"task_id_a": task_id, "task_id_b": task_id}));
-    assert_eq!(parse_json(&stats_raw)["attempt_completion_rate"], 0.5, "{stats_raw}");
-    assert_eq!(parse_json(&status_raw)["summary"]["attempt_completion_rate"], 0.5, "{status_raw}");
-    assert_eq!(parse_json(&compare_raw)["task_a"]["attempt_completion_rate"], 0.5, "{compare_raw}");
+    let compare_raw = cli_workflow_compare(
+        &mut rt,
+        &json!({"task_id_a": task_id, "task_id_b": task_id}),
+    );
+    assert_eq!(
+        parse_json(&stats_raw)["attempt_completion_rate"],
+        0.5,
+        "{stats_raw}"
+    );
+    assert_eq!(
+        parse_json(&status_raw)["summary"]["attempt_completion_rate"],
+        0.5,
+        "{status_raw}"
+    );
+    assert_eq!(
+        parse_json(&compare_raw)["task_a"]["attempt_completion_rate"],
+        0.5,
+        "{compare_raw}"
+    );
 
     let resume_raw = cli_workflow_resume(&mut rt, &json!({"task_id": task_id}));
     let slowest_raw = cli_workflow_slowest(&mut rt, &json!({"task_id": task_id}));
@@ -939,34 +1115,80 @@ fn workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts() {
     let subtask_rows = resume["subtasks"]
         .as_array()
         .unwrap_or_else(|| panic!("resume lists the subtasks: {resume_raw}"));
-    assert_eq!(subtask_rows.len(), 2, "one row per subtask, not per attempt: {resume_raw}");
+    assert_eq!(
+        subtask_rows.len(),
+        2,
+        "one row per subtask, not per attempt: {resume_raw}"
+    );
     assert_eq!(resume["total_count"], 2, "{resume_raw}");
     assert_eq!(resume["completed_count"], 1, "{resume_raw}");
-    assert_eq!(resume["completion_pct"], 50.0, "the same state `status` reports: {resume_raw}");
-    let latest: Vec<serde_json::Value> = subtask_rows.iter().map(|row| row["attempt_outcome"].clone()).collect();
-    assert_eq!(latest, [json!("completed"), serde_json::Value::Null], "each subtask carries its LATEST attempt: {resume_raw}");
+    assert_eq!(
+        resume["completion_pct"], 50.0,
+        "the same state `status` reports: {resume_raw}"
+    );
+    let latest: Vec<serde_json::Value> = subtask_rows
+        .iter()
+        .map(|row| row["attempt_outcome"].clone())
+        .collect();
+    assert_eq!(
+        latest,
+        [json!("completed"), serde_json::Value::Null],
+        "each subtask carries its LATEST attempt: {resume_raw}"
+    );
     let mut outcomes: Vec<String> = resume["attempts"]
         .as_array()
         .unwrap_or_else(|| panic!("resume lists the attempts under their own key: {resume_raw}"))
         .iter()
-        .map(|row| row["attempt_outcome"].as_str().unwrap_or("in_flight").to_owned())
+        .map(|row| {
+            row["attempt_outcome"]
+                .as_str()
+                .unwrap_or("in_flight")
+                .to_owned()
+        })
         .collect();
     outcomes.sort();
-    assert_eq!(outcomes, ["completed", "failed", "in_flight"], "every attempt, each with its outcome: {resume_raw}");
+    assert_eq!(
+        outcomes,
+        ["completed", "failed", "in_flight"],
+        "every attempt, each with its outcome: {resume_raw}"
+    );
     let mut slowest: Vec<String> = parse_json(&slowest_raw)["slowest"]
         .as_array()
         .unwrap_or_else(|| panic!("slowest lists the finished attempts: {slowest_raw}"))
         .iter()
-        .map(|row| row["attempt_outcome"].as_str().unwrap_or("<missing>").to_owned())
+        .map(|row| {
+            row["attempt_outcome"]
+                .as_str()
+                .unwrap_or("<missing>")
+                .to_owned()
+        })
         .collect();
     slowest.sort();
-    assert_eq!(slowest, ["completed", "failed"], "only finished attempts have a duration: {slowest_raw}");
-    for raw in [&stats_raw, &status_raw, &compare_raw, &resume_raw, &slowest_raw] {
-        assert!(!raw.contains("cache_hit"), "no reply names a cache that does not exist: {raw}");
+    assert_eq!(
+        slowest,
+        ["completed", "failed"],
+        "only finished attempts have a duration: {slowest_raw}"
+    );
+    for raw in [
+        &stats_raw,
+        &status_raw,
+        &compare_raw,
+        &resume_raw,
+        &slowest_raw,
+    ] {
+        assert!(
+            !raw.contains("cache_hit"),
+            "no reply names a cache that does not exist: {raw}"
+        );
     }
 }
 
-fn fail_step(rt: &mut HookRuntime, task_id: &str, step: &str, policy: Option<serde_json::Value>) -> serde_json::Value {
+fn fail_step(
+    rt: &mut HookRuntime,
+    task_id: &str,
+    step: &str,
+    policy: Option<serde_json::Value>,
+) -> serde_json::Value {
     let mut payload = json!({"task_id": task_id, "subtask_id": step, "status": "failed"});
     if let Some(policy) = policy {
         payload["retry_policy"] = policy;
@@ -988,17 +1210,34 @@ fn a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_
     let policy = || Some(json!({"max_attempts": 2}));
 
     let first = fail_step(&mut rt, &task_id, &step, policy());
-    assert_eq!(first["retry_scheduled"], true, "execution 1 of 2 failed, one left: {first}");
+    assert_eq!(
+        first["retry_scheduled"], true,
+        "execution 1 of 2 failed, one left: {first}"
+    );
     assert_eq!(status_of(&rt, &step), "pending");
     let second = fail_step(&mut rt, &task_id, &step, policy());
-    assert_eq!(second["retry_scheduled"], false, "execution 2 of 2 failed, none left: {second}");
-    assert_eq!(status_of(&rt, &step), "failed", "no attempts left, so the failure stands");
-    let retries: i64 = scalar(&rt, "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1", &step);
+    assert_eq!(
+        second["retry_scheduled"], false,
+        "execution 2 of 2 failed, none left: {second}"
+    );
+    assert_eq!(
+        status_of(&rt, &step),
+        "failed",
+        "no attempts left, so the failure stands"
+    );
+    let retries: i64 = scalar(
+        &rt,
+        "SELECT attempts FROM decomposition_subtasks WHERE subtask_id = ?1",
+        &step,
+    );
     assert_eq!(retries, 1, "two executions are one retry");
 
     let once = add_step(&mut rt, &task_id, "once");
     let only = fail_step(&mut rt, &task_id, &once, Some(json!({"max_attempts": 1})));
-    assert_eq!(only["retry_scheduled"], false, "max_attempts 1 is a single execution, no retry: {only}");
+    assert_eq!(
+        only["retry_scheduled"], false,
+        "max_attempts 1 is a single execution, no retry: {only}"
+    );
 }
 
 /// A repeated `in_progress` is the same execution, not a second one. `record_subtask_started`
@@ -1016,7 +1255,11 @@ fn a_repeated_in_progress_is_one_attempt() {
         ));
         assert_eq!(reply["subtask_updated"], true, "{reply}");
     }
-    let open: i64 = scalar(&rt, "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1", &step);
+    let open: i64 = scalar(
+        &rt,
+        "SELECT COUNT(*) FROM subtask_results WHERE subtask_id = ?1",
+        &step,
+    );
     assert_eq!(open, 1, "one execution in flight is one row");
     close_step(&mut rt, &task_id, &step);
     let finished: i64 = scalar(
@@ -1066,7 +1309,11 @@ fn ready_never_lists_a_finished_subtask_as_blocked() {
             .collect()
     };
     assert_eq!(ids("ready_subtasks"), [next.as_str()], "{reply}");
-    assert_eq!(ids("blocked_subtasks"), [waiting.as_str()], "the finished one is neither ready nor blocked: {reply}");
+    assert_eq!(
+        ids("blocked_subtasks"),
+        [waiting.as_str()],
+        "the finished one is neither ready nor blocked: {reply}"
+    );
 
     // The same predicate answers `renew`: a cancelled subtask fell through to renewing a lease.
     let renew = parse_json(&cli_decompose_renew(
@@ -1075,7 +1322,9 @@ fn ready_never_lists_a_finished_subtask_as_blocked() {
     ));
     assert_eq!(renew["renewed"], false, "{renew}");
     assert!(
-        renew["reason"].as_str().is_some_and(|r| r.contains("already 'cancelled'")),
+        renew["reason"]
+            .as_str()
+            .is_some_and(|r| r.contains("already 'cancelled'")),
         "the refusal names the status: {renew}"
     );
 }
@@ -1144,11 +1393,17 @@ fn archive_leaves_a_closed_plan_with_open_children_alone() {
     rt.ctx
         .knowledge
         .conn_ref()
-        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&task_id])
+        .execute(
+            "UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1",
+            [&task_id],
+        )
         .expect("the stale state");
 
     let preview = parse_json(&cli_decompose_archive(&mut rt, &json!({"dry_run": true})));
-    assert_eq!(preview["candidates"], 0, "an open child is not a candidate: {preview}");
+    assert_eq!(
+        preview["candidates"], 0,
+        "an open child is not a candidate: {preview}"
+    );
     let done = parse_json(&cli_decompose_archive(&mut rt, &json!({})));
 
     assert_eq!(done["archived"], 0, "{done}");
@@ -1172,7 +1427,10 @@ fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
     rt.ctx
         .knowledge
         .conn_ref()
-        .execute("UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1", [&stale_done])
+        .execute(
+            "UPDATE task_decompositions SET status = 'done' WHERE task_id = ?1",
+            [&stale_done],
+        )
         .expect("the stale state");
 
     let still_open = new_plan(&mut rt, "open, long ago");
@@ -1186,11 +1444,26 @@ fn the_automatic_pass_archives_only_plans_closed_for_a_week() {
     }
     let archived = auto_archive_pass(&rt.ctx.knowledge);
 
-    assert_eq!(archived, 1, "exactly the plan that is closed AND old AND fully terminal");
-    assert!(archived_at_of(&rt, &old_closed).is_some(), "closed for 8 days, children done");
-    assert!(archived_at_of(&rt, &fresh_closed).is_none(), "closed today: inside the retention window");
-    assert!(archived_at_of(&rt, &stale_done).is_none(), "a `done` row over a pending child is not closed");
-    assert!(archived_at_of(&rt, &still_open).is_none(), "open work is never archived");
+    assert_eq!(
+        archived, 1,
+        "exactly the plan that is closed AND old AND fully terminal"
+    );
+    assert!(
+        archived_at_of(&rt, &old_closed).is_some(),
+        "closed for 8 days, children done"
+    );
+    assert!(
+        archived_at_of(&rt, &fresh_closed).is_none(),
+        "closed today: inside the retention window"
+    );
+    assert!(
+        archived_at_of(&rt, &stale_done).is_none(),
+        "a `done` row over a pending child is not closed"
+    );
+    assert!(
+        archived_at_of(&rt, &still_open).is_none(),
+        "open work is never archived"
+    );
 }
 
 /// `task-completed` fires a few times a day (hook-trace census, 04/10/2026), so a retention pass that
@@ -1207,12 +1480,21 @@ fn creating_a_plan_retires_the_closed_ones_nobody_finalized() {
     let step = add_step(&mut rt, &fresh, "only");
     close_step(&mut rt, &fresh, &step);
     age_plan(&rt, &old, 8);
-    assert!(archived_at_of(&rt, &old).is_none(), "premise: nothing swept it yet");
+    assert!(
+        archived_at_of(&rt, &old).is_none(),
+        "premise: nothing swept it yet"
+    );
 
     let _next = new_plan(&mut rt, "the next piece of work");
 
-    assert!(archived_at_of(&rt, &old).is_some(), "starting a plan sweeps the old closed one");
-    assert!(archived_at_of(&rt, &fresh).is_none(), "closed today: inside the retention window");
+    assert!(
+        archived_at_of(&rt, &old).is_some(),
+        "starting a plan sweeps the old closed one"
+    );
+    assert!(
+        archived_at_of(&rt, &fresh).is_none(),
+        "closed today: inside the retention window"
+    );
 }
 
 /// A pass over the project store alone leaves a plan that lives in the GLOBAL store un-stamped for

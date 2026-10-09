@@ -169,10 +169,11 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // `run_audit` elide large arrays. `parse_global_flags` returns the filtered
     // argv (globals removed) and is the same path `status` uses.
     let (flags, args) = super::common::parse_global_flags(args);
-    let cli = match crate::cli::common::parse_tolerating_json::<WiringCli, _, _>(args.iter().skip(1)) {
-        Ok(c) => c,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<WiringCli, _, _>(args.iter().skip(1)) {
+            Ok(c) => c,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(WiringCmd::Status) {
         WiringCmd::Status => query_and_print("cli-wiring-status", serde_json::json!({})),

@@ -47,7 +47,9 @@ fn parse_position(s: &str) -> anyhow::Result<(String, usize, usize)> {
 /// for all references to the symbol at that position, printing the JSON
 /// response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<FindReferencesCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<FindReferencesCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         // Real parse errors (e.g. missing positional) return Err so direct callers
         // (unit tests invoking `run`) observe it instead of the process exiting;

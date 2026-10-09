@@ -30,7 +30,10 @@ fn ready_eligible(
 /// is left out on purpose: a cancelled dependency was never delivered. Claim, frontier and ready
 /// all ask this, so it is written once (it was four copies of the same literal).
 fn releases_dependents(status: &str) -> bool {
-    matches!(status, "completed" | "done" | "complete" | "failed" | "skipped")
+    matches!(
+        status,
+        "completed" | "done" | "complete" | "failed" | "skipped"
+    )
 }
 
 /// A subtask that has ENDED, whatever the outcome: [`releases_dependents`] plus every status in
@@ -1028,7 +1031,10 @@ pub fn cli_decompose_ready(rt: &mut HookRuntime, payload: &serde_json::Value) ->
     // `blocked` was the whole complement of `ready`, so a FINISHED subtask was listed as blocked
     // (cross-audit 03/10/2026 finding I, seen live on a finalized plan on 04/10): only an open
     // subtask that is not ready is waiting, and `cancelled` is as finished as `completed`.
-    let blocked: Vec<SubtaskInfo> = blocked.into_iter().filter(|s| !has_finished(&s.status)).collect();
+    let blocked: Vec<SubtaskInfo> = blocked
+        .into_iter()
+        .filter(|s| !has_finished(&s.status))
+        .collect();
 
     // The SAME queue order the claim hands out (24/09/2026, analise-d4 via
     // touring-36): ready listed INSERTION order while claim sorted by

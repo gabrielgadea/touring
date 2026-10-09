@@ -30,10 +30,11 @@ enum ShadowCmd {
 /// stdin, dispatching the `cli-shadow-validate` daemon query for speculative
 /// validation, and printing the response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<ShadowCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<ShadowCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
     match cli.cmd.unwrap_or(ShadowCmd::Validate) {
         ShadowCmd::Validate => {
             // Read from stdin for shadow validation (file_path and content)

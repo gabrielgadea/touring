@@ -93,7 +93,8 @@ enum IndexCmd {
 /// Returns an error if the daemon socket is unreachable or the daemon
 /// reports a failure response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<IndexCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<IndexCli, _, _>(args.iter().skip(1))
+    {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

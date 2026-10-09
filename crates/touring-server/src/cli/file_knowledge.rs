@@ -46,7 +46,9 @@ enum FileKnowledgeCmd {
 }
 /// Entry point for `touring file-knowledge <subcommand>`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<FileKnowledgeCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<FileKnowledgeCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

@@ -826,7 +826,8 @@ fn cmd_format(cmd: &GraphCmd) -> OutputFormat {
 /// defaulting to an empty-path `file` query, then dispatches to the daemon and
 /// prints the result in the requested output format.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<GraphCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<GraphCli, _, _>(args.iter().skip(1))
+    {
         Ok(c) => c,
         Err(e) => e.exit(),
     };

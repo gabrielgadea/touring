@@ -100,7 +100,13 @@ const FINISHED_ONLY: &str = " AND sr.completed_at IS NOT NULL";
 /// `completed` and `failed` close a row (`record_subtask_transition`), so a closed row whose
 /// `cache_hit` is 0 is a failure.
 fn attempt_outcome(completed_at: Option<&str>, cache_hit: Option<i32>) -> Option<&'static str> {
-    completed_at.map(|_| if cache_hit == Some(1) { "completed" } else { "failed" })
+    completed_at.map(|_| {
+        if cache_hit == Some(1) {
+            "completed"
+        } else {
+            "failed"
+        }
+    })
 }
 
 /// Normalise a stored subtask id to the scoped `task_id::subtask_id` form that
@@ -348,7 +354,10 @@ pub fn cli_workflow_resume(rt: &mut HookRuntime, payload: &serde_json::Value) ->
         .cloned();
 
     let total = subtasks.len() as i64;
-    let completed = subtasks.iter().filter(|s| s["status"] == "completed").count() as i64;
+    let completed = subtasks
+        .iter()
+        .filter(|s| s["status"] == "completed")
+        .count() as i64;
     let completion_pct = if total > 0 {
         (completed as f64 / total as f64) * 100.0
     } else {
@@ -370,7 +379,10 @@ pub fn cli_workflow_resume(rt: &mut HookRuntime, payload: &serde_json::Value) ->
 }
 
 /// Every attempt of `task_id`'s subtasks, oldest first, each with its outcome (`null` while open).
-fn resume_attempts(db: &FileKnowledgeDB, task_id: &str) -> rusqlite::Result<Vec<serde_json::Value>> {
+fn resume_attempts(
+    db: &FileKnowledgeDB,
+    task_id: &str,
+) -> rusqlite::Result<Vec<serde_json::Value>> {
     let mut stmt = db.conn_ref().prepare(
         "SELECT sr.subtask_id, sr.started_at, sr.completed_at, sr.duration_ms, sr.cache_hit, sr.error
          FROM subtask_results sr
@@ -427,7 +439,10 @@ fn resume_subtasks(
             .iter()
             .filter(|a| a["subtask_id"] == subtask_id.as_str())
             .collect();
-        let latest = |key: &str| own.last().map_or(serde_json::Value::Null, |a| a[key].clone());
+        let latest = |key: &str| {
+            own.last()
+                .map_or(serde_json::Value::Null, |a| a[key].clone())
+        };
         subtasks.push(serde_json::json!({
             "subtask_id": subtask_id,
             "description": description,

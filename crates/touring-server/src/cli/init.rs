@@ -79,7 +79,8 @@ struct InitCli {
 
 /// Run the `touring init` subcommand.
 pub fn run(args: &[String]) -> Result<()> {
-    let cli = crate::cli::common::parse_tolerating_json::<InitCli, _, _>(args.iter().skip(1)).unwrap_or_else(|e| e.exit());
+    let cli = crate::cli::common::parse_tolerating_json::<InitCli, _, _>(args.iter().skip(1))
+        .unwrap_or_else(|e| e.exit());
 
     if cli.fast {
         return run_fast_init();

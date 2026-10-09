@@ -3816,7 +3816,10 @@ fn task_completed_dispatch_runs_the_decompose_retention_pass() {
         .get("task-completed")
         .expect("task-completed must be registered");
 
-    let _ = handler(&mut rt, &serde_json::json!({"task_id": "t-retention", "success": true}));
+    let _ = handler(
+        &mut rt,
+        &serde_json::json!({"task_id": "t-retention", "success": true}),
+    );
 
     let stamp = |task_id: &str| -> Option<String> {
         rt.ctx
@@ -3829,8 +3832,14 @@ fn task_completed_dispatch_runs_the_decompose_retention_pass() {
             )
             .expect("the plan row")
     };
-    assert!(stamp("plan-old").is_some(), "closed for 9 days: the hook must stamp it");
-    assert!(stamp("plan-fresh").is_none(), "closed a minute ago: still inside the retention window");
+    assert!(
+        stamp("plan-old").is_some(),
+        "closed for 9 days: the hook must stamp it"
+    );
+    assert!(
+        stamp("plan-fresh").is_none(),
+        "closed a minute ago: still inside the retention window"
+    );
 }
 
 // R37-S1: scout_tantivy_search_hint — ::scout pending/in_progress → tantivy + ast blast hint
