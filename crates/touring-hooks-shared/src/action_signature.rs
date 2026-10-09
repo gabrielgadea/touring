@@ -330,15 +330,56 @@ fn classify_intent_class(tool_class: &str, tool_name: &str, input: &Value) -> St
 }
 
 /// Extract the first whitespace-delimited token from a shell command.
+///
+/// S8 (2026-10-08), defeito (b) medido ao vivo pela analise-6b: o verbo real é o
+/// primeiro COMANDO — prefixos de navegação (`cd /x && …`, `cd /x; …`),
+/// atribuições de ambiente (`VAR=val …`) e o wrapper `env` são pulados. Antes,
+/// TODO comando com `cd` chaveava as lições nas mesmas ~9 falhas genéricas de
+/// `cd`, repetidas a cada chamada. Ingênuo quanto a aspas (corta dentro de
+/// `grep 'a;b'`), como o `command_segments` do cli_suggester — seguro para
+/// CLASSIFICAÇÃO: o verbo do segmento não muda com o corte. (A mesma semântica
+/// vive em `resolved_tokens`/`effective_tokens` no cli_suggester; duplicada aqui
+/// porque este crate é leaf e não o importa.)
 fn first_command_token(cmd: &str) -> Option<String> {
-    let tok = cmd.split_whitespace().next()?;
-    // Strip leading path components (e.g. `/usr/bin/cargo` → `cargo`).
-    let base = tok.split('/').next_back().unwrap_or(tok);
-    if base.is_empty() {
-        None
-    } else {
-        Some(base.to_string())
+    for seg in cmd
+        .split(['\n', ';'])
+        .flat_map(|p| p.split("&&"))
+        .flat_map(|p| p.split("||"))
+    {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let mut i = 0;
+        while i < toks.len() && (is_env_assignment(toks[i]) || toks[i] == "env") {
+            i += 1;
+        }
+        let Some(&verb) = toks.get(i) else {
+            continue; // segmento só de atribuições — o próximo decide
+        };
+        if verb == "cd" {
+            continue; // prefixo de navegação — o próximo segmento decide
+        }
+        // Strip leading path components (e.g. `/usr/bin/cargo` → `cargo`).
+        let base = verb.split('/').next_back().unwrap_or(verb);
+        if !base.is_empty() {
+            return Some(base.to_string());
+        }
     }
+    None
+}
+
+/// `VAR=val` — token que é atribuição de ambiente shell (nome de var seguido de
+/// `=`). Mesmo predicado do `is_env_assignment` do cli_suggester, duplicado porque
+/// este crate é leaf.
+fn is_env_assignment(tok: &str) -> bool {
+    let Some(eq) = tok.find('=') else {
+        return false;
+    };
+    let name = &tok[..eq];
+    !name.is_empty()
+        && name
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
 }
 
 /// Extract the file extension (without the dot), lowercased.
@@ -842,5 +883,61 @@ mod tests {
     #[test]
     fn hi_complexity_as_str() {
         assert_eq!(ContextQualifier::HiComplexity.as_str(), "hi-complexity");
+    }
+
+    // ── S8 (2026-10-08): defeito (b), medido ao vivo pela analise-6b ─────────
+
+    /// Todo Bash que começa com `cd <dir> && …` trazia as mesmas ~9 falhas
+    /// genéricas chaveadas em `cd` — porque `first_command_token` lia o PRIMEIRO
+    /// token, e ele era `cd`. O verbo real é o primeiro COMANDO depois dos
+    /// prefixos de navegação (`cd`, `;`), das atribuições de ambiente
+    /// (`VAR=val`) e do wrapper `env`.
+    #[test]
+    fn lessons_verb_real_depois_de_cd_e_assignments() {
+        assert_eq!(
+            classify_intent_class(
+                "bash",
+                "Bash",
+                &json!({"command": "cd /home/x && cargo test"})
+            ),
+            "cargo"
+        );
+        assert_eq!(
+            classify_intent_class(
+                "bash",
+                "Bash",
+                &json!({"command": "cd /home/x; python3 run.py"})
+            ),
+            "python3"
+        );
+        assert_eq!(
+            classify_intent_class(
+                "bash",
+                "Bash",
+                &json!({"command": "TOURING_CODE_MODE=native python3 f.py --show"})
+            ),
+            "python3"
+        );
+        assert_eq!(
+            classify_intent_class("bash", "Bash", &json!({"command": "env A=1 cargo check"})),
+            "cargo"
+        );
+        assert_eq!(
+            classify_intent_class("bash", "Bash", &json!({"command": "cd /x && ls -la"})),
+            "ls"
+        );
+        // o que já funcionava não muda:
+        assert_eq!(
+            classify_intent_class(
+                "bash",
+                "Bash",
+                &json!({"command": "cargo check --workspace"})
+            ),
+            "cargo"
+        );
+        assert_eq!(
+            classify_intent_class("bash", "Bash", &json!({"command": ""})),
+            "unknown"
+        );
     }
 }

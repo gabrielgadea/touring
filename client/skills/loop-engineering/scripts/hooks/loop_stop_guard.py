@@ -240,6 +240,9 @@ def _block(path, marker: dict, unmet, next_action: str) -> int:
 # ── W6 S-6.2 (plano code-mode-total) — rajada sem programa bloqueia o turno ──
 
 BURST_BASH_FLOOR = 20  # turno com >= N Bash e 0 `touring run` ganha 1 block
+# O esqueleto R1 real (V0e3, aprovado por Gabriel em 08/10/2026): a mensagem cita o caminho, nunca um placeholder.
+R1_SKELETON = (Path.home() / "projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/repertorio"
+               / "r1_varredura_agregado.py")
 
 
 def _stdin_payload():
@@ -294,6 +297,15 @@ def turn_bash_stats(transcript_path):
     return turn_id, n_bash, n_run, comandos
 
 
+def _r1_route() -> str:
+    """The route the burst block teaches, with a real value only: the skeleton's path when it exists, otherwise
+    just the memory query that lists the skeletons — never a `<placeholder>.py`."""
+    query = '`touring memory query "#kind:snippet #process:code-mode"`'
+    if R1_SKELETON.is_file():
+        return f"esqueleto pronto: `touring run --lang python --file {R1_SKELETON}` (outros esqueletos: {query})"
+    return f"esqueletos prontos em {query}"
+
+
 def code_mode_burst_block(payload):
     """W6 S-6.2 — turno com >= BURST_BASH_FLOOR Bash e 0 `touring run` recebe
     UM block com o diagnóstico da maior rajada + R1 instanciado. O 2º Stop do
@@ -322,9 +334,7 @@ def code_mode_burst_block(payload):
     return (
         f"[G-turno rajada-sem-programa] {n_bash} Bash neste turno e 0 `touring run` "
         f"(maior classe: `{campeao}` ×{vezes}). A pergunta define a unidade (Reflexo #8): "
-        f"funda a família numa varredura única — esqueleto pronto: R1 em "
-        f"`touring memory query \"#kind:snippet #process:code-mode\"` → "
-        f"`touring run --lang python --file <r1_varredura_agregado.py>`. "
+        f"funda a família numa varredura única — {_r1_route()}. "
         f"Este block acontece 1× por turno; o próximo Stop passa."
     )
 

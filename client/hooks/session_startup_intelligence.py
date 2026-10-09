@@ -26,7 +26,9 @@ Output contract (stdout, single JSON line):
     }
 
 Fail-open: any internal error emits minimal valid JSON with status note.
-Total budget: <5s (settings.json timeout=5). Per-touring-call timeout: 1.5-2s.
+Total budget: <5s (settings.json timeout=8). Per-touring-call timeout: 1.5-3s.
+An absent source is shown as "indisponível (<reason>)", never as 0.00 or 0/0, and derives no recommendation
+(D1, analise-92, 06/10/2026: `status -j` took 4.6 s against a 1.5 s timeout and every panel read 0.00).
 
 S-04 (SNR slice) — SLIM mode + cache-prefix discipline
 ------------------------------------------------------
@@ -67,8 +69,10 @@ from typing import Any
 
 HOOK_NAME = "SessionStart"
 PER_CMD_TIMEOUT = 1.5
+STATUS_TIMEOUT = 3.0  # status walks more than doctor; still inside TOTAL_BUDGET_S
 PATH_CMD_TIMEOUT = 2.0
 TOTAL_BUDGET_S = 4.5
+JEV_TIMEOUT_S = 2.0  # opt-in rerank; two calls must fit the hook's 8 s budget (was 8.0 each)
 
 
 def slim_enabled() -> bool:
@@ -80,8 +84,8 @@ def slim_enabled() -> bool:
     return val not in ("0", "false", "no", "off")
 
 
-def run_touring(args: list[str], timeout: float = PER_CMD_TIMEOUT) -> str | None:
-    """Run touring CLI subcommand, return stdout or None on any failure."""
+def run_touring_detail(args: list[str], timeout: float = PER_CMD_TIMEOUT) -> tuple[str | None, str | None]:
+    """(stdout, None) on success; (None, reason) otherwise — the reason travels to the panel."""
     try:
         r = subprocess.run(
             ["touring", *args],
@@ -90,11 +94,19 @@ def run_touring(args: list[str], timeout: float = PER_CMD_TIMEOUT) -> str | None
             timeout=timeout,
             check=False,
         )
-        if r.returncode != 0:
-            return None
-        return r.stdout.strip() or None
-    except Exception:
-        return None
+    except subprocess.TimeoutExpired:
+        return None, f"timeout {timeout:g}s"
+    except OSError as e:
+        return None, f"não executou ({e.__class__.__name__})"
+    if r.returncode != 0:
+        return None, f"rc={r.returncode}"
+    out = r.stdout.strip()
+    return (out, None) if out else (None, "saída vazia")
+
+
+def run_touring(args: list[str], timeout: float = PER_CMD_TIMEOUT) -> str | None:
+    """Run touring CLI subcommand, return stdout or None on any failure."""
+    return run_touring_detail(args, timeout)[0]
 
 
 def parse_json_safe(s: str | None) -> Any:
@@ -144,16 +156,33 @@ def collect_global(slim: bool = False) -> dict[str, Any]:
         # telemetry (learning/synergy/gate/evolution/mem_stats) is pulled on demand.
         tasks = {"doctor": tasks["doctor"], "status": tasks["status"]}
     results: dict[str, Any] = {}
+    why: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=7) as ex:
-        futures = {ex.submit(run_touring, args): name for name, args in tasks.items()}
+        futures = {ex.submit(run_touring_detail, args, STATUS_TIMEOUT if name == "status" else PER_CMD_TIMEOUT): name
+                   for name, args in tasks.items()}
         for f in as_completed(futures, timeout=TOTAL_BUDGET_S):
             name = futures[f]
             try:
-                results[name] = parse_json_safe(f.result())
-            except Exception:
-                results[name] = None
+                out, reason = f.result()
+            except Exception as e:  # noqa: BLE001 — a collector failure is a reason, not a crash
+                out, reason = None, f"erro ({e.__class__.__name__})"
+            results[name] = parse_json_safe(out)
+            if results[name] is None:
+                why[name] = reason or "saída não é JSON"
+    results["_why"] = why
     results["fs_mtimes"] = _collect_fs_mtimes()
     return results
+
+
+def _absent(g: dict[str, Any], name: str) -> str:
+    """'indisponível (<reason>)' for a source that did not answer."""
+    return f"indisponível ({(g.get('_why') or {}).get(name, 'sem resposta')})"
+
+
+def _composite(g: dict[str, Any]) -> float | None:
+    """The measured composite, or None when status did not answer — never a default 0.0."""
+    v = (g.get("status") or {}).get("composite_health_score")
+    return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
 def _collect_fs_mtimes() -> dict[str, float]:
@@ -230,15 +259,15 @@ def collect_path(cwd: str) -> dict[str, Any]:
 def _health_headline(g: dict[str, Any]) -> list[str]:
     """The one stable, high-SNR line: composite + doctor N/N + degraded parts."""
     out: list[str] = []
-    status = g.get("status") or {}
-    composite = status.get("composite_health_score", 0.0)
+    composite = _composite(g)
     doctor = g.get("doctor")
-    ok = total = 0
+    comp_str = f"**{composite:.2f}**" if composite is not None else _absent(g, "status")
     if isinstance(doctor, list) and doctor:
         ok = sum(1 for d in doctor if isinstance(d, dict) and d.get("status") == "ok")
-        total = len(doctor)
-    comp_str = f"{composite:.2f}" if isinstance(composite, (int, float)) else "?"
-    out.append(f"## Saúde: composite **{comp_str}** · Doctor **{ok}/{total} OK**")
+        doc_str = f"**{ok}/{len(doctor)} OK**"
+    else:
+        doc_str = _absent(g, "doctor")
+    out.append(f"## Saúde: composite {comp_str} · Doctor {doc_str}")
     if isinstance(doctor, list):
         for d in doctor:
             if isinstance(d, dict) and d.get("status") not in ("ok", None):
@@ -248,12 +277,11 @@ def _health_headline(g: dict[str, Any]) -> list[str]:
 
 def _health_recs(g: dict[str, Any]) -> list[str]:
     """Data-driven recommendations, emitted ONLY when there is a real problem."""
-    status = g.get("status") or {}
-    composite = status.get("composite_health_score", 0.0)
+    composite = _composite(g)  # None when status did not answer: absence derives no recommendation
     learning = g.get("learning") or {}
     arl = learning.get("agentic_rl_state") or {} if isinstance(learning, dict) else {}
     recs: list[str] = []
-    if isinstance(composite, (int, float)) and composite < 0.7:
+    if composite is not None and composite < 0.7:
         recs.append(f"- composite {composite:.2f} < 0.7 → `touring e2e -j` + investigar degradados")
     td = learning.get("mean_td_error") if isinstance(learning, dict) else None
     if isinstance(td, (int, float)) and td > 5.0:
@@ -344,11 +372,11 @@ def fmt_global(g: dict[str, Any], slim: bool = False) -> str:
     out.append("")
 
     status = g.get("status") or {}
-    composite = status.get("composite_health_score", 0.0)
-    if isinstance(composite, (int, float)):
+    composite = _composite(g)
+    if composite is not None:
         out.append(f"## Saúde do Sistema (composite_health_score = **{composite:.2f}**)")
     else:
-        out.append("## Saúde do Sistema (composite indisponível)")
+        out.append(f"## Saúde do Sistema (composite {_absent(g, 'status')})")
 
     doctor = g.get("doctor")
     if isinstance(doctor, list) and doctor:
@@ -617,6 +645,139 @@ def fmt_path(p: dict[str, Any], cwd: str, project_type: str, slim: bool = False)
     return "\n".join(out)
 
 
+def _count_injected(entries: list, context: str) -> int:
+    """Memórias cuja chave ou prefixo de valor aparecem no contexto final."""
+    n = 0
+    for e in entries:
+        key = str(e.get("key", ""))[:60]
+        val = str(e.get("value", ""))[:60]
+        if (key and key in context) or (val and val in context):
+            n += 1
+    return n
+
+
+def _rerank_with_jev(query: str, entries: list) -> list:
+    """S-5.4 (replay aprovado: Jev top-1 5×4, MRR +25%): reordena os candidatos do
+    recall por P(sim) do Noul — UMA chamada por query, candidata dentro das
+    instructions (anti-context-rot, padrão da doc). Ordenação, nunca corte por τ
+    (ECE 0,709 medido no G2 — Noul não é τ sem recalibração).
+    Flag TOURING_JEV_RECALL_RERANK (default-OFF). Fail-open: qualquer falha
+    devolve a ordem original (o rerank nunca piora o caminho atual).
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # repo/scripts via the symlink
+        import jev_client  # noqa: PLC0415 — import tardio por desenho (hook quente)
+
+        questions = {}
+        for i, e in enumerate(entries):
+            questions[f"c{i}"] = {
+                "type": "noul",
+                "instructions": {
+                    "candidate": str(e.get("value", ""))[:2500],
+                    "question": "Does `candidate` contain information that directly helps with the task in `query`?",
+                },
+            }
+        answers = jev_client.system_one({"query": query[:1500]}, questions, timeout=JEV_TIMEOUT_S)
+        if answers is None:
+            return entries
+        scored = [
+            (answers.get(f"c{i}", {}).get("noul", 0.0), i, e)
+            for i, e in enumerate(entries)
+        ]
+        scored.sort(key=lambda t: t[0], reverse=True)
+        return [e for _, _, e in scored]
+    except Exception:
+        return entries  # fail-open: ordem original
+
+
+def _score_gate_with_jev(query: str, entries: list) -> list:
+    """S-7 (plan r2, replay medido 01/10): FILTRA por Score de utilidade — injeta só
+    score ≥ τ. Medido no replay congelado: τ=1,0 injeta 31,1% dos candidatos com a
+    MESMA eficácia do contexto cheio (top1 4, mrr 0,1212 — zero perda com 69% menos
+    injeção; padrão "Classifying RAG passages" da doc: o modelo pontua, o código decide).
+    Ativado com TOURING_JEV_RECALL_MODE=score_gate (a flag-mestra segue TOURING_JEV_RECALL_RERANK).
+    Fail-open: qualquer falha devolve TODAS as entradas (nunca injeta menos por erro).
+    """
+    try:
+        sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # repo/scripts via the symlink
+        import jev_client  # noqa: PLC0415 — import tardio por desenho (hook quente)
+
+        questions = {}
+        for i, e in enumerate(entries):
+            questions[f"c{i}"] = {
+                "type": "score",
+                "instructions": {
+                    "candidate": str(e.get("value", ""))[:2500],
+                    "question": "Rate how directly this candidate helps with the task in `query`: 0 = irrelevant, 1 = tangential, 2 = directly useful.",
+                },
+                "criteria": ["irrelevant to the query", "tangential or background", "directly useful for the query"],
+            }
+        answers = jev_client.system_one({"query": query[:1500]}, questions, timeout=JEV_TIMEOUT_S)
+        if answers is None:
+            return entries
+        return [e for i, e in enumerate(entries) if float(answers.get(f"c{i}", {}).get("score", 0.0)) >= 1.0]
+    except Exception:
+        return entries  # fail-open: todas (nunca injeta menos por erro)
+
+
+def _rerank_recall_if_enabled(results: dict) -> dict:
+    """Aplica rerank (ordena) ou score_gate (filtra ≥ τ medido) conforme o modo."""
+    if os.environ.get("TOURING_JEV_RECALL_RERANK", "") not in ("1", "true", "on"):
+        return results
+    mode = os.environ.get("TOURING_JEV_RECALL_MODE", "rerank")
+    out = dict(results)
+    for name, payload in list(out.items()):
+        if not name.startswith("memory_") or not isinstance(payload, dict):
+            continue
+        cases = payload.get("cases") or {}
+        for group_name, group in cases.items():
+            if not isinstance(group, list) or not group:
+                continue
+            query = name.removeprefix("memory_")
+            cases[group_name] = _score_gate_with_jev(query, group) if mode == "score_gate" else _rerank_with_jev(query, group)
+    return out
+
+
+def _journal_recall_injection(results: dict, context: str, cwd: str) -> None:
+    """S-3.4 (plano Jev×Touring, 01/10): conta o que o recall trouxe vs o que o
+    contexto injetou — a régua `recall_curated_share` da família decision.
+
+    Uma linha JSONL por session-start em recall_journal.jsonl, append-only
+    (O_APPEND, um write por linha — a lição da intercalação do intent_journal).
+    Fail-open por contrato: telemetria nunca derruba o hook.
+    """
+    try:
+        per_query: dict[str, dict[str, int]] = {}
+        for name, payload in (results or {}).items():
+            if not name.startswith("memory_"):
+                continue
+            cases = (payload or {}).get("cases") or {}
+            # cases mistura listas de entradas com metadados (cap_per_class:int,
+            # guidance:str) — só listas carregam entradas; qualquer outra coisa
+            # é metadado. Bug real 01/10: o flatten cego quebrava no int e o
+            # fail-open engolia calado (o journal nunca nascia).
+            entries = [e for g in cases.values() if isinstance(g, list) for e in g if isinstance(e, dict)]
+            per_query[name] = {"candidates": len(entries), "injected": _count_injected(entries, context)}
+        if not per_query:
+            return
+        rec = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "project": Path(cwd).name if cwd else "unknown",
+            "per_query": per_query,
+            "candidates": sum(q["candidates"] for q in per_query.values()),
+            "injected": sum(q["injected"] for q in per_query.values()),
+        }
+        path = os.environ.get(
+            "TOURING_RECALL_JOURNAL",
+            str(Path.home() / ".claude" / "touring" / "logs" / "recall_journal.jsonl"),
+        )
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except Exception:
+        pass  # fail-open: telemetria nunca derruba o hook
+
+
 def main() -> int:
     t0 = time.monotonic()
     try:
@@ -632,7 +793,7 @@ def main() -> int:
     except Exception:
         global_intel = {}
     try:
-        path_intel = collect_path(cwd)
+        path_intel = _rerank_recall_if_enabled(collect_path(cwd))
     except Exception:
         path_intel = {}
     try:
@@ -652,6 +813,10 @@ def main() -> int:
         + f" | session_id={str(session_id)[:8]} | path-aware"
         + " | hook=session_startup_intelligence.py_"
     )
+    try:
+        _journal_recall_injection(path_intel, additional, cwd)
+    except Exception:
+        pass  # telemetria nunca derruba o hook (S-3.4)
     out = {
         "hookSpecificOutput": {
             "hookEventName": HOOK_NAME,

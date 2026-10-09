@@ -1,0 +1,27 @@
+PASS release.versoes (0s) — global=touring 30.4.93 · toolchain=touring 30.4.93 · analise=touring 30.4.93 · konverter=touring 30.4.93 · default 30.4.93: True
+PASS release.daemons (0s) — 3 daemons · deleted 0 · global pid 2971193 (pidfile 2971193) alive True
+PASS release.espelho_client (0s) — rc 0 | ✅ CLEAN  377 arquivos espelhados, nenhum divergente
+PASS release.update_touring_suite_inocua (21s) — 28 passed in 9.97s | SYMLINK=1: 28 passed in 8.91s | estado real antes==depois: True
+FAIL drift.A1 (22s) — rc 1 |   FAIL C1 versions: expected 82, got 83
+FAIL drift.A2_pytest (23s) — rc 1 | 8 passed, 2 errors in 22.15s
+FAIL drift.A3_verify (23s) — rc 1 |   FAIL (c) mas SUMIU do scan atual (deveria permanecer contado): C1 30.4.93
+PASS drift.A4_phantom (0s) — rc 0 | OK — 55 arquivos do escopo sistema/repo/infra, nenhum crate fantasma sem nota
+PASS drift.predicados (16s) — rc 0 | 12 testes, 0 falhas
+PASS drift.agentes_sem_literal_errado (0s) — 8 arquivos vivos (fonte+espelho) · ocorrências erradas 0 · controle positivo True
+PASS compactacao.conservacao_agentes (0s) — rc 0 | agentes: 3693/3701 linhas (99.78%)  · com perda: nenhuma
+FAIL compactacao.juiz_unico (106s) — rc 1 | veredito: FALTA C1
+PASS vgp.inventario_selftest (0s) — rc 0 |   ok  negativo externo
+PASS vgp.vivos_selftest (1s) — rc 0 | selftest: ok
+PASS vgp.replay_selftest (0s) — rc 0 | selftest: ok (isolamento+classe True · reconstrução True · heredoc True · .cache do projeto True · controle negativo True)
+PASS vgp.juiz_v0c (30s) — rc 0 | veredito: CONVERGIU
+PASS vgp.juiz_v0d_selftest (1s) — rc 0 | mutantes pegos: sha do snapshot True · um negativo a menos True · registro sem frame True · re-execução não reproduz True · controle negativo (hoje ainda erra) True
+FAIL vgp.juiz_v0d_corpus (0s) — rc 1 | veredito: 3 pendências
+PASS analise.grafo_tests (3s) — rc 0 | ============================= 116 passed in 0.70s ==============================
+PASS analise.emendas_licoes (3s) — rc 0 | ============================== 80 passed in 0.44s ==============================
+PASS analise.consertos_a9 (3s) — rc 0 | ============================== 4 passed in 0.62s ===============================
+PASS lint.ruff (0s) — rc 0 | All checks passed!
+PASS memoria.nos_relidos (3s) — 15/15 nós com arestas+procedência
+FAIL dags (0s) — 430085 None 0/0 pend=[] · 571926 None 0/0 pend=[] · 538442 None 0/0 pend=[]
+
+VEREDITO: 18/24 PASS · FALHAS: ['drift.A1', 'drift.A2_pytest', 'drift.A3_verify', 'compactacao.juiz_unico', 'vgp.juiz_v0d_corpus', 'dags']
+rc=1

@@ -58,6 +58,11 @@ pub struct FamilyStats {
     pub propositions: u64,
     /// Blocks carrying no directive at all: cost with nothing to act on.
     pub zero_proposition_blocks: u64,
+    /// In a SESSION aggregate: bytes new to this session that another session already received.
+    /// They are not a repeat in the session's own unit, and they are one in the project's.
+    pub cross_session_duplicate_bytes: u64,
+    /// The blocks behind `cross_session_duplicate_bytes`.
+    pub cross_session_duplicate_blocks: u64,
 }
 
 /// Per-tool accounting for the largest single share of the window (tool results,
@@ -126,6 +131,59 @@ pub struct ContextBudgetAggregate {
     /// Tool results split by the tool that produced them, with how much of each
     /// is observably reused (see [`ToolStats`]).
     pub by_tool: BTreeMap<String, ToolStats>,
+    /// Injected bytes that repeated a block another SESSION had already received.
+    /// In a session aggregate they are counted here and NOT in `duplicate_bytes`;
+    /// [`ContextBudgetAggregate::absorb_session`] folds them into the project's.
+    pub cross_session_duplicate_bytes: u64,
+    /// The blocks behind `cross_session_duplicate_bytes`.
+    pub cross_session_duplicate_blocks: u64,
+}
+
+impl ContextBudgetAggregate {
+    /// Add one session's aggregate to this PROJECT aggregate.
+    ///
+    /// Every count adds up, except the repeats: a block one session received
+    /// first and another received again is a repeat for the project and not for
+    /// either session, so the project's `duplicate_*` is the sessions' own repeats
+    /// PLUS their cross-session ones. This keeps the project number byte-identical
+    /// to the single-`seen` scan it replaces (Gabriel, canvas 2 option c, 05/10/2026).
+    pub fn absorb_session(&mut self, s: &Self) {
+        self.transcripts += s.transcripts;
+        self.bytes_scanned += s.bytes_scanned;
+        self.user_turns += s.user_turns;
+        self.injected_bytes += s.injected_bytes;
+        self.injected_blocks += s.injected_blocks;
+        self.duplicate_bytes += s.duplicate_bytes + s.cross_session_duplicate_bytes;
+        self.duplicate_blocks += s.duplicate_blocks + s.cross_session_duplicate_blocks;
+        self.cross_session_duplicate_bytes += s.cross_session_duplicate_bytes;
+        self.cross_session_duplicate_blocks += s.cross_session_duplicate_blocks;
+        self.tool_result_bytes += s.tool_result_bytes;
+        self.assistant_bytes += s.assistant_bytes;
+        self.user_bytes += s.user_bytes;
+        self.must_emitted += s.must_emitted;
+        self.must_followed += s.must_followed;
+        self.tool_calls += s.tool_calls;
+        for (name, f) in &s.by_family {
+            let e = self.by_family.entry(name.clone()).or_default();
+            e.bytes += f.bytes;
+            e.blocks += f.blocks;
+            e.duplicate_bytes += f.duplicate_bytes + f.cross_session_duplicate_bytes;
+            e.duplicate_blocks += f.duplicate_blocks + f.cross_session_duplicate_blocks;
+            e.cross_session_duplicate_bytes += f.cross_session_duplicate_bytes;
+            e.cross_session_duplicate_blocks += f.cross_session_duplicate_blocks;
+            e.propositions += f.propositions;
+            e.zero_proposition_blocks += f.zero_proposition_blocks;
+        }
+        for (name, t) in &s.by_tool {
+            let e = self.by_tool.entry(name.clone()).or_default();
+            e.results += t.results;
+            e.bytes += t.bytes;
+            e.reused_bytes += t.reused_bytes;
+            e.lines += t.lines;
+            e.reused_lines += t.reused_lines;
+            e.zero_reuse_results += t.zero_reuse_results;
+        }
+    }
 }
 
 /// Shortest line that can carry a fact worth keeping in a digest. Below this a
@@ -497,13 +555,79 @@ fn line_reached(line: &str, lines: &BTreeSet<String>, tokens: &BTreeSet<String>)
 
 /// Aggregate one transcript's lines. Pure: the caller supplies the lines.
 ///
-/// `seen` is threaded ACROSS transcripts by the caller, because the duplication
-/// that matters is "the same bytes reached the model again", which does not
-/// respect file boundaries.
+/// `seen` decides what counts as a repeat, so its scope IS the unit: threaded
+/// across transcripts it measures the project ("the same bytes reached the model
+/// again", across files); one per transcript, it measures a session.
+// O lifetime `<'a>` é NECESSÁRIO nesta posição: `impl Trait` não admite lifetime
+// anônimo em assoc-type binding (`Item = &str` / `&'_ str`) — E0658, medido ao
+// tentar removê-lo em 08/10 (a revisão adversarial sugeria remover; a linguagem
+// estável não permite). Se o clippy apontar, o allow é pontual e aqui.
+#[cfg_attr(not(test), allow(clippy::extra_unused_lifetimes))]
 pub fn aggregate_lines<'a>(
     lines: impl Iterator<Item = &'a str>,
     agg: &mut ContextBudgetAggregate,
     seen: &mut BTreeMap<u64, u64>,
+) {
+    aggregate_session_lines(lines, agg, seen, None);
+}
+
+/// Account one injected block: its family, its propositions, and whether it is a
+/// repeat — in the session (`seen`) or only across sessions (`project_seen`).
+fn record_injection(
+    text: &str,
+    agg: &mut ContextBudgetAggregate,
+    seen: &mut BTreeMap<u64, u64>,
+    project_seen: Option<&mut BTreeMap<u64, u64>>,
+) {
+    let len = text.len() as u64;
+    let props = count_propositions(text);
+    agg.injected_bytes += len;
+    agg.injected_blocks += 1;
+    let entry = agg
+        .by_family
+        .entry(injection_family(text).to_string())
+        .or_default();
+    entry.bytes += len;
+    entry.blocks += 1;
+    entry.propositions += props;
+    if props == 0 {
+        entry.zero_proposition_blocks += 1;
+    }
+    let hash = hash_of(text);
+    let count = seen.entry(hash).or_insert(0);
+    *count += 1;
+    let repeat_here = *count > 1;
+    if repeat_here {
+        agg.duplicate_bytes += len;
+        agg.duplicate_blocks += 1;
+        entry.duplicate_bytes += len;
+        entry.duplicate_blocks += 1;
+    }
+    let Some(project) = project_seen else {
+        return;
+    };
+    let pc = project.entry(hash).or_insert(0);
+    *pc += 1;
+    if *pc > 1 && !repeat_here {
+        agg.cross_session_duplicate_bytes += len;
+        agg.cross_session_duplicate_blocks += 1;
+        entry.cross_session_duplicate_bytes += len;
+        entry.cross_session_duplicate_blocks += 1;
+    }
+}
+
+/// [`aggregate_lines`] for ONE session, with the project's `seen` alongside.
+///
+/// `seen` is the session's own; `project_seen`, when given, is threaded across
+/// sessions. A block new to the session that another session already received
+/// is counted in `cross_session_duplicate_*` — not in `duplicate_*`, which keeps
+/// the session's own unit. One pass serves both units, so a transcript is parsed
+/// once.
+pub fn aggregate_session_lines<'a>(
+    lines: impl Iterator<Item = &'a str>,
+    agg: &mut ContextBudgetAggregate,
+    seen: &mut BTreeMap<u64, u64>,
+    mut project_seen: Option<&mut BTreeMap<u64, u64>>,
 ) {
     let mut pending_must: Option<String> = None;
     let mut reuse = ReuseTracker::default();
@@ -514,26 +638,7 @@ pub fn aggregate_lines<'a>(
         let kind = rec.get("type").and_then(Value::as_str).unwrap_or_default();
 
         for text in hook_contexts(&rec) {
-            let family = injection_family(&text);
-            let len = text.len() as u64;
-            let props = count_propositions(&text);
-            agg.injected_bytes += len;
-            agg.injected_blocks += 1;
-            let entry = agg.by_family.entry(family.to_string()).or_default();
-            entry.bytes += len;
-            entry.blocks += 1;
-            entry.propositions += props;
-            if props == 0 {
-                entry.zero_proposition_blocks += 1;
-            }
-            let count = seen.entry(hash_of(&text)).or_insert(0);
-            *count += 1;
-            if *count > 1 {
-                agg.duplicate_bytes += len;
-                agg.duplicate_blocks += 1;
-                entry.duplicate_bytes += len;
-                entry.duplicate_blocks += 1;
-            }
+            record_injection(&text, agg, seen, project_seen.as_deref_mut());
             if let Some(target) = must_target(&text) {
                 agg.must_emitted += 1;
                 pending_must = Some(target);
@@ -800,8 +905,15 @@ pub fn context_budget(project_root: &Path) -> Value {
     // Mais recente primeiro: a janela que interessa e a de agora.
     files.sort_by_key(|a| std::cmp::Reverse(a.0));
 
+    // Two units, one pass (Gabriel, canvas 2 option c, 05/10/2026). A transcript
+    // file is one Claude Code session — its name is the session id — and with two
+    // sessions alive every project counter mixed them: one session's parity check
+    // read 36.459 + 14.633 = 51.092 bytes, its own plus the other's. The project
+    // aggregate keeps its number (the repeats across sessions fold back in); each
+    // session gets its own, with its own `seen`.
     let mut agg = ContextBudgetAggregate::default();
-    let mut seen: BTreeMap<u64, u64> = BTreeMap::new();
+    let mut project_seen: BTreeMap<u64, u64> = BTreeMap::new();
+    let mut sessions: Vec<(String, ContextBudgetAggregate)> = Vec::new();
     for (_, path) in files.into_iter().take(MAX_TRANSCRIPTS) {
         if agg.bytes_scanned >= MAX_BYTES {
             agg.capped = true;
@@ -810,11 +922,62 @@ pub fn context_budget(project_root: &Path) -> Value {
         let Ok(content) = std::fs::read_to_string(&path) else {
             continue;
         };
-        agg.bytes_scanned += content.len() as u64;
-        agg.transcripts += 1;
-        aggregate_lines(content.lines(), &mut agg, &mut seen);
+        let mut session = ContextBudgetAggregate {
+            transcripts: 1,
+            bytes_scanned: content.len() as u64,
+            ..ContextBudgetAggregate::default()
+        };
+        let mut seen: BTreeMap<u64, u64> = BTreeMap::new();
+        aggregate_session_lines(
+            content.lines(),
+            &mut session,
+            &mut seen,
+            Some(&mut project_seen),
+        );
+        agg.absorb_session(&session);
+        let id = path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        sessions.push((id, session));
     }
-    budget_from_aggregate(&agg)
+    let mut out = budget_from_aggregate(&agg);
+    out["unit"] = json!("project");
+    out["cross_session_duplicate_bytes"] = json!(agg.cross_session_duplicate_bytes);
+    out["cross_session_duplicate_blocks"] = json!(agg.cross_session_duplicate_blocks);
+    out["by_session"] = Value::Array(
+        sessions
+            .iter()
+            .map(|(id, s)| session_summary(id, s))
+            .collect(),
+    );
+    out
+}
+
+/// The per-session row of the payload: the same formulas as the project
+/// (`budget_from_aggregate` is the one source), cut to the fields a session
+/// arm of an experiment reads.
+#[must_use]
+pub fn session_summary(session_id: &str, s: &ContextBudgetAggregate) -> Value {
+    let full = budget_from_aggregate(s);
+    let mut row = json!({"session_id": session_id, "unit": "session",
+                         "cross_session_duplicate_bytes": s.cross_session_duplicate_bytes});
+    for key in [
+        "user_turns",
+        "injected_bytes_per_turn",
+        "duplicate_injection_ratio",
+        "duplicate_blocks",
+        "must_emitted",
+        "must_followed",
+        "injection_follow_ratio",
+        "tool_calls",
+        "status",
+        "failing",
+    ] {
+        row[key] = full[key].clone();
+    }
+    row["injected_bytes"] = json!(s.injected_bytes);
+    row
 }
 
 #[cfg(test)]
@@ -1308,5 +1471,123 @@ mod tests {
             "faca a coisa".len() as u64 + "e depois esta".len() as u64
         );
         assert_eq!(agg.assistant_bytes, "prosa do modelo".len() as u64);
+    }
+
+    // ── canvas 2 option (c): the session unit and the project unit ──────────────
+
+    /// Session B: receives once the MUST block that session A (`synthetic`) repeated.
+    fn second_session() -> Vec<String> {
+        let inner = json!({"hookSpecificOutput": {"additionalContext":
+            "[TOURING SUGGEST]\n  MUST touring doctor -j\n"}})
+        .to_string();
+        vec![
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string(),
+            human("outra sessao"),
+        ]
+    }
+
+    fn sessions(
+        transcripts: &[Vec<String>],
+    ) -> (ContextBudgetAggregate, Vec<ContextBudgetAggregate>) {
+        let mut project = ContextBudgetAggregate::default();
+        let mut project_seen = BTreeMap::new();
+        let mut each = Vec::new();
+        for t in transcripts {
+            let mut s = ContextBudgetAggregate::default();
+            let mut seen = BTreeMap::new();
+            aggregate_session_lines(
+                t.iter().map(String::as_str),
+                &mut s,
+                &mut seen,
+                Some(&mut project_seen),
+            );
+            project.absorb_session(&s);
+            each.push(s);
+        }
+        (project, each)
+    }
+
+    #[test]
+    fn a_block_another_session_received_is_not_a_repeat_in_this_session() {
+        let (_, each) = sessions(&[synthetic(), second_session()]);
+        assert_eq!(
+            (
+                each[0].duplicate_blocks,
+                each[0].cross_session_duplicate_blocks
+            ),
+            (1, 0)
+        );
+        assert_eq!(
+            (
+                each[1].duplicate_blocks,
+                each[1].cross_session_duplicate_blocks
+            ),
+            (0, 1)
+        );
+        assert_eq!(
+            each[1].duplicate_bytes, 0,
+            "the session's own unit sees no repeat"
+        );
+    }
+
+    #[test]
+    fn the_project_number_through_sessions_is_the_single_seen_scan() {
+        // The decisive property: splitting into sessions must not move the project
+        // number the KPI already publishes. A forma da soma é afirmada, não zerada
+        // (revisão adversarial 08/10): dropar o cross-term em `absorb_session` faz
+        // duplicate_blocks 1≠2 e falha; dobrá-lo faz cross_session 2≠1 e falha.
+        let (a, b) = (synthetic(), second_session());
+        let mut old = ContextBudgetAggregate::default();
+        let mut seen = BTreeMap::new();
+        aggregate_lines(a.iter().map(String::as_str), &mut old, &mut seen);
+        aggregate_lines(b.iter().map(String::as_str), &mut old, &mut seen);
+        let (project, each) = sessions(&[a, b]);
+        assert_eq!(
+            old.duplicate_blocks, 2,
+            "the fixture must exercise both kinds of repeat"
+        );
+        assert_eq!(
+            project.duplicate_blocks, 2,
+            "o projeto dobra o cross-session para DENTRO do total — como o single-seen scan"
+        );
+        assert_eq!(
+            project.cross_session_duplicate_blocks, 1,
+            "e separadamente: quanto desse total veio de outra sessão"
+        );
+        assert_eq!(
+            project.cross_session_duplicate_bytes, each[1].cross_session_duplicate_bytes,
+            "os bytes cross do projeto são os da sessão onde a repetição aconteceu"
+        );
+        assert_eq!(
+            project.duplicate_bytes, old.duplicate_bytes,
+            "bytes seguem a mesma identidade dos blocos"
+        );
+        // A mesma forma no nível da família (a soma por família é a L170-173):
+        let fam = "touring-suggest";
+        assert_eq!(project.by_family[fam].duplicate_blocks, 2);
+        assert_eq!(project.by_family[fam].cross_session_duplicate_blocks, 1);
+        // Os campos fora da forma da soma são soma direta — o antigo assert_eq cego
+        // vivia só deles:
+        assert_eq!(project.injected_bytes, old.injected_bytes);
+        assert_eq!(project.injected_blocks, old.injected_blocks);
+        assert_eq!(project.user_turns, old.user_turns);
+    }
+
+    #[test]
+    fn the_session_row_carries_its_own_unit_and_the_project_formulas() {
+        let (_, each) = sessions(&[synthetic(), second_session()]);
+        let row = session_summary("sess-b", &each[1]);
+        assert_eq!(row["unit"], "session");
+        assert_eq!(row["session_id"], "sess-b");
+        assert_eq!(row["duplicate_injection_ratio"], 0.0);
+        assert_eq!(
+            row["cross_session_duplicate_bytes"],
+            each[1].cross_session_duplicate_bytes
+        );
+        assert_eq!(
+            row["user_turns"],
+            budget_from_aggregate(&each[1])["user_turns"]
+        );
     }
 }

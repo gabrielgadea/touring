@@ -1,0 +1,23 @@
+
+CONSERVAÇÃO — agentes, backup em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/agents-backup
+
+AGENTES (descricao cortada, texto integral no corpo, copias iguais):
+[OK ] touring-architect                619/620 linhas (99.84%)
+          corrigida (correcoes_declaradas.json): "expected_file": "crates/touring-resource-monitor/src/guard/mod.rs",
+[OK ] touring-auditor                  623/623 linhas (100.00%)
+[OK ] touring-engineer                 620/623 linhas (99.52%)
+          corrigida (correcoes_declaradas.json): "created_in_file": "crates/touring-resource-monitor/src/guard/mod.rs",
+          corrigida (correcoes_declaradas.json): "created_at_line": 67,
+          corrigida (correcoes_declaradas.json): "post_edit_evidence": "touring ast overview crates/.../guard/mod.rs returns symb
+[OK ] touring-scouter                  646/650 linhas (99.38%)
+          corrigida (correcoes_declaradas.json): # Lifecycle hook memory (store/recall patterns from hook events)
+          corrigida (correcoes_declaradas.json): touring hook-memory-recall "<query>" -j
+          corrigida (correcoes_declaradas.json): touring hook-memory-store "<key>" "<value>" --tier semantic --type lesson
+          corrigida (correcoes_declaradas.json): "evidence_excerpt": "{\"file_path\": \"crates/touring-resource-monitor/src/guard
+[OK ] touring-scriber                  550/550 linhas (100.00%)
+[OK ] antt-vote-drafter                475/475 linhas (100.00%)
+[OK ] erickson-paradox-reformulator    79/79 linhas (100.00%)
+[OK ] transformational-narrative-architect 81/81 linhas (100.00%)
+
+agentes: 3693/3701 linhas (99.78%)  · com perda: nenhuma
+relatorio: /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/conservacao-agentes.json

@@ -1,0 +1,17 @@
+{
+  "cargo_cmd": "cd /home/gabrielgadea/projects/touring && cargo test -p touring-cli --lib env_prefix && cargo test -p touring-cli --lib must_echo && cargo test -p touring-hooks-shared --lib lessons_verb && cargo test -p touring-hooks-shared --lib dedupe_ && cargo test -p touring-hooks-shared --lib epoch_ && S8_CORPUS_JSONL=/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/diagnostics/corpus_a2.jsonl cargo test -p touring-hooks-shared --test s8_corpus_ab",
+  "deploy_utc": "2026-10-09T01:11:50Z",
+  "pos_fim_utc": "2026-10-09T14:10:52Z",
+  "pos_fim_motivo": "09/10/2026 (Gabriel: troque a base do C1): a janela pós fecha quando o release seguinte (30.4.94, deploy V0e) entrou no ar — 14:10:52Z = restart do daemon global, o 1º binário 30.4.94 a servir; o daemon do analise trocou ~2 min depois, então o corte é conservador (nada do 30.4.94 entra). Evidência: ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/deploy-v0e-2026-10-09/passo4_depois.txt",
+  "estado": "DEPLOY COMPLETO 30.4.93 (propagação 5/6-6/6 rc=0, 09/10 ~01:12 UTC): analise PID 2992399 e konverter PID 2993130 rodam ~/.touring/toolchains/30.4.93; deploy_utc lido de /proc/2992399/stat (btime+starttime), não do relógio de parede",
+  "cobertura_do_cargo_cmd": {
+    "defeito_a": "env_prefix_atribuicao_nao_e_simbolo (touring-cli)",
+    "defeito_b": "lessons_verb_real_depois_de_cd_e_assignments (touring-hooks-shared)",
+    "defeito_c": "must_echo_longo_e_citado_curto_e_verbatim (touring-cli)",
+    "defeitos_d_e": "dedupe_* (9 testes: bloco repetido omitido, linha estática, molde, tabela/fence, kill switch, fail-open, json)",
+    "epoca": "epoch_* (reemissão pós-compact, persistência em disco)",
+    "corpus_ab": "s8_corpus_ab com S8_CORPUS_JSONL → corpus real 79.253 payloads, assert queda ≥40% no modo combinado + controle positivo de MUSTs"
+  },
+  "a2_queda_combinado": 0.4220,
+  "a2_corpus_payloads": 79253
+}

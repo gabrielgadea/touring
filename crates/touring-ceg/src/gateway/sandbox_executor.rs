@@ -746,6 +746,12 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
             // explícitos — `~/.config` inteiro traria `gh/hosts.yml` (token).
             ".config/mise",
             ".local/state/mise",
+            // V0e6 (09/10/2026): o git lê o excludesFile global
+            // (`~/.config/git/ignore`) FORA da config — o GIT_CONFIG_GLOBAL
+            // apontado a /dev/null (G-C, 30/08) não o cobre, e o "fatal:
+            // cannot use … as an exclude file" saía como exit 0 + saída vazia.
+            // Só o ARQUIVO entra: `config` ao lado pode conter credencial.
+            ".config/git/ignore",
             ".local/share/uv",
             ".nvm",
             ".pyenv",
@@ -3025,6 +3031,174 @@ mod tests {
                 alvo.display()
             );
         }
+    }
+
+    /// V0e6 (09/10/2026 — medido pela analise-6b): `git` no sandbox morria com
+    /// "fatal: cannot use ~/.config/git/ignore as an exclude file" e o programa
+    /// saía exit 0 com saída VAZIA — um zero bem-formado de uma leitura que não
+    /// leu. O G-C (30/08) apontou GIT_CONFIG_GLOBAL/SYSTEM para /dev/null, mas o
+    /// `core.excludesFile` padrão (`~/.config/git/ignore`) é derivado FORA da
+    /// config — o git o lê mesmo assim. O grant é o ARQUIVO `ignore`, nunca o
+    /// diretório: `~/.config/git/config` pode conter credencial (a mesma
+    /// fronteira de `~/.config` × `gh/hosts.yml`).
+    #[test]
+    fn the_git_global_ignore_file_is_a_read_root_but_the_dir_stays_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return; // sem HOME não há o que asseverar
+        };
+        let ignore = home.join(".config/git/ignore");
+        if !ignore.exists() {
+            return; // máquina sem ignore global — nada a asseverar
+        }
+        let raizes = super::sandbox_read_roots();
+        assert!(
+            raizes.contains(&ignore),
+            "`{}` fora das raízes de leitura — o git do sandbox morre com \
+             'fatal: cannot use … as an exclude file' (V0e6): {raizes:?}",
+            ignore.display()
+        );
+        assert!(
+            !raizes.contains(&home.join(".config/git")),
+            "~/.config/git INTEIRO virou raiz — `config` (pode conter credencial) reabre"
+        );
+        assert!(
+            !raizes.contains(&home.join(".config")),
+            "~/.config INTEIRO virou raiz de leitura"
+        );
+    }
+
+    /// V0e6 e2e — o aceite da coordenadora: o MESMO `git status` nativo ×
+    /// sandbox, mesmo stdout, zero "fatal" no stderr. A prova semântica é o
+    /// padrão real do ignore global desta máquina (`**/.claude/settings.local.
+    /// json`): o arquivo casado por ele não pode aparecer em nenhum dos dois.
+    /// Vacuamente verde sem landlock no kernel (o filho então não é confinado)
+    /// ou sem git/ignore global — como os demais e2e deste arquivo.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn e2e_git_status_in_the_sandbox_matches_native_without_fatal() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return;
+        };
+        if !home.join(".config/git/ignore").exists() {
+            return;
+        }
+        let Ok(repo) = tempfile::tempdir() else {
+            return;
+        };
+        std::fs::create_dir_all(repo.path().join(".claude")).expect("mkdir");
+        std::fs::write(repo.path().join("x.txt"), "x").expect("write");
+        std::fs::write(repo.path().join(".claude/settings.local.json"), "{}").expect("write");
+        let init = std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(repo.path())
+            .output();
+        let Ok(init) = init else { return }; // sem git nesta máquina
+        if !init.status.success() {
+            return;
+        }
+        let nativo = std::process::Command::new("git")
+            .args(["status", "--short"])
+            .current_dir(repo.path())
+            .output()
+            .expect("git status nativo");
+        assert!(nativo.status.success(), "o controle nativo falhou");
+        let nativo_out = String::from_utf8_lossy(&nativo.stdout).to_string();
+        assert!(
+            nativo_out.contains("?? x.txt") && !nativo_out.contains("settings.local.json"),
+            "controle nativo inesperado (o ignore global deveria valer): {nativo_out:?}"
+        );
+
+        // O Command do executor é tokio — o mesmo tipo que a produção confina.
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.args(["status", "--short"]).current_dir(repo.path());
+        super::apply_credential_whitelist(&mut cmd);
+        super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+        let sandbox = cmd.output().await.expect("git status sandboxed");
+        let sandbox_err = String::from_utf8_lossy(&sandbox.stderr).to_string();
+        assert!(
+            !sandbox_err.contains("fatal"),
+            "git no sandbox morreu como no V0e6: {sandbox_err}"
+        );
+        assert!(sandbox.status.success(), "rc sandbox: {sandbox_err}");
+        let sandbox_out = String::from_utf8_lossy(&sandbox.stdout).to_string();
+        assert_eq!(
+            sandbox_out, nativo_out,
+            "sandbox × nativo divergem — a paridade é o aceite"
+        );
+    }
+
+    /// V0e1 — o aceite de PARIDADE da coordenadora: o programa da rajada no
+    /// sandbox devolve o MESMO stdout da execução nativa para as inspeções
+    /// representativas com caminho RELATIVO ao cwd (grep/cat/ls/wc/sed -n) e um
+    /// git. É a prova de que o `updatedInput` do G1 não muda o resultado — só o
+    /// canal. Vacuamente verde sem landlock no kernel, como os demais e2e.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn e2e_burst_program_parity_native_vs_sandbox() {
+        let Ok(dir) = tempfile::tempdir() else { return };
+        let repo = dir.path();
+        std::fs::write(repo.join("a.txt"), "alpha\nbeta\ngamma\n").expect("write");
+        std::fs::create_dir_all(repo.join("src")).expect("mkdir");
+        std::fs::write(repo.join("src/b.rs"), "fn main() {}\n").expect("write");
+        let comandos = [
+            "grep -c alpha a.txt",
+            "cat a.txt",
+            "ls",
+            "wc -l a.txt",
+            "sed -n 1,2p a.txt",
+            "grep -rn main src/",
+        ];
+        for c in comandos {
+            let nativo = std::process::Command::new("bash")
+                .arg("-c")
+                .arg(c)
+                .current_dir(repo)
+                .output()
+                .expect("nativo");
+            let mut cmd = tokio::process::Command::new("bash");
+            cmd.arg("-c").arg(c).current_dir(repo);
+            super::apply_credential_whitelist(&mut cmd);
+            super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+            let sandbox = cmd.output().await.expect("sandbox");
+            assert_eq!(
+                String::from_utf8_lossy(&sandbox.stdout),
+                String::from_utf8_lossy(&nativo.stdout),
+                "paridade de stdout quebrada em `{c}`"
+            );
+            assert_eq!(
+                sandbox.status.code(),
+                nativo.status.code(),
+                "paridade de rc quebrada em `{c}`"
+            );
+        }
+        // E um git (o V0e6 cobre o porquê de ele estar nesta lista).
+        let Ok(init) = std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(repo)
+            .output()
+        else {
+            return;
+        };
+        if !init.status.success() {
+            return;
+        }
+        let nativo = std::process::Command::new("git")
+            .args(["status", "--short"])
+            .current_dir(repo)
+            .output()
+            .expect("git nativo");
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.args(["status", "--short"]).current_dir(repo);
+        super::apply_credential_whitelist(&mut cmd);
+        super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+        let sandbox = cmd.output().await.expect("git sandbox");
+        let err = String::from_utf8_lossy(&sandbox.stderr);
+        assert!(!err.contains("fatal"), "git morreu no sandbox: {err}");
+        assert_eq!(
+            String::from_utf8_lossy(&sandbox.stdout),
+            String::from_utf8_lossy(&nativo.stdout),
+            "paridade do git quebrada"
+        );
     }
 
     /// O que o programa legitimamente precisa continua concedido — sem isto,

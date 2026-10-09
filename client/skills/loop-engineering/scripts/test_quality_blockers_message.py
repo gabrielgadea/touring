@@ -36,7 +36,7 @@ def _first_three_clauses(scope):
          mock.patch.object(lc, "clause_dag_done",
                            return_value=(True, "stub", None)):
         gen = lc._gather_clauses("task", Path(scope), Path(scope),
-                                 rust_full=False, rust=False)
+                                 rust_full=False, rust=False, bundle_requested=True)
         return list(itertools.islice(gen, 3))
 
 

@@ -624,9 +624,9 @@ pub struct GateMetricsSnapshot {
     /// S3 — inspeção isolada que passou intacta (denominador da recalibração).
     #[serde(default)]
     pub g1_inspect_first_passed_count: u64,
-    /// S3 — rajada de inspeção negada com a rota fundida.
+    /// S3 — rajada de inspeção AVISADA com a rota fundida (D, 09/10/2026: antes negada).
     #[serde(default)]
-    pub g1_inspect_burst_denied_count: u64,
+    pub g1_inspect_burst_advised_count: u64,
     /// S5 — par write→run negado (cat > script + execuções do mesmo script).
     #[serde(default)]
     pub g10_write_run_pair_denied_count: u64,
@@ -1079,7 +1079,9 @@ impl GateMetricsSnapshot {
             // CEG Pln2 FASE 5a — P7.1
             ceg_captured_count: m.ceg_captured_count.load(Ordering::Relaxed),
             g1_inspect_first_passed_count: m.g1_inspect_first_passed_count.load(Ordering::Relaxed),
-            g1_inspect_burst_denied_count: m.g1_inspect_burst_denied_count.load(Ordering::Relaxed),
+            g1_inspect_burst_advised_count: m
+                .g1_inspect_burst_advised_count
+                .load(Ordering::Relaxed),
             g10_write_run_pair_denied_count: m
                 .g10_write_run_pair_denied_count
                 .load(Ordering::Relaxed),
@@ -1295,11 +1297,11 @@ pub fn record_g1_inspect_first_passed() {
         .fetch_add(1, Ordering::Relaxed);
 }
 
-/// S3 — rajada de inspeção negada com a rota fundida (a 2ª em diante).
+/// S3 — rajada de inspeção avisada com a rota fundida (a 2ª; D, 09/10/2026: antes negada).
 #[inline]
-pub fn record_g1_inspect_burst_denied() {
+pub fn record_g1_inspect_burst_advised() {
     global()
-        .g1_inspect_burst_denied_count
+        .g1_inspect_burst_advised_count
         .fetch_add(1, Ordering::Relaxed);
 }
 

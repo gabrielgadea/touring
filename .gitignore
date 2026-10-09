@@ -117,3 +117,7 @@ eval/autoresearch/corpus.json
 # acima do limite de 100 MB do GitHub, e regenerável. Retirado do histórico não publicado
 # em 18/09/2026; o teste que o lê (`scip_ingest.rs`, #[ignore]) lê do disco.
 /index.scip
+
+# 09/10/2026: dado bruto derivado de transcripts (payloads de hooks, 50 MB) e cache regenerável — ficam locais, fora do git
+docs/plans/2026-10-08-compactacao-65/diagnostics/corpus_a2.jsonl
+docs/plans/2026-10-08-compactacao-65/diagnostics/c1-por-familia-2026-10-09/cache_bruto.json

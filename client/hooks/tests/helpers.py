@@ -91,18 +91,22 @@ def run_hook_sh(
     args: list[str] | None = None,
     timeout: int = 15,
     home: Path | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> "HookResult":
     """Run a shell hook with optional extra args.
 
     `home` runs the script against a scratch HOME: the hooks derive their state files from
     ${HOME}/.claude, and the tests used to write the operator's real telemetry and delete
-    the real context_alert flag.
+    the real context_alert flag. `extra_env` overlays variables the hook reads (for example
+    CLAUDE_PROJECT_DIR or CLAUDE_AUTOCOMPACT_PCT_OVERRIDE) without touching the caller's env.
     """
     import os
 
     cmd = ["bash", str(script)] + (args or [])
     payload_bytes = json.dumps(payload).encode()
-    env = None if home is None else {**os.environ, "HOME": str(home)}
+    env = None
+    if home is not None or extra_env:
+        env = {**os.environ, **({"HOME": str(home)} if home is not None else {}), **(extra_env or {})}
     result = subprocess.run(cmd, input=payload_bytes, capture_output=True, timeout=timeout, env=env)
     return HookResult(script=script, payload=payload, proc=result)
 

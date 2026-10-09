@@ -70,8 +70,10 @@ pub(crate) fn code_mode_adoption(runs: f64, bash_calls: f64) -> Option<f64> {
 
 /// S3 — fração da inspeção que a rajada capturou.
 ///
-/// `denied / (denied + first_passed)`: das inspeções que o gate VIU sob o modo
-/// `code`, quantas eram rajada. A medição de 27/08/2026 em 115 transcripts
+/// `rajada / (rajada + first_passed)`: das inspeções que o gate VIU sob o modo
+/// `code`, quantas eram rajada ([`s3_burst_observations`]). A régua mudou em
+/// 09/10/2026 (D): antes o lote zerava a cada deny e a 3ª voltava a contar como
+/// isolada; agora as seguintes contam como rajada. A medição de 27/08/2026 em 115 transcripts
 /// previu ~0,775 com janela de 300s, e é contra esse número que o uso real
 /// julga a calibração:
 ///
@@ -83,12 +85,28 @@ pub(crate) fn code_mode_adoption(runs: f64, bash_calls: f64) -> Option<f64> {
 /// `None` enquanto nenhuma inspeção foi observada: ausência de sinal é
 /// desconhecido, nunca zero (Lei L2). `Some(0.0)` só quando houve inspeção e
 /// nenhuma virou rajada — um zero MEDIDO.
-pub(crate) fn inspect_burst_share(denied: f64, first_passed: f64) -> Option<f64> {
-    let total = denied + first_passed;
+/// D (09/10/2026) — a rajada que o S3 observou, somando as três famílias do
+/// arquivo durável: `denied` (antes do release a 2ª era negada e o lote zerava),
+/// `advised` (a 2ª leva o aviso) e `in_burst` (as seguintes da mesma rajada, em
+/// silêncio). Devolve `(rajada, first_passed)` para [`inspect_burst_share`].
+pub(crate) fn s3_burst_observations(v: &serde_json::Value) -> (f64, f64) {
+    let campo = |c: &str| {
+        v.pointer(&format!("/s3/{c}"))
+            .and_then(super::json_value_as_f64)
+            .unwrap_or(0.0)
+    };
+    (
+        campo("denied") + campo("advised") + campo("in_burst"),
+        campo("first_passed"),
+    )
+}
+
+pub(crate) fn inspect_burst_share(rajada: f64, first_passed: f64) -> Option<f64> {
+    let total = rajada + first_passed;
     if total <= 0.0 {
         return None;
     }
-    Some(denied / total)
+    Some(rajada / total)
 }
 
 /// P2 elos-exponenciais (29/08): a política discrimina ou é constante? A

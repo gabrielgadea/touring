@@ -37,6 +37,18 @@
 
 set -euo pipefail
 
+# Session-env hygiene (2026-10-09 — the exit-4 of the 30.4.93 release run):
+# Claude Code sessions export TOURING_DAEMON_SOCKET/TOURING_DAEMON_SOCK pointing
+# at the PER-PROJECT socket of the open project, and the env beats the walk-up
+# ("TOURING_DAEMON_SOCKET vence o walk-up", rules/touring-per-project.md). Every
+# daemon call below (`touring daemon-ctl stop/restart`, `touring doctor`) MUST
+# resolve the GLOBAL daemon — this script rebuilds target/release, which only
+# the global daemon runs (per-project daemons run ~/.touring/toolchains/<v>/).
+# Measured with the unset missing: stop/restart cycled the analise per-project
+# daemon (its PID respawned 21:33:04 mid-run) while doctor read the GLOBAL
+# pidfile → "PID 3156: running deleted binary" → exit 4.
+unset TOURING_DAEMON_SOCKET TOURING_DAEMON_SOCK
+
 # ── Config ─────────────────────────────────────────────────────────────
 # Canonical source root. Overridable via TOURING_WORKSPACE_ROOT (Pln2 F4:
 # the source is moving to ~/projects/touring; the env var is the transition

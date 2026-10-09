@@ -18,7 +18,18 @@
 /// que reprova o turno). Duas fontes para um número é o defeito que esta sessão
 /// inteira persegue: o executor podia cortar em 3000 enquanto a régua reprovava em
 /// outro valor, e nada os reconciliava. Aqui é o teto; os dois leem daqui.
-pub const INJECTION_CEIL_BYTES_PER_TURN: usize = 3000;
+///
+/// S8 (2026-10-08) — 3000 → 2000, decidido por medição (não por intuição):
+/// 163 turnos de 12 transcripts do projeto analise medidos nesta data dão
+/// p50 = 16 072 B/turno (média 43 591, p90 = 129 820). Com a dedupe por seção
+/// do S8 (`injection_dedup`), o gasto legítimo de um turno são as seções NOVAS —
+/// ~2 blocos × ~900 B (898 B/chamada medidos em 12 transcripts nesta data) ≈
+/// 1 800 B. 2 000 cobre isso com folga e é 12,4 % do turno mediano — a mesma
+/// política de halving do baseline de 04/09 (26,6 % → metade), agora sobre a
+/// régua de 08/10. Errar para baixo é o erro barato: o turno cai em
+/// `directives_only` e os MUSTs sobrevivem; errar para cima deixa vivo o defeito
+/// medido (conselho repetido comendo a janela).
+pub const INJECTION_CEIL_BYTES_PER_TURN: usize = 2000;
 
 /// Fração máxima de bytes injetados que pode ser repetição literal dentro da janela.
 pub const INJECTION_DUPLICATE_RATIO_CEIL: f64 = 0.05;

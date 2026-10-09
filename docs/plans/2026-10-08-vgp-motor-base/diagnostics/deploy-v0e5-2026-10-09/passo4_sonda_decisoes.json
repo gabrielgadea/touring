@@ -1,0 +1,49 @@
+{
+ "hook": "/home/gabrielgadea/.local/bin/touring-hook",
+ "casos": [
+  {
+   "caso": "S3 1ª passa",
+   "ok": true
+  },
+  {
+   "caso": "S3 2ª avisa SEM decisão",
+   "ok": true,
+   "resp": {
+    "additionalContext": "[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote de uma vez:\n  touring run --lang bash --code 'grep -rn alfa src/\ngrep -rn beta src/'\n",
+    "hookEventName": "PreToolUse"
+   }
+  },
+  {
+   "caso": "S3 3ª sem repetir o aviso",
+   "ok": true
+  },
+  {
+   "caso": "G8 reescreve com orçamento e campos",
+   "ok": true,
+   "resp": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "permissionDecisionReason": "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura no sandbox devolve só o agregado (Anthropic CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.",
+    "updatedInput": {
+     "command": "touring run --lang bash --timeout-ms 295000 --code 'for f in a.rs b.rs; do grep -n \"fn main\" $f; done'",
+     "description": "laço",
+     "timeout": 300000
+    }
+   }
+  },
+  {
+   "caso": "G2 reescreve preservando background e timeout",
+   "ok": true,
+   "resp": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "allow",
+    "permissionDecisionReason": "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe leria o status do último estágio; `set -o pipefail; ` prefixado (spike S-8.6: updatedInput honrado).",
+    "updatedInput": {
+     "command": "set -o pipefail; cargo test 2>&1 | tail -3; echo EXIT=$?",
+     "run_in_background": true,
+     "timeout": 600000
+    }
+   }
+  }
+ ]
+}

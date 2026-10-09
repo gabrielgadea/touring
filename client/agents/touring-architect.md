@@ -2,32 +2,14 @@
 name: touring-architect
 description: >
   Use this agent when the user asks to "design architecture", "plan integration", "create blueprint",
-  "map blast radius", "analyze wiring", "run MCTS planning", "check dependency cycles",
-  "verify with VP-Scout", "query Context7", "decompose task into DAG",
-  "analyze rust semantics", "check workspace features", "map cross-crate dependents",
-  or mentions "touring-architect", "architectural decision", "integration design",
-  "cross-crate wiring", "module coupling analysis",
-  "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains",
-  "rust-semantic", "workspace-info", "dependents_of", "packages_with_feature".
-  This agent is invoked in TACO Phase 2 after touring-scouter completes.
-  Combines the full Touring CLI stack (blast radius, wiring audit, MCTS planning,
-  VP-Scout verification, memory recall, gotcha detection) with Context7 library best practices.
-  Wave 4 (2026-04-18) adds deep Rust semantics via `touring ast rust-semantic` (syn —
-  generics, trait bounds, lifetimes, derives, where clauses, unsafe/async counts,
-  semantic_complexity ∈ [0,1]) and workspace-wide feature/dependency intel via
-  `touring ast workspace-info` (cargo_metadata) with `WorkspaceInfo::dependents_of`
-  and `packages_with_feature` for cross-crate blast-radius reasoning before
-  committing to a design.
-  Wave 12 (2026-04-27) adds awareness of `touring synergy --with-metrics` (45 wired_pairs
-  after Wave 12, live counter enrichment via WIRED_PAIR_METRICS) for synergy-driven
-  architecture decisions, and the B-301/B-302 RFC-100 emission patterns when designing
-  pre_edit / pre_write integration points.
-model: claude-sonnet-4-6
+  "map blast radius", "analyze wiring", or menciona "touring-architect", "architectural decision",
+  "integration design", "cross-crate wiring", "module coupling analysis", "workspace-info",
+  "dependents_of", "packages_with_feature". This agent is invoked in TACO Phase 2 after
+  touring-scouter completes.
+model: sonnet
 color: cyan
 tools: [Bash, Glob, Grep, Read, LS, WebFetch, TodoWrite, WebSearch]
----
-
-## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
+---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
 
 > **edição-com-gate (blast + pre-edit antes de tocar código)**: planos arquiteturais NÃO devem ser produzidos via Write tool de `.md` extensos. Use `/plan ou skill taco-planning` que projeta DAG nativo Touring para markdown determinístico.
 
@@ -485,7 +467,7 @@ grep -rn "fn <symbol>\|struct <symbol>\|enum <symbol>" crates/ --include="*.rs"
   "to_be_created": [
     {
       "symbol": "MemoryGuard::start_ticker",
-      "expected_file": "crates/touring-resource-monitor/src/guard/mod.rs",
+      "expected_file": "crates/touring-foundation/src/sentinel/guard/mod.rs",
       "expected_signature": "pub async fn start_ticker(&self, interval: Duration) -> Result<(), TrmError>",
       "creates_in_subtask": "S-10",
       "rationale": "Singleton ticker spawning tokio interval — replaces smart-cores bash loop"
@@ -790,3 +772,7 @@ touring wiring cycles --min-depth 2 ; touring wiring audit -j   # F1.8/F1.12 evi
 Floor Gold (0.80); release/new-API → Diamond (0.95). ⚠ NÃO existe `touring quality`/`score --gate`/`--enforce`/`generator de qualidade dedicado (inexistente)` (PLANNED W7 → `Edit tool`). Catálogo: `~/.claude/skills/touring-elite/references/elite-50-quality.md`; per-dim: `~/.claude/rules/quality/D09..D12,D26,D36,D48,D49,D50.md`.
 
 **Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`) for architecture decisions: `workspace_arch_diag.py [root]` — the inter-crate DAG (Tarjan SCC cycles, topological layers, fan-in=blast, God-crates) — and `crate_arch_diag.py <crate>` — intra-crate God-objects + module fan-in + F1.7/1.8/1.11/1.12. Read the DAG/cycles BEFORE proposing a boundary or dependency change; a cycle or a fan-in-20 foundation crate reframes the design. `DIAG_OUT` for artifacts.
+
+## Notas de ativação (movidas da description em 08/10/2026)
+
+Use this agent when the user asks to "design architecture", "plan integration", "create blueprint", "map blast radius", "analyze wiring", "run MCTS planning", "check dependency cycles", "verify with VP-Scout", "query Context7", "decompose task into DAG", "analyze rust semantics", "check workspace features", "map cross-crate dependents", or mentions "touring-architect", "architectural decision", "integration design", "cross-crate wiring", "module coupling analysis", "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains", "rust-semantic", "workspace-info", "dependents_of", "packages_with_feature". This agent is invoked in TACO Phase 2 after touring-scouter completes. Combines the full Touring CLI stack (blast radius, wiring audit, MCTS planning, VP-Scout verification, memory recall, gotcha detection) with Context7 library best practices. Wave 4 (2026-04-18) adds deep Rust semantics via `touring ast rust-semantic` (syn — generics, trait bounds, lifetimes, derives, where clauses, unsafe/async counts, semantic_complexity ∈ [0,1]) and workspace-wide feature/dependency intel via `touring ast workspace-info` (cargo_metadata) with `WorkspaceInfo::dependents_of` and `packages_with_feature` for cross-crate blast-radius reasoning before committing to a design. Wave 12 (2026-04-27) adds awareness of `touring synergy --with-metrics` (45 wired_pairs after Wave 12, live counter enrichment via WIRED_PAIR_METRICS) for synergy-driven architecture decisions, and the B-301/B-302 RFC-100 emission patterns when designing pre_edit / pre_write integration points.

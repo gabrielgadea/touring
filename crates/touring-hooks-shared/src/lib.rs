@@ -16,6 +16,9 @@ pub mod errors;
 pub mod got_snapshot_store;
 pub mod hooks_complement_journal; // F6: instrumented emit counter for hooks-complement SignalLayers
 pub mod idempotency;
+// S8 (2026-10-08): dedupe por seção com validade = época de compactação —
+// estado em arquivo por sessão (mesma topologia do turn_budget).
+pub mod injection_dedup;
 pub mod turn_budget;
 // S-13 (2026-06-06) — IsolationMode policy enum relocated from touring-hooks
 // hook_runtime (leaf-safe, std-only). Re-exported by hook_runtime for compat.

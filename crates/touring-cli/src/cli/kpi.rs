@@ -1389,6 +1389,38 @@ mod tests {
         );
     }
 
+    /// D (09/10/2026): o S3 passou a AVISAR — `advised` na 2ª, `in_burst` nas
+    /// seguintes da mesma rajada — e o arquivo durável ainda guarda o `denied`
+    /// de antes do release. A rajada observada é a soma das três; lendo só
+    /// `denied`, o KPI cairia a zero depois do release por um campo que ninguém
+    /// mais incrementa — um zero que não mede nada.
+    #[test]
+    fn s3_burst_observations_sum_the_old_and_the_new_fields() {
+        let v = json!({"s3": {"denied": 7, "advised": 2, "in_burst": 3, "first_passed": 5}});
+        assert_eq!(super::s3_burst_observations(&v), (12.0, 5.0));
+        let so_novo = json!({"s3": {"advised": 1, "first_passed": 4}});
+        assert_eq!(super::s3_burst_observations(&so_novo), (1.0, 4.0));
+        assert_eq!(super::s3_burst_observations(&json!({})), (0.0, 0.0));
+    }
+
+    /// O mesmo, fim a fim: o braço `inspect_burst_share` do `resolve_derived` lê
+    /// o arquivo durável que o gate grava — só com os campos novos, ele mede.
+    #[test]
+    fn inspect_burst_share_arm_reads_the_advised_fields_on_disk() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        for (campo, n) in [("advised", 2), ("in_burst", 1), ("first_passed", 1)] {
+            for _ in 0..n {
+                crate::cli_suggester::bump_durable_evidence(&rt.project_root, "s3", campo);
+            }
+        }
+        let r = resolve_derived(&mut rt, "inspect_burst_share").expect("há observação");
+        assert!(
+            (r - 0.75).abs() < 1e-9,
+            "3 de rajada sobre 4 observadas: {r}"
+        );
+    }
+
     #[test]
     fn adoption_ratio_is_runs_over_bash_calls() {
         assert_eq!(code_mode_adoption(4.0, 100.0), Some(0.04));

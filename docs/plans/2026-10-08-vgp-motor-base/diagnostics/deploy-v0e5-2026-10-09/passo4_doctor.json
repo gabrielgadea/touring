@@ -1,0 +1,47 @@
+[
+  {
+    "name": "binary_version",
+    "status": "ok",
+    "detail": "touring 30.4.95"
+  },
+  {
+    "name": "daemon_socket",
+    "status": "ok",
+    "detail": "/tmp/touring-daemon-1000.sock"
+  },
+  {
+    "name": "daemon_health",
+    "status": "ok",
+    "detail": "status=healthy, projects=1"
+  },
+  {
+    "name": "circuit_breaker",
+    "status": "ok",
+    "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+  },
+  {
+    "name": "project_db",
+    "status": "ok",
+    "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
+  },
+  {
+    "name": "project_actor",
+    "status": "ok",
+    "detail": "responsive (16 ms)"
+  },
+  {
+    "name": "wiring_diagnostic",
+    "status": "ok",
+    "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=101573 producers=12652 consumers=88921 pub=11646 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
+  },
+  {
+    "name": "index_generation",
+    "status": "ok",
+    "detail": "generation 46 complete at 2026-10-01 23:50:20 (5623 files, 97891 symbols)"
+  },
+  {
+    "name": "gpu_embeddings",
+    "status": "ok",
+    "detail": "CUDA runtime present; the daemon has not embedded yet (the device is chosen on the first recall/store)"
+  }
+]

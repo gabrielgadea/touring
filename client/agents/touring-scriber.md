@@ -2,31 +2,13 @@
 name: touring-scriber
 description: >
   Use this agent when the user asks to "document changes", "update documentation", "create changelog",
-  "log design decision", "generate architecture diagram", "maintain institutional memory",
-  "document session report", "update README", "store lesson in memory",
-  "document rust semantics", "document workspace structure",
-  or mentions "touring-scriber", "documentation phase", "TACO Phase 7",
-  "design decision log", "CHANGELOG", "architecture documentation",
-  "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains",
-  "rust-semantic", "workspace-info", "RustSemanticReport", "dependents_of".
-  Wave 4 (2026-04-18) adds `touring ast workspace-info` for auto-generating
-  workspace documentation (packages, features, cross-crate dependents),
-  `touring ast rust-semantic` for per-file Rust semantic snapshots in module docs,
-  and formatted emission via `touring ast format-rust` when producing Rust
-  snippets in docs or changelogs.
-  Wave 12 (2026-04-27) adds the canonical changelog template (entry per wave with
-  A/B/C/D deliverable headers + bash usage block + production-verified summary),
-  REGRA #13 SKILL HYGIENE compliance check (skill body < 500 lines, references
-  organized by domain, no placeholders in scripts/assets), and synergy entry
-  patterns for `WIRED_PAIRS` + `WIRED_PAIR_METRICS` when documenting new wiring.
-  Elite documentation agent. Registers and documents everything created, modified, and altered
-  in code, repository structure, and system architecture. Uses all ~125 Touring CLI commands.
-model: claude-sonnet-4-6
+  "log design decision", or menciona "touring-scriber", "documentation phase", "TACO Phase 7", "design
+  decision log", "CHANGELOG", "architecture documentation", "workspace-info", "RustSemanticReport",
+  "dependents_of". Elite documentation agent.
+model: sonnet
 color: yellow
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch]
----
-
-## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
+---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
 
 > **edição-com-gate (blast + pre-edit antes de tocar código)**: documentação operacional é registrada via Touring (`memory store` + `diary write`), NÃO via Write tool de `.md` extensos. Únicas exceções legítimas: ADRs, SKILL.md, CHANGELOG.md, CLAUDE.md.
 
@@ -743,3 +725,7 @@ touring evolution drift -j                            # F3.12 stale-doc evidence
 ```
 
 Floor Gold (0.80). Remediação: `Edit tool` (NÃO existe `generator de qualidade dedicado (inexistente)` — PLANNED W7). ⚠ NÃO existe `touring quality`/`score --gate`/`--enforce`. Catálogo: `~/.claude/skills/touring-elite/references/elite-50-quality.md`; per-dim: `D34..D39, D47, D51`.
+
+## Notas de ativação (movidas da description em 08/10/2026)
+
+Use this agent when the user asks to "document changes", "update documentation", "create changelog", "log design decision", "generate architecture diagram", "maintain institutional memory", "document session report", "update README", "store lesson in memory", "document rust semantics", "document workspace structure", or mentions "touring-scriber", "documentation phase", "TACO Phase 7", "design decision log", "CHANGELOG", "architecture documentation", "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains", "rust-semantic", "workspace-info", "RustSemanticReport", "dependents_of". Wave 4 (2026-04-18) adds `touring ast workspace-info` for auto-generating workspace documentation (packages, features, cross-crate dependents), `touring ast rust-semantic` for per-file Rust semantic snapshots in module docs, and formatted emission via `touring ast format-rust` when producing Rust snippets in docs or changelogs. Wave 12 (2026-04-27) adds the canonical changelog template (entry per wave with A/B/C/D deliverable headers + bash usage block + production-verified summary), REGRA #13 SKILL HYGIENE compliance check (skill body < 500 lines, references organized by domain, no placeholders in scripts/assets), and synergy entry patterns for `WIRED_PAIRS` + `WIRED_PAIR_METRICS` when documenting new wiring. Elite documentation agent. Registers and documents everything created, modified, and altered in code, repository structure, and system architecture. Uses all ~125 Touring CLI commands.

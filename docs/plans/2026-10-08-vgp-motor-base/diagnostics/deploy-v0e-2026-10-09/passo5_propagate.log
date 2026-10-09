@@ -1,0 +1,53 @@
+[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m versão    : 30.4.94
+[33m[propagate] WARN[0m gates pulados (--skip-gates)
+[33m[propagate] WARN[0m build pulado (--skip-build)
+[1m[propagate][0m rótulo OK: o binário declara 30.4.94
+[33m[propagate] WARN[0m freeze pulado (--skip-freeze) — toolchain 30.4.94 deve já existir em ~/.touring/toolchains/
+
+[1m── 4/6 DEFAULT — canal default → 30.4.94 ──[0m
+  [1m$[0m touring toolchain default 30.4.94
+touring toolchain: default → 30.4.94
+
+[1m── 5/6 PROPAGATE — canal 30.4.94 para cada projeto consumidor (fonte permanece em 'dev') ──[0m
+Touring daemon restarted successfully.
+touring update: /home/gabrielgadea/projects/analise — 30.4.93 -> 30.4.94 (daemon: restarted on /home/gabrielgadea/projects/analise/.touring/daemon.sock)
+  bin/touring -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring
+  bin/touring-hook -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-hook
+  bin/touring-daemon -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-daemon
+  bin/libonnxruntime_providers_shared.so -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/libonnxruntime_providers_shared.so
+  bin/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/libonnxruntime_providers_cuda.so
+  bin/touring-quality -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-quality (component)
+Touring daemon restarted successfully.
+touring update: /home/gabrielgadea/projects/konverter — 30.4.93 -> 30.4.94 (daemon: restarted on /home/gabrielgadea/projects/konverter/.touring/daemon.sock)
+  bin/touring -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring
+  bin/touring-hook -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-hook
+  bin/touring-daemon -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-daemon
+  bin/libonnxruntime_providers_shared.so -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/libonnxruntime_providers_shared.so
+  bin/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/.touring/toolchains/30.4.94/bin/libonnxruntime_providers_cuda.so
+[1m[propagate][0m projetos alcançados: 2
+
+[1m── 5.5/6 PROVA — contrato de code mode + CEG contra o binário instalado ──[0m
+  [33m(doctor ainda degradado após 20s — se a prova falhar, re-espera + retry)[0m
+  [33m(prova falhou; re-esperando o doctor limpar — teto 60s — e re-rodando 1×)[0m
+    .........
+
+[6] Code mode — par start/settle no journal (S5)
+    .........
+
+[7] Code mode — predicado de rajada (S3)
+    .....FF..
+
+[8] T3-B enterrado (S10)
+    ...FF...F
+
+==========================================================================
+  FALHA: 2ª da mesma classe é NEGADA
+         
+  FALHA: o deny entrega as DUAS chamadas fundidas num programa
+         
+  FALHA: os counters do S3 (que o substituiu) EXISTEM
+         {}
+RESULTADO: 37/40 asserções passaram
+==========================================================================
+[31m[propagate] ERRO[0m a prova comportamental falhou 2× — o binário instalado não cumpre o contrato (REGRA #21)

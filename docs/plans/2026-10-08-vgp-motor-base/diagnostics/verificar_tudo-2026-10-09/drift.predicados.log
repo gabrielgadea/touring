@@ -1,0 +1,13 @@
+  PASS test_c4_ground_truth_help_nao_vazio
+  PASS test_c4_negativo_comando_real
+  PASS test_c4_negativo_path_diretorio
+  PASS test_c4_negativo_prosa
+  PASS test_c4_positivo_fence
+  PASS test_c4_positivo_inline_code
+  PASS test_c4_positivo_shell_line
+  PASS test_c6_docs_nao_e_ground_truth
+  PASS test_c6_ground_truth_nao_depende_do_env
+  PASS test_c6_integracao_var_real_no_codigo
+  PASS test_c6_negativo_var_reconhecida
+  PASS test_c6_positivo_var_inventada
+12 testes, 0 falhas

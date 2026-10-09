@@ -633,6 +633,17 @@
       ]
     },
     {
+      "matcher": "Agent",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/agent_model_gate.py",
+          "timeout": 5,
+          "statusMessage": "agent-model-gate: o subagente tem modelo decidido?"
+        }
+      ]
+    },
+    {
       "matcher": "WebFetch",
       "hooks": [
         {
@@ -660,6 +671,16 @@
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_effect.py",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "SendMessage|Write|Edit|MultiEdit|NotebookEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py",
           "timeout": 5
         }
       ]
@@ -836,6 +857,16 @@
           "statusMessage": "Touring: cleaning up deleted task from decompose..."
         }
       ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/evidence_guard.py --stdin",
+          "timeout": 10
+        }
+      ]
     }
   ],
   "PostToolBatch": [
@@ -875,13 +906,8 @@
   ],
   "SessionStart": [
     {
+      "matcher": "startup|resume|clear|fork",
       "hooks": [
-        {
-          "type": "command",
-          "command": "$HOME/.claude/hooks/session_env_setup.sh",
-          "timeout": 15,
-          "statusMessage": "Touring: loading knowledge graph..."
-        },
         {
           "type": "command",
           "command": "$HOME/.claude/hooks/touring-hook session-start",
@@ -914,24 +940,29 @@
         },
         {
           "type": "command",
-          "command": "python3 $HOME/.claude/hooks/code_mode_sdk_section.py",
-          "timeout": 10,
-          "statusMessage": "Code Mode: contrato do SDK (1x por sessão)..."
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py",
+          "timeout": 15
         }
       ]
     },
     {
-      "matcher": "*",
       "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/session_env_setup.sh",
+          "timeout": 15,
+          "statusMessage": "Touring: loading knowledge graph..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/code_mode_sdk_section.py",
+          "timeout": 10,
+          "statusMessage": "Code Mode: contrato do SDK (1x por sessão)..."
+        },
         {
           "type": "command",
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py",
           "timeout": 5
-        },
-        {
-          "type": "command",
-          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py",
-          "timeout": 15
         }
       ]
     }
@@ -1025,15 +1056,6 @@
     }
   ],
   "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$HOME/.claude/hooks/auto_compact.sh",
-          "timeout": 2
-        }
-      ]
-    },
     {
       "hooks": [
         {
@@ -1140,6 +1162,17 @@
           "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_arm.py",
           "timeout": 5,
           "statusMessage": "Flow guard: arming gated-flow marker..."
+        }
+      ]
+    },
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/skill_picker_hook.py",
+          "statusMessage": "Skill suggestion (async, τ=0.55 medido)",
+          "timeout": 5
         }
       ]
     }

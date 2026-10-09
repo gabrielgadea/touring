@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import compaction_ledger  # noqa: E402
 from loop_marker import active_marker, pending_subtask_ids, resolve_session, state_key  # noqa: E402
 from resume_ledger import append_record, uptake as resume_uptake  # noqa: E402
 
@@ -199,6 +200,34 @@ def _record_injection(payload: dict, marker: dict, event: str) -> None:
     })
 
 
+def _compaction_step(event: str, payload: dict) -> str | None:
+    """Record the compaction (PostCompact) or return its measured gaps (SessionStart compact)."""
+    try:
+        if event == "PostCompact":
+            compaction_ledger.record(payload)
+            return None
+        if event == "SessionStart":
+            return compaction_ledger.gaps_context(payload)
+    except Exception:  # noqa: BLE001 — the instrument never breaks a compaction or a start
+        return None
+    return None
+
+
+def _loop_context(marker_arg, payload: dict) -> tuple[dict | None, str | None]:
+    """This (project, session)'s loop marker and its live state, or (marker|None, None)."""
+    try:
+        if marker_arg:
+            path = Path(marker_arg)
+            marker = json.loads(path.read_text())
+        else:
+            path, marker = active_marker(payload.get("cwd") or None, payload.get("session_id") or None)
+        if not marker or not marker.get("task"):
+            return marker, None
+        return marker, build_context(marker, path)
+    except Exception:  # noqa: BLE001 — fail-open
+        return None, None
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="Loop SessionStart/PostCompact hook: re-inject loop state.")
     ap.add_argument("--marker", default=None, help="explicit marker path (test override)")
@@ -216,22 +245,17 @@ def main(argv=None) -> int:
     except Exception:  # noqa: BLE001 — a stdin-less invocation is still valid
         payload = {}
 
-    try:
-        if args.marker:
-            path = Path(args.marker)
-            marker = json.loads(path.read_text())
-        else:
-            path, marker = active_marker(payload.get("cwd") or None,
-                                         payload.get("session_id") or None)
-        if not marker or not marker.get("task"):
-            return 0
-        context = build_context(marker, path)
-    except Exception:  # noqa: BLE001 — fail-open
-        return 0
+    event = str(payload.get("hook_event_name") or "SessionStart")
+    # The compaction instrument (08/10/2026) runs BEFORE the marker check: a compaction is worth
+    # measuring whether or not a loop is armed, and until then a marker-less session returned here
+    # with nothing recorded. PostCompact records; SessionStart(source=compact) injects only gaps.
+    gaps = _compaction_step(event, payload)
+    marker, context = _loop_context(args.marker, payload)
+    if context:
+        _record_injection(payload, marker or {}, event)
+    context = "\n\n".join(part for part in (gaps, context) if part)
     if not context:
         return 0
-    event = str(payload.get("hook_event_name") or "SessionStart")
-    _record_injection(payload, marker, event)
     if event in CONTEXT_EVENTS:
         print(json.dumps({"hookSpecificOutput": {
             "hookEventName": event, "additionalContext": context}}))

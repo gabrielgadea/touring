@@ -1,0 +1,146 @@
+[
+ {
+  "check": "release.versoes",
+  "ok": true,
+  "s": 0,
+  "key": "global=touring 30.4.93 · toolchain=touring 30.4.93 · analise=touring 30.4.93 · konverter=touring 30.4.93 · default 30.4.93: True"
+ },
+ {
+  "check": "release.daemons",
+  "ok": true,
+  "s": 0,
+  "key": "3 daemons · deleted 0 · global pid 2971193 (pidfile 2971193) alive True"
+ },
+ {
+  "check": "release.espelho_client",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 | ✅ CLEAN  377 arquivos espelhados, nenhum divergente"
+ },
+ {
+  "check": "release.update_touring_suite_inocua",
+  "ok": true,
+  "s": 21,
+  "key": "28 passed in 9.97s | SYMLINK=1: 28 passed in 8.91s | estado real antes==depois: True"
+ },
+ {
+  "check": "drift.A1",
+  "ok": false,
+  "s": 22,
+  "key": "rc 1 |   FAIL C1 versions: expected 82, got 83"
+ },
+ {
+  "check": "drift.A2_pytest",
+  "ok": false,
+  "s": 23,
+  "key": "rc 1 | 8 passed, 2 errors in 22.15s"
+ },
+ {
+  "check": "drift.A3_verify",
+  "ok": false,
+  "s": 23,
+  "key": "rc 1 |   FAIL (c) mas SUMIU do scan atual (deveria permanecer contado): C1 30.4.93"
+ },
+ {
+  "check": "drift.A4_phantom",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 | OK — 55 arquivos do escopo sistema/repo/infra, nenhum crate fantasma sem nota"
+ },
+ {
+  "check": "drift.predicados",
+  "ok": true,
+  "s": 16,
+  "key": "rc 0 | 12 testes, 0 falhas"
+ },
+ {
+  "check": "drift.agentes_sem_literal_errado",
+  "ok": true,
+  "s": 0,
+  "key": "8 arquivos vivos (fonte+espelho) · ocorrências erradas 0 · controle positivo True"
+ },
+ {
+  "check": "compactacao.conservacao_agentes",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 | agentes: 3693/3701 linhas (99.78%)  · com perda: nenhuma"
+ },
+ {
+  "check": "compactacao.juiz_unico",
+  "ok": false,
+  "s": 106,
+  "key": "rc 1 | veredito: FALTA C1"
+ },
+ {
+  "check": "vgp.inventario_selftest",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 |   ok  negativo externo"
+ },
+ {
+  "check": "vgp.vivos_selftest",
+  "ok": true,
+  "s": 1,
+  "key": "rc 0 | selftest: ok"
+ },
+ {
+  "check": "vgp.replay_selftest",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 | selftest: ok (isolamento+classe True · reconstrução True · heredoc True · .cache do projeto True · controle negativo True)"
+ },
+ {
+  "check": "vgp.juiz_v0c",
+  "ok": true,
+  "s": 30,
+  "key": "rc 0 | veredito: CONVERGIU"
+ },
+ {
+  "check": "vgp.juiz_v0d_selftest",
+  "ok": true,
+  "s": 1,
+  "key": "rc 0 | mutantes pegos: sha do snapshot True · um negativo a menos True · registro sem frame True · re-execução não reproduz True · controle negativo (hoje ainda erra) True"
+ },
+ {
+  "check": "vgp.juiz_v0d_corpus",
+  "ok": false,
+  "s": 0,
+  "key": "rc 1 | veredito: 3 pendências"
+ },
+ {
+  "check": "analise.grafo_tests",
+  "ok": true,
+  "s": 3,
+  "key": "rc 0 | ============================= 116 passed in 0.70s =============================="
+ },
+ {
+  "check": "analise.emendas_licoes",
+  "ok": true,
+  "s": 3,
+  "key": "rc 0 | ============================== 80 passed in 0.44s =============================="
+ },
+ {
+  "check": "analise.consertos_a9",
+  "ok": true,
+  "s": 3,
+  "key": "rc 0 | ============================== 4 passed in 0.62s ==============================="
+ },
+ {
+  "check": "lint.ruff",
+  "ok": true,
+  "s": 0,
+  "key": "rc 0 | All checks passed!"
+ },
+ {
+  "check": "memoria.nos_relidos",
+  "ok": true,
+  "s": 3,
+  "key": "15/15 nós com arestas+procedência"
+ },
+ {
+  "check": "dags",
+  "ok": false,
+  "s": 0,
+  "key": "430085 None 0/0 pend=[] · 571926 None 0/0 pend=[] · 538442 None 0/0 pend=[]"
+ }
+]

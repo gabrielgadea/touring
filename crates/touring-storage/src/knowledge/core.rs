@@ -93,6 +93,35 @@ impl FileKnowledgeDB {
         file_path: &str,
         quality_note: &str,
     ) -> Result<(), rusqlite::Error> {
+        self.replace_segments(
+            file_path,
+            &|s| s.starts_with("quality:"),
+            quality_note,
+            false,
+        )
+    }
+    /// Replace (not append) the segments one writer owns — `owns` names them — and put
+    /// the new one at the HEAD of `notes`, the only part the readers show (first
+    /// 100–120 bytes in pre_edit/pre_write/pre_read). V0e5, 09/10/2026: the append-only
+    /// bash note kept a red test run at the head for 17 min after newer runs, and 297
+    /// files had grown past 500 bytes. Other writers' segments are kept in order.
+    pub fn replace_owned_note(
+        &self,
+        file_path: &str,
+        owns: &dyn Fn(&str) -> bool,
+        note: &str,
+    ) -> Result<(), rusqlite::Error> {
+        self.replace_segments(file_path, owns, note, true)
+    }
+    /// The one body behind both replacers: drop every `"; "`-separated segment `owns`
+    /// claims, then place `note` at the head or the tail of what remains.
+    fn replace_segments(
+        &self,
+        file_path: &str,
+        owns: &dyn Fn(&str) -> bool,
+        note: &str,
+        at_head: bool,
+    ) -> Result<(), rusqlite::Error> {
         let sql = format!(
             "SELECT notes FROM {} WHERE file_path = ?1",
             schema_guard::TABLE_FILE_KNOWLEDGE
@@ -101,19 +130,14 @@ impl FileKnowledgeDB {
             .conn
             .query_row(&sql, params![file_path], |row| row.get(0))
             .unwrap_or(None);
-        let new_notes = match current {
-            Some(existing) => {
-                let cleaned: Vec<&str> = existing
-                    .split("; ")
-                    .filter(|s| !s.starts_with("quality:"))
-                    .collect();
-                if cleaned.is_empty() {
-                    quality_note.to_string()
-                } else {
-                    format!("{}; {}", cleaned.join("; "), quality_note)
-                }
-            }
-            None => quality_note.to_string(),
+        let kept: Vec<&str> = current
+            .as_deref()
+            .map(|existing| existing.split("; ").filter(|s| !owns(s)).collect())
+            .unwrap_or_default();
+        let new_notes = match (kept.is_empty(), at_head) {
+            (true, _) => note.to_string(),
+            (false, true) => format!("{note}; {}", kept.join("; ")),
+            (false, false) => format!("{}; {note}", kept.join("; ")),
         };
         let update_sql = format!(
             "UPDATE {} SET notes = ?2, updated_at = datetime('now') WHERE file_path = ?1",

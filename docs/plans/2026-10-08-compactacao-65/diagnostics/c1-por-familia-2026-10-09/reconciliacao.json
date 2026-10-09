@@ -1,0 +1,55 @@
+{
+ "deploy_utc": "2026-10-09T01:11:50Z",
+ "start_utc": "2026-10-09T13:53:47Z",
+ "post_fechado": {
+  "calls": 549,
+  "A_chars": 289948,
+  "A_blocos": 432,
+  "A_per_call": 528.1384335154827,
+  "B_chars": 294718,
+  "B_per_call": 536.8269581056467,
+  "A_por_tipo": {
+   "hook_additional_context": 432
+  }
+ },
+ "post_aberto": {
+  "calls": 727,
+  "A_chars": 422363,
+  "A_blocos": 588,
+  "A_per_call": 580.9669876203576,
+  "B_chars": 428320,
+  "B_per_call": 589.1609353507565,
+  "A_por_tipo": {
+   "hook_additional_context": 588
+  }
+ },
+ "juiz_hoje": {
+  "calls": 727,
+  "chars": 428320,
+  "per_call": 589.1609353507565
+ },
+ "base": {
+  "12": {
+   "calls": 8094,
+   "A_chars": 7249897,
+   "A_blocos": 11773,
+   "A_per_call": 895.7125030887076,
+   "B_chars": 7349363,
+   "B_per_call": 908.0013590313813,
+   "A_por_tipo": {
+    "hook_additional_context": 11773
+   }
+  },
+  "24": {
+   "calls": 8251,
+   "A_chars": 7322214,
+   "A_blocos": 11887,
+   "A_per_call": 887.433523209308,
+   "B_chars": 7422790,
+   "B_per_call": 899.623075990789,
+   "A_por_tipo": {
+    "hook_additional_context": 11887
+   }
+  }
+ }
+}

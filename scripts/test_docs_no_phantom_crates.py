@@ -34,6 +34,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import TypedDict
 
 REPO = Path(__file__).resolve().parent.parent
 CRATES_DIR = REPO / "crates"
@@ -76,6 +77,10 @@ PROVENANCE_MARKERS = (
     "era ", "fundido", "verificado", "manutenção", "não existe",
     "peeled", "confirmado", "correção", "corrigido", "Reconciliado",
     "próprio Cargo.toml",
+    # Equivalentes em inglês: os CLAUDE.md por crate (`crates/*/.claude/CLAUDE.md`)
+    # são escritos em inglês e documentam a fusão como "(ex-touring-ast)" /
+    # "fused" — proveniência legítima que o guard reprovava (08/10/2026).
+    "(ex-", "fused", "merged into",
 )
 
 
@@ -92,9 +97,41 @@ def scope_files() -> list[Path]:
     return sorted(seen)
 
 
-def offenders() -> list[dict[str, object]]:
+class Offender(TypedDict):
+    """Uma citação de crate inexistente sem nota de proveniência."""
+
+    file: str
+    line: int
+    crate: str
+    context: str
+
+
+def _context(flat: str, m: re.Match[str]) -> str:
+    return flat[max(0, m.start() - 320): m.end() + 40]
+
+
+def _is_not_phantom(flat: str, m: re.Match[str], name: str, crates: set[str]) -> bool:
+    """True quando o casamento `touring-<name>` NÃO é citação de crate fantasma.
+
+    Passam: ruído conhecido, crate real, caminho de arquivo/diretório (por extensão,
+    por barra final, ou por ser componente de caminho FORA de `crates/`) e menção com
+    nota de proveniência por perto. Sob `crates/` o nome continua checado —
+    `crates/touring-x` é exatamente o crate fantasma.
+    """
+    if not name or name in NOISE or f"touring-{name}" in crates:
+        return True
+    tail = flat[m.end(): m.end() + 6]
+    if any(tail.startswith(ext) for ext in FILE_EXTENSIONS) or tail.startswith("/"):
+        return True  # path de arquivo/diretório (doc/plans/script), não crate
+    head = flat[max(0, m.start() - 7): m.start()]
+    if head.endswith("/") and not head.endswith("crates/"):
+        return True  # `scripts/touring-quality-score`, `/tmp/touring-run-*` (08/10/2026)
+    return any(marker in _context(flat, m) for marker in PROVENANCE_MARKERS)
+
+
+def offenders() -> list[Offender]:
     crates = real_crates()
-    found: list[dict[str, object]] = []
+    found: list[Offender] = []
     for path in scope_files():
         text = path.read_text(encoding="utf-8", errors="ignore")
         # Blockquotes markdown ("> " no início de cada linha continuada)
@@ -102,26 +139,18 @@ def offenders() -> list[dict[str, object]]:
         # contexto não via como uma frase só. Normalizado antes de procurar.
         flat = re.sub(r"\n>\s*", " ", text)
         for m in re.finditer(r"\btouring[-_]([a-z0-9][a-z0-9-]{2,})\b", flat):
-            name = m.group(1).replace("_", "-").rstrip("-")
             # Hífen final órfão: "touring-hooks-ARCHITECTURE.md" tem maiúsculas
             # (quebram [a-z0-9-]), então o regex para no hífen antes delas —
             # sem isso "touring-hooks-" nunca bate "touring-hooks" nos crates reais.
-            if not name or name in NOISE or f"touring-{name}" in crates:
+            name = m.group(1).replace("_", "-").rstrip("-")
+            if _is_not_phantom(flat, m, name, crates):
                 continue
-            tail = flat[m.end(): m.end() + 6]
-            if any(tail.startswith(ext) for ext in FILE_EXTENSIONS) or tail.startswith("/"):
-                continue  # path de arquivo/diretório (doc/plans/script), não crate
-            start = max(0, m.start() - 320)
-            context = flat[start:m.end() + 40]
-            if any(marker in context for marker in PROVENANCE_MARKERS):
-                continue
-            line = flat[: m.start()].count("\n") + 1
             found.append(
                 {
                     "file": str(path.relative_to(REPO)),
-                    "line": line,
+                    "line": flat[: m.start()].count("\n") + 1,
                     "crate": f"touring-{name}",
-                    "context": context.strip()[-150:],
+                    "context": _context(flat, m).strip()[-150:],
                 }
             )
     return found
@@ -178,6 +207,26 @@ def test_guard_detects_a_reintroduced_phantom_crate():
         assert any(e["file"] == "ARCHITECTURE.md" for e in bad), (
             "o guard não detectou o crate fantasma reintroduzido"
         )
+    finally:
+        target.write_text(original, encoding="utf-8")
+        assert target.read_text(encoding="utf-8") == original
+
+
+def test_path_outside_crates_is_not_a_crate_but_crates_path_still_is():
+    """Caminho fora de crates/ passa; o mesmo nome sob crates/ continua reprovando
+    (a isenção não pode virar brecha para o crate fantasma) — 08/10/2026."""
+    target = REPO / "ARCHITECTURE.md"
+    original = target.read_text(encoding="utf-8")
+    cases = {
+        "touring-fantasmapath": ("\n\nRode `scripts/touring-fantasmapath` e veja `/tmp/touring-fantasmapath-*`.\n", False),
+        "touring-fantasmacrate": ("\n\nO código vive em `crates/touring-fantasmacrate`.\n", True),
+        "touring-fantasmaex": ("\n\nThe `ast` module (ex-touring-fantasmaex) parses sources.\n", False),
+    }
+    try:
+        for crate, (snippet, must_flag) in cases.items():
+            target.write_text(original + snippet, encoding="utf-8")
+            flagged = any(e["file"] == "ARCHITECTURE.md" and e["crate"] == crate for e in offenders())
+            assert flagged is must_flag, f"{crate}: esperado flagged={must_flag}, obtido {flagged}"
     finally:
         target.write_text(original, encoding="utf-8")
         assert target.read_text(encoding="utf-8") == original

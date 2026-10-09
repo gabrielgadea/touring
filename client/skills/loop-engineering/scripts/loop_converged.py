@@ -14,7 +14,8 @@ Clauses (a clause is PASS / FAIL / N/A; converged ⟺ no clause is FAIL):
   5. measured_whole_scope — the score covers the scope, not a prefix.      (any code)
   6. orphans_base  — wiring orphans <= baseline.                           (any code)
   7. cargo_green   — cargo check (+ test+clippy with --rust-full).         (Rust scope)
-  8. cross_audit   — the bundle's audit-plan-completion.sh exits 0.        (if present)
+  8. cross_audit   — the bundle's audit-plan-completion.sh exits 0.        (FAIL if --bundle
+                     was given without the script; N/A only when no --bundle was given)
 
 This list is enforced, not merely declared: `judge_attest.py` reads the clause
 names out of `_gather_clauses` by AST and compares them with the attestation, so
@@ -636,12 +637,31 @@ def _clause_cargo_with(scope: Path, rust_full, cargo_env):
     return True, "cargo check + test + clippy green"
 
 
-def clause_cross_audit(bundle: Path):
-    script = bundle / "audit-plan-completion.sh"
+CROSS_AUDIT_SCRIPT = "audit-plan-completion.sh"
+
+
+def clause_cross_audit(bundle: Path, requested: bool):
+    """The plan's own artifact check. ``requested`` says whether the operator passed ``--bundle``.
+
+    Until 06/10/2026 a missing script was always N/A, and with no ``--bundle`` the judge fabricates a
+    bundle dir (``_global_baseline_dir``), so "never asked for" and "asked for and absent" were the same
+    sentence — and N/A does not block. Gabriel chose (canvas 1, option a, 05/10/2026) to tell them apart:
+    a bundle that was asked for and has no script is a FAIL that names the file.
+    """
+    script = bundle / CROSS_AUDIT_SCRIPT
     if not script.exists():
-        return None, "no audit-plan-completion.sh — skipped"
+        if requested:
+            return False, f"--bundle given but {script} is missing — the plan's artifact check cannot run"
+        return None, "no --bundle given — no plan artifact check was requested"
     rc, out, err = run(["bash", str(script)], timeout=1200)
     return rc == 0, f"cross-audit rc={rc}"
+
+
+def _cross_audit_action(bundle: Path, ok) -> str:
+    if ok is False and not (bundle / CROSS_AUDIT_SCRIPT).exists():
+        return (f"write {bundle / CROSS_AUDIT_SCRIPT} (exit 0 when every artifact the plan promised exists) "
+                f"— or run the judge without --bundle")
+    return "resolve cross-audit findings"
 
 
 # ── Orchestration ────────────────────────────────────────────────────────────
@@ -686,10 +706,11 @@ def clause_judge_intact():
     return True, f"judge of record intact, {n} clauses", None
 
 
-def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust):
+def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust, *, bundle_requested: bool):
     """Yield ``(name, ok, evidence, action)`` for every convergence clause.
 
     ``ok`` is True (pass) / False (fail — blocks) / None (N/A — does not block).
+    ``bundle_requested`` is whether ``--bundle`` was given (only ``cross_audit`` reads it).
     """
     yield ("judge_intact", *clause_judge_intact())
     yield ("dag_done", *clause_dag_done(task))
@@ -722,13 +743,17 @@ def _gather_clauses(task, scope: Path, bundle: Path, rust_full, rust):
     else:
         yield ("cargo_green", None, "no Cargo.toml at scope root — not a Rust crate", None)
 
-    yield ("cross_audit", *clause_cross_audit(bundle), "resolve cross-audit findings")
+    ok, evidence = clause_cross_audit(bundle, bundle_requested)
+    yield ("cross_audit", ok, evidence, _cross_audit_action(bundle, ok))
 
 
-def evaluate(task, scope: Path, bundle: Path, rust_full) -> dict[str, Any]:
+def evaluate(task, scope: Path, bundle: Path, rust_full, *, bundle_requested: bool) -> dict[str, Any]:
+    # `bundle_requested` has no default on purpose (review touring-b4, 06/10/2026): a default of False
+    # would turn a caller that forgot it into a silent N/A — failing open, the defect this clause fixes.
     rust = is_rust_scope(scope)
     clauses, unmet, next_action = {}, [], None
-    for name, ok, evidence, action in _gather_clauses(task, scope, bundle, rust_full, rust):
+    for name, ok, evidence, action in _gather_clauses(task, scope, bundle, rust_full, rust,
+                                                      bundle_requested=bundle_requested):
         clauses[name] = {"result": _label(ok), "evidence": evidence}
         if ok is False:
             unmet.append(name)
@@ -790,7 +815,7 @@ def main(argv=None):
     else:
         bundle = _global_baseline_dir(scope)
         bundle.mkdir(parents=True, exist_ok=True)
-    report = evaluate(args.task, scope, bundle, args.rust_full)
+    report = evaluate(args.task, scope, bundle, args.rust_full, bundle_requested=bool(args.bundle))
     if not args.bundle:
         # The reader must SEE that this verdict was measured against a global, dated baseline —
         # not the bundle's. Measured 19/09/2026 (analise-4c): the global file for scripts/eleitoral

@@ -33,7 +33,7 @@
       "threshold": 0.2
     },
     {
-      "actual": 0.05390334572490706,
+      "actual": 0.05244755244755245,
       "advisory": true,
       "direction": "gte",
       "id": "touring.cache.hit_ratio",
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 638.3643410852713,
+      "actual": 656.8666666666667,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,7 +123,7 @@
       "threshold": 800.0
     },
     {
-      "actual": 670.0,
+      "actual": 679.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
@@ -134,7 +134,7 @@
       "threshold": 1000.0
     },
     {
-      "actual": 845311.0,
+      "actual": 857087.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 5361663.0,
+      "actual": 5357567.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -156,7 +156,7 @@
       "threshold": 1000000.0
     },
     {
-      "actual": -2.0,
+      "actual": -3.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.health_delta_net",
@@ -178,7 +178,7 @@
       "threshold": 0.7
     },
     {
-      "actual": 0.2,
+      "actual": 0.18658280922431866,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
@@ -189,7 +189,7 @@
       "threshold": 0.4
     },
     {
-      "actual": 0.8792270531400966,
+      "actual": 0.8648648648648649,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
@@ -200,7 +200,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.0018726591760299626,
+      "actual": 0.001697792869269949,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
@@ -512,29 +512,29 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1473,
+      "exception": 1474,
       "output-limit": 6,
       "proc-exit": 3,
-      "timeout": 331
+      "timeout": 332
     },
     "by_language": {
       "?": 3,
-      "bash": 11389,
+      "bash": 11403,
       "go": 1,
       "js": 141,
       "perl": 4,
       "php": 1,
-      "python": 11343,
+      "python": 11354,
       "ruby": 4,
       "rust": 4,
       "shell": 189,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 21270,
-    "runs_total": 23086,
+    "runs_ok": 21293,
+    "runs_total": 23111,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9213376072078315,
+    "success_rate": 0.9213361602700013,
     "wasted_attempts_retry_pairs": 1068
   },
   "code_mode_reuse": {
@@ -545,7 +545,7 @@
     "harvested_runs": 0,
     "hint_coverage": 0.04,
     "hinted_runs": 610,
-    "inline_runs": 11549,
+    "inline_runs": 11574,
     "ladder_enrolled": 1,
     "ladder_reused": 0,
     "orchestrate_runs": 301,
@@ -553,9 +553,9 @@
     "reuse_ratio": 0.139,
     "scratch_file_runs": 1681,
     "status": "FAIL",
-    "total_tmp_bytes": 1010976457,
+    "total_tmp_bytes": 1011300292,
     "v1_runs": 7716,
-    "v2_runs": 15367
+    "v2_runs": 15392
   },
   "code_mode_signal_use": {
     "available": true,
@@ -572,51 +572,51 @@
     "reason": "no transcript directory at /home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise-packages"
   },
   "daemon_availability": {
-    "answered": 23511,
+    "answered": 25242,
     "floor": 0.95,
     "meets_floor": true,
-    "ratio": 0.998,
+    "ratio": 0.9978,
     "unavailable": 1,
-    "unusable": 47,
+    "unusable": 55,
     "window_h": 48
   },
   "decision": {
-    "cutoff_ms": 1790341395777,
+    "cutoff_ms": 1790350118881,
     "intent_distribution": {
       "distinct_intents": 7,
       "distribution": {
         "ANALYSIS": {
-          "count": 32,
-          "share": 0.1749
+          "count": 33,
+          "share": 0.1692
         },
         "CODE": {
           "count": 4,
-          "share": 0.0219
+          "share": 0.0205
         },
         "DEBUG": {
           "count": 25,
-          "share": 0.1366
+          "share": 0.1282
         },
         "GENERAL": {
-          "count": 86,
-          "share": 0.4699
+          "count": 92,
+          "share": 0.4718
         },
         "PLAN": {
-          "count": 14,
-          "share": 0.0765
+          "count": 17,
+          "share": 0.0872
         },
         "REFACTOR": {
-          "count": 3,
-          "share": 0.0164
+          "count": 4,
+          "share": 0.0205
         },
         "TEST": {
-          "count": 19,
-          "share": 0.1038
+          "count": 20,
+          "share": 0.1026
         }
       },
-      "human_prompts": 183,
+      "human_prompts": 195,
       "status": "measured",
-      "total_classified": 183
+      "total_classified": 195
     },
     "jev_calls_total": {
       "by_question": {
@@ -632,10 +632,10 @@
         "relevant": 45,
         "same_fact": 10,
         "t": 2,
-        "which_skill": 36
+        "which_skill": 41
       },
       "cache_hits": 266,
-      "confidence_samples": 1300,
+      "confidence_samples": 1305,
       "fallback_reasons": {
         "TypeSafeAPIConnectionError:": 4,
         "unexpected:AttributeError": 1,
@@ -645,7 +645,7 @@
       "first_fallback_at": {
         "which_skill": "2026-10-01T09:02:50-0300"
       },
-      "jev_calls_total": 1244,
+      "jev_calls_total": 1249,
       "jev_confidence_hist": [
         {
           "bin": "[0.0,0.1)",
@@ -659,47 +659,47 @@
         },
         {
           "bin": "[0.2,0.3)",
-          "count": 61,
-          "share": 0.0469
+          "count": 62,
+          "share": 0.0475
         },
         {
           "bin": "[0.3,0.4)",
           "count": 75,
-          "share": 0.0577
+          "share": 0.0575
         },
         {
           "bin": "[0.4,0.5)",
-          "count": 260,
+          "count": 261,
           "share": 0.2
         },
         {
           "bin": "[0.5,0.6)",
           "count": 399,
-          "share": 0.3069
+          "share": 0.3057
         },
         {
           "bin": "[0.6,0.7)",
-          "count": 87,
-          "share": 0.0669
+          "count": 89,
+          "share": 0.0682
         },
         {
           "bin": "[0.7,0.8)",
           "count": 74,
-          "share": 0.0569
+          "share": 0.0567
         },
         {
           "bin": "[0.8,0.9)",
-          "count": 96,
-          "share": 0.0738
+          "count": 97,
+          "share": 0.0743
         },
         {
           "bin": "[0.9,0.10)",
           "count": 226,
-          "share": 0.1738
+          "share": 0.1732
         }
       ],
-      "jev_latency_p50_ms": 367.45,
-      "jev_latency_p99_ms": 585.355,
+      "jev_latency_p50_ms": 367.7,
+      "jev_latency_p99_ms": 594.632,
       "status": "measured"
     },
     "jev_confidence_hist": [
@@ -715,64 +715,64 @@
       },
       {
         "bin": "[0.2,0.3)",
-        "count": 61,
-        "share": 0.0469
+        "count": 62,
+        "share": 0.0475
       },
       {
         "bin": "[0.3,0.4)",
         "count": 75,
-        "share": 0.0577
+        "share": 0.0575
       },
       {
         "bin": "[0.4,0.5)",
-        "count": 260,
+        "count": 261,
         "share": 0.2
       },
       {
         "bin": "[0.5,0.6)",
         "count": 399,
-        "share": 0.3069
+        "share": 0.3057
       },
       {
         "bin": "[0.6,0.7)",
-        "count": 87,
-        "share": 0.0669
+        "count": 89,
+        "share": 0.0682
       },
       {
         "bin": "[0.7,0.8)",
         "count": 74,
-        "share": 0.0569
+        "share": 0.0567
       },
       {
         "bin": "[0.8,0.9)",
-        "count": 96,
-        "share": 0.0738
+        "count": 97,
+        "share": 0.0743
       },
       {
         "bin": "[0.9,0.10)",
         "count": 226,
-        "share": 0.1738
+        "share": 0.1732
       }
     ],
-    "jev_latency_p99_ms": 585.355,
+    "jev_latency_p99_ms": 594.632,
     "keyword_fallback_rate": {
       "by_source": {
         "keyword": {
-          "count": 179,
-          "share": 0.9781
+          "count": 191,
+          "share": 0.9795
         },
         "laya": {
           "count": 1,
-          "share": 0.0055
+          "share": 0.0051
         },
         "laya_shadow": {
           "count": 3,
-          "share": 0.0164
+          "share": 0.0154
         }
       },
-      "decisions": 183,
+      "decisions": 195,
       "flag_active": true,
-      "keyword_fallback_rate": 0.9781,
+      "keyword_fallback_rate": 0.9795,
       "status": "measured"
     },
     "malformed_lines": {
@@ -781,10 +781,10 @@
       "recall_journal": 0
     },
     "recall_curated_share": {
-      "candidates_total": 1162,
+      "candidates_total": 1171,
       "curated_share": 0.0,
       "injected_total": 0,
-      "recalls": 34,
+      "recalls": 35,
       "status": "measured"
     },
     "status": "measured",
@@ -793,58 +793,58 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "ceg-observe": 535,
-      "cli-ast-blast": 258,
-      "cli-ast-meta": 258,
+      "ceg-observe": 590,
+      "cli-ast-blast": 274,
+      "cli-ast-meta": 274,
       "cli-code-mode-run": 1,
-      "cli-decompose-get": 246,
+      "cli-decompose-get": 274,
       "cli-decompose-ready": 27,
       "cli-experiment-record": 3,
-      "cli-flywheel-status": 9,
-      "cli-gate-metrics": 14,
+      "cli-flywheel-status": 10,
+      "cli-gate-metrics": 15,
       "cli-gotcha-match": 1,
       "cli-health-delta-status": 1,
       "cli-incremental-status": 1,
-      "cli-index-status": 19,
-      "cli-kpi": 14,
+      "cli-index-status": 21,
+      "cli-kpi": 17,
       "cli-learning-reward": 5,
-      "cli-learning-status": 9,
+      "cli-learning-status": 10,
       "cli-memory-credit": 3,
       "cli-memory-link": 574,
       "cli-memory-links": 39,
       "cli-memory-query": 499,
-      "cli-memory-recall": 75,
-      "cli-memory-store": 184,
+      "cli-memory-recall": 81,
+      "cli-memory-store": 185,
       "cli-resource-monitor-status": 1,
       "cli-session-list": 1,
-      "cli-suggest": 972,
+      "cli-suggest": 1074,
       "cli-tantivy-search": 3,
-      "cli-wiring-orphans": 8,
-      "cli-wiring-status": 2,
+      "cli-wiring-orphans": 9,
+      "cli-wiring-status": 3,
       "cwd-changed": 3,
       "enter-plan-mode": 1,
       "exit-plan-mode": 1,
-      "instructions-loaded": 198,
-      "post-bash": 504,
-      "post-compact": 2,
-      "post-edit": 150,
-      "post-read": 83,
-      "post-tool-batch": 927,
+      "instructions-loaded": 226,
+      "post-bash": 558,
+      "post-compact": 3,
+      "post-edit": 165,
+      "post-read": 95,
+      "post-tool-batch": 1039,
       "post-tool-failure": 5,
-      "post-tool-rl": 937,
-      "post-write": 142,
-      "pre-bash": 532,
-      "pre-compact": 2,
-      "pre-edit": 174,
-      "pre-edit-prevention": 176,
+      "post-tool-rl": 1064,
+      "post-write": 161,
+      "pre-bash": 587,
+      "pre-compact": 3,
+      "pre-edit": 189,
+      "pre-edit-prevention": 191,
       "pre-glob": 2,
       "pre-grep": 15,
-      "pre-read": 86,
-      "pre-write": 155,
-      "session-start": 9,
+      "pre-read": 93,
+      "pre-write": 173,
+      "session-start": 10,
       "session-stop": 4,
       "subagent-start": 5,
-      "subagent-stop": 40,
+      "subagent-stop": 54,
       "task-completed": 1,
       "task-created": 1,
       "task-sync-create": 1,
@@ -863,8 +863,8 @@
     },
     "mirror_deliveries_since": 8,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": 0.015873015873015872,
-    "post_bash_dispatched": 504,
+    "post_bash_delivery_ratio": 0.014336917562724014,
+    "post_bash_dispatched": 558,
     "post_bash_origin_deliveries_since": 8,
     "since_epoch": 1790874424
   },

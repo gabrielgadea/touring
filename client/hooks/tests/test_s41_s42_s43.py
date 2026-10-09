@@ -101,31 +101,112 @@ def test_doc_coverage_non_rs_file_is_silent() -> None:
 # operator's real ~/.claude/context_alert, delete it, and append synthetic entries to the real
 # telemetry — with the telemetry assertions under `if file.exists()`, able to pass on nothing.
 
-def test_check_context_output_is_visible(tmp_path: Path) -> None:
-    """S42: when flag file exists, output is JSON on stdout, not just stderr."""
-    (tmp_path / ".claude").mkdir()
-    (tmp_path / ".claude" / "context_alert").write_text("92")
-    payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash",
-               "session_id": "hooks-contract-s42", "tool_input": {}}
-    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload, home=tmp_path)
-    assert result.rc == 0
-    # Must emit JSON stdout (visible to model).
-    assert result.json is not None, (
-        f"Expected JSON stdout from check_context.sh when flag set.\n"
-        f"stdout={result.stdout_raw!r}\nstderr={result.stderr_raw!r}"
-    )
-    ctx = result.additional_context()
-    assert "92%" in ctx or "contexto" in ctx.lower(), f"Expected context percentage in output: {ctx!r}"
-    assert result.schema_ok("PostToolUse")
+# 08/10/2026 (compactação aos 65%): the flag is PER SESSION under ~/.claude/touring/context_alert/
+# (`<session>.pct`, written by status_monitor.sh). Until then it was one global file, so with three
+# live sessions the first to cross the threshold lit the alert and any session's Stop hook consumed
+# it. The warning is ONE checkpoint per compaction cycle (`<session>.delivered`), not a line per call.
+
+def _alert_dir(home: Path) -> Path:
+    d = home / ".claude" / "touring" / "context_alert"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _ctx_payload(session: str) -> dict[str, object]:
+    return {"hook_event_name": "PostToolUse", "tool_name": "Bash", "session_id": session, "tool_input": {}}
+
+
+def test_check_context_warns_once_per_cycle(tmp_path: Path) -> None:
+    """S42: this session's flag → one checkpoint warning naming both numbers; the next call is silent."""
+    (_alert_dir(tmp_path) / "sess-a.pct").write_text("57")
+    first = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path)
+    assert first.rc == 0 and first.json is not None, f"stdout={first.stdout_raw!r} stderr={first.stderr_raw!r}"
+    ctx = first.additional_context()
+    assert "57%" in ctx and "65%" in ctx, ctx
+    assert "/clear" in ctx, "the checkpoint must name the /clear route for a distinct next task"
+    assert first.schema_ok("PostToolUse")
+    second = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path)
+    assert second.rc == 0 and second.json is None, f"repeated warning: {second.stdout_raw!r}"
+
+
+def test_check_context_ignores_another_sessions_flag(tmp_path: Path) -> None:
+    """S42: a flag lit by session B never reaches session A (the global-file defect)."""
+    (_alert_dir(tmp_path) / "sess-b.pct").write_text("60")
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path)
+    assert result.rc == 0 and result.json is None, result.stdout_raw
+    assert (_alert_dir(tmp_path) / "sess-b.pct").exists(), "session A must not consume B's flag"
 
 
 def test_check_context_no_flag_is_silent(tmp_path: Path) -> None:
     """S42: without flag file, script produces no output."""
-    payload = {"hook_event_name": "PostToolUse", "tool_name": "Bash",
-               "session_id": "hooks-contract-s42", "tool_input": {}}
-    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", payload, home=tmp_path)
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path)
     assert result.rc == 0
     assert result.json is None, f"Unexpected output when no flag: {result.stdout_raw!r}"
+
+
+def test_check_context_honours_autocompact_pct(tmp_path: Path) -> None:
+    """S42: the warning quotes the threshold in force, not a constant."""
+    (_alert_dir(tmp_path) / "sess-a.pct").write_text("62")
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path,
+                         extra_env={"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "72"})
+    assert "72%" in result.additional_context(), result.stdout_raw
+
+
+@pytest.mark.parametrize("registered", [False, True])
+def test_check_context_defers_only_to_a_registered_project_monitor(tmp_path: Path, registered: bool) -> None:
+    """S42: the project monitor FILE existing is not the monitor RUNNING (analise had it unregistered → no alert)."""
+    project = tmp_path / "proj"
+    (project / ".claude" / "hooks" / "validation").mkdir(parents=True)
+    (project / ".claude" / "hooks" / "validation" / "context_monitor.py").write_text("# present\n")
+    hooks = {"PostToolUse": [{"hooks": [{"type": "command", "command": "python3 .claude/hooks/validation/context_monitor.py"}]}]}
+    (project / ".claude" / "settings.local.json").write_text(json.dumps({"hooks": hooks if registered else {}}))
+    (_alert_dir(tmp_path) / "sess-a.pct").write_text("58")
+    result = run_hook_sh(CLIENT_HOOKS / "check_context.sh", _ctx_payload("sess-a"), home=tmp_path,
+                         extra_env={"CLAUDE_PROJECT_DIR": str(project)})
+    assert result.rc == 0
+    assert (result.json is None) is registered, f"registered={registered} stdout={result.stdout_raw!r}"
+
+
+# ── status_monitor.sh: arms and re-arms the per-session flag ─────────────────
+
+def _statusline(home: Path, session: str, tokens: int, extra_env: dict[str, str] | None = None) -> str:
+    payload = {"session_id": session, "model": {"display_name": "Test", "id": "test"},
+               "context_window": {"context_window_size": 1000000,
+                                  "current_usage": {"input_tokens": tokens}}}
+    env = {**os.environ, "HOME": str(home), **(extra_env or {})}
+    proc = subprocess.run(["bash", str(CLIENT_HOOKS / "status_monitor.sh")], input=json.dumps(payload).encode(),
+                          capture_output=True, timeout=15, env=env)
+    assert proc.returncode == 0, proc.stderr
+    return proc.stdout.decode()
+
+
+def test_status_monitor_arms_flag_at_checkpoint(tmp_path: Path) -> None:
+    """At 60% of the window (checkpoint 55 = 65 − 10) the session's flag holds the percentage."""
+    _statusline(tmp_path, "sess-a", 600_000)
+    flag = tmp_path / ".claude" / "touring" / "context_alert" / "sess-a.pct"
+    assert flag.read_text().strip() == "60"
+    assert not (tmp_path / ".claude" / "context_alert").exists(), "the global flag is retired"
+
+
+def test_status_monitor_below_checkpoint_does_not_arm(tmp_path: Path) -> None:
+    """Control: at 54% nothing is armed."""
+    _statusline(tmp_path, "sess-a", 540_000)
+    assert not (tmp_path / ".claude" / "touring" / "context_alert" / "sess-a.pct").exists()
+
+
+def test_status_monitor_rearms_after_compaction(tmp_path: Path) -> None:
+    """Back under the checkpoint (after a compaction) both flag and delivered marker go: next cycle warns again."""
+    d = _alert_dir(tmp_path)
+    (d / "sess-a.pct").write_text("60")
+    (d / "sess-a.delivered").write_text("")
+    _statusline(tmp_path, "sess-a", 200_000)
+    assert not (d / "sess-a.pct").exists() and not (d / "sess-a.delivered").exists()
+
+
+def test_status_monitor_checkpoint_follows_override(tmp_path: Path) -> None:
+    """With autocompact at 80 the checkpoint is 70: 60% does not arm."""
+    _statusline(tmp_path, "sess-a", 600_000, {"CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80"})
+    assert not (tmp_path / ".claude" / "touring" / "context_alert" / "sess-a.pct").exists()
 
 
 # ── S43: telemetry_logger.sh ──────────────────────────────────────────────────

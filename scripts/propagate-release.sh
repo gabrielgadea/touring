@@ -47,6 +47,13 @@
 # REGRA #19: daemons são tocados SOMENTE via `touring update` / `daemon-ctl`.
 # Nenhum pkill/kill aqui, jamais.
 set -euo pipefail
+# CC sessions export TOURING_DAEMON_SOCKET pointing at the per-project socket of the
+# project they have open; every step here must resolve its daemon by walk-up from the
+# workspace instead. 09/10/2026 (30.4.94): inherited from a session in analise, the
+# step-5.5 proof asked the pinned analise daemon about this repo, got `{}` and failed
+# 37/40 twice; unset, the same binary passed 40/40. update-touring got the same scrub
+# on 08/10 (S8). Test: scripts/test_propagate_release_session_env.py.
+unset TOURING_DAEMON_SOCKET TOURING_DAEMON_SOCK
 
 WORKSPACE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION=""

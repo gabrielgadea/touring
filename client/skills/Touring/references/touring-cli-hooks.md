@@ -27,8 +27,8 @@
 | `touring post-tool-failure` | `post-tool-failure` | Registra falha + auto-cria gotcha + circuit breaker (Halt após 5+ falhas) (v30) |
 | `touring post-compact` | `post-compact` | Re-aquece cache para arquivos mais acessados após compactação (v30) |
 | `touring instructions-loaded` | `instructions-loaded` | Injeta stats de conhecimento do projeto na inicialização (v30) |
-| `touring hook-memory-store` | `hook-memory-store` | Armazena evento de hook na memória touring (intent/quality/completion) |
-| `touring hook-memory-recall` | `hook-memory-recall` | Recupera padrões de hook da memória touring |
+| — (handler de dispatch do daemon, sem subcomando CLI; pela CLI: `touring memory store`) | `cli-hook-memory-store` | Armazena evento de hook na memória touring (intent/quality/completion) |
+| — (handler de dispatch do daemon, sem subcomando CLI; pela CLI: `touring memory recall`) | `cli-hook-memory-recall` | Recupera padrões de hook da memória touring |
 | `touring decompose-event` | `decompose-event` | TaskCreated/TaskCompleted → touring decompose CLI (session context) |
 | `touring pre-task-scout` | `pre-task-scout` | PreToolUse enrichment com touring-scouter quick-mode + SQLite LRU cache |
 | `touring task-created` | `task-created` | Hook Rust para task created event (conv from Python) |
