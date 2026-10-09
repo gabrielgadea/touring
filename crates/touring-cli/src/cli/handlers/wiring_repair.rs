@@ -1159,7 +1159,12 @@ mod tests {
         producer(&rt, "src/helpers.rs", "real_fn");
         db.record_consumer("src/helpers.rs", "real_fn", "src/consumer.rs", None)
             .expect("healthy edge");
-        for (kind, keyword) in [("extern", "super"), ("function", "self"), ("unknown", "crate"), ("struct", "Self")] {
+        for (kind, keyword) in [
+            ("extern", "super"),
+            ("function", "self"),
+            ("unknown", "crate"),
+            ("struct", "Self"),
+        ] {
             db.conn_ref()
                 .execute(
                     "INSERT INTO wiring_map
@@ -1181,7 +1186,10 @@ mod tests {
         };
 
         let preview = purge_phantom_edges(db, true).expect("dry-run");
-        assert_eq!(preview.edges, 4, "every scope-keyword consumer is phantom, whatever its kind");
+        assert_eq!(
+            preview.edges, 4,
+            "every scope-keyword consumer is phantom, whatever its kind"
+        );
         assert_eq!(keyword_rows(), 4, "a dry run writes nothing");
         let applied = purge_phantom_edges(db, false).expect("apply");
         assert_eq!(applied.edges, 4);

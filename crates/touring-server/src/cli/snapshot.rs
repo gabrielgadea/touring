@@ -437,10 +437,11 @@ fn run_status() -> anyhow::Result<()> {
 
 /// Entry point for `touring snapshot <subcommand>`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<SnapshotCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<SnapshotCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(SnapshotCmd::List) {
         SnapshotCmd::Create { name } => run_create(&name),

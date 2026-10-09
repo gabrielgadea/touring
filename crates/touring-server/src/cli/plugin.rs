@@ -64,10 +64,11 @@ enum PluginCmd {
 /// Returns an error for unknown subcommands, missing arguments, or daemon
 /// communication failures.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<PluginCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<PluginCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
     match cli.cmd.unwrap_or(PluginCmd::List) {
         PluginCmd::List => {
             let output = daemon_query("cli-plugin-list", serde_json::json!({}))?;

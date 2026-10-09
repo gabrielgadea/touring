@@ -109,8 +109,8 @@ fn parent_status(db: &FileKnowledgeDB, task_id: &str) -> Option<String> {
 /// an existing task it needs this call too.
 pub(crate) fn reopen_parent_if_closed(db: &FileKnowledgeDB, task_id: &str, now: &str) -> usize {
     use touring_foundation::task_lifecycle::is_terminal_task_status;
-    let closed = parent_status(db, task_id)
-        .is_some_and(|s| is_terminal_task_status(&s) && s != FINALIZED);
+    let closed =
+        parent_status(db, task_id).is_some_and(|s| is_terminal_task_status(&s) && s != FINALIZED);
     if !closed {
         return 0;
     }
@@ -417,13 +417,21 @@ pub fn cli_decompose_archive(rt: &mut HookRuntime, payload: &serde_json::Value) 
 /// it — and `archive` names every such plan (`held`, `held_plans`) with the way out, so the guard is
 /// never silent. The interpolated list is a compile-time constant.
 fn archivable_plans_where() -> String {
-    format!("{} AND NOT {}", closed_unstamped_before_cutoff(), has_open_child())
+    format!(
+        "{} AND NOT {}",
+        closed_unstamped_before_cutoff(),
+        has_open_child()
+    )
 }
 
 /// The plans the guard HOLDS: everything [`archivable_plans_where`] would stamp but for an open
 /// child. Both predicates are built from the same two halves, so they cannot drift apart.
 fn held_plans_where() -> String {
-    format!("{} AND {}", closed_unstamped_before_cutoff(), has_open_child())
+    format!(
+        "{} AND {}",
+        closed_unstamped_before_cutoff(),
+        has_open_child()
+    )
 }
 
 /// The half of the retention predicate that looks at the plan row alone: terminal status, no stamp
@@ -459,7 +467,10 @@ const HELD_REMEDY: &str = "a held plan was closed over a child that is not compl
 
 /// Held plans past the cutoff: the full count, and the oldest [`HELD_SAMPLE`] with the open statuses
 /// that hold each. The oldest first, because it is the one nobody is coming back to.
-fn held_plans(db: &FileKnowledgeDB, cutoff: &str) -> rusqlite::Result<(i64, Vec<serde_json::Value>)> {
+fn held_plans(
+    db: &FileKnowledgeDB,
+    cutoff: &str,
+) -> rusqlite::Result<(i64, Vec<serde_json::Value>)> {
     let conn = db.conn_ref();
     let where_clause = held_plans_where();
     let count: i64 = conn.query_row(
@@ -480,7 +491,9 @@ fn held_plans(db: &FileKnowledgeDB, cutoff: &str) -> rusqlite::Result<(i64, Vec<
     let mut plans = Vec::new();
     for row in rows {
         let (task_id, open) = row?;
-        plans.push(serde_json::json!({"task_id": task_id, "open_statuses": distinct_statuses(open)}));
+        plans.push(
+            serde_json::json!({"task_id": task_id, "open_statuses": distinct_statuses(open)}),
+        );
     }
     Ok((count, plans))
 }
@@ -500,7 +513,10 @@ fn distinct_statuses(concatenated: Option<String>) -> Vec<String> {
 
 /// Put the held report on an `archive` reply. A failed lookup says so under its own key and never
 /// reads as "nothing held" (the 19/09 lesson: a zero for a query that did not run hides the defect).
-fn attach_held(reply: &mut serde_json::Value, held: rusqlite::Result<(i64, Vec<serde_json::Value>)>) {
+fn attach_held(
+    reply: &mut serde_json::Value,
+    held: rusqlite::Result<(i64, Vec<serde_json::Value>)>,
+) {
     match held {
         Ok((count, plans)) => {
             reply["held"] = count.into();

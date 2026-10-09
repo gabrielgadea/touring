@@ -55,10 +55,11 @@ enum SessionCmd {
 /// `cli-session-*` daemon queries and prints each response. `start` joins its
 /// trailing args into the objective; `checkpoint` joins them into the data blob.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<SessionCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<SessionCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
     match cli.cmd.unwrap_or(SessionCmd::List) {
         SessionCmd::Start {
             session_id,

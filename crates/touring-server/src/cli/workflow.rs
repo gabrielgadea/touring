@@ -87,10 +87,11 @@ fn default_run() -> WorkflowCmd {
 /// queries and prints each response. `resume` asks `cli-workflow-resume` (the
 /// per-subtask state, each subtask's attempts and the next subtask to run).
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<WorkflowCli, _, _>(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<WorkflowCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
     let (handler, payload) = route(cli.cmd.unwrap_or_else(default_run));
     let output = daemon_query(handler, payload)?;
     println!("{output}");
@@ -109,8 +110,14 @@ fn route(cmd: WorkflowCmd) -> (&'static str, serde_json::Value) {
             "cli-workflow-run",
             serde_json::json!({ "task_id": task_id, "watch": watch, "json": json }),
         ),
-        WorkflowCmd::Stats { task_id } => ("cli-workflow-stats", serde_json::json!({ "task_id": task_id })),
-        WorkflowCmd::Status { task_id } => ("cli-workflow-status", serde_json::json!({ "task_id": task_id })),
+        WorkflowCmd::Stats { task_id } => (
+            "cli-workflow-stats",
+            serde_json::json!({ "task_id": task_id }),
+        ),
+        WorkflowCmd::Status { task_id } => (
+            "cli-workflow-status",
+            serde_json::json!({ "task_id": task_id }),
+        ),
         WorkflowCmd::Slowest { task_id, top } => (
             "cli-workflow-slowest",
             serde_json::json!({ "task_id": task_id, "top": top }),
@@ -122,7 +129,10 @@ fn route(cmd: WorkflowCmd) -> (&'static str, serde_json::Value) {
             "cli-workflow-compare",
             serde_json::json!({ "task_id_a": task_id_a, "task_id_b": task_id_b }),
         ),
-        WorkflowCmd::Resume { task_id } => ("cli-workflow-resume", serde_json::json!({ "task_id": task_id })),
+        WorkflowCmd::Resume { task_id } => (
+            "cli-workflow-resume",
+            serde_json::json!({ "task_id": task_id }),
+        ),
     }
 }
 
@@ -223,12 +233,22 @@ mod tests {
         assert_eq!(handler, "cli-workflow-status");
         assert_eq!(payload["task_id"], "task_7");
         assert_eq!(routed(&["workflow", "stats", "t"]).0, "cli-workflow-stats");
-        assert_eq!(routed(&["workflow", "slowest", "t"]).0, "cli-workflow-slowest");
-        assert_eq!(routed(&["workflow", "compare", "a", "b"]).0, "cli-workflow-compare");
+        assert_eq!(
+            routed(&["workflow", "slowest", "t"]).0,
+            "cli-workflow-slowest"
+        );
+        assert_eq!(
+            routed(&["workflow", "compare", "a", "b"]).0,
+            "cli-workflow-compare"
+        );
         assert_eq!(routed(&["workflow"]).0, "cli-workflow-run");
         let (handler, payload) = routed(&["workflow", "resume", "t"]);
         assert_eq!(handler, "cli-workflow-resume");
-        assert_eq!(payload, serde_json::json!({ "task_id": "t" }), "no key the handler does not read");
+        assert_eq!(
+            payload,
+            serde_json::json!({ "task_id": "t" }),
+            "no key the handler does not read"
+        );
     }
 
     #[test]

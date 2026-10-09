@@ -69,7 +69,9 @@ enum TasksfileCmd {
 /// Returns an error if a required file argument is missing, file I/O fails,
 /// an unknown subcommand is given, or the daemon is unreachable.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<TasksfileCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<TasksfileCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };

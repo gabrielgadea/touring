@@ -204,7 +204,9 @@ fn orphans_not_owned_elsewhere(
 /// `restart`, `stop`, or `reset`. Implements the canonical daemon lifecycle
 /// (REGRA #19), never `pkill`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<DaemonCtlCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DaemonCtlCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(c) => c,
         Err(e) => e.exit(),
     };

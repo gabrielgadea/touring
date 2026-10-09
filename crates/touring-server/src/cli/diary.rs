@@ -95,7 +95,8 @@ enum DiaryCmd {
 
 /// CLI entry point for `touring diary` subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match crate::cli::common::parse_tolerating_json::<DiaryCli, _, _>(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DiaryCli, _, _>(args.iter().skip(1))
+    {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
