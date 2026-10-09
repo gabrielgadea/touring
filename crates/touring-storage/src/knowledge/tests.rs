@@ -210,6 +210,52 @@ fn test_append_note() {
     assert_eq!(result2.notes.as_deref(), Some("Bug with enum; Fixed in v2"));
 }
 
+/// V0e5 (09/10/2026): an append-only note kept a red test run at the head of `notes`
+/// (the readers show its first 100–120 bytes) for 17 min after newer runs. A writer
+/// that owns a segment REPLACES it: one current segment, at the head, other writers'
+/// segments untouched, `notes` bounded however many times it runs.
+#[test]
+fn test_replace_owned_note_keeps_one_current_segment_at_the_head() {
+    let (_tmp, db) = test_db();
+    db.upsert(&FileKnowledge {
+        file_path: "t.py".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    for n in ["A: old", "quality: CC=2", "A: older", "Bug with enum"] {
+        db.append_note("t.py", n).unwrap();
+    }
+    let owns = |s: &str| s.starts_with("A:");
+    db.replace_owned_note("t.py", &owns, "A: newest").unwrap();
+    let notes = db.lookup("t.py").unwrap().unwrap().notes.unwrap();
+    assert_eq!(notes, "A: newest; quality: CC=2; Bug with enum");
+    for i in 0..50 {
+        db.replace_owned_note("t.py", &owns, &format!("A: run {i}"))
+            .unwrap();
+    }
+    let notes = db.lookup("t.py").unwrap().unwrap().notes.unwrap();
+    assert_eq!(
+        notes, "A: run 49; quality: CC=2; Bug with enum",
+        "bounded: {notes}"
+    );
+}
+
+/// The quality writer keeps its contract (tail placement) on the shared body.
+#[test]
+fn test_replace_quality_note_still_replaces_at_the_tail() {
+    let (_tmp, db) = test_db();
+    db.upsert(&FileKnowledge {
+        file_path: "q.rs".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    db.append_note("q.rs", "quality: CC=9").unwrap();
+    db.append_note("q.rs", "Bug").unwrap();
+    db.replace_quality_note("q.rs", "quality: CC=3").unwrap();
+    let notes = db.lookup("q.rs").unwrap().unwrap().notes.unwrap();
+    assert_eq!(notes, "Bug; quality: CC=3");
+}
+
 #[test]
 fn test_stats() {
     let (_tmp, db) = test_db();

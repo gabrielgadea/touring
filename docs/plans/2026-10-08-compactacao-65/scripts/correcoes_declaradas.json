@@ -1,0 +1,66 @@
+[
+ {
+  "agente": "touring-architect",
+  "de": "\"expected_file\": \"crates/touring-resource-monitor/src/guard/mod.rs\",",
+  "para": "\"expected_file\": \"crates/touring-foundation/src/sentinel/guard/mod.rs\",",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "crate absorvido em touring-foundation::sentinel (Cargo.toml:48-57); MemoryGuard::start_ticker verificado em crates/touring-foundation/src/sentinel/guard/mod.rs:80 (touring index find MemoryGuard, 08/10/2026)"
+ },
+ {
+  "agente": "touring-engineer",
+  "de": "\"created_in_file\": \"crates/touring-resource-monitor/src/guard/mod.rs\",",
+  "para": "\"created_in_file\": \"crates/touring-foundation/src/sentinel/guard/mod.rs\",",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "crate absorvido em touring-foundation::sentinel (Cargo.toml:48-57); MemoryGuard::start_ticker verificado em crates/touring-foundation/src/sentinel/guard/mod.rs:80 (touring index find MemoryGuard, 08/10/2026)"
+ },
+ {
+  "agente": "touring-engineer",
+  "de": "\"created_at_line\": 67,",
+  "para": "\"created_at_line\": 80,",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "crate absorvido em touring-foundation::sentinel (Cargo.toml:48-57); MemoryGuard::start_ticker verificado em crates/touring-foundation/src/sentinel/guard/mod.rs:80 (touring index find MemoryGuard, 08/10/2026)"
+ },
+ {
+  "agente": "touring-engineer",
+  "de": "\"post_edit_evidence\": \"touring ast overview crates/.../guard/mod.rs returns symbol at line 67\"",
+  "para": "\"post_edit_evidence\": \"touring ast overview crates/.../guard/mod.rs returns symbol at line 80\"",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "crate absorvido em touring-foundation::sentinel (Cargo.toml:48-57); MemoryGuard::start_ticker verificado em crates/touring-foundation/src/sentinel/guard/mod.rs:80 (touring index find MemoryGuard, 08/10/2026)"
+ },
+ {
+  "agente": "touring-scouter",
+  "de": "# Lifecycle hook memory (store/recall patterns from hook events)",
+  "para": "# Memory (store/recall lessons) — `hook-memory-*` are daemon dispatch handlers",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "subcomando inexistente: rc 1 'Unknown subcommand'; os nomes são handlers de dispatch cli-hook-memory-* (crates/touring-dispatch/src/hook_registry.rs:1532-1535); rota CLI = memory recall/store (flags --tier/--type verificadas)"
+ },
+ {
+  "agente": "touring-scouter",
+  "de": "touring hook-memory-recall \"<query>\" -j",
+  "para": "touring memory recall \"<query>\" -j",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "subcomando inexistente: rc 1 'Unknown subcommand'; os nomes são handlers de dispatch cli-hook-memory-* (crates/touring-dispatch/src/hook_registry.rs:1532-1535); rota CLI = memory recall/store (flags --tier/--type verificadas)"
+ },
+ {
+  "agente": "touring-scouter",
+  "de": "touring hook-memory-store \"<key>\" \"<value>\" --tier semantic --type lesson",
+  "para": "touring memory store \"<key>\" \"<value>\" --tier semantic --type lesson",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "subcomando inexistente: rc 1 'Unknown subcommand'; os nomes são handlers de dispatch cli-hook-memory-* (crates/touring-dispatch/src/hook_registry.rs:1532-1535); rota CLI = memory recall/store (flags --tier/--type verificadas)"
+ },
+ {
+  "agente": "touring-scouter",
+  "de": "\"evidence_excerpt\": \"{\\\"file_path\\\": \\\"crates/touring-resource-monitor/src/guard/mod.rs\\\", \\\"line\\\": 67}\",",
+  "para": "\"evidence_excerpt\": \"{\\\"file_path\\\": \\\"crates/touring-foundation/src/sentinel/guard/mod.rs\\\", \\\"line\\\": 80}\",",
+  "data": "2026-10-08",
+  "motivo": "drift real no arquivo vivo (fora do escopo do scanner de drift)",
+  "evidencia": "crate absorvido em touring-foundation::sentinel (Cargo.toml:48-57); MemoryGuard::start_ticker verificado em crates/touring-foundation/src/sentinel/guard/mod.rs:80 (touring index find MemoryGuard, 08/10/2026)"
+ }
+]

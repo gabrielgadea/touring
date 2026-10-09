@@ -261,13 +261,24 @@ def system_one(
     base: dict[str, Any] = {
         "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
         "model": model,
-        "question_ids": sorted(questions.keys()),
     }
     if base_url:
         base["base_url"] = base_url
 
     def fail(reason: str) -> None:
         _journal(jf, {**base, "route_taken": "fallback", "fallback_reason": reason})
+
+    # V0e (09/10/2026 — dívida V0c c2e3da31104b): `sorted(questions.keys())`
+    # explodia com AttributeError cru quando `questions` não era um Mapping —
+    # um negativo sem nome. A recusa estruturada nomeia o atributo ausente, no
+    # padrão das demais recusas de spec do módulo, e segue fail-open.
+    if not hasattr(questions, "keys"):
+        fail(
+            "spec_error:questions precisa ser um Mapping com .keys() — "
+            f"recebido {type(questions).__name__}, sem o atributo 'keys'"
+        )
+        return None
+    base["question_ids"] = sorted(questions.keys())
 
     key = load_key(key_file)
     if not key and client is None and not base_url:

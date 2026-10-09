@@ -139,6 +139,7 @@ impl MetricsExtractor for PytestExtractor {
         let mut warnings = 0u64;
         let mut duration = String::new();
         let mut coverage_pct: Option<f64> = None;
+        let mut saw_summary = false;
 
         for line in stdout.lines().rev().take(20) {
             let trimmed = line.trim();
@@ -148,6 +149,7 @@ impl MetricsExtractor for PytestExtractor {
                 for part in trimmed.split(',') {
                     let part = part.trim();
                     if let Some(n) = extract_leading_number(part) {
+                        saw_summary = true;
                         if part.contains("passed") {
                             passed = n;
                         } else if part.contains("failed") {
@@ -161,7 +163,7 @@ impl MetricsExtractor for PytestExtractor {
                     if part.contains(" in ")
                         && let Some(d) = part.split(" in ").last()
                     {
-                        duration = d.trim().to_string();
+                        duration = clean_duration(d);
                     }
                 }
             }
@@ -185,7 +187,7 @@ impl MetricsExtractor for PytestExtractor {
             metrics.insert("coverage_pct".into(), Value::from(cov));
         }
 
-        let status = if exit_code == 0 { "PASS" } else { "FAIL" };
+        let status = test_verdict(saw_summary, failed + errors, exit_code).pytest_label();
         let cov_str = coverage_pct
             .map(|c| format!(" ({c:.0}% coverage)"))
             .unwrap_or_default();
@@ -221,12 +223,14 @@ impl MetricsExtractor for CargoTestExtractor {
         let mut total_failed = 0u64;
         let mut total_ignored = 0u64;
         let mut duration = String::new();
+        let mut saw_summary = false;
 
         for line in stdout.lines().rev().take(30) {
             let trimmed = line.trim();
 
             // "test result: ok. X passed; Y failed; Z ignored; ..."
             if trimmed.starts_with("test result:") {
+                saw_summary = true;
                 for part in trimmed.split(';') {
                     let part = part.trim();
                     if let Some(n) = extract_leading_number(part) {
@@ -257,7 +261,7 @@ impl MetricsExtractor for CargoTestExtractor {
             metrics.insert("duration".into(), Value::from(duration.clone()));
         }
 
-        let status = if exit_code == 0 { "ok" } else { "FAILED" };
+        let status = test_verdict(saw_summary, total_failed, exit_code).cargo_label();
         let dur_str = if duration.is_empty() {
             String::new()
         } else {
@@ -352,6 +356,55 @@ impl MetricsExtractor for GenericExtractor {
 
         ExtractionResult { metrics, summary }
     }
+}
+
+// ── Verdict ─────────────────────────────────────────────────────────────
+
+/// What a test run COUNTED decides its verdict, never the exit code alone: `pytest … | tail`
+/// exits with the TAIL's code. On 08/10/2026 a red run (3 failed) behind `| tail -22` was
+/// summarised as "PASS" and injected into the next Read/Edit of that test file (V0e5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TestVerdict {
+    Pass,
+    Fail,
+    /// Failures counted, exit code 0: a pipe or a wrapper masked the real exit code.
+    FailMasked,
+    /// No summary line and a zero exit: absence is not "0 failed".
+    Unknown,
+}
+
+fn test_verdict(saw_summary: bool, failures: u64, exit_code: i64) -> TestVerdict {
+    match (saw_summary, failures > 0, exit_code == 0) {
+        (true, true, true) => TestVerdict::FailMasked,
+        (true, false, true) => TestVerdict::Pass,
+        (false, _, true) => TestVerdict::Unknown,
+        (_, _, false) => TestVerdict::Fail,
+    }
+}
+
+impl TestVerdict {
+    fn pytest_label(self) -> &'static str {
+        match self {
+            Self::Pass => "PASS",
+            Self::Fail => "FAIL",
+            Self::FailMasked => "FAIL (exit 0 masked)",
+            Self::Unknown => "UNKNOWN (no pytest summary line)",
+        }
+    }
+
+    fn cargo_label(self) -> &'static str {
+        match self {
+            Self::Pass => "ok",
+            Self::Fail => "FAILED",
+            Self::FailMasked => "FAILED (exit 0 masked)",
+            Self::Unknown => "unknown (no `test result:` line)",
+        }
+    }
+}
+
+/// `"0.17s ==========="` → `"0.17s"`: pytest closes its summary with a separator rule.
+fn clean_duration(raw: &str) -> String {
+    raw.trim().trim_end_matches('=').trim_end().to_string()
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -453,6 +506,69 @@ TOTAL          100     15    85% cover
         assert_eq!(result.metrics["coverage_pct"], 85.0);
         assert!(result.summary.contains("PASS"));
         assert!(result.summary.contains("85% coverage"));
+    }
+
+    /// 09/10/2026 (V0e5): `pytest x | tail -22` exits with the TAIL's code (0) while 3 tests
+    /// failed; this summary said "PASS: 0 passed, 3 failed" and was injected into the next
+    /// Read/Edit of the test file. The counts decide; a zero exit with failures is its own
+    /// state — the exit code was masked by a pipe or a wrapper.
+    #[test]
+    fn test_pytest_failures_behind_a_pipe_are_never_pass() {
+        let out = "FAILED t.py::test_a\n============================== 3 failed in 0.20s ===============================";
+        let result = PytestExtractor.extract(out, 0);
+        assert_eq!(result.metrics["failed"], 3);
+        assert!(!result.summary.starts_with("PASS"), "{}", result.summary);
+        assert!(
+            result.summary.contains("FAIL") && result.summary.contains("masked"),
+            "{}",
+            result.summary
+        );
+    }
+
+    /// The duration is the number, not the separator rule pytest prints after it.
+    #[test]
+    fn test_pytest_duration_drops_the_separator_rule() {
+        let out =
+            "============================== 4 passed in 0.17s ===============================";
+        let result = PytestExtractor.extract(out, 0);
+        assert_eq!(result.metrics["duration"], "0.17s");
+        assert!(result.summary.ends_with("in 0.17s"), "{}", result.summary);
+        assert!(
+            result.summary.starts_with("PASS"),
+            "control: a green run is PASS: {}",
+            result.summary
+        );
+    }
+
+    /// No summary line found (output cut, collection crash): absence is not "0 failed".
+    #[test]
+    fn test_pytest_without_a_summary_line_is_unknown_not_pass() {
+        let result = PytestExtractor.extract("collecting ...\nsome noise\n", 0);
+        assert!(!result.summary.starts_with("PASS"), "{}", result.summary);
+        assert!(result.summary.starts_with("UNKNOWN"), "{}", result.summary);
+    }
+
+    /// Same defect, same fix, in the cargo extractor (C08 cross-caller compare).
+    #[test]
+    fn test_cargo_failures_behind_a_pipe_are_never_ok() {
+        let out = "test result: FAILED. 1 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out";
+        let result = CargoTestExtractor.extract(out, 0);
+        assert!(
+            !result.summary.contains("test result: ok"),
+            "{}",
+            result.summary
+        );
+        assert!(
+            result.summary.contains("FAILED") && result.summary.contains("masked"),
+            "{}",
+            result.summary
+        );
+        let none = CargoTestExtractor.extract("   Compiling x v0.1.0\n", 0);
+        assert!(
+            none.summary.contains("unknown"),
+            "absence is not ok: {}",
+            none.summary
+        );
     }
 
     // ── CargoTestExtractor ─────────────────────────────────────────

@@ -1,0 +1,22 @@
+{
+ "release": "30.4.94",
+ "conteudo": "V0e (V0e6 git no sandbox, V0e1 G1 reescreve via updatedInput, V0e2 rotas nos guards, V0e4 rm ': >'/unlink, V0e3 G7 R1, jev:264) + conserto do propagate-release (unset do socket da sessao)",
+ "deploy_utc": "2026-10-09T14:16:43Z",
+ "metodo": "btime+starttime de /proc/<pid>/stat do daemon per-project do analise (PID 236242), nao o relogio de parede",
+ "exe": "/home/gabrielgadea/.touring/toolchains/30.4.94/bin/touring-daemon",
+ "juiz_coordenadora": {
+  "cargo_test_core3": "8 binarios 1620 passed / 0 failed",
+  "cli_lib": "647/0",
+  "clippy_4_crates": "rc 0",
+  "pytest_jev": "10 passed"
+ },
+ "passos": {
+  "0a_elite": "rc 0 composite 0.9569 Diamond",
+  "0b_clippy_workspace": "rc 0",
+  "2_dryrun": "rc 0",
+  "3_stop_before_propagate": "rc 0 (736s), global 3502->211554, rotulo 30.4.94",
+  "5_v1": "rc 1: prova 37/40 por vazamento de TOURING_DAEMON_SOCKET",
+  "5_v2": "rc 0, prova 40/40, verify analise+konverter lock=30.4.94"
+ },
+ "nao_tocado": "diagnostics/item1.json do compactacao-65 (deploy_utc do 30.4.93, janela do C1)"
+}

@@ -1,0 +1,5 @@
+129 compactações desde 2026-09-17
+  resumo: p50 18,766 chars · formato TASK/NEXT em 7/129
+  arquivos alterados   preservados 2546/4797 (53%)
+  DAG citados          preservados 108/189 (57%)
+  testes rodados       preservados 3379/5362 (63%)

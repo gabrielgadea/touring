@@ -2122,7 +2122,12 @@ fn no_lessons_db_is_opened_for_writing() {
 // (o hash e a época são por projeto) para não interferir nos vizinhos.
 
 mod code_mode_gates_w1 {
-    use super::super::code_mode_gates;
+    // `code_mode_gates` NESTE mod é sempre o ambiente limpo injetado (o shim) —
+    // o wrapper que lê o env do processo segue em `code_mode_gates_with` para
+    // quem injeta um override explícito (os s6).
+    use super::super::gates_limpo;
+    use super::super::gates_limpo as code_mode_gates;
+    use super::super::{GateOverrides, code_mode_gates_with};
     use serde_json::json;
     use serial_test::serial;
     use std::path::Path;
@@ -2132,10 +2137,12 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    #[serial(t3_env)]
     fn g2_reescreve_por_default_e_nega_sob_fallback() {
         // S-8.6 (spike SUPORTADO): o default é REWRITE — allow + updatedInput
-        // com o comando REAL prefixado; o deny fica atrás do env de fallback.
+        // com o comando REAL prefixado; o deny fica atrás do override de
+        // fallback. SEM set_var: o env é global ao processo e vaza para os
+        // testes em threads paralelas do mesmo binário (race medida pela
+        // analise-6b em 08/10: 41/150 rodadas no `dedupe_` do hooks-shared).
         let proj = Path::new("/tmp/w1-g2-deny");
         let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
         let resp = code_mode_gates(proj, "s1", "Bash", &bash(cmd)).expect("G2 deve falar");
@@ -2145,11 +2152,18 @@ mod code_mode_gates_w1 {
             v["hookSpecificOutput"]["updatedInput"]["command"],
             format!("set -o pipefail; {cmd}")
         );
-        // fallback deny (env no MESMO teste — sequencial, sem corrida entre testes)
-        unsafe { std::env::set_var("TOURING_G2_REWRITE_DISABLED", "1") };
-        let resp =
-            code_mode_gates(proj, "s1", "Bash", &bash(cmd)).expect("G2 deve negar sob fallback");
-        unsafe { std::env::remove_var("TOURING_G2_REWRITE_DISABLED") };
+        // fallback deny — pelo override, nunca pelo env do processo
+        let resp = code_mode_gates_with(
+            proj,
+            "s1",
+            "Bash",
+            &bash(cmd),
+            &GateOverrides {
+                g2_rewrite_disabled: true,
+                ..Default::default()
+            },
+        )
+        .expect("G2 deve negar sob fallback");
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
@@ -2159,6 +2173,45 @@ mod code_mode_gates_w1 {
             reason.contains(&format!("set -o pipefail; {cmd}")),
             "{reason}"
         );
+    }
+
+    /// 09/10/2026: o `updatedInput` SUBSTITUI o input — medido ao vivo: duas
+    /// chamadas com `run_in_background: true` e `timeout: 600000` reescritas pelo
+    /// G2 voltaram "did not complete within its 120s timeout and was moved to the
+    /// background". Só o `command` pode mudar; o resto da chamada viaja junto.
+    #[test]
+    fn g2_reescrita_preserva_os_campos_da_chamada() {
+        let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
+        let input = json!({"command": cmd, "timeout": 600000, "run_in_background": true, "description": "d"});
+        let resp = code_mode_gates(Path::new("/tmp/w1-g2-campos"), "s1", "Bash", &input)
+            .expect("G2 deve falar");
+        let v: serde_json::Value = serde_json::from_str(&resp).expect("json");
+        let upd = &v["hookSpecificOutput"]["updatedInput"];
+        assert_eq!(upd["command"], format!("set -o pipefail; {cmd}"));
+        assert_eq!(upd["timeout"], 600000, "{upd}");
+        assert_eq!(upd["run_in_background"], true, "{upd}");
+        assert_eq!(upd["description"], "d", "{upd}");
+    }
+
+    /// O mesmo para o G8, que ainda embrulha o laço num `touring run`: sem o
+    /// orçamento declarado, o laço herdava os 30 s padrão do `touring run` e
+    /// morria (`exit_code -2`, medido ao vivo num laço de espera de 600 s).
+    #[test]
+    fn g8_reescrita_preserva_o_orcamento_e_os_campos_da_chamada() {
+        let cmd = r#"for f in a.rs b.rs; do grep -n "fn main" $f; done"#;
+        let input = json!({"command": cmd, "timeout": 300000, "description": "laço"});
+        let resp = code_mode_gates(Path::new("/tmp/w1-g8-campos"), "s1", "Bash", &input)
+            .expect("G8 deve reescrever");
+        let v: serde_json::Value = serde_json::from_str(&resp).expect("json");
+        let upd = &v["hookSpecificOutput"]["updatedInput"];
+        let novo = upd["command"].as_str().unwrap_or_default();
+        assert!(
+            novo.contains("--timeout-ms 295000"),
+            "o orçamento da chamada viaja: {upd}"
+        );
+        assert!(novo.contains("for f in a.rs b.rs"), "o laço REAL: {upd}");
+        assert_eq!(upd["timeout"], 300000, "{upd}");
+        assert_eq!(upd["description"], "laço", "{upd}");
     }
 
     #[test]
@@ -2432,23 +2485,25 @@ mod code_mode_gates_w1 {
 
     #[test]
     fn s5_par_write_run_nega_no_segundo_par_com_o_proprio_arquivo() {
-        use super::super::{write_run_key, write_run_pair_gate, written_scripts_ledger};
+        use super::super::{write_run_key, write_run_pair_gate_with, written_scripts_ledger};
+        let ovr = GateOverrides::default();
         let root = std::path::Path::new("/tmp/s5-par-teste-isolado");
         // Simula as escritas: 2 scripts registrados na janela DESTA sessão.
         for p in ["/tmp/s5/a.py", "/tmp/s5/b.py"] {
             written_scripts_ledger().insert(write_run_key(root, "sess-s5", p), ());
         }
-        let d1 = write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/a.py");
+        let d1 = write_run_pair_gate_with(root, "sess-s5", "python3 /tmp/s5/a.py", &ovr);
         assert!(
             d1.is_none(),
             "1º par passa (criar e testar UM script é legítimo)"
         );
         // O 2º par na forma canônica do analise: write+run no MESMO comando —
         // nega (aperto 29/08: era o 3º).
-        let deny = write_run_pair_gate(
+        let deny = write_run_pair_gate_with(
             root,
             "sess-s5",
             "cat > /tmp/s5/b.py <<'PYEOF'\nprint(2)\nPYEOF\npython3 /tmp/s5/b.py",
+            &ovr,
         )
         .expect("2º par nega");
         assert!(deny.contains("write→run"), "deny nomeia o gate: {deny}");
@@ -2459,12 +2514,15 @@ mod code_mode_gates_w1 {
             "o remédio é o PRÓPRIO script, com --lang executável: {deny}"
         );
         // Um script que NÃO foi escrito na janela nunca conta como par.
-        assert!(write_run_pair_gate(root, "sess-s5", "python3 /tmp/s5/alheio.py").is_none());
+        assert!(
+            write_run_pair_gate_with(root, "sess-s5", "python3 /tmp/s5/alheio.py", &ovr).is_none()
+        );
     }
 
     #[test]
     fn s5_janela_do_par_nao_vaza_entre_sessoes() {
-        use super::super::{write_run_key, write_run_pair_gate, written_scripts_ledger};
+        use super::super::{write_run_key, write_run_pair_gate_with, written_scripts_ledger};
+        let ovr = GateOverrides::default();
         // O ledger vive no daemon (um processo para N sessões CC): sem a
         // sessão na chave, o script escrito pela sessão A virava par na
         // sessão B — contagem inflada + remédio com path alheio (medido pela
@@ -2474,7 +2532,7 @@ mod code_mode_gates_w1 {
         written_scripts_ledger().insert(write_run_key(root, "sess-A", "/tmp/s5x/c.py"), ());
         for _ in 0..3 {
             assert!(
-                write_run_pair_gate(root, "sess-B", "python3 /tmp/s5x/c.py").is_none(),
+                write_run_pair_gate_with(root, "sess-B", "python3 /tmp/s5x/c.py", &ovr).is_none(),
                 "execução na sessão B nunca casa com escrita da sessão A"
             );
         }
@@ -2756,12 +2814,21 @@ mod code_mode_gates_w1 {
     }
 
     /// Monta um índice scratch com UM artefato cujo propósito casa a rajada.
-    /// `TOURING_PORTFOLIO_DIR` aponta o store para o scratch; o cache do
-    /// suggester (chave mtime) recarrega porque o arquivo é novo.
+    /// O dir é ÚNICO por chamada: o pid é o mesmo para todos os testes do
+    /// processo, e sem o seq dois testes paralelos gravam o MESMO
+    /// `index.json.tmp{pid}` — um rename move o tmp do outro e o `save_to`
+    /// falha com ENOENT (race medida 08/10: 3 falhas em ~8 rodadas; o
+    /// `#[serial]` antigo mascarava ESTA race de arquivo, não só a do env).
     fn monta_portfolio_scratch() -> std::path::PathBuf {
+        use std::sync::atomic::{AtomicUsize, Ordering};
         use touring_foundation::portfolio::store::{PortfolioIndex, save_to};
         use touring_foundation::portfolio::{CapabilityEntry, CapabilityKind, Evidence};
-        let dir = std::env::temp_dir().join(format!("s6-portfolio-{}", std::process::id()));
+        static SEQ: AtomicUsize = AtomicUsize::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "s6-portfolio-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed)
+        ));
         std::fs::create_dir_all(&dir).unwrap();
         let entry = CapabilityEntry {
             id: CapabilityEntry::make_id(CapabilityKind::Script, "~/x/rodar_suite.py"),
@@ -2783,16 +2850,18 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    #[serial(t3_env)]
     fn s6_prior_art_instanciado_quando_o_portfolio_tem_programa_proximo() {
-        use super::super::portfolio_remedy_for_burst;
+        // O índice vem do scratch por PARÂMETRO (store::load_from), sem
+        // TOURING_PORTFOLIO_DIR: o env é global ao processo e vaza entre
+        // testes paralelos (a race medida em 08/10 — ver GateOverrides).
+        use super::super::portfolio_remedy_for_burst_on;
         let dir = monta_portfolio_scratch();
-        unsafe { std::env::set_var("TOURING_PORTFOLIO_DIR", &dir) };
+        let index = touring_foundation::portfolio::store::load_from(&dir)
+            .expect("índice do scratch carrega");
         let cmds = (1..=3)
             .map(|i| format!("pytest tests/test_{i}.py -x"))
             .collect::<Vec<_>>();
-        let remedy = portfolio_remedy_for_burst("pytest", &cmds);
-        unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
+        let remedy = portfolio_remedy_for_burst_on("pytest", &cmds, &index);
         let remedy = remedy.expect("prior art encontrado para a rajada de pytest");
         assert!(
             remedy.contains("python3 ~/x/rodar_suite.py --fast"),
@@ -2802,19 +2871,23 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
-    #[serial(t3_env)]
     fn s6_deny_g10_carrega_o_prior_art_instanciado() {
+        // Sem TOURING_PORTFOLIO_DIR: o dir chega pelo override nomeado (ver
+        // GateOverrides — set_var em teste vaza para os paralelos do binário).
         let dir = monta_portfolio_scratch();
-        unsafe { std::env::set_var("TOURING_PORTFOLIO_DIR", &dir) };
+        let ovr = GateOverrides {
+            portfolio_dir: Some(dir),
+            ..Default::default()
+        };
         let proj = Path::new("/tmp/s6-g10-prior");
         let sess = "g10-prior";
         for i in 1..=4 {
             let cmd = format!("pytest tests/test_{i}.py -x");
-            let _ = code_mode_gates(proj, sess, "Bash", &bash(&cmd));
+            let _ = code_mode_gates_with(proj, sess, "Bash", &bash(&cmd), &ovr);
         }
-        let resp = code_mode_gates(proj, sess, "Bash", &bash("pytest tests/test_5.py -x"))
-            .expect("5ª nega");
-        unsafe { std::env::remove_var("TOURING_PORTFOLIO_DIR") };
+        let resp =
+            code_mode_gates_with(proj, sess, "Bash", &bash("pytest tests/test_5.py -x"), &ovr)
+                .expect("5ª nega");
         let v: serde_json::Value = serde_json::from_str(&resp).unwrap();
         let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
             .as_str()
@@ -2836,9 +2909,9 @@ mod code_mode_gates_w1 {
         let proj = Path::new("/tmp/w1-g6-escalada");
         let cmd = bash("rg -n 'padrao' src/lib.rs");
         // 1ª vista: silêncio (registra).
-        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        assert!(gates_limpo(proj, "s1", "Bash", &cmd).is_none());
         // 1ª repetição: advisory (additionalContext, sem deny).
-        let advisory = code_mode_gates(proj, "s1", "Bash", &cmd).expect("advisory");
+        let advisory = gates_limpo(proj, "s1", "Bash", &cmd).expect("advisory");
         let v: serde_json::Value = serde_json::from_str(&advisory).unwrap();
         assert!(v["hookSpecificOutput"]["permissionDecision"].is_null());
         assert!(
@@ -2848,7 +2921,7 @@ mod code_mode_gates_w1 {
                 .contains("G6")
         );
         // 2ª repetição: deny.
-        let deny = code_mode_gates(proj, "s1", "Bash", &cmd).expect("deny");
+        let deny = gates_limpo(proj, "s1", "Bash", &cmd).expect("deny");
         let v: serde_json::Value = serde_json::from_str(&deny).unwrap();
         assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
     }
@@ -2870,10 +2943,10 @@ mod code_mode_gates_w1 {
         let a = Path::new("/tmp/w1-g6-proj-a");
         let b = Path::new("/tmp/w1-g6-proj-b");
         let cmd = bash("rg -n 'x' src/main.rs");
-        assert!(code_mode_gates(a, "s1", "Bash", &cmd).is_none());
-        assert!(code_mode_gates(a, "s1", "Bash", &cmd).is_some()); // advisory em A
+        assert!(gates_limpo(a, "s1", "Bash", &cmd).is_none());
+        assert!(gates_limpo(a, "s1", "Bash", &cmd).is_some()); // advisory em A
         // B nunca viu o comando: silêncio.
-        assert!(code_mode_gates(b, "s1", "Bash", &cmd).is_none());
+        assert!(gates_limpo(b, "s1", "Bash", &cmd).is_none());
     }
 
     #[test]
@@ -2886,12 +2959,12 @@ mod code_mode_gates_w1 {
         let cmd = bash("rg -n 'y' src/main.rs");
         for s in ["sa", "sb", "sc"] {
             assert!(
-                code_mode_gates(proj, s, "Bash", &cmd).is_none(),
+                gates_limpo(proj, s, "Bash", &cmd).is_none(),
                 "{s} nunca viu o comando"
             );
         }
         // Controle: a mesma sessão repetindo continua escalando.
-        assert!(code_mode_gates(proj, "sa", "Bash", &cmd).is_some());
+        assert!(gates_limpo(proj, "sa", "Bash", &cmd).is_some());
     }
 
     #[test]
@@ -2900,31 +2973,63 @@ mod code_mode_gates_w1 {
         // A chave é sessão E input: dois comandos distintos da mesma sessão não são
         // repetição (fora das classes de inspeção, para o G1 não confundir a leitura).
         let proj = Path::new("/tmp/w1-g6-input");
-        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_none());
-        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p beta")).is_none());
+        assert!(gates_limpo(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_none());
+        assert!(gates_limpo(proj, "s1", "Bash", &bash("cargo check -p beta")).is_none());
         // Controle: repetir o primeiro, na mesma sessão, é repetição (advisory).
-        assert!(code_mode_gates(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_some());
+        assert!(gates_limpo(proj, "s1", "Bash", &bash("cargo check -p alfa")).is_some());
+    }
+
+    /// O kill switch HUMANO (`TOURING_CODE_GATES_DISABLED=1`) desliga os gates —
+    /// afirmado com o valor INJETADO, nunca pelo env do processo (a matriz da
+    /// analise-6b, 08/10: 29 testes liam o switch do ambiente).
+    #[test]
+    fn kill_switch_injetado_desliga_os_gates() {
+        let proj = Path::new("/tmp/h1-kill-switch");
+        let cmd = bash("rg -n 'padrao' src/lib.rs");
+        let desligado = GateOverrides {
+            code_gates_disabled: true,
+            ..Default::default()
+        };
+        // 3 repetições do MESMO comando: nem advisory nem deny com o switch ligado.
+        for _ in 0..3 {
+            assert!(
+                code_mode_gates_with(proj, "s1", "Bash", &cmd, &desligado).is_none(),
+                "com o kill switch ligado, nada dispara"
+            );
+        }
+        // Controle positivo: com o switch desligado (default), a 2ª repetição
+        // do mesmo comando dispara o G6 — o teste mede o que o switch desliga.
+        let _ = gates_limpo(proj, "s2", "Bash", &cmd);
+        assert!(
+            gates_limpo(proj, "s2", "Bash", &cmd).is_some(),
+            "sem o switch, o G6 dispara na repetição"
+        );
     }
 
     #[test]
     #[serial(t3_env)]
     fn g6_mutacao_no_meio_reseta_a_repeticao() {
         // ler-depois-de-editar NÃO é retry cego: a época avança com o Edit.
+        // O caso é o G6, não o code mode — ambiente limpo injetado (com `code`
+        // no ambiente a 2ª `sed -n` colapsaria por RAJADA, outro gate; medido
+        // 08/10 na matriz da 6b).
         let proj = Path::new("/tmp/w1-g6-epoch");
         let cmd = bash("sed -n '10,20p' src/lib.rs");
-        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        assert!(gates_limpo(proj, "s1", "Bash", &cmd).is_none());
         // Edit no projeto → época avança (Read antes, para o G3 — W3 — ficar quieto).
-        assert!(code_mode_gates(proj, "s1", "Read", &json!({"file_path": "src/lib.rs"})).is_none());
-        assert!(code_mode_gates(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"})).is_none());
+        assert!(gates_limpo(proj, "s1", "Read", &json!({"file_path": "src/lib.rs"})).is_none());
+        assert!(gates_limpo(proj, "s1", "Edit", &json!({"file_path": "src/lib.rs"})).is_none());
         // mesma leitura: época mudou → fresh, sem advisory.
-        assert!(code_mode_gates(proj, "s1", "Bash", &cmd).is_none());
+        assert!(gates_limpo(proj, "s1", "Bash", &cmd).is_none());
     }
 }
 
 // ── W2 (plano code-mode-total): G1 teeth — rajada nega na 3ª (aperto 29/08) ──
 
 mod burst_gate_w2 {
-    use super::super::{code_mode_gates, g1_should_deny};
+    use super::super::g1_should_deny;
+    use super::super::gates_limpo;
+    use super::super::gates_limpo as code_mode_gates;
     use serde_json::json;
     use serial_test::serial;
     use std::path::Path;
@@ -2939,7 +3044,7 @@ mod burst_gate_w2 {
     fn inspecoes_com_base(base: usize, n: usize, proj: &Path, sess: &str) -> Vec<Option<String>> {
         (base..base + n)
             .map(|i| {
-                let r = code_mode_gates(
+                let r = gates_limpo(
                     proj,
                     sess,
                     "Bash",
@@ -2954,31 +3059,89 @@ mod burst_gate_w2 {
         inspecoes_com_base(0, n, proj, sess)
     }
 
+    /// V0e1: a 3ª inspeção da rajada REESCREVE para o `touring run` (o executor
+    /// a roda no sandbox) — o programa carrega a rajada REAL, como antes no deny.
     #[test]
-    fn g1_segunda_passa_terceira_nega_com_a_rajada_no_remedio() {
+    fn g1_segunda_passa_terceira_reescreve_com_a_rajada_no_programa() {
         let proj = Path::new("/tmp/w2-g1-escala");
         let r = inspecoes(3, proj, "s1");
         assert!(
             r[0].is_none() && r[1].is_none(),
             "1ª-2ª ficam com o advisory legado"
         );
-        let deny = r[2].as_ref().expect("3ª mesma classe nega");
-        let v: serde_json::Value = serde_json::from_str(deny).unwrap();
-        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
-        let reason = v["hookSpecificOutput"]["permissionDecisionReason"]
+        let rewrite = r[2].as_ref().expect("3ª mesma classe reescreve");
+        let v: serde_json::Value = serde_json::from_str(rewrite).unwrap();
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "allow");
+        // o programa carrega a RAJADA REAL como corpo (injection-density)
+        let command = v["hookSpecificOutput"]["updatedInput"]["command"]
             .as_str()
             .unwrap();
-        // o remédio carrega a RAJADA REAL como corpo do programa
-        assert!(reason.contains("touring run --lang bash"), "{reason}");
+        assert!(command.contains("touring run --lang bash"), "{command}");
         // as aspas do corpo vão escapadas para dentro do '...' externo —
         // asserimos o conteúdo, não a forma escapada
         assert!(
-            reason.contains("p0") && reason.contains("src/f0.rs"),
-            "{reason}"
+            command.contains("p0") && command.contains("src/f0.rs"),
+            "{command}"
         );
         assert!(
-            reason.contains("p2") && reason.contains("src/f2.rs"),
-            "{reason}"
+            command.contains("p2") && command.contains("src/f2.rs"),
+            "{command}"
+        );
+    }
+
+    /// 09/10/2026: a reescrita herdava os 30 s padrão do `touring run` — a chamada
+    /// original tinha o orçamento do Bash (o `timeout` dela, ou 120 s) e morria aos
+    /// 30 s (`exit_code -2`; medido ao vivo num laço de espera de 600 s). O programa
+    /// declara o orçamento da chamada, menos a folga que deixa o envelope voltar
+    /// antes do teto externo; em background vale o teto do `touring run`. O
+    /// `updatedInput` preserva os demais campos da chamada.
+    #[test]
+    fn g1_reescrita_preserva_o_orcamento_e_os_campos_da_chamada() {
+        let reescrita = |proj: &str, base: usize, input: serde_json::Value| {
+            let proj = Path::new(proj);
+            let _ = inspecoes_com_base(base, 2, proj, "s-orc");
+            let r = code_mode_gates(proj, "s-orc", "Bash", &input).expect("3ª reescreve");
+            let v: serde_json::Value = serde_json::from_str(&r).expect("json");
+            v["hookSpecificOutput"]["updatedInput"].clone()
+        };
+        let upd = reescrita(
+            "/tmp/w2-g1-orcamento",
+            0,
+            json!({"command": "rg -n 'p2' src/f2.rs", "timeout": 600000, "description": "espera"}),
+        );
+        let cmd = upd["command"].as_str().unwrap_or_default();
+        assert!(
+            cmd.contains("--timeout-ms 595000"),
+            "o orçamento da chamada viaja: {upd}"
+        );
+        assert_eq!(upd["timeout"], 600000, "{upd}");
+        assert_eq!(upd["description"], "espera", "{upd}");
+
+        let padrao = reescrita(
+            "/tmp/w2-g1-orcamento-padrao",
+            10,
+            bash("rg -n 'p12' src/f12.rs"),
+        );
+        assert!(
+            padrao["command"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("--timeout-ms 115000"),
+            "sem `timeout`, o padrão do Bash (120 s): {padrao}"
+        );
+
+        let bg = reescrita(
+            "/tmp/w2-g1-orcamento-bg",
+            20,
+            json!({"command": "rg -n 'p22' src/f22.rs", "run_in_background": true}),
+        );
+        assert_eq!(bg["run_in_background"], true, "{bg}");
+        assert!(
+            bg["command"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("--timeout-ms 600000"),
+            "em background, o teto do `touring run`: {bg}"
         );
     }
 
@@ -3030,11 +3193,25 @@ mod burst_gate_w2 {
         let base_same = gm::global()
             .g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
-        let r = inspecoes(3, proj, "sess-cont");
-        assert!(r[2].is_some(), "3ª negou");
+        // V0e1: o deny (que fecha o turno cego e arma o continuation-check) é o
+        // caminho do KILL SWITCH — o default reescreve para o sandbox, que não é
+        // turno cego e não entra no A/B. Injetado via GateOverrides, nunca set_var.
+        let ovr = super::super::GateOverrides {
+            g1_rewrite_disabled: true,
+            ..Default::default()
+        };
+        let gates = |cmd: &str| {
+            super::super::code_mode_gates_with(proj, "sess-cont", "Bash", &bash(cmd), &ovr)
+        };
+        for i in 0..3 {
+            let r = gates(&format!("rg -n 'p{i}' src/f{i}.rs"));
+            if i == 2 {
+                assert!(r.is_some(), "3ª negou (kill switch injetado)");
+            }
+        }
         // a PRÓXIMA chamada da sessão é a MESMA classe → same_class++
         // (o deny do G1 já fechou o turno — ela chega ao burst_gate por desenho)
-        let _ = code_mode_gates(proj, "sess-cont", "Bash", &bash("rg -n 'de novo' src/a.rs"));
+        let _ = gates("rg -n 'de novo' src/a.rs");
         let depois = gm::global()
             .g1_post_deny_same_class_count
             .load(std::sync::atomic::Ordering::Relaxed);
@@ -3059,7 +3236,8 @@ mod burst_gate_w2 {
 // ── W3 (plano code-mode-total): G3/G7 gates de modo + G4/G5 telemetria + E3 ──
 
 mod mode_gates_w3 {
-    use super::super::code_mode_gates;
+    // Shim hermético: neste mod, `code_mode_gates` é o ambiente limpo injetado.
+    use super::super::gates_limpo as code_mode_gates;
     use serde_json::json;
     use serial_test::serial;
     use std::path::Path;
@@ -3297,6 +3475,72 @@ mod mode_gates_w3 {
         assert!(code_mode_gates(proj, s, "Read", &read(fp)).is_none());
     }
 
+    /// V0e3 (09/10/2026) — o reset prometido não funcionava no caso REAL: o fp
+    /// citado DENTRO de código (`pathlib.Path("<fp>")`) não casava o
+    /// `trim_matches` das pontas (o conjunto `'\"[]{},` não cobre `(`), e a
+    /// leitura seguinte era negada mesmo assim. Medido ao vivo duas vezes: a
+    /// 6b (run-1791491632099, exit 0, a 5ª leitura negada) e eu (09/10, a 4ª
+    /// negada após o run citando o alvo). A mensagem prometia o que o executor
+    /// não aplicava — D8.
+    #[test]
+    #[serial(t3_env)]
+    fn g7_reset_funciona_com_o_path_citado_dentro_de_codigo() {
+        let proj = Path::new("/tmp/v0e3-g7-codigo");
+        let s = "sess-g7-code";
+        let fp = "crates/z/src/mod.rs";
+        for _ in 0..2 {
+            let _ = code_mode_gates(proj, s, "Read", &read(fp));
+        }
+        // o path citado DENTRO de uma chamada de código — o caso que o trim perdia
+        let cmd = json!({ "command": format!("touring run --lang python --code 'import pathlib; print(pathlib.Path(\"{fp}\").exists())'") });
+        let _ = code_mode_gates(proj, s, "Bash", &cmd);
+        assert!(
+            code_mode_gates(proj, s, "Read", &read(fp)).is_none(),
+            "o reset não funcionou com o path dentro de código — a promessa da mensagem"
+        );
+    }
+
+    /// V0e3 — a mensagem nomeia o esqueleto R1 pelo CAMINHO REAL quando ele
+    /// existe, e nunca um placeholder (`<r1_varredura_agregado.py>`) nem o
+    /// relativo inexistente (`--file r1_varredura_agregado.py`). Espelha o
+    /// `_r1_route()` do loop_stop_guard.py (a parte Python, feita na mesma noite).
+    #[test]
+    #[serial(t3_env)]
+    fn g7_mensagem_nomeia_o_r1_real_ou_a_query_nunca_placeholder() {
+        let proj = Path::new("/tmp/v0e3-g7-msg");
+        let s = "sess-g7-msg";
+        let fp = "crates/z/src/alvo.rs";
+        let _ = code_mode_gates(proj, s, "Read", &read(fp));
+        let advisory = code_mode_gates(proj, s, "Read", &read(fp)).expect("2ª = advisory");
+        for texto in [&advisory] {
+            assert!(
+                !texto.contains("<r1_varredura_agregado.py>"),
+                "placeholder vivo no advisory: {texto}"
+            );
+            assert!(
+                !texto.contains("--file r1_varredura_agregado.py"),
+                "caminho relativo inexistente no advisory: {texto}"
+            );
+            // Quando o esqueleto existe na máquina, o caminho REAL é exigido;
+            // sem ele, a rota é a query de memória (o _r1_route() espelhado).
+            let skeleton = std::env::var_os("HOME")
+                .map(std::path::PathBuf::from)
+                .map(|h| h.join("projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/repertorio/r1_varredura_agregado.py"));
+            if skeleton.as_ref().is_some_and(|p| p.is_file()) {
+                assert!(
+                    texto.contains("projects/touring")
+                        && texto.contains("r1_varredura_agregado.py"),
+                    "o esqueleto existe mas o caminho real não saiu: {texto}"
+                );
+            } else {
+                assert!(
+                    texto.contains("touring memory query"),
+                    "sem o esqueleto, a rota é a query: {texto}"
+                );
+            }
+        }
+    }
+
     #[test]
     #[serial(t3_env)]
     fn g5_advisory_unico_no_fim_da_rajada_sem_validacao() {
@@ -3361,11 +3605,13 @@ mod mode_gates_w3 {
 /// greps longos produzia um corpo cortado em `crates/tou'`, com as aspas
 /// equilibradas e o comando pela metade.
 mod apresentacao_por_escopo {
+    use super::super::apresentacao_limpa as code_mode_presentation;
+    use super::super::gates_limpo as code_mode_gates;
     use super::super::{
-        CODE_MODE_COLLAPSED_CLASSES, CodeModePresentation, INSPECT_BURST_DENY_AT,
-        INSPECT_BURST_WINDOW_SECS, code_mode_gates, code_mode_presentation, is_scan_command,
-        project_presentation, scan_class_of,
+        CODE_MODE_COLLAPSED_CLASSES, CodeModePresentation, INSPECT_BURST_ADVISE_AT,
+        INSPECT_BURST_WINDOW_SECS, is_scan_command, project_presentation, scan_class_of,
     };
+    use super::super::{apresentacao_com_env, apresentacao_limpa, gates_limpo};
 
     /// S3 (27/08/2026) — a calibração deixou de ser por NOME de classe e passou
     /// a ser por RAJADA, e a medição é a razão.
@@ -3390,7 +3636,7 @@ mod apresentacao_por_escopo {
             );
         }
         assert_eq!(
-            INSPECT_BURST_DENY_AT, 2,
+            INSPECT_BURST_ADVISE_AT, 2,
             "a 1ª tem de passar: cobrar da isolada é taxar o caso comum, a recusa \
              que o próprio DeepSeek documentou"
         );
@@ -3403,52 +3649,101 @@ mod apresentacao_por_escopo {
     /// chave inclui o `project_root`, então cada teste com raiz própria tem
     /// contadores próprios. Serializar seria tratar o sintoma da colisão em vez
     /// da causa — e este workspace já pagou 49 marcadores seriais por isso.
+    ///
+    /// D (09/10/2026, ordem do Gabriel — §8 da V0e5): a 2ª da rajada RODA NATIVA
+    /// e leva UM aviso com o programa fundido; o S3 não nega nem reescreve. A
+    /// prova é a DECISÃO do JSON, não o texto — deny e aviso carregam o mesmo
+    /// marcador, e uma prova que lê só o texto não distingue um do outro
+    /// (lição de 09/10, `prova_code_mode_ceg.py` [7]).
+    ///
+    /// `gate_metrics` no serial (09/10): a 2ª oferece a rota (`record_route_offer`
+    /// → átomo GLOBAL do braço `code`) e corria em paralelo com o `assert_eq!` de
+    /// `bump_arm_mantem_duravel_e_volatil_em_sincronia` sobre esse átomo —
+    /// observado 1× numa rodada de mutação; o teste de deny que este substitui já
+    /// tinha a mesma corrida.
     #[test]
-    #[serial_test::serial(t3_env)]
-    fn rajada_de_inspecao_nega_da_segunda_em_diante() {
+    #[serial_test::serial(gate_metrics, t3_env)]
+    fn rajada_de_inspecao_avisa_na_segunda_sem_negar() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
         let s = "s3-burst-1";
 
         assert!(
-            code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn alfa src/")).is_none(),
+            gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn alfa src/")).is_none(),
             "a 1ª inspeção da classe executa INTACTA — é o caso comum que o S3 destaxa"
         );
-        let d2 = code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn beta src/"))
-            .expect("a 2ª da mesma classe na janela é negada");
-        assert!(d2.contains("[CODE MODE · rajada]"), "QUEM negou? {d2}");
-        assert!(d2.contains("grep -rn alfa src/"), "a rota funde a 1ª: {d2}");
-        assert!(d2.contains("grep -rn beta src/"), "a rota funde a 2ª: {d2}");
+        let d2 = gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn beta src/"))
+            .expect("a 2ª da mesma classe na janela leva o aviso");
+        let aviso = aviso_do_s3(&d2);
         assert!(
-            d2.contains(&INSPECT_BURST_WINDOW_SECS.to_string()),
-            "o deny declara a janela que o executor aplica: {d2}"
+            aviso.contains("grep -rn alfa src/"),
+            "a rota funde a 1ª: {aviso}"
+        );
+        assert!(
+            aviso.contains("grep -rn beta src/"),
+            "a rota funde a 2ª: {aviso}"
+        );
+        assert!(
+            aviso.contains(&INSPECT_BURST_WINDOW_SECS.to_string()),
+            "o aviso declara a janela que o executor aplica: {aviso}"
         );
     }
 
-    /// O deny zera o lote (mesma regra do G10): a chamada seguinte volta a ser
-    /// "a 1ª". Sem isto o modelo levaria um deny por chamada até a janela
-    /// expirar — fadiga de gate, que é como um gate deixa de ser lido.
+    /// Um aviso por rajada, nunca nas seguintes: a 3ª e a 4ª da mesma rajada
+    /// passam sem o marcador do S3 (fadiga de gate é como um gate deixa de ser
+    /// lido). Um `touring run` na janela rearma: a próxima volta a ser "a 1ª" e
+    /// a seguinte avisa de novo. A asserção é sobre o marcador do S3, não sobre
+    /// o silêncio total — o G1 tem ledger próprio e pode falar na 4ª.
     #[test]
     #[serial_test::serial(gate_metrics, t3_env)]
-    fn deny_zera_o_lote_e_a_seguinte_volta_a_passar() {
+    fn o_aviso_sai_uma_vez_por_rajada_e_touring_run_rearma() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
         let s = "s3-burst-2";
-        assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("cat a.md")).is_none());
-        let d2 = code_mode_gates(tmp.path(), s, "Bash", &bash("cat b.md")).expect("2ª nega");
-        assert!(
-            d2.contains("[CODE MODE · rajada]"),
-            "o deny é o do S3: {d2}"
+        let sem_marcador = |d: &Option<String>| {
+            d.as_deref()
+                .is_none_or(|x| !x.contains("[CODE MODE · rajada]"))
+        };
+        assert!(gates_limpo(tmp.path(), s, "Bash", &bash("cat a.md")).is_none());
+        let d2 = gates_limpo(tmp.path(), s, "Bash", &bash("cat b.md")).expect("2ª avisa");
+        aviso_do_s3(&d2);
+        for cmd in ["cat c.md", "cat d.md"] {
+            let d = gates_limpo(tmp.path(), s, "Bash", &bash(cmd));
+            assert!(
+                sem_marcador(&d),
+                "`{cmd}`: o aviso sai uma vez por rajada: {d:?}"
+            );
+        }
+        let _ = gates_limpo(
+            tmp.path(),
+            s,
+            "Bash",
+            &bash("touring run --lang bash --code 'ls'"),
         );
-        // A 3ª: o predicado do S3 tem de deixá-la passar (o lote zerou). O
-        // T3-B ainda fala aqui — turno nunca fecha em teste unitário —, por
-        // isso a asserção é sobre o marcador do S3, não sobre o silêncio total.
-        let d3 = code_mode_gates(tmp.path(), s, "Bash", &bash("cat c.md"));
+        let d5 = gates_limpo(tmp.path(), s, "Bash", &bash("cat e.md"));
         assert!(
-            d3.as_deref()
-                .is_none_or(|x| !x.contains("[CODE MODE · rajada]")),
-            "após o deny o lote zera — um deny por rajada, nunca fadiga: {d3:?}"
+            sem_marcador(&d5),
+            "pós-`touring run` a contagem é nova: {d5:?}"
         );
+        let d6 = gates_limpo(tmp.path(), s, "Bash", &bash("cat f.md")).expect("rearmado");
+        aviso_do_s3(&d6);
+    }
+
+    /// O aviso do S3: `additionalContext` com o marcador e SEM decisão de
+    /// permissão — nem deny, nem allow+`updatedInput` (a 2ª roda nativa).
+    fn aviso_do_s3(resp: &str) -> String {
+        let v: serde_json::Value = serde_json::from_str(resp).expect("json");
+        let out = &v["hookSpecificOutput"];
+        assert!(
+            out.get("permissionDecision").is_none() && out.get("updatedInput").is_none(),
+            "o S3 só avisa — nem nega nem reescreve: {resp}"
+        );
+        let ctx = out["additionalContext"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string();
+        assert!(ctx.contains("[CODE MODE · rajada]"), "QUEM falou? {resp}");
+        ctx
     }
 
     /// Classes DIFERENTES não somam entre si: um `grep` seguido de um `cat` são
@@ -3496,15 +3791,12 @@ mod apresentacao_por_escopo {
             escopo_code(tmp.path());
             let s = format!("s3-antes-isenta-{classe}");
             assert!(
-                code_mode_gates(tmp.path(), &s, "Bash", &bash(a)).is_none(),
+                gates_limpo(tmp.path(), &s, "Bash", &bash(a)).is_none(),
                 "`{classe}`: a 1ª segue passando"
             );
-            let d = code_mode_gates(tmp.path(), &s, "Bash", &bash(b))
-                .unwrap_or_else(|| panic!("`{classe}`: a 2ª na janela tem de colapsar"));
-            assert!(
-                d.contains("[CODE MODE · rajada]"),
-                "`{classe}`: o deny é o do S3, não outro gate: {d}"
-            );
+            let d = gates_limpo(tmp.path(), &s, "Bash", &bash(b))
+                .unwrap_or_else(|| panic!("`{classe}`: a 2ª na janela tem de levar o aviso"));
+            aviso_do_s3(&d);
         }
     }
 
@@ -3516,8 +3808,8 @@ mod apresentacao_por_escopo {
         let tmp = tempfile::tempdir().expect("tempdir");
         // sem .touring/touring.toml — o default é `both`
         let s = "s3-burst-sem-escopo";
-        assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn x src/")).is_none());
-        let d2 = code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn y src/"));
+        assert!(gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn x src/")).is_none());
+        let d2 = gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn y src/"));
         assert!(
             d2.as_deref()
                 .is_none_or(|d| !d.contains("[CODE MODE · rajada]")),
@@ -3528,7 +3820,7 @@ mod apresentacao_por_escopo {
     /// Mutação e build NUNCA entram no predicado, em rajada ou não —
     /// `scan_class_of` só reconhece inspeção, e é ele quem porteia.
     #[test]
-    #[serial_test::serial(t3_env)]
+    #[serial_test::serial(gate_metrics, t3_env)]
     fn mutacao_e_build_nao_entram_na_rajada() {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
@@ -3562,20 +3854,23 @@ mod apresentacao_por_escopo {
         let c1 = bash("python3 - <<'EOF'\nimport json\nprint(json.load(open('a.json')))\nEOF");
         let c2 = bash("python3 -c 'import re; print(re.findall(\"x\", open(\"b.txt\").read()))'");
         assert!(
-            code_mode_gates(tmp.path(), s, "Bash", &c1).is_none(),
+            gates_limpo(tmp.path(), s, "Bash", &c1).is_none(),
             "a 1ª leitura inline executa INTACTA — o caso comum segue destaxado"
         );
-        let d2 = code_mode_gates(tmp.path(), s, "Bash", &c2)
-            .expect("a 2ª read-only na janela é negada pela rajada de inspeção");
-        assert!(d2.contains("[CODE MODE · rajada]"), "QUEM negou? {d2}");
+        let d2 = gates_limpo(tmp.path(), s, "Bash", &c2)
+            .expect("a 2ª read-only na janela leva o aviso da rajada de inspeção");
+        let aviso = aviso_do_s3(&d2);
         assert!(
-            d2.contains("--lang python"),
-            "o remédio da rajada python é python, não bash: {d2}"
+            aviso.contains("--lang python"),
+            "o remédio da rajada python é python, não bash: {aviso}"
         );
-        assert!(d2.contains("json.load"), "a rota funde o CORPO da 1ª: {d2}");
         assert!(
-            d2.contains("re.findall"),
-            "a rota funde o CORPO da 2ª: {d2}"
+            aviso.contains("json.load"),
+            "a rota funde o CORPO da 1ª: {aviso}"
+        );
+        assert!(
+            aviso.contains("re.findall"),
+            "a rota funde o CORPO da 2ª: {aviso}"
         );
     }
 
@@ -3664,8 +3959,10 @@ mod apresentacao_por_escopo {
     }
 
     /// R2 fim-a-fim no gate REAL: a rajada de inspeção grava a evidência
-    /// durável no root do projeto — 1ª passa (`first_passed`), 2ª nega
-    /// (`denied`) — e um restart do daemon não a apaga porque ela é arquivo.
+    /// durável no root do projeto — 1ª passa (`first_passed`), 2ª avisa
+    /// (`advised`), as seguintes da mesma rajada contam em `in_burst` — e um
+    /// restart do daemon não a apaga porque ela é arquivo. `denied` não cresce
+    /// mais (D, 09/10): o KPI soma as três famílias de rajada, a antiga inclusa.
     #[test]
     #[serial_test::serial(gate_metrics, t3_env)]
     fn rajada_de_inspecao_grava_evidencia_duravel_no_disco() {
@@ -3673,19 +3970,23 @@ mod apresentacao_por_escopo {
         let tmp = tempfile::tempdir().expect("tempdir");
         escopo_code(tmp.path());
         let s = "r2-duravel-1";
-        assert!(code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn a src/")).is_none());
-        code_mode_gates(tmp.path(), s, "Bash", &bash("grep -rn b src/")).expect("2ª nega");
+        assert!(gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn a src/")).is_none());
+        gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn b src/")).expect("2ª avisa");
+        let _ = gates_limpo(tmp.path(), s, "Bash", &bash("grep -rn c src/"));
         let v = read_durable_evidence(tmp.path());
+        let campo = |c: &str| v.pointer(&format!("/s3/{c}")).and_then(|x| x.as_u64());
         assert_eq!(
-            v.pointer("/s3/first_passed").and_then(|x| x.as_u64()),
+            campo("first_passed"),
             Some(1),
             "a 1ª aprovada durou em disco: {v}"
         );
+        assert_eq!(campo("advised"), Some(1), "o aviso durou em disco: {v}");
         assert_eq!(
-            v.pointer("/s3/denied").and_then(|x| x.as_u64()),
+            campo("in_burst"),
             Some(1),
-            "o deny durou em disco: {v}"
+            "a 3ª da rajada durou em disco: {v}"
         );
+        assert_eq!(campo("denied"), None, "o S3 não nega mais: {v}");
     }
 
     /// Declara `[code_mode] mode = "code"` na raiz temporária.
@@ -3842,17 +4143,30 @@ mod apresentacao_por_escopo {
         escreve_config(&tmp, "[code_mode]\nmode = \"code\"\n");
         // relaxa um projeto code
         assert_eq!(
-            code_mode_presentation(&tmp, "TOURING_CODE_MODE=native grep foo src/"),
+            apresentacao_limpa(&tmp, "TOURING_CODE_MODE=native grep foo src/"),
             CodeModePresentation::Native
         );
         assert_eq!(
-            code_mode_presentation(&tmp, "TOURING_CODE_MODE=both grep foo src/"),
+            apresentacao_limpa(&tmp, "TOURING_CODE_MODE=both grep foo src/"),
             CodeModePresentation::Both
         );
         // sem prefixo, o projeto manda
         assert_eq!(
-            code_mode_presentation(&tmp, "grep foo src/"),
+            apresentacao_limpa(&tmp, "grep foo src/"),
             CodeModePresentation::Code
+        );
+        // a PRECEDÊNCIA entre níveis, com valores injetados (aceite H1):
+        // a env vence o projeto…
+        assert_eq!(
+            apresentacao_com_env(&tmp, "grep foo src/", "native"),
+            CodeModePresentation::Native,
+            "env > projeto"
+        );
+        // …e o prefixo vence a env
+        assert_eq!(
+            apresentacao_com_env(&tmp, "TOURING_CODE_MODE=both grep foo src/", "native"),
+            CodeModePresentation::Both,
+            "prefixo > env"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -3873,9 +4187,15 @@ mod apresentacao_por_escopo {
         let tmp = tmpdir("prefixo-invalido");
         escreve_config(&tmp, "[code_mode]\nmode = \"code\"\n");
         assert_eq!(
-            code_mode_presentation(&tmp, "TOURING_CODE_MODE=explode grep foo"),
+            apresentacao_limpa(&tmp, "TOURING_CODE_MODE=explode grep foo"),
             CodeModePresentation::Code,
             "valor inválido cai para o nível do projeto, nunca para um colapso não pedido"
+        );
+        // e cai para a env quando ela existe — injetada, nunca do processo:
+        assert_eq!(
+            apresentacao_com_env(&tmp, "TOURING_CODE_MODE=explode grep foo", "native"),
+            CodeModePresentation::Native,
+            "prefixo inválido cede à env (injetada)"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -3884,17 +4204,23 @@ mod apresentacao_por_escopo {
     fn prefixo_depois_de_outras_vars_e_valor_com_aspas() {
         let tmp = tmpdir("prefixo-vars");
         assert_eq!(
-            code_mode_presentation(&tmp, "FOO=1 TOURING_CODE_MODE=native grep foo"),
+            apresentacao_limpa(&tmp, "FOO=1 TOURING_CODE_MODE=native grep foo"),
             CodeModePresentation::Native
         );
         assert_eq!(
-            code_mode_presentation(&tmp, "TOURING_CODE_MODE=\"native\" grep foo"),
+            apresentacao_limpa(&tmp, "TOURING_CODE_MODE=\"native\" grep foo"),
             CodeModePresentation::Native
         );
         // parou de ser prefixo (token sem '='): a var no meio do comando NÃO vale
         assert_eq!(
-            code_mode_presentation(&tmp, "echo x TOURING_CODE_MODE=native"),
+            apresentacao_limpa(&tmp, "echo x TOURING_CODE_MODE=native"),
             CodeModePresentation::Both
+        );
+        // …mas a env injetada vale exatamente onde o meio do comando não vale:
+        assert_eq!(
+            apresentacao_com_env(&tmp, "echo x TOURING_CODE_MODE=native", "code"),
+            CodeModePresentation::Code,
+            "a env vale onde o meio do comando não vale"
         );
         let _ = std::fs::remove_dir_all(&tmp);
     }
@@ -4043,7 +4369,7 @@ mod apresentacao_por_escopo {
     /// o bloqueio por uma estatística que não se aplica a ele.
     #[test]
     fn a_razao_declarada_e_a_do_gatilho_que_disparou() {
-        use super::super::{G1_DENY_AT, burst_gate};
+        use super::super::{G1_DENY_AT, burst_gate_limpo as burst_gate};
         let proj = std::path::Path::new("/tmp/g1-sim-3");
         let s = "g1-sim-3";
         assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none());
@@ -4060,7 +4386,7 @@ mod apresentacao_por_escopo {
 
     #[test]
     fn a_segunda_quase_identica_ja_e_negada() {
-        use super::super::burst_gate;
+        use super::super::burst_gate_limpo as burst_gate;
         let proj = std::path::Path::new("/tmp/g1-sim-1");
         let s = "g1-sim-1";
         assert!(
@@ -4069,9 +4395,11 @@ mod apresentacao_por_escopo {
         );
         let d = burst_gate(proj, s, "grep alfa /x/b.rs")
             .expect("a 2ª quase-idêntica é negada pela similaridade");
+        // o orçamento da chamada viaja no programa (09/10/2026): sem `timeout`
+        // na chamada, os 120 s padrão do Bash menos a folga de 5 s
         assert!(
-            d.contains("touring run --lang bash --code"),
-            "a rota é um programa: {d}"
+            d.contains("touring run --lang bash --timeout-ms 115000 --code"),
+            "a rota é um programa com o orçamento da chamada: {d}"
         );
         assert!(
             d.contains("/x/a.rs") && d.contains("/x/b.rs"),
@@ -4083,7 +4411,7 @@ mod apresentacao_por_escopo {
     /// calibração não pode transformar o G1 num gate de duas-da-mesma-classe.
     #[test]
     fn segunda_da_mesma_classe_mas_diferente_ainda_passa() {
-        use super::super::burst_gate;
+        use super::super::burst_gate_limpo as burst_gate;
         let proj = std::path::Path::new("/tmp/g1-sim-2");
         let s = "g1-sim-2";
         assert!(burst_gate(proj, s, "grep alfa /x/a.rs").is_none());
@@ -4143,13 +4471,26 @@ mod apresentacao_por_escopo {
     /// ninguém pediu. Falha para o comportamento de hoje.
     #[test]
     fn politica_desarmada_nao_muda_absolutamente_nada() {
-        use super::super::{CodeModePresentation, code_mode_presentation};
-        // Sem a env, o caminho é byte-idêntico ao de antes: nenhum sinal lido.
+        // Sem config e sem nível «env» injetado, o caminho é byte-idêntico ao de
+        // antes: nenhum sinal lido. (Antes lia o env do PROCESSO — com
+        // `TOURING_CODE_MODE=native` no ambiente dava Native; medido 08/10.)
         let vazio = tmpdir("arm-desarmado");
         std::fs::create_dir_all(&vazio).expect("mkdir");
         assert_eq!(
-            code_mode_presentation(&vazio, "grep x"),
+            apresentacao_limpa(&vazio, "grep x"),
             CodeModePresentation::Both
+        );
+        // a precedência afirmada com valores INJETADOS (aceite H1): a env vence
+        // o default, nos dois sentidos.
+        assert_eq!(
+            apresentacao_com_env(&vazio, "grep x", "native"),
+            CodeModePresentation::Native,
+            "a env injetada vence o default"
+        );
+        assert_eq!(
+            apresentacao_com_env(&vazio, "grep x", "code"),
+            CodeModePresentation::Code,
+            "a env injetada vence o default (code)"
         );
         let _ = std::fs::remove_dir_all(&vazio);
     }
@@ -5031,4 +5372,79 @@ mod r3_shadow_a2 {
         );
         assert_eq!(reg.len(), 1024);
     }
+}
+
+// ── S8 (2026-10-08): defeitos medidos AO VIVO pela analise-6b ────────────────
+
+/// Defeito (a), visto ao vivo em 08/10: `Bash "TOURING_CODE_MODE=native python3
+/// ~/.claude/hooks/rate_limits_snapshot.py --show"` emitiu `symbol-lookup` com
+/// MUST `touring index find TOURING_CODE_MODE -j` — uma ATRIBUIÇÃO de ambiente
+/// lida como símbolo. A forma que reproduz no classificador: o prefixo `VAR=val`
+/// antes de um grep roubava o símbolo real.
+#[test]
+fn env_prefix_atribuicao_nao_e_simbolo() {
+    // a reprodução: assignment + grep — o símbolo é o do grep, NUNCA a var
+    let input = json!({"command": "TOURING_CODE_MODE=native grep -rn HookRuntime crates/"});
+    let out = classify_bash(&input).expect("grep com prefixo de ambiente emite");
+    assert_eq!(out.cluster, "symbol-lookup");
+    assert!(
+        out.must.iter().any(|c| c.command.contains("HookRuntime")),
+        "o MUST cita o símbolo REAL: {:?}",
+        out.must[0].command
+    );
+    assert!(
+        !out.must
+            .iter()
+            .any(|c| c.command.contains("index find TOURING_CODE_MODE")),
+        "a var de ambiente NUNCA é o símbolo"
+    );
+
+    // a forma do relato original (python3 puro): o que sair, não é symbol-lookup
+    let input2 = json!({"command": "TOURING_CODE_MODE=native python3 ~/.claude/hooks/rate_limits_snapshot.py --show"});
+    if let Some(out) = classify_bash(&input2) {
+        assert_ne!(out.cluster, "symbol-lookup");
+    }
+    // e o wrapper `env`:
+    let input3 = json!({"command": "env TOURING_X=1 grep -rn HookRuntime crates/"});
+    let out3 = classify_bash(&input3).expect("env + grep emite");
+    assert!(
+        !out3
+            .must
+            .iter()
+            .any(|c| c.command.contains("index find TOURING_X")),
+        "nem depois de `env`"
+    );
+}
+
+/// Defeito (c), medido ao vivo 08/10: o MUST do code-mode-loop ecoava o comando
+/// INTEIRO (~700 chars) — o conselho custava tanto quanto a chamada. Acima de
+/// ~160 chars o MUST cita o começo + `…` (o corpo completo está na chamada que o
+/// modelo acabou de escrever); curto segue VERBATIM e executável (a emenda de
+/// 25/08 — "um snippet cortado não substitui nada" — vale para o que cabe).
+#[test]
+fn must_echo_longo_e_citado_curto_e_verbatim() {
+    let longo = format!("for f in $(ls {}); do echo $f; done", "x".repeat(700));
+    let out = code_mode_output(&CodeModeKind::Loop, "Bash", &json!({"command": longo}));
+    let must = &out.must[0].command;
+    assert!(
+        must.contains('…'),
+        "comando longo é citado com reticências: {must}"
+    );
+    assert!(
+        must.len() < 300,
+        "o MUST de um laço de 700 chars é curto: {} B",
+        must.len()
+    );
+    assert!(
+        !must.contains(&"x".repeat(700)),
+        "o corpo inteiro NÃO vai no MUST"
+    );
+
+    let curto = "for f in *.rs; do echo $f; done";
+    let out2 = code_mode_output(&CodeModeKind::Loop, "Bash", &json!({"command": curto}));
+    assert!(
+        out2.must[0].command.contains(curto),
+        "o laço curto vai verbatim (substitui e roda): {}",
+        out2.must[0].command
+    );
 }

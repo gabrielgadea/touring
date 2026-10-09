@@ -107,8 +107,9 @@ def test_a_structured_sendmessage_is_not_read():
 def run_hook(payload, tmp_path, **env):
     e = {**os.environ, "TOURING_PROSE_GATE_LOG": str(tmp_path / "events.jsonl"), **env}
     e.pop("TOURING_PROSE_GATE_DISABLED", None) if "TOURING_PROSE_GATE_DISABLED" not in env else None
-    if "TOURING_PROSE_GATE_MODE" not in env:
-        e.pop("TOURING_PROSE_GATE_MODE", None)
+    for k in ("TOURING_PROSE_GATE_MODE", "TOURING_PROSE_GATE_FILE_MODE"):
+        if k not in env:
+            e.pop(k, None)
     data = payload if isinstance(payload, str) else json.dumps(payload)
     p = subprocess.run([sys.executable, str(GATE)], input=data, capture_output=True, text=True,
                        env=e, timeout=20)
@@ -137,10 +138,126 @@ def test_block_mode_blocks_sendmessage_and_teaches_the_escape(tmp_path):
     assert events[0]["action"] == "blocked"
 
 
-def test_block_mode_never_blocks_a_write(tmp_path):
+def test_the_sendmessage_mode_does_not_govern_files(tmp_path):
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(tmp_path / "n.md"), "content": "Para节省"}}
-    rc, out, err, events = run_hook(payload, tmp_path, TOURING_PROSE_GATE_MODE="block")
+    rc, out, err, events = run_hook(payload, tmp_path, TOURING_PROSE_GATE_MODE="block",
+                                    TOURING_PROSE_GATE_FILE_MODE="shadow")
+    assert rc == 0 and events[0]["action"] == "advised" and events[0]["mode"] == "shadow", (rc, err)
+
+
+# ── files block by default (Gabriel, 06/10/2026) ──────────────────────────────
+
+CJK_A, CJK_B = chr(0x8DEF), chr(0x51B3)  # new tests build their signal, so no literal one is introduced
+
+
+def _write(tmp_path, content, name="n.md"):
+    return {"session_id": "s1", "tool_name": "Write",
+            "tool_input": {"file_path": str(tmp_path / name), "content": content}}
+
+
+def test_a_write_that_introduces_signal_is_blocked_by_default(tmp_path):
+    rc, out, err, events = run_hook(_write(tmp_path, f"o relatório tem {CJK_A} no meio"), tmp_path)
+    assert rc == 2, (rc, out, err)
+    assert "U+8DEF" in err and "Write recusado" in err, err
+    assert events[0]["action"] == "blocked" and events[0]["mode"] == "block"
+
+
+def test_an_edit_that_introduces_signal_is_blocked_and_one_that_keeps_it_passes(tmp_path):
+    base = {"file_path": str(tmp_path / "t.py"), "old_string": f'x = "{CJK_A}"'}
+    rc, _, err, _ = run_hook({"tool_name": "Edit", "tool_input": {**base, "new_string": f'x = "{CJK_A}"  # ok'}},
+                             tmp_path)
+    assert rc == 0, err
+    rc, _, err, events = run_hook({"tool_name": "Edit", "tool_input": {**base, "new_string": f'x = "{CJK_A}{CJK_B}"'}},
+                                  tmp_path)
+    assert rc == 2 and "U+51B3" in err and events[-1]["action"] == "blocked", err
+
+
+def test_file_mode_shadow_advises_and_never_blocks(tmp_path):
+    rc, out, err, events = run_hook(_write(tmp_path, f"a {CJK_A} b"), tmp_path, TOURING_PROSE_GATE_FILE_MODE="shadow")
     assert rc == 0 and events[0]["action"] == "advised", (rc, err)
+    assert "prose-integrity: allow" in json.loads(out)["hookSpecificOutput"]["additionalContext"]
+
+
+def test_backticks_in_a_file_are_quotation(tmp_path):
+    rc, out, err, events = run_hook(_write(tmp_path, f"o defeito aparece como `a{CJK_A}` no texto"), tmp_path)
+    assert rc == 0 and out.strip() == "", (rc, err)
+    assert [e["action"] for e in events] == ["escaped"] and events[0]["escaped"] == 1
+
+
+def test_the_pragma_escapes_its_line_only(tmp_path):
+    content = f'DADO = "{CJK_A}"  # prose-integrity: allow\nOUTRO = "{CJK_B}"\n'
+    rc, out, err, events = run_hook(_write(tmp_path, content, "t.py"), tmp_path)
+    assert rc == 2 and "U+51B3" in err and "U+8DEF" not in err, err
+    assert events[0]["escaped"] == 1
+
+
+def test_every_route_the_file_refusal_names_is_open(tmp_path):
+    """D8: the refusal teaches three routes; each one must actually pass this executor."""
+    dirty = f"texto com {CJK_A} solto"
+    rc, _, err, _ = run_hook(_write(tmp_path, dirty), tmp_path)
+    assert rc == 2
+    assert "crases" in err and g.PRAGMA in err and "Bash" in err, err
+    assert run_hook(_write(tmp_path, f"texto com `{CJK_A}` citado"), tmp_path)[0] == 0
+    assert run_hook(_write(tmp_path, f"{dirty}  <!-- {g.PRAGMA} -->"), tmp_path)[0] == 0
+    assert "Bash" not in g.TOOLS  # the script route is open by construction
+
+
+def test_an_unclosed_fence_quotes_nothing(tmp_path):
+    """Review touring-b4, 06/10: a lone ``` silenced the rest of the payload; an unclosed inline tick never did."""
+    rc, _, err, _ = run_hook(_write(tmp_path, f"```py\n{CJK_B * 3}"), tmp_path)
+    assert rc == 2 and "U+51B3" in err, (rc, err)
+    hits, escaped = g.split_quoted(f"```\n{CJK_A}")
+    assert len(hits) == 1 and escaped == 0
+
+
+def test_the_pragma_needs_a_comment_leader(tmp_path):
+    """Review touring-b4, 06/10: inside a JSON value the pragma 'worked' by corrupting the data."""
+    rc, _, err, _ = run_hook(_write(tmp_path, f'{{"nota": "{CJK_B} {g.PRAGMA}"}}\n', "d.json"), tmp_path)
+    assert rc == 2, (rc, err)
+    for leader in ("#", "//", "/*", "<!--", "--", ";"):
+        rc, _, err, _ = run_hook(_write(tmp_path, f"x = 1  {leader} {CJK_B} {g.PRAGMA}\n", "c.txt"), tmp_path)
+        assert rc == 0, (leader, err)
+
+
+def test_the_file_refusal_states_the_same_line_limit_of_backticks(tmp_path):
+    rc, _, err, _ = run_hook(_write(tmp_path, f"a `{CJK_A}\n` b"), tmp_path)
+    assert rc == 2 and "mesma linha" in err, err
+
+
+def test_replace_all_cannot_launder_an_introduced_char(tmp_path):
+    """Review touring-b4 (2), refuted by reproduction: any introduced char refuses the whole edit."""
+    f = tmp_path / "r.txt"
+    f.write_text(f"{CJK_B} alvo\n" * 300, encoding="utf-8")
+    ti = {"file_path": str(f), "replace_all": True}
+    assert run_hook({"tool_name": "Edit", "tool_input": {**ti, "old_string": "alvo", "new_string": CJK_B}},
+                    tmp_path)[0] == 2
+    assert run_hook({"tool_name": "Edit", "tool_input": {**ti, "old_string": f"{CJK_B} alvo",
+                                                          "new_string": f"{CJK_B} novo"}}, tmp_path)[0] == 0
+
+
+def test_a_directory_path_is_not_unknown_content(tmp_path):
+    rc, _, err, _ = run_hook({"tool_name": "Write", "tool_input": {"file_path": str(tmp_path), "content": CJK_A}},
+                             tmp_path)
+    assert rc == 2, (rc, err)
+
+
+def test_a_sendmessage_escape_alone_is_logged(tmp_path):
+    payload = {"tool_name": "SendMessage", "tool_input": {"to": "p", "message": f"cito `{CJK_A}`"}}
+    rc, out, err, events = run_hook(payload, tmp_path)
+    assert (rc, out.strip()) == (0, "")
+    assert [e["action"] for e in events] == ["escaped"]
+
+
+def test_a_write_over_a_file_too_large_to_read_never_blocks(tmp_path, monkeypatch):
+    big = tmp_path / "big.md"
+    big.write_text("x" * 64, encoding="utf-8")
+    monkeypatch.setattr(g, "MAX_OLD_BYTES", 16)
+    monkeypatch.setenv("TOURING_PROSE_GATE_LOG", str(tmp_path / "events.jsonl"))
+    monkeypatch.delenv("TOURING_PROSE_GATE_FILE_MODE", raising=False)
+    monkeypatch.delenv("TOURING_PROSE_GATE_DISABLED", raising=False)
+    payload = {"tool_name": "Write", "tool_input": {"file_path": str(big), "content": f"x {CJK_A}"}}
+    rc, out, err = g.run_hook(json.dumps(payload))
+    assert rc == 0 and "não pôde ser lido" in out, (rc, out, err)
 
 
 def test_clean_text_is_silent(tmp_path):

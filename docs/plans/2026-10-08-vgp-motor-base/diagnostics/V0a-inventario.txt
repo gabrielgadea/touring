@@ -1,0 +1,36 @@
+  ok  python
+  ok  inline
+  ok  atribuído
+  ok  projeto
+  ok  rust
+  ok  ts
+  ok  relativo em dir-ponto
+  ok  sufixo sem fronteira
+  ok  pytest
+  ok  negativo prosa
+  ok  syntax
+  ok  resíduo hook
+  ok  touring run
+  ok  resíduo vazio
+  ok  negativo externo
+transcripts 1610 · resultados de Bash 42061 · erros 1463 ocorrências em 871 distintos · Bash com is_error sem diagnóstico de linguagem: 3112
+  resíduo por classe (predicado positivo): [('hook/guard negou', 2504), ('touring run falhou', 220), ('arquivo/caminho inexistente', 55), ('permissão do Claude Code negou', 53), ('is_error com saída de sucesso (outro comando do pipeline falhou)', 35), ('pytest falhou (sumário)', 22), ('sintaxe do shell', 15), ('git', 13), ('timeout', 11), ('saída vazia com exit≠0 (grep/test sem casamento)', 8), ('permissão/sandbox', 6), ('entrada de ferramenta inválida', 6), ('traceback cortado (sem a linha da exceção)', 5), ('comando inexistente', 4), ('CLI touring/uv/outros (error:)', 4), ('cargo falhou (sem diagnóstico no recorte)', 2)]
+  não classificado: 149 em 138 primeiras linhas distintas; top:
+        3 PTN Assertion should be broken down into multiple parts
+        3 total N
+        3 N
+        3 rc=N
+        2 RUFN [*] Unused `noqa` directive (non-enabled: `EN`)
+        2 rmdir: failed to remove '/tmp/claude-N/-home-gabrielgadea': Directory 
+        2 envelope vazio: o touring run não devolveu JSON (veja o stderr dele)
+        1 === cipher_queue excluido? ===
+        1 === o pyright REALMENTE roda? ===
+        1 test_gate_efeito_hero.py: N trocas
+        1 == N. quais refs seguram o backup (histórico) — e o controle positivo 
+        1 builders OK — faixa, barras, dumbbell renderizam
+        1 {"pagina": "index.html", "bytes": N}
+        1 == kimi session --help ==
+        1 BN Function definition does not bind loop variable `de_disco`
+distintos por projeto × balde: {('analise', 'atribuído'): 277, ('analise', 'externo'): 17, ('analise', 'inline'): 229, ('analise', 'projeto'): 80, ('touring', 'atribuído'): 166, ('touring', 'externo'): 3, ('touring', 'inline'): 76, ('touring', 'projeto'): 23}
+classes mais frequentes (distintos): [(('python', 'AssertionError'), 147), (('python', 'PermissionError'), 83), (('python', 'AttributeError'), 83), (('python', 'KeyError'), 68), (('python', 'TypeError'), 66), (('python', 'ModuleNotFoundError'), 61), (('python', 'FileNotFoundError'), 51), (('python', 'ValueError'), 39), (('python', 'NameError'), 34), (('python', 'SyntaxError'), 28), (('rust', 'E0425'), 28), (('rust', 'error'), 28), (('python', 'JSONDecodeError'), 13), (('python', 'OperationalError'), 13), (('python', 'CurlError'), 9), (('python', 'StopIteration'), 7), (('python', 'CalledProcessError'), 7), (('python', 'ImportError'), 7), (('python', 'IndexError'), 6), (('rust', 'E0308'), 6), (('rust', 'E0433'), 6), (('python', 'UnicodeDecodeError'), 5), (('python', 'RuntimeError'), 5), (('python', 'HTTPError'), 5), (('python', 'ConnectionError'), 4)]
+inventário bruto: /home/gabrielgadea/.claude/touring/vgp/erros_inventario.jsonl

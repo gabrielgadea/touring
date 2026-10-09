@@ -545,3 +545,108 @@ def test_a_registry_entry_for_another_socket_or_process_is_ignored(two_daemons):
     assert resolve_global_pid(tmp_path, [old, new], other) == str(new)
     not_a_daemon = {"pid": os.getpid(), "socket": str(tmp_path / "daemon.sock")}
     assert resolve_global_pid(tmp_path, [old, new], not_a_daemon) == str(new)
+
+
+# ── session-env hygiene (09/10/2026 — exit 4 do release 30.4.93) ─────────────
+# Sessões Claude Code exportam TOURING_DAEMON_SOCKET apontando para o socket
+# PER-PROJECT do projeto aberto, e o update-touring herdava: o `daemon-ctl
+# stop/restart` ciclou o daemon DO PROJETO (medido: o per-project do analise
+# renasceu 21:33:04, no meio do run) enquanto o `doctor` lia o pidfile GLOBAL
+# → "PID 3156: running deleted binary" num daemon que nunca foi tocado. O
+# update-touring reconstrói target/release, que só o daemon GLOBAL executa
+# (per-project roda ~/.touring/toolchains/<v>/bin): suas chamadas de daemon
+# miram o global SEMPRE, qualquer que seja o env de quem chama — a armadilha
+# documentada é "TOURING_DAEMON_SOCKET vence o walk-up".
+#
+# ⚠ POR QUE o harness é prelude+função e NÃO o script inteiro: a 1ª versão
+# deste teste rodava o script end-to-end com stubs — e o `install_symlinks`
+# sobrescreveu o stub do `touring` com um symlink para o binário falso vazio,
+# o `daemon-ctl` seguinte "falhou", e o FALLBACK LEGACY do force_daemon_restart
+# resolveu o daemon global REAL (DAEMON_SOCKET é fixo: /tmp/touring-daemon-UID)
+# e o MATOU com kill -TERM (PID 3156, 21:46:49). Teste deste script só extrai
+# o prelude (config) e a função sob teste — o dispatch completo opera sobre o
+# estado real da máquina e nunca pode correr num harness.
+
+SESSION_SOCKET_STUB = """#!/usr/bin/env bash
+{
+  printf 'argv=%s\\n' "$*"
+  printf 'TOURING_DAEMON_SOCKET=%s\\n' "${TOURING_DAEMON_SOCKET-<absent>}"
+  printf 'TOURING_DAEMON_SOCK=%s\\n' "${TOURING_DAEMON_SOCK-<absent>}"
+} >> "${UT_DIR}/touring.calls"
+exit 0
+"""
+
+
+def script_prelude() -> str:
+    """Everything before the first function definition — the config block where
+    the session-env scrub must live (it has to precede EVERY daemon call)."""
+    body = SCRIPT.read_text(encoding="utf-8")
+    lines = body.splitlines(keepends=True)
+    cut = next(
+        i for i, line in enumerate(lines) if re.match(r"^[a-z_][a-z_0-9]*\(\) \{", line)
+    )
+    return "".join(lines[:cut])
+
+
+def test_daemon_calls_never_inherit_the_session_socket_env(tmp_path):
+    """Com TOURING_DAEMON_SOCKET/SOCK apontando para uma isca, o `daemon-ctl
+    stop` do kill_daemon não pode recebê-las: o stub do `touring` grava o
+    próprio env, e o scrub real do prelude é o que está sob teste."""
+    home = tmp_path / "home"
+    (home / ".local" / "bin").mkdir(parents=True)
+    stub = home / ".local" / "bin" / "touring"
+    stub.write_text(SESSION_SOCKET_STUB)
+    stub.chmod(0o755)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    (workspace / "Cargo.toml").write_text("[workspace]\n")
+    harness = "\n".join(
+        [
+            script_prelude(),
+            "log() { :; }",
+            "err() { :; }",
+            "global_daemon_pid() { return 1; }",
+            shell_function("kill_daemon"),
+            "kill_daemon",
+        ]
+    )
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "TOURING_WORKSPACE_ROOT": str(workspace),
+        "TOURING_DAEMON_SOCKET": str(tmp_path / "isca.sock"),
+        "TOURING_DAEMON_SOCK": str(tmp_path / "isca.sock"),
+        "UT_DIR": str(tmp_path),
+    }
+    harness_file = tmp_path / "harness.sh"
+    harness_file.write_text(harness)
+    # Via file, not `bash -c`: the prelude reads ${BASH_SOURCE[0]} to locate the
+    # workspace, and under `-c` with `set -u` that variable is unbound.
+    proc = subprocess.run(
+        ["bash", str(harness_file)], env=env, capture_output=True, text=True, timeout=30
+    )
+    assert proc.returncode == 0, proc.stderr
+    calls_file = tmp_path / "touring.calls"
+    assert calls_file.exists(), "controle positivo: o stub do touring nunca foi chamado"
+    calls = calls_file.read_text()
+    assert "daemon-ctl stop" in calls, f"o kill_daemon não chamou daemon-ctl stop: {calls}"
+    assert "isca.sock" not in calls, (
+        f"as chamadas de daemon herdaram TOURING_DAEMON_SOCKET/SOCK da sessão:\n{calls}"
+    )
+
+
+def test_the_session_socket_env_is_scrubbed_before_any_daemon_call():
+    """O scrub mora no topo do script (vale para o processo inteiro), ANTES da
+    primeira chamada ao binário `touring` — daemon-ctl stop, daemon-ctl restart
+    e doctor herdam o env já limpo por construção, não por acaso."""
+    body = SCRIPT.read_text(encoding="utf-8")
+    scrub = "unset TOURING_DAEMON_SOCKET TOURING_DAEMON_SOCK"
+    assert scrub in body, (
+        "the script must unset TOURING_DAEMON_SOCKET TOURING_DAEMON_SOCK at the top "
+        "(CC sessions export the per-project socket; every daemon call must target "
+        "the GLOBAL one regardless of the caller's env)"
+    )
+    first_call = body.index('"${HOME}/.local/bin/touring"')
+    assert body.index(scrub) < first_call, (
+        "the unset must precede EVERY daemon call, including the first one"
+    )

@@ -1,0 +1,11 @@
+PASS C65: {"pct=65": true, "sem COMPACT_FOCUS/CONTEXT_THRESHOLD": true, "Stop sem auto_compact": true, "symlink removido": true, "flag global ausente": true}
+FAIL C1: {"testes de regressão nomeados": true, "amostra ≥ 100 chamadas": true, "queda ≥ 40%": false, "calls": 323, "chars_por_chamada": 591.8544891640867, "antes": 898, "cargo_tail": ["     Running tests/s8_corpus_ab.rs (target/debug/deps/s8_corpus_ab-dfe4280ed5c666cf)"]}
+PASS C2: {"guarda": [0, "       8542 chars  — vem da sincronizacao do claude.ai; seria sobrescrito na proxima sincronizacao, e mexer aqui nao dura\n\nOK: nenhuma SKILL.md acima do limite."], "conservação": [0, "(100.00%)\nskills com perda: nenhuma\nlinks quebrados: nenhum\nrelatorio: /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-compactacao-65/conservacao.json"]}
+PASS C3: {"seção global": true, "literal": true, "palavras do Gabriel": true, "arquivos e testes": true, "formato antigo removido do analise": true}
+PASS C4: {"suíte": ["156 passed, 1 skipped in 3.42s"], "mutação": ["mutantes mortos: 5/5"]}
+PASS C5: {"suíte client/hooks": true, "registro, não existência": true, "flag por sessão": true, "tail": ["178 passed in 14.65s"], "falhas": []}
+PASS C6: {"settings.json": [], "hooks.settings.json": [], "settings.local.json": []}
+PASS C7: {"global": true, "analise": true}
+PASS C8: {"instruções menores": true, "descrições menores": true, "MCP de plugin desabilitados": true, "conservação regras": true, "conservação agentes": true, "instruction_chars": [149479, 113809], "agent_description_chars": [18293, 7829]}
+PASS C9: {"(a) registrada": true, "(b) registrada": true, "sonda reproduzível": true}
+veredito: FALTA C1

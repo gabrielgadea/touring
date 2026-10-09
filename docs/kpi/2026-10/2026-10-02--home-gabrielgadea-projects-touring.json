@@ -22,14 +22,14 @@
       "threshold": 100.0
     },
     {
-      "actual": -0.1652144575804883,
+      "actual": 0.7019790783042769,
       "advisory": true,
       "direction": "gte",
       "id": "touring.rl.ema_reward",
       "name": "RL EMA reward (OnlineRL engine)",
       "rationale": "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável.",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 0.2
     },
     {
@@ -85,7 +85,7 @@
       "rationale": "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 34d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
+      "stub_reason": "stale — measured 35d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.test.count.json",
       "threshold": 5100.0
     },
     {
@@ -97,7 +97,7 @@
       "rationale": "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528.",
       "source_kind": "external",
       "status": "STUB",
-      "stub_reason": "stale — measured 34d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
+      "stub_reason": "stale — measured 35d ago (window 14d); re-run the `source` command to refresh docs/kpi/external/touring.coverage.line.json",
       "threshold": 0.75
     },
     {
@@ -112,7 +112,7 @@
       "threshold": 50.0
     },
     {
-      "actual": 0.0,
+      "actual": 536.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.str_bytes_per_emit",
@@ -123,18 +123,18 @@
       "threshold": 800.0
     },
     {
-      "actual": 13351.0,
+      "actual": 917.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p50_us",
       "name": "Coupling hook dispatch latency p50 (D5, leading)",
       "rationale": "Common-case hook cost must stay ~1ms so enrichment is free at the point of action. Watches the median, not the cold-start tail (see p99).",
       "source_kind": "daemon",
-      "status": "ADVISORY",
+      "status": "PASS",
       "threshold": 1000.0
     },
     {
-      "actual": 83135.0,
+      "actual": 1227775.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.hook_latency_p99_us",
@@ -145,7 +145,7 @@
       "threshold": 50000.0
     },
     {
-      "actual": 430.0,
+      "actual": 827903.0,
       "advisory": true,
       "direction": "lte",
       "id": "touring.coupling.actor_queue_wait_p99_us",
@@ -178,40 +178,40 @@
       "threshold": 0.7
     },
     {
-      "actual": null,
+      "actual": 0.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.suggestion_uptake",
       "name": "Coupling suggestion-uptake — redirect followed / emitted (D3, leading)",
       "rationale": "The decisive coupling KPI (telemetry §9, F2): after cli_suggester emits a touring/code-mode redirect, did the LLM's next same-session action follow it? followed/emitted over the daemon lifetime. gte 0.40 = the hint changes behaviour rather than being ignored (banner-blindness). Conservative 1-step window; STUB until the first suggestion is emitted.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "ADVISORY",
       "threshold": 0.4
     },
     {
-      "actual": null,
+      "actual": 1.0,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.adoption_ratio",
       "name": "Coupling adoption_ratio — touring vs raw-bash among Bash actions (D3, the mother metric)",
       "rationale": "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified.",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.5
     },
     {
-      "actual": null,
+      "actual": 0.13333333333333333,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.adoption_ratio",
       "name": "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)",
       "rationale": "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2).",
       "source_kind": "derived",
-      "status": "STUB",
+      "status": "PASS",
       "threshold": 0.1
     },
     {
-      "actual": 0.8599033816425121,
+      "actual": 0.8651162790697674,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.economy_ratio",
@@ -244,7 +244,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.4376321353065539,
+      "actual": 0.44421487603305787,
       "advisory": true,
       "direction": "gte",
       "id": "touring.code_mode.arm_code",
@@ -255,7 +255,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.1998834498834499,
+      "actual": 0.2,
       "advisory": true,
       "direction": "lte",
       "id": "touring.code_mode.inspect_burst_share",
@@ -266,7 +266,7 @@
       "threshold": 0.75
     },
     {
-      "actual": 0.023809523809523808,
+      "actual": 0.022222222222222223,
       "advisory": true,
       "direction": "gte",
       "id": "touring.coupling.pillar_induction_ratio",
@@ -354,7 +354,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.652542372881356,
+      "actual": 0.6057692307692307,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.compliance_ratio",
@@ -398,7 +398,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.5645933014354066,
+      "actual": 0.4482758620689655,
       "advisory": true,
       "direction": "gte",
       "id": "touring.flow.arm_yield",
@@ -420,7 +420,7 @@
       "threshold": 0.3
     },
     {
-      "actual": 1.0,
+      "actual": 0.9990494296577946,
       "advisory": true,
       "direction": "gte",
       "id": "touring.learning.replay_share",
@@ -431,7 +431,7 @@
       "threshold": 0.9
     },
     {
-      "actual": 0.8747664470449406,
+      "actual": 0.8738734326018809,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.corpus_coverage",
@@ -442,7 +442,7 @@
       "threshold": 0.95
     },
     {
-      "actual": 0.5500840213341127,
+      "actual": 0.5458747455394564,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.curated_recall_share",
@@ -453,7 +453,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.07891631428852394,
+      "actual": 0.07841888714733543,
       "advisory": true,
       "direction": "lte",
       "id": "touring.memory.never_recalled_ratio",
@@ -464,7 +464,7 @@
       "threshold": 0.25
     },
     {
-      "actual": 0.1588235294117647,
+      "actual": 0.14754098360655737,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.graph_contract_share",
@@ -475,7 +475,7 @@
       "threshold": 0.5
     },
     {
-      "actual": 0.026719229084537888,
+      "actual": 0.03852080123266564,
       "advisory": true,
       "direction": "gte",
       "id": "touring.memory.edge_density",
@@ -512,307 +512,409 @@
   "code_mode_adherence": {
     "available": true,
     "by_failure_kind": {
-      "exception": 1472,
+      "exception": 1484,
       "output-limit": 6,
       "proc-exit": 3,
-      "timeout": 331
+      "timeout": 339
     },
     "by_language": {
       "?": 3,
-      "bash": 11388,
+      "bash": 11609,
       "go": 1,
       "js": 141,
       "perl": 4,
       "php": 1,
-      "python": 11343,
+      "python": 11434,
       "ruby": 4,
       "rust": 4,
       "shell": 189,
       "ts": 7
     },
     "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
-    "runs_ok": 21270,
-    "runs_total": 23085,
+    "runs_ok": 21562,
+    "runs_total": 23397,
     "source": "run_journal.jsonl",
-    "success_rate": 0.9213775178687459,
-    "wasted_attempts_retry_pairs": 1068
+    "success_rate": 0.9215711415993504,
+    "wasted_attempts_retry_pairs": 1081
   },
   "code_mode_reuse": {
     "available": true,
-    "brief_runs": 216,
-    "file_runs": 3818,
+    "brief_runs": 218,
+    "file_runs": 3874,
     "floor": 0.2,
     "harvested_runs": 0,
-    "hint_coverage": 0.04,
-    "hinted_runs": 610,
-    "inline_runs": 11548,
-    "ladder_enrolled": 522,
-    "ladder_reused": 11,
-    "orchestrate_runs": 301,
-    "persistent_file_runs": 2137,
+    "hint_coverage": 0.039,
+    "hinted_runs": 611,
+    "inline_runs": 11804,
+    "ladder_enrolled": 542,
+    "ladder_reused": 30,
+    "orchestrate_runs": 305,
+    "persistent_file_runs": 2165,
     "reuse_ratio": 0.14,
-    "scratch_file_runs": 1681,
+    "scratch_file_runs": 1709,
     "status": "FAIL",
-    "total_tmp_bytes": 1010976457,
+    "total_tmp_bytes": 1020121378,
     "v1_runs": 7716,
-    "v2_runs": 15366
+    "v2_runs": 15678
   },
   "code_mode_signal_use": {
     "available": true,
     "duration_ms_p50": 0,
     "duration_ms_p99": 1010,
-    "non_canonical_calls": 230,
+    "non_canonical_calls": 233,
     "ratio": 0.875,
     "total": 8,
-    "total_calls": 1031,
+    "total_calls": 1061,
     "used": 7
   },
   "context_budget": {
     "available": true,
     "by_family": {
       "code-mode-deny": {
-        "blocks": 8,
-        "bytes": 6851,
+        "blocks": 22,
+        "bytes": 15294,
         "duplicate_bytes": 3704,
-        "duplicate_ratio": 0.541,
-        "mean_bytes": 856,
-        "propositions": 0,
-        "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 8
+        "duplicate_ratio": 0.242,
+        "mean_bytes": 695,
+        "propositions": 4,
+        "propositions_per_kb": 0.268,
+        "zero_proposition_blocks": 20
       },
       "loop-outer": {
-        "blocks": 3,
-        "bytes": 5475,
-        "duplicate_bytes": 3650,
-        "duplicate_ratio": 0.667,
-        "mean_bytes": 1825,
-        "propositions": 3,
-        "propositions_per_kb": 0.561,
+        "blocks": 4,
+        "bytes": 6624,
+        "duplicate_bytes": 1825,
+        "duplicate_ratio": 0.276,
+        "mean_bytes": 1656,
+        "propositions": 7,
+        "propositions_per_kb": 1.082,
         "zero_proposition_blocks": 0
       },
       "other": {
-        "blocks": 345,
-        "bytes": 159997,
-        "duplicate_bytes": 44720,
-        "duplicate_ratio": 0.28,
-        "mean_bytes": 463,
-        "propositions": 80,
-        "propositions_per_kb": 0.512,
-        "zero_proposition_blocks": 308
+        "blocks": 1454,
+        "bytes": 510575,
+        "duplicate_bytes": 102797,
+        "duplicate_ratio": 0.201,
+        "mean_bytes": 351,
+        "propositions": 666,
+        "propositions_per_kb": 1.336,
+        "zero_proposition_blocks": 1142
       },
       "past-lessons": {
-        "blocks": 46,
-        "bytes": 2393,
-        "duplicate_bytes": 1566,
-        "duplicate_ratio": 0.654,
+        "blocks": 414,
+        "bytes": 21674,
+        "duplicate_bytes": 18188,
+        "duplicate_ratio": 0.839,
         "mean_bytes": 52,
         "propositions": 0,
         "propositions_per_kb": 0.0,
-        "zero_proposition_blocks": 46
+        "zero_proposition_blocks": 414
       },
       "post-tool-echo": {
-        "blocks": 33,
-        "bytes": 7277,
-        "duplicate_bytes": 1852,
-        "duplicate_ratio": 0.255,
-        "mean_bytes": 220,
-        "propositions": 21,
-        "propositions_per_kb": 2.955,
-        "zero_proposition_blocks": 12
+        "blocks": 185,
+        "bytes": 62330,
+        "duplicate_bytes": 17664,
+        "duplicate_ratio": 0.283,
+        "mean_bytes": 336,
+        "propositions": 134,
+        "propositions_per_kb": 2.201,
+        "zero_proposition_blocks": 51
       },
       "session-start": {
         "blocks": 9,
         "bytes": 8763,
-        "duplicate_bytes": 3660,
-        "duplicate_ratio": 0.418,
+        "duplicate_bytes": 2492,
+        "duplicate_ratio": 0.284,
         "mean_bytes": 973,
         "propositions": 0,
         "propositions_per_kb": 0.0,
         "zero_proposition_blocks": 9
       },
       "touring-suggest": {
-        "blocks": 25,
-        "bytes": 36682,
-        "duplicate_bytes": 1477,
-        "duplicate_ratio": 0.04,
-        "mean_bytes": 1467,
-        "propositions": 99,
-        "propositions_per_kb": 2.764,
+        "blocks": 82,
+        "bytes": 118221,
+        "duplicate_bytes": 0,
+        "duplicate_ratio": 0.0,
+        "mean_bytes": 1441,
+        "propositions": 289,
+        "propositions_per_kb": 2.503,
         "zero_proposition_blocks": 0
       }
     },
-    "bytes_scanned": 7763824,
+    "bytes_scanned": 27543220,
     "capped": false,
-    "duplicate_blocks": 243,
-    "duplicate_injection_ratio": 0.267,
+    "duplicate_blocks": 1299,
+    "duplicate_injection_ratio": 0.197,
     "duplicate_injection_ratio_ceil": 0.05,
     "failing": [
       "injected_bytes_per_turn",
       "duplicate_injection_ratio",
       "injection_follow_ratio"
     ],
-    "injected_bytes_per_turn": 7842.69,
+    "injected_bytes_per_turn": 9655.597,
     "injected_bytes_per_turn_ceil": 3000.0,
-    "injection_follow_ratio": 0.593,
+    "injection_follow_ratio": 0.567,
     "injection_follow_ratio_floor": 0.6,
-    "must_emitted": 86,
-    "must_followed": 51,
+    "must_emitted": 534,
+    "must_followed": 303,
     "reason": null,
     "status": "FAIL",
-    "tool_calls": 235,
+    "tool_calls": 1187,
     "tool_output": {
       "by_tool": [
         {
-          "bytes": 225316,
-          "mean_bytes": 1817,
-          "results": 124,
-          "reused_bytes": 7114,
-          "reused_line_ratio": 0.044,
-          "share": 0.641,
+          "bytes": 758890,
+          "mean_bytes": 1017,
+          "results": 746,
+          "reused_bytes": 42905,
+          "reused_line_ratio": 0.076,
+          "share": 0.628,
           "tool": "Bash",
-          "zero_reuse_results": 6
+          "zero_reuse_results": 51
         },
         {
-          "bytes": 99631,
-          "mean_bytes": 3831,
-          "results": 26,
-          "reused_bytes": 6402,
-          "reused_line_ratio": 0.082,
-          "share": 0.283,
+          "bytes": 244718,
+          "mean_bytes": 2845,
+          "results": 86,
+          "reused_bytes": 17127,
+          "reused_line_ratio": 0.084,
+          "share": 0.203,
           "tool": "Read",
+          "zero_reuse_results": 5
+        },
+        {
+          "bytes": 57302,
+          "mean_bytes": 9550,
+          "results": 6,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.047,
+          "tool": "mcp__notebooklm-mcp__notebook_query",
           "zero_reuse_results": 0
         },
         {
-          "bytes": 10998,
-          "mean_bytes": 255,
-          "results": 43,
-          "reused_bytes": 634,
-          "reused_line_ratio": 0.11,
-          "share": 0.031,
-          "tool": "Edit",
-          "zero_reuse_results": 16
-        },
-        {
-          "bytes": 7418,
-          "mean_bytes": 463,
-          "results": 16,
+          "bytes": 36553,
+          "mean_bytes": 468,
+          "results": 78,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.021,
+          "share": 0.03,
           "tool": "SendMessage",
-          "zero_reuse_results": 1
+          "zero_reuse_results": 6
         },
         {
-          "bytes": 4526,
-          "mean_bytes": 266,
-          "results": 17,
+          "bytes": 32383,
+          "mean_bytes": 32383,
+          "results": 1,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.013,
-          "tool": "Write",
-          "zero_reuse_results": 4
+          "share": 0.027,
+          "tool": "mcp__notebooklm-mcp__notebook_list",
+          "zero_reuse_results": 0
         },
         {
-          "bytes": 2746,
-          "mean_bytes": 549,
-          "results": 5,
+          "bytes": 28446,
+          "mean_bytes": 188,
+          "results": 151,
+          "reused_bytes": 3916,
+          "reused_line_ratio": 0.183,
+          "share": 0.024,
+          "tool": "Edit",
+          "zero_reuse_results": 44
+        },
+        {
+          "bytes": 20428,
+          "mean_bytes": 1857,
+          "results": 11,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
-          "share": 0.008,
+          "share": 0.017,
           "tool": "ListAgents",
           "zero_reuse_results": 0
         },
         {
-          "bytes": 924,
-          "mean_bytes": 308,
-          "results": 3,
+          "bytes": 15996,
+          "mean_bytes": 197,
+          "results": 81,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.013,
+          "tool": "Write",
+          "zero_reuse_results": 32
+        },
+        {
+          "bytes": 4404,
+          "mean_bytes": 1101,
+          "results": 4,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.004,
+          "tool": "Agent",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 3056,
+          "mean_bytes": 3056,
+          "results": 1,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.003,
-          "tool": "Monitor",
-          "zero_reuse_results": 3
+          "tool": "mcp__notebooklm-mcp__server_info",
+          "zero_reuse_results": 1
         },
         {
-          "bytes": 150,
-          "mean_bytes": 150,
+          "bytes": 1540,
+          "mean_bytes": 308,
+          "results": 5,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "Monitor",
+          "zero_reuse_results": 4
+        },
+        {
+          "bytes": 979,
+          "mean_bytes": 979,
+          "results": 1,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "AskUserQuestion",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 791,
+          "mean_bytes": 791,
+          "results": 1,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "mcp__notebooklm-mcp__notebook_describe",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 765,
+          "mean_bytes": 153,
+          "results": 5,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "ToolSearch",
+          "zero_reuse_results": 4
+        },
+        {
+          "bytes": 627,
+          "mean_bytes": 627,
+          "results": 1,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.001,
+          "tool": "TaskStop",
+          "zero_reuse_results": 0
+        },
+        {
+          "bytes": 507,
+          "mean_bytes": 101,
+          "results": 5,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.0,
+          "tool": "mcp__sequential-thinking__sequentialthinking",
+          "zero_reuse_results": 2
+        },
+        {
+          "bytes": 349,
+          "mean_bytes": 116,
+          "results": 3,
+          "reused_bytes": 0,
+          "reused_line_ratio": 0.0,
+          "share": 0.0,
+          "tool": "Grep",
+          "zero_reuse_results": 2
+        },
+        {
+          "bytes": 30,
+          "mean_bytes": 30,
           "results": 1,
           "reused_bytes": 0,
           "reused_line_ratio": 0.0,
           "share": 0.0,
-          "tool": "ToolSearch",
-          "zero_reuse_results": 0
+          "tool": "Skill",
+          "zero_reuse_results": 1
         }
       ],
-      "bytes": 351709,
-      "reuse_ratio": 0.04,
-      "reused_bytes": 14150
+      "bytes": 1207764,
+      "reuse_ratio": 0.053,
+      "reused_bytes": 63948
     },
-    "tpcd_proxy_bytes_per_tool_call": 2923.987,
+    "tpcd_proxy_bytes_per_tool_call": 1965.852,
     "transcripts_scanned": 3,
-    "user_turns": 29,
+    "user_turns": 77,
     "window_bytes": {
-      "assistant": 39852,
-      "injection": 227438,
-      "injection_share": 0.331,
-      "tool_result_share": 0.512,
-      "tool_results": 351709,
-      "user": 68138
+      "assistant": 165619,
+      "injection": 743481,
+      "injection_share": 0.319,
+      "tool_result_share": 0.518,
+      "tool_results": 1207764,
+      "user": 216602
     }
   },
   "daemon_availability": {
-    "answered": 23468,
+    "answered": 38428,
     "floor": 0.95,
     "meets_floor": true,
-    "ratio": 0.998,
-    "unavailable": 1,
-    "unusable": 46,
+    "ratio": 0.9975,
+    "unavailable": 2,
+    "unusable": 95,
     "window_h": 48
   },
   "decision": {
-    "cutoff_ms": 1790338474859,
+    "cutoff_ms": 1790359765759,
     "intent_distribution": {
       "distinct_intents": 7,
       "distribution": {
         "ANALYSIS": {
-          "count": 32,
-          "share": 0.1749
+          "count": 34,
+          "share": 0.1709
         },
         "CODE": {
           "count": 4,
-          "share": 0.0219
+          "share": 0.0201
         },
         "DEBUG": {
           "count": 25,
-          "share": 0.1366
+          "share": 0.1256
         },
         "GENERAL": {
-          "count": 86,
-          "share": 0.4699
+          "count": 94,
+          "share": 0.4724
         },
         "PLAN": {
-          "count": 14,
-          "share": 0.0765
+          "count": 18,
+          "share": 0.0905
         },
         "REFACTOR": {
-          "count": 3,
-          "share": 0.0164
+          "count": 4,
+          "share": 0.0201
         },
         "TEST": {
-          "count": 19,
-          "share": 0.1038
+          "count": 20,
+          "share": 0.1005
         }
       },
-      "human_prompts": 183,
+      "human_prompts": 199,
       "status": "measured",
-      "total_classified": 183
+      "total_classified": 199
     },
     "jev_calls_total": {
       "by_question": {
-        "c0": 68,
+        "a1_discard": 1143,
+        "a2_followed": 383,
+        "c0": 69,
         "intent": 241,
         "kind": 1060,
         "multi:10": 1,
-        "multi:2": 34,
+        "multi:2": 35,
         "multi:3": 3,
         "multi:4": 11,
         "multi:7": 3,
@@ -820,10 +922,10 @@
         "relevant": 45,
         "same_fact": 10,
         "t": 2,
-        "which_skill": 36
+        "which_skill": 43
       },
-      "cache_hits": 264,
-      "confidence_samples": 1297,
+      "cache_hits": 1765,
+      "confidence_samples": 1307,
       "fallback_reasons": {
         "TypeSafeAPIConnectionError:": 4,
         "unexpected:AttributeError": 1,
@@ -833,7 +935,7 @@
       "first_fallback_at": {
         "which_skill": "2026-10-01T09:02:50-0300"
       },
-      "jev_calls_total": 1244,
+      "jev_calls_total": 1278,
       "jev_confidence_hist": [
         {
           "bin": "[0.0,0.1)",
@@ -843,51 +945,51 @@
         {
           "bin": "[0.1,0.2)",
           "count": 18,
-          "share": 0.0139
+          "share": 0.0138
         },
         {
           "bin": "[0.2,0.3)",
-          "count": 61,
-          "share": 0.047
+          "count": 62,
+          "share": 0.0474
         },
         {
           "bin": "[0.3,0.4)",
           "count": 75,
-          "share": 0.0578
+          "share": 0.0574
         },
         {
           "bin": "[0.4,0.5)",
-          "count": 260,
+          "count": 262,
           "share": 0.2005
         },
         {
           "bin": "[0.5,0.6)",
           "count": 399,
-          "share": 0.3076
+          "share": 0.3053
         },
         {
           "bin": "[0.6,0.7)",
-          "count": 87,
-          "share": 0.0671
+          "count": 90,
+          "share": 0.0689
         },
         {
           "bin": "[0.7,0.8)",
-          "count": 71,
-          "share": 0.0547
+          "count": 74,
+          "share": 0.0566
         },
         {
           "bin": "[0.8,0.9)",
-          "count": 96,
-          "share": 0.074
+          "count": 97,
+          "share": 0.0742
         },
         {
           "bin": "[0.9,0.10)",
           "count": 226,
-          "share": 0.1742
+          "share": 0.1729
         }
       ],
-      "jev_latency_p50_ms": 367.45,
-      "jev_latency_p99_ms": 585.355,
+      "jev_latency_p50_ms": 367.4,
+      "jev_latency_p99_ms": 589.818,
       "status": "measured"
     },
     "jev_confidence_hist": [
@@ -899,68 +1001,68 @@
       {
         "bin": "[0.1,0.2)",
         "count": 18,
-        "share": 0.0139
+        "share": 0.0138
       },
       {
         "bin": "[0.2,0.3)",
-        "count": 61,
-        "share": 0.047
+        "count": 62,
+        "share": 0.0474
       },
       {
         "bin": "[0.3,0.4)",
         "count": 75,
-        "share": 0.0578
+        "share": 0.0574
       },
       {
         "bin": "[0.4,0.5)",
-        "count": 260,
+        "count": 262,
         "share": 0.2005
       },
       {
         "bin": "[0.5,0.6)",
         "count": 399,
-        "share": 0.3076
+        "share": 0.3053
       },
       {
         "bin": "[0.6,0.7)",
-        "count": 87,
-        "share": 0.0671
+        "count": 90,
+        "share": 0.0689
       },
       {
         "bin": "[0.7,0.8)",
-        "count": 71,
-        "share": 0.0547
+        "count": 74,
+        "share": 0.0566
       },
       {
         "bin": "[0.8,0.9)",
-        "count": 96,
-        "share": 0.074
+        "count": 97,
+        "share": 0.0742
       },
       {
         "bin": "[0.9,0.10)",
         "count": 226,
-        "share": 0.1742
+        "share": 0.1729
       }
     ],
-    "jev_latency_p99_ms": 585.355,
+    "jev_latency_p99_ms": 589.818,
     "keyword_fallback_rate": {
       "by_source": {
         "keyword": {
-          "count": 179,
-          "share": 0.9781
+          "count": 195,
+          "share": 0.9949
         },
         "laya": {
           "count": 1,
-          "share": 0.0055
+          "share": 0.0051
         },
         "laya_shadow": {
           "count": 3,
-          "share": 0.0164
+          "share": 0.0153
         }
       },
-      "decisions": 183,
+      "decisions": 196,
       "flag_active": true,
-      "keyword_fallback_rate": 0.9781,
+      "keyword_fallback_rate": 0.9949,
       "status": "measured"
     },
     "malformed_lines": {
@@ -969,11 +1071,15 @@
       "recall_journal": 0
     },
     "recall_curated_share": {
-      "candidates_total": 1162,
+      "candidates_total": 1312,
       "curated_share": 0.0,
       "injected_total": 0,
-      "recalls": 34,
+      "recalls": 38,
       "status": "measured"
+    },
+    "starvation_gate": {
+      "note": "TOURING_LAYA_INTENT off — keyword dominance is design, not drift",
+      "status": "not_armed"
     },
     "status": "measured",
     "window_days": 7
@@ -981,10 +1087,29 @@
   "hooks_complement": {
     "available": true,
     "dispatched": {
-      "cli-gate-metrics": 1,
-      "cli-index-status": 1,
-      "cli-kpi": 1,
-      "cli-viz-workspace": 1
+      "ceg-observe": 15,
+      "cli-ast-blast": 2,
+      "cli-ast-meta": 2,
+      "cli-code-mode-run": 2,
+      "cli-flywheel-status": 5,
+      "cli-gate-metrics": 5,
+      "cli-health-delta-status": 5,
+      "cli-incremental-status": 5,
+      "cli-index-status": 5,
+      "cli-kpi": 26,
+      "cli-learning-status": 79,
+      "cli-resource-monitor-status": 5,
+      "cli-session-list": 5,
+      "cli-suggest": 18,
+      "cli-wiring-status": 5,
+      "cwd-changed": 2,
+      "post-bash": 16,
+      "post-tool-batch": 20,
+      "post-tool-rl": 21,
+      "post-write": 3,
+      "pre-bash": 15,
+      "pre-write": 2,
+      "subagent-stop": 2
     },
     "mirror_deliveries_by_origin": {
       "post_bash": 0,
@@ -993,20 +1118,20 @@
     },
     "mirror_deliveries_since": 0,
     "mirror_non_canonical_since": 0,
-    "post_bash_delivery_ratio": null,
-    "post_bash_dispatched": 0,
+    "post_bash_delivery_ratio": 0.0,
+    "post_bash_dispatched": 16,
     "post_bash_origin_deliveries_since": 0,
-    "since_epoch": 1790943154
+    "since_epoch": 1790964167
   },
   "project_root": "/home/gabrielgadea/projects/touring",
   "schema": "kpi-commitments-v1",
   "snapshot_date": "2026-10-02",
   "summary": {
-    "advisory": 12,
+    "advisory": 11,
     "failed": 0,
-    "passed": 24,
+    "passed": 28,
     "regressions": 0,
-    "stub": 9,
+    "stub": 6,
     "total": 45
   }
 }

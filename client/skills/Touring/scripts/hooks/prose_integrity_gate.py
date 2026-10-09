@@ -14,10 +14,16 @@ What it reads, per tool:
   NotebookEdit           `new_source`
 Only INTRODUCED characters count: editing a file with legitimate CJK test data does not accuse what was there.
 
-Modes (`TOURING_PROSE_GATE_MODE`): `shadow` (default) logs and advises, never blocks; `block` blocks
-`SendMessage` only (exit 2, the refusal names character, codepoint, position and the escape). Write/Edit never
-block in this phase. Kill switch: `TOURING_PROSE_GATE_DISABLED=1`. Fail-open: an unreadable payload or an
-internal error never blocks anything.
+Two modes, one per channel:
+  `TOURING_PROSE_GATE_MODE` (SendMessage)          `shadow` (default) logs and advises; `block` refuses. Promotion
+                                                   stays with the pre-registered criterion (`--criterion`).
+  `TOURING_PROSE_GATE_FILE_MODE` (Write, Edit,     `block` (default, Gabriel's order of 06/10/2026, adendo in the
+  MultiEdit, NotebookEdit)                         same bundle) refuses; `shadow` logs and advises.
+A refusal is exit 2 and names character, codepoint, position and every open route. In files the routes are:
+quotation in backticks (as in a message), a line carrying `prose-integrity: allow`, or writing the data from a
+script (Bash is not gated). A Write over a file that exists but cannot be read never blocks: what was already
+there is unknown. An escape alone is logged too (`action: escaped`), so a route used as a shortcut shows up.
+Kill switch: `TOURING_PROSE_GATE_DISABLED=1`. Fail-open: an unreadable payload or an internal error never blocks.
 
 Out of reach, declared: the chat reply is not a tool call (no PreToolUse sees it), and the lexical class
 (English or German fragments inside Portuguese) passes any script filter.
@@ -31,6 +37,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import sys
 import time
 from collections import Counter
@@ -55,6 +62,10 @@ SCRIPTS: tuple[tuple[int, int, str], ...] = (
 )
 LOWEST_SIGNAL = min(a for a, _, _ in SCRIPTS)
 TOOLS = ("SendMessage", "Write", "Edit", "MultiEdit", "NotebookEdit")
+FILE_TOOLS = TOOLS[1:]
+PRAGMA = "prose-integrity: allow"
+# The pragma counts only after a comment leader: inside a JSON value it "worked" by corrupting the data.
+PRAGMA_RE = re.compile(r"(?:#|//|/\*|<!--|--|;).*" + re.escape(PRAGMA))
 MAX_OLD_BYTES = 5 * 1024 * 1024
 CONTEXT = 40
 DEFAULT_LOG = Path.home() / ".claude" / "touring" / "prose_integrity" / "events.jsonl"
@@ -80,6 +91,7 @@ class Verdict:
     escaped: int = 0
     path: str | None = None
     text: str = ""
+    old_unknown: bool = False  # the file exists but could not be read: what it already had is unknown
 
 
 def script_of(ch: str) -> str | None:
@@ -109,9 +121,11 @@ def quoted_spans(text: str) -> list[tuple[int, int]]:
     while i < n:
         if text.startswith("```", i):
             j = text.find("```", i + 3)
-            end = n if j < 0 else j + 3
-            spans.append((i, end))
-            i = end
+            if j < 0:  # an unclosed fence quotes nothing, like an unclosed tick (review touring-b4, 06/10)
+                i += 3
+                continue
+            spans.append((i, j + 3))
+            i = j + 3
         elif text[i] == "`":
             j = text.find("`", i + 1)
             nl = text.find("\n", i + 1)
@@ -149,16 +163,34 @@ def introduced(new: str, old: str) -> list[Hit]:
     return out
 
 
-def _read_old(path: str | None) -> str:
+def _read_old(path: str | None) -> str | None:
+    """The file's current text; "" when there is no such file; None when it exists but cannot be read."""
     if not path:
         return ""
     try:
         p = Path(path)
+        if not p.exists() or p.is_dir():  # a directory holds no text: the Write itself will fail
+            return ""
         if p.is_file() and p.stat().st_size <= MAX_OLD_BYTES:
             return p.read_text(encoding="utf-8", errors="replace")
     except OSError:
         pass
-    return ""
+    return None
+
+
+def file_escapes(new: str, hits: list[Hit]) -> tuple[list[Hit], int]:
+    """(hits that stay, hits escaped): backtick quotation, or a line that carries the pragma."""
+    spans = quoted_spans(new)
+    kept, escaped = [], 0
+    for h in hits:
+        line_start = new.rfind("\n", 0, h.pos) + 1
+        line_end = new.find("\n", h.pos)
+        line = new[line_start:len(new) if line_end < 0 else line_end]
+        if PRAGMA_RE.search(line) or any(a <= h.pos < b for a, b in spans):
+            escaped += 1
+        else:
+            kept.append(h)
+    return kept, escaped
 
 
 def _str(d: dict, key: str) -> str | None:
@@ -176,29 +208,34 @@ def _send_message(ti: dict, v: Verdict) -> None:
 def _write(ti: dict, v: Verdict) -> None:
     new = _str(ti, "content")
     if new is not None:
+        old = _read_old(v.path)
+        v.old_unknown = old is None
         v.text = new
-        v.hits = introduced(new, _read_old(v.path))
+        v.hits, v.escaped = file_escapes(new, introduced(new, old or ""))
 
 
 def _edit(ti: dict, v: Verdict) -> None:
     new = _str(ti, "new_string")
     if new is not None:
         v.text = new
-        v.hits = introduced(new, _str(ti, "old_string") or "")
+        v.hits, v.escaped = file_escapes(new, introduced(new, _str(ti, "old_string") or ""))
 
 
 def _multi_edit(ti: dict, v: Verdict) -> None:
     parts = [(e["new_string"], _str(e, "old_string") or "") for e in ti.get("edits") or []
              if isinstance(e, dict) and isinstance(e.get("new_string"), str)]
     v.text = "\n".join(n for n, _ in parts)
-    v.hits = [h for n, o in parts for h in introduced(n, o)]
+    for n, o in parts:
+        kept, esc = file_escapes(n, introduced(n, o))
+        v.hits.extend(kept)
+        v.escaped += esc
 
 
 def _notebook_edit(ti: dict, v: Verdict) -> None:
     new = _str(ti, "new_source")
     if new is not None:
         v.text = new
-        v.hits = find(new)
+        v.hits, v.escaped = file_escapes(new, find(new))
 
 
 READERS = {"SendMessage": _send_message, "Write": _write, "Edit": _edit, "MultiEdit": _multi_edit,
@@ -228,19 +265,38 @@ def _describe(v: Verdict, limit: int = 6) -> str:
     return shown + more
 
 
+FILE_ROUTES = (f"se é proposital, cite-o entre crases na mesma linha (`…`) ou num bloco cercado e fechado "
+               f"(```…```), ou marque a linha com um comentário `# {PRAGMA}` (também depois de `//`, `/*`, "
+               f"`<!--`, `--` ou `;`; dentro de um valor de dado não vale), ou gere o dado por script no Bash, "
+               f"que não passa por este gate")
+
+
 def advice(v: Verdict) -> str:
     where = f" em {v.path}" if v.path else ""
     base = (f"[prose-integrity] {v.tool}{where}: {len(v.hits)} caractere(s) de alfabeto estranho ao português — "
             f"{_describe(v)}. Se não foi proposital, é corrupção de token: reescreva o trecho.")
     if v.tool == "SendMessage":
         base += " Se é citação proposital (o próprio defeito, um dado), ponha o trecho entre crases."
+    else:
+        base += f" Rotas: {FILE_ROUTES}."
+    if v.old_unknown:
+        base += " Não bloqueado: o arquivo existente não pôde ser lido, então o que ele já tinha é desconhecido."
     return base
 
 
 def refusal(v: Verdict) -> str:
-    return (f"[prose-integrity] {v.tool} recusado: {len(v.hits)} caractere(s) de alfabeto estranho ao português "
-            f"fora de citação — {_describe(v)}. Reescreva o trecho; se o caractere é o assunto da mensagem, "
-            f"ponha-o entre crases (`…`), que é citação e passa.")
+    head = (f"[prose-integrity] {v.tool} recusado: {len(v.hits)} caractere(s) de alfabeto estranho ao português "
+            f"fora de citação — {_describe(v)}. Reescreva o trecho; ")
+    if v.tool == "SendMessage":
+        return head + "se o caractere é o assunto da mensagem, ponha-o entre crases (`…`), que é citação e passa."
+    return head + FILE_ROUTES + "."
+
+
+def effective_mode(tool: str) -> str:
+    """`block` or `shadow` for this tool, from its channel's variable (see the module docstring)."""
+    if tool == "SendMessage":
+        return "block" if os.environ.get("TOURING_PROSE_GATE_MODE") == "block" else "shadow"
+    return "shadow" if os.environ.get("TOURING_PROSE_GATE_FILE_MODE") == "shadow" else "block"
 
 
 def _log(v: Verdict, payload: dict, mode: str, action: str) -> None:
@@ -278,15 +334,29 @@ def run_hook(raw: str) -> tuple[int, str, str]:
     if not isinstance(payload, dict) or payload.get("tool_name") not in TOOLS:
         return 0, "", ""
     v = assess(payload)
-    if not v.hits:
+    if not v.hits and not v.escaped:
         return 0, "", ""
-    mode = "block" if os.environ.get("TOURING_PROSE_GATE_MODE") == "block" else "shadow"
-    block = mode == "block" and v.tool == "SendMessage"
+    mode, action = decide(v)
     try:
-        _log(v, payload, mode, "blocked" if block else "advised")
+        _log(v, payload, mode, action)
     except OSError:
         pass  # the log is evidence, not a precondition: a full disk must not block or crash a session
-    if block:
+    return respond(v, action)
+
+
+def decide(v: Verdict) -> tuple[str, str]:
+    """(effective mode, action): `blocked` | `advised` | `escaped`."""
+    mode = effective_mode(v.tool)
+    if not v.hits:
+        return mode, "escaped"
+    return mode, "blocked" if mode == "block" and not v.old_unknown else "advised"
+
+
+def respond(v: Verdict, action: str) -> tuple[int, str, str]:
+    """The hook's (exit, stdout, stderr) for a decided verdict."""
+    if action == "escaped":
+        return 0, "", ""
+    if action == "blocked":
         return 2, "", refusal(v)
     out = {"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": advice(v)}}
     return 0, json.dumps(out, ensure_ascii=False), ""

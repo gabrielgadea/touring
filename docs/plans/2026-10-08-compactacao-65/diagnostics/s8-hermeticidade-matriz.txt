@@ -1,0 +1,9 @@
+(a) ② limpo: 20 rodadas, 0 falhas · passed/failed: [('642', '0')]
+(b) ('TOURING_CODE_MODE', 'native'): rc 101 · passed 627 · failed 15
+(b) ('TOURING_CODE_MODE', 'code'): rc 101 · passed 634 · failed 8
+(b) ('TOURING_GATE_OK', '1'): rc 0 · passed 642 · failed 0
+(b) ('TOURING_SUGGESTER_DISABLED', '1'): rc 0 · passed 642 · failed 0
+(b) ('TOURING_TURN_BUDGET', '100'): rc 0 · passed 642 · failed 0
+(b) ('TOURING_DEDUP_DISABLED', '1'): rc 0 · passed 642 · failed 0
+(b) ('TOURING_CODE_GATES_DISABLED', '1'): rc 101 · passed 613 · failed 29
+(b) ('TOURING_PILLAR_INDUCTION_ARMED', '1'): rc 0 · passed 642 · failed 0

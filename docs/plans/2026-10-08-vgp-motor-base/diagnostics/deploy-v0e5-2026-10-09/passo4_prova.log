@@ -1,0 +1,43 @@
+==========================================================================
+PROVA PRÁTICA — code mode + CEG sandbox contra o binário DEPLOYADO
+binário: touring  |  touring 30.4.95
+  git:      071d9afb4a977ff2c415dc3a7ed77094650085a7
+  rustc:    rustc 1.98.0 (88d9e12ae 2026-08-18)
+  built:    2026-10-09T16:23:10Z
+  binary:   2026-10-09T16:31:28Z (mtime)
+  features: analysis-gate,async-memory,build-info,cognitive-nexus,console,default,ebpf-telemetry,file-logs,generator-wasm-sandbox,generator-zero-copy,heap-profile,jemalloc,l7b-alpha,mcp-curated,mcts-synthesis,memory-integration,nlp-reranking,observability,otlp,rkyv-ipc,rl-integration,scip-emit,simd-fuzzy,syn-quote,tantivy-fts,wasm-plugins
+==========================================================================
+
+[1] CEG — o gate discrimina benigno de perigoso
+    .........
+
+[2] CEG — a contenção do filesystem é real
+    .........
+
+[2b] SEG-2 — skills/rules legíveis no sandbox; settings/credenciais não
+    .........
+
+[3] Code mode — transporte sem quoting (S1)
+    .........
+
+[4] Code mode — 71 hooks alcançáveis (S4)
+    .........
+
+[4b] SDK — a allowlist é imposta pelo DAEMON, não pelo cliente
+    .........
+
+[5] Code mode — piso do --brief (S7)
+    .........
+
+[6] Code mode — par start/settle no journal (S5)
+    .........
+
+[7] Code mode — predicado de rajada (S3)
+    .........
+
+[8] T3-B enterrado (S10)
+    .........
+
+==========================================================================
+RESULTADO: 41/41 asserções passaram
+==========================================================================

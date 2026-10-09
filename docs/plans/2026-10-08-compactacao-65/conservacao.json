@@ -1,0 +1,229 @@
+{
+ "relatorios": [
+  {
+   "skill": "Touring",
+   "linhas_conteudo": 347,
+   "conservadas": 347,
+   "excecoes": 152,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/skills/Touring/SKILL.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/TACO-subagent-rule.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/VP-Scout-rule.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/agents.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/api_reference.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/architecture.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/changelog.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/code-execution-gateway.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/code-mode-operational.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/code_generator.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/code_mode_recipes.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/context-enrichment.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/disk-hygiene-detail.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/entity-identity.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/generate-and-evolution.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/git-safety-protocol.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/inferlet_stdlib.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/integrations.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/mcp_tools.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/memory-hashtags.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/scip-export.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/skill-operating-principles.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/symbol_verification.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/taco-subagent-detail.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/taco_protocol.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-4-pillars-provenance.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-assists.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-debugging-bugstalker.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-e-contexto.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-generate.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-hooks.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-index-tiers-2-3.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-intelligence.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-meta.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-overview.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-rl-quality.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-rl-stack.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-tasks.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-cli-tiers-4-9.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-decision-matrix-lessons.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-per-project.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-process-hygiene.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-rebuild-changelog.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/touring-rebuild-rule.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/verification-before-completion.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/vp-scout-examples.md",
+    "/home/gabrielgadea/.claude/skills/Touring/references/workflows.md"
+   ]
+  },
+  {
+   "skill": "loop-engineering",
+   "linhas_conteudo": 335,
+   "conservadas": 335,
+   "excecoes": 99,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/skills/loop-engineering/SKILL.md",
+    "/home/gabrielgadea/.claude/skills/loop-engineering/references/loop-camada-3-e-hooks.md",
+    "/home/gabrielgadea/.claude/skills/loop-engineering/references/okf-format.md"
+   ]
+  },
+  {
+   "skill": "analysis-loop",
+   "linhas_conteudo": 365,
+   "conservadas": 365,
+   "excecoes": 134,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/skills/analysis-loop/SKILL.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/analise-camadas-e-contexto.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/arquivo-de-teses.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/clausulas-de-convergencia.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/description-original.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/familias-de-defeito.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/lentes.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/linkagem-e-acervo.md",
+    "/home/gabrielgadea/.claude/skills/analysis-loop/references/mapa-do-pipeline.md"
+   ]
+  },
+  {
+   "skill": "TACO-cross-audit",
+   "linhas_conteudo": 286,
+   "conservadas": 286,
+   "excecoes": 81,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/SKILL.md",
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/audit-workflow.md",
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/cross-audit-camadas.md",
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/e2e-proof.md",
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/potentialization.md",
+    "/home/gabrielgadea/.claude/skills/TACO-cross-audit/references/purpose-fidelity.md"
+   ]
+  },
+  {
+   "skill": "scientific-writing",
+   "linhas_conteudo": 350,
+   "conservadas": 350,
+   "excecoes": 93,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/.claude/skills/scientific-writing/SKILL.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/citation_styles.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/figures_tables.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/imrad_structure.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/reporting_guidelines.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/scientific-writing-detalhe.md",
+    "/home/gabrielgadea/.claude/skills/scientific-writing/references/writing_principles.md"
+   ]
+  },
+  {
+   "skill": "antt-final-synthesizer",
+   "linhas_conteudo": 743,
+   "conservadas": 743,
+   "excecoes": 318,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/SKILL.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/recommendation-formulation-process.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/required-inputs.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/resolution-protocol.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-extras-e-integracao.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/sintese-workflow-detalhado.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-final-synthesizer/references/validation-checklist.md"
+   ]
+  },
+  {
+   "skill": "transformational-story-architect",
+   "linhas_conteudo": 520,
+   "conservadas": 520,
+   "excecoes": 214,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/skills/transformational-story-architect/SKILL.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/transformational-story-architect/references/story-workflow-e-tecnicas.md"
+   ]
+  },
+  {
+   "skill": "antt-narrative-architect",
+   "linhas_conteudo": 430,
+   "conservadas": 430,
+   "excecoes": 146,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/SKILL.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/best-practices.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/data-argument-mapping.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/evidence-chains.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/example-1-transforming-technical-analysis-into.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/multi-dimensional-convergence.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/narrate-data-framework.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/narrativa-integracao-e-exemplos.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/rastreabilidade-de-decisões.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/risk-mitigation-cascade.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-consolidation.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tcu-jurisprudence.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/templates.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/tese-central-unificada.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/antt-narrative-architect/references/timeline-patterns.md"
+   ]
+  },
+  {
+   "skill": "design-elite",
+   "linhas_conteudo": 127,
+   "conservadas": 127,
+   "excecoes": 15,
+   "perdidas": [],
+   "corrigidas": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/SKILL.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/references/capitulos-17-29.md",
+    "/home/gabrielgadea/projects/analise/.claude/skills/design-elite/references/design-elite-roteiro-e-gates.md"
+   ]
+  }
+ ],
+ "links_quebrados": {},
+ "corrigidos": [
+  {
+   "skill": "Touring",
+   "citado": "references/quality/D01..D52.md",
+   "corrigido_para": "~/.claude/skills/touring-elite/references/quality/D01_complexity.md"
+  },
+  {
+   "skill": "Touring",
+   "citado": "references/touring-integration.md",
+   "corrigido_para": "~/.claude/skills/TACO-skilling/references/touring-integration.md"
+  },
+  {
+   "skill": "loop-engineering",
+   "citado": "references/skill-operating-principles.md",
+   "corrigido_para": "~/.claude/skills/Touring/references/skill-operating-principles.md"
+  }
+ ]
+}

@@ -131,10 +131,27 @@ impl ValidationRule {
 /// recursive delete belongs to the user: no flag unlocks one. `rm` has no
 /// `--dry-run`, so passing it only makes `rm` exit with an error.
 pub const DELETE_ROUTE: &str = "remove named files with `rm <file>` or empty directories with \
-     `rmdir <dir>`; a recursive or forced delete is the user's to run (`! rm -r <path>`)";
+     `rmdir <dir>`; empty a file in place with `: > <file>` or remove a single entry with \
+     `unlink <file>`; a recursive or forced delete is the user's to run (`! rm -r <path>`)";
 
 /// Commands that follow [`DELETE_ROUTE`], proven open by tests in both validators.
-pub const DELETE_ROUTE_EXAMPLES: &[&str] = &["rm notes.txt", "rm a.log b.log", "rmdir build"];
+pub const DELETE_ROUTE_EXAMPLES: &[&str] = &[
+    "rm notes.txt",
+    "rm a.log b.log",
+    "rmdir build",
+    ": > stale.log",
+    "unlink stale.done",
+];
+
+/// V0e2 (09/10/2026) — the route a `dd` refusal names (measured by analise-6b:
+/// 0% route-followed, because there was none). File-to-file copy is `cp`,
+/// sizing is `truncate`; raw `dd` is the user's to run.
+pub const DD_ROUTE: &str =
+    "file-to-file copy is `cp`, sizing is `truncate` — raw `dd` is the user's to run";
+
+/// V0e2 — the route a pipe-to-shell refusal names: download, read, THEN run.
+pub const PIPE_SHELL_ROUTE: &str =
+    "download, read, then run: `curl -O <url>` (or `wget -O`), read the file, `bash <file>`";
 
 /// Hard budget for the validator (kept far below pre-bash's <10 ms target).
 const VALIDATE_BUDGET: Duration = Duration::from_millis(5);

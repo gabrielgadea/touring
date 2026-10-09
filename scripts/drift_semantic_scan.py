@@ -8,10 +8,23 @@ Origem: loop 2026-08-26-documentacao-touring, opção (c) autorizada por Gabriel
   C1: Versões citadas em docs (vs `grep "^version" Cargo.toml`)
   C2: Paths de binário deprecated (vs paths reais via `which touring`, `readlink`)
   C3: Crates fundidos citados (vs `ls crates/`)
-  C4: Comandos CLI citados (vs `touring --help`)
+  C4: Comandos CLI citados (vs `touring --help`) — predicado refinado 08/10/2026:
+      conta só citação em CONTEXTO DE CÓDIGO (code fence, inline `...`, linha de
+      shell $/#/❯) com "touring" NÃO precedido de "/" (elimina o diretório do
+      workspace `.../projects/touring` e paths de build; invocação por path de
+      build fica fora por construção — majoritariamente em audits datados).
+      Antes, prosa portuguesa ("o touring deixa de...") contava como citação:
+      18 dos 26 sinais novos do delta 31/08→08/10 eram esse falso positivo.
   C5: Nomes de crates em exemplos de código (code fences) (vs `ls crates/`)
-  C6: Variáveis de ambiente citadas (vs `env | grep TOURING_`)
+  C6: Variáveis de ambiente citadas — predicado corrigido 08/10/2026: ground
+      truth = vars TOURING_* referenciadas no CÓDIGO-FONTE (.rs/.py/.sh/.toml),
+      estático e reproduzível. Antes era `os.environ` do processo do scanner —
+      o resultado dependia de QUEM roda; uma var viva no código mas não
+      exportada na sessão virava falso "stale" (23 dos 30 sinais novos do delta).
   C7: Hooks citados (vs `ls ~/.claude/hooks/`)
+
+Reconciliação do delta 31/08→08/10 (561→669, 111 sinais novos por conjunto):
+  docs/plans/2026-10-08-drift-reconciliacao/ (ledger.jsonl + reconciliar.py).
 
 NOTA VGP: scan_source (crates/touring-hooks-shared/src/ast_grep_signal.rs:96) é o equivalente
 Rust-internal para AST-grep scan (42 references, bench P7.5). Aqui usamos Python+regex porque
@@ -30,12 +43,12 @@ SEGURANÇA: zero `shell=True` em subprocess (CMDi CWE-78 — remediado pós gate
 """
 import argparse
 import json
-import os
 import re
 import subprocess
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 ROOT = Path("/home/gabrielgadea/projects/touring")
 
@@ -84,7 +97,32 @@ def gt_actual_crates() -> list[str]:
 
 
 def gt_actual_envvars() -> list[str]:
-    return sorted([k for k in os.environ if k.startswith("TOURING_")])
+    """Ground truth ESTÁTICO de env vars: TOURING_* referenciadas no código-fonte.
+
+    Substitui (reconciliação 08/10/2026) o `os.environ` do processo do scanner,
+    que tornava a contagem dependente de QUEM roda: uma var viva no código mas
+    não exportada na sessão virava falso "stale" (23 dos 30 sinais novos do
+    delta 31/08→08/10 eram esse caso). `.json` fica fora: dados históricos
+    (ex.: docs/kpi/*.json) não são reconhecimento vivo. `docs/` fica fora:
+    artefatos de documentação (inclusive scripts de planos, que citam vars em
+    strings) não são código do sistema — medido: o próprio bundle da
+    reconciliação contaminou o ground truth com 7 vars (26→19 fantasma).
+    """
+    exts = {".rs", ".py", ".sh", ".toml"}
+    skip = ("/target/", "/node_modules/", "/.git/", "/.touring-cache/", "/.venv/")
+    found: set[str] = set()
+    for p in ROOT.rglob("*"):
+        if not p.is_file() or p.suffix not in exts:
+            continue
+        rel = p.relative_to(ROOT).as_posix()
+        if rel.startswith("docs/") or any(s in f"/{rel}" for s in skip):
+            continue
+        try:
+            found.update(re.findall(r"\bTOURING_[A-Z][A-Z0-9_]+\b",
+                                    p.read_text(encoding="utf-8", errors="ignore")))
+        except OSError:
+            pass
+    return sorted(found)
 
 
 def gt_actual_cli_commands() -> set[str]:
@@ -93,7 +131,12 @@ def gt_actual_cli_commands() -> set[str]:
             ["touring", "--help"],
             capture_output=True, text=True, cwd=ROOT, timeout=30,
         )
-        help_out = r.stdout
+        # O binário imprime o help INTEIRO no stderr (stdout vazio, rc=0) —
+        # medido 08/10/2026: 0 linhas em stdout, 164 em stderr. Ler só stdout
+        # era o defeito que zerava o ground truth desde 31/08 (snapshot da época
+        # já registrava cli_commands_count: 0): TODO token citado contava como
+        # "potencialmente stale", sem comparação real.
+        help_out = r.stdout + "\n" + r.stderr
     except Exception as e:
         print(f"  WARN: touring --help failed: {e}", file=sys.stderr)
         return set()
@@ -175,14 +218,47 @@ def scan_c3_fused_crates(content_by_file: dict, gt_crates: list[str]) -> dict:
     }
 
 
+RE_FENCE = re.compile(r"```[a-zA-Z]*\n(.*?)```", re.DOTALL)
+RE_INLINE_CODE = re.compile(r"`[^`\n]+`")
+RE_C4_CMD = re.compile(r"(?<![/\w])touring ([a-z][a-z0-9_-]+)\b")
+
+
+def _code_spans(content: str) -> list[tuple[int, int]]:
+    """Spans de code fence e código inline `...` (fences mascaradas p/ não duplar)."""
+    spans = [(m.start(), m.end()) for m in RE_FENCE.finditer(content)]
+    masked = RE_FENCE.sub(lambda f: " " * (f.end() - f.start()), content)
+    spans += [(m.start(), m.end()) for m in RE_INLINE_CODE.finditer(masked)]
+    return spans
+
+
+def _in_code_context(content: str, pos: int, spans: list[tuple[int, int]]) -> bool:
+    """O match está em fence/inline-code, ou numa linha de shell ($/#/❯)?"""
+    if any(s <= pos < e for s, e in spans):
+        return True
+    line_start = content.rfind("\n", 0, pos) + 1
+    return content[line_start:pos].lstrip()[:1] in ("$", "#", "❯")
+
+
 def scan_c4_cli(content_by_file: dict, gt_cli: set[str]) -> dict:
-    """Comandos CLI citados vs `touring --help`."""
-    C4_PATTERN = re.compile(r"\btouring ([a-z][a-z0-9_-]+)\b")
+    """Comandos CLI citados vs `touring --help`.
+
+    Predicado (reconciliação 08/10/2026): uma citação conta quando
+      (i) "touring" NÃO é precedido de "/" nem de caractere de palavra — elimina
+          o diretório do workspace (".../projects/touring timeout ...") e paths
+          de build ("target/debug/touring scan"); invocação por path de build
+          fica fora por construção (majoritariamente em audits datados), E
+      (ii) o match está em contexto de código (fence, inline `...`, linha de
+           shell) — elimina prosa portuguesa ("o touring deixa de ser..."),
+           18 dos 26 sinais novos do delta 31/08→08/10.
+    """
     cited = set()
     files_with = {}
     for f, content in content_by_file.items():
+        spans = _code_spans(content)
         cmds = set()
-        for m in C4_PATTERN.finditer(content):
+        for m in RE_C4_CMD.finditer(content):
+            if not _in_code_context(content, m.start(), spans):
+                continue
             cited.add(m.group(1))
             cmds.add(m.group(1))
         if cmds:
@@ -306,13 +382,14 @@ def main():
         print(f"  cli_commands: {len(gt_cli_set)}", file=sys.stderr)
         print(f"  hooks: {len(gt_hooks)}", file=sys.stderr)
 
-    results = {
-        "scan_timestamp_utc": datetime.utcnow().isoformat() + "Z",
+    results: dict[str, Any] = {
+        "scan_timestamp_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "scope_files_count": len(files),
         "gt": {
             "version": gt_version,
             "crates_count": len(gt_crates),
             "envvars": gt_envvars,
+            "envvars_ground_truth": "code (.rs/.py/.sh/.toml) — desde 08/10/2026",
             "cli_commands_count": len(gt_cli_set),
             "hooks": gt_hooks,
         },

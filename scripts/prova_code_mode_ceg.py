@@ -183,10 +183,10 @@ def prova_transporte():
         caminho = f.name
     try:
         r = run_json(["run", "--lang", "python", "--file", caminho])
-        afirma(r and r.get("exit_code") == 0 and "OK" in r.get("stdout", ""),
+        afirma(bool(r and r.get("exit_code") == 0 and "OK" in r.get("stdout", "")),
                "--file transporta corpo hostil a quoting", (r or {}).get("stdout", "").strip()[:80])
         r = run_json(["run", "--lang", "python", "--file", "/dev/stdin"], stdin=corpo)
-        afirma(r and r.get("exit_code") == 0 and "OK" in r.get("stdout", ""),
+        afirma(bool(r and r.get("exit_code") == 0 and "OK" in r.get("stdout", "")),
                "--stdin idem", (r or {}).get("stdout", "").strip()[:80])
     finally:
         os.unlink(caminho)
@@ -319,16 +319,22 @@ def prova_rajada():
         afirma(False, "touring-hook instalado", str(hook))
         return
 
-    def pre(cmd: str, sessao: str):
+    # D (09/10/2026, ordem do Gabriel — §8 da V0e5): o S3 AVISA, nunca nega. A
+    # prova afirma a DECISÃO, não só o texto: deny, reescrita e aviso carregam o
+    # mesmo marcador, e a prova que lia só o texto aprovou um deny e uma
+    # reescrita com a mesma frase (lição de 09/10). `pre` devolve a decisão
+    # (`permissionDecision`, "" quando ausente) e TODO o texto da resposta.
+    def pre(cmd: str, sessao: str) -> tuple[str, str]:
         payload = json.dumps({"tool_name": "Bash", "session_id": sessao,
                               "cwd": str(WS), "tool_input": {"command": cmd}})
         p = subprocess.run([str(hook), "cli-suggest"], input=payload,
                            capture_output=True, text=True, cwd=str(WS), timeout=60)
         try:
-            v = json.loads(p.stdout or "{}")
+            out = json.loads(p.stdout or "{}").get("hookSpecificOutput", {})
         except json.JSONDecodeError:
-            return ""
-        return v.get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+            return "", ""
+        texto = out.get("permissionDecisionReason", "") + out.get("additionalContext", "")
+        return out.get("permissionDecision", ""), texto
 
     # O ledger de rajada é chaveado por (project_root, SESSÃO, classe), janela de
     # 300s (`inspect_burst_key`, cli_suggester.rs). Esta prova dizia "NÃO por
@@ -340,22 +346,28 @@ def prova_rajada():
     # execução: nenhuma herda de outra, por construção.
     nonce = f"{os.getpid()}-{time.monotonic_ns()}"
 
+    marca = "CODE MODE · rajada"
     s = f"prova-rajada-1-{nonce}"
-    r1 = pre("grep -rn alfa src/", s)
-    afirma("CODE MODE · rajada" not in r1, "1ª inspeção da classe PASSA (o caso comum não é taxado)",
-           r1[:70] or "(sem deny)")
-    r2 = pre("grep -rn beta src/", s)
-    afirma("CODE MODE · rajada" in r2, "2ª da mesma classe é NEGADA", r2[:70])
-    afirma("alfa" in r2 and "beta" in r2, "o deny entrega as DUAS chamadas fundidas num programa",
+    _, r1 = pre("grep -rn alfa src/", s)
+    afirma(marca not in r1, "1ª inspeção da classe PASSA (o caso comum não é taxado)",
+           r1[:70] or "(sem aviso)")
+    d2, r2 = pre("grep -rn beta src/", s)
+    afirma(marca in r2 and d2 == "", "2ª da mesma classe AVISA e roda nativa (sem deny, sem reescrita)",
+           f"decisão={d2 or '(nenhuma)'} · {r2[:60]}")
+    afirma("alfa" in r2 and "beta" in r2, "o aviso entrega as DUAS chamadas fundidas num programa",
            "ambos os comandos presentes na rota" if ("alfa" in r2 and "beta" in r2) else r2[:90])
-    r3 = pre("cat README.md", f"prova-rajada-2-{nonce}")
-    afirma("CODE MODE · rajada" not in r3, "classe diferente não soma à rajada", r3[:70] or "(sem deny)")
-    # A rota seguida zera a janela DAQUELA sessão: a próxima inspeção passa.
-    pre("grep -rn gama src/", s)
+    _, r3 = pre("cat README.md", f"prova-rajada-2-{nonce}")
+    afirma(marca not in r3, "classe diferente não soma à rajada", r3[:70] or "(sem aviso)")
+    # Um aviso por rajada: a 3ª da mesma rajada não repete o do S3 (o G1, com
+    # ledger próprio, pode reescrevê-la — o marcador dele é outro).
+    _, rg = pre("grep -rn gama src/", s)
+    afirma(marca not in rg, "a 3ª da mesma rajada não repete o aviso (nunca fadiga)",
+           rg[:70] or "(sem aviso)")
+    # A rota seguida zera a janela DAQUELA sessão: a próxima volta a ser a 1ª.
     pre("touring run --lang bash --code 'true'", s)
-    r4 = pre("grep -rn delta src/", s)
-    afirma("CODE MODE · rajada" not in r4, "um `touring run` na mesma sessão zera a janela",
-           r4[:70] or "(sem deny)")
+    _, r4 = pre("grep -rn delta src/", s)
+    afirma(marca not in r4, "um `touring run` na mesma sessão zera a janela",
+           r4[:70] or "(sem aviso)")
 
 
 # ══ 8. O T3-B foi enterrado (S10) ══════════════════════════════════════════

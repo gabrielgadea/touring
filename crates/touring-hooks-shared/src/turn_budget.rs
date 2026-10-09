@@ -23,9 +23,13 @@ use std::path::{Path, PathBuf};
 
 /// Default ceiling in bytes of injected context per user turn.
 ///
-/// 3 000 halves the 6 650 measured on 04/09/2026. Overridable per environment
-/// (`TOURING_TURN_BUDGET`) exactly like the per-call budgets, so calibration is
-/// a decision someone makes and not a constant someone edits.
+/// 3 000 halved the 6 650 measured on 04/09/2026; the S8 remeasurement of
+/// 08/10/2026 (163 turns, 12 transcripts: p50 = 16 072 B/turn, p90 = 129 820)
+/// lowered it to 2 000 — with section-level dedupe the legitimate spend of a
+/// turn is the NEW sections (~2 blocks × ~900 B), and 2 000 is 12,4 % of the
+/// median turn, the same halving policy over the new ruler. Overridable per
+/// environment (`TOURING_TURN_BUDGET`) exactly like the per-call budgets, so
+/// calibration is a decision someone makes and not a constant someone edits.
 pub const TURN_BUDGET_DEFAULT: usize = touring_foundation::cila::INJECTION_CEIL_BYTES_PER_TURN;
 
 /// A turn with no observed end is bounded by this instead, so a session that
@@ -171,8 +175,10 @@ mod tests {
 
     #[test]
     fn the_ceiling_is_the_measured_baseline_halved_and_is_overridable() {
-        // 6 650 B/turno medidos em 04/09/2026 → alvo 3 000.
-        assert_eq!(TURN_BUDGET_DEFAULT, 3000);
+        // 6 650 B/turno medidos em 04/09/2026 → alvo 3 000; S8 (08/10/2026):
+        // p50 do turno = 16 072 B e, com a dedupe por seção, o gasto legítimo
+        // é ~2 blocos novos × ~900 B → 2 000 (12,4 % do p50, mesma política).
+        assert_eq!(TURN_BUDGET_DEFAULT, 2000);
         assert_eq!(turn_budget(), TURN_BUDGET_DEFAULT);
     }
 

@@ -117,6 +117,19 @@ def test_never_logs_key(infra: dict, capsys: pytest.CaptureFixture[str]) -> None
     assert LEAK_SENTINEL not in stderr_text
 
 
+def test_questions_nao_mapping_devolve_none_com_erro_nomeado(infra: dict) -> None:
+    """V0e (09/10/2026 — dívida V0c c2e3da31104b): `sorted(questions.keys())`
+    explodia com AttributeError cru quando `questions` não era um Mapping — um
+    negativo sem nome. O erro estruturado nomeia o atributo ausente, no padrão
+    das demais recusas de spec do módulo, e segue fail-open (journal + None)."""
+    result = jev_client.system_one("s", ["não", "é", "dict"], **infra, client=FakeClient())
+    assert result is None
+    last = json.loads(infra["journal_file"].read_text().strip().splitlines()[-1])
+    assert last["route_taken"] == "fallback"
+    assert "keys" in last["fallback_reason"]
+    assert "list" in last["fallback_reason"]
+
+
 def test_journal_schema_complete(infra: dict) -> None:
     fake = FakeClient()
     jev_client.system_one("s", _questions(), **infra, client=fake)

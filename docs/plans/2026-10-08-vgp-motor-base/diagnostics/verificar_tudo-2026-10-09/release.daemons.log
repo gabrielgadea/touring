@@ -1,0 +1,113 @@
+[[2971193, "/home/gabrielgadea/projects/touring/target/release/touring-daemon"], [2992399, "/home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon"], [2993130, "/home/gabrielgadea/.touring/toolchains/30.4.93/bin/touring-daemon"]]
+{
+  "socket_path": "/tmp/touring-daemon-1000.sock",
+  "socket_alive": true,
+  "daemon_pid": 2971193,
+  "daemon_exe": "/home/gabrielgadea/projects/touring/target/release/touring-daemon",
+  "daemon_exe_deleted": false,
+  "health": {
+    "async": true,
+    "hook_metrics": {
+      "cli-ast-blast": {
+        "avg_latency_ms": 0.17,
+        "invocations": 6
+      },
+      "cli-ast-meta": {
+        "avg_latency_ms": 5.86,
+        "invocations": 7
+      },
+      "cli-code-mode-run": {
+        "avg_latency_ms": 0.0,
+        "invocations": 28
+      },
+      "cli-decompose-get": {
+        "avg_latency_ms": 0.0,
+        "invocations": 1
+      },
+      "cli-decompose-ready": {
+        "avg_latency_ms": 0.0,
+        "invocations": 2
+      },
+      "cli-decompose-status": {
+        "avg_latency_ms": 0.0,
+        "invocations": 2
+      },
+      "cli-flywheel-status": {
+        "avg_latency_ms": 0.0,
+        "invocations": 90
+      },
+      "cli-gate-metrics": {
+        "avg_latency_ms": 20.74,
+        "invocations": 115
+      },
+      "cli-gotcha-match": {
+        "avg_latency_ms": 0.0,
+        "invocations": 3
+      },
+      "cli-health-delta-status": {
+        "avg_latency_ms": 22.37,
+        "invocations": 90
+      },
+      "cli-incremental-status": {
+        "avg_latency_ms": 0.03,
+        "invocations": 90
+      },
+      "cli-index-find": {
+        "avg_latency_ms": 2.75,
+        "invocations": 4
+      },
+      "cli-index-status": {
+        "avg_latency_ms": 3.78,
+        "invocations": 113
+      },
+      "cli-kpi": {
+        "avg_latency_ms": 685.27,
+        "invocations": 500
+      },
+      "cli-learning-status": {
+        "avg_latency_ms": 0.7,
+        "invocations": 1602
+      },
+      "cli-memory-recall": {
+        "avg_latency_ms": 235.82,
+        "invocations": 11
+      },
+      "cli-session-list": {
+        "avg_latency_ms": 0.0,
+        "invocations": 90
+      },
+      "cli-suggest": {
+        "avg_latency_ms": 89.0,
+        "invocations": 6
+      },
+      "cli-wiring-orphans": {
+        "avg_latency_ms": 0.0,
+        "invocations": 2
+      },
+      "cli-wiring-status": {
+        "avg_latency_ms": 0.06,
+        "invocations": 90
+      },
+      "instructions-loaded": {
+        "avg_latency_ms": 0.0,
+        "invocations": 35
+      },
+      "session-start": {
+        "avg_latency_ms": 15.4,
+        "invocations": 5
+      },
+      "session-stop": {
+        "avg_latency_ms": 7.0,
+        "invocations": 1
+      }
+    },
+    "projects_loaded": 3,
+    "status": "healthy",
+    "version": "0.1.0"
+  },
+  "sibling_processes": {
+    "mcp_bridges": 1,
+    "hook_handlers": 0,
+    "cli_clients": 1
+  }
+}

@@ -1,0 +1,7 @@
+fmt-check rc=0
+PASSO0B_v2 rc=0 (124s) erros=0
+test -p touring-cli --lib rc=0 | test result: ok. 653 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 62.92s
+test -p touring-foundation --lib rc=0 | test result: ok. 538 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+test -p touring-hooks-core --lib rc=0 | test result: ok. 530 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+test -p touring-hook-handlers --features post-hooks --lib rc=0 | test result: ok. 729 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.69s
+test -p touring-storage --features knowledge --lib rc=0 | test result: ok. 289 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.04s

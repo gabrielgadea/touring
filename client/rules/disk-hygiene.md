@@ -1,3 +1,11 @@
+---
+paths:
+  - "**/Cargo.toml"
+  - "**/*.rs"
+  - "**/.cargo/config.toml"
+  - "**/target/**"
+---
+
 # Disk Hygiene — Rust `target/` Sprawl Control (REGRA #12)
 
 > **Auto-load** (slim) | **Version**: v2 (slim) | **Origin**: Wave 2026-04-26 recovered 148 GB perdidos | **Disco 78%→62%**

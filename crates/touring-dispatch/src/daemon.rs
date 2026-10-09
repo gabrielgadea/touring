@@ -510,6 +510,32 @@ const KPI_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 /// handler call, latency metrics, the reply, then the debounced E2E scan. The
 /// main loop and a heavy hook's yield both come here, so a command served during
 /// a yield is measured and answered like any other.
+/// S8 (2026-10-08): dedupe por seção, com a validade da ÉPOCA de compactação
+/// (não um TTL de 300 s), no ponto central por onde TODO handler da dispatch
+/// table sai — o bloco quase nunca é byte-idêntico (carrega o arquivo/comando
+/// da vez), então a dedupe por bloco deixava as seções estáticas viajarem a
+/// cada chamada. Medido: 894 B de conselho por chamada em 8.864 chamadas.
+/// Fail-open: sem `session_id` no envelope, ou output não-JSON, passa intacto.
+/// O caminho standalone (daemon fora, `forward_daemon_output` no main.rs) fica
+/// sem dedupe — fallback raro, decisão declarada no brief da S8
+/// (docs/plans/2026-10-08-compactacao-65/ESTADO-S8-dedupe-origem.md).
+fn maybe_dedup_output(
+    runtime: &HookRuntime,
+    payload: &serde_json::Value,
+    output: String,
+) -> String {
+    match payload.get("session_id").and_then(|v| v.as_str()) {
+        Some(session) if !session.is_empty() => {
+            touring_hooks_shared::injection_dedup::dedup_hook_output(
+                &runtime.project_root,
+                session,
+                &output,
+            )
+        }
+        _ => output,
+    }
+}
+
 fn run_hook_command(
     runtime: &mut HookRuntime,
     table: &HashMap<&'static str, HookHandler>,
@@ -593,6 +619,8 @@ fn run_hook_command(
         tracing::warn!(hook = %hook_name, elapsed_ms, "slow handler (>1s)");
     }
 
+    // S8 (2026-10-08): dedupe por seção na saída central — ver `maybe_dedup_output`.
+    let output = maybe_dedup_output(runtime, &payload, output);
     // Reply to the client FIRST so hook latency never includes the
     // post-edit maintenance scan below (perf F1, 2026-06-13: the free
     // `cli_e2e` has no TTL cache, so it used to run a full workspace

@@ -61,13 +61,16 @@ def test_required_scripts_exist_in_client_hooks() -> None:
     reason="reads the operator's ~/.claude/settings.json, absent on a CI runner (runs on the machine)",
 )
 def test_every_registered_global_script_is_a_symlink_into_repo() -> None:
-    """Every .sh script registered in settings.json hooks that lives in ~/.claude/hooks/
+    """Every .sh AND .py script registered in settings.json hooks that lives in ~/.claude/hooks/
     is a symlink pointing into ~/projects/touring/client/hooks/.
 
     RED before symlinks are created. GREEN after install.
+    06/10/2026: the filter used to be `.sh` only, so `session_startup_intelligence.py` stopped being a
+    symlink on 01/10 (a Jev edit replaced it with a regular file) and this test stayed green while the
+    installed copy and the versioned one drifted by 139 lines (D1, analise-92).
     """
     registered = _get_registered_global_shell_scripts()
-    sh_scripts = [p for p in registered if p.endswith(".sh")]
+    sh_scripts = [p for p in registered if p.endswith((".sh", ".py"))]
     if not sh_scripts:
         pytest.skip("No shell scripts registered in settings.json")
 

@@ -217,9 +217,10 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         }
     }
 
-    // Cross-cutting: if command failed and involves a file, append note to that file.
-    if !outcome.success {
-        maybe_append_failure_note(&runtime.ctx.knowledge, &outcome);
+    // Cross-cutting: a failed command that involves a file records it as that file's
+    // latest bash outcome — unless a capture already did, with the richer summary.
+    if !outcome.success && capture.is_none() {
+        maybe_record_failure_note(&runtime.ctx.knowledge, &outcome);
     }
 
     // E2: Temporal quality signal on bash failure — first touring_analysis integration in post_bash.
@@ -531,36 +532,66 @@ fn maybe_capture_and_persist(
     let capture = super::output_capture::capture_output(command, raw_output, exit_code)?;
 
     if let Some(ref file_ctx) = outcome.file_context {
-        // Persist summary as file note.
-        if let Err(e) = db.append_note(file_ctx, &capture.summary) {
-            tracing::debug!("append_note (capture) failed for {file_ctx}: {e}");
-        }
-
-        // Persist key metrics as structured note for future pre-bash recall.
-        if !capture.metrics.is_empty() {
-            let metrics_note = format_metrics_note(&capture);
-            if let Err(e) = db.append_note(file_ctx, &metrics_note) {
-                tracing::debug!("append_note (metrics) failed for {file_ctx}: {e}");
-            }
+        let note = bash_outcome_note(&capture.extractor_name, &capture.summary, &now_minute_utc());
+        if let Err(e) = db.replace_owned_note(file_ctx, &is_bash_outcome_segment, &note) {
+            tracing::debug!("replace_owned_note (capture) failed for {file_ctx}: {e}");
         }
     }
 
     Some(capture)
 }
 
-/// Format OutputCapture metrics as a compact note for knowledge persistence.
-fn format_metrics_note(capture: &super::output_capture::OutputCapture) -> String {
-    use std::fmt::Write;
-    let mut note = format!("bash_metrics[{}]:", capture.extractor_name);
-    // Deterministic ordering for stable output.
-    let mut keys: Vec<&String> = capture.metrics.keys().collect();
-    keys.sort();
-    for key in keys {
-        if let Some(val) = capture.metrics.get(key) {
-            let _ = write!(note, " {key}={val}");
-        }
-    }
-    note
+/// The latest bash outcome for a file — ONE segment, replaced on every capture or
+/// failure, at the head of `notes` (V0e5, 09/10/2026: appended, a red pytest run stayed
+/// at the readers' 100–120-byte head for 17 min after newer runs). `; ` separates
+/// segments, so it is escaped inside the summary (cargo's `1 passed; 2 failed`).
+fn bash_outcome_note(extractor: &str, summary: &str, at: &str) -> String {
+    format!("{extractor}@{at}: {}", summary.replace("; ", ", "))
+}
+
+/// UTC to the minute: the reader sees how old the outcome is, inside its 100-byte head.
+fn now_minute_utc() -> String {
+    chrono::Utc::now().format("%m-%dT%H:%MZ").to_string()
+}
+
+/// The segments this writer owns: its current form and every legacy form it APPENDED
+/// before — the bare summaries of the four extractors, the `bash_metrics[…]:` key=value
+/// note, the failure note and the fragments cargo's `; ` was split into. Positive
+/// predicates only: a segment no form names belongs to another writer and stays.
+fn is_bash_outcome_segment(s: &str) -> bool {
+    const LEGACY_PREFIXES: [&str; 6] = [
+        "bash_metrics[",
+        "PASS:",
+        "FAIL",
+        "UNKNOWN",
+        "test result:",
+        "ruff:",
+    ];
+    LEGACY_PREFIXES.iter().any(|p| s.starts_with(p))
+        || (s.starts_with("Exit ") && s.contains(" lines output ("))
+        || (s.starts_with('`') && s.contains("` failed (exit "))
+        || is_cargo_fragment(s)
+        || is_current_bash_outcome(s)
+}
+
+/// `"0 failed"`, `"2 ignored in 1.20s"`: what cargo's summary left once split on `; `.
+fn is_cargo_fragment(s: &str) -> bool {
+    const COUNTS: [&str; 6] = [
+        "passed", "failed", "ignored", "measured", "filtered", "errors",
+    ];
+    let mut words = s.split_whitespace();
+    words.next().is_some_and(|n| n.parse::<u64>().is_ok())
+        && words.next().is_some_and(|w| COUNTS.contains(&w))
+}
+
+/// `"<extractor>@MM-DDTHH:MMZ: …"` — the form `bash_outcome_note` writes.
+fn is_current_bash_outcome(s: &str) -> bool {
+    s.split_once('@').is_some_and(|(name, rest)| {
+        !name.is_empty()
+            && name.bytes().all(|b| b.is_ascii_lowercase() || b == b'_')
+            && rest.get(5..6) == Some("T")
+            && rest.contains("Z: ")
+    })
 }
 
 /// Build a `HookResponse` from the bash outcome and optional OutputCapture.
@@ -644,19 +675,19 @@ fn format_capture_context(capture: &super::output_capture::OutputCapture) -> Str
     ctx
 }
 
-/// Append a failure note to the file context when a command fails.
+/// Record a failure as the file's latest bash outcome (replacing the previous one — V0e5).
 ///
 /// Only fires when the outcome has a `file_context` so the note is
 /// attributed to the right file in the knowledge graph.
-fn maybe_append_failure_note(db: &super::knowledge::FileKnowledgeDB, outcome: &BashOutcome) {
+fn maybe_record_failure_note(db: &super::knowledge::FileKnowledgeDB, outcome: &BashOutcome) {
     if let Some(ref file_ctx) = outcome.file_context {
         let note = format!(
             "`{}` failed (exit {})",
             truncate(&outcome.command, 60),
             outcome.exit_code
         );
-        if let Err(e) = db.append_note(file_ctx, &note) {
-            tracing::debug!("append_note (failure) failed for {file_ctx}: {e}");
+        if let Err(e) = db.replace_owned_note(file_ctx, &is_bash_outcome_segment, &note) {
+            tracing::debug!("replace_owned_note (failure) failed for {file_ctx}: {e}");
         }
     }
 }
@@ -1093,34 +1124,99 @@ mod tests {
         assert_eq!(response, HookResponse::Allow);
     }
 
-    // ── E11: format_metrics_note ────────────────────────────────────────
+    // ── V0e5: one current bash-outcome segment per file ─────────────────
 
+    /// The segment carries the extractor, the UTC minute and the verdict, and escapes
+    /// the segment separator `; ` that cargo's summary contains.
     #[test]
-    fn test_format_metrics_note_sorted_keys() {
-        use std::collections::HashMap;
-        let mut metrics = HashMap::new();
-        metrics.insert("failed".into(), serde_json::Value::from(1));
-        metrics.insert("passed".into(), serde_json::Value::from(5));
-        metrics.insert("coverage_pct".into(), serde_json::Value::from(85.0));
-        let capture = super::super::output_capture::OutputCapture {
-            metrics,
-            summary: "test summary".to_string(),
-            exit_code: 0,
-            output_bytes: 2048,
-            was_captured: true,
-            extractor_name: "cargo_test".to_string(),
-        };
-        let note = format_metrics_note(&capture);
-        assert!(
-            note.starts_with("bash_metrics[cargo_test]:"),
-            "prefix: {note}"
+    fn test_bash_outcome_note_is_one_owned_segment() {
+        let note = bash_outcome_note(
+            "cargo_test",
+            "test result: FAILED. 1 passed; 2 failed; 0 ignored",
+            "10-09T15:42Z",
         );
-        // Keys should be sorted alphabetically
-        let coverage_pos = note.find("coverage_pct").expect("has coverage");
-        let failed_pos = note.find("failed").expect("has failed");
-        let passed_pos = note.find("passed").expect("has passed");
-        assert!(coverage_pos < failed_pos, "coverage before failed: {note}");
-        assert!(failed_pos < passed_pos, "failed before passed: {note}");
+        assert_eq!(
+            note,
+            "cargo_test@10-09T15:42Z: test result: FAILED. 1 passed, 2 failed, 0 ignored"
+        );
+        assert!(!note.contains("; "), "{note}");
+        assert!(is_bash_outcome_segment(&note), "owns its own form: {note}");
+    }
+
+    /// Every form this writer ever APPENDED is owned — so the replace sweeps the
+    /// legacy pile (297 files past 500 bytes on 09/10) — and nothing another writer
+    /// stores is.
+    #[test]
+    fn test_bash_outcome_segment_owns_the_legacy_forms_only() {
+        for s in [
+            "PASS: 0 passed, 3 failed, 0 errors in 0.20s ===============================",
+            "FAIL: 2 passed, 1 failed, 0 errors in 3.45s",
+            "UNKNOWN (no pytest summary line): 0 passed, 0 failed, 0 errors",
+            "test result: ok. 12 passed",
+            "0 failed",
+            "2 ignored in 1.20s",
+            "ruff: 3 errors (1 fixable)",
+            "Exit 0 (OK), 120 lines output (4096 bytes)",
+            "bash_metrics[pytest]: duration=\"0.20s\" errors=0 failed=3 passed=0",
+            "`pytest t.py` failed (exit 1)",
+            "pytest@10-09T15:42Z: FAIL: 0 passed, 3 failed, 0 errors in 0.20s",
+        ] {
+            assert!(is_bash_outcome_segment(s), "legacy form not owned: {s}");
+        }
+        for s in [
+            "quality: CC_max=4, CC_avg=2.5",
+            "generator-nlp: x",
+            "Bug with enum",
+            "src/a.rs (modify)",
+            "owner@example.com",
+        ] {
+            assert!(
+                !is_bash_outcome_segment(s),
+                "another writer's segment claimed: {s}"
+            );
+        }
+    }
+
+    /// The defect V0e5 measured, end to end through the real capture and the real DB:
+    /// a red run, then a green one on the same file — the head of `notes` (all the
+    /// readers show) is the green run, the red one is gone, another writer's stays.
+    #[test]
+    fn test_newer_bash_outcome_replaces_the_stale_one_at_the_head() {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = crate::knowledge::FileKnowledgeDB::new(&tmp.path().join("k.db")).unwrap();
+        let file = "tests/test_foo.py";
+        db.upsert(&crate::knowledge::FileKnowledge {
+            file_path: file.to_string(),
+            ..Default::default()
+        })
+        .unwrap();
+        db.append_note(file, "quality: CC_max=4").unwrap();
+        let pad = "collected line\n".repeat(100);
+        let red = format!("{pad}FAILED {file}::test_a\n===== 3 failed in 0.20s =====");
+        let green = format!("{pad}===== 4 passed in 0.17s =====");
+        let cmd = format!("pytest {file}");
+        for (out, code) in [(red.as_str(), 1), (green.as_str(), 0)] {
+            let outcome = build_bash_outcome(&cmd, out).unwrap();
+            let captured = maybe_capture_and_persist(&db, &cmd, out, code, &outcome);
+            assert!(
+                captured.is_some(),
+                "control: the output crosses the capture threshold"
+            );
+        }
+        let notes = db.lookup(file).unwrap().unwrap().notes.unwrap();
+        let head = notes.split("; ").next().unwrap();
+        assert!(
+            head.starts_with("pytest@") && head.contains("PASS: 4 passed"),
+            "{notes}"
+        );
+        assert!(
+            !notes.contains("3 failed"),
+            "the stale red run survived: {notes}"
+        );
+        assert!(
+            notes.contains("quality: CC_max=4"),
+            "another writer's segment dropped: {notes}"
+        );
     }
 
     // ── E11: format_capture_context ─────────────────────────────────────

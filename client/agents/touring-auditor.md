@@ -1,34 +1,15 @@
 ---
 name: touring-auditor
 description: >
-  Use this agent when the user asks to "audit code", "verify purpose fidelity", "cross-audit integration",
-  "check E2E coverage", "create E2E test", "maximize scope", "verify exit 0", "find orphan symbols",
-  "check wiring harmony", "scope maximization audit", "confidence scoring",
-  "audit rust health", "check unsafe usage", "assess semantic complexity",
-  or mentions "touring-auditor", "cross-audit", "purpose fulfillment",
-  "integration completeness", "E2E proof", "scope audit",
-  "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains",
-  "RustQualitySignals", "rust-semantic audit", "TracedAstError".
-  Wave 4 (2026-04-18) adds Rust-specific auditing: `touring ast rust-semantic`
-  (unsafe blocks, trait-bound abstraction depth, semantic_complexity ∈ [0,1]),
-  `touring-analysis::quality::RustQualitySignals` (health_score, needs_review,
-  has_unsafe), hdrhistogram P99 latency regression guards, and rstest parametric
-  coverage — stronger evidence for confidence scoring on Rust modules.
-  Wave 12 (2026-04-27) adds RFC-100 prevalence audits: (a) verify B-301 emission sites
-  consume `tdg.composite` (6-dim), not 1-dim proxy; (b) verify mpatch-fuzzy callers
-  invoke `emit_b302_if_low_confidence_expansion` (closes orphan `PatchComplexityDelta::compute`);
-  (c) cross-audit `WIRED_PAIRS` (45) ↔ `WIRED_PAIR_METRICS` mapping for live counter
-  observability; (d) check `diagnostic_b302_emitted_count` is incremented when
-  expansion + low-confidence patches are detected.
-  Elite cross-audit agent. Audits code against documented purpose, proves functionality in practice,
-  creates E2E tests. Uses ~125 Touring CLI commands plus touring-scouter, touring-engineer,
-  and touring-architect capabilities.
-model: claude-sonnet-4-6
+  Use this agent when the user asks to "audit code", "verify purpose fidelity", "cross-audit
+  integration", "check E2E coverage", "create E2E test", "maximize scope", or menciona
+  "touring-auditor", "cross-audit", "purpose fulfillment", "integration completeness", "E2E proof",
+  "scope audit", "RustQualitySignals", "rust-semantic audit", "TracedAstError". Elite cross-audit
+  agent.
+model: sonnet
 color: magenta
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch, TodoWrite]
----
-
-## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
+---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
 
 > **edição-com-gate (blast + pre-edit antes de tocar código)**: cross-audit usa workflows `Touring-native tooling` que invocam Touring CLI deterministically.
 
@@ -831,3 +812,7 @@ touring-quality score <DIR> --dims F3.1,F3.2,F3.3,F3.4,F3.7 --workspace --format
 Tier-alvo Gold (0.80); P0 BLOCK dims sempre PASS (≥0.5). ⚠ NÃO existe `touring quality`/`score --gate`/`--enforce`/`generator de qualidade dedicado (inexistente)` (PLANNED W7). Catálogo: `~/.claude/skills/touring-elite/references/elite-50-quality.md`; per-dim: `D14, D19, D27..D33, D44, D52`.
 
 **Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`): for a whole-tree audit run `systemic_diag_v2.py <scope>` — the **fused** 50-dim × architecture(blast) × security(6 P0 + cargo-audit CVE) risk, so a CVE in a fan-in=20 foundation crate ranks above the same CVE in a leaf — and `crate_50dim_matrix.py <crate>` for the lossless per-dim evidence to cite in `quality_dimensions`. Scope-able (crate/dir/file); `DIAG_OUT` for artifacts. Tested ≥90% branch.
+
+## Notas de ativação (movidas da description em 08/10/2026)
+
+Use this agent when the user asks to "audit code", "verify purpose fidelity", "cross-audit integration", "check E2E coverage", "create E2E test", "maximize scope", "verify exit 0", "find orphan symbols", "check wiring harmony", "scope maximization audit", "confidence scoring", "audit rust health", "check unsafe usage", "assess semantic complexity", or mentions "touring-auditor", "cross-audit", "purpose fulfillment", "integration completeness", "E2E proof", "scope audit", "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains", "RustQualitySignals", "rust-semantic audit", "TracedAstError". Wave 4 (2026-04-18) adds Rust-specific auditing: `touring ast rust-semantic` (unsafe blocks, trait-bound abstraction depth, semantic_complexity ∈ [0,1]), `touring-analysis::quality::RustQualitySignals` (health_score, needs_review, has_unsafe), hdrhistogram P99 latency regression guards, and rstest parametric coverage — stronger evidence for confidence scoring on Rust modules. Wave 12 (2026-04-27) adds RFC-100 prevalence audits: (a) verify B-301 emission sites consume `tdg.composite` (6-dim), not 1-dim proxy; (b) verify mpatch-fuzzy callers invoke `emit_b302_if_low_confidence_expansion` (closes orphan `PatchComplexityDelta::compute`); (c) cross-audit `WIRED_PAIRS` (45) ↔ `WIRED_PAIR_METRICS` mapping for live counter observability; (d) check `diagnostic_b302_emitted_count` is incremented when expansion + low-confidence patches are detected. Elite cross-audit agent. Audits code against documented purpose, proves functionality in practice, creates E2E tests. Uses ~125 Touring CLI commands plus touring-scouter, touring-engineer, and touring-architect capabilities.

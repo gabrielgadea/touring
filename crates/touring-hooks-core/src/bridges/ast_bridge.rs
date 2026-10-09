@@ -224,21 +224,21 @@ mod consumed_import_tests {
         );
     }
 
-    /// The REAL file, not a paraphrase of it: the row that appeared on 03/10/2026 came from
-    /// editing the workspace CLAUDE.md, whose rule 26 writes the example inline and WITHOUT the
-    /// trailing `;` that the paraphrase above had. Like the test above, this pins THIS extractor's
-    /// invariant on the real text; it is not the XA-17 reproduction (see above) and passed before
-    /// that fix too.
+    /// Código citado em Markdown (fence ou prosa) não é consumo de import.
+    ///
+    /// 09/10/2026: este teste lia o CLAUDE.md do workspace via `include_str!` e
+    /// tinha uma premissa viva — "o exemplo `use crate::a::b::Z` ainda está no
+    /// arquivo". A reestruturação documental (o changelog movido ao
+    /// CHANGELOG.md:390) removeu o exemplo e o teste quebrou sem que o extrator
+    /// mudasse: a premissa num doc vivo era o defeito. O exemplo vem inline nos
+    /// dois formatos que o doc real usa; o comportamento provado é o mesmo.
     #[test]
-    fn the_workspace_claude_md_is_not_a_consumer() {
-        let real = include_str!("../../../../CLAUDE.md");
+    fn markdown_with_cited_code_is_not_a_consumer() {
+        let md = "# Guia\n\nUse assim:\n\n```rust\nuse crate::a::b::Z;\n```\n\n\
+                  E o `crate::a::b::Z` citado em prosa segue sendo citação.\n";
         assert!(
-            real.contains("use crate::a::b::Z"),
-            "premise: the example this test is about is still in the file"
-        );
-        assert!(
-            extract_consumed_imports(real, "CLAUDE.md").is_empty(),
-            "the workspace CLAUDE.md must not consume anything"
+            extract_consumed_imports(md, "CLAUDE.md").is_empty(),
+            "markdown com código citado não pode consumir nada"
         );
     }
 

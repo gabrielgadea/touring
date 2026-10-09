@@ -1,0 +1,140 @@
+{
+ "agentes": [
+  {
+   "item": "touring-architect",
+   "linhas_conteudo": 620,
+   "conservadas": 619,
+   "excecoes": 172,
+   "perdidas": [],
+   "corrigidas": [
+    "\"expected_file\": \"crates/touring-resource-monitor/src/guard/mod.rs\","
+   ],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 99.84,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-architect.md",
+    "/home/gabrielgadea/.claude/agents/touring-architect.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-auditor",
+   "linhas_conteudo": 623,
+   "conservadas": 623,
+   "excecoes": 210,
+   "perdidas": [],
+   "corrigidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-auditor.md",
+    "/home/gabrielgadea/.claude/agents/touring-auditor.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-engineer",
+   "linhas_conteudo": 623,
+   "conservadas": 620,
+   "excecoes": 195,
+   "perdidas": [],
+   "corrigidas": [
+    "\"created_in_file\": \"crates/touring-resource-monitor/src/guard/mod.rs\",",
+    "\"created_at_line\": 67,",
+    "\"post_edit_evidence\": \"touring ast overview crates/.../guard/mod.rs returns symbol at line 67\""
+   ],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 99.52,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-engineer.md",
+    "/home/gabrielgadea/.claude/agents/touring-engineer.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-scouter",
+   "linhas_conteudo": 650,
+   "conservadas": 646,
+   "excecoes": 195,
+   "perdidas": [],
+   "corrigidas": [
+    "# Lifecycle hook memory (store/recall patterns from hook events)",
+    "touring hook-memory-recall \"<query>\" -j",
+    "touring hook-memory-store \"<key>\" \"<value>\" --tier semantic --type lesson",
+    "\"evidence_excerpt\": \"{\\\"file_path\\\": \\\"crates/touring-resource-monitor/src/guard/mod.rs\\\", \\\"line\\\": 67}\","
+   ],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 99.38,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-scouter.md",
+    "/home/gabrielgadea/.claude/agents/touring-scouter.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "touring-scriber",
+   "linhas_conteudo": 550,
+   "conservadas": 550,
+   "excecoes": 195,
+   "perdidas": [],
+   "corrigidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/touring/client/agents/touring-scriber.md",
+    "/home/gabrielgadea/.claude/agents/touring-scriber.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "antt-vote-drafter",
+   "linhas_conteudo": 475,
+   "conservadas": 475,
+   "excecoes": 245,
+   "perdidas": [],
+   "corrigidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/antt-vote-drafter.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "erickson-paradox-reformulator",
+   "linhas_conteudo": 79,
+   "conservadas": 79,
+   "excecoes": 19,
+   "perdidas": [],
+   "corrigidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/erickson-paradox-reformulator.md"
+   ],
+   "copias_divergentes": []
+  },
+  {
+   "item": "transformational-narrative-architect",
+   "linhas_conteudo": 81,
+   "conservadas": 81,
+   "excecoes": 32,
+   "perdidas": [],
+   "corrigidas": [],
+   "destinos_ausentes": [],
+   "ok": true,
+   "pct": 100.0,
+   "arquivos_varidos": [
+    "/home/gabrielgadea/projects/analise/.claude/agents/transformational-narrative-architect.md"
+   ],
+   "copias_divergentes": []
+  }
+ ]
+}

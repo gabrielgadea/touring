@@ -1,0 +1,39 @@
+{
+ "since": "2026-09-17",
+ "deploy_94": "2026-10-09T14:16:43Z",
+ "q1_base_ate_deploy": {
+  "subgrupos": {
+   "G10 exec-burst": 402,
+   "G1 proprio (rajada-de-inspecao)": 182,
+   "S3 rajada do code mode": 1270
+  },
+  "total": 1854,
+  "instrumento_sem_corte": 1855
+ },
+ "q1_base_por_origem": {
+  "G10 exec-burst": 402,
+  "G1 proprio (rajada-de-inspecao)": 182,
+  "S3 rajada do code mode": 1271
+ },
+ "q2_pos_deploy": {
+  "subgrupos": {
+   "S3 rajada do code mode": 1
+  },
+  "total": 1,
+  "envelopes_run": 1,
+  "controle_positivo": {
+   "achado": true,
+   "eventos": [
+    {
+     "ts": "2026-10-09T14:19:57.853Z",
+     "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+     "is_error": false,
+     "cmd": "for p in $(pgrep -x touring-daemon); do echo \"pid=$p exe=$(readlink /proc/$p/exe | sed \"s|$HOME|~|\")\"; tr '\\0' '\\n' < /proc/$p/environ 2>/dev/null | grep -E 'G1",
+     "exit_code": 0,
+     "duration_ms": 42,
+     "advisory": "X6 denied the subprocess capability 'pgrep' under profile 'Sandboxed'"
+    }
+   ]
+  }
+ }
+}

@@ -92,77 +92,12 @@ fn cache() -> &'static moka::sync::Cache<u64, ()> {
     })
 }
 
-/// P1/S-1.1 (2026-09-04) — the ledger of what was already SAID, which the input
-/// cache structurally cannot be.
-///
-/// [`cache`] anti-spams identical `(tool_name, tool_input)` pairs: it asks *"same
-/// question?"*. The window is paid in ANSWERS, and the two diverge — the same
-/// text is reached from different inputs. Measured over 10 transcripts / 406 user
-/// turns (04/09/2026): **24,1 %** of this emitter's blocks were still
-/// byte-identical repeats despite that cache, and across all emitters repeats
-/// were **35,1 % of the whole injection — 948 KB**, with `past-lessons` at
-/// 86,4 %.
-///
-/// A second copy of the same bytes carries no proposition the first did not, so
-/// its information density is zero by construction (IDR, Eixo 4). Inside the TTL
-/// window — the window in which the first copy is demonstrably still in context —
-/// the repeat collapses to a one-line reference.
-///
-/// Keyed by `(session, content)`: another session never saw the first copy, and
-/// suppressing there would hide a block that context has never carried.
-fn emitted_content() -> &'static moka::sync::Cache<(String, u64), std::time::Instant> {
-    static EMITTED: OnceLock<moka::sync::Cache<(String, u64), std::time::Instant>> =
-        OnceLock::new();
-    EMITTED.get_or_init(|| {
-        moka::sync::Cache::builder()
-            .max_capacity(CACHE_MAX_CAPACITY)
-            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
-            .build()
-    })
-}
-
-/// Human kill switch for the content dedup, in the shape the rest of this file
-/// uses (`TOURING_SUGGESTER_DISABLED`, `TOURING_CODE_GATES_DISABLED`). The model
-/// never sets it at run time.
-fn dedup_disabled() -> bool {
-    std::env::var("TOURING_DEDUP_DISABLED").is_ok_and(|v| v != "0")
-}
-
-/// `Some(reference)` when this exact text already reached this session inside the
-/// TTL window; `None` the first time (and the text is recorded).
-///
-/// A REFERENCE, never silence. Absence has two causes — "nothing to say" and
-/// "the emitter broke" — and a block that simply vanished is indistinguishable
-/// from the second. The line names how long ago and how many bytes it saved, so
-/// the elision is auditable in the transcript it appears in.
-fn repeat_reference(session: &str, context: &str) -> Option<String> {
-    if dedup_disabled() || context.is_empty() {
-        return None;
-    }
-    let mut hasher = std::collections::hash_map::DefaultHasher::new();
-    context.hash(&mut hasher);
-    let key = (session.to_string(), hasher.finish());
-    match emitted_content().get(&key) {
-        Some(first_seen) => {
-            let reference = format!(
-                "↑ repetido nesta sessão (há {}s, {} B elididos)",
-                first_seen.elapsed().as_secs(),
-                context.len()
-            );
-            // A dedup that costs more than it saves is not a dedup. Measured
-            // block sizes vary by two orders of magnitude — `touring-suggest`
-            // averages 1 399 B, but `past-lessons` averages 48 B and repeats
-            // 86,4 % of the time, which is precisely the family a long reference
-            // would make WORSE. The arithmetic decides, not the intention.
-            (reference.len() < context.len()).then_some(reference)
-        }
-        None => {
-            emitted_content().insert(key, std::time::Instant::now());
-            None
-        }
-    }
-}
-
+/// P1/S-1.1 (2026-09-04) → APOSENTADO na S8 (2026-10-08): a dedupe por conteúdo
+/// deste emissor vive agora em `touring_hooks_shared::injection_dedup`, aplicada
+/// na saída central do daemon (`run_hook_command`), com a validade da ÉPOCA de
+/// compactação em vez do TTL de 300 s — e por SEÇÃO, não só por bloco. Os testes
+/// dela (primeira emissão, referência, isolamento entre sessões, vazio, blocos
+/// pequenos) cobrem os mesmos cenários do antigo `content_dedup_tests`.
 fn input_hash(project_root: &Path, tool_name: &str, tool_input: &Value) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     project_root.hash(&mut hasher);
@@ -563,18 +498,29 @@ fn is_rust_file(path: &str) -> bool {
 
 fn extract_first_symbol_in_text(text: &str) -> Option<String> {
     // PascalCase first
-    let pascal = regex_first_match(r"\b[A-Z][A-Za-z0-9_]{2,}\b", text);
+    let pascal = regex_find_non_assignment(r"\b[A-Z][A-Za-z0-9_]{2,}\b", text);
     if let Some(p) = pascal {
         return Some(p);
     }
     // snake_case with at least one underscore
-    regex_first_match(r"\b[a-z][a-z0-9_]*_[a-z0-9_]+[a-z0-9]\b", text)
+    regex_find_non_assignment(r"\b[a-z][a-z0-9_]*_[a-z0-9_]+[a-z0-9]\b", text)
 }
 
-/// Lightweight regex match using the `regex` crate already present in deps.
-fn regex_first_match(pattern: &str, text: &str) -> Option<String> {
+/// S8 (2026-10-08), defeito (a) visto ao vivo: um token seguido de `=` é uma
+/// ATRIBUIÇÃO de ambiente (`TOURING_CODE_MODE=native …`), nunca um símbolo —
+/// antes, o primeiro PascalCase do comando era a var e o MUST saía
+/// `touring index find TOURING_CODE_MODE -j`. A forma `env VAR=val cmd` é coberta
+/// pelo mesmo `=`. O resto do comportamento (PascalCase primeiro, depois
+/// snake_case) não muda.
+fn regex_find_non_assignment(pattern: &str, text: &str) -> Option<String> {
     let re = regex::Regex::new(pattern).ok()?;
-    re.find(text).map(|m| m.as_str().to_string())
+    for m in re.find_iter(text) {
+        if text[m.end()..].starts_with('=') {
+            continue; // VAR=val — atribuição, não símbolo
+        }
+        return Some(m.as_str().to_string());
+    }
+    None
 }
 
 /// Heuristic file-path extraction from a bash command — picks the first token
@@ -2643,14 +2589,26 @@ fn campaign_code_mode_command(command: &str) -> Option<String> {
 /// IS derivable, just as bash). Embedded single quotes use the `'\''` shell idiom;
 /// over-long commands are capped so the nudge stays dense (high signal-to-token).
 fn bash_code_mode_command(command: &str) -> String {
-    // INTEIRO. A versão anterior cortava em 200 chars e anexava `…`, entregando
-    // um comando que não roda — o mesmo defeito de `fuse_burst_program`
-    // (25/08/2026), aqui na forma singular. O comando já está no contexto por
-    // definição (foi ele que chegou ao hook), então truncá-lo não economiza
-    // nada e destrói o remédio. A emenda do Gabriel é literal: o snippet tem
-    // de SUBSTITUIR as chamadas, e um snippet cortado não substitui nada.
+    // Duas ordens do Gabriel reconciliadas pelo tamanho:
+    // (25/08/2026, emenda) o snippet tem de SUBSTITUIR as chamadas — um snippet
+    // cortado não substitui nada → o laço CURTO vai VERBATIM e roda.
+    // (08/10/2026, S8, defeito (c) medido pela analise-6b): acima de ~160 chars o
+    // eco inteiro custa tanto quanto a chamada — o MUST cita o começo + `…`. Não é
+    // placeholder: o começo é o valor real, e o corpo completo está na chamada que
+    // o modelo acabou de escrever (injection-density invariant segue: nada de
+    // `<...>` quando o valor é derivável).
     let escaped = command.replace('\'', r"'\''");
-    format!("touring run --lang bash --code '{escaped}'")
+    if command.chars().count() > 160 {
+        let head: String = command
+            .trim()
+            .chars()
+            .take(160)
+            .collect::<String>()
+            .replace('\'', r"'\''");
+        format!("touring run --lang bash --code '{head}…'")
+    } else {
+        format!("touring run --lang bash --code '{escaped}'")
+    }
 }
 
 /// The most specific `touring run` command for a fired Code Mode kind: a scan
@@ -3214,7 +3172,13 @@ fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
 }
 
 /// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
-fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
+/// O corpo, com os overrides injetados (ver `GateOverrides`).
+fn write_run_pair_gate_with(
+    project_root: &Path,
+    session: &str,
+    cmd: &str,
+    ovr: &GateOverrides,
+) -> Option<String> {
     use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
     // 1 par por comando, mesmo com múltiplos runs no tool_use: o que se conta
     // é o PASSO do loop execute-observe, não o número de interpretações.
@@ -3229,7 +3193,7 @@ fn write_run_pair_gate(project_root: &Path, session: &str, cmd: &str) -> Option<
     if paths.len() < 8 {
         paths.push(path.clone());
     }
-    if n < WRITE_RUN_DENY_AT || code_gates_disabled() {
+    if n < WRITE_RUN_DENY_AT || ovr.code_gates_disabled {
         write_run_pair_ledger().insert(pkey, (n, paths));
         return None;
     }
@@ -3288,7 +3252,7 @@ fn exec_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
 /// fricção no caso comum que o S3 existe para remover.
 const INSPECT_BURST_WINDOW_SECS: u64 = 300;
 
-/// S3 — a 2ª nega; a 1ª executa intacta.
+/// S3 — a 2ª avisa (D, 09/10/2026: antes negava); a 1ª executa intacta.
 ///
 /// A medição é inequívoca no limiar: com janela de 300s, 77,5% do volume das
 /// classes de inspeção está em rajadas de tamanho ≥ 2. Deixar a isolada passar
@@ -3297,7 +3261,7 @@ const INSPECT_BURST_WINDOW_SECS: u64 = 300;
 /// É a regra que o próprio DeepSeek documentou e que o T3-B já declarava sem
 /// nunca conseguir aplicar: *"forcing every edit through a program taxes the
 /// common case"*.
-const INSPECT_BURST_DENY_AT: u32 = 2;
+const INSPECT_BURST_ADVISE_AT: u32 = 2;
 
 /// Ledger da rajada de inspeção — mesmo formato do G10, janela própria.
 fn inspect_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
@@ -3450,11 +3414,21 @@ fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
 /// o deny sai só com o R9 (o comportamento anterior, honesto).
 fn portfolio_remedy_for_burst(class: &str, cmds: &[String]) -> Option<String> {
     let index = portfolio_index()?;
+    portfolio_remedy_for_burst_on(class, cmds, &index)
+}
+
+/// O corpo, com o índice por parâmetro — testes carregam do scratch via
+/// `store::load_from`, sem `set_var` (ver `GateOverrides`).
+fn portfolio_remedy_for_burst_on(
+    class: &str,
+    cmds: &[String],
+    index: &touring_foundation::portfolio::store::PortfolioIndex,
+) -> Option<String> {
     if index.is_empty() {
         return None;
     }
     let intent = exec_burst_intent(class, cmds);
-    let answer = touring_foundation::portfolio::query::answer(&index, &intent, 1);
+    let answer = touring_foundation::portfolio::query::answer(index, &intent, 1);
     let top = answer.prior_art.first()?;
     let entry_point = top.entry.entry_point.as_deref()?;
     if entry_point.contains('<') {
@@ -3851,8 +3825,15 @@ const GATE_BYPASS_TOKEN: &str = "TOURING_GATE_OK=1";
 
 /// Kill switch global (humano; env do DAEMON — exige `touring daemon-ctl
 /// restart` para valer, como `TOURING_PILLAR_INDUCTION_ARMED`).
+/// A decisão pura do kill switch HUMANO — injetável: a matriz de
+/// hermeticidade da analise-6b (08/10) mediu 29 testes vermelhos com
+/// `TOURING_CODE_GATES_DISABLED=1` no ambiente — liam o switch do processo.
+fn code_gates_disabled_from(v: Option<&str>) -> bool {
+    v == Some("1")
+}
+
 fn code_gates_disabled() -> bool {
-    std::env::var("TOURING_CODE_GATES_DISABLED").map(|v| v == "1") == Ok(true)
+    code_gates_disabled_from(std::env::var("TOURING_CODE_GATES_DISABLED").ok().as_deref())
 }
 
 /// W1 S-1.2 — comandos de estado vivo: chamadas idênticas legitimamente
@@ -4143,6 +4124,32 @@ fn g7_seen() -> &'static moka::sync::Cache<u64, u32> {
     })
 }
 
+/// V0e3 (09/10/2026) — o esqueleto R1 pelo CAMINHO REAL quando existe (medido
+/// pela 6b: o deny citava `<r1_varredura_agregado.py>`, um placeholder, e o
+/// advisory `r1_varredura_agregado.py`, um relativo inexistente — a recusa
+/// apontava para um arquivo que não existia, D8). Espelha o `_r1_route()` do
+/// loop_stop_guard.py (a parte Python, feita na mesma noite): sem o arquivo,
+/// só a consulta à memória — nunca um placeholder.
+fn r1_skeleton_path() -> Option<std::path::PathBuf> {
+    let p = std::env::var_os("HOME").map(std::path::PathBuf::from)?.join(
+        "projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/repertorio/r1_varredura_agregado.py",
+    );
+    p.is_file().then_some(p)
+}
+
+/// A rota R1 para o alvo `fp`: o esqueleto real instanciado quando existe, a
+/// query de memória quando não.
+fn r1_route_for(fp: &str) -> String {
+    let query = "`touring memory query \"#kind:snippet #process:code-mode\"`";
+    match r1_skeleton_path() {
+        Some(p) => format!(
+            "touring run --lang python --args '[\"{fp}\"]' --file {} (outros esqueletos: {query})",
+            p.display()
+        ),
+        None => format!("esqueletos de varredura em {query}"),
+    }
+}
+
 fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}g7-target\u{2}".hash(&mut hasher);
@@ -4150,6 +4157,17 @@ fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     actor.hash(&mut hasher);
     file.hash(&mut hasher);
     hasher.finish()
+}
+
+/// V0e3 (09/10/2026) — os fragmentos de path de um comando: quebra em todo
+/// char que não é de path e fica com os fragmentos que contêm `/`. O reset do
+/// G7 nunca funcionava no caso real porque o `trim_matches` das pontas cobria
+/// só `'\"[]{},` — um path citado DENTRO de código (`Path("/…")`, o run
+/// 1791491632099 da 6b) não casava a chave gravada e a leitura seguinte era
+/// negada com a promessa falsa na mensagem (D8).
+fn path_fragments(cmd: &str) -> impl Iterator<Item = &str> {
+    cmd.split(|c: char| !(c.is_alphanumeric() || matches!(c, '.' | '/' | '_' | '-' | '~')))
+        .filter(|frag| frag.len() > 1 && frag.contains('/'))
 }
 
 /// M3 (estratégia paralelização-agentes 29/08/2026) — arquivos DISTINTOS
@@ -4265,7 +4283,47 @@ pub(crate) use touring_foundation::code_mode::CodeModePresentation;
 /// `TOURING_CODE_ONLY=1` continua valendo como alias de `Code` (compatibilidade
 /// com o piloto S-8.1), agora com o escopo e a calibração que lhe faltavam — ele
 /// negava TODA classe, `ls` inclusive.
-fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentation {
+///
+/// Os níveis «env do hook» e «alias» chegam INJETADOS (`CodeModeEnv`), nunca
+/// lidos do processo no meio da resolução: a matriz de hermeticidade da
+/// analise-6b (08/10) mediu 15 testes vermelhos sob `TOURING_CODE_MODE=native`
+/// no ambiente — liam `Native` do ambiente em vez do caso sob teste (o env
+/// vence o `touring.toml` do projeto scratch, por precedência documentada).
+#[derive(Default, Clone)]
+pub(crate) struct CodeModeEnv {
+    /// Valor de `TOURING_CODE_MODE` (crú — o parse é parte do comportamento).
+    pub mode: Option<String>,
+    /// Valor de `TOURING_CODE_ONLY` (o alias legado de `Code`).
+    pub code_only_alias: Option<String>,
+}
+
+impl CodeModeEnv {
+    fn from_env() -> Self {
+        Self {
+            mode: std::env::var("TOURING_CODE_MODE").ok(),
+            code_only_alias: std::env::var("TOURING_CODE_ONLY").ok(),
+        }
+    }
+
+    /// A decisão pura dos níveis env+alias — testável sem tocar o processo.
+    fn resolve(&self) -> Option<CodeModePresentation> {
+        // parse() é o parser canônico (trim + unquote): um valor entre aspas
+        // também resolve.
+        if let Some(m) = self.mode.as_deref().and_then(CodeModePresentation::parse) {
+            return Some(m);
+        }
+        if self.code_only_alias.as_deref() == Some("1") {
+            return Some(CodeModePresentation::Code);
+        }
+        None
+    }
+}
+
+fn code_mode_presentation_with(
+    project_root: &Path,
+    cmd: &str,
+    env: &CodeModeEnv,
+) -> CodeModePresentation {
     for token in cmd.split_whitespace() {
         let Some((nome, valor)) = token.split_once('=') else {
             break;
@@ -4284,15 +4342,8 @@ fn code_mode_presentation(project_root: &Path, cmd: &str) -> CodeModePresentatio
             }
         }
     }
-    if let Ok(v) = std::env::var("TOURING_CODE_MODE") {
-        // parse() é o parser canônico (trim + unquote): uma env com o valor
-        // entre aspas agora também resolve.
-        if let Some(m) = CodeModePresentation::parse(&v) {
-            return m;
-        }
-    }
-    if std::env::var("TOURING_CODE_ONLY").map(|v| v == "1") == Ok(true) {
-        return CodeModePresentation::Code;
+    if let Some(m) = env.resolve() {
+        return m;
     }
     // A declaração humana vence SEMPRE: prefixo, env, alias e `touring.toml` já
     // decidiram acima. A política só preenche o espaço que o humano deixou em
@@ -4950,7 +5001,53 @@ pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
 /// Limiar da calibração por similaridade (Gabriel, 26/08/2026).
 pub(crate) const G1_SIMILARITY_AT: f64 = 0.5;
 
-fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
+/// O orçamento de parede da chamada que a reescrita do G1 substitui (09/10/2026).
+/// A reescrita herdava os 30 s padrão do `touring run`; a chamada original tinha o
+/// do Bash — o `timeout` dela, ou 120 s — e morria aos 30 s (`exit_code -2`, medido
+/// num laço de espera de 600 s). Em background o Bash não tem teto: vale o máximo
+/// do `touring run`. A folga deixa o envelope voltar antes do teto externo.
+fn rewrite_wall_ms(tool_input: &Value) -> u64 {
+    const BASH_DEFAULT_MS: u64 = 120_000;
+    const RUN_MAX_MS: u64 = 600_000;
+    const FOLGA_MS: u64 = 5_000;
+    if tool_input.get("run_in_background").and_then(Value::as_bool) == Some(true) {
+        return RUN_MAX_MS;
+    }
+    let externo = tool_input
+        .get("timeout")
+        .and_then(Value::as_u64)
+        .unwrap_or(BASH_DEFAULT_MS);
+    externo.saturating_sub(FOLGA_MS).clamp(1_000, RUN_MAX_MS)
+}
+
+/// O `updatedInput` de uma reescrita: a chamada original com SÓ o `command`
+/// trocado (09/10/2026). O `updatedInput` SUBSTITUI o input — medido ao vivo: duas
+/// chamadas com `run_in_background: true` e `timeout: 600000` reescritas pelo G2
+/// voltaram "did not complete within its 120s timeout and was moved to the
+/// background". Usado pelas três reescritas (G1, G2, G8).
+fn rewritten_input(tool_input: &Value, command: String) -> Value {
+    let mut novo = tool_input.as_object().cloned().unwrap_or_default();
+    novo.insert("command".to_string(), Value::String(command));
+    Value::Object(novo)
+}
+
+/// Declara o orçamento de parede num programa `touring run --lang bash …` já
+/// montado (o do G8 sai de [`loop_rewrite_candidate`], que não conhece a chamada).
+fn with_wall_budget(programa: String, wall_ms: u64) -> String {
+    match programa.strip_prefix("touring run --lang bash ") {
+        Some(resto) => format!("touring run --lang bash --timeout-ms {wall_ms} {resto}"),
+        None => programa,
+    }
+}
+
+/// O corpo, com os overrides injetados (ver `GateOverrides`).
+fn burst_gate_with(
+    project_root: &Path,
+    session: &str,
+    cmd: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
+) -> Option<String> {
     use crate::shared::gate_metrics::{
         GateEvent, GateId, g1_live_precision, record_g1_continuation, record_gate_event,
     };
@@ -5001,14 +5098,15 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
     if count < G1_DENY_AT && !quase_igual {
         return None;
     }
-    if code_gates_disabled() {
+    if ovr.code_gates_disabled {
         record_gate_event(GateId::G1, GateEvent::Bypassed);
         return None;
     }
     // O remédio é o histórico REAL da rajada como corpo do programa — nunca um
     // template (injection-density), e nunca um comando pela metade.
     let (corpo, omitidos) = fuse_burst_program(&cmds);
-    let programa = format!("touring run --lang bash --code '{corpo}'");
+    let wall_ms = rewrite_wall_ms(tool_input);
+    let programa = format!("touring run --lang bash --timeout-ms {wall_ms} --code '{corpo}'");
     // A omissão é DECLARADA: um remédio silenciosamente incompleto é a mesma
     // família de defeito que o `--brief` que reporta `truncated: false`.
     let nota_omissao = if omitidos > 0 {
@@ -5036,10 +5134,9 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
             .to_string(),
         );
     }
-    record_gate_event(GateId::G1, GateEvent::Denied);
-    // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
-    // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
-    pending_g1().insert(session.to_string(), class.to_string());
+    // V0e1: o Denied e o pending_g1 desceram para o caminho do deny clássico
+    // (abaixo do rewrite) — o rewrite não é um turno cego e não entra no
+    // continuation-check.
     // A razão DECLARADA tem de ser a do gatilho que disparou. Com a calibração
     // por similaridade, um deny na 2ª chamada exibindo "90% das rajadas ≥4"
     // justificaria o bloqueio por uma estatística que não se aplica a ele — o
@@ -5058,6 +5155,36 @@ fn burst_gate(project_root: &Path, session: &str, cmd: &str) -> Option<String> {
         )
     };
     let hint = snippet_hint_for_program(&programa, project_root);
+    // V0e1 (09/10/2026 — aprovado por Gabriel; medido pela 6b: G1 = 46% das
+    // negações e menos da metade segue a rota): o gate EXECUTA a rota em vez de
+    // negar — a rajada acumulada vira o `updatedInput` do `touring run` e o
+    // executor a roda no sandbox (spike S-8.6: updatedInput honrado). Quem o
+    // sandbox não alcança nem chega aqui (o check S24 acima devolve None → a
+    // chamada original roda nativa: o fallback é estrutural, nunca um zero
+    // silencioso). Kill switch humano: TOURING_G1_REWRITE_DISABLED=1.
+    if !ovr.g1_rewrite_disabled {
+        record_gate_event(GateId::G1, GateEvent::Emitted);
+        record_gate_event(GateId::G1, GateEvent::Followed);
+        return Some(
+            serde_json::json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "allow",
+                    "permissionDecisionReason": format!(
+                        "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. O acumulado \
+                         virou o programa e executa no sandbox — só o agregado volta.\
+                         {nota_omissao}{hint}"
+                    ),
+                    "updatedInput": rewritten_input(tool_input, programa.clone()),
+                }
+            })
+            .to_string(),
+        );
+    }
+    record_gate_event(GateId::G1, GateEvent::Denied);
+    // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
+    // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
+    pending_g1().insert(session.to_string(), class.to_string());
     Some(deny_response(format!(
         "[G1 rajada-de-inspeção] {motivo}. O acumulado JÁ é o programa; rode-o de uma \
          vez:\n  {programa}{nota_omissao}{hint}\nBypass por-comando: prefixe \
@@ -5192,6 +5319,47 @@ pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
     Some(format!("touring run --lang bash --code '{escaped}'"))
 }
 
+/// Overrides dos pontos que leem env global, como objeto nomeado (diretriz A2)
+/// — produção usa `from_env()`; testes constroem o literal e NUNCA tocam o env
+/// do processo (a race medida em 08/10 pela analise-6b: `set_var` num teste vaza
+/// para os outros testes em threads paralelas do mesmo binário — 41/150 rodadas
+/// no `dedupe_`; é por isso que o Rust 2024 marcou `set_var` como unsafe).
+#[derive(Default, Clone)]
+pub(crate) struct GateOverrides {
+    /// TOURING_G2_REWRITE_DISABLED=1 → o G2 nega em vez de reescrever.
+    pub g2_rewrite_disabled: bool,
+    /// TOURING_G1_REWRITE_DISABLED=1 → o G1 (rajada de inspeção) volta ao deny
+    /// clássico em vez de reescrever para o `touring run` (V0e1: o default é
+    /// EXECUTAR a rota via updatedInput).
+    pub g1_rewrite_disabled: bool,
+    /// TOURING_PORTFOLIO_DIR → o portfólio lido de outro dir (testes/scratch).
+    pub portfolio_dir: Option<std::path::PathBuf>,
+    /// Os níveis «env» + «alias» da resolução do code mode (TOURING_CODE_MODE /
+    /// TOURING_CODE_ONLY) — lidos uma vez aqui, nunca no meio do gate.
+    pub code_mode_env: CodeModeEnv,
+    /// TOURING_CODE_GATES_DISABLED=1 → o kill switch humano desliga TODOS os
+    /// gates (29 testes liam isso do ambiente — matriz da 6b, 08/10).
+    pub code_gates_disabled: bool,
+}
+
+impl GateOverrides {
+    fn from_env() -> Self {
+        Self {
+            g2_rewrite_disabled: std::env::var("TOURING_G2_REWRITE_DISABLED")
+                .map(|v| v == "1")
+                .unwrap_or(false),
+            g1_rewrite_disabled: std::env::var("TOURING_G1_REWRITE_DISABLED")
+                .map(|v| v == "1")
+                .unwrap_or(false),
+            portfolio_dir: std::env::var("TOURING_PORTFOLIO_DIR")
+                .ok()
+                .map(std::path::PathBuf::from),
+            code_mode_env: CodeModeEnv::from_env(),
+            code_gates_disabled: code_gates_disabled(),
+        }
+    }
+}
+
 /// W1 — G2 + G6 num só passe. `Some(resposta)` curto-circuita `run`; `None`
 /// segue para os classificadores. Corre ANTES do anti-spam: um deny repetido
 /// jamais pode ser engolido pelo cache de sugestões. Recebe `project_root`
@@ -5201,6 +5369,22 @@ pub(crate) fn code_mode_gates(
     session: &str,
     tool_name: &str,
     tool_input: &Value,
+) -> Option<String> {
+    code_mode_gates_with(
+        project_root,
+        session,
+        tool_name,
+        tool_input,
+        &GateOverrides::from_env(),
+    )
+}
+
+fn code_mode_gates_with(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
 ) -> Option<String> {
     use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
     let project = project_root.display().to_string();
@@ -5230,7 +5414,7 @@ pub(crate) fn code_mode_gates(
                 .is_some()
             {
                 g3_streak().insert(session.to_string(), 0);
-            } else if !code_gates_disabled() {
+            } else if !ovr.code_gates_disabled {
                 let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);
                 g3_streak().insert(session.to_string(), n);
                 // Aperto 29/08 (ordem de Gabriel): 1 advisory e o 2º seguido
@@ -5285,7 +5469,7 @@ pub(crate) fn code_mode_gates(
                 .saturating_add(1);
             m3_distinct_reads().insert(session.to_string(), distintos);
             // Exatamente no limiar (== e não >=): 1 advisory por janela.
-            if distintos == M3_DELEGATION_AT && !code_gates_disabled() {
+            if distintos == M3_DELEGATION_AT && !ovr.code_gates_disabled {
                 crate::shared::gate_metrics::record_m3_delegation_advised();
                 return Some(advisory_response(format!(
                     "[M3 delegação] {M3_DELEGATION_AT}º arquivo DISTINTO lido nesta janela — \
@@ -5307,24 +5491,23 @@ pub(crate) fn code_mode_gates(
         let key = g7_key(project_root, session, fp);
         let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
         g7_seen().insert(key, n);
-        if !code_gates_disabled() {
+        if !ovr.code_gates_disabled {
             if n >= 3 {
                 record_gate_event(GateId::G7, GateEvent::Denied);
+                let rota = r1_route_for(fp);
                 return Some(deny_response(format!(
                     "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
                      mais direto de programa-faltando (campeões medidos: adw.py 39×, \
-                     cli_suggester.rs 32×). Varra de uma vez (R1): touring run --lang \
-                     python --args '[\"{fp}\"]' --file <r1_varredura_agregado.py> — \
-                     esqueletos: touring memory query \"#kind:snippet \
-                     #process:code-mode\". Um `touring run` citando {fp} reseta o gate."
+                     cli_suggester.rs 32×). Varra de uma vez (R1): {rota}. \
+                     Um `touring run` citando {fp} reseta o gate."
                 )));
             }
             if n == 2 {
                 record_gate_event(GateId::G7, GateEvent::Emitted);
+                let rota = r1_route_for(fp);
                 return Some(advisory_response(format!(
                     "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
-                     R1 instanciado: touring run --lang python --args '[\"{fp}\"]' \
-                     --file r1_varredura_agregado.py (a 3ª leitura nega)."
+                     R1 instanciado: {rota} (a 3ª leitura nega)."
                 )));
             }
         }
@@ -5340,9 +5523,8 @@ pub(crate) fn code_mode_gates(
     let cmd = tool_input.get("command").and_then(Value::as_str)?;
     // G7 reset: um `touring run` citando um caminho zera a contagem daquele alvo.
     if cmd.contains("touring run") {
-        for token in cmd.split_whitespace().filter(|t| t.contains('/')) {
-            let limpo = token.trim_matches(|c: char| "'\"[]{},".contains(c));
-            g7_seen().invalidate(&g7_key(project_root, session, limpo));
+        for frag in path_fragments(cmd) {
+            g7_seen().invalidate(&g7_key(project_root, session, frag));
         }
     }
     // G5 (telemetria): a primeira ação Bash encerra a rajada de edits; se ela
@@ -5387,7 +5569,7 @@ pub(crate) fn code_mode_gates(
         // um bypass que se auto-libera não é orçamento; a saída é o kill switch
         // humano no env do daemon, que exige decisão fora do turno.
         let budget = charge_bypass(project_root, session);
-        if !code_gates_disabled()
+        if !ovr.code_gates_disabled
             && let Some(rule) = bypass_verdict(budget)
         {
             record_gate_event(GateId::G1, GateEvent::Emitted);
@@ -5423,7 +5605,7 @@ pub(crate) fn code_mode_gates(
     // G2 — heredoc é DADO (o corpo não executa como pipeline DESTE shell);
     // pular evita negar a escrita de um teste que apenas CONTÉM o padrão.
     if !cmd.contains("<<") && exit_code_through_pipe(cmd) {
-        if code_gates_disabled() {
+        if ovr.code_gates_disabled {
             record_gate_event(GateId::G2, GateEvent::Bypassed);
             return None;
         }
@@ -5433,7 +5615,7 @@ pub(crate) fn code_mode_gates(
         // vez de negar — zero fricção, correção garantida pelo executor (o
         // teto da afordância). `Followed` é registrado junto com `Emitted`
         // porque a adoção é do executor, não uma esperança.
-        if std::env::var("TOURING_G2_REWRITE_DISABLED").map(|v| v == "1") != Ok(true) {
+        if !ovr.g2_rewrite_disabled {
             record_gate_event(GateId::G2, GateEvent::Emitted);
             record_gate_event(GateId::G2, GateEvent::Followed);
             return Some(
@@ -5445,7 +5627,7 @@ pub(crate) fn code_mode_gates(
                             "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe \
                              leria o status do último estágio; `set -o pipefail; ` \
                              prefixado (spike S-8.6: updatedInput honrado).",
-                        "updatedInput": { "command": format!("set -o pipefail; {cmd}") },
+                        "updatedInput": rewritten_input(tool_input, format!("set -o pipefail; {cmd}")),
                     }
                 })
                 .to_string(),
@@ -5472,7 +5654,7 @@ pub(crate) fn code_mode_gates(
     // dado (o corpo não executa neste shell). ANTES do G8: um laço com
     // `sed -i` é negado aqui, não reescrito para o sandbox.
     if !cmd.contains("<<") && is_inline_blind_edit(cmd) {
-        if code_gates_disabled() {
+        if ovr.code_gates_disabled {
             record_gate_event(GateId::G9, GateEvent::Bypassed);
             return None;
         }
@@ -5513,11 +5695,12 @@ pub(crate) fn code_mode_gates(
     if let Some(rewritten) =
         loop_rewrite_candidate(cmd).filter(|_| unreachable_in_sandbox(project_root, cmd).is_none())
     {
-        if code_gates_disabled() {
+        if ovr.code_gates_disabled {
             record_gate_event(GateId::G8, GateEvent::Bypassed);
         } else {
             record_gate_event(GateId::G8, GateEvent::Emitted);
             record_gate_event(GateId::G8, GateEvent::Followed);
+            let rewritten = with_wall_budget(rewritten, rewrite_wall_ms(tool_input));
             return Some(
                 serde_json::json!({
                     "hookSpecificOutput": {
@@ -5527,7 +5710,7 @@ pub(crate) fn code_mode_gates(
                             "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; \
                              uma varredura no sandbox devolve só o agregado (Anthropic \
                              CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.",
-                        "updatedInput": { "command": rewritten },
+                        "updatedInput": rewritten_input(tool_input, rewritten),
                     }
                 })
                 .to_string(),
@@ -5542,7 +5725,7 @@ pub(crate) fn code_mode_gates(
     if let Some(path) = script_write_target(cmd) {
         written_scripts_ledger().insert(write_run_key(project_root, session, &path), ());
     }
-    if let Some(deny) = write_run_pair_gate(project_root, session, cmd) {
+    if let Some(deny) = write_run_pair_gate_with(project_root, session, cmd, ovr) {
         return Some(deny);
     }
     // G10 (S4, 2026-08-26) — rajada de execução homogênea (R4): N seriadas do
@@ -5566,7 +5749,7 @@ pub(crate) fn code_mode_gates(
         }
         if n < EXEC_BURST_DENY_AT {
             exec_burst_ledger().insert(key, (n, cmds));
-        } else if code_gates_disabled() {
+        } else if ovr.code_gates_disabled {
             record_gate_event(GateId::G10, GateEvent::Bypassed);
             return None;
         } else {
@@ -5590,7 +5773,13 @@ pub(crate) fn code_mode_gates(
             // S6 — a rajada real consulta o portfólio: quando há um programa
             // que já funcionou para este trabalho, o deny entrega os dois
             // (o esqueleto agregado + o prior art instanciado).
-            let prior = portfolio_remedy_for_burst(class, &cmds).unwrap_or_default();
+            let prior = match &ovr.portfolio_dir {
+                Some(dir) => touring_foundation::portfolio::store::load_from(dir)
+                    .ok()
+                    .and_then(|idx| portfolio_remedy_for_burst_on(class, &cmds, &idx)),
+                None => portfolio_remedy_for_burst(class, &cmds),
+            }
+            .unwrap_or_default();
             // N6 — e a escada entrega o bloco parecido, quando existe.
             let hint = snippet_hint_for_program(&programa, project_root);
             return Some(deny_response(format!(
@@ -5651,7 +5840,7 @@ pub(crate) fn code_mode_gates(
     // TTL, que ocorre. Mutação/build seguem passando (scan_class_of só
     // reconhece inspeção), e um `touring run` na janela zera o ledger — a
     // contagem prova que a rota foi oferecida e não usada.
-    let apresentacao = code_mode_presentation(project_root, cmd);
+    let apresentacao = code_mode_presentation_with(project_root, cmd, &ovr.code_mode_env);
     // Aperto 29/08 (ordem de Gabriel): python-inline READ-ONLY é inspeção e
     // cai na MESMA rajada — usado como leitura, o interpretador ganhava 4
     // passes onde `cat` ganha 1 (o G10 só nega na 5ª/600s). A classificação é
@@ -5663,7 +5852,7 @@ pub(crate) fn code_mode_gates(
         .or_else(|| python_inline_readonly_class(cmd));
     if apresentacao == CodeModePresentation::Code
         && let Some(class) = inspect_class
-        && !code_gates_disabled()
+        && !ovr.code_gates_disabled
         && unreachable_in_sandbox(project_root, cmd).is_none()
     {
         let key = inspect_burst_key(project_root, session, class);
@@ -5672,12 +5861,19 @@ pub(crate) fn code_mode_gates(
         if cmds.len() < 16 {
             cmds.push(cmd.to_string());
         }
-        if n < INSPECT_BURST_DENY_AT {
+        // D (09/10/2026, ordem do Gabriel — §8 da V0e5): a rajada AVISA, nunca
+        // nega. Medido: 1.272 negações do S3 em 24 h, o maior gate de fricção. O
+        // lote NÃO zera no aviso — as seguintes da mesma rajada contam em
+        // silêncio (um aviso por rajada, nunca fadiga); só um `touring run` ou a
+        // janela sem inspeção o rearmam (o TTL renova a cada inserção).
+        inspect_burst_ledger().insert(key, (n, cmds.clone()));
+        if n < INSPECT_BURST_ADVISE_AT {
             // A isolada passa em SILÊNCIO: um nudge aqui devolveria pela porta
             // dos fundos a fricção que o predicado acabou de tirar da frente.
-            inspect_burst_ledger().insert(key, (n, cmds));
             crate::shared::gate_metrics::record_g1_inspect_first_passed();
             bump_durable_evidence(project_root, "s3", "first_passed");
+        } else if n > INSPECT_BURST_ADVISE_AT {
+            bump_durable_evidence(project_root, "s3", "in_burst");
         } else {
             // python-inline funde os CORPOS (o remédio 1:1 por comando já
             // existia; a rajada junta-os na ordem); as classes shell seguem
@@ -5689,13 +5885,10 @@ pub(crate) fn code_mode_gates(
                 let (p, o) = fuse_burst_program(&cmds);
                 (p, o, "bash")
             };
-            // zera para a próxima rajada — um deny por lote, nunca fadiga
-            // (mesma regra do G10, pela mesma razão).
-            inspect_burst_ledger().invalidate(&key);
             record_route_offer(project_root, session, apresentacao);
-            record_gate_event(GateId::G1, GateEvent::Denied);
-            crate::shared::gate_metrics::record_g1_inspect_burst_denied();
-            bump_durable_evidence(project_root, "s3", "denied");
+            record_gate_event(GateId::G1, GateEvent::Emitted);
+            crate::shared::gate_metrics::record_g1_inspect_burst_advised();
+            bump_durable_evidence(project_root, "s3", "advised");
             let nota_omissao = if omitidos > 0 {
                 format!(
                     " ({omitidos} comando(s) não coube(ram) no orçamento e foram OMITIDOS \
@@ -5705,20 +5898,12 @@ pub(crate) fn code_mode_gates(
                 String::new()
             };
             // N6 — a escada entrega o bloco parecido, quando existe: a rajada
-            // negada vira descoberta, não só reescrita.
+            // avisada vira descoberta, não só rota.
             let hint = snippet_hint_for_program(&programa, project_root);
-            return Some(deny_response(format!(
-                "[CODE MODE · rajada] {n}ª inspeção `{class}` em {}s — a 1ª já executou \
-                 intacta; esta rajada É o programa, rode-o de uma vez:\n  \
-                 touring run --lang {lang} --code '{programa}'\n{nota_omissao}\
-                 Sub-chamadas DENTRO do programa não passam por aqui (elas nunca chegam \
-                 ao PreToolUse), então a tabela inteira segue disponível lá dentro. \
-                 Inspeção ISOLADA de qualquer classe PASSA — só a RAJADA colapsa \
-                 (medido em 115 transcripts: 77,5% do volume de inspeção está em \
-                 rajadas ≥2). Um `touring run` zera a janela. Escopo: [code_mode] mode \
-                 em <projeto>/.touring/touring.toml. Relaxar POR-COMANDO: prefixar \
-                 TOURING_CODE_MODE=native (exportar no shell NÃO chega ao hook — \
-                 processos irmãos).{hint} Bypass de todos os gates: {GATE_BYPASS_TOKEN}.",
+            return Some(advisory_response(format!(
+                "[CODE MODE · rajada] aviso — {n}ª inspeção `{class}` em {}s, executada \
+                 nativa. Se a próxima também for inspeção, rode o lote de uma vez:\n  \
+                 touring run --lang {lang} --code '{programa}'\n{nota_omissao}{hint}",
                 INSPECT_BURST_WINDOW_SECS
             )));
         }
@@ -5737,7 +5922,7 @@ pub(crate) fn code_mode_gates(
         match g6_seen().get(&h) {
             None => g6_seen().insert(h, (0, epoch)),
             Some((repeats, seen_epoch)) if seen_epoch == epoch => {
-                if code_gates_disabled() {
+                if ovr.code_gates_disabled {
                     record_gate_event(GateId::G6, GateEvent::Bypassed);
                     return None;
                 }
@@ -5785,7 +5970,7 @@ pub(crate) fn code_mode_gates(
     // janela de TEMPO (300s) em vez de um turno que sempre fecha.
     // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
     // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
-    if let Some(resp) = burst_gate(project_root, session, cmd) {
+    if let Some(resp) = burst_gate_with(project_root, session, cmd, tool_input, ovr) {
         return Some(resp);
     }
     None
@@ -6226,13 +6411,12 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
 
     cache().insert(h, ());
 
-    // P1/S-1.1 — the same bytes twice in one session buy nothing the first time
-    // did not. Collapse to a reference AFTER the block is fully assembled (the
-    // `sig=` line and any lessons included), because it is the final text the
-    // window pays for, not the template it came from.
-    if let Some(reference) = repeat_reference(&session, &context) {
-        context = reference;
-    }
+    // P1/S-1.1 → S8 (2026-10-08): a referência de bloco repetido migrou para a
+    // dedupe por seção com validade de ÉPOCA de compactação, aplicada no ponto
+    // central de saída do daemon (`run_hook_command`, touring-dispatch) — cobre
+    // este handler E todos os outros da dispatch table. O TTL de 300 s que havia
+    // aqui (moka, `repeat_reference`) reemitia o bloco inteiro a cada 5 min
+    // embora a primeira cópia continuasse no contexto até a compactação.
 
     // P3/S-3.3 — o orçamento do TURNO. O teto por chamada (`cila_budget_*`) nunca
     // limitou o custo real, porque um turno são muitas chamadas: 26,6 % da janela
@@ -6292,6 +6476,53 @@ fn emit(tool_name: &str, tool_input: &Value, context: &str) -> String {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+// ── Helpers de hermeticidade para TODOS os mods de teste (inline ou não) ─────
+//
+// Medido pela analise-6b em 08/10: os testes liam `TOURING_CODE_MODE` e
+// `TOURING_CODE_GATES_DISABLED` do AMBIENTE do processo — 15 vermelhos sob
+// `native`, 8 sob `code`, 29 sob o kill switch, todos falsos (o env vence o
+// `touring.toml` do scratch por precedência documentada). O gate com ambiente
+// LIMPO injetado afirma o comportamento que o teste declara, não o do shell
+// que invocou o cargo test.
+#[cfg(test)]
+pub(crate) fn gates_limpo(proj: &Path, sess: &str, tool: &str, input: &Value) -> Option<String> {
+    code_mode_gates_with(proj, sess, tool, input, &GateOverrides::default())
+}
+
+/// A resolução de apresentação sem os níveis «env» do processo (mesma razão).
+#[cfg(test)]
+pub(crate) fn apresentacao_limpa(proj: &Path, cmd: &str) -> CodeModePresentation {
+    code_mode_presentation_with(proj, cmd, &CodeModeEnv::default())
+}
+
+/// A resolução com o nível «env» INJETADO — para afirmar a PRECEDÊNCIA
+/// (prefixo > env > alias > projeto > default) sem depender do ambiente.
+#[cfg(test)]
+pub(crate) fn apresentacao_com_env(proj: &Path, cmd: &str, mode: &str) -> CodeModePresentation {
+    code_mode_presentation_with(
+        proj,
+        cmd,
+        &CodeModeEnv {
+            mode: Some(mode.to_string()),
+            ..Default::default()
+        },
+    )
+}
+
+/// O burst gate com ambiente limpo injetado (os mods `actor_isolation_tests` e
+/// `s24_route_tests` o chamam direto).
+#[cfg(test)]
+pub(crate) fn burst_gate_limpo(proj: &Path, sess: &str, cmd: &str) -> Option<String> {
+    burst_gate_with(
+        proj,
+        sess,
+        cmd,
+        &serde_json::json!({ "command": cmd }),
+        &GateOverrides::default(),
+    )
+}
+
+#[cfg(test)]
 #[path = "cli_suggester_tests.rs"]
 mod tests;
 
@@ -6319,89 +6550,6 @@ mod intent_codetag_tests {
         assert_eq!(
             intent_for_new_file("scripts/generate_pdf_report.py", Some(content)).as_deref(),
             Some("generate pdf report")
-        );
-    }
-}
-
-/// P1/S-1.1 (2026-09-04) — dedup por CONTEÚDO.
-///
-/// Cada teste usa uma sessão própria: o ledger é um cache global de processo e
-/// os testes correm em paralelo, então sessões partilhadas fariam um teste
-/// decidir o resultado do outro.
-#[cfg(test)]
-mod content_dedup_tests {
-    use super::*;
-
-    /// Um bloco do tamanho REAL medido para o `touring-suggest` (média 1 399 B).
-    const BLOCK: &str = "[TOURING SUGGEST · code-mode-loop · conf=0.95]\n  MUST    touring run --lang bash --code '<o programa fundido>'\n            // Code Mode without MCP — one call computes in the sandbox\n  MAY     touring run --lang python --orchestrate --code '<...>'\n  Reason: Explicit shell loop fans a per-item op across a set.\n  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence)\n  sig=outcome:bash:cat:plain";
-
-    #[test]
-    fn the_first_emission_passes_and_the_identical_second_becomes_a_reference() {
-        let session = "dedup-primeira-e-segunda";
-        assert_eq!(
-            repeat_reference(session, BLOCK),
-            None,
-            "a 1a vez nunca elide"
-        );
-        let second = repeat_reference(session, BLOCK).expect("a 2a e' repeticao");
-        assert!(second.contains("repetido nesta sessão"), "{second}");
-        assert!(
-            second.len() < BLOCK.len(),
-            "a referencia ({} B) tem de custar menos que o bloco ({} B)",
-            second.len(),
-            BLOCK.len()
-        );
-        // A elisão é AUDITÁVEL: diz quantos bytes deixaram de ser pagos.
-        assert!(second.contains(&BLOCK.len().to_string()), "{second}");
-    }
-
-    /// O caso que a estreia deste dedup errou: `past-lessons` repete 86,4 % das
-    /// vezes com bloco médio de 48 B, e uma referência mais longa que o bloco
-    /// faria a PIOR família ficar pior. A aritmética decide.
-    #[test]
-    fn a_block_smaller_than_the_reference_is_never_collapsed() {
-        let session = "dedup-bloco-minusculo";
-        let tiny = "⚡ last fail: cd";
-        assert_eq!(repeat_reference(session, tiny), None, "1a vez");
-        assert_eq!(
-            repeat_reference(session, tiny),
-            None,
-            "elidir 15 B com uma referencia de ~45 B seria pessimizacao"
-        );
-    }
-
-    #[test]
-    fn another_session_never_inherits_the_first_sessions_ledger() {
-        // A sessão B nunca viu o bloco; elidir ali esconderia texto que aquele
-        // contexto jamais carregou — absence with two causes, de novo.
-        assert_eq!(repeat_reference("dedup-sessao-a", BLOCK), None);
-        assert_eq!(repeat_reference("dedup-sessao-a", BLOCK).is_some(), true);
-        assert_eq!(
-            repeat_reference("dedup-sessao-b", BLOCK),
-            None,
-            "outra sessao paga a primeira copia normalmente"
-        );
-    }
-
-    #[test]
-    fn a_block_that_differs_by_one_byte_is_not_a_repeat() {
-        let session = "dedup-um-byte";
-        assert_eq!(repeat_reference(session, BLOCK), None);
-        let quase = format!("{BLOCK} ");
-        assert_eq!(
-            repeat_reference(session, &quase),
-            None,
-            "so' o byte-identico e' repeticao; qualquer diferenca e' sinal novo"
-        );
-    }
-
-    #[test]
-    fn an_empty_context_is_never_recorded_as_something_said() {
-        assert_eq!(repeat_reference("dedup-vazio", ""), None);
-        assert_eq!(
-            repeat_reference("dedup-vazio", ""),
-            None,
-            "nao ha' bloco vazio para referenciar"
         );
     }
 }
@@ -6557,11 +6705,18 @@ mod snippet_hint_tests {
 #[cfg(test)]
 mod actor_isolation_tests {
     use super::*;
+    // Shim hermético (matriz da 6b, 08/10): `burst_gate` aqui é o limpo injetado.
+    use super::burst_gate_limpo as burst_gate;
+    use super::gates_limpo as code_mode_gates;
     use serde_json::json;
 
     fn denied(out: &Option<String>) -> bool {
         out.as_deref()
             .is_some_and(|s| s.contains("\"permissionDecision\":\"deny\""))
+    }
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
     }
 
     #[test]
@@ -6623,8 +6778,8 @@ mod actor_isolation_tests {
             "a subagent inherited the parent's burst"
         );
         assert!(
-            denied(&burst_gate(root, &owner, "grep -l delta docs/x.md")),
-            "the owner's own 3rd inspection must still deny"
+            rewritten(&burst_gate(root, &owner, "grep -l delta docs/x.md")),
+            "the owner's own 3rd inspection must still rewrite into one sandbox run"
         );
     }
 
@@ -6644,12 +6799,97 @@ mod actor_isolation_tests {
         );
         let _ = burst_gate(root, &b, "grep -l delta docs/x.md");
         let third = burst_gate(root, &b, "grep -n epsilon src/e.rs");
-        assert!(denied(&third), "control: B's own third inspection denies");
+        assert!(
+            rewritten(&third),
+            "control: B's own third inspection rewrites"
+        );
         let remedy = third.unwrap_or_default();
         assert!(
             !remedy.contains("alpha") && !remedy.contains("beta"),
             "B's remedy carries A's commands: {remedy}"
         );
+    }
+
+    /// V0e1 (09/10/2026 — aprovado por Gabriel; medido pela 6b: G1 = 46% das
+    /// negações e menos da metade segue a rota): o G1 EXECUTA a rota em vez de
+    /// negar — a rajada acumulada vira o `updatedInput` de um `touring run` e o
+    /// executor a roda no sandbox (spike S-8.6: updatedInput honrado). Controle
+    /// positivo do brief: a rajada AINDA colapsa — mas para a execução.
+    #[test]
+    fn g1_rewrites_the_burst_into_one_sandbox_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "v0e1-rewrite"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let out = burst_gate(root, &me, "grep -l gamma docs/x.md").expect("a 3ª inspeção colapsa");
+        assert!(
+            out.contains("\"permissionDecision\":\"allow\""),
+            "o G1 reescreve em vez de negar: {out}"
+        );
+        assert!(out.contains("updatedInput"), "sem o rewrite: {out}");
+        assert!(
+            out.contains("touring run --lang bash --timeout-ms 115000 --code '"),
+            "o updatedInput não é o programa sandbox com o orçamento da chamada: {out}"
+        );
+        // O programa carrega a rajada REAL inteira (injection-density) — os
+        // três comandos fundidos, nunca um template.
+        for c in [
+            "grep -n alpha src/a.rs",
+            "grep -rn beta crates/",
+            "grep -l gamma docs/x.md",
+        ] {
+            assert!(out.contains(c), "o programa perdeu `{c}`: {out}");
+        }
+        assert!(!out.contains("\"deny\""), "o deny clássico vazou: {out}");
+    }
+
+    /// V0e1 — o kill switch humano: TOURING_G1_REWRITE_DISABLED=1 volta ao deny
+    /// clássico. Injetado via GateOverrides (NUNCA set_var — a race medida pela
+    /// 6b em 08/10).
+    #[test]
+    fn g1_rewrite_disabled_falls_back_to_the_classic_deny() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let ovr = GateOverrides {
+            g1_rewrite_disabled: true,
+            ..Default::default()
+        };
+        let me = session_key(&json!({"session_id": "v0e1-killswitch"}));
+        let _ = super::burst_gate_with(
+            root,
+            &me,
+            "grep -n alpha src/a.rs",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        let _ = super::burst_gate_with(
+            root,
+            &me,
+            "grep -rn beta crates/",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        let out = super::burst_gate_with(
+            root,
+            &me,
+            "grep -l gamma docs/x.md",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        assert!(
+            denied(&out),
+            "com o kill switch o deny clássico volta: {out:?}"
+        );
+        // Controle positivo: sem o switch, a MESMA rajada reescreve.
+        let me2 = session_key(&json!({"session_id": "v0e1-killswitch-ctl"}));
+        let _ = burst_gate(root, &me2, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me2, "grep -rn beta crates/");
+        assert!(rewritten(&burst_gate(
+            root,
+            &me2,
+            "grep -l gamma docs/x.md"
+        )));
     }
 
     #[test]
@@ -6669,6 +6909,42 @@ mod actor_isolation_tests {
     }
 }
 
+/// V0e5 (09/10/2026) — entries of ANOTHER process's `/proc/<pid>/` that the sandbox
+/// cannot read while a native shell can: guarded by the kernel's ptrace access mode
+/// (proc(5)), not by landlock — `/proc` itself is a read root. Measured on 30.4.94
+/// against a live daemon, sandbox × native; listed only where the two DIVERGE
+/// (`stack`, `syscall`, `pagemap`, `mem` fail on both sides, so they say nothing;
+/// `cmdline`, `status`, `stat`, `comm`, `limits` and the `fd/` listing read on both).
+const PTRACE_GUARDED_PROC_ENTRIES: &[&str] = &[
+    "environ",
+    "maps",
+    "smaps",
+    "smaps_rollup",
+    "auxv",
+    "cwd",
+    "exe",
+    "root",
+    "io",
+    "map_files",
+];
+/// Directories whose LISTING reads in the sandbox but whose entries (`fd/3`) do not.
+const PTRACE_GUARDED_PROC_DIR_ENTRIES: &[&str] = &["fd", "fdinfo"];
+
+/// The `/proc/<pid>/<entry>` token, when `<pid>` is another process (a literal, `$p`,
+/// `${pid}` or a glob — anything but `self`/`thread-self`) and `<entry>` is guarded.
+fn ptrace_guarded_proc_entry(tok: &str) -> Option<std::path::PathBuf> {
+    let (pid, tail) = tok.strip_prefix("/proc/")?.split_once('/')?;
+    if pid == "self" || pid == "thread-self" {
+        return None;
+    }
+    let mut parts = tail.split('/');
+    let entry = parts.next().unwrap_or("");
+    let below = parts.next().is_some_and(|p| !p.is_empty());
+    let guarded = PTRACE_GUARDED_PROC_ENTRIES.contains(&entry)
+        || (below && PTRACE_GUARDED_PROC_DIR_ENTRIES.contains(&entry));
+    guarded.then(|| std::path::PathBuf::from(tok))
+}
+
 /// S24 (plan 2026-09-25) — the first path `cmd` names that a sandboxed program cannot
 /// reach, judged by the CEG's own landlock table
 /// ([`touring_ceg::gateway::sandbox_executor::sandbox_can_reach`] — one predicate, D8).
@@ -6682,6 +6958,9 @@ fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<std::path::P
     for raw in cmd.split(|c: char| c.is_whitespace() || ";|&()<>`".contains(c)) {
         let tok = raw.trim_matches(|c: char| "'\"{}[],".contains(c));
         let tok = tok.rsplit_once('=').map_or(tok, |(_, v)| v);
+        if let Some(guarded) = ptrace_guarded_proc_entry(tok) {
+            return Some(guarded);
+        }
         if tok.is_empty() || tok.contains("://") || !(tok.contains('/') || tok.starts_with('~')) {
             continue;
         }
@@ -6718,12 +6997,9 @@ fn has_bypass_token(cmd: &str) -> bool {
 #[cfg(test)]
 mod s24_route_tests {
     use super::*;
+    // Shim hermético (matriz da 6b, 08/10): `burst_gate` aqui é o limpo injetado.
+    use super::burst_gate_limpo as burst_gate;
     use serde_json::json;
-
-    fn denied(out: &Option<String>) -> bool {
-        out.as_deref()
-            .is_some_and(|s| s.contains("\"permissionDecision\":\"deny\""))
-    }
 
     fn rewritten(out: &Option<String>) -> bool {
         out.as_deref().is_some_and(|s| s.contains("updatedInput"))
@@ -6736,6 +7012,44 @@ mod s24_route_tests {
         // `/root` exists on every Linux box and is never a sandbox root.
         std::os::unix::fs::symlink("/root", bin.join("touring")).expect("symlink");
         dir
+    }
+
+    /// V0e5 (09/10/2026): `/proc` IS a sandbox read root, yet ANOTHER process's
+    /// ptrace-guarded entries are not readable from inside — measured on 30.4.94
+    /// against a live daemon, sandbox × native. Rewritten into the sandbox,
+    /// `tr '\0' '\n' < /proc/$p/environ` returned rc 0 with an empty answer; such a
+    /// command must run native. The pid can be a literal, `$p`, `${pid}` or a glob.
+    #[test]
+    fn another_process_ptrace_guarded_proc_entry_is_unreachable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        for cmd in [
+            "tr '\\0' '\\n' < /proc/$p/environ",
+            "readlink /proc/1234/exe",
+            "cat /proc/*/maps",
+            "ls -l /proc/${pid}/cwd",
+            "readlink /proc/$p/fd/3",
+            "cat /proc/1234/fdinfo/0",
+        ] {
+            assert!(
+                unreachable_in_sandbox(root, cmd).is_some(),
+                "a ptrace-guarded entry of another process was judged reachable: {cmd}"
+            );
+        }
+        // Control: what the sandbox DOES read stays fusible — the same process, the
+        // unguarded entries, and the fd directory listing itself.
+        for cmd in [
+            "head -1 /proc/cpuinfo",
+            "cat /proc/self/environ",
+            "cat /proc/$p/status",
+            "cat /proc/1234/cmdline",
+            "ls /proc/$p/fd",
+        ] {
+            assert!(
+                unreachable_in_sandbox(root, cmd).is_none(),
+                "a /proc read the sandbox performs was judged unreachable: {cmd}"
+            );
+        }
     }
 
     #[test]
@@ -6762,9 +7076,12 @@ mod s24_route_tests {
             "cat .touring/bin/touring x",
             "cat .touring/bin/touring y",
         ] {
+            // Fallback estrutural (V0e1): nem deny nem rewrite — a chamada
+            // original roda nativa. Nunca um zero silencioso.
+            let out = burst_gate(root, &me, c);
             assert!(
-                !denied(&burst_gate(root, &me, c)),
-                "fused a command the sandbox cannot read: {c}"
+                out.is_none(),
+                "fused a command the sandbox cannot read: {c} → {out:?}"
             );
         }
     }
@@ -6777,7 +7094,7 @@ mod s24_route_tests {
         let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
         let _ = burst_gate(root, &me, "grep -rn beta crates/");
         assert!(
-            denied(&burst_gate(root, &me, "grep -l gamma docs/x.md")),
+            rewritten(&burst_gate(root, &me, "grep -l gamma docs/x.md")),
             "control: in-project burst still fused"
         );
     }

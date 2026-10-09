@@ -2,7 +2,7 @@
 okf_version: "1.0"
 type: CLAUDE
 title: "touring-code — Unified code intelligence + Code-mode SDK surface"
-description: "Crates that fuzed touring-ast + polyglot + language + semantics (W4) plus the code-mode-sinal F1-F6 SDK surface (journal.rs + sdk.rs + sdk_signal_mirror.rs). Auto-loaded by CC when sessions open files under this crate."
+description: "Crate that fused touring-ast + polyglot + language + semantics (W4) plus the code-mode-sinal F1-F6 SDK surface (journal.rs + sdk.rs + sdk_signal_mirror.rs). Auto-loaded by CC when sessions open files under this crate."
 plan_id: docs
 tags: [rules, crate, code-intelligence, code-mode, sdk]
 timestamp: 2026-09-01T11:50:00-03:00
@@ -29,15 +29,15 @@ Two responsibilities in one namespace:
 
 | Module | Origin | Purpose |
 |--------|--------|---------|
-| `ast` | touring-ast W4.2 | tree-sitter parsing + symbol store + surgery + call graph |
-| `polyglot` | touring-ast-polyglot W4.3 | ast-grep structural search |
-| `languages` | touring-language W4.4 | `Lang` enum + tier matrix |
-| `semantics` | touring-semantics W4.5 | Definition resolver + source-to-def |
+| `ast` | (ex-touring-ast) W4.2 | tree-sitter parsing + symbol store + surgery + call graph |
+| `polyglot` | (ex-touring-ast-polyglot) W4.3 | ast-grep structural search |
+| `languages` | (ex-touring-language) W4.4 | `Lang` enum + tier matrix |
+| `semantics` | (ex-touring-semantics) W4.5 | Definition resolver + source-to-def |
 | `journal` | code-mode-sinal F2 (NEW) | Parse `~/.claude/touring/run_journal.jsonl` into aggregate stats |
 | `sdk` | code-mode-sinal F2 (NEW) | 8 hardcoded hook names + `SignalReport` JSON shape |
 | `sdk_signal_mirror` | code-mode-sinal F3 (NEW) | Append-only JSONL sink written by PostToolUse |
-| `types` | touring-types | shared type aliases |
-| `error` | touring-errors | `Result<T>` + `Error` re-export |
+| `types` | (ex-touring-types) | shared type aliases |
+| `error` | (ex-touring-errors) | `Result<T>` + `Error` re-export |
 
 ## Code-mode-sinal F1-F6 (DAG `task_1788196388043002698`)
 
@@ -90,7 +90,7 @@ cargo run -p touring-code --example sdk_smoke          # cross-emitter sanity
 cargo run -p touring-code --example sdk_posttool_end_to_end  # full round-trip
 ```
 
-## Migration (for older callers)
+## Migration from the fused crates (for older callers)
 
 ```text
 use touring_ast::X         → use touring_code::ast::X

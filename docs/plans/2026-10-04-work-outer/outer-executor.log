@@ -1,0 +1,1064 @@
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.6372,
+    "symbols": 334411,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260587,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754142\n  pub_symbols (est.)       11967\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52080  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T001338.md"
+}
+
+========================================
+explore --until-dry — wiring.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 64
+  rounds                   12
+  new-per-round            28 → 12 → 1 → 4 → 3 → 9 → 1 → 3 → 0 → 0 → 3 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.5744,
+    "symbols": 334419,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92605925,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754174\n  pub_symbols (est.)       11967\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52080  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T002523.md"
+}
+
+========================================
+explore --until-dry — decompose.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 64
+  rounds                   12
+  new-per-round            23 → 10 → 4 → 2 → 0 → 2 → 3 → 0 → 0 → 7 → 4 → 9
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     2       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=9) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.6324,
+    "symbols": 334447,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260622,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754256\n  pub_symbols (est.)       11967\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52085  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T010432.md"
+}
+
+========================================
+explore --until-dry — decompose.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 64
+  rounds                   12
+  new-per-round            23 → 10 → 4 → 2 → 0 → 2 → 3 → 0 → 0 → 7 → 4 → 9
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     2       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=9) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.6525,
+    "symbols": 334459,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92606056,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754321\n  pub_symbols (est.)       11968\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52115  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T014440.md"
+}
+NEW_FINDINGS=46
+
+==============================================
+explore --until-dry — hook_decompose_bridge.rs
+==============================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 46
+  rounds                   12
+  new-per-round            32 → 6 → 5 → 1 → 0 → 0 → 0 → 0 → 1 → 1 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     36      auto   
+  antistaleness  12      D0     144     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.5461,
+    "symbols": 334497,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260595,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754419\n  pub_symbols (est.)       11969\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52115  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T085709.md"
+}
+
+========================================
+explore --until-dry — lifecycle.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 45
+  rounds                   12
+  new-per-round            24 → 7 → 5 → 0 → 0 → 0 → 1 → 0 → 0 → 3 → 5 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.5554,
+    "symbols": 334574,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92605376,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754601\n  pub_symbols (est.)       11969\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94212  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52233  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T091034.md"
+}
+
+========================================
+explore --until-dry — lifecycle.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 45
+  rounds                   12
+  new-per-round            24 → 7 → 5 → 0 → 0 → 0 → 1 → 0 → 0 → 3 → 5 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4985,
+    "symbols": 334660,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92607737,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754796\n  pub_symbols (est.)       11969\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94237  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52325  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T164102.md"
+}
+
+========================================
+explore --until-dry — decompose.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 64
+  rounds                   12
+  new-per-round            23 → 10 → 4 → 2 → 0 → 2 → 3 → 0 → 0 → 7 → 4 → 9
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     2       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=9) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4605,
+    "symbols": 334660,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260776,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754813\n  pub_symbols (est.)       11969\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94237  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52342  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T164200.md"
+}
+NEW_FINDINGS=13
+
+========================================
+explore --until-dry — wayfinder.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 13
+  rounds                   12
+  new-per-round            9 → 4 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     0       auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4674,
+    "symbols": 334665,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260798,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754814\n  pub_symbols (est.)       11969\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94237  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52343  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T164252.md"
+}
+
+==========================================
+explore --until-dry — symbol_extractors.rs
+==========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 41
+  rounds                   12
+  new-per-round            24 → 11 → 3 → 1 → 0 → 0 → 0 → 0 → 2 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     240     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.459,
+    "symbols": 334665,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92608243,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754835\n  pub_symbols (est.)       11970\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94237  205    894    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52359  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39371  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T164354.md"
+}
+
+========================================
+explore --until-dry — ast_bridge.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 36
+  rounds                   12
+  new-per-round            26 → 10 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     156     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4768,
+    "symbols": 365116,
+    "orphans": 761
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.9260796,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 761
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754882\n  pub_symbols (est.)       11972\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94264  205    896    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52359  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39386  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T170623.md"
+}
+NEW_FINDINGS=36
+
+========================================
+explore --until-dry — common.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 36
+  rounds                   12
+  new-per-round            20 → 8 → 0 → 1 → 0 → 2 → 0 → 0 → 3 → 0 → 2 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4576,
+    "symbols": 365116,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92608243,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2639
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754936\n  pub_symbols (est.)       11972\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94318  205    896    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52359  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39386  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T170713.md"
+}
+NEW_FINDINGS=35
+
+========================================
+explore --until-dry — types.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 35
+  rounds                   12
+  new-per-round            24 → 7 → 2 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 2 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ parou no TETO de 12 rodadas, não por secar (última rodada new=0) — repita com --max-rounds maior
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.5135,
+    "symbols": 365176,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92608565,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2642
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754989\n  pub_symbols (est.)       11972\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94334  205    896    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52364  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39386  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T173700.md"
+}
+NEW_FINDINGS=32
+
+========================================
+explore --until-dry — decomposer.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 32
+  rounds                   12
+  new-per-round            20 → 12 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D0     0       auto   
+  antistaleness  12      D0     288     auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)
+{
+  "scope": "/home/gabrielgadea/projects/touring",
+  "health": {
+    "available": true,
+    "composite_health": 0.4769,
+    "symbols": 365186,
+    "orphans": 760
+  },
+  "quality50": {
+    "available": true,
+    "composite": 0.92608005,
+    "tier": "Platinum",
+    "blockers": [],
+    "warnings": [
+      "F1_1",
+      "F1_2",
+      "F1_3",
+      "F3_1",
+      "F4_3",
+      "F4_5"
+    ],
+    "file_count": 2642
+  },
+  "wiring": {
+    "available": true,
+    "orphans": 760
+  },
+  "memory": {
+    "topic": "loop-engineering",
+    "hits": [
+      "create-script:loop_snapshot",
+      "loop-mvp:COMPLETE:8de8:2026-07-02",
+      "create-script:loop_stop_guard",
+      "loop-mvp:P1:done:2026-07-02",
+      "create-script:loop_diagnose",
+      "create-script:loop_converged",
+      "portfolio-verdict:close-do-loop-engineering-como-adw",
+      "design:loop-engineering-touring:decisions:2026-07-02"
+    ]
+  },
+  "structure": {
+    "available": true,
+    "source": "touring-map",
+    "excerpt": "==============================================\nWORKSPACE  /home/gabrielgadea/projects/touring\n==============================================\n  crates                   42\n  files                    1809\n  LOC                      754996\n  pub_symbols (est.)       11972\n  features declared        0\n\n----------------------------------------\nper-crate (top 20 by LOC)\n----------------------------------------\n  crate                  loc    files  pub_est\n  ---------------------  -----  -----  -------\n  touring-server         94334  205    896    \n  touring-intelligence   83408  194    2129   \n  touring-cli            52364  79     423    \n  touring-analysis       43820  113    605    \n  touring-code           42391  107    721    \n  touring-dispatch       39386  37     36     \n  touring-founda"
+  },
+  "okf_doc": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-04-work-outer/diagnostics/touring-20261004T173736.md"
+}
+NEW_FINDINGS=20
+
+========================================
+explore --until-dry — budget.rs
+========================================
+  scope                    /home/gabrielgadea/projects/touring
+  findings                 20
+  rounds                   12
+  new-per-round            17 → 3 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0 → 0
+
+----------------------------------------
+coverage (lens × depth × truncation)
+----------------------------------------
+  lens           visits  depth  elided  state  
+  -------------  ------  -----  ------  -------
+  lexical        12      D0     0       auto   
+  structural     12      D0     0       auto   
+  institutional  12      D1     0       auto   
+  antistaleness  12      D0     0       auto   
+  quality        12      D1     0       auto   
+  portfolio      12      D1     0       auto   
+  external       0       -      0       PENDING
+
+----------------------------------------
+verdict
+----------------------------------------
+  converged                False
+  statement                exploration incomplete
+  ✗ lens 'external' pending — mark visited/waived (--mark-lens)

@@ -246,15 +246,8 @@ pub(crate) fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
             // processo ficaram para o `gate-metrics` vivo; o KPI lê o arquivo
             // durável que o gate incrementa ao lado deles).
             let v = crate::cli_suggester::read_durable_evidence(&rt.project_root);
-            let denied = v
-                .pointer("/s3/denied")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let passed = v
-                .pointer("/s3/first_passed")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            inspect_burst_share(denied, passed)
+            let (rajada, passed) = s3_burst_observations(&v);
+            inspect_burst_share(rajada, passed)
         }
         "code_mode_adoption_ratio" => {
             // W0 S-0.1 (plano code-mode-total, 2026-08-24) — `touring run`

@@ -1,32 +1,15 @@
 ---
 name: touring-scouter
 description: >
-  Use this agent when the user asks to "scout codebase", "find integration opportunities",
-  "analyze blast radius", "audit wiring", "find orphan symbols", "run VP-Scout verification",
-  "check for homonimia", "verify dependency cycles", "check feature trace",
-  "find symbol definitions", "search codebase", "e2e health check",
-  "check wiring chains", "check blast-cross-feature", "check file-knowledge extended",
-  "inspect rust semantics", "list workspace packages", "find dependents of crate",
-  or mentions "touring-scouter", "codebase intelligence", "integration scouting",
-  "false positive detection", "verified discovery", "symbol index search",
-  "functional chains", "cross-audit", "feature trace cross-feature",
-  "rust-semantic", "workspace-info", "cargo_metadata".
-  Deep codebase intelligence scout using the full Touring CLI stack.
-  VP-Scout v1.1 with 7 mandatory verification chains (incl. Chain 7: Wiring Staleness). JSON-only output.
-  Wave 4 (2026-04-18) extends scouting with deep Rust semantics via
-  `touring ast rust-semantic <file>` (generics, trait bounds, lifetimes,
-  derives, unsafe/async counts) and workspace-wide package/feature intel
-  via `touring ast workspace-info` (`dependents_of`, `packages_with_feature`,
-  `all_feature_names`) — enabling scope verification beyond tree-sitter shape.
-  Wave 12 (2026-04-27) adds awareness of `BlastWarning::PatchExpansion` (B-302),
-  the 45-entry synergy WIRED_PAIRS catalog, and `diagnostic_b302_emitted_count`
-  for orphan detection on the mpatch fuzzy preview pathway.
-model: claude-sonnet-4-6
+  Use this agent when the user asks to "scout codebase", "find integration opportunities", "analyze
+  blast radius", "audit wiring", "find orphan symbols", or menciona "touring-scouter", "codebase
+  intelligence", "integration scouting", "false positive detection", "verified discovery", "symbol
+  index search", "feature trace cross-feature", "cargo_metadata". Deep codebase intelligence scout
+  using the full Touring CLI stack. JSON-only output.
+model: sonnet
 color: cyan
 tools: [Bash, Glob, Grep, Read, LS]
----
-
-## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
+---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
 
 > **edição-com-gate (blast + pre-edit antes de tocar código)**: este agente DEVE invocar workflows determinísticos do `Touring-native tooling` em vez de operações ad-hoc. Provenance via Touring (memory + diary), não via Write tool.
 
@@ -332,9 +315,10 @@ touring evolution drift -j | jq '.metrics | to_entries[] | select(.value.trend =
 # Cognitive health
 touring cognitive metrics -j
 
-# Lifecycle hook memory (store/recall patterns from hook events)
-touring hook-memory-recall "<query>" -j
-touring hook-memory-store "<key>" "<value>" --tier semantic --type lesson
+# Memory (store/recall lessons) — `hook-memory-*` are daemon dispatch handlers
+# (`cli-hook-memory-*` in hook_registry.rs), not `touring` subcommands (those exit 1 "Unknown subcommand")
+touring memory recall "<query>" -j
+touring memory store "<key>" "<value>" --tier semantic --type lesson
 
 # Agent diary for cross-session context
 touring diary list -j
@@ -586,7 +570,7 @@ fi
     "symbol": "MemoryGuard::start_ticker",
     "status": "found|found_via_grep|not_found",
     "evidence_cmd": "touring index find MemoryGuard::start_ticker -j",
-    "evidence_excerpt": "{\"file_path\": \"crates/touring-resource-monitor/src/guard/mod.rs\", \"line\": 67}",
+    "evidence_excerpt": "{\"file_path\": \"crates/touring-foundation/src/sentinel/guard/mod.rs\", \"line\": 80}",
     "verdict": "VERIFIED|INDEX_STALE|BLOCKED_INVENTED_SYMBOL"
   }
 ]
@@ -843,3 +827,7 @@ Owns the **discovery** dimensions: **F1.7 Component Boundaries** + **F1.8 Depend
 Floor de entrega = Gold (0.80). ⚠ NÃO existe `touring quality` (subcommand), `score --gate`, `--enforce`, nem `generator de qualidade dedicado (inexistente)` (PLANNED W7 → `Edit tool`). Catálogo: `~/.claude/skills/touring-elite/references/elite-50-quality.md`; per-dim: `~/.claude/rules/quality/D07_boundaries.md`, `D08_dep-cycles.md`.
 
 **Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`) for structural scouting: `workspace_arch_diag.py` (inter-crate DAG cycles + fan-in blast — where a change ripples) · `crate_arch_diag.py <crate>` (God-objects + module coupling) · `clone_blocks.py <file>` (Type-1 clones classified real vs scaffold-FP — surface a dedup opportunity without a false positive). Read-only, deterministic; artifacts to `DIAG_OUT`.
+
+## Notas de ativação (movidas da description em 08/10/2026)
+
+Use this agent when the user asks to "scout codebase", "find integration opportunities", "analyze blast radius", "audit wiring", "find orphan symbols", "run VP-Scout verification", "check for homonimia", "verify dependency cycles", "check feature trace", "find symbol definitions", "search codebase", "e2e health check", "check wiring chains", "check blast-cross-feature", "check file-knowledge extended", "inspect rust semantics", "list workspace packages", "find dependents of crate", or mentions "touring-scouter", "codebase intelligence", "integration scouting", "false positive detection", "verified discovery", "symbol index search", "functional chains", "cross-audit", "feature trace cross-feature", "rust-semantic", "workspace-info", "cargo_metadata". Deep codebase intelligence scout using the full Touring CLI stack. VP-Scout v1.1 with 7 mandatory verification chains (incl. Chain 7: Wiring Staleness). JSON-only output. Wave 4 (2026-04-18) extends scouting with deep Rust semantics via `touring ast rust-semantic <file>` (generics, trait bounds, lifetimes, derives, unsafe/async counts) and workspace-wide package/feature intel via `touring ast workspace-info` (`dependents_of`, `packages_with_feature`, `all_feature_names`) — enabling scope verification beyond tree-sitter shape. Wave 12 (2026-04-27) adds awareness of `BlastWarning::PatchExpansion` (B-302), the 45-entry synergy WIRED_PAIRS catalog, and `diagnostic_b302_emitted_count` for orphan detection on the mpatch fuzzy preview pathway.
