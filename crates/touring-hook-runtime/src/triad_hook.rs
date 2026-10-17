@@ -271,7 +271,15 @@ fn triad_state_dir() -> Option<PathBuf> {
             base.join("touring").join("triad")
         }
     };
-    if std::fs::create_dir_all(&dir).is_err() {
+    // Ancestors are created with an explicit 0700 and then VERIFIED. `create_dir_all` makes
+    // them with 0o777 & ~umask, and it succeeds through a path a local user already created —
+    // so `/tmp/touring-<uid>/touring` could be another user's, or a symlink pointing anywhere.
+    // The store holds source text: a directory we did not create is not one we may write into.
+    if !create_private_chain(&dir) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "TRIAD: could not create a private directory chain — cross-process baseline off"
+        );
         return None;
     }
     // `create_dir_all` SUCCEEDS on a directory someone else already owns, and this store
@@ -280,13 +288,6 @@ fn triad_state_dir() -> Option<PathBuf> {
     // genuinely 0700 afterwards. Any check failing means the store is unusable — the
     // alternative is writing a user's source into a directory we do not control, which is
     // worse than abstaining from the cross-process baseline.
-    if !owns_private_dir(&dir) {
-        tracing::warn!(
-            dir = %dir.display(),
-            "TRIAD: state dir is not a private directory we own — cross-process baseline off"
-        );
-        return None;
-    }
     // A pre-existing directory keeps its old mode; tighten it, and treat a failure to do so
     // as unusable rather than proceeding with a possibly world-readable directory.
     if !set_mode(&dir, 0o700) {
@@ -299,18 +300,123 @@ fn triad_state_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// Whether `dir` is a real directory (not a symlink) owned by this process's user.
+/// Create `dir` and every missing ancestor with mode 0700, then verify EACH one.
+///
+/// Two separate attacks are closed here:
+///
+/// * a pre-planted **symlink** at any component (which would redirect every write), and
+/// * a pre-planted **directory owned by someone else** — `create_dir_all` succeeds on it, and
+///   the leaf check alone would pass while the parent belonged to an attacker.
+///
+/// Verifying by path is not race-free (a component could be swapped between the check and the
+/// open), which is why every component is also *created* 0700 here: the store refuses any
+/// component it finds rather than adopting it, so the only directories it writes into are ones
+/// it made itself.
 #[cfg(unix)]
-fn owns_private_dir(dir: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let Ok(meta) = std::fs::symlink_metadata(dir) else {
-        return false;
-    };
-    if meta.file_type().is_symlink() || !meta.is_dir() {
-        return false;
-    }
+fn create_private_chain(dir: &Path) -> bool {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+
     // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
-    meta.uid() == unsafe { libc::getuid() }
+    let uid = unsafe { libc::getuid() };
+    // Everything from the root down to `dir`, so each component can be checked in turn.
+    let mut chain: Vec<&Path> = Vec::new();
+    let mut cursor = dir;
+    loop {
+        chain.push(cursor);
+        match cursor.parent() {
+            Some(parent) if parent != cursor => cursor = parent,
+            _ => break,
+        }
+    }
+    chain.reverse();
+
+    for component in chain {
+        let meta = match std::fs::symlink_metadata(component) {
+            Ok(meta) => Some(meta),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(_) => return false,
+        };
+        match meta {
+            Some(meta) => {
+                // Already there: it must be a real directory, ours, and not group/world
+                // writable — otherwise someone else can plant files inside it.
+                if meta.file_type().is_symlink() || !meta.is_dir() {
+                    tracing::debug!(
+                        path = %component.display(),
+                        "TRIAD: rejecting a state-dir component that is not a real directory"
+                    );
+                    return false;
+                }
+                // A component WE own that is too open (an older version of this store created
+                // its ancestors with `create_dir_all`, i.e. 0755) is tightened rather than
+                // refused: it is ours, nobody else has anything in it yet, and refusing would
+                // leave the store permanently unusable on every machine that ran the earlier
+                // code. A component owned by SOMEONE ELSE is never adopted — that is the case
+                // an attacker controls.
+                if !component_is_safe(&meta, uid) {
+                    // Tighten only a component that is OURS and merely GROUP/OTHER-READABLE
+                    // (0755, what an older `create_dir_all` left behind). A component that is
+                    // group/other-WRITABLE is refused even when we own it: 0777 is exactly what
+                    // an attacker arranges so they can drop their own `triad/` inside it, and
+                    // removing that bit would be closing a door they still hold the key to.
+                    let writable_by_others = meta.mode() & 0o022 != 0;
+                    if writable_by_others || meta.uid() != uid || !set_mode(component, 0o700) {
+                        tracing::debug!(
+                            path = %component.display(),
+                            "TRIAD: rejecting a state-dir component another user could write to"
+                        );
+                        return false;
+                    }
+                }
+            }
+            None => {
+                let built = std::fs::DirBuilder::new()
+                    .recursive(true)
+                    .mode(0o700)
+                    .create(component);
+                if built.is_err() {
+                    return false;
+                }
+                // Re-read after creating: the mode we asked for may have been widened by the
+                // umask, and a component that is not private is not acceptable.
+                let Ok(meta) = std::fs::symlink_metadata(component) else {
+                    return false;
+                };
+                if meta.file_type().is_symlink() || !meta.is_dir() || !component_is_safe(&meta, uid)
+                {
+                    return false;
+                }
+            }
+        }
+    }
+    true
+}
+
+/// Whether a path component is safe to keep writing beneath.
+///
+/// A component WE own must be private (0700): nobody else may create entries in it, or they
+/// could plant a record we would later accept. A component owned by someone else — `/run/user`
+/// is root-owned 0755 and perfectly fine — is acceptable only when it is not writable by
+/// group or other, because then no one can insert anything beneath it either.
+#[cfg(unix)]
+fn component_is_safe(meta: &std::fs::Metadata, uid: u32) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let mode = meta.mode();
+    if meta.uid() == uid {
+        return mode & 0o077 == 0;
+    }
+    // Someone else's ancestor is acceptable when they cannot be written through: either not
+    // writable at all (`/run/user`, 0755 root), or sticky (`/tmp`, 1777) — where anyone may
+    // create their own entries but may not remove or rename anyone else's, so a planted
+    // `touring-<uid>` cannot be swapped out from under us.
+    mode & 0o022 == 0 || mode & 0o1000 != 0
+}
+
+/// Without unix metadata there is no ownership to check, so only "every component is a real
+/// directory" can be verified.
+#[cfg(not(unix))]
+fn create_private_chain(dir: &Path) -> bool {
+    std::fs::create_dir_all(dir).is_ok()
 }
 
 /// Without `symlink_metadata` the strongest available check is "it is a directory".
@@ -1157,9 +1263,16 @@ mod tests {
 /// and gets its own directory.
 #[cfg(test)]
 fn scratch(tag: &str) -> std::path::PathBuf {
+    use std::os::unix::fs::DirBuilderExt;
     let dir = std::env::temp_dir().join(format!("touring-triad-test-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("scratch dir");
+    // 0700, because the store now requires every component it writes into to be private —
+    // and these ARE the components it writes into.
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&dir)
+        .expect("scratch dir");
     dir
 }
 
@@ -1707,6 +1820,84 @@ mod s28_store_security_tests {
         // SAFETY: `#[serial]` guarantees exclusivity.
         unsafe { std::env::set_var("TOURING_TRIAD_DIR", &file) };
         assert!(triad_state_dir().is_none());
+    }
+
+    /// A symlink planted at an ANCESTOR of the state dir is refused, not just at the leaf.
+    ///
+    /// Checking only the leaf was a real gap: `create_dir_all` succeeds through a symlink, so
+    /// `…/touring/triad` being a pristine 0700 directory of ours says nothing about `…/touring`
+    /// pointing somewhere a local user chose. The whole chain is verified.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_symlinked_ancestor_is_refused() {
+        let _state = use_state_dir("sec-ancestor");
+        let work = scratch("sec-ancestor-work");
+        let elsewhere = work.join("attacker");
+        fs::create_dir_all(&elsewhere).expect("attacker dir");
+        let link = work.join("touring");
+        std::os::unix::fs::symlink(&elsewhere, &link).expect("symlink");
+        let leaf = link.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a symlinked ancestor must be refused even when the leaf is ours"
+        );
+        assert!(
+            fs::read_dir(&elsewhere).expect("read").next().is_none(),
+            "nothing may be written through the ancestor link"
+        );
+    }
+
+    /// An ancestor owned by someone else and writable by them is refused outright — the store
+    /// never adopts a directory it did not create.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_world_writable_ancestor_is_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let _state = use_state_dir("sec-ww");
+        let work = scratch("sec-ww-work");
+        let loose = work.join("loose");
+        fs::create_dir_all(&loose).expect("loose dir");
+        // Group/other writable: someone else could drop a component in here.
+        fs::set_permissions(&loose, std::fs::Permissions::from_mode(0o777)).expect("chmod");
+        let leaf = loose.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a world-writable ancestor must not be adopted"
+        );
+    }
+
+    /// A directory WE own that is merely too open is tightened to 0700 rather than refused —
+    /// an earlier version of this store created its ancestors with `create_dir_all` (0755),
+    /// and refusing those would make the store permanently unusable on every host that ran it.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_self_owned_open_ancestor_is_tightened_not_refused() {
+        use std::os::unix::fs::PermissionsExt;
+        let _state = use_state_dir("sec-tighten");
+        let work = scratch("sec-tighten-work");
+        let open_dir = work.join("open");
+        fs::create_dir_all(&open_dir).expect("open dir");
+        fs::set_permissions(&open_dir, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let leaf = open_dir.join("triad");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
+        let got = triad_state_dir().expect("our own directory must still work");
+        assert_eq!(got, leaf);
+        let mode = fs::metadata(&open_dir).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(
+            mode, 0o700,
+            "an ancestor we own is tightened to 0700, got {mode:o}"
+        );
     }
 
     /// The state directory is 0700 and every record 0600 — the store holds source text, so
