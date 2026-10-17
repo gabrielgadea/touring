@@ -389,34 +389,86 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     let elided = issue_count - feedback.issues.len();
     super::post_feedback::fit_budget(&mut feedback.signals, budget.saturating_sub(used));
 
-    // TRIAD (S12, D1-A): take ONLY this (session, path) snapshot. It also answers what the
-    // file held BEFORE the write — the baseline of the antipattern gate (S28).
-    let triad = triad_hook::take(&triad_hook::session_of(input), file_path);
-    let new_antipatterns = match (
-        triad.as_deref().and_then(triad_hook::before_content),
+    // TRIAD (S12, D1-A): the S28 gate on NEW anti-patterns, plus the declared abstention.
+    apply_s28_gate(
+        input,
+        file_path,
+        &rel_path,
+        lang_str,
         input_content.as_deref(),
-    ) {
-        (Some(before), Some(after)) => super::post_feedback::new_antipatterns(
-            before.as_deref(),
-            after,
-            lang_str.unwrap_or(""),
-            file_path,
+        &feedback,
+        elided,
+    )
+}
+
+/// The S28 gate for `post_write`: count anti-patterns this write INTRODUCED (before × after),
+/// block past the threshold, and — when no baseline was available — declare the abstention
+/// instead of passing as if the check had run.
+///
+/// Split out of `run_returning_impl` (which was already at CC=44) so the gate's shape stays
+/// readable: it has exactly two outcomes, judged or declared.
+fn apply_s28_gate(
+    input: &serde_json::Value,
+    file_path: &str,
+    rel_path: &str,
+    lang_str: Option<&str>,
+    input_content: Option<&str>,
+    feedback: &super::post_feedback::Feedback,
+    elided: usize,
+) -> HookResponse {
+    // The baseline is read from this process's memory first and from the per-user on-disk
+    // record second, so a standalone pre-write still arms a daemon (or standalone)
+    // post-write — 17/10/2026, where the split silently disabled this gate under load.
+    let triad = triad_hook::take_lookup(&triad_hook::session_of(input), file_path);
+    // Match the LOOKUP, not `Option<&str>`: `before()` yields `None` both for
+    // `Baseline::Absent` (a new file — every occurrence IS new) and for a genuine
+    // abstention, and routing both through one arm made a new file count zero silently.
+    // `new_antipatterns` already encodes the right semantics for `None` ("the file did not
+    // exist, so everything counts"), so `Absent` must reach it, not the abstain arm.
+    let (new_antipatterns, abstention) = match (&triad.lookup, input_content) {
+        (triad_hook::TriadLookup::Found(baseline), Some(after)) => (
+            super::post_feedback::new_antipatterns(
+                baseline.as_before(),
+                after,
+                lang_str.unwrap_or(""),
+                file_path,
+            ),
+            None,
         ),
-        // Unknown baseline (no armed snapshot): the gate abstains — never block blind.
-        _ => 0,
+        // A baseline we hold but no content to compare against: abstain, never block blind.
+        (triad_hook::TriadLookup::Found(_), None) => (
+            0,
+            Some(super::post_feedback::EDIT_BASELINE_ABSTAINED.to_string()),
+        ),
+        (triad_hook::TriadLookup::Absent(reason), _) => (0, Some(reason.note())),
     };
 
-    // Step 6: Return feedback (with the block gate for new anti-patterns).
-    let response = build_response(&feedback, elided, &rel_path, new_antipatterns);
+    let response = build_response(feedback, elided, rel_path, new_antipatterns);
 
-    // Never restores the file — PostToolUse cannot undo; a Block gains the write's +/− summary.
-    if let Some(state) = triad {
-        return triad_hook::run_post_write(&state, response);
+    match abstention {
+        // An abstention is a MEASUREMENT THAT DID NOT HAPPEN and must be visible — silently
+        // passing is how 5 new antipatterns got written in under load. Declared as a signal,
+        // never an issue: it is a property of the hook, not of the file.
+        Some(note) => super::post_feedback::attach_signal(response, &note),
+        // Never restores the file — PostToolUse cannot undo; a Block gains the write's
+        // +/− summary. The baseline is enough for that (and survives the process boundary),
+        // so the note appears whether or not this process armed it.
+        None => match &triad.lookup {
+            triad_hook::TriadLookup::Found(baseline) => {
+                triad_hook::run_post_write(file_path, baseline, response)
+            }
+            // Unreachable: `Absent` always carries a reason, and every reason is declared
+            // above. Kept so a future variant cannot reintroduce a silent pass.
+            triad_hook::TriadLookup::Absent(reason) => {
+                tracing::warn!(
+                    path = %rel_path,
+                    reason = ?reason,
+                    "TRIAD: S28 absent without a declared abstention"
+                );
+                super::post_feedback::attach_signal(response, &reason.note())
+            }
+        },
     }
-
-    // D1.6: Emit activity event before returning response.
-
-    response
 }
 
 /// Layer7 prediction + ACO wiring deposits after a successful write.

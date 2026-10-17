@@ -85,6 +85,10 @@ pub mod pre_tool_use;
 #[cfg(feature = "pre-hooks")]
 #[path = "hooks/pre_write.rs"]
 pub mod pre_write;
+/// S28 gate acceptance tests (cross-process baseline + declared abstention).
+#[cfg(all(test, feature = "post-hooks"))]
+#[path = "hooks/s28_gate.rs"]
+mod s28_gate;
 #[cfg(feature = "session-hooks")]
 #[path = "hooks/session_hooks.rs"]
 pub mod session_hooks;
@@ -92,6 +96,9 @@ pub mod session_hooks;
 pub mod stop;
 #[path = "hooks/team_hooks.rs"]
 pub mod team_hooks;
+#[cfg(feature = "pre-hooks")]
+#[path = "hooks/vgp_l2.rs"]
+pub mod vgp_l2;
 
 // Integration tests — post_tool_rl RL feedback loop
 #[cfg(all(test, feature = "post-hooks"))]
