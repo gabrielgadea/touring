@@ -466,13 +466,17 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         }
     }
     // S28: the shared gate, on NEW occurrences (rebuilt before × after); it abstains when
-    // the edit could not be reversed.
-    let new_antipatterns = match (before_content.as_deref(), file_content.as_deref()) {
-        (Some(before), Some(after)) => {
-            super::post_feedback::new_antipatterns(Some(before), after, lang_str, file_path)
-        }
-        _ => 0,
-    };
+    // the edit could not be reversed — and it DECLARES that abstention, because an edit
+    // that adds anti-patterns and reports nothing is indistinguishable from a clean edit
+    // (the same silence that hid the S28 gap in post_write on 17/10/2026).
+    let (new_antipatterns, s28_abstention) =
+        match (before_content.as_deref(), file_content.as_deref()) {
+            (Some(before), Some(after)) => (
+                super::post_feedback::new_antipatterns(Some(before), after, lang_str, file_path),
+                None,
+            ),
+            _ => (0, Some(super::post_feedback::EDIT_BASELINE_ABSTAINED)),
+        };
     if let Some(block_response) = super::post_feedback::check_block_gate(
         new_antipatterns,
         &rel_path,
@@ -485,7 +489,12 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         return block_response;
     }
     if outcome.is_empty() {
-        return HookResponse::Allow;
+        // Even a silent edit must declare an abstention — the model cannot tell "nothing to
+        // report" from "the check did not run".
+        return match s28_abstention {
+            Some(note) => super::post_feedback::attach_signal(HookResponse::Allow, note),
+            None => HookResponse::Allow,
+        };
     }
     let cila_level: u8 = runtime
         .ctx
@@ -521,7 +530,10 @@ fn run_returning_impl(runtime: &mut HookRuntime, input: &serde_json::Value) -> H
         feedback = format!("{} [MCTS: {}]", feedback, complexity_score);
     }
     HookResponse::Context {
-        context: feedback,
+        context: match s28_abstention {
+            Some(note) => format!("{feedback}\n{note}"),
+            None => feedback,
+        },
         event_name: Some("PostToolUse".to_string()),
     }
 }

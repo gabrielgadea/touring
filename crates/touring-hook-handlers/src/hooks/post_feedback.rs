@@ -81,6 +81,45 @@ pub(crate) fn check_block_gate(
     })
 }
 
+/// Declared abstention for `post_edit`: the edit's pre-state could not be rebuilt from the
+/// tool input (an edit whose `old_string` is not present in the post-state, or a payload
+/// whose shape `content_before_edit` cannot invert), so no before × after comparison ran.
+///
+/// The wording is deliberately operational, not apologetic: the model has to know the
+/// anti-pattern gate did not judge this edit.
+pub(crate) const EDIT_BASELINE_ABSTAINED: &str = "S28 abstained: this edit's pre-state could not \
+     be reconstructed, so NEW anti-patterns were not counted (pre-existing ones are \
+     indistinguishable from introduced ones).";
+
+/// Add `note` to an already-built response without changing its verdict.
+///
+/// A gate that abstained must SAY so; a signal is the only shape that carries information
+/// without becoming a defect count (an `issue` would inflate the header and read as the
+/// file's problem). `Allow` becomes a `Context` carrying the note — an abstention is not
+/// "nothing to report", it is "the check did not run".
+pub(crate) fn attach_signal(response: HookResponse, note: &str) -> HookResponse {
+    match response {
+        HookResponse::Allow => HookResponse::Context {
+            context: note.to_string(),
+            event_name: Some("PostToolUse".to_string()),
+        },
+        HookResponse::Context {
+            context,
+            event_name,
+        } => HookResponse::Context {
+            context: if context.is_empty() {
+                note.to_string()
+            } else {
+                format!("{context}\n{note}")
+            },
+            event_name: event_name.or_else(|| Some("PostToolUse".to_string())),
+        },
+        // A Block/Deny already tells the model the write was stopped; appending a note to it
+        // would blur what caused the stop.
+        other => other,
+    }
+}
+
 /// Keep items (in order) while they fit `budget` characters (+3 per separator) and return
 /// the characters used. An item that does not fit is dropped and later, smaller ones still
 /// get their chance — the behaviour both hooks had.
