@@ -274,8 +274,49 @@ fn triad_state_dir() -> Option<PathBuf> {
     if std::fs::create_dir_all(&dir).is_err() {
         return None;
     }
-    set_mode(&dir, 0o700);
+    // `create_dir_all` SUCCEEDS on a directory someone else already owns, and this store
+    // holds source text. So the directory must be proved ours before anything is written:
+    // not a symlink (which would redirect every write elsewhere), owned by our uid, and
+    // genuinely 0700 afterwards. Any check failing means the store is unusable — the
+    // alternative is writing a user's source into a directory we do not control, which is
+    // worse than abstaining from the cross-process baseline.
+    if !owns_private_dir(&dir) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "TRIAD: state dir is not a private directory we own — cross-process baseline off"
+        );
+        return None;
+    }
+    // A pre-existing directory keeps its old mode; tighten it, and treat a failure to do so
+    // as unusable rather than proceeding with a possibly world-readable directory.
+    if !set_mode(&dir, 0o700) {
+        tracing::warn!(
+            dir = %dir.display(),
+            "TRIAD: could not restrict the state dir to 0700 — cross-process baseline off"
+        );
+        return None;
+    }
     Some(dir)
+}
+
+/// Whether `dir` is a real directory (not a symlink) owned by this process's user.
+#[cfg(unix)]
+fn owns_private_dir(dir: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(meta) = std::fs::symlink_metadata(dir) else {
+        return false;
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return false;
+    }
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    meta.uid() == unsafe { libc::getuid() }
+}
+
+/// Without `symlink_metadata` the strongest available check is "it is a directory".
+#[cfg(not(unix))]
+fn owns_private_dir(dir: &Path) -> bool {
+    std::fs::metadata(dir).map(|m| m.is_dir()).unwrap_or(false)
 }
 
 /// This process's real uid: `$UID` when the environment carries it, `getuid()` otherwise.
@@ -305,15 +346,22 @@ fn current_uid() -> u32 {
     })
 }
 
-/// Best-effort `chmod` — the store holds source text, so it must not be group/world readable.
-fn set_mode(path: &Path, mode: u32) {
+/// `chmod` `path`, reporting whether the mode now holds.
+///
+/// Returning the outcome matters: this store holds source text, and a caller that ignores a
+/// failed `chmod` proceeds to write private data into a directory that is still readable by
+/// other users.
+fn set_mode(path: &Path, mode: u32) -> bool {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode));
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).is_ok()
     }
     #[cfg(not(unix))]
-    let _ = (path, mode);
+    {
+        let _ = (path, mode);
+        false
+    }
 }
 
 /// Record file for `key`: a BLAKE3 of the session and canonical path — the same inputs the
@@ -408,7 +456,14 @@ fn persist_baseline(key: &TriadKey, baseline: &Baseline) {
     sweep_expired(&dir);
     let final_path = record_path(&dir, &key.0, &key.1);
     let seq = WRITE_SEQ.fetch_add(1, Ordering::Relaxed);
-    let tmp = final_path.with_extension(format!("{DISK_SUFFIX}.{seq}.tmp"));
+    // The temp name carries process id, a counter and 64 bits of OS entropy: a name another
+    // user cannot guess is a name they cannot pre-plant. `O_EXCL` above is the backstop that
+    // makes a collision a failure rather than a clobber.
+    let tmp = final_path.with_extension(format!(
+        "{DISK_SUFFIX}.{}.{seq}.{:016x}.tmp",
+        std::process::id(),
+        random_suffix()
+    ));
     let header = serde_json::json!({
         "v": DISK_VERSION,
         "at": unix_now(),
@@ -446,19 +501,43 @@ fn persist_baseline(key: &TriadKey, baseline: &Baseline) {
 fn create_private(path: &Path) -> std::io::Result<std::fs::File> {
     use std::io::Write as _;
     let mut opts = std::fs::OpenOptions::new();
-    opts.write(true).create(true).truncate(true);
+    // O_EXCL: fail if the name already exists, rather than following or truncating whatever
+    // is there. Combined with `create`, this is the atomic "create a new file" that cannot be
+    // redirected by a pre-planted symlink.
+    opts.write(true).create_new(true);
     #[cfg(unix)]
     {
         use std::os::unix::fs::OpenOptionsExt;
         opts.mode(0o600);
-        // SAFETY: `custom_flags` is passed straight to `open(2)`; `O_NOFOLLOW` is a
-        // well-defined flag with no memory-safety implication.
-        #[cfg(target_os = "linux")]
-        opts.custom_flags(libc::O_NOFOLLOW);
+        // SAFETY: `custom_flags` is passed straight to `open(2)`. Both flags are plain
+        // kernel-level file-creation semantics with no memory-safety implication.
+        opts.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
     }
     let mut f = opts.open(path)?;
     f.flush()?;
     Ok(f)
+}
+
+/// 64 bits of entropy from the OS, for temp-file names.
+///
+/// Reads exactly 8 bytes: `fs::read` on `/dev/urandom` would read the whole (endless) stream
+/// and exhaust memory, so the file is opened and a single fixed read is issued.
+///
+/// Falls back to clock⊕pid when `/dev/urandom` cannot be read: weaker, but `O_EXCL` still
+/// refuses to overwrite, so a guess costs an error, never a clobbered file.
+fn random_suffix() -> u64 {
+    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
+        use std::io::Read as _;
+        let mut buf = [0u8; 8];
+        if f.read_exact(&mut buf).is_ok() {
+            return u64::from_le_bytes(buf);
+        }
+    }
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    now ^ (std::process::id() as u64).rotate_left(17)
 }
 
 fn unix_now() -> u64 {
@@ -481,7 +560,7 @@ fn load_baseline(key: &TriadKey) -> BaselineRead {
         return Ok(None);
     };
     let _ = std::fs::remove_file(&path);
-    parse_baseline(&raw, &key.1)
+    parse_baseline(&raw, &key.1, &key.0)
 }
 
 /// `Ok(None)` = no record; `Err` = a record existed but could not be used, and the reason
@@ -494,13 +573,13 @@ type BaselineRead = std::result::Result<Option<Baseline>, TriadAbsent>;
 /// Parse a record: header line of JSON, then exactly the declared number of text bytes.
 /// Anything unexpected is [`TriadAbsent::Unreadable`] — an unreadable baseline must abstain,
 /// never degrade into "the file did not exist" (which would count every hit as new).
-fn parse_baseline(raw: &[u8], expect_path: &Path) -> BaselineRead {
+fn parse_baseline(raw: &[u8], expect_path: &Path, expect_session: &str) -> BaselineRead {
     let Some(nl) = raw.iter().position(|b| *b == b'\n') else {
         return Err(TriadAbsent::Unreadable("no header".into()));
     };
     let header: serde_json::Value = serde_json::from_slice(&raw[..nl])
         .map_err(|e| TriadAbsent::Unreadable(format!("bad header: {e}")))?;
-    check_header(&header, expect_path)?;
+    check_header(&header, expect_path, expect_session)?;
     let len = header
         .get("len")
         .and_then(serde_json::Value::as_u64)
@@ -533,6 +612,7 @@ fn parse_baseline(raw: &[u8], expect_path: &Path) -> BaselineRead {
 fn check_header(
     header: &serde_json::Value,
     expect_path: &Path,
+    expect_session: &str,
 ) -> std::result::Result<(), TriadAbsent> {
     if header.get("v").and_then(serde_json::Value::as_u64) != Some(DISK_VERSION as u64) {
         return Err(TriadAbsent::Unreadable(format!(
@@ -551,6 +631,18 @@ fn check_header(
         .unwrap_or_default();
     if Path::new(stored) != expect_path {
         return Err(TriadAbsent::Unreadable("path mismatch".into()));
+    }
+    // The session is verified too, not just the path: the record name is a hash of BOTH, and
+    // anyone who can read the directory can compute it, so a record is only ours if its
+    // contents claim our session. Without this a forged record for the same path — from
+    // another session, or from another user who got write access — would be accepted, and
+    // the gate would compare this write against an attacker's "before".
+    let stored_session = header
+        .get("session")
+        .and_then(serde_json::Value::as_str)
+        .unwrap_or_default();
+    if stored_session != expect_session {
+        return Err(TriadAbsent::Unreadable("session mismatch".into()));
     }
     Ok(())
 }
@@ -737,6 +829,7 @@ pub fn check_drift(state: &TriadState) -> Option<bool> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serial_test::serial;
     use std::fs;
     use tempfile::tempdir;
 
@@ -946,6 +1039,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(triad_state)]
     fn triad_state_is_keyed_by_session_and_path() {
         let dir = tempdir().expect("tempdir");
         let file = dir.path().join("shared.py");
@@ -974,6 +1068,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(triad_state)]
     fn post_write_of_a_never_consumes_snapshot_of_b() {
         let dir = tempdir().expect("tempdir");
         let a = dir.path().join("a.py");
@@ -1001,6 +1096,7 @@ mod tests {
     }
 
     #[test]
+    #[serial(triad_state)]
     fn relative_and_absolute_paths_share_one_key() {
         let dir = tempdir().expect("tempdir");
         let file = dir.path().join("rel.py");
@@ -1054,6 +1150,28 @@ mod tests {
     }
 }
 
+/// Scratch directory for a test, plus the helper that points the store at a private one.
+///
+/// Shared by the test modules below: env vars are process-global and `cargo test` runs a
+/// process' tests on parallel threads, so every test that touches the store is `#[serial]`
+/// and gets its own directory.
+#[cfg(test)]
+fn scratch(tag: &str) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("touring-triad-test-{}-{tag}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("scratch dir");
+    dir
+}
+
+#[cfg(test)]
+fn use_state_dir(tag: &str) -> std::path::PathBuf {
+    let dir = scratch(&format!("state-{tag}"));
+    // SAFETY: every test that sets this is `#[serial]`, so no other thread in this process
+    // reads it concurrently.
+    unsafe { std::env::set_var("TOURING_TRIAD_DIR", &dir) };
+    dir
+}
+
 /// S28 cross-process baseline (17/10/2026) — the acceptance tests for the defect the `analise`
 /// session measured: pre-write and post-write in DIFFERENT processes, and an abstention that
 /// is always DECLARED.
@@ -1066,32 +1184,6 @@ mod s28_cross_process_tests {
     use super::*;
     use serial_test::serial;
     use std::fs;
-
-    /// A private scratch directory for one test (the file under edit, mostly).
-    ///
-    /// It does NOT touch `TOURING_TRIAD_DIR` — the state dir is chosen separately by
-    /// [`use_state_dir`], because a second call here would silently repoint the store at a
-    /// work directory (which is exactly the bug this suite first had: it wrote the record
-    /// into the scratch dir and then looked for it in the other one).
-    fn scratch(tag: &str) -> PathBuf {
-        let dir =
-            std::env::temp_dir().join(format!("touring-triad-test-{}-{tag}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).expect("scratch dir");
-        dir
-    }
-
-    /// Install a private `TOURING_TRIAD_DIR` for the test's duration.
-    ///
-    /// Env vars are process-global and `cargo test` runs a process' tests on parallel threads,
-    /// so every test here is `#[serial]`: without it two cases would share one state dir and
-    /// could read each other's records.
-    fn use_state_dir(tag: &str) -> PathBuf {
-        let dir = scratch(&format!("state-{tag}"));
-        // SAFETY: `#[serial]` guarantees no other thread in this process reads it concurrently.
-        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &dir) };
-        dir
-    }
 
     fn file_with(dir: &Path, name: &str, body: &str) -> PathBuf {
         let p = dir.join(name);
@@ -1560,6 +1652,211 @@ mod s28_cross_process_tests {
     }
 }
 
+/// Security controls on the baseline store (security review, 17/10/2026).
+///
+/// Each test here fails if its control is removed — they are not coverage for its own sake:
+/// every one of them guards a way to read or clobber the user's source text through a
+/// directory the hook chose, and the store is only ever consulted by the post-write hook.
+#[cfg(test)]
+mod s28_store_security_tests {
+    use super::*;
+    use serial_test::serial;
+    use std::fs;
+
+    fn state_and_scratch(tag: &str) -> (PathBuf, PathBuf) {
+        let state = use_state_dir(tag);
+        let work = scratch(&format!("{tag}-work"));
+        (state, work)
+    }
+
+    /// A symlink standing where the state directory should be is REFUSED. `create_dir_all`
+    /// succeeds through a symlink, so without this check every baseline — the user's source
+    /// text — would be written wherever the link points.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn a_symlinked_state_dir_is_refused() {
+        let _state = use_state_dir("sec-symlink");
+        let work = scratch("symlink-work");
+        let target = work.join("elsewhere");
+        fs::create_dir_all(&target).expect("target dir");
+        let link = work.join("link");
+        std::os::unix::fs::symlink(&target, &link).expect("symlink");
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &link) };
+        assert!(
+            triad_state_dir().is_none(),
+            "a symlink where the state dir belongs must be refused, not followed"
+        );
+        assert!(
+            fs::read_dir(&target).expect("read").next().is_none(),
+            "nothing may be written through the link"
+        );
+    }
+
+    /// A regular file where the directory should be is refused (it is neither a dir nor ours
+    /// as one), and the store degrades to abstaining instead of writing somewhere else.
+    #[test]
+    #[serial(triad_state)]
+    fn a_state_dir_that_is_a_file_is_refused() {
+        let _state = use_state_dir("sec-notadir");
+        let work = scratch("notadir-work");
+        let file = work.join("plain");
+        fs::write(&file, "not a directory").expect("write");
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe { std::env::set_var("TOURING_TRIAD_DIR", &file) };
+        assert!(triad_state_dir().is_none());
+    }
+
+    /// The state directory is 0700 and every record 0600 — the store holds source text, so
+    /// this is the difference between a private copy and a disclosure.
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn the_store_is_private_after_a_write() {
+        use std::os::unix::fs::PermissionsExt;
+        let (state, work) = state_and_scratch("sec-perms");
+        let file = work.join("secret.py");
+        let key = (
+            "sess-perm2".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        persist_baseline(&key, &Baseline::Content("api_key = \'real\'\n".into()));
+
+        let dir_mode = fs::metadata(&state).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(dir_mode, 0o700, "state dir must be 0700, got {dir_mode:o}");
+        let rec = record_path(&state, "sess-perm2", &key.1);
+        let rec_mode = fs::metadata(&rec).expect("stat").permissions().mode() & 0o777;
+        assert_eq!(rec_mode, 0o600, "record must be 0600, got {rec_mode:o}");
+        // And no temp file is left behind to be mistaken for a record.
+        let leftovers: Vec<_> = fs::read_dir(&state)
+            .expect("read")
+            .flatten()
+            .map(|e| e.file_name().to_string_lossy().into_owned())
+            .filter(|n| n.ends_with(".tmp"))
+            .collect();
+        assert!(
+            leftovers.is_empty(),
+            "temp files left behind: {leftovers:?}"
+        );
+    }
+
+    /// `create_private` never clobbers an existing file — the `O_EXCL` control. A
+    /// pre-planted name must produce an ERROR, not a truncation.
+    #[test]
+    #[serial(triad_state)]
+    fn the_temp_open_refuses_an_existing_name() {
+        let _state = use_state_dir("sec-excl");
+        let work = scratch("excl-work");
+        let victim = work.join("precious.txt");
+        fs::write(&victim, "do not lose me").expect("write");
+
+        let err = create_private(&victim);
+        assert!(
+            err.is_err(),
+            "O_EXCL must refuse a name that already exists: {err:?}"
+        );
+        assert_eq!(
+            fs::read_to_string(&victim).expect("read"),
+            "do not lose me",
+            "the existing file must be untouched"
+        );
+    }
+
+    /// A symlink at the temp path is refused rather than followed (`O_NOFOLLOW`).
+    #[cfg(unix)]
+    #[test]
+    #[serial(triad_state)]
+    fn the_temp_open_refuses_to_follow_a_symlink() {
+        let _state = use_state_dir("sec-nofollow");
+        let work = scratch("nofollow-work");
+        let victim = work.join("target.txt");
+        fs::write(&victim, "original").expect("write");
+        let link = work.join("link.txt");
+        std::os::unix::fs::symlink(&victim, &link).expect("symlink");
+
+        assert!(
+            create_private(&link).is_err(),
+            "O_NOFOLLOW must refuse a symlink at the temp path"
+        );
+        assert_eq!(fs::read_to_string(&victim).expect("read"), "original");
+    }
+
+    /// A record whose `session` does not match is refused. The record name is a hash of
+    /// (session, path) and BLAKE3 is unkeyed, so anyone who can read the directory can
+    /// compute it — only the contents prove the record is ours.
+    #[test]
+    #[serial(triad_state)]
+    fn a_record_from_another_session_is_refused() {
+        let state = use_state_dir("sec-forge");
+        let work = scratch("forge-work");
+        let file = work.join("f.py");
+        let path = canonical_path(file.to_str().expect("utf8"));
+
+        // A well-formed record for the RIGHT path but the WRONG session, sitting at the
+        // name OUR key hashes to.
+        let header = serde_json::json!({
+            "v": DISK_VERSION,
+            "at": unix_now(),
+            "path": path.display().to_string(),
+            "session": "someone-else",
+            "len": 8,
+        });
+        let mut body = serde_json::to_string(&header).expect("json");
+        body.push('\n');
+        body.push_str("forged!\n");
+        fs::write(record_path(&state, "sess-forge", &path), body).expect("write");
+
+        let err = load_baseline(&("sess-forge".to_string(), path)).expect_err("must refuse");
+        assert!(
+            matches!(&err, TriadAbsent::Unreadable(m) if m.contains("session mismatch")),
+            "a foreign session must be refused, got {err:?}"
+        );
+    }
+
+    /// The uid fallback is `getuid()`, never 0: with `$UID` absent (systemd, cron) a zero
+    /// fallback would put every baseline in the world-predictable `/tmp/touring-0`.
+    #[test]
+    fn the_uid_is_never_a_hardcoded_zero() {
+        let uid = current_uid();
+        // SAFETY: `getuid()` is a pure syscall with no preconditions.
+        assert_eq!(
+            uid,
+            unsafe { libc::getuid() },
+            "uid must come from the syscall"
+        );
+    }
+
+    /// Two consecutive records for the same key get DIFFERENT temp names, so two writers in
+    /// one process cannot interleave into one file.
+    #[test]
+    #[serial(triad_state)]
+    fn consecutive_records_use_distinct_temp_names() {
+        let _state = use_state_dir("sec-seq");
+        let work = scratch("seq-work");
+        let file = work.join("s.py");
+        let key = (
+            "sess-seq".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        let dir = triad_state_dir().expect("state dir");
+        let final_path = record_path(&dir, &key.0, &key.1);
+
+        persist_baseline(&key, &Baseline::Content("one".into()));
+        persist_baseline(&key, &Baseline::Content("two".into()));
+
+        // Whatever the temp names were, the record must hold the LAST write, whole.
+        let got = load_baseline(&key).expect("readable");
+        assert_eq!(
+            got,
+            Some(Baseline::Content("two".into())),
+            "the final record must be the last write, not a mixture"
+        );
+        let _ = final_path;
+    }
+}
+
 /// S28 — `Baseline` distinguishes a new file (nothing before) from a rewritten one, and keeps
 /// "could not read" (`Unknown`) distinct from both.
 #[cfg(test)]
@@ -1611,6 +1908,7 @@ mod s28_before_tests {
 #[cfg(test)]
 mod pt3_tests {
     use super::*;
+    use serial_test::serial;
     use std::time::Instant;
 
     const N: usize = 200;
@@ -1664,7 +1962,11 @@ mod pt3_tests {
         (crossed, reverted, arm_us, take_us)
     }
 
+    // `#[serial]`: `arm` now persists a baseline to disk, so this test writes into the
+    // shared state dir. Its own two threads are intentional and unaffected; what must not
+    // overlap is another TEST inspecting that directory at the same moment.
     #[test]
+    #[serial(triad_state)]
     fn pt3_two_sessions_parallel_writes_never_cross_or_revert() {
         let dir = tempfile::tempdir().expect("tmp");
         let (a, b) = std::thread::scope(|s| {
