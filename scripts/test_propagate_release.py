@@ -72,9 +72,18 @@ ALL_PACKAGES = sorted(CRATES)
 FEATURES = {"touring-hook-handlers": "pre-hooks,post-hooks"}
 
 
-def expected_cmd(pkg: str) -> str:
-    cmd = f"--class rust --label release-tests -- cargo test -p {pkg} --no-fail-fast"
+#: The gate QUEUES for the rust slot instead of failing after hw-slot's 600 s default
+#: (R97 attempt 3, 18/10/2026); PROPAGATE_SLOT_WAIT overrides the 2 h default.
+SLOT_WAIT = "7200"
+
+
+def expected_cmd(pkg: str, wait: str = SLOT_WAIT) -> str:
+    cmd = f"--class rust --label release-tests --wait {wait} -- cargo test -p {pkg} --no-fail-fast"
     return cmd + (f" --features {FEATURES[pkg]}" if pkg in FEATURES else "")
+
+
+def expected_build(wait: str = SLOT_WAIT) -> str:
+    return f"--class rust --label release-build --wait {wait} -- cargo build --release --workspace"
 
 
 HW_SLOT_STUB = f"""#!{sys.executable}
@@ -148,8 +157,11 @@ def _append(path: Path, line: str) -> None:
         fh.write(line)
 
 
-def build_tree(tree: Path, script_text: str, kind: str) -> None:
-    """kind: "git" (a release commit exists) | "nobase" (none does) | "nogit"."""
+def build_tree(
+    tree: Path, script_text: str, kind: str, binary_version: str = VERSION
+) -> None:
+    """kind: "git" (a release commit exists) | "nobase" (none does) | "nogit".
+    binary_version: the label the fake target/release/touring declares."""
     _write(tree / "scripts" / "propagate-release.sh", script_text, 0o755)
     _write(tree / "scripts" / "hw-slot", HW_SLOT_STUB, 0o755)
     _write(tree / "scripts" / "r3-s1a-gate", "#!/bin/sh\nexit 0\n", 0o755)
@@ -159,7 +171,7 @@ def build_tree(tree: Path, script_text: str, kind: str) -> None:
     )
     _write(
         tree / "target" / "release" / "touring",
-        f'#!/bin/sh\necho "touring {VERSION}" >&2\n',
+        f'#!/bin/sh\necho "touring {binary_version}" >&2\n',
         0o755,
     )
     _write(tree / ".gitignore", "target/\n")
@@ -209,6 +221,8 @@ class Scenario:
     args: tuple[str, ...]
     fake_rc: tuple[tuple[str, tuple[int, ...]], ...] = ()
     tree: str = "git"
+    binary_version: str = VERSION
+    env: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -245,6 +259,14 @@ SLOT_THEN_OK = Scenario(REAL.args, (("pkg-ab", (75, 0)),))
 MACHINE_CHECK = Scenario(REAL.args, (("pkg-ab", (70,)),))
 DRY_NOBASE = Scenario(DRY.args, tree="nobase")
 DRY_NOGIT = Scenario(DRY.args, tree="nogit")
+#: Without --skip-build gate 1/6 builds the release binaries before the package tests.
+BUILD = Scenario(("--skip-freeze", "--no-default", "--stop-before-propagate"))
+#: The hw-slot stub keys rc by package; the build has no `-p`, so its key is "".
+BUILD_FAIL = Scenario(BUILD.args, (("", (101,)),))
+#: --skip-build over a binary of the PREVIOUS release: the e2e would measure it.
+STALE = Scenario(REAL.args, binary_version="0.0.0")
+SHORT_WAIT = Scenario(REAL.args, env=(("PROPAGATE_SLOT_WAIT", "30"),))
+BAD_WAIT = Scenario(REAL.args, env=(("PROPAGATE_SLOT_WAIT", "2h"),))
 
 
 @cache
@@ -252,7 +274,7 @@ def run_scenario(script_text: str, sc: Scenario) -> Result:
     tmp = Path(tempfile.mkdtemp(prefix="rel-gate-"))
     try:
         tree, aux = tmp / "tree", tmp / "aux"
-        build_tree(tree, script_text, sc.tree)
+        build_tree(tree, script_text, sc.tree, sc.binary_version)
         for name, body in (
             ("cargo", CARGO_STUB),
             ("python3", PYTHON_STUB),
@@ -270,6 +292,8 @@ def run_scenario(script_text: str, sc: Scenario) -> Result:
             REAL_PYTHON=sys.executable,
             FAKE_RC=json.dumps({k: list(v) for k, v in sc.fake_rc}),
         )
+        env.pop("PROPAGATE_SLOT_WAIT", None)
+        env.update(dict(sc.env))
         proc = subprocess.run(
             ["bash", str(tree / "scripts" / "propagate-release.sh"), VERSION, *sc.args],
             capture_output=True,
@@ -352,7 +376,8 @@ def probe_mapping(script: str) -> list[str]:
 
 
 def probe_dry_run(script: str) -> list[str]:
-    dry, real = run_scenario(script, DRY), run_scenario(script, REAL)
+    # DRY carries no --skip-build, so its listing is compared with the run that builds.
+    dry, real = run_scenario(script, DRY), run_scenario(script, BUILD)
     bad = []
     if dry.rc != 0:
         bad.append(f"dry-run rc={dry.rc}: {dry.out[-400:]}")
@@ -455,6 +480,49 @@ def probe_fallback(script: str) -> list[str]:
     return bad
 
 
+def probe_release_build(script: str) -> list[str]:
+    """Gate 1/6 builds the release binaries BEFORE the package tests (the e2e suites
+    spawn target/release/touring); --skip-build builds nothing; a failing build or a
+    binary declaring another version stops the gate before any test runs."""
+    bad = []
+    b = run_scenario(script, BUILD)
+    want = [expected_build()] + [expected_cmd(p) for p in EXPECTED]
+    if b.rc != 0 or "gates OK" not in b.out:
+        bad.append(f"the building run must pass its gates, rc={b.rc}: {b.out[-400:]}")
+    if b.hw() != want:
+        bad.append(f"the build must come first, then the tests: {b.hw()} != {want}")
+    real = run_scenario(script, REAL)
+    if any("release-build" in c for c in real.hw()):
+        bad.append(f"--skip-build must not build: {real.hw()}")
+    fail = run_scenario(script, BUILD_FAIL)
+    if fail.rc == 0 or "build --release --workspace falhou" not in fail.out:
+        bad.append(f"a failing release build must stop the gate naming it, rc={fail.rc}: {fail.out[-300:]}")
+    if fail.hw_packages():
+        bad.append(f"no package test may run over a failed build: {fail.hw_packages()}")
+    stale = run_scenario(script, STALE)
+    if stale.rc == 0 or "declara '0.0.0'" not in stale.out:
+        bad.append(f"a binary of another version must stop the gate, rc={stale.rc}: {stale.out[-300:]}")
+    if stale.hw_packages():
+        bad.append(f"no e2e may run against a stale binary: {stale.hw_packages()}")
+    return bad
+
+
+def probe_slot_wait(script: str) -> list[str]:
+    """PROPAGATE_SLOT_WAIT reaches every hw-slot call of the gate; garbage is refused
+    before anything runs."""
+    bad = []
+    short = run_scenario(script, SHORT_WAIT)
+    want = [expected_cmd(p, "30") for p in EXPECTED]
+    if short.rc != 0 or short.hw() != want:
+        bad.append(f"PROPAGATE_SLOT_WAIT=30 must reach the test commands, rc={short.rc}: {short.hw()}")
+    bad_wait = run_scenario(script, BAD_WAIT)
+    if bad_wait.rc == 0 or "PROPAGATE_SLOT_WAIT='2h'" not in bad_wait.out:
+        bad.append(f"a non-numeric wait must be refused naming the variable, rc={bad_wait.rc}")
+    if bad_wait.hw():
+        bad.append(f"nothing may run with a refused wait: {bad_wait.hw()}")
+    return bad
+
+
 # ── the real script honours every probe ──────────────────────────────────────
 
 PROBES = {
@@ -468,6 +536,8 @@ PROBES = {
     "machine_check": probe_machine_check,
     "skip_gates": probe_skip_gates,
     "fallback": probe_fallback,
+    "release_build": probe_release_build,
+    "slot_wait": probe_slot_wait,
 }
 
 
@@ -513,7 +583,7 @@ MUTANTS = [
         "tests_under_hw_slot",
         [
             (
-                'TEST_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-tests -- cargo test',
+                'TEST_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-tests --wait "$SLOT_WAIT" -- cargo test',
                 "TEST_CMD=(cargo test",
             )
         ],
@@ -607,6 +677,41 @@ MUTANTS = [
                 'if false; then\n    warn "gates pulados (--skip-gates)"\nelse',
             )
         ],
+    ),
+    (
+        "the release build is skipped",
+        "release_build",
+        [("        build_release_binaries\n        run_release_tests\n", "        run_release_tests\n")],
+    ),
+    (
+        "the release build runs after the tests",
+        "release_build",
+        [
+            (
+                "        build_release_binaries\n        run_release_tests\n",
+                "        run_release_tests\n        build_release_binaries\n",
+            )
+        ],
+    ),
+    (
+        "a failing release build is ignored",
+        "release_build",
+        [('            die "cargo build --release --workspace falhou', '            : "cargo build --release --workspace falhou')],
+    ),
+    (
+        "a stale binary passes the gate",
+        "release_build",
+        [('    [ "$got" = "$VERSION" ] \\\n', "    true \\\n")],
+    ),
+    (
+        "the slot wait is dropped from the test command",
+        "slot_wait",
+        [('--label release-tests --wait "$SLOT_WAIT" --', "--label release-tests --")],
+    ),
+    (
+        "the slot wait is not validated",
+        "slot_wait",
+        [('[[ "$SLOT_WAIT" =~ ^[0-9]+$ ]] \\\n', "true \\\n")],
     ),
 ]
 
@@ -711,7 +816,7 @@ def test_real_dry_run_in_this_repo_lists_the_gate_and_touches_nothing(tmp_path):
     assert f"[dry-run] cargo check --workspace && {CLIPPY}" in out
     header = re.search(r"tocados desde o último release: (\d+) pacote\(s\)", out)
     assert header, out[-800:]
-    cmd_re = r"\[dry-run\]\s+\S*scripts/hw-slot --class rust --label release-tests -- cargo test -p (\S+) --no-fail-fast"
+    cmd_re = r"\[dry-run\]\s+\S*scripts/hw-slot --class rust --label release-tests --wait \d+ -- cargo test -p (\S+) --no-fail-fast"
     listed = re.findall(cmd_re, out)
     assert len(listed) == int(header.group(1))
     assert set(listed) <= _workspace_members(), (

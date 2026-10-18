@@ -54,6 +54,11 @@ timestamp: 2026-08-20T11:15:00-03:00
    (sinal ausente nunca estreita); `Cargo.toml`/`Cargo.lock` da raiz não mapeiam a pacote e só
    avisam. `--dry-run` lista pacotes e comandos sem executar; `--skip-gates` pula tudo.
    Teste: `scripts/test_propagate_release.py` (probes + mutantes sobre cópia do script).
+   (f) o gate 1/6 constrói o release (`cargo build --release --workspace`) **antes** dos testes
+   (18/10/2026): os e2e executam `target/release/touring`, e o build só no passo 2 fazia o gate
+   medir o binário do release ANTERIOR (a 30.4.97 reprovou em `version_matches_crate_version`).
+   Todo job do gate espera a vaga rust por `PROPAGATE_SLOT_WAIT` s (default 7200), e não pelos
+   600 s do hw-slot, que reprovavam o gate «sem vaga» com um lote vizinho de 40 min.
 2.2. **`update-touring` é versionado (18/08/2026)**: vive em `scripts/update-touring`
    e chega ao PATH por `~/.local/bin/update-touring`, um **symlink** — a mesma forma
    já usada para os binários. Antes existia só em `~/.local/bin/`: a ferramenta que
