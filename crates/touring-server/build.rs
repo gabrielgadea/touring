@@ -27,6 +27,24 @@ fn main() {
     // Always re-run when Cargo.toml / build.rs change (features toggle).
     println!("cargo:rerun-if-changed=Cargo.toml");
     println!("cargo:rerun-if-changed=build.rs");
+    // …and when the HEAD moves. Without this, `VERGEN_GIT_SHA` is `option_env!` — resolved
+    // when the crate COMPILES, not when it runs — so a commit that changes no working-tree
+    // file leaves the previous SHA baked in. Measured 17/10/2026: a binary built at 21:26
+    // reported `git 4455e8c2` while HEAD was `a97c4c9d`, four commits later.
+    //
+    // That matters beyond cosmetics: `--version` is the label the release/propagation gate
+    // uses to judge a binary fresh. A frozen SHA lets a stale binary pass a freshness check —
+    // the "version label does not prove the build" failure, with the label as the evidence.
+    // Paths are relative to THIS crate's directory (`crates/touring-server`), so the checkout
+    // root is two levels up. Getting this wrong is silent — cargo treats a missing
+    // rerun-if-changed path as "nothing changed", which is the very bug these lines fix. Hence
+    // `tests/build_info_freshness.rs` reads the declared path back off disk.
+    println!("cargo:rerun-if-changed=../../.git/HEAD");
+    // A commit on the current branch updates the ref the HEAD points at, so the ref file must
+    // be tracked too or the SHA still goes stale on a fast-forward. `main` is checked by name
+    // because the propagation flow targets it; a detached HEAD would leave this path missing,
+    // which cargo tolerates (and the test above catches).
+    println!("cargo:rerun-if-changed=../../.git/refs/heads/main");
 }
 
 #[cfg(feature = "build-info")]
@@ -82,3 +100,4 @@ fn emit_vergen() {
         features.join(",")
     );
 }
+
