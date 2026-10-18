@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 384**
+**Count: 394**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -144,6 +144,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::task_lifecycle`
 - `touring-foundation::telemetry`
 - `touring-foundation::text_rank`
+- `touring-foundation::text_sanitize`
 - `touring-foundation::types`
 - `touring-generator::core`
 - `touring-generator::error`
@@ -187,6 +188,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hook-runtime::suggesters`
 - `touring-hook-runtime::task_digest`
 - `touring-hook-runtime::triad_hook`
+- `touring-hook-runtime::verdict`
 - `touring-hook-runtime::wiring`
 - `touring-hook-runtime::wiring_tests`
 - `touring-hooks::daemon_main`
@@ -320,9 +322,17 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-orchestration::devrc`
 - `touring-orchestration::flow`
 - `touring-orchestration::tasks`
+- `touring-pyright::achado`
 - `touring-pyright::client`
+- `touring-pyright::deno`
+- `touring-pyright::lsp_nucleo`
 - `touring-pyright::pool`
 - `touring-pyright::pyright`
+- `touring-pyright::rust_analyzer`
+- `touring-pyright::servidor`
+- `touring-pyright::testutil`
+- `touring-pyright::ts_diag`
+- `touring-pyright::tsserver`
 - `touring-quality::aggregate`
 - `touring-quality::builtins`
 - `touring-quality::change`
