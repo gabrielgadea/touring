@@ -75,7 +75,14 @@ fn context_of(response: &HookResponse) -> Option<&str> {
 fn use_state_dir(tag: &str) -> std::path::PathBuf {
     let dir = std::env::temp_dir().join(format!("s28-gate-{}-{tag}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).expect("state dir");
+    // 0700: the store refuses a pre-existing directory that is not private, so the test's
+    // store directory must be created the way the store creates its own.
+    use std::os::unix::fs::DirBuilderExt as _;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(&dir)
+        .expect("state dir");
     // SAFETY: `#[serial]` guarantees no other thread in this process reads it concurrently.
     unsafe { std::env::set_var("TOURING_TRIAD_DIR", &dir) };
     dir

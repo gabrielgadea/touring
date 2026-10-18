@@ -249,6 +249,57 @@ pub fn take_lookup(session_id: &str, file_path: &str) -> TriadTake {
 // is a small header plus that text — cheap enough to write on every pre-write, and it is
 // what lets a standalone pre-write arm a baseline a daemon post-write can read.
 
+/// Whether the BASE directory can be written beneath — without ever being changed.
+///
+/// Never chmod-ed: it is `/run/user/1000` or `/tmp`, not ours to re-permission. Root-owned is
+/// fine when not group/other writable, or when sticky (`/tmp`, 1777 — entries cannot be renamed
+/// out from under their owner). A non-root base must be ours and private.
+#[cfg(unix)]
+fn base_is_usable(base: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(meta) = std::fs::symlink_metadata(base) else {
+        return false;
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return false;
+    }
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    let uid = unsafe { libc::getuid() };
+    if meta.uid() == 0 {
+        return meta.mode() & 0o022 == 0 || meta.mode() & 0o1000 != 0;
+    }
+    meta.uid() == uid && meta.mode() & 0o077 == 0
+}
+
+#[cfg(not(unix))]
+fn base_is_usable(base: &Path) -> bool {
+    std::fs::metadata(base).map(|m| m.is_dir()).unwrap_or(false)
+}
+
+/// The store's own directory must be OURS before its mode is touched. This is the single
+/// directory whose mode this module may set — and only to make it stricter. A leaf we did not
+/// create and do not own is refused, never chmod-ed.
+#[cfg(unix)]
+fn tighten_leaf(dir: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let Ok(meta) = std::fs::symlink_metadata(dir) else {
+        return false;
+    };
+    if meta.file_type().is_symlink() || !meta.is_dir() {
+        return false;
+    }
+    // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
+    if meta.uid() != unsafe { libc::getuid() } {
+        return false;
+    }
+    set_mode(dir, 0o700)
+}
+
+#[cfg(not(unix))]
+fn tighten_leaf(dir: &Path) -> bool {
+    set_mode(dir, 0o700)
+}
+
 /// Per-user directory for persisted baselines, with a 0700 mode.
 ///
 /// Resolution, in order:
@@ -261,36 +312,56 @@ pub fn take_lookup(session_id: &str, file_path: &str) -> TriadTake {
 /// Returns `None` when none is usable — the caller then DECLARES the abstention rather than
 /// losing it quietly.
 fn triad_state_dir() -> Option<PathBuf> {
-    let dir = match std::env::var_os("TOURING_TRIAD_DIR").map(PathBuf::from) {
-        Some(explicit) => explicit,
+    // Two shapes, kept explicit rather than merged:
+    //
+    // * no override — the BASE is the last directory not ours (`$XDG_RUNTIME_DIR`, or
+    //   `<tmp>/touring-<uid>`), and the store is `base/touring/triad`. The base is checked but
+    //   NEVER chmod-ed: `/run/user/1000` and `/tmp` are not ours to re-permission, and walking
+    //   above it is how a mis-set path ends up touching something unrelated.
+    // * an override — the caller names the store directory itself; it must be ours, and there
+    //   is no base to check.
+    let (base, dir): (Option<PathBuf>, PathBuf) = match std::env::var_os("TOURING_TRIAD_DIR")
+        .map(PathBuf::from)
+    {
+        Some(explicit) => {
+            // The override names the store directory; its PARENT is the base — the last
+            // directory this function may not assume it owns (`/tmp`, `/run/user/1000`, a
+            // test's scratch dir). The chain then only covers what lies below it.
+            let base = explicit.parent().map(Path::to_path_buf);
+            (base, explicit)
+        }
         None => {
             let base = std::env::var_os("XDG_RUNTIME_DIR")
                 .map(PathBuf::from)
                 .filter(|p| p.is_absolute())
                 .unwrap_or_else(|| std::env::temp_dir().join(format!("touring-{}", current_uid())));
-            base.join("touring").join("triad")
+            let dir = base.join("touring").join("triad");
+            (Some(base), dir)
         }
     };
-    // Ancestors are created with an explicit 0700 and then VERIFIED. `create_dir_all` makes
-    // them with 0o777 & ~umask, and it succeeds through a path a local user already created —
-    // so `/tmp/touring-<uid>/touring` could be another user's, or a symlink pointing anywhere.
-    // The store holds source text: a directory we did not create is not one we may write into.
-    if !create_private_chain(&dir) {
+
+    if let Some(base) = base.as_deref()
+        && !base_is_usable(base)
+    {
+        tracing::warn!(
+            base = %base.display(),
+            "TRIAD: state-dir base is unusable — cross-process baseline off"
+        );
+        return None;
+    }
+
+    // Create the store's own directories (only ever the ones missing, always 0700) and refuse
+    // any that already exists and is not exclusively ours.
+    if !create_private_chain(&dir, base.as_deref()) {
         tracing::warn!(
             dir = %dir.display(),
             "TRIAD: could not create a private directory chain — cross-process baseline off"
         );
         return None;
     }
-    // `create_dir_all` SUCCEEDS on a directory someone else already owns, and this store
-    // holds source text. So the directory must be proved ours before anything is written:
-    // not a symlink (which would redirect every write elsewhere), owned by our uid, and
-    // genuinely 0700 afterwards. Any check failing means the store is unusable — the
-    // alternative is writing a user's source into a directory we do not control, which is
-    // worse than abstaining from the cross-process baseline.
-    // A pre-existing directory keeps its old mode; tighten it, and treat a failure to do so
-    // as unusable rather than proceeding with a possibly world-readable directory.
-    if !set_mode(&dir, 0o700) {
+    // The leaf is the one directory whose mode this module may set, and only to make it
+    // stricter. `create_private_chain` has already refused anything here that is not ours.
+    if !tighten_leaf(&dir) {
         tracing::warn!(
             dir = %dir.display(),
             "TRIAD: could not restrict the state dir to 0700 — cross-process baseline off"
@@ -300,25 +371,29 @@ fn triad_state_dir() -> Option<PathBuf> {
     Some(dir)
 }
 
-/// Create `dir` and every missing ancestor with mode 0700, then verify EACH one.
+/// Create the store's own directories, 0700, refusing anything that already exists and is not
+/// exclusively ours.
 ///
-/// Two separate attacks are closed here:
+/// **No existing directory is ever chmod-ed here.** An earlier version tightened a pre-existing
+/// ancestor to 0700; that is a destructive permission change on a path this function did not
+/// create — and with `TOURING_TRIAD_DIR` mis-set, "the ancestor" could be an ordinary directory
+/// whose permissions other software depends on. Only directories this call CREATES get their
+/// mode set, and only to 0700.
 ///
-/// * a pre-planted **symlink** at any component (which would redirect every write), and
-/// * a pre-planted **directory owned by someone else** — `create_dir_all` succeeds on it, and
-///   the leaf check alone would pass while the parent belonged to an attacker.
-///
-/// Verifying by path is not race-free (a component could be swapped between the check and the
-/// open), which is why every component is also *created* 0700 here: the store refuses any
-/// component it finds rather than adopting it, so the only directories it writes into are ones
-/// it made itself.
+/// Two attacks are closed: a pre-planted **symlink** at any component (which would redirect
+/// every write) and a pre-planted **directory owned by someone else** — both are refused rather
+/// than adopted. Verifying by path is not race-free, but the store never writes into a
+/// directory it did not create, and `O_NOFOLLOW|O_EXCL` covers the final open.
 #[cfg(unix)]
-fn create_private_chain(dir: &Path) -> bool {
+fn create_private_chain(dir: &Path, base: Option<&Path>) -> bool {
     use std::os::unix::fs::{DirBuilderExt, MetadataExt};
 
     // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
     let uid = unsafe { libc::getuid() };
-    // Everything from the root down to `dir`, so each component can be checked in turn.
+    // Only the components the STORE creates — those strictly BELOW `base`. The base is
+    // validated separately by `base_is_usable` and is never chmod-ed; nothing above it is
+    // examined at all, so `/` (root-owned 0755) and `/run/user` (root-owned 0755) are never
+    // judged by a rule meant for the store's own directories.
     let mut chain: Vec<&Path> = Vec::new();
     let mut cursor = dir;
     loop {
@@ -329,100 +404,64 @@ fn create_private_chain(dir: &Path) -> bool {
         }
     }
     chain.reverse();
+    if let Some(base) = base {
+        chain.retain(|c| c.starts_with(base) && *c != base);
+    }
+    // `/` is nobody's store directory, under any configuration.
+    chain.retain(|c| c.parent().is_some());
 
     for component in chain {
-        let meta = match std::fs::symlink_metadata(component) {
-            Ok(meta) => Some(meta),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-            Err(_) => return false,
-        };
-        match meta {
-            Some(meta) => {
-                // Already there: it must be a real directory, ours, and not group/world
-                // writable — otherwise someone else can plant files inside it.
-                if meta.file_type().is_symlink() || !meta.is_dir() {
+        match std::fs::symlink_metadata(component) {
+            Ok(meta) => {
+                // Already there: adopt it only if it is a real directory we exclusively own.
+                // Not writable by anyone else, and not world-readable either — this store holds
+                // source text, and a group-readable ancestor would expose every record under it.
+                // No chmod: see the doc comment.
+                if meta.file_type().is_symlink()
+                    || !meta.is_dir()
+                    || meta.uid() != uid
+                    || meta.mode() & 0o077 != 0
+                {
                     tracing::debug!(
                         path = %component.display(),
-                        "TRIAD: rejecting a state-dir component that is not a real directory"
+                        "TRIAD: refusing a state-dir component that is not exclusively ours"
                     );
                     return false;
                 }
-                // A component WE own that is too open (an older version of this store created
-                // its ancestors with `create_dir_all`, i.e. 0755) is tightened rather than
-                // refused: it is ours, nobody else has anything in it yet, and refusing would
-                // leave the store permanently unusable on every machine that ran the earlier
-                // code. A component owned by SOMEONE ELSE is never adopted — that is the case
-                // an attacker controls.
-                if !component_is_safe(&meta, uid) {
-                    // Tighten only a component that is OURS and merely GROUP/OTHER-READABLE
-                    // (0755, what an older `create_dir_all` left behind). A component that is
-                    // group/other-WRITABLE is refused even when we own it: 0777 is exactly what
-                    // an attacker arranges so they can drop their own `triad/` inside it, and
-                    // removing that bit would be closing a door they still hold the key to.
-                    let writable_by_others = meta.mode() & 0o022 != 0;
-                    if writable_by_others || meta.uid() != uid || !set_mode(component, 0o700) {
-                        tracing::debug!(
-                            path = %component.display(),
-                            "TRIAD: rejecting a state-dir component another user could write to"
-                        );
-                        return false;
-                    }
-                }
             }
-            None => {
-                let built = std::fs::DirBuilder::new()
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                if let Err(e) = std::fs::DirBuilder::new()
                     .recursive(true)
                     .mode(0o700)
-                    .create(component);
-                if built.is_err() {
+                    .create(component)
+                {
+                    tracing::debug!(error = %e, path = %component.display(), "TRIAD: state-dir create failed");
                     return false;
                 }
-                // Re-read after creating: the mode we asked for may have been widened by the
-                // umask, and a component that is not private is not acceptable.
+                // Re-read: the umask may have widened the mode we asked for, and a directory
+                // that ended up readable by others must not be adopted.
                 let Ok(meta) = std::fs::symlink_metadata(component) else {
                     return false;
                 };
-                if meta.file_type().is_symlink() || !meta.is_dir() || !component_is_safe(&meta, uid)
+                if meta.file_type().is_symlink()
+                    || !meta.is_dir()
+                    || meta.uid() != uid
+                    || meta.mode() & 0o077 != 0
                 {
                     return false;
                 }
             }
+            Err(_) => return false,
         }
     }
     true
 }
 
-/// Whether a path component is safe to keep writing beneath.
-///
-/// A component WE own must be private (0700): nobody else may create entries in it, or they
-/// could plant a record we would later accept. A component owned by someone else — `/run/user`
-/// is root-owned 0755 and perfectly fine — is acceptable only when it is not writable by
-/// group or other, because then no one can insert anything beneath it either.
-#[cfg(unix)]
-fn component_is_safe(meta: &std::fs::Metadata, uid: u32) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let mode = meta.mode();
-    if meta.uid() == uid {
-        return mode & 0o077 == 0;
-    }
-    // Someone else's ancestor is acceptable when they cannot be written through: either not
-    // writable at all (`/run/user`, 0755 root), or sticky (`/tmp`, 1777) — where anyone may
-    // create their own entries but may not remove or rename anyone else's, so a planted
-    // `touring-<uid>` cannot be swapped out from under us.
-    mode & 0o022 == 0 || mode & 0o1000 != 0
-}
-
 /// Without unix metadata there is no ownership to check, so only "every component is a real
 /// directory" can be verified.
 #[cfg(not(unix))]
-fn create_private_chain(dir: &Path) -> bool {
+fn create_private_chain(dir: &Path, _base: Option<&Path>) -> bool {
     std::fs::create_dir_all(dir).is_ok()
-}
-
-/// Without `symlink_metadata` the strongest available check is "it is a directory".
-#[cfg(not(unix))]
-fn owns_private_dir(dir: &Path) -> bool {
-    std::fs::metadata(dir).map(|m| m.is_dir()).unwrap_or(false)
 }
 
 /// This process's real uid: `$UID` when the environment carries it, `getuid()` otherwise.
@@ -1874,29 +1913,34 @@ mod s28_store_security_tests {
         );
     }
 
-    /// A directory WE own that is merely too open is tightened to 0700 rather than refused —
-    /// an earlier version of this store created its ancestors with `create_dir_all` (0755),
-    /// and refusing those would make the store permanently unusable on every host that ran it.
+    /// A pre-existing ancestor is REFUSED, never chmod-ed — and its mode is left as it was.
+    ///
+    /// An earlier version tightened a directory it had not created. That is a destructive
+    /// permission change on a path outside the store's remit: with `TOURING_TRIAD_DIR` mis-set,
+    /// "the ancestor" can be an ordinary directory other software depends on. The store now
+    /// creates 0700 what it creates, refuses the rest, and changes nothing it did not make.
     #[cfg(unix)]
     #[test]
     #[serial(triad_state)]
-    fn a_self_owned_open_ancestor_is_tightened_not_refused() {
+    fn a_pre_existing_ancestor_is_refused_and_left_untouched() {
         use std::os::unix::fs::PermissionsExt;
-        let _state = use_state_dir("sec-tighten");
-        let work = scratch("sec-tighten-work");
-        let open_dir = work.join("open");
-        fs::create_dir_all(&open_dir).expect("open dir");
-        fs::set_permissions(&open_dir, std::fs::Permissions::from_mode(0o755)).expect("chmod");
-        let leaf = open_dir.join("triad");
+        let _state = use_state_dir("sec-untouched");
+        let work = scratch("sec-untouched-work");
+        let ancestor = work.join("open");
+        fs::create_dir_all(&ancestor).expect("ancestor");
+        fs::set_permissions(&ancestor, std::fs::Permissions::from_mode(0o755)).expect("chmod");
+        let leaf = ancestor.join("triad");
 
         // SAFETY: `#[serial]` guarantees exclusivity.
         unsafe { std::env::set_var("TOURING_TRIAD_DIR", &leaf) };
-        let got = triad_state_dir().expect("our own directory must still work");
-        assert_eq!(got, leaf);
-        let mode = fs::metadata(&open_dir).expect("stat").permissions().mode() & 0o777;
+        assert!(
+            triad_state_dir().is_none(),
+            "a pre-existing, not-private ancestor must be refused"
+        );
+        let mode = fs::metadata(&ancestor).expect("stat").permissions().mode() & 0o777;
         assert_eq!(
-            mode, 0o700,
-            "an ancestor we own is tightened to 0700, got {mode:o}"
+            mode, 0o755,
+            "and its mode must be untouched — we did not create it: got {mode:o}"
         );
     }
 
