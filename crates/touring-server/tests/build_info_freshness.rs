@@ -43,14 +43,13 @@ fn build_script_reruns_when_the_branch_ref_moves() {
 /// Hence this test reads them back off disk.
 #[test]
 fn the_declared_git_inputs_resolve_to_a_real_repository() {
+    const RELATIVE: &str = "../../.git/HEAD";
     let crate_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-    for relative in ["../../.git/HEAD"] {
-        let resolved = crate_dir.join(relative);
-        assert!(
-            resolved.exists(),
-            "{relative} does not resolve from {} — cargo treats a missing rerun-if-changed \
-             path as \"nothing changed\", which is exactly the stale-SHA bug",
-            crate_dir.display()
-        );
-    }
+    let resolved = crate_dir.join(RELATIVE);
+    assert!(
+        resolved.exists(),
+        "{RELATIVE} does not resolve from {} — cargo treats a missing rerun-if-changed path as \
+         \"nothing changed\", which is exactly the stale-SHA bug",
+        crate_dir.display()
+    );
 }
