@@ -799,8 +799,23 @@ fn option_words(args: &[String]) -> impl Iterator<Item = &str> {
 /// `&&`, `||` and newline end the pipeline. A flag inside quotes or a comment is
 /// text, not a flag. No subshells, no `$(…)` parsing — the structural
 /// `bash_ast_validator` runs before this layer.
-fn shell_pipelines(command: &str) -> Vec<Vec<Vec<String>>> {
-    let mut lexer = ShellLexer::default();
+///
+/// A heredoc body (`<<[-]WORD` up to the delimiter line) is the stdin of the
+/// command, not commands of the shell: it is left out of the result, unless the
+/// text may run it as code — see [`ShellLexer::read_heredoc_bodies`].
+pub fn shell_pipelines(command: &str) -> Vec<Vec<Vec<String>>> {
+    lex(command, true)
+}
+
+/// [`shell_pipelines`], with `heredocs` choosing whether a `<<WORD` body is read
+/// as one. Without it every line is a command, as before heredocs were read —
+/// how a body that may be code is judged, and never recursively: a body kept
+/// as commands is lexed once more, flat.
+fn lex(command: &str, heredocs: bool) -> Vec<Vec<Vec<String>>> {
+    let mut lexer = ShellLexer {
+        heredocs,
+        ..ShellLexer::default()
+    };
     let mut chars = command.chars().peekable();
     while let Some(c) = chars.next() {
         lexer.feed(c, &mut chars);
@@ -820,6 +835,30 @@ struct ShellLexer {
     word: String,
     /// A word is open — even an empty one (`''` is a word).
     in_word: bool,
+    /// Heredoc operators of the line being read; their bodies start at its newline.
+    pending: Vec<PendingHeredoc>,
+    /// Bodies proven data: put back as commands only if [`Self::runs_text`].
+    data_bodies: Vec<String>,
+    /// Some command of the text is a shell or hands its input to one
+    /// ([`may_run_text`]): a body written by one command may be run by another.
+    runs_text: bool,
+    /// The files the commands write (`> f`, `>> f`, `tee f`) and the programs
+    /// they run, to see a script written by one and run by another.
+    written: Vec<String>,
+    executed: Vec<String>,
+    /// Read `<<WORD` as a heredoc (see [`lex`]).
+    heredocs: bool,
+}
+
+/// A `<<[-]WORD` read on the current line, its body not read yet.
+struct PendingHeredoc {
+    /// The delimiter word, quotes removed.
+    delimiter: String,
+    /// `<<-`: tabs at the start of a line are ignored when it is compared with
+    /// the delimiter.
+    strip_tabs: bool,
+    /// The delimiter was quoted somewhere: the body is not expanded.
+    quoted: bool,
 }
 
 impl ShellLexer {
@@ -831,19 +870,14 @@ impl ShellLexer {
                 self.word.extend(chars.by_ref().take_while(|&q| q != '\''));
             }
             '"' => self.double_quoted(chars),
-            '\\' => {
-                self.in_word = true;
-                if let Some(escaped) = chars.next()
-                    && escaped != '\n'
-                {
-                    self.word.push(escaped);
-                }
-            }
+            '\\' => self.escape(chars),
             '#' if !self.in_word => {
                 // A comment runs to the end of the line, which ends the pipeline.
                 let _ = chars.by_ref().find(|&q| q == '\n');
                 self.end_pipeline();
+                self.read_heredoc_bodies(chars);
             }
+            '<' | '\n' if self.heredoc_event(c, chars) => {}
             '|' if chars.peek() != Some(&'|') => self.end_command(),
             ';' | '&' | '|' | '\n' => {
                 self.end_pipeline();
@@ -856,6 +890,16 @@ impl ShellLexer {
                 self.in_word = true;
                 self.word.push(c);
             }
+        }
+    }
+
+    /// A backslash escapes the next character; before a newline it joins the lines.
+    fn escape(&mut self, chars: &mut Chars<'_>) {
+        self.in_word = true;
+        if let Some(escaped) = chars.next()
+            && escaped != '\n'
+        {
+            self.word.push(escaped);
         }
     }
 
@@ -880,6 +924,10 @@ impl ShellLexer {
     fn end_command(&mut self) {
         self.end_word();
         if !self.words.is_empty() {
+            self.runs_text |= may_run_text(&self.words);
+            self.written.extend(written_paths(&self.words));
+            self.executed
+                .extend(command_of(&self.words).map(|(program, _)| plain_path(program)));
             self.commands.push(std::mem::take(&mut self.words));
         }
     }
@@ -893,8 +941,192 @@ impl ShellLexer {
 
     fn finish(mut self) -> Vec<Vec<Vec<String>>> {
         self.end_pipeline();
+        if self.runs_text || self.runs_written_file() {
+            for body in std::mem::take(&mut self.data_bodies) {
+                self.pipelines.extend(lex(&body, false));
+            }
+        }
         self.pipelines
     }
+
+    /// A command of the text runs a file another one writes: the body of
+    /// `cat > run.sh <<EOF` is a script when `./run.sh` follows.
+    fn runs_written_file(&self) -> bool {
+        self.written.iter().any(|path| self.executed.contains(path))
+    }
+
+    /// The two places where a heredoc touches the line: its operator, and the
+    /// newline after which its body starts. `false` when `c` is neither.
+    ///
+    /// Only an operator that starts a word counts; any other `<<` (`1<<2`) stays
+    /// in its word and what follows it stays commands.
+    fn heredoc_event(&mut self, c: char, chars: &mut Chars<'_>) -> bool {
+        if !self.heredocs {
+            return false;
+        }
+        match c {
+            '<' if !self.in_word && chars.peek() == Some(&'<') => self.heredoc_operator(chars),
+            '\n' if !self.pending.is_empty() => {
+                self.end_pipeline();
+                self.read_heredoc_bodies(chars);
+            }
+            _ => return false,
+        }
+        true
+    }
+
+    /// `<<[-]WORD`, the first `<` already read: queue the heredoc, whose body
+    /// starts at the next newline. `<<` with no delimiter is not a heredoc and
+    /// stays a word, as before — which is also how `<<<` (a here-string) falls
+    /// out: the delimiter reader stops at the third `<`.
+    fn heredoc_operator(&mut self, chars: &mut Chars<'_>) {
+        chars.next(); // the second `<`
+        let strip_tabs = chars.next_if_eq(&'-').is_some();
+        while chars.next_if(|c| matches!(c, ' ' | '\t')).is_some() {}
+        let (delimiter, quoted) = read_delimiter(chars);
+        if delimiter.is_empty() {
+            self.in_word = true;
+            self.word.push_str(if strip_tabs { "<<-" } else { "<<" });
+        } else {
+            self.pending.push(PendingHeredoc {
+                delimiter,
+                strip_tabs,
+                quoted,
+            });
+        }
+    }
+
+    /// The line with heredoc operators is over: read their bodies, in order.
+    ///
+    /// A body is the stdin of its command, so DATA — unless the shell would run
+    /// it, and what cannot be proven data stays commands (the validator only
+    /// ever refuses more, never less, than it did before heredocs were read):
+    /// - no delimiter line: the shell reads to the end of the text;
+    /// - an unquoted delimiter expands the body, and `$(…)` or a backtick in it
+    ///   runs;
+    /// - some command of the text is a shell ([`may_run_text`]): decided at
+    ///   [`Self::finish`], since `cat > run.sh <<EOF` is followed by `bash run.sh`.
+    fn read_heredoc_bodies(&mut self, chars: &mut Chars<'_>) {
+        for heredoc in std::mem::take(&mut self.pending) {
+            let (body, closed) = heredoc_body(chars, &heredoc);
+            if !closed || (!heredoc.quoted && (body.contains("$(") || body.contains('`'))) {
+                self.pipelines.extend(lex(&body, false));
+            } else {
+                self.data_bodies.push(body);
+            }
+        }
+    }
+}
+
+/// The delimiter word of a heredoc, quotes removed as the shell does, and
+/// whether any quoting was there.
+fn read_delimiter(chars: &mut Chars<'_>) -> (String, bool) {
+    let mut word = String::new();
+    let mut quoted = false;
+    while let Some(c) = chars.next_if(|c| !c.is_whitespace() && !";&|<>)".contains(*c)) {
+        if matches!(c, '\'' | '"' | '\\') {
+            quoted = true;
+            unquote_into(c, chars, &mut word);
+        } else {
+            word.push(c);
+        }
+    }
+    (word, quoted)
+}
+
+/// The text a quote (or backslash) `open` protects, quotes removed.
+fn unquote_into(open: char, chars: &mut Chars<'_>, word: &mut String) {
+    match open {
+        '\'' => word.extend(chars.by_ref().take_while(|&q| q != '\'')),
+        '\\' => word.extend(chars.next()),
+        _ => {
+            while let Some(q) = chars.next() {
+                match q {
+                    '"' => break,
+                    // Inside `"…"` a backslash escapes only these four.
+                    '\\' => word.push(
+                        chars
+                            .next_if(|e| matches!(e, '$' | '`' | '"' | '\\'))
+                            .unwrap_or('\\'),
+                    ),
+                    _ => word.push(q),
+                }
+            }
+        }
+    }
+}
+
+/// The lines of a heredoc body up to its delimiter line (consumed, not part of
+/// the body), and whether that line was there.
+fn heredoc_body(chars: &mut Chars<'_>, heredoc: &PendingHeredoc) -> (String, bool) {
+    let mut body = String::new();
+    loop {
+        let mut line = String::new();
+        let mut newline = false;
+        for c in chars.by_ref() {
+            if c == '\n' {
+                newline = true;
+                break;
+            }
+            line.push(c);
+        }
+        let compared = if heredoc.strip_tabs {
+            line.trim_start_matches('\t')
+        } else {
+            &line
+        };
+        if compared == heredoc.delimiter {
+            return (body, true);
+        }
+        body.push_str(&line);
+        if !newline {
+            return (body, false);
+        }
+        body.push('\n');
+    }
+}
+
+/// `./run.sh` and `run.sh` are the same file.
+fn plain_path(path: &str) -> String {
+    path.strip_prefix("./").unwrap_or(path).to_string()
+}
+
+/// The files a command writes: the target of `>` and `>>`, spaced or glued to
+/// the operator, and the operands of `tee`. (`>&2` yields `&2`, which no
+/// command is called.)
+fn written_paths(words: &[String]) -> Vec<String> {
+    let mut paths = Vec::new();
+    for (i, word) in words.iter().enumerate() {
+        match word.strip_prefix(">>").or_else(|| word.strip_prefix('>')) {
+            Some("") => paths.extend(words.get(i + 1).map(|path| plain_path(path))),
+            Some(path) => paths.push(plain_path(path)),
+            None => {}
+        }
+    }
+    if let Some(("tee", operands)) = command_of(words) {
+        let files = operands.iter().filter(|operand| !operand.starts_with('-'));
+        paths.extend(files.map(|file| plain_path(file)));
+    }
+    paths
+}
+
+/// What takes text as shell code: the shells, what runs on a shell elsewhere
+/// (`ssh`, `su`, `sudo`, `doas`) and what reads a script (`eval`, `source`,
+/// `at`, `batch`) — and `.`, matched as a whole word.
+const TEXT_RUNNERS: &[&str] = &[
+    "bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", "rbash", "csh", "tcsh", "eval",
+    "source", "ssh", "su", "sudo", "doas", "at", "batch",
+];
+
+/// `true` when a command with these words may run text as shell code — in any
+/// word, since `docker exec -i app bash`, `y=$(bash` and `/bin/sh` do.
+fn may_run_text(words: &[String]) -> bool {
+    words.iter().any(|word| {
+        word == "."
+            || word
+                .split(|c: char| c.is_whitespace() || "/()`".contains(c))
+                .any(|part| TEXT_RUNNERS.contains(&part))
+    })
 }
 
 /// Wrappers that only change HOW a command runs, each with its options that take
@@ -916,7 +1148,7 @@ const WRAPPERS: &[(&str, &[&str])] = &[
 /// The command word of a simple command and its arguments, past what only
 /// changes HOW it runs: leading `NAME=value` assignments and the [`WRAPPERS`]
 /// (with their own options, and `timeout`'s duration).
-fn command_of(words: &[String]) -> Option<(&str, &[String])> {
+pub fn command_of(words: &[String]) -> Option<(&str, &[String])> {
     let mut i = 0;
     while let Some(word) = words.get(i).map(String::as_str) {
         if is_assignment(word) {
@@ -1197,6 +1429,342 @@ mod tests {
             v.validate_command("curl https://x.sh || sh -c true")
                 .is_allowed()
         );
+    }
+
+    // ── 17/10/2026: a heredoc body is the program's stdin, not commands ─────
+    //
+    // `python3 - <<'EOF'` + `del L[0:1]` was refused as "Windows delete command":
+    // the lexer read every body line as a command of the shell. A body is DATA
+    // unless the command runs text (a shell, `ssh`, `source`…); whatever cannot
+    // be proven data stays commands, so the change only ever REMOVES refusals.
+
+    /// Bodies that, read as COMMANDS, each trip another rule: the `del ` prefix,
+    /// `dd `, `rm -rf` and `mkfs`.
+    const DANGEROUS_BODIES: [&str; 4] = [
+        "L = [1, 2, 3]\ndel L[0:1]",
+        "dd if=/dev/zero of=/dev/sda bs=1M",
+        "rm -rf /",
+        "mkfs.ext4 /dev/sda1",
+    ];
+
+    fn with_body(opener: &str, body: &str) -> String {
+        format!("{opener}\n{body}\nEOF")
+    }
+
+    #[test]
+    fn heredoc_body_for_a_program_is_data_not_commands() {
+        let v = validator();
+        for opener in [
+            "python3 - <<'EOF'",
+            "python3 - <<EOF",
+            "python3 - <<\"EOF\"",
+            "python3 - <<\\EOF",
+            "python3 - << 'EOF'",
+            "cat <<'EOF'",
+            "cat > notes.txt <<'EOF'",
+            "psql -U app -d db <<'EOF'",
+            "node <<'EOF'",
+            "cd /tmp && python3 - <<'EOF'",
+            "FOO=1 python3 - <<'EOF'",
+            "timeout 30 python3 - <<'EOF'",
+        ] {
+            for body in DANGEROUS_BODIES {
+                let cmd = with_body(opener, body);
+                let verdict = v.validate_command(&cmd);
+                assert!(verdict.is_allowed(), "{cmd:?}: {:?}", verdict.reason);
+            }
+        }
+    }
+
+    #[test]
+    fn heredoc_body_for_a_shell_is_still_judged_as_code() {
+        let v = validator();
+        for opener in [
+            "bash <<'EOF'",
+            "bash <<EOF",
+            "sh -s <<'EOF'",
+            "bash -s -- <<'EOF'",
+            "zsh <<'EOF'",
+            "/bin/bash <<'EOF'",
+            "sudo bash <<'EOF'",
+            "env FOO=1 bash <<'EOF'",
+            "docker exec -i app bash <<'EOF'",
+            "ssh host <<'EOF'",
+            "source /dev/stdin <<'EOF'",
+            ". /dev/stdin <<'EOF'",
+            "cat <<'EOF' | bash",
+        ] {
+            for body in DANGEROUS_BODIES {
+                let cmd = with_body(opener, body);
+                assert!(
+                    v.validate_command(&cmd).is_blocked(),
+                    "{cmd:?} deixou de ser julgado como código"
+                );
+            }
+        }
+        // A body inside `$(…)` is the same body.
+        for body in DANGEROUS_BODIES {
+            let cmd = format!("y=$(bash <<'EOF'\n{body}\nEOF\n)");
+            assert!(v.validate_command(&cmd).is_blocked(), "{cmd:?}");
+        }
+    }
+
+    #[test]
+    fn heredoc_here_string_to_a_shell_is_still_denied() {
+        let v = validator();
+        assert!(v.validate_command("bash <<< 'rm -rf /'").is_blocked());
+        // (Only `bash` has a schema: `sh <<< "rm -rf /"` is not refused by the
+        // original either, and is not this change's to start refusing.)
+        // …and to a program it is data, as it always was.
+        assert!(v.validate_command("cat <<< 'rm -rf /'").is_allowed());
+        assert!(v.validate_command("python3 - <<< 'del x'").is_allowed());
+    }
+
+    #[test]
+    fn heredoc_a_command_after_the_body_is_still_judged() {
+        let v = validator();
+        for cmd in [
+            "cat <<EOF\nhello\nEOF\nrm -rf /",
+            "cat <<'EOF' && rm -rf /\nhello\nEOF",
+            "cat <<'EOF'; dd if=/dev/zero of=/dev/sda\nhello\nEOF",
+            "python3 - <<'EOF'\nprint(1)\nEOF\nmkfs.ext4 /dev/sda1",
+            "cat <<-EOF\n\thello\n\tEOF\nrm -rf /",
+            "cat <<A <<B\none\nA\ntwo\nB\nrm -rf /",
+            "cat <<EOF # note\nhello\nEOF\nrm -rf /",
+            "cat <<'EOF' | sort\nb\na\nEOF\nrm -rf /",
+            // The old lexer paired this apostrophe with one further down and
+            // hid the line after the body.
+            "cat <<'EOF'\ndon't\nEOF\nrm -rf /",
+        ] {
+            assert!(v.validate_command(cmd).is_blocked(), "{cmd:?}");
+        }
+    }
+
+    #[test]
+    fn heredoc_delimiter_forms_and_multiple_heredocs() {
+        let v = validator();
+        for cmd in [
+            // `<<-` strips the tabs of the delimiter line…
+            "cat <<-EOF\n\trm -rf /\n\tEOF",
+            // …plain `<<` does not: the indented line is still body.
+            "cat <<EOF\n\tEOF\nrm -rf /\nEOF",
+            "cat <<A <<B\nrm -rf /\nA\ndel x\nB",
+            // The delimiter word ends at the shell's own metacharacters…
+            "cat <<EOF; echo hi\nrm -rf /\nEOF",
+            "cat <<EOF|sort\nrm -rf /\nEOF",
+            "cat <<EOF>out.txt\nrm -rf /\nEOF",
+            "x=$(cat <<EOF)\nrm -rf /\nEOF",
+            // …and its quotes are removed: inside `"…"` a backslash escapes only
+            // `$`, a backtick, `"` and `\`, and stays itself before anything else.
+            "cat <<\"E\\\\F\"\nrm -rf /\nE\\F",
+            "cat <<\"E\\xF\"\nrm -rf /\nE\\xF",
+            "cat <<E\"O\"F\nrm -rf /\nEOF",
+            "cat <<\"E\\\"F\"\nrm -rf /\nE\"F",
+            "cat <<\"E\\$F\"\nrm -rf /\nE$F",
+            "cat <<\"E\\`F\"\nrm -rf /\nE`F",
+            "cat <<EOF&&echo hi\nrm -rf /\nEOF",
+            // A delimiter is not a command, whatever it is called.
+            "cat <<sh\nrm -rf /\nsh",
+            "cat <<EOF # note\nrm -rf /\nEOF",
+            "python3 - <<'EOF'\nprint(1)\nEOF\nls -la",
+            // A file that is written and not run is data.
+            "cat > notes.txt <<'EOF'\nrm -rf /\nEOF\ncat notes.txt",
+            "cat > run.sh <<'EOF'\nrm -rf /\nEOF\nchmod +x run.sh",
+        ] {
+            let verdict = v.validate_command(cmd);
+            assert!(verdict.is_allowed(), "{cmd:?}: {:?}", verdict.reason);
+        }
+    }
+
+    #[test]
+    fn heredoc_what_cannot_be_proven_data_stays_commands() {
+        let v = validator();
+        for cmd in [
+            // The shell would read to the end of the text: so do we, as commands.
+            "cat <<EOF\nrm -rf /",
+            // `<<` as an arithmetic operator is no heredoc.
+            "echo $((1 << 3))\nrm -rf /",
+            // Only an operator that starts a word counts. (`echo 1<<2` IS a
+            // heredoc to a shell; judging its body as commands errs the safe way.)
+            "echo 1<<2\nrm -rf /\n2",
+            // No delimiter: nothing to read. A lone `<` is a redirection.
+            "cat <<\nrm -rf /",
+            "sort < in.txt\nrm -rf /\nin.txt",
+            // A body that is code is judged flat, whatever it holds.
+            "bash <<'EOF'\ncat <<'X'\nrm -rf /\nX\nEOF",
+            // An unquoted body is expanded: a substitution in it runs.
+            "cat <<EOF\n$(date)\nrm -rf /\nEOF",
+            "cat <<EOF\n`date`\nrm -rf /\nEOF",
+            // A shell anywhere in the command: the body may be written and run.
+            "python3 - <<'EOF'\nrm -rf /\nEOF\nbash run.sh",
+            "cat > run.sh <<'EOF'\nrm -rf /\nEOF\nbash run.sh",
+            "cat <<'A'; bash <<'B'\nrm -rf /\nA\ntrue\nB",
+            // …wherever it is, not only in the last command.
+            "bash -n script.sh; cat <<'EOF'\nrm -rf /\nEOF\nls",
+            // A script the same command writes and then runs, by whatever
+            // spelling of the redirection or of the path.
+            "cat > run.sh <<'EOF'\nrm -rf /\nEOF\n./run.sh",
+            "cat >> run.sh <<'EOF'\nrm -rf /\nEOF\nrun.sh",
+            "cat >run.sh <<'EOF'\nrm -rf /\nEOF\ntimeout 60 ./run.sh",
+            "cat <<'EOF' > $D/x.sh\nrm -rf /\nEOF\n$D/x.sh",
+            "tee run.sh <<'EOF'\nrm -rf /\nEOF\n./run.sh",
+            "tee -a run.sh <<'EOF'\nrm -rf /\nEOF\nchmod +x run.sh && ./run.sh",
+        ] {
+            assert!(v.validate_command(cmd).is_blocked(), "{cmd:?}");
+        }
+        // The quoted delimiter is what makes the same body data.
+        let quoted = "cat <<'EOF'\n$(date)\nrm -rf /\nEOF";
+        assert!(v.validate_command(quoted).is_allowed());
+    }
+
+    #[test]
+    fn heredoc_body_words_do_not_reach_the_lexer_output() {
+        assert_eq!(
+            shell_pipelines("python3 - <<'EOF'\ndel x\nEOF\nls"),
+            vec![vec![vec!["python3", "-"]], vec![vec!["ls"]]]
+        );
+        // `<<` with nothing to delimit, and `<<<`, stay words.
+        assert_eq!(
+            shell_pipelines("cat <<-\nls"),
+            vec![vec![vec!["cat", "<<-"]], vec![vec!["ls"]]]
+        );
+        assert_eq!(
+            shell_pipelines("cat <<\nls"),
+            vec![vec![vec!["cat", "<<"]], vec![vec!["ls"]]]
+        );
+        assert_eq!(
+            shell_pipelines("bash <<< 'rm -rf /'"),
+            vec![vec![vec!["bash", "<<<", "rm -rf /"]]]
+        );
+        // A body kept as commands comes back where the shell would run it…
+        assert_eq!(
+            shell_pipelines("cat <<EOF\n$(date)\ndel x\nEOF\nls"),
+            vec![
+                vec![vec!["cat"]],
+                vec![vec!["$(date)"]],
+                vec![vec!["del", "x"]],
+                vec![vec!["ls"]],
+            ]
+        );
+        // …or after the commands of the text, when only the end tells it is code.
+        assert_eq!(
+            shell_pipelines("bash <<'EOF'\ndel x\nEOF\nls"),
+            vec![vec![vec!["bash"]], vec![vec!["ls"]], vec![vec!["del", "x"]]]
+        );
+    }
+
+    #[test]
+    fn heredoc_the_programs_that_run_text() {
+        // Spelled out, not read from `TEXT_RUNNERS`: a name dropped from the
+        // list must fail here.
+        for name in [
+            "bash", "sh", "zsh", "dash", "ksh", "ash", "fish", "mksh", "rbash", "csh", "tcsh",
+            "eval", "source", "ssh", "su", "sudo", "doas", "at", "batch",
+        ] {
+            assert!(may_run_text(&[name.to_string()]), "{name}");
+        }
+        for word in [
+            ".",
+            "bin/bash",
+            "$(bash",
+            "(zsh",
+            "echo bash)",
+            "`sh",
+            "echo hi; bash",
+        ] {
+            assert!(may_run_text(&[word.to_string()]), "{word}");
+        }
+        for word in [
+            "python3",
+            "cat",
+            "-",
+            "./run.sh",
+            "../x",
+            "ssh-keygen",
+            "bash-completion.sh",
+            "--batch",
+        ] {
+            assert!(!may_run_text(&[word.to_string()]), "{word}");
+        }
+    }
+
+    #[test]
+    fn heredoc_delimiter_words() {
+        let read = |text: &str| {
+            let mut chars = text.chars().peekable();
+            let word = read_delimiter(&mut chars);
+            (word, chars.collect::<String>())
+        };
+        let word = |text: &str, quoted: bool| (text.to_string(), quoted);
+        // Quotes and backslashes are removed, and protect what they enclose.
+        assert_eq!(read("EOF"), (word("EOF", false), String::new()));
+        assert_eq!(read("'E F'"), (word("E F", true), String::new()));
+        assert_eq!(read("E\\ F"), (word("E F", true), String::new()));
+        assert_eq!(read("\"E F\""), (word("E F", true), String::new()));
+        assert_eq!(read("\"EF\" tail"), (word("EF", true), " tail".to_string()));
+        assert_eq!(read("E'O'\"F\""), (word("EOF", true), String::new()));
+        // Inside `"…"` a backslash escapes `$`, a backtick, `"` and `\` — and is
+        // itself before anything else.
+        assert_eq!(read("\"E\\\"F\""), (word("E\"F", true), String::new()));
+        assert_eq!(read("\"E\\$F\""), (word("E$F", true), String::new()));
+        assert_eq!(read("\"E\\`F\""), (word("E`F", true), String::new()));
+        assert_eq!(read("\"E\\\\F\""), (word("E\\F", true), String::new()));
+        assert_eq!(read("\"E\\xF\""), (word("E\\xF", true), String::new()));
+        // Unquoted, the word ends at the shell's metacharacters and blanks.
+        for stop in [";", "&", "|", "<", ">", ")", " ", "\t", "\n"] {
+            let (found, rest) = read(&format!("EOF{stop}rest"));
+            assert_eq!(found, word("EOF", false), "{stop:?}");
+            assert_eq!(rest, format!("{stop}rest"), "{stop:?}");
+        }
+    }
+
+    #[test]
+    fn heredoc_files_a_command_writes() {
+        let words = |text: &str| -> Vec<String> { text.split(' ').map(str::to_string).collect() };
+        assert_eq!(written_paths(&words("cat > ./a.sh")), ["a.sh"]);
+        assert_eq!(written_paths(&words("cat >> a.sh")), ["a.sh"]);
+        assert_eq!(written_paths(&words("cat >a.sh")), ["a.sh"]);
+        assert_eq!(written_paths(&words("tee -a a.sh b.sh")), ["a.sh", "b.sh"]);
+        assert_eq!(written_paths(&words("sudo tee x")), ["x"]);
+        assert!(written_paths(&words("cat a.sh")).is_empty());
+        assert!(written_paths(&words("echo >")).is_empty());
+    }
+
+    /// Replay of recorded commands through [`PreToolValidator::validate_command`]:
+    /// `PRE_TOOL_REPLAY_IN` is a file with one JSON string (a whole command, newlines
+    /// escaped) per line, `PRE_TOOL_REPLAY_OUT` receives one `{"i","blocked","reason"}`
+    /// line per command. Run it on two builds and diff the files — that is how the
+    /// heredoc change was measured on real transcripts (17/10/2026).
+    ///
+    /// `cargo test -p touring-hooks-core --lib replay_recorded_commands -- --ignored`
+    #[test]
+    #[ignore = "reads PRE_TOOL_REPLAY_IN; a measurement, not a check"]
+    fn replay_recorded_commands() {
+        let (Ok(input), Ok(output)) = (
+            std::env::var("PRE_TOOL_REPLAY_IN"),
+            std::env::var("PRE_TOOL_REPLAY_OUT"),
+        ) else {
+            panic!("set PRE_TOOL_REPLAY_IN and PRE_TOOL_REPLAY_OUT");
+        };
+        let v = validator();
+        let text = std::fs::read_to_string(&input).expect("PRE_TOOL_REPLAY_IN is readable");
+        let mut out = String::new();
+        for (i, line) in text.lines().enumerate() {
+            let command: String = serde_json::from_str(line).expect("one JSON string per line");
+            let verdict = v.validate_command(&command);
+            out.push_str(
+                &serde_json::json!({
+                    "i": i,
+                    "blocked": verdict.is_blocked(),
+                    "reason": verdict.reason,
+                    // The structural layer `pre_bash` runs first, on the same text.
+                    "structural": touring_hooks_shared::bash_ast_validator::validate_command(&command).is_block(),
+                })
+                .to_string(),
+            );
+            out.push('\n');
+        }
+        std::fs::write(&output, out).expect("PRE_TOOL_REPLAY_OUT is writable");
     }
 
     fn validator() -> PreToolValidator {

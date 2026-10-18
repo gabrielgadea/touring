@@ -1141,7 +1141,7 @@ mod tests {
 mod r2_constructs_tests {
     use crate::ast::languages::Lang;
     use crate::ast::parser::parse_thread_local;
-    use crate::vgp::scope::ScopeTree;
+    use crate::vgp::lang::python::scope::ScopeTree;
 
     fn issues(src: &str) -> Vec<String> {
         let tree = parse_thread_local(src, Lang::Python).expect("parse");
@@ -1229,7 +1229,7 @@ mod r2_constructs_tests {
 mod except_binding_tests {
     use crate::ast::languages::Lang;
     use crate::ast::parser::parse_thread_local;
-    use crate::vgp::scope::ScopeTree;
+    use crate::vgp::lang::python::scope::ScopeTree;
 
     fn issues(src: &str) -> Vec<String> {
         let tree = parse_thread_local(src, Lang::Python).expect("parse");

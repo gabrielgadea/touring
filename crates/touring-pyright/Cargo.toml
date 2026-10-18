@@ -5,7 +5,7 @@ edition.workspace = true
 authors.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "VGP layer 2 — synchronous stdio LSP client, pyright-langserver session and a warm per-project session pool (std + serde_json only; no async runtime, no hook crates)"
+description = "VGP layer 2 — the project's own verifier as a warm, bounded session: a synchronous stdio LSP client, pyright-langserver, rust-analyzer, tsserver and deno lsp behind one per-project session pool (std + serde_json only; no async runtime, no hook crates)"
 
 [lib]
 name = "touring_pyright"

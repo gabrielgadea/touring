@@ -104,16 +104,31 @@ fn answered(stdout: &str, stderr: &str) -> bool {
 impl PrivateDaemon {
     /// The receipt of a task-* event as S224 delivers it: stdout carries only the
     /// contract (`{}` for these top-level-only events), the receipt is on stderr.
+    ///
+    /// The measured call can still meet a daemon that is slow under load (a cold start past
+    /// the client's 3000 ms read timeout): the hook then falls back silently — empty stdout AND
+    /// empty stderr — which is "no answer", not a breach of the contract (S216 above; seen again
+    /// in the full `touring-hooks` suite on 17/10/2026, green 3/3 in isolation). So the call is
+    /// repeated, bounded, until one ANSWERS; an answered call must still keep stdout to the event
+    /// contract, and a daemon that never answers returns its empty stderr so the caller's
+    /// "produced no receipt" assertion fails loudly — the test cannot pass vacuously.
     fn task_receipt(&self, hook: &str, payload: &str) -> Option<String> {
-        let (stdout, stderr, exit) =
-            run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))?;
-        assert_eq!(exit, 0, "{hook} must exit 0, got {exit}");
-        assert_eq!(
-            stdout.trim(),
-            "{}",
-            "{hook}: stdout must hold only the event contract"
-        );
-        Some(stderr)
+        let mut last = None;
+        for _ in 0..3 {
+            let (stdout, stderr, exit) =
+                run_with_stdin("touring-hook", &[hook], payload, Some(&self.socket))?;
+            assert_eq!(exit, 0, "{hook} must exit 0, got {exit}");
+            if answered(&stdout, &stderr) {
+                assert_eq!(
+                    stdout.trim(),
+                    "{}",
+                    "{hook}: stdout must hold only the event contract"
+                );
+                return Some(stderr);
+            }
+            last = Some(stderr);
+        }
+        last
     }
 }
 

@@ -28,11 +28,41 @@ pub struct FuncSig {
     pub returns: Option<String>,
 }
 
+/// One dataclass field as `dataclasses` sees it: an ANNOTATED class-level name that is not a
+/// `ClassVar` (an `InitVar` stays — it is an `__init__` parameter).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DcField {
+    /// The field name.
+    pub name: String,
+    /// Keyword-only: after a `_: KW_ONLY` sentinel, `field(kw_only=True)` or `@dataclass(kw_only=True)`.
+    pub kw_only: bool,
+    /// `field(init=False)` leaves it out of `__init__`.
+    pub init: bool,
+}
+
 /// Everything the motor knows about a class, from its definition module.
 #[derive(Debug, Clone, Default)]
 pub struct ClassInfo {
     /// Annotated fields and class-level assignments.
     pub fields: HashSet<String>,
+    /// The dataclass fields THIS class declares, in declaration order (a `HashSet` forgets it). A
+    /// redeclared name keeps its first position. Unannotated assignments and `ClassVar`s are not fields.
+    pub dc_fields: Vec<DcField>,
+    /// Positional base classes as written (`Base`, `pkg.Base`, `Base[int]` ↦ `Base`) — the MRO input.
+    /// Unlike `bases`, keyword arguments (`metaclass=…`) never land here.
+    pub dc_bases: Vec<String>,
+    /// A base expression the collector cannot name (call, `*bases`, …) — the MRO is then unknowable.
+    pub bases_opaque: bool,
+    /// A keyword in the class header (`class C(Base, metaclass=Meta)`, `class C(Base, flag=True)`):
+    /// a metaclass `__call__` or an `__init_subclass__` may change what `C(...)` accepts — the
+    /// constructor signature is then not decidable from the `__init__` methods alone.
+    pub has_class_kwargs: bool,
+    /// `@dataclass(kw_only=True)`: every field this class declares is keyword-only.
+    pub dc_kw_only: bool,
+    /// `@dataclass(init=False)`: no generated `__init__` — the signature is inherited, i.e. unknowable here.
+    pub dc_init_false: bool,
+    /// Collector state: a `_: KW_ONLY` sentinel was seen, so the fields after it are keyword-only.
+    pub dc_after_kw_marker: bool,
     /// `self.x` assigned in ANY method (spec §4).
     pub self_attrs: HashSet<String>,
     /// Method names (properties included).
@@ -50,6 +80,12 @@ pub struct ClassInfo {
 }
 
 impl ClassInfo {
+    /// `__init__` parameter names of the fields THIS class declares (no bases): positional ones in
+    /// declaration order, then the keyword-only ones — the order `dataclasses` generates.
+    pub fn own_init_params(&self) -> Vec<String> {
+        dc_init_params(&self.dc_fields)
+    }
+
     /// Every statically-known member name (without bases — the caller closes over them).
     pub fn own_members(&self) -> HashSet<String> {
         let mut m = self.fields.clone();
@@ -62,17 +98,39 @@ impl ClassInfo {
     }
 }
 
+/// `__init__` parameters of a merged field list: positional (declaration order) first, then the
+/// keyword-only ones; `init=False` fields are not parameters.
+pub fn dc_init_params(campos: &[DcField]) -> Vec<String> {
+    campos
+        .iter()
+        .filter(|f| f.init && !f.kw_only)
+        .chain(campos.iter().filter(|f| f.init && f.kw_only))
+        .map(|f| f.name.clone())
+        .collect()
+}
+
 /// The on-demand symbol table of one module file.
 #[derive(Debug, Clone, Default)]
 pub struct ModuleInfo {
+    /// The file this table was extracted from (set by the resolver) — the identity of a class in an
+    /// MRO is (file, name). `None` for a table built from a bare string.
+    pub file: Option<PathBuf>,
     /// Top-level bindings (assignments, defs, classes, import names).
     pub top_names: HashSet<String>,
     /// Static `__all__ = [...]` when fully static — it then narrows `from m import n`.
     pub dunder_all: Option<HashSet<String>>,
-    /// Module-level `def __getattr__` — attributes are then unknowable (never deny).
+    /// An OPEN module-level `__getattr__` (PEP 562) — attributes are then unknowable (never
+    /// deny). A `__getattr__` that only serves literal-guarded names and ends in `raise` is
+    /// CLOSED: its names join `top_names` and this stays false.
     pub has_getattr: bool,
-    /// `from x import *` present — the namespace is then dynamic (never deny).
+    /// `from x import *` present in ANY module-scope branch — the namespace is then dynamic
+    /// (never deny).
     pub has_star: bool,
+    /// An OPEN dynamic binding (`setattr(sys.modules[__name__], item.name, …)`, `globals()[k] =`
+    /// with a non-literal key, `sys.modules[...] = obj`, module-level `exec`) — attributes are
+    /// then unknowable (never deny). Closed mechanisms add to `top_names` instead; see
+    /// [`super::namespace`].
+    pub has_dynamic: bool,
     /// FROM-import binding (`from m import X [as Y]`): the bound name (alias Y, or X) ↦
     /// (m, X) — the original name is required to type the receiver (submodule m.X, or the
     /// member X of m); the old `name ↦ m` lost it and aliased submodules became unresolvable.
@@ -84,6 +142,48 @@ pub struct ModuleInfo {
     pub classes: HashMap<String, ClassInfo>,
     /// Functions defined in the module, by name.
     pub functions: HashMap<String, FuncSig>,
+}
+
+/// The attributes the import system gives EVERY loaded module, file or not — Python reference
+/// (CPython 3.13, via Context7 `/python/cpython/v3.13.9`): `Doc/reference/import.rst` (the import
+/// machinery sets the import-related attributes `__name__`, `__loader__`, `__package__`, `__spec__`
+/// on the module object, `_init_module_attrs(spec, module)`), `Doc/c-api/module.rst`
+/// (`PyModule_NewObject` starts `__name__`, `__doc__`, `__package__` and `__loader__`), and the data
+/// model for `__dict__` (the module namespace) and `__builtins__` (the entry `exec` adds to it).
+/// `__file__` and `__path__` are NOT here: they depend on the file and on being a package.
+const IMPLICITOS_DE_TODO_MODULO: &[&str] = &[
+    "__name__",
+    "__doc__",
+    "__spec__",
+    "__loader__",
+    "__package__",
+    "__dict__",
+    "__builtins__",
+];
+
+/// Is `nome` something the import system may or may not set on a module the motor cannot read (a
+/// stdlib C module such as `math`)? Whether it has a `__file__` depends on how the interpreter was
+/// built (`sys.__file__` raises `AttributeError`, `Doc/using/configure.rst`), so the closed tables
+/// abstain on the whole family instead of denying a module attribute CPython may well provide.
+pub fn implicito_de_modulo_opaco(nome: &str) -> bool {
+    IMPLICITOS_DE_TODO_MODULO.contains(&nome) || matches!(nome, "__file__" | "__path__")
+}
+
+impl ModuleInfo {
+    /// Does the import system give THIS module the attribute `nome`? The universal ones always;
+    /// `__file__` only when the module has a file; `__path__` only when it is a package (its file is
+    /// an `__init__.py`). A plain module has no `__path__` — that stays an absent attribute.
+    pub fn atributo_implicito(&self, nome: &str) -> bool {
+        match nome {
+            "__file__" => self.file.is_some(),
+            "__path__" => self
+                .file
+                .as_deref()
+                .and_then(Path::file_name)
+                .is_some_and(|f| f == "__init__.py"),
+            _ => IMPLICITOS_DE_TODO_MODULO.contains(&nome),
+        }
+    }
 }
 
 /// Does `name` resolve as a member of this module? `__all__` narrows when present;
@@ -168,9 +268,11 @@ impl<'a> Resolver<'a> {
         if let Some(hit) = self.cache.borrow().get(&key) {
             return hit.clone();
         }
-        let info = parse_thread_local(&content, Lang::Python)
-            .ok()
-            .map(|tree| extract_module_info(&content, tree.root_node()));
+        let info = parse_thread_local(&content, Lang::Python).ok().map(|tree| {
+            let mut info = extract_module_info(&content, tree.root_node());
+            info.file = Some(path.to_path_buf());
+            info
+        });
         self.cache
             .borrow_mut()
             .insert(key, info.clone().map(Rc::new));
@@ -195,24 +297,65 @@ impl<'a> Resolver<'a> {
         c
     }
 
-    fn venv_candidates(&self, rel: &str) -> Vec<PathBuf> {
+    /// `<root>/.venv/lib/python*/site-packages` directories (the installed env).
+    fn site_packages(&self) -> Vec<PathBuf> {
         let mut out = Vec::new();
-        let venv = self.root.join(".venv/lib");
-        if let Ok(rd) = std::fs::read_dir(&venv) {
+        if let Ok(rd) = std::fs::read_dir(self.root.join(".venv/lib")) {
             for e in rd.flatten() {
                 let p = e.path();
                 if p.file_name()
                     .map(|n| n.to_string_lossy().starts_with("python"))
                     .unwrap_or(false)
                 {
-                    let sp = p.join("site-packages");
-                    out.push(sp.join(format!("{rel}.py")));
-                    out.push(sp.join(rel).join("__init__.py"));
+                    out.push(p.join("site-packages"));
                 }
             }
         }
         out
     }
+
+    fn venv_candidates(&self, rel: &str) -> Vec<PathBuf> {
+        let mut out = Vec::new();
+        for sp in self.site_packages() {
+            out.push(sp.join(format!("{rel}.py")));
+            out.push(sp.join(rel).join("__init__.py"));
+        }
+        out
+    }
+
+    /// Is `dotted` a COMPILED extension module (`etree.cpython-312-x86_64-linux-gnu.so`,
+    /// `_core.abi3.so`, `x.so`, `x.pyd`) in the places [`Self::resolve_module`] looks? It has no
+    /// source to read — its namespace is unknowable — but it EXISTS: `from lxml import etree` and
+    /// `lxml.etree` are real, and a missing `.py` is not evidence of a missing submodule.
+    pub fn extension_exists(&self, dotted: &str, importer: &str) -> bool {
+        let rel = dotted.replace('.', "/");
+        let (parent, last) = rel.rsplit_once('/').unwrap_or(("", rel.as_str()));
+        let mut bases = vec![self.root.to_path_buf()];
+        if !crate::vgp::is_inline(importer)
+            && let Some(dir) = Path::new(importer).parent()
+        {
+            bases.push(dir.to_path_buf());
+        }
+        bases.extend(self.site_packages());
+        bases
+            .iter()
+            .any(|b| dir_has_extension(&b.join(parent), last))
+    }
+}
+
+/// A file `<last>.<tag>.so` / `<last>.so` / `<last>.pyd` in `dir`. The dot after the name is
+/// required: `etree_extra.so` is not `etree`.
+fn dir_has_extension(dir: &Path, last: &str) -> bool {
+    std::fs::read_dir(dir).is_ok_and(|rd| {
+        rd.flatten().any(|e| {
+            let nome = e.file_name();
+            nome.to_string_lossy()
+                .strip_prefix(last)
+                .is_some_and(|rest| {
+                    rest.starts_with('.') && (rest.ends_with(".so") || rest.ends_with(".pyd"))
+                })
+        })
+    })
 }
 
 /// `from . import x` / `from ..pkg import y`: the absolute-ish dotted form relative to the
@@ -259,6 +402,15 @@ pub fn extract_module_info(source: &str, root: Node) -> ModuleInfo {
             _ => {}
         }
     }
+    // O passe acima lê só os filhos DIRETOS do módulo: tipa (imports/classes/funções) apenas o
+    // que é incondicional. O NAMESPACE (quais nomes existem) vem do coletor, que atravessa
+    // if/try/with/for/while/match e lê os sinais de ligação dinâmica — um nome ligado em qualquer
+    // ramo existe; um namespace que se liga em runtime não é enumerável (abstenção, nunca deny).
+    let ns = super::namespace::collect(source, root);
+    info.top_names.extend(ns.names);
+    info.has_star |= ns.has_star;
+    info.has_getattr |= ns.has_getattr;
+    info.has_dynamic |= ns.has_dynamic;
     info
 }
 
@@ -305,9 +457,6 @@ fn collect_def(info: &mut ModuleInfo, source: &str, node: Node) {
             let nome = text(source, name).to_string();
             info.top_names.insert(nome.clone());
             let sig = func_sig(source, def);
-            if nome == "__getattr__" {
-                info.has_getattr = true;
-            }
             info.functions.insert(nome, sig);
         }
         "class_definition" => collect_class(info, source, def, &decorators),
@@ -334,17 +483,37 @@ fn collect_class(info: &mut ModuleInfo, source: &str, node: Node, decorators: &[
         for ch in sup.children(&mut c) {
             match ch.kind() {
                 "identifier" | "dotted_name" | "attribute" => {
-                    ci.bases.push(text(source, ch).to_string())
+                    ci.bases.push(text(source, ch).to_string());
+                    ci.dc_bases.push(text(source, ch).to_string());
                 }
                 "keyword_argument" => {
+                    // `metaclass=Meta` (its `__call__` decides what `C(...)` accepts) or a class
+                    // keyword for `__init_subclass__`: the constructor is then not the plain MRO walk
+                    ci.has_class_kwargs = true;
                     if let Some(v) = ch.child_by_field_name("value") {
                         ci.bases.push(text(source, v).to_string());
                     }
                 }
+                // `Base[int]` / `Generic[T]`: the class is the subscripted value
+                "subscript" => match ch.child_by_field_name("value") {
+                    Some(v) if matches!(v.kind(), "identifier" | "attribute") => {
+                        ci.dc_bases.push(text(source, v).to_string())
+                    }
+                    _ => ci.bases_opaque = true,
+                },
+                "comment" => {}
+                // any other NAMED base expression (call, `*bases`, …) cannot be followed
+                _ if ch.is_named() => ci.bases_opaque = true,
                 _ => {}
             }
         }
     }
+    ci.dc_kw_only = decorators
+        .iter()
+        .any(|d| d.replace(' ', "").contains("kw_only=True"));
+    ci.dc_init_false = decorators
+        .iter()
+        .any(|d| d.replace(' ', "").contains("init=False"));
     if let Some(body) = node.child_by_field_name("body") {
         let mut c = body.walk();
         for stmt in body.children(&mut c) {
@@ -352,7 +521,11 @@ fn collect_class(info: &mut ModuleInfo, source: &str, node: Node, decorators: &[
         }
     }
     if ci.is_dataclass {
-        ci.init.params = ci.fields.iter().cloned().collect();
+        // an explicit `__init__` in the body stays (dataclass never overwrites it); otherwise the
+        // generated one takes this class's own fields — `checks` merges the bases through the MRO
+        if !ci.methods.contains("__init__") {
+            ci.init.params = ci.own_init_params();
+        }
         // @dataclass(slots=True) GERA __slots__ com os campos — instância não tem __dict__
         if decorators
             .iter()
@@ -379,6 +552,7 @@ fn collect_class_stmt(ci: &mut ClassInfo, source: &str, stmt: Node) {
                 for name in pattern_identifiers(source, left) {
                     ci.fields.insert(name);
                 }
+                collect_dc_field(ci, source, stmt);
             }
         }
         "expression_statement" => {
@@ -407,6 +581,75 @@ fn collect_class_stmt(ci: &mut ClassInfo, source: &str, stmt: Node) {
             }
         }
         _ => {}
+    }
+}
+
+/// Head of an annotation without quotes or subscript: `"typing.ClassVar[int]"` ↦ `typing.ClassVar`.
+fn annotation_head(ann: &str) -> &str {
+    let ann = ann.trim().trim_matches(|c| c == '\'' || c == '"').trim();
+    ann.split('[').next().unwrap_or(ann).trim()
+}
+
+/// `kw_only=True|False` / `init=True|False` in a `field(...)` / `dataclasses.field(...)` call.
+fn field_call_flag(source: &str, call: Node, key: &str) -> Option<bool> {
+    let f = call.child_by_field_name("function")?;
+    let fname = text(source, f);
+    if fname != "field" && !fname.ends_with(".field") {
+        return None;
+    }
+    let args = call.child_by_field_name("arguments")?;
+    let mut c = args.walk();
+    for ch in args.children(&mut c) {
+        if ch.kind() == "keyword_argument"
+            && ch.child_by_field_name("name").map(|n| text(source, n)) == Some(key)
+        {
+            return match ch.child_by_field_name("value").map(|v| text(source, v)) {
+                Some("True") => Some(true),
+                Some("False") => Some(false),
+                _ => None,
+            };
+        }
+    }
+    None
+}
+
+/// An ANNOTATED class-level name is a dataclass field (spec: CPython `Doc/library/dataclasses.rst`),
+/// except `ClassVar`; `_: KW_ONLY` is a sentinel, not a field. Redeclaring keeps the first position.
+fn collect_dc_field(ci: &mut ClassInfo, source: &str, stmt: Node) {
+    let (Some(left), Some(ann)) = (
+        stmt.child_by_field_name("left"),
+        stmt.child_by_field_name("type"),
+    ) else {
+        return;
+    };
+    if left.kind() != "identifier" {
+        return;
+    }
+    let head = annotation_head(text(source, ann));
+    if head == "KW_ONLY" || head.ends_with(".KW_ONLY") {
+        ci.dc_after_kw_marker = true;
+        return;
+    }
+    if head == "ClassVar" || head.ends_with(".ClassVar") {
+        return;
+    }
+    let call = stmt
+        .child_by_field_name("right")
+        .filter(|r| r.kind() == "call");
+    let kw_only = call
+        .and_then(|c| field_call_flag(source, c, "kw_only"))
+        .unwrap_or(ci.dc_after_kw_marker || ci.dc_kw_only);
+    let init = call
+        .and_then(|c| field_call_flag(source, c, "init"))
+        .unwrap_or(true);
+    let campo = DcField {
+        name: text(source, left).to_string(),
+        kw_only,
+        init,
+    };
+    match ci.dc_fields.iter_mut().find(|f| f.name == campo.name) {
+        Some(slot) => *slot = campo,
+        None => ci.dc_fields.push(campo),
     }
 }
 
@@ -570,7 +813,7 @@ fn func_sig(source: &str, def: Node) -> FuncSig {
 
 /// The last bare `identifier` child — the alias in `import x as y` / `from m import x as y`
 /// (tree-sitter-python 0.25 does NOT name an `alias` field; the alias is the trailing identifier).
-fn last_identifier(node: Node) -> Option<Node> {
+pub(super) fn last_identifier(node: Node) -> Option<Node> {
     let mut c = node.walk();
     let mut out = None;
     for ch in node.children(&mut c) {
@@ -616,7 +859,7 @@ pub fn pattern_identifiers(source: &str, node: Node) -> Vec<String> {
 }
 
 /// A static `["a", "b"]` / `("a", "b")` of strings, or None when not fully static.
-fn static_string_list(source: &str, node: Node) -> Option<HashSet<String>> {
+pub(super) fn static_string_list(source: &str, node: Node) -> Option<HashSet<String>> {
     if !matches!(node.kind(), "list" | "tuple" | "set") {
         return None;
     }
@@ -633,7 +876,7 @@ fn static_string_list(source: &str, node: Node) -> Option<HashSet<String>> {
     Some(out)
 }
 
-fn text<'a>(source: &'a str, node: Node) -> &'a str {
+pub(super) fn text<'a>(source: &'a str, node: Node) -> &'a str {
     &source[node.byte_range()]
 }
 
@@ -708,6 +951,17 @@ mod tests {
         assert!(ci.is_dataclass);
         assert!(ci.init.params.contains(&"chave".to_string()));
         assert!(ci.init.params.contains(&"gravado".to_string()));
+    }
+
+    #[test]
+    fn dataclass_init_segue_a_ordem_de_declaracao() {
+        // `fields` é um HashSet (ordem aleatória por instância): os params do `__init__` vêm da ordem em
+        // que os campos aparecem no corpo, a mesma do dataclass — não da ordem do conjunto
+        let src = "from dataclasses import dataclass\n@dataclass\nclass R:\n    zulu: int\n    alfa: int\n    mike: int = 0\n    bravo: int = 1\n";
+        for _ in 0..20 {
+            let ci = info_of(src).classes.remove("R").unwrap();
+            assert_eq!(ci.init.params, ["zulu", "alfa", "mike", "bravo"]);
+        }
     }
 
     #[test]

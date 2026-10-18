@@ -909,31 +909,138 @@ fn persist_snapshot(
         ));
     }
     let month = date.get(0..7).unwrap_or("0000-00");
-    let dir = snapshot_dir(
-        std::env::var("HOME")
-            .ok()
-            .as_deref()
-            .map(std::path::Path::new),
-        month,
-    );
-    std::fs::create_dir_all(&dir)?;
+    let home = std::env::var("HOME").ok();
+    let home = home.as_deref().map(std::path::Path::new);
+    persist_snapshot_at(
+        &snapshot_dir(home, month),
+        home,
+        payload,
+        date,
+        project_root,
+    )
+}
+
+/// Writes the dated snapshot into `dir`. The file lives in a PUBLIC repository, so
+/// nothing that identifies the machine's user may reach it: every string of the payload
+/// and the file NAME go through [`scrub_home`] first (17/10/2026 — 232 files under
+/// `docs/kpi/` carried `/home/<user>/…` in `project_root`, `reason` and `journal`, and
+/// in their names).
+fn persist_snapshot_at(
+    dir: &std::path::Path,
+    home: Option<&std::path::Path>,
+    payload: &Value,
+    date: &str,
+    project_root: &std::path::Path,
+) -> std::io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
     // One file per project per day (investigation 2026-07-01): the daemon's F5
     // flush snapshots EVERY warm project, and per-project sources (orphans,
     // ema) differ wildly between projects — a shared `{date}.json` made
     // consecutive writes silently overwrite each other and the dated series
     // uninterpretable (observed: 368→0→0→12002 across mixed projects).
     // Readers glob `docs/kpi/*/*.json`, so the new name stays discoverable.
-    let file = dir.join(format!("{date}--{}.json", project_slug(project_root)));
-    let pretty = serde_json::to_string_pretty(payload)?;
+    let file = dir.join(format!("{date}--{}.json", project_slug(project_root, home)));
+    let mut clean = payload.clone();
+    scrub_value(&mut clean, home);
+    let pretty = serde_json::to_string_pretty(&clean)?;
     std::fs::write(&file, pretty)?;
     Ok(file)
 }
 
-/// Deterministic filename-safe slug for a project root: the full path with
-/// separators folded to `-` (collision-free, unlike a basename).
-fn project_slug(project_root: &std::path::Path) -> String {
-    let slug: String = project_root.display().to_string().replace(['/', '\\'], "-");
-    slug.trim_matches('-').to_string()
+/// Deterministic filename-safe slug for a project root: the path relative to the
+/// user's home (`~/projects/touring`) with separators folded to `-` (collision-free,
+/// unlike a basename, and free of the user name, unlike the absolute path).
+fn project_slug(project_root: &std::path::Path, home: Option<&std::path::Path>) -> String {
+    let shown = scrub_home(&project_root.display().to_string(), home);
+    shown
+        .replace(['/', '\\'], "-")
+        .trim_matches('-')
+        .to_string()
+}
+
+/// A byte that can belong to a path component name.
+fn is_name_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-')
+}
+
+/// `text` with every occurrence of `needle` that stands alone replaced by `with`: the
+/// byte before must not continue a name, and the byte after must end it (or be one of
+/// `also_after`, for the dash-encoded spelling where the name is followed by `-`).
+fn replace_standalone(text: &str, needle: &str, with: &str, also_after: &[u8]) -> String {
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for (at, _) in text.match_indices(needle) {
+        let end = at + needle.len();
+        let before_ok = at == 0 || !is_name_byte(bytes[at - 1]);
+        let after_ok = bytes
+            .get(end)
+            .is_none_or(|b| !is_name_byte(*b) || also_after.contains(b));
+        if at >= last && before_ok && after_ok {
+            out.push_str(&text[last..at]);
+            out.push_str(with);
+            last = end;
+        }
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// Rewrites every spelling of the user's home directory in `text` as `~`:
+/// `$HOME` itself, any `/home/<user>` (a path from another account, or `$HOME` unset),
+/// and the dash-encoded form Claude Code uses for its per-project directories
+/// (`-home-<user>-projects-x` → `-~-projects-x`).
+fn scrub_home(text: &str, home: Option<&std::path::Path>) -> String {
+    let mut out = text.to_string();
+    if let Some(h) = home {
+        let h = h.display().to_string();
+        let h = h.trim_end_matches('/');
+        if h.len() > 1 {
+            out = replace_standalone(&out, h, "~", &[]);
+            out = replace_standalone(&out, &h.replace('/', "-"), "-~", b"-");
+        }
+    }
+    scrub_home_dirs(&out)
+}
+
+/// `/home/<user>` → `~` for any user.
+fn scrub_home_dirs(text: &str) -> String {
+    const ROOT: &str = "/home/";
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for (at, _) in text.match_indices(ROOT) {
+        if at < last || (at > 0 && is_name_byte(bytes[at - 1])) {
+            continue;
+        }
+        let name_len = bytes[at + ROOT.len()..]
+            .iter()
+            .take_while(|b| is_name_byte(**b))
+            .count();
+        if name_len == 0 {
+            continue;
+        }
+        out.push_str(&text[last..at]);
+        out.push('~');
+        last = at + ROOT.len() + name_len;
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// [`scrub_home`] over every string of `value`, object keys included.
+fn scrub_value(value: &mut Value, home: Option<&std::path::Path>) {
+    match value {
+        Value::String(s) => *s = scrub_home(s, home),
+        Value::Array(items) => items.iter_mut().for_each(|v| scrub_value(v, home)),
+        Value::Object(map) => {
+            for (key, mut v) in std::mem::take(map) {
+                scrub_value(&mut v, home);
+                map.insert(scrub_home(&key, home), v);
+            }
+        }
+        _ => {}
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1437,13 +1544,119 @@ mod tests {
 
     #[test]
     fn project_slug_is_deterministic_and_collision_free() {
-        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"));
-        assert_eq!(a, "home-g-.claude-rust");
+        let home = Some(std::path::Path::new("/home/g"));
+        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"), home);
+        assert_eq!(a, "~-.claude-rust");
         // Distinct roots sharing a basename must not collide (a plain
         // basename slug would map both to "rust").
-        let b = project_slug(std::path::Path::new("/tmp/other/rust"));
+        let b = project_slug(std::path::Path::new("/tmp/other/rust"), home);
         assert_ne!(a, b);
         assert!(!a.contains('/'));
+    }
+
+    #[test]
+    fn scrub_home_rewrites_every_spelling_of_the_home_directory() {
+        let home = Some(std::path::Path::new("/Users/g"));
+        for (input, want) in [
+            ("/Users/g", "~"),
+            ("/Users/g/projects/touring", "~/projects/touring"),
+            ("/Users/g/", "~/"),
+            // the dash-encoded per-project directory Claude Code derives from it
+            (
+                "no transcript directory at /Users/g/.claude/projects/-Users-g-projects-x",
+                "no transcript directory at ~/.claude/projects/-~-projects-x",
+            ),
+            // another account's home, or $HOME unset: the generic /home/<user>
+            (
+                "/home/other/.claude/touring/logs/r3.jsonl",
+                "~/.claude/touring/logs/r3.jsonl",
+            ),
+            ("a=/home/a b=/home/b/c", "a=~ b=~/c"),
+            // a longer name, a longer path component, an embedded path: not the home
+            ("/Users/gabriel/x", "/Users/gabriel/x"),
+            ("/mnt/Users/g/x", "/mnt/Users/g/x"),
+            ("/homework/g/x", "/homework/g/x"),
+            ("/home/", "/home/"),
+            ("plain text", "plain text"),
+        ] {
+            assert_eq!(scrub_home(input, home), want, "input {input:?}");
+        }
+    }
+
+    #[test]
+    fn scrub_value_walks_nested_values_and_keys() {
+        let home = Some(std::path::Path::new("/home/alice"));
+        let mut v = serde_json::json!({
+            "project_root": "/home/alice/projects/touring",
+            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-analise--claude"},
+            "shadow": [{"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"}],
+            "/home/alice/key": 3,
+            "n": 7,
+            "ok": true,
+            "none": null
+        });
+        scrub_value(&mut v, home);
+        let text = v.to_string();
+        assert!(!text.contains("alice"), "{text}");
+        assert_eq!(v["project_root"], "~/projects/touring");
+        assert_eq!(
+            v["shadow"][0]["journal"],
+            "~/.claude/touring/logs/r3_shadow.jsonl"
+        );
+        assert_eq!(v["~/key"], 3);
+        assert_eq!(
+            (v["n"].clone(), v["ok"].clone()),
+            (serde_json::json!(7), serde_json::json!(true))
+        );
+    }
+
+    #[test]
+    fn project_slug_carries_no_home_path() {
+        let home = Some(std::path::Path::new("/home/alice"));
+        let slug = |p: &str| project_slug(std::path::Path::new(p), home);
+        assert_eq!(slug("/home/alice/projects/touring"), "~-projects-touring");
+        assert_eq!(slug("/home/alice"), "~");
+        assert_ne!(
+            slug("/home/alice/projects/touring"),
+            slug("/home/alice/Work")
+        );
+        for root in ["/home/alice/projects/analise", "/home/alice", "/opt/x/y"] {
+            let s = slug(root);
+            assert!(!s.contains("alice") && !s.contains("home"), "{s}");
+        }
+        // Outside the home nothing changes.
+        assert_eq!(slug("/opt/x/y"), "opt-x-y");
+    }
+
+    #[test]
+    fn a_persisted_snapshot_names_no_user_in_its_file_or_its_body() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let home = std::path::Path::new("/home/alice");
+        let root = home.join("projects/touring");
+        let payload = serde_json::json!({
+            "schema": 1,
+            "project_root": root.display().to_string(),
+            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-touring"},
+            "shadow": {"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"},
+        });
+        let file = persist_snapshot_at(dir.path(), Some(home), &payload, "2026-10-17", &root)
+            .expect("persist");
+        let name = file
+            .file_name()
+            .expect("name")
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(name, "2026-10-17--~-projects-touring.json");
+        let body = std::fs::read_to_string(&file).expect("read");
+        assert!(
+            !body.contains("alice") && !name.contains("alice"),
+            "{name}\n{body}"
+        );
+        let back: Value = serde_json::from_str(&body).expect("json");
+        assert_eq!(back["project_root"], "~/projects/touring");
+        assert_eq!(back["schema"], 1, "everything else is untouched");
+        // The in-memory payload (what the command prints) keeps the real path.
+        assert_eq!(payload["project_root"], root.display().to_string());
     }
 
     #[test]
@@ -1909,6 +2122,52 @@ mod tests {
             None,
             "a file without `value` is STUB, never a fabricated zero"
         );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The routing-adherence commitment (17/10/2026) rides on the declarative `external:` source,
+    /// so two ways to fail silently are pinned against the REAL file: a malformed addition makes
+    /// `load_commitments` fail and takes the WHOLE dashboard down, and a producer that writes
+    /// anywhere but `<id>.json` leaves the check STUB forever.
+    #[test]
+    fn routing_adherence_commitment_parses_and_resolves_from_its_external_file() {
+        let yaml = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/kpi/commitments.yaml");
+        let file = load_commitments(&yaml).expect("the real commitments.yaml must parse");
+        let c = file
+            .commitments
+            .iter()
+            .find(|c| c.id == "touring.routing.adherence")
+            .expect("the routing adherence commitment is declared");
+        assert!(c.advisory, "a provisional floor never fails `--check`");
+        assert!(c.source.starts_with("external:"), "source: {}", c.source);
+        assert!(
+            c.source
+                .contains(&format!("--emit docs/kpi/external/{}.json", c.id)),
+            "the declared producer must write the file the resolver reads: {}",
+            c.source
+        );
+        let dir = std::env::temp_dir().join(format!("kpi-routing-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let file_path = dir.join(format!("{}.json", c.id));
+        // The shape `scripts/model_routing_adherence.py --emit` writes with a sufficient sample.
+        std::fs::write(
+            &file_path,
+            r#"{"value": 0.5333, "n": 15, "id": "touring.routing.adherence"}"#,
+        )
+        .expect("write value");
+        assert_eq!(resolve_external(&dir, &c.id), Some(0.5333));
+        // Below the minimum sample the producer writes `value: null` + `detalhe`: STUB with cause.
+        std::fs::write(
+            &file_path,
+            r#"{"value": null, "detalhe": "STUB — 3 buscas decidíveis abaixo do mínimo 10."}"#,
+        )
+        .expect("write null");
+        assert_eq!(resolve_external(&dir, &c.id), None);
+        assert!(matches!(
+            resolve_external_detailed(&dir, &c.id),
+            Err(ExternalStub::Declared { .. })
+        ));
         std::fs::remove_dir_all(&dir).ok();
     }
 

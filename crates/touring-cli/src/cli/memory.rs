@@ -13,6 +13,7 @@ use crate::cli_handlers::{
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 use touring_analysis::e2e::schema_guard;
+use touring_foundation::text_sanitize::{sanitize_json_items, sanitize_json_strings};
 
 /// Entries a single `memory reindex` call will embed before yielding.
 ///
@@ -548,7 +549,8 @@ pub fn cli_memory_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
         gotcha_stats: GotchaStats {
             total_count: gotcha_total,
             total_hits: gotcha_hits as usize,
-            total_prevented: gotcha_prevented as usize,
+            total_prevented: db.reported_prevented(gotcha_prevented).map(|p| p as usize),
+            prevented_measured: db.prevented_measured(),
         },
         // One connection computes all three memory metrics (entries, tagged,
         // coverage) — three opens of the same file would triple the latency
@@ -843,7 +845,7 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     //
     // `entries` below stays byte-identical to the pre-04/08 behaviour — this
     // is a new channel, not a change to the old one.
-    let cases = partition_cases(
+    let mut cases = partition_cases(
         &memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 60).0,
     );
 
@@ -1009,6 +1011,12 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // noise floor) only ever saw ageless entries. Backfill at the choke point
     // so every delivered entry carries its age regardless of the winning arm.
     crate::cli::shared::memory_backfill_stored_at(&memory_dbs, &mut merged_entries);
+    // C6 (2026-10-17): recall hands stored text back to the model as context.
+    // Rows written before the write-side guard may still hold secrets or
+    // bidi/zero-width characters — clean every delivered string on the way
+    // OUT (entries and the labelled cases), without rewriting the database.
+    sanitize_json_items(&mut merged_entries);
+    sanitize_json_strings(&mut cases);
     let entry_count = merged_entries.len();
     let ann_count = ann_results.len();
     let tag_filter_json = tag_filter.as_ref().map(|f| {
@@ -1322,7 +1330,7 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
             .to_string();
         }
     };
-    let entries: Vec<serde_json::Value> = stmt
+    let mut entries: Vec<serde_json::Value> = stmt
         .query_map(params![limit], |row| {
             let mut entry = serde_json::json!({
                 "key": row.get::<_, String>(0)?,
@@ -1350,6 +1358,9 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
         .unwrap_or_default();
+    // C6 (2026-10-17): clean stored text on the way OUT (rows may predate the
+    // write-side guard); the database is not rewritten.
+    sanitize_json_items(&mut entries);
     let count = entries.len();
     // The pheromone-health number, reported because it was invisible: 11 of
     // 7360 entries carried a reward when this was written (0,15%), so the
@@ -2342,6 +2353,137 @@ mod pheromone_decay_tests {
             keys,
             vec!["a-pinned", "b-weighted", "c-plain"],
             "pin beats weight; weight beats an unweighted entry"
+        );
+    }
+}
+
+/// C6 (2026-10-17): recall/list hand stored text back to the model as context,
+/// so rows that predate the write-side guard are cleaned on the way OUT.
+#[cfg(test)]
+mod recall_sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::{cli_memory_list, cli_memory_recall};
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    fn fake_key() -> String {
+        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
+    }
+
+    /// A runtime whose memory.db holds ONE row planted the way pre-guard
+    /// writers did (raw SQL, no sanitization).
+    fn runtime_with_legacy_row(key: &str, value: &str) -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES (?1, 'semantic', ?2, 'lesson')",
+                [key, value],
+            )
+            .unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        (tmp, rt)
+    }
+
+    fn served_value(out: &str, key: &str) -> String {
+        let v: serde_json::Value = serde_json::from_str(out).unwrap();
+        v["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .find(|e| e["key"] == key)
+            .unwrap_or_else(|| panic!("{key} not served: {out}"))["value"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn recall_cleans_a_legacy_secret_on_the_way_out() {
+        let key = fake_key();
+        let (_tmp, mut rt) = runtime_with_legacy_row(
+            "c6-recall-old",
+            &format!("c6recallprobe use {key} \u{202E}tail"),
+        );
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6recallprobe"}));
+        assert!(!out.contains(&key), "secret leaked through recall: {out}");
+        let served = served_value(&out, "c6-recall-old");
+        assert!(
+            served.contains("[REDACTED]") && !served.contains('\u{202E}'),
+            "{served:?}"
+        );
+    }
+
+    #[test]
+    fn recall_serves_a_clean_entry_untouched() {
+        let plain = "c6cleanprobe guidance: use `cargo test`.\n\tpr\u{f3}ximo passo";
+        let (_tmp, mut rt) = runtime_with_legacy_row("c6-recall-clean", plain);
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6cleanprobe"}));
+        assert_eq!(served_value(&out, "c6-recall-clean"), plain);
+    }
+
+    #[test]
+    fn list_cleans_a_legacy_secret_on_the_way_out() {
+        let key = fake_key();
+        let (_tmp, mut rt) =
+            runtime_with_legacy_row("c6-list-old", &format!("listing {key} \u{200B}end"));
+        let out = cli_memory_list(&mut rt, &json!({"limit": 10}));
+        assert!(!out.contains(&key), "secret leaked through list: {out}");
+        let served = served_value(&out, "c6-list-old");
+        assert_eq!(served, "listing [REDACTED] end");
+    }
+}
+
+/// C6 (2026-10-17): the labelled `cases` channel of recall serves the
+/// auto-recorded outcomes `entries` hides — it is a second way out for stored
+/// text and must be cleaned like the first.
+#[cfg(test)]
+mod recall_cases_sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::cli_memory_recall;
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    #[test]
+    fn recall_cases_channel_is_cleaned_too() {
+        let key = ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
+        // A mined repair: error text carries a secret, the resolution is clean.
+        let mined = json!({
+            "tool": "Bash",
+            "error": format!("c6casesprobe auth failed with {key}\u{202E}"),
+            "resolution_input": "retry with the env var",
+        })
+        .to_string();
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES ('outcome:c6casesprobe:failure', 'reference', ?1, 'transcript_lesson')",
+                [&mined],
+            )
+            .unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6casesprobe"}));
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        // Not vacuous: the case really is served through the `cases` channel.
+        assert!(
+            v["cases"].to_string().contains("c6casesprobe"),
+            "the outcome must reach `cases`: {out}"
+        );
+        assert!(!out.contains(&key), "secret leaked through recall: {out}");
+        assert!(
+            !out.contains('\u{202E}'),
+            "bidi leaked through recall: {out}"
         );
     }
 }

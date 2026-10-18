@@ -1,30 +1,42 @@
-//! A long-lived registry of warm pyright sessions — one per project root — for the hook daemon.
+//! A long-lived registry of warm layer-2 sessions — one per `(project root, verifier)` — for the hook
+//! daemon.
 //!
-//! The daemon is one long process and the hook is short: a [`PyrightSession`] costs ~430 ms to start
-//! and first analyse, then ~60 ms per check. Keeping it between edits is what makes layer 2 fit the
-//! V3 budget; the price is that a forgotten session is a leaked process. So the pool is built around
-//! four rules:
+//! The daemon is one long process and the hook is short: a [`crate::pyright::PyrightSession`] costs
+//! ~430 ms to start and first analyse, then ~60 ms per check; a rust-analyzer workspace load or a
+//! tsserver program build costs seconds. Keeping the session between edits is what makes layer 2 fit
+//! the V3 budget; the price is that a forgotten session is a leaked process. So the pool is built
+//! around these rules, the same for every [`Servidor`]:
 //!
-//! * **lazy** — nothing is spawned until a root is first checked; a root whose language server cannot
-//!   be found or started answers `unknown` and is not retried for 5 minutes (no spawn per edit);
-//! * **bounded** — at most `TOURING_VGP_L2_MAX` (default 2) sessions live, least recently used
-//!   first out; a session idle longer than `TOURING_VGP_L2_IDLE_S` (default 900) is closed;
+//! * **lazy** — nothing is spawned until a root is first checked; a root whose verifier cannot be
+//!   found or started answers `unknown` and is not retried for 5 minutes (no spawn per edit);
+//! * **never on the hook's clock when slow** — a verifier that needs seconds to get ready
+//!   ([`Arranque::SegundoPlano`]: rust-analyzer, tsserver, deno) warms up on a detached thread, primed
+//!   with the first edit; meanwhile the hook gets `unknown: warming up` and nobody blocks;
+//! * **bounded** — at most `TOURING_VGP_L2_MAX` (default 2) sessions of each verifier live (rust-analyzer:
+//!   `TOURING_VGP_L2_MAX_RA`, default 1 — a loaded workspace is heavy), least recently used first out;
+//!   a session idle longer than `TOURING_VGP_L2_IDLE_S` (default 900) is closed; a warm-up that has
+//!   not produced a usable session after `TOURING_VGP_L2_WARMUP_S` (default 180) is given up;
 //! * **failing closed on state, open on the hook** — a check that cannot be measured (the server
 //!   died, the deadline passed) removes the session so the next use recreates it, and the hook gets
-//!   an `unknown` with the reason, never an error, a panic or a hang;
-//! * **switchable** — `TOURING_VGP_L2_DISABLED=1` answers `unknown` without spawning anything;
-//! * **opt-in per process** — [`checar`] answers `unknown` until the process calls
+//!   an `unknown` with the reason, never an error, a panic or a hang. An `unknown` that is about the
+//!   *file* (rust-analyzer: not part of any crate) keeps the warm session;
+//! * **switchable** — `TOURING_VGP_L2_DISABLED=1` answers `unknown` without spawning anything, and
+//!   `TOURING_VGP_L2_OFF=rust-analyzer,deno` turns single verifiers off;
+//! * **opt-in per process** — [`checar`] and its siblings answer `unknown` until the process calls
 //!   [`habilitar_neste_processo`]. Only the long-lived daemon (and the CLI that asks for
 //!   `--camadas 1,2`) does; the ephemeral standalone `touring-hook` fallback would otherwise start a
-//!   `pyright-langserver` per call and could leave it orphaned.
+//!   language server per call and could leave it orphaned.
 //!
 //! ## Concurrency
 //!
-//! The registry lock is held only to look a root up or to count sessions; each root has its own
-//! mutex, held for the whole check (the LSP exchange is sequential per session), so a slow root never
-//! blocks another. Lock order is always *slot, then registry*, and the registry side only ever
+//! The registry lock is held only to look a slot up or to count sessions; each slot has its own
+//! mutex, held for the whole check (the exchange with a server is sequential per session), so a slow
+//! slot never blocks another — in particular a rust-analyzer warm-up never blocks a pyright check of the
+//! same project. Lock order is always *slot, then registry*, and the registry side only ever
 //! `try_lock`s other slots, so it cannot deadlock; a slot that cannot be locked is *in use*, which
 //! means "not idle" and "not evictable". A poisoned lock is recovered (`into_inner`), never propagated.
+//! A warming slot holds no lock while it works (it would stall every hook): it is marked, counted as
+//! live, never evicted, and the warm-up thread takes the lock only to install the result.
 //!
 //! Closing a session (`Drop`: polite shutdown, bounded wait, kill — up to ~0.8 s) happens on a
 //! detached thread, so it is never on the hook's clock.
@@ -36,13 +48,19 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError, TryLockError};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::pyright::{L2Resultado, PyrightError, PyrightSession, Verdict};
+use crate::achado::L2Resultado;
+use crate::servidor::{Alvo, Ambiente, Arranque, Edicao, Servidor, Sessao};
 
 const ENV_IDLE: &str = "TOURING_VGP_L2_IDLE_S";
 const ENV_MAX: &str = "TOURING_VGP_L2_MAX";
+const ENV_MAX_RA: &str = "TOURING_VGP_L2_MAX_RA";
 const ENV_DISABLED: &str = "TOURING_VGP_L2_DISABLED";
+const ENV_OFF: &str = "TOURING_VGP_L2_OFF";
+const ENV_WARMUP: &str = "TOURING_VGP_L2_WARMUP_S";
 const DEFAULT_IDLE_S: u64 = 900;
 const DEFAULT_MAX: usize = 2;
+const DEFAULT_MAX_RA: usize = 1;
+const DEFAULT_WARMUP_S: u64 = 180;
 /// How long a root whose server could not be started is left alone.
 const DEFAULT_BACKOFF: Duration = Duration::from_secs(300);
 
@@ -50,38 +68,58 @@ const DEFAULT_BACKOFF: Duration = Duration::from_secs(300);
 struct Config {
     idle: Duration,
     max: usize,
+    max_ra: usize,
     disabled: bool,
+    off: Vec<Servidor>,
     backoff: Duration,
+    aquecimento: Duration,
 }
 
 impl Config {
     /// `get` maps a variable name to its value. Unparsable values fall back to the defaults, and a
     /// cap of 0 becomes 1 (a 0 cap would be a silent kill switch; the real one is `DISABLED`).
     fn from_lookup(get: impl Fn(&str) -> Option<String>) -> Self {
-        let idle = get(ENV_IDLE)
-            .and_then(|v| v.trim().parse::<u64>().ok())
-            .unwrap_or(DEFAULT_IDLE_S);
+        let number = |name: &str| get(name).and_then(|v| v.trim().parse::<u64>().ok());
+        let idle = number(ENV_IDLE).unwrap_or(DEFAULT_IDLE_S);
         let max = get(ENV_MAX)
             .and_then(|v| v.trim().parse::<usize>().ok())
             .unwrap_or(DEFAULT_MAX);
+        let max_ra = get(ENV_MAX_RA)
+            .and_then(|v| v.trim().parse::<usize>().ok())
+            .unwrap_or(DEFAULT_MAX_RA);
         let disabled = get(ENV_DISABLED)
             .is_some_and(|v| matches!(v.trim().to_ascii_lowercase().as_str(), "1" | "true"));
+        let off = get(ENV_OFF)
+            .map(|v| v.split(',').filter_map(Servidor::do_nome).collect())
+            .unwrap_or_default();
         Self {
             idle: Duration::from_secs(idle),
             max: max.max(1),
+            max_ra: max_ra.max(1),
             disabled,
+            off,
             backoff: DEFAULT_BACKOFF,
+            aquecimento: Duration::from_secs(number(ENV_WARMUP).unwrap_or(DEFAULT_WARMUP_S).max(1)),
         }
     }
 
     fn from_env() -> Self {
         Self::from_lookup(|name| std::env::var(name).ok())
     }
+
+    /// The cap of live sessions of one verifier.
+    fn teto(&self, servidor: Servidor) -> usize {
+        if servidor == Servidor::RustAnalyzer {
+            self.max_ra
+        } else {
+            self.max
+        }
+    }
 }
 
 /// A live session and when it was last used.
 struct Entrada {
-    sessao: PyrightSession,
+    sessao: Box<dyn Sessao>,
     ultimo_uso: Instant,
 }
 
@@ -91,20 +129,88 @@ struct Backoff {
     motivo: String,
 }
 
-/// Everything known about one project root. Empty = nothing worth keeping.
+/// A session being prepared on a background thread since `desde`.
+struct Aquecimento {
+    desde: Instant,
+}
+
+/// Everything known about one `(root, verifier)`. Empty = nothing worth keeping.
 #[derive(Default)]
 struct Slot {
     entrada: Option<Entrada>,
     backoff: Option<Backoff>,
+    aquecendo: Option<Aquecimento>,
 }
 
 impl Slot {
     fn is_empty(&self) -> bool {
-        self.entrada.is_none() && self.backoff.is_none()
+        self.entrada.is_none() && self.backoff.is_none() && self.aquecendo.is_none()
     }
 }
 
-type Spawner = Box<dyn Fn(&Path) -> Result<PyrightSession, PyrightError> + Send + Sync>;
+/// What the registry is keyed by: which verifier, for which project, and — where one project can
+/// hold several independent installs — which one (the directory whose `node_modules` provides the
+/// `tsserver`, the Cargo workspace root). The sub-key is also what makes a backoff end by itself when
+/// the situation changes (a `typescript` installed in a closer package is a different key).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+struct Chave {
+    servidor: Servidor,
+    raiz: PathBuf,
+    sub: PathBuf,
+}
+
+/// How sessions are created. `abrir` is the only way a session comes to exist, which is what lets the
+/// tests count spawns and use a scripted server; `pre_checar` is the cheap, pure part of discovery that
+/// a background-started verifier answers *before* any thread is launched, so that the commonest
+/// absences (no `Cargo.toml`, no `node_modules/typescript`, no `deno.json`) reach the hook at once.
+trait Abridor: Send + Sync {
+    /// Is there anything to start? `Err` = why the layer is absent here. Must not spawn a server.
+    fn pre_checar(&self, _alvo: &Alvo<'_>) -> Result<(), String> {
+        Ok(())
+    }
+
+    /// Discover → spawn → initialize. `Err` = why the layer is absent.
+    fn abrir(&self, alvo: &Alvo<'_>) -> Result<Box<dyn Sessao>, String>;
+}
+
+type Spawner = Arc<dyn Abridor>;
+
+/// The production [`Abridor`]: every [`Servidor`] discovers its verifier in the project.
+struct Despachante {
+    ambiente: Ambiente,
+}
+
+impl Abridor for Despachante {
+    fn pre_checar(&self, alvo: &Alvo<'_>) -> Result<(), String> {
+        alvo.servidor.pre_checar(alvo, &self.ambiente)
+    }
+
+    fn abrir(&self, alvo: &Alvo<'_>) -> Result<Box<dyn Sessao>, String> {
+        alvo.servidor.abrir(alvo, &self.ambiente)
+    }
+}
+
+/// A closure over the project root, boxed: what the tests script.
+#[cfg(test)]
+type FabricaDeTeste<S, E> = Box<dyn Fn(&Path) -> Result<S, E> + Send + Sync>;
+
+/// Adapts a closure over the project root (what the tests script) to an [`Abridor`].
+#[cfg(test)]
+struct AbridorDeTeste<F>(F);
+
+#[cfg(test)]
+impl<S, E, F> Abridor for AbridorDeTeste<F>
+where
+    S: Sessao + 'static,
+    E: std::fmt::Display,
+    F: Fn(&Path) -> Result<S, E> + Send + Sync,
+{
+    fn abrir(&self, alvo: &Alvo<'_>) -> Result<Box<dyn Sessao>, String> {
+        (self.0)(alvo.raiz)
+            .map(|sessao| Box::new(sessao) as Box<dyn Sessao>)
+            .map_err(|e| e.to_string())
+    }
+}
 
 /// The registry. `spawner` is the only way a session is created, which is what lets the tests count
 /// spawns and use a scripted server.
@@ -113,12 +219,32 @@ struct Pool {
     spawner: Spawner,
 }
 
-/// One edit to check (everything but the project root).
-struct Edicao<'a> {
-    path: &'a str,
-    content: &'a str,
-    disk: Option<&'a str>,
-    overlays: &'a [(String, String)],
+/// An [`Edicao`] that owns its data, for the thread that warms a session up with the first edit.
+struct EdicaoPropria {
+    path: String,
+    content: String,
+    disk: Option<String>,
+    overlays: Vec<(String, String)>,
+}
+
+impl EdicaoPropria {
+    fn de(edicao: &Edicao<'_>) -> Self {
+        Self {
+            path: edicao.path.to_string(),
+            content: edicao.content.to_string(),
+            disk: edicao.disk.map(str::to_string),
+            overlays: edicao.overlays.to_vec(),
+        }
+    }
+
+    fn como_edicao(&self) -> Edicao<'_> {
+        Edicao {
+            path: &self.path,
+            content: &self.content,
+            disk: self.disk.as_deref(),
+            overlays: &self.overlays,
+        }
+    }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -134,7 +260,7 @@ fn try_lock_any<T>(mutex: &Mutex<T>) -> Option<MutexGuard<'_, T>> {
     }
 }
 
-/// The registry key: the canonical root, so `./p`, `/abs/p` and a symlink to it share one session.
+/// The registry key of a root: the canonical path, so `./p`, `/abs/p` and a symlink to it share one session.
 fn chave(root: &Path) -> PathBuf {
     root.canonicalize()
         .or_else(|_| std::path::absolute(root))
@@ -143,7 +269,7 @@ fn chave(root: &Path) -> PathBuf {
 
 /// Closes sessions off the caller's clock: `Drop` waits for the server to leave (and kills it after
 /// half a second), which must never be added to a hook call.
-fn dispose(sessions: Vec<PyrightSession>) {
+fn dispose(sessions: Vec<Box<dyn Sessao>>) {
     for sessao in sessions {
         let _ = thread::Builder::new()
             .name("lsp-dispose".into())
@@ -151,37 +277,60 @@ fn dispose(sessions: Vec<PyrightSession>) {
     }
 }
 
-type Slots = HashMap<PathBuf, Arc<Mutex<Slot>>>;
+type Slots = HashMap<Chave, Arc<Mutex<Slot>>>;
 
-/// Live sessions of the other roots, and which of them may be evicted (least recently used first).
+/// Live sessions of the other slots of the same verifier, and which of them may be evicted (least
+/// recently used first).
 struct Census {
     live: usize,
-    evictable: Vec<(Instant, PathBuf)>,
+    evictable: Vec<(Instant, Chave)>,
 }
 
-fn census(slots: &Slots, key: &Path) -> Census {
+fn census(slots: &Slots, key: &Chave) -> Census {
     let mut census = Census {
         live: 0,
         evictable: Vec::new(),
     };
-    for (other, slot) in slots.iter().filter(|(other, _)| other.as_path() != key) {
-        match try_lock_any(slot) {
-            Some(guard) => {
-                if let Some(entrada) = &guard.entrada {
-                    census.live += 1;
-                    census.evictable.push((entrada.ultimo_uso, other.clone()));
-                }
+    let same_kind = |other: &&Chave| other.servidor == key.servidor && *other != key;
+    for (other, slot) in slots.iter().filter(|(other, _)| same_kind(other)) {
+        match presenca(slot) {
+            Presenca::Ocupado | Presenca::Aquecendo => census.live += 1,
+            Presenca::Viva(ultimo_uso) => {
+                census.live += 1;
+                census.evictable.push((ultimo_uso, other.clone()));
             }
-            None => census.live += 1, // in use: live, not evictable
+            Presenca::Vazio => {}
         }
     }
     census.evictable.sort_by_key(|(used, _)| *used);
     census
 }
 
+/// What a slot holds, as the cap sees it.
+enum Presenca {
+    /// Locked by a check: live, not evictable.
+    Ocupado,
+    /// A session being prepared: live, not evictable.
+    Aquecendo,
+    /// A warm session last used at the instant: live, evictable.
+    Viva(Instant),
+    Vazio,
+}
+
+fn presenca(slot: &Mutex<Slot>) -> Presenca {
+    let Some(guard) = try_lock_any(slot) else {
+        return Presenca::Ocupado;
+    };
+    match (&guard.entrada, &guard.aquecendo) {
+        (Some(entrada), _) => Presenca::Viva(entrada.ultimo_uso),
+        (None, Some(_)) => Presenca::Aquecendo,
+        (None, None) => Presenca::Vazio,
+    }
+}
+
 /// Evicts from the front of `census.evictable` while the cap is still reached. Returns the live count
 /// that remains and the sessions to close.
-fn evict_oldest(slots: &Slots, census: Census, max: usize) -> (usize, Vec<PyrightSession>) {
+fn evict_oldest(slots: &Slots, census: Census, max: usize) -> (usize, Vec<Box<dyn Sessao>>) {
     let mut live = census.live;
     let mut evicted = Vec::new();
     for (_, other) in census.evictable {
@@ -196,7 +345,7 @@ fn evict_oldest(slots: &Slots, census: Census, max: usize) -> (usize, Vec<Pyrigh
     (live, evicted)
 }
 
-fn take_session(slots: &Slots, key: &Path) -> Option<PyrightSession> {
+fn take_session(slots: &Slots, key: &Chave) -> Option<Box<dyn Sessao>> {
     let mut guard = try_lock_any(slots.get(key)?)?;
     guard.entrada.take().map(|entrada| entrada.sessao)
 }
@@ -206,13 +355,10 @@ fn collect_stale(
     slots: &Slots,
     idle: Duration,
     now: Instant,
-    except: Option<&Path>,
-) -> Vec<PyrightSession> {
+    except: Option<&Chave>,
+) -> Vec<Box<dyn Sessao>> {
     let mut stale = Vec::new();
-    for (_, slot) in slots
-        .iter()
-        .filter(|(key, _)| except != Some(key.as_path()))
-    {
+    for (_, slot) in slots.iter().filter(|(key, _)| except != Some(*key)) {
         let Some(mut guard) = try_lock_any(slot) else {
             continue; // in use is the opposite of idle
         };
@@ -226,7 +372,7 @@ fn collect_stale(
     stale
 }
 
-fn take_if_idle(slot: &mut Slot, idle: Duration, now: Instant) -> Option<PyrightSession> {
+fn take_if_idle(slot: &mut Slot, idle: Duration, now: Instant) -> Option<Box<dyn Sessao>> {
     let idle_for = now.saturating_duration_since(slot.entrada.as_ref()?.ultimo_uso);
     if idle_for > idle {
         slot.entrada.take().map(|entrada| entrada.sessao)
@@ -236,103 +382,223 @@ fn take_if_idle(slot: &mut Slot, idle: Duration, now: Instant) -> Option<Pyright
 }
 
 /// Forgets slots that hold nothing. `strong_count == 1` under the registry lock means no thread holds
-/// the slot (clones are only handed out under that lock), so removing it cannot orphan a session.
-fn forget_empty(slots: &mut Slots, except: Option<&Path>) {
+/// the slot (clones are only handed out under that lock, and a warm-up thread owns one), so removing
+/// it cannot orphan a session.
+fn forget_empty(slots: &mut Slots, except: Option<&Chave>) {
     slots.retain(|key, slot| {
-        except == Some(key.as_path())
+        except == Some(key)
             || Arc::strong_count(slot) > 1
             || !try_lock_any(slot).is_some_and(|guard| guard.is_empty())
     });
 }
 
 impl Pool {
-    fn new(spawner: Spawner) -> Self {
+    fn com_spawner(spawner: Spawner) -> Self {
         Self {
             slots: Mutex::new(HashMap::new()),
             spawner,
         }
     }
 
-    /// The root's slot, created empty on first sight. Held only briefly under the registry lock.
-    fn slot_for(&self, key: &Path) -> Arc<Mutex<Slot>> {
-        let mut slots = lock(&self.slots);
-        Arc::clone(slots.entry(key.to_path_buf()).or_default())
+    /// A pool whose spawner serves every verifier from the project root alone — what the tests use
+    /// to count spawns and to script a server.
+    #[cfg(test)]
+    fn new<S, E>(spawner: FabricaDeTeste<S, E>) -> Self
+    where
+        S: Sessao + 'static,
+        E: std::fmt::Display + 'static,
+    {
+        Self::com_spawner(Arc::new(AbridorDeTeste(spawner)))
     }
 
+    /// The slot of `key`, created empty on first sight. Held only briefly under the registry lock.
+    fn slot_da(&self, key: &Chave) -> Arc<Mutex<Slot>> {
+        let mut slots = lock(&self.slots);
+        Arc::clone(slots.entry(key.clone()).or_default())
+    }
+
+    /// The pyright slot of a (canonical) root — the pre-generalisation shape, for the tests.
+    #[cfg(test)]
+    fn slot_for(&self, root: &Path) -> Arc<Mutex<Slot>> {
+        self.slot_da(&Chave {
+            servidor: Servidor::Pyright,
+            raiz: root.to_path_buf(),
+            sub: PathBuf::new(),
+        })
+    }
+
+    /// [`Pool::checar_servidor`] for pyright (the shape every caller had before the pool was generic).
+    #[cfg(test)]
     fn checar(&self, cfg: &Config, now: Instant, root: &Path, edicao: &Edicao<'_>) -> L2Resultado {
+        self.checar_servidor(cfg, now, Servidor::Pyright, root, edicao)
+    }
+
+    fn checar_servidor(
+        &self,
+        cfg: &Config,
+        now: Instant,
+        servidor: Servidor,
+        root: &Path,
+        edicao: &Edicao<'_>,
+    ) -> L2Resultado {
         if cfg.disabled {
             return L2Resultado::unknown("camada 2 desligada (TOURING_VGP_L2_DISABLED=1)", 0);
         }
+        if cfg.off.contains(&servidor) {
+            return L2Resultado::unknown(
+                format!(
+                    "camada 2 ({}) desligada ({ENV_OFF} lista {})",
+                    servidor.nome(),
+                    servidor.nome()
+                ),
+                0,
+            );
+        }
         let started = Instant::now();
-        let key = chave(root);
+        let raiz = chave(root);
+        let key = Chave {
+            servidor,
+            sub: servidor.subchave(&raiz, edicao.path),
+            raiz,
+        };
         self.reap(cfg.idle, now, Some(&key));
-        let slot = self.slot_for(&key);
+        let slot = self.slot_da(&key);
         let mut guard = lock(&slot);
-        let entrada = match self.ensure(cfg, now, &key, &mut guard) {
-            Ok(entrada) => entrada,
-            Err(mut unknown) => {
-                unknown.elapsed_ms = elapsed_ms(started);
-                return unknown;
-            }
+        if let Err(mut unknown) = self.ensure(cfg, now, &key, &slot, &mut guard, edicao) {
+            unknown.elapsed_ms = elapsed_ms(started);
+            return unknown;
+        }
+        let Some(entrada) = guard.entrada.as_mut() else {
+            return L2Resultado::unknown("camada 2: estado interno inconsistente (sem sessão)", 0);
         };
         entrada.ultimo_uso = now;
-        let result =
-            entrada
-                .sessao
-                .check(edicao.path, edicao.content, edicao.disk, edicao.overlays);
-        if result.verdict == Verdict::Unknown
+        let verificado = entrada.sessao.verificar(edicao, None);
+        if !verificado.saudavel
             && let Some(broken) = guard.entrada.take()
         {
             // could not be measured (dead server, deadline): never reuse it — the next use recreates it
             dispose(vec![broken.sessao]);
         }
-        result
+        verificado.resultado
     }
 
-    /// Makes sure `slot` holds a live session, or says why it cannot (backoff, cap, spawn failure).
-    fn ensure<'a>(
+    /// Makes sure `slot` holds a live session, or says why it does not (backoff, cap, spawn failure,
+    /// still warming up).
+    fn ensure(
         &self,
         cfg: &Config,
         now: Instant,
-        key: &Path,
-        slot: &'a mut Slot,
-    ) -> Result<&'a mut Entrada, L2Resultado> {
-        if slot.entrada.is_none() {
-            if let Some(backoff) = slot.backoff.as_ref().filter(|b| now < b.ate) {
-                let wait = backoff.ate.saturating_duration_since(now).as_secs();
-                return Err(L2Resultado::unknown(
-                    format!("camada 2 em backoff por mais {wait} s: {}", backoff.motivo),
-                    0,
-                ));
-            }
-            slot.backoff = None;
-            self.make_room(cfg.max, key)?;
-            match (self.spawner)(key) {
-                Ok(sessao) => {
-                    slot.entrada = Some(Entrada {
-                        sessao,
-                        ultimo_uso: now,
-                    });
-                }
-                Err(e) => {
-                    let motivo = e.to_string();
-                    slot.backoff = Some(Backoff {
-                        ate: now + cfg.backoff,
-                        motivo: motivo.clone(),
-                    });
-                    return Err(L2Resultado::unknown(motivo, 0));
-                }
+        key: &Chave,
+        slot_arc: &Arc<Mutex<Slot>>,
+        slot: &mut Slot,
+        edicao: &Edicao<'_>,
+    ) -> Result<(), L2Resultado> {
+        if slot.entrada.is_some() {
+            return Ok(());
+        }
+        if let Some(aquecimento) = &slot.aquecendo {
+            let secs = now.saturating_duration_since(aquecimento.desde).as_secs();
+            return Err(L2Resultado::unknown(
+                format!(
+                    "camada 2 ({}) aquecendo há {secs} s: a primeira edição prepara o verificador do projeto",
+                    key.servidor.nome()
+                ),
+                0,
+            ));
+        }
+        if let Some(backoff) = slot.backoff.as_ref().filter(|b| now < b.ate) {
+            let wait = backoff.ate.saturating_duration_since(now).as_secs();
+            return Err(L2Resultado::unknown(
+                format!("camada 2 em backoff por mais {wait} s: {}", backoff.motivo),
+                0,
+            ));
+        }
+        slot.backoff = None;
+        self.make_room(cfg.teto(key.servidor), key)?;
+        match key.servidor.arranque() {
+            Arranque::Sincrono => self.abrir_aqui(cfg, now, key, slot, edicao),
+            Arranque::SegundoPlano => {
+                self.abrir_em_segundo_plano(cfg, now, key, slot_arc, slot, edicao)
             }
         }
-        slot.entrada.as_mut().ok_or_else(|| {
-            L2Resultado::unknown("camada 2: estado interno inconsistente (sem sessão)", 0)
-        })
     }
 
-    /// Evicts least-recently-used sessions of OTHER roots until one more fits under `max`. A session
-    /// that is in use (its slot is locked) counts as live but is never evicted; if that leaves no
-    /// room, the caller gets an `unknown` instead of a session beyond the cap.
-    fn make_room(&self, max: usize, key: &Path) -> Result<(), L2Resultado> {
+    /// Cheap servers: spawn inside the check, under the slot lock.
+    fn abrir_aqui(
+        &self,
+        cfg: &Config,
+        now: Instant,
+        key: &Chave,
+        slot: &mut Slot,
+        edicao: &Edicao<'_>,
+    ) -> Result<(), L2Resultado> {
+        let alvo = Alvo {
+            servidor: key.servidor,
+            raiz: &key.raiz,
+            arquivo: edicao.path,
+        };
+        match self.spawner.abrir(&alvo) {
+            Ok(sessao) => {
+                slot.entrada = Some(Entrada {
+                    sessao,
+                    ultimo_uso: now,
+                });
+                Ok(())
+            }
+            Err(motivo) => Err(registrar_ausencia(cfg, now, slot, motivo)),
+        }
+    }
+
+    /// Slow servers: mark the slot, hand the first edit to a thread that opens and primes the session,
+    /// and answer `unknown: warming up` now.
+    fn abrir_em_segundo_plano(
+        &self,
+        cfg: &Config,
+        now: Instant,
+        key: &Chave,
+        slot_arc: &Arc<Mutex<Slot>>,
+        slot: &mut Slot,
+        edicao: &Edicao<'_>,
+    ) -> Result<(), L2Resultado> {
+        let alvo = Alvo {
+            servidor: key.servidor,
+            raiz: &key.raiz,
+            arquivo: edicao.path,
+        };
+        if let Err(motivo) = self.spawner.pre_checar(&alvo) {
+            return Err(registrar_ausencia(cfg, now, slot, motivo));
+        }
+        let tarefa = Aquecer {
+            spawner: Arc::clone(&self.spawner),
+            slot: Arc::clone(slot_arc),
+            key: key.clone(),
+            edicao: EdicaoPropria::de(edicao),
+            prazo: cfg.aquecimento,
+            backoff: cfg.backoff,
+        };
+        slot.aquecendo = Some(Aquecimento { desde: now });
+        let lancada = thread::Builder::new()
+            .name("l2-aquecimento".into())
+            .spawn(move || tarefa.executar());
+        if let Err(e) = lancada {
+            slot.aquecendo = None;
+            let motivo = format!("camada 2: não foi possível iniciar o aquecimento: {e}");
+            return Err(registrar_ausencia(cfg, now, slot, motivo));
+        }
+        Err(L2Resultado::unknown(
+            format!(
+                "camada 2 ({}) aquecendo: a primeira edição prepara o verificador do projeto",
+                key.servidor.nome()
+            ),
+            0,
+        ))
+    }
+
+    /// Evicts least-recently-used sessions of OTHER slots of the same verifier until one more fits
+    /// under `max`. A session that is in use (its slot is locked) or warming counts as live but is
+    /// never evicted; if that leaves no room, the caller gets an `unknown` instead of a session
+    /// beyond the cap.
+    fn make_room(&self, max: usize, key: &Chave) -> Result<(), L2Resultado> {
         let (live, evicted) = {
             let slots = lock(&self.slots);
             evict_oldest(&slots, census(&slots, key), max)
@@ -349,9 +615,9 @@ impl Pool {
     }
 
     /// Closes every session idle for more than `idle` at `now`, forgets expired backoffs, and drops
-    /// slots that hold nothing and that nobody else references. `except` (the root about to be used)
+    /// slots that hold nothing and that nobody else references. `except` (the slot about to be used)
     /// is left alone. Returns how many sessions were closed.
-    fn reap(&self, idle: Duration, now: Instant, except: Option<&Path>) -> usize {
+    fn reap(&self, idle: Duration, now: Instant, except: Option<&Chave>) -> usize {
         let stale = {
             let mut slots = lock(&self.slots);
             let stale = collect_stale(&slots, idle, now, except);
@@ -381,13 +647,73 @@ impl Pool {
     }
 }
 
+/// The work of a warm-up thread: open the session, prime it with the first edit, install it.
+struct Aquecer {
+    spawner: Spawner,
+    slot: Arc<Mutex<Slot>>,
+    key: Chave,
+    edicao: EdicaoPropria,
+    prazo: Duration,
+    backoff: Duration,
+}
+
+impl Aquecer {
+    fn executar(self) {
+        // a panic in a spawner must not leave the slot "warming" for ever: it ends as a backoff
+        let aberta =
+            std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.abrir_e_aquecer()))
+                .unwrap_or_else(|_| Err("o aquecimento terminou em pânico".to_string()));
+        let mut guard = lock(&self.slot);
+        guard.aquecendo = None;
+        match aberta {
+            Ok(sessao) => {
+                guard.entrada = Some(Entrada {
+                    sessao,
+                    ultimo_uso: Instant::now(),
+                });
+            }
+            Err(motivo) => {
+                guard.backoff = Some(Backoff {
+                    ate: Instant::now() + self.backoff,
+                    motivo,
+                });
+            }
+        }
+    }
+
+    fn abrir_e_aquecer(&self) -> Result<Box<dyn Sessao>, String> {
+        let alvo = Alvo {
+            servidor: self.key.servidor,
+            raiz: &self.key.raiz,
+            arquivo: &self.edicao.path,
+        };
+        let mut sessao = self.spawner.abrir(&alvo)?;
+        sessao.aquecer(&self.edicao.como_edicao(), self.prazo)?;
+        Ok(sessao)
+    }
+}
+
+/// A verifier that cannot be had here: remember why (the next calls get it from the backoff without
+/// trying again) and tell the caller now.
+fn registrar_ausencia(cfg: &Config, now: Instant, slot: &mut Slot, motivo: String) -> L2Resultado {
+    slot.backoff = Some(Backoff {
+        ate: now + cfg.backoff,
+        motivo: motivo.clone(),
+    });
+    L2Resultado::unknown(motivo, 0)
+}
+
 fn elapsed_ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
 fn global() -> &'static Pool {
     static POOL: OnceLock<Pool> = OnceLock::new();
-    POOL.get_or_init(|| Pool::new(Box::new(PyrightSession::discover)))
+    POOL.get_or_init(|| {
+        Pool::com_spawner(Arc::new(Despachante {
+            ambiente: Ambiente::do_processo(),
+        }))
+    })
 }
 
 /// Checks `content` as the file `path` of the project at `project_root` with that root's warm pyright
@@ -396,9 +722,31 @@ fn global() -> &'static Pool {
 /// Never panics and never returns an error: whatever prevents a measurement — layer disabled, a
 /// process that did not opt in ([`habilitar_neste_processo`]), no language server in the venv,
 /// backoff, session cap, dead server, deadline — is an
-/// [`L2Resultado`] with [`Verdict::Unknown`] and the reason in `motivo`. `disk` and `overlays` are
-/// those of [`PyrightSession::check`].
+/// [`L2Resultado`] with [`crate::achado::Verdict::Unknown`] and the reason in `motivo`. `disk` and
+/// `overlays` are those of [`crate::pyright::PyrightSession::check`].
 pub fn checar(
+    project_root: &Path,
+    path: &str,
+    content: &str,
+    disk: Option<&str>,
+    overlays: &[(String, String)],
+) -> L2Resultado {
+    checar_em(
+        Servidor::Pyright,
+        project_root,
+        path,
+        content,
+        disk,
+        overlays,
+    )
+}
+
+/// [`checar`] for any [`Servidor`]: the same lifecycle, caps, backoff and opt-in, with the verifier
+/// the project provides (`rust-analyzer`, the `tsserver` of its `node_modules/typescript`, `deno lsp`).
+/// An absent verifier is an `unknown` with the reason; the first edit of a slow verifier only warms it
+/// up (`unknown: aquecendo`) and later edits are measured.
+pub fn checar_em(
+    servidor: Servidor,
     project_root: &Path,
     path: &str,
     content: &str,
@@ -411,26 +759,51 @@ pub fn checar(
         disk,
         overlays,
     };
-    checar_com(
+    checar_com_servidor(
         global(),
         habilitado(),
         &Config::from_env(),
         Instant::now(),
+        servidor,
         project_root,
         &edicao,
     )
 }
 
+/// [`checar_em`] for a layer-1 `lang` (`python`, `rust`, `typescript`, `tsx`, `javascript`): picks the
+/// verifier with [`Servidor::para_lang`]. A language without a layer 2 (`html`, `css`, unknown) is an
+/// `unknown` saying so, and layer 1 stands alone.
+pub fn checar_lang(
+    lang: &str,
+    project_root: &Path,
+    path: &str,
+    content: &str,
+    disk: Option<&str>,
+    overlays: &[(String, String)],
+) -> L2Resultado {
+    match Servidor::para_lang(lang, project_root, path) {
+        Some(servidor) => checar_em(servidor, project_root, path, content, disk, overlays),
+        None => L2Resultado::unknown(
+            format!("camada 2: não há verificador para a linguagem `{lang}`"),
+            0,
+        ),
+    }
+}
+
 /// Whether this process opted in to layer 2 (see [`habilitar_neste_processo`]).
 static HABILITADO: AtomicBool = AtomicBool::new(false);
 
-/// Why [`checar`] answers `unknown` in a process that never opted in.
-const MOTIVO_NAO_HABILITADO: &str =
-    "camada 2 desligada neste processo (só o daemon mantém pyright)";
+/// Why a check answers `unknown` in a process that never opted in.
+fn motivo_nao_habilitado(servidor: Servidor) -> String {
+    format!(
+        "camada 2 desligada neste processo (só o daemon mantém {})",
+        servidor.nome()
+    )
+}
 
 /// Opts this process in to layer 2. Idempotent. Only the long-lived daemon and the CLI that asks for
 /// `--camadas 1,2` call this: any other process (notably the ephemeral standalone `touring-hook`
-/// fallback) would start a `pyright-langserver` per call and could leave it orphaned.
+/// fallback) would start a language server per call and could leave it orphaned.
 pub fn habilitar_neste_processo() {
     HABILITADO.store(true, Ordering::Relaxed);
 }
@@ -439,8 +812,9 @@ fn habilitado() -> bool {
     HABILITADO.load(Ordering::Relaxed)
 }
 
-/// [`checar`] with the opt-in decision injected, so the guard is testable without touching the
-/// process-wide flag.
+/// [`checar_com_servidor`] for pyright, with the opt-in decision injected, so the guard is testable
+/// without touching the process-wide flag.
+#[cfg(test)]
 fn checar_com(
     pool: &Pool,
     habilitado: bool,
@@ -449,10 +823,22 @@ fn checar_com(
     root: &Path,
     edicao: &Edicao<'_>,
 ) -> L2Resultado {
+    checar_com_servidor(pool, habilitado, cfg, now, Servidor::Pyright, root, edicao)
+}
+
+fn checar_com_servidor(
+    pool: &Pool,
+    habilitado: bool,
+    cfg: &Config,
+    now: Instant,
+    servidor: Servidor,
+    root: &Path,
+    edicao: &Edicao<'_>,
+) -> L2Resultado {
     if !habilitado {
-        return L2Resultado::unknown(MOTIVO_NAO_HABILITADO, 0);
+        return L2Resultado::unknown(motivo_nao_habilitado(servidor), 0);
     }
-    pool.checar(cfg, now, root, edicao)
+    pool.checar_servidor(cfg, now, servidor, root, edicao)
 }
 
 /// Closes every session idle for more than `TOURING_VGP_L2_IDLE_S` (default 900) at `now` and
@@ -466,7 +852,7 @@ pub fn reap_idle(now: Instant) -> usize {
 mod tests {
     use super::*;
     use crate::client::LspClient;
-    use crate::pyright::{Verdict, file_uri};
+    use crate::pyright::{PyrightError, PyrightSession, Verdict, file_uri};
     use serde_json::{Map, json};
     use std::fs;
     use std::process::Command;
@@ -1132,5 +1518,548 @@ while True:
             "second call must hit the backoff, not retry discovery: {second:?}"
         );
         assert_eq!(reap_idle(Instant::now()), 0);
+    }
+
+    // ── generalisation: several verifiers, background warm-up, per-verifier caps ──
+
+    use crate::servidor::Verificado;
+    use std::sync::atomic::AtomicU64;
+
+    /// A session without a process: answers what the test scripts and counts what it is asked.
+    struct SessaoFalsa {
+        verificacoes: Arc<AtomicUsize>,
+        saudavel: bool,
+        verdict: Verdict,
+        aquecer_ms: u64,
+    }
+
+    impl Sessao for SessaoFalsa {
+        fn verificar(&mut self, _: &Edicao<'_>, _: Option<Duration>) -> Verificado {
+            self.verificacoes.fetch_add(1, Ordering::SeqCst);
+            let resultado = if self.verdict == Verdict::Unknown {
+                L2Resultado::unknown("sobre o arquivo", 0)
+            } else {
+                L2Resultado::from_achados(Vec::new(), 0)
+            };
+            Verificado {
+                resultado,
+                saudavel: self.saudavel,
+            }
+        }
+
+        fn aquecer(&mut self, _: &Edicao<'_>, _: Duration) -> Result<(), String> {
+            std::thread::sleep(Duration::from_millis(self.aquecer_ms));
+            Ok(())
+        }
+    }
+
+    /// An [`Abridor`] that counts what it is asked, with scripted slowness and failures.
+    #[derive(Default)]
+    struct AbridorFalso {
+        pre_checagens: AtomicUsize,
+        aberturas: AtomicUsize,
+        verificacoes: Arc<AtomicUsize>,
+        abrir_ms: AtomicU64,
+        aquecer_ms: AtomicU64,
+        pre_checar_falha: Mutex<Option<String>>,
+        abrir_falha: Mutex<Option<String>>,
+        insaudavel: AtomicBool,
+        sobre_o_arquivo: AtomicBool,
+        panica: AtomicBool,
+    }
+
+    impl Abridor for AbridorFalso {
+        fn pre_checar(&self, _: &Alvo<'_>) -> Result<(), String> {
+            self.pre_checagens.fetch_add(1, Ordering::SeqCst);
+            lock(&self.pre_checar_falha).clone().map_or(Ok(()), Err)
+        }
+
+        fn abrir(&self, _: &Alvo<'_>) -> Result<Box<dyn Sessao>, String> {
+            self.aberturas.fetch_add(1, Ordering::SeqCst);
+            assert!(
+                !self.panica.load(Ordering::SeqCst),
+                "abridor de teste em pânico"
+            );
+            std::thread::sleep(Duration::from_millis(self.abrir_ms.load(Ordering::SeqCst)));
+            if let Some(motivo) = lock(&self.abrir_falha).clone() {
+                return Err(motivo);
+            }
+            Ok(Box::new(SessaoFalsa {
+                verificacoes: Arc::clone(&self.verificacoes),
+                saudavel: !self.insaudavel.load(Ordering::SeqCst),
+                verdict: if self.sobre_o_arquivo.load(Ordering::SeqCst) {
+                    Verdict::Unknown
+                } else {
+                    Verdict::Allow
+                },
+                aquecer_ms: self.aquecer_ms.load(Ordering::SeqCst),
+            }))
+        }
+    }
+
+    fn pool_falso() -> (Arc<AbridorFalso>, Pool) {
+        let abridor = Arc::new(AbridorFalso::default());
+        let spawner: Spawner = Arc::clone(&abridor) as Spawner;
+        (abridor, Pool::com_spawner(spawner))
+    }
+
+    fn checar_em_falso(
+        pool: &Pool,
+        cfg: &Config,
+        now: Instant,
+        servidor: Servidor,
+        root: &Path,
+        path: &str,
+    ) -> L2Resultado {
+        let edicao = Edicao {
+            path,
+            content: "x\n",
+            disk: None,
+            overlays: &[],
+        };
+        pool.checar_servidor(cfg, now, servidor, root, &edicao)
+    }
+
+    /// Polls `checar` until it stops answering "aquecendo" (the warm-up thread installs the session).
+    fn ate_aquecer(pool: &Pool, servidor: Servidor, root: &Path, path: &str) -> L2Resultado {
+        let limite = Instant::now() + Duration::from_secs(10);
+        loop {
+            let r = checar_em_falso(pool, &cfg(), Instant::now(), servidor, root, path);
+            let aquecendo = r.motivo.as_deref().is_some_and(|m| m.contains("aquecendo"));
+            if !aquecendo || Instant::now() > limite {
+                return r;
+            }
+            std::thread::sleep(Duration::from_millis(20));
+        }
+    }
+
+    #[test]
+    fn slow_verifiers_warm_up_in_the_background_and_the_hook_never_waits() {
+        let tree = TempTree::new("warm");
+        let (abridor, pool) = pool_falso();
+        abridor.abrir_ms.store(500, Ordering::SeqCst);
+        let t0 = Instant::now();
+        let primeira = checar_em_falso(
+            &pool,
+            &cfg(),
+            t0,
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert!(
+            t0.elapsed() < Duration::from_millis(250),
+            "the first call must return at once, not wait for the 500 ms start: {:?}",
+            t0.elapsed()
+        );
+        assert_eq!(primeira.verdict, Verdict::Unknown);
+        assert!(
+            primeira
+                .motivo
+                .as_deref()
+                .is_some_and(|m| m.contains("rust-analyzer") && m.contains("aquecendo")),
+            "{primeira:?}"
+        );
+        let durante = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert!(
+            durante
+                .motivo
+                .as_deref()
+                .is_some_and(|m| m.contains("aquecendo")),
+            "still warming: {durante:?}"
+        );
+
+        let pronta = ate_aquecer(&pool, Servidor::RustAnalyzer, &tree.root, "src/lib.rs");
+        assert_eq!(pronta.verdict, Verdict::Allow, "{pronta:?}");
+        assert_eq!(abridor.aberturas.load(Ordering::SeqCst), 1);
+        assert_eq!(pool.vivas(), 1);
+    }
+
+    #[test]
+    fn a_failed_warm_up_backs_off_and_reports_why() {
+        let tree = TempTree::new("warmfail");
+        let (abridor, pool) = pool_falso();
+        *lock(&abridor.abrir_falha) = Some("sem rust-analyzer no toolchain".to_string());
+        let primeira = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert!(
+            primeira
+                .motivo
+                .as_deref()
+                .is_some_and(|m| m.contains("aquecendo")),
+            "{primeira:?}"
+        );
+        let depois = ate_aquecer(&pool, Servidor::RustAnalyzer, &tree.root, "src/lib.rs");
+        assert_eq!(depois.verdict, Verdict::Unknown);
+        let motivo = depois.motivo.expect("reason");
+        assert!(
+            motivo.contains("backoff") && motivo.contains("sem rust-analyzer no toolchain"),
+            "{motivo}"
+        );
+        for _ in 0..5 {
+            checar_em_falso(
+                &pool,
+                &cfg(),
+                Instant::now(),
+                Servidor::RustAnalyzer,
+                &tree.root,
+                "src/lib.rs",
+            );
+        }
+        assert_eq!(
+            abridor.aberturas.load(Ordering::SeqCst),
+            1,
+            "no start inside the backoff"
+        );
+    }
+
+    #[test]
+    fn a_panicking_warm_up_ends_in_a_backoff_not_in_a_slot_stuck_warming() {
+        let tree = TempTree::new("warmpanic");
+        let (abridor, pool) = pool_falso();
+        abridor.panica.store(true, Ordering::SeqCst);
+        let primeira = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert!(
+            primeira
+                .motivo
+                .as_deref()
+                .is_some_and(|m| m.contains("aquecendo"))
+        );
+        let depois = ate_aquecer(&pool, Servidor::RustAnalyzer, &tree.root, "src/lib.rs");
+        let motivo = depois.motivo.expect("reason");
+        assert!(
+            motivo.contains("backoff") && motivo.contains("pânico"),
+            "the slot must not stay `aquecendo` for ever: {motivo}"
+        );
+    }
+
+    #[test]
+    fn a_failed_pre_check_reaches_the_hook_at_once_and_starts_nothing() {
+        let tree = TempTree::new("precheck");
+        let (abridor, pool) = pool_falso();
+        *lock(&abridor.pre_checar_falha) =
+            Some("nenhum Cargo.toml entre o arquivo e a raiz".to_string());
+        let r = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert_eq!(r.verdict, Verdict::Unknown);
+        assert_eq!(
+            r.motivo.as_deref(),
+            Some("nenhum Cargo.toml entre o arquivo e a raiz")
+        );
+        assert_eq!(
+            abridor.aberturas.load(Ordering::SeqCst),
+            0,
+            "no thread, no process"
+        );
+        let de_novo = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert!(
+            de_novo.motivo.is_some_and(|m| m.contains("backoff")),
+            "remembered for 5 minutes"
+        );
+        assert_eq!(
+            abridor.pre_checagens.load(Ordering::SeqCst),
+            1,
+            "not asked again inside the backoff"
+        );
+    }
+
+    #[test]
+    fn pyright_keeps_its_synchronous_start() {
+        let tree = TempTree::new("pysync");
+        let (abridor, pool) = pool_falso();
+        let r = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::Pyright,
+            &tree.root,
+            "a.py",
+        );
+        assert_eq!(
+            r.verdict,
+            Verdict::Allow,
+            "measured on the very first call: {r:?}"
+        );
+        assert_eq!(
+            abridor.pre_checagens.load(Ordering::SeqCst),
+            0,
+            "pyright discovers inside its own start"
+        );
+    }
+
+    #[test]
+    fn a_warming_session_counts_against_the_cap_and_is_never_evicted() {
+        let (a, b) = (TempTree::new("warmcap_a"), TempTree::new("warmcap_b"));
+        let (abridor, pool) = pool_falso();
+        abridor.abrir_ms.store(400, Ordering::SeqCst);
+        // rust-analyzer's cap defaults to 1
+        checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &a.root,
+            "src/lib.rs",
+        );
+        let r = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &b.root,
+            "src/lib.rs",
+        );
+        assert_eq!(r.verdict, Verdict::Unknown);
+        assert!(
+            r.motivo.as_deref().is_some_and(|m| m.contains("teto")),
+            "{r:?}"
+        );
+        ate_aquecer(&pool, Servidor::RustAnalyzer, &a.root, "src/lib.rs");
+        assert_eq!(
+            abridor.aberturas.load(Ordering::SeqCst),
+            1,
+            "the second root did not start a workspace"
+        );
+    }
+
+    #[test]
+    fn the_cap_is_per_verifier_so_one_language_does_not_evict_another() {
+        let tree = TempTree::new("kindcap");
+        let (_abridor, pool) = pool_falso();
+        let one = Config::from_lookup(|k| (k == "TOURING_VGP_L2_MAX").then(|| "1".to_string()));
+        let t0 = Instant::now();
+        assert_eq!(
+            checar_em_falso(&pool, &one, t0, Servidor::Pyright, &tree.root, "a.py").verdict,
+            Verdict::Allow
+        );
+        checar_em_falso(&pool, &one, t0, Servidor::Tsserver, &tree.root, "a.ts");
+        checar_em_falso(&pool, &one, t0, Servidor::DenoLsp, &tree.root, "a.ts");
+        let _ = ate_aquecer(&pool, Servidor::Tsserver, &tree.root, "a.ts");
+        let _ = ate_aquecer(&pool, Servidor::DenoLsp, &tree.root, "a.ts");
+        assert_eq!(
+            pool.vivas(),
+            3,
+            "pyright + tsserver + deno of the same root coexist under MAX=1"
+        );
+    }
+
+    #[test]
+    fn rust_analyzers_cap_has_its_own_knob_and_a_zero_becomes_one() {
+        let c = Config::from_lookup(|k| (k == "TOURING_VGP_L2_MAX_RA").then(|| "3".to_string()));
+        assert_eq!(
+            (c.teto(Servidor::RustAnalyzer), c.teto(Servidor::Pyright)),
+            (3, 2)
+        );
+        let zero = Config::from_lookup(|k| (k == "TOURING_VGP_L2_MAX_RA").then(|| "0".to_string()));
+        assert_eq!(zero.teto(Servidor::RustAnalyzer), 1);
+        let padrao = Config::from_lookup(|_| None);
+        assert_eq!(
+            padrao.teto(Servidor::RustAnalyzer),
+            1,
+            "a loaded workspace is heavy: one by default"
+        );
+        assert_eq!(padrao.aquecimento, Duration::from_secs(180));
+    }
+
+    #[test]
+    fn an_unknown_about_the_file_keeps_the_warm_session_and_one_about_the_session_drops_it() {
+        let tree = TempTree::new("health");
+        let (abridor, pool) = pool_falso();
+        abridor.sobre_o_arquivo.store(true, Ordering::SeqCst);
+        let _ = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::Pyright,
+            &tree.root,
+            "a.py",
+        );
+        let r = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::Pyright,
+            &tree.root,
+            "a.py",
+        );
+        assert_eq!(r.verdict, Verdict::Unknown);
+        assert_eq!(
+            pool.vivas(),
+            1,
+            "a healthy session survives an unknown about the file"
+        );
+        assert_eq!(abridor.aberturas.load(Ordering::SeqCst), 1);
+
+        abridor.insaudavel.store(true, Ordering::SeqCst);
+        let tree2 = TempTree::new("health2");
+        let _ = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::Pyright,
+            &tree2.root,
+            "a.py",
+        );
+        let _ = checar_em_falso(
+            &pool,
+            &cfg(),
+            Instant::now(),
+            Servidor::Pyright,
+            &tree2.root,
+            "a.py",
+        );
+        assert_eq!(
+            pool.vivas(),
+            1,
+            "the unhealthy one was dropped (only tree 1's session remains)"
+        );
+    }
+
+    #[test]
+    fn a_single_verifier_can_be_switched_off_by_name() {
+        let tree = TempTree::new("off");
+        let (abridor, pool) = pool_falso();
+        let off = Config::from_lookup(|k| {
+            (k == "TOURING_VGP_L2_OFF").then(|| "rust-analyzer, Deno,lixo".to_string())
+        });
+        assert_eq!(
+            off.off,
+            vec![Servidor::RustAnalyzer, Servidor::DenoLsp],
+            "garbage names are ignored"
+        );
+        let ra = checar_em_falso(
+            &pool,
+            &off,
+            Instant::now(),
+            Servidor::RustAnalyzer,
+            &tree.root,
+            "src/lib.rs",
+        );
+        assert_eq!(ra.verdict, Verdict::Unknown);
+        assert!(
+            ra.motivo
+                .as_deref()
+                .is_some_and(|m| m.contains("rust-analyzer") && m.contains("TOURING_VGP_L2_OFF")),
+            "{ra:?}"
+        );
+        assert_eq!(abridor.pre_checagens.load(Ordering::SeqCst), 0);
+        let py = checar_em_falso(
+            &pool,
+            &off,
+            Instant::now(),
+            Servidor::Pyright,
+            &tree.root,
+            "a.py",
+        );
+        assert_eq!(py.verdict, Verdict::Allow, "the others are untouched");
+    }
+
+    #[test]
+    fn slots_are_keyed_by_verifier_and_by_the_package_that_provides_the_typescript() {
+        let tree = TempTree::new("keys");
+        for pacote in ["web", "api"] {
+            let dir = tree.root.join(pacote).join("node_modules/typescript/lib");
+            std::fs::create_dir_all(&dir).unwrap();
+            std::fs::write(dir.join("tsserver.js"), "").unwrap();
+        }
+        let (abridor, pool) = pool_falso();
+        let t0 = Instant::now();
+        for (servidor, path) in [
+            (Servidor::Tsserver, "web/src/a.ts"),
+            (Servidor::Tsserver, "api/src/b.ts"),
+            (Servidor::Tsserver, "web/src/c.ts"),
+            (Servidor::Pyright, "a.py"),
+        ] {
+            checar_em_falso(&pool, &cfg(), t0, servidor, &tree.root, path);
+        }
+        let _ = ate_aquecer(&pool, Servidor::Tsserver, &tree.root, "web/src/a.ts");
+        let _ = ate_aquecer(&pool, Servidor::Tsserver, &tree.root, "api/src/b.ts");
+        assert_eq!(
+            abridor.aberturas.load(Ordering::SeqCst),
+            3,
+            "web and api have their own TypeScript (2 tsserver) + 1 pyright; web/c.ts reuses web's"
+        );
+    }
+
+    #[test]
+    fn without_opting_in_every_verifier_is_unknown_with_its_own_name() {
+        let tree = TempTree::new("optin_all");
+        let (abridor, pool) = pool_falso();
+        let edicao = Edicao {
+            path: "src/lib.rs",
+            content: "x\n",
+            disk: None,
+            overlays: &[],
+        };
+        for servidor in Servidor::TODOS {
+            let r = checar_com_servidor(
+                &pool,
+                false,
+                &cfg(),
+                Instant::now(),
+                servidor,
+                &tree.root,
+                &edicao,
+            );
+            assert_eq!(r.verdict, Verdict::Unknown);
+            assert_eq!(
+                r.motivo,
+                Some(format!(
+                    "camada 2 desligada neste processo (só o daemon mantém {})",
+                    servidor.nome()
+                ))
+            );
+        }
+        assert_eq!(
+            abridor.pre_checagens.load(Ordering::SeqCst) + abridor.aberturas.load(Ordering::SeqCst),
+            0
+        );
+    }
+
+    #[test]
+    fn a_language_without_a_verifier_is_unknown_and_says_so() {
+        let tree = TempTree::new("nolang");
+        for lang in ["html", "css", "cobol"] {
+            let r = checar_lang(lang, &tree.root, "a.x", "x\n", None, &[]);
+            assert_eq!(r.verdict, Verdict::Unknown, "{lang}");
+            assert!(
+                r.motivo
+                    .is_some_and(|m| m.contains("não há verificador") && m.contains(lang)),
+                "{lang}"
+            );
+        }
     }
 }

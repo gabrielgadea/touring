@@ -543,13 +543,15 @@ fn classify(tool_name: &str, tool_input: &Value) -> Option<ClassifierOutput> {
         "Read" => classify_read(tool_input),
         "Edit" | "NotebookEdit" => classify_edit(tool_input),
         "Write" => classify_write(tool_input),
-        "Task" => classify_task(tool_input),
+        // Claude Code renamed the sub-agent tool `Task` → `Agent`; the hook payload carries the
+        // new name (the model gate keys on it). `Task` stays for older payloads and replays.
+        "Agent" | "Task" => classify_task(tool_input),
         "WebFetch" | "WebSearch" => classify_webfetch(tool_input),
         _ => None,
     }
 }
 
-/// Classifier for `Task` tool invocations (agent delegation).
+/// Classifier for `Agent` tool invocations (agent delegation; `Task` is the legacy name).
 ///
 /// Returns `Some` for any non-empty task input so that Phase 1/2 lesson
 /// retrieval is unlocked for agent-spawning operations.  Fail-open: malformed
@@ -3029,14 +3031,69 @@ fn python_inline_body(cmd: &str) -> Option<String> {
 /// Remédio 1:1 do inline: o MESMO corpo em `touring run --lang python --code`.
 /// Sem fusão — a razão histórica de excluir o heredoc da rajada era o R9
 /// esmagar multi-linha; com remédio próprio ela caiu (aperto 29/08).
+#[cfg(test)]
 fn python_inline_remedy(cmd: &str) -> String {
+    python_inline_remedy_via(cmd, &g10_route::Route::Sandboxed)
+}
+
+/// O remédio 1:1 do inline sobre a ROTA que executa o corpo (G10ROTA, 30.4.97): a Sandboxed é o
+/// `touring run` simples; a Trusted leva a elevação POR COMANDO (`TOURING_TRUSTED_OK=1` no próprio
+/// comando) e a flag `--allow-forbidden`. Para a Sandboxed a saída é byte-idêntica à de sempre.
+fn python_inline_remedy_via(cmd: &str, rota: &g10_route::Route) -> String {
+    let cabeca = format!(
+        "{}touring run {}--lang python --code",
+        rota.env_prefix(),
+        rota.run_flags()
+    );
     match python_inline_body(cmd) {
-        Some(b) if !b.is_empty() && b.len() <= 1500 => format!(
-            "touring run --lang python --code '{}'",
-            b.replace('\'', "'\\''")
-        ),
-        _ => "touring run --lang python --code '<o corpo do seu heredoc/-c, verbatim>'".to_string(),
+        Some(b) if !b.is_empty() && b.len() <= 1500 => {
+            format!("{cabeca} '{}'", b.replace('\'', "'\\''"))
+        }
+        _ => format!("{cabeca} '<o corpo do seu heredoc/-c, verbatim>'"),
     }
+}
+
+/// A rota que executa o corpo do python-inline negado pelo G10: a pergunta é do EXECUTOR
+/// (`g10_route`), não do gate. Fora de `python-inline` o remédio é o R9 em bash — sem corpo
+/// python a inspecionar, a rota é a de sempre.
+fn g10_inline_route(project_root: &Path, class: &str, cmd: &str) -> g10_route::Route {
+    if class != "python-inline" {
+        return g10_route::Route::Sandboxed;
+    }
+    match python_inline_body(cmd) {
+        Some(corpo) if !corpo.trim().is_empty() => {
+            g10_route::route_for(project_root, "python", &corpo)
+        }
+        _ => g10_route::Route::Sandboxed,
+    }
+}
+
+/// A abertura do remédio do G10: a de sempre na rota Sandboxed; nas demais, a frase que explica
+/// por que a rota difere — ANTES do comando, para que quem copia o comando já tenha lido o porquê.
+fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
+    let explicacao = rota.explanation(project_root);
+    if explicacao.is_empty() {
+        " — a rajada desenrolada JÁ é o programa; rode-o de uma vez:".to_string()
+    } else {
+        format!(" — a rajada desenrolada JÁ é o programa.{explicacao} Rode-o de uma vez:")
+    }
+}
+
+/// O deny do G10 quando NENHUMA rota de `touring run` executa o corpo: diz isso, cita o destino ou
+/// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo). Não há
+/// comando de `touring run` para colar — nomear um que falha foi o defeito.
+fn g10_unrunnable_deny(
+    n: u32,
+    class: &str,
+    rota: &g10_route::Route,
+    project_root: &Path,
+) -> String {
+    format!(
+        "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` na janela \
+         de {EXEC_BURST_WINDOW_SECS}s).{} Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} \
+         (contado como bypassed).",
+        rota.explanation(project_root)
+    )
 }
 
 /// A classe do python-inline READ-ONLY dentro da rajada de inspeção (aperto
@@ -3206,20 +3263,64 @@ fn write_run_pair_gate_with(
     // opaco, o antipadrão E4 cometido pelo próprio enforcement). is_script_path
     // só aceita .py/.sh, então o else é python.
     let lang = if path.ends_with(".sh") {
-        " --lang bash"
+        "bash"
     } else {
-        " --lang python"
+        "python"
     };
+    // G10ROTA (30.4.97): o script JÁ está em disco — o executor julga o CONTEÚDO dele. Um script
+    // que escreve não roda no Sandboxed (X6 `file-write`), e a rota `--file` nomeada falharia
+    // exatamente como a do exec-burst; a pergunta é do executor (D8), como lá.
+    let rota = g10_script_route(project_root, lang, &path);
+    if !rota.runs() {
+        return Some(deny_response(format!(
+            "[G10 write→run] {n}º script escrito-e-executado na janela de \
+             {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} Bypass por-comando: prefixe \
+             {GATE_BYPASS_TOKEN} (contado como bypassed).",
+            rota.explanation(project_root)
+        )));
+    }
+    let comando = format!(
+        "{}touring run {}--lang {lang} --file {path} --timeout-ms 60000",
+        rota.env_prefix(),
+        rota.run_flags()
+    );
+    let porque = rota.explanation(project_root);
     Some(deny_response(format!(
         "[G10 write→run] {n}º script escrito-e-executado na janela de \
          {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
          paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO \
-         arquivo no sandbox sem reescrever nada:\n  \
-         touring run{lang} --file {path} --timeout-ms 60000\n\
+         arquivo {onde} sem reescrever nada:{porque}\n  \
+         {comando}\n\
          O sandbox devolve só o que o script imprime (digest no contexto, \
          íntegra no spill), e um `touring run` zera a janela. Bypass \
-         por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+         por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
+        onde = if matches!(rota, g10_route::Route::Sandboxed) {
+            "no sandbox"
+        } else {
+            "na rota que o executor aceita"
+        }
     )))
+}
+
+/// A rota do script `path` (já em disco): lê o CONTEÚDO — é ele que o X6 julga. Ilegível, vazio ou
+/// grande demais para o gate inspecionar → a rota de sempre (sem evidência não há o que mudar).
+fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g10_route::Route {
+    const TETO: u64 = 256 * 1024;
+    let p = Path::new(path);
+    let abs = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        project_root.join(p)
+    };
+    if std::fs::metadata(&abs).is_ok_and(|m| m.len() > TETO) {
+        return g10_route::Route::Sandboxed;
+    }
+    match std::fs::read_to_string(&abs) {
+        Ok(conteudo) if !conteudo.trim().is_empty() => {
+            g10_route::route_for(project_root, lang, &conteudo)
+        }
+        _ => g10_route::Route::Sandboxed,
+    }
 }
 
 type ExecBurstEntry = (u32, Vec<String>);
@@ -4167,6 +4268,80 @@ fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
     hasher.finish()
 }
 
+/// 30.4.97 (G7G3G9) — (mtime, tamanho) de um arquivo: o que o harness do Claude Code compara no
+/// «File has been modified since read, either by the user or by a linter. Read it again before
+/// attempting to write it.»
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct FileStamp {
+    mtime_ns: u128,
+    len: u64,
+}
+
+/// O carimbo de `fp` agora; `None` quando o arquivo não existe ou não se deixa medir (o G7 então
+/// segue contando como sempre contou — sem medição não há o que afirmar).
+fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
+    let path = Path::new(fp);
+    let meta = if path.is_absolute() {
+        std::fs::metadata(path)
+    } else {
+        std::fs::metadata(project_root.join(path))
+    }
+    .ok()?;
+    let mtime_ns = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    Some(FileStamp {
+        mtime_ns,
+        len: meta.len(),
+    })
+}
+
+/// O carimbo visto na ÚLTIMA leitura de cada (projeto, sessão, arquivo) — mesma chave e mesma
+/// janela do `g7_seen`, que ele governa.
+fn g7_stamps() -> &'static moka::sync::Cache<u64, FileStamp> {
+    static C: OnceLock<moka::sync::Cache<u64, FileStamp>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// Carimba esta leitura e, se o arquivo MUDOU desde a leitura que o ledger lembra, zera a
+/// contagem do G7: reler um arquivo alterado por fora da ferramenta Edit (python, linter, outra
+/// sessão) não é re-inspeção — é o refresh que o harness exige antes do próximo Edit. Só uma
+/// mudança MEDIDA conta (carimbo anterior e atual existem e diferem); arquivo inalterado ou não
+/// mensurável segue contando, e a 3ª leitura dele continua negada.
+fn g7_refresh_if_changed(project_root: &Path, key: u64, fp: &str) -> Option<FileStamp> {
+    let stamp = file_stamp(project_root, fp);
+    if matches!((stamp, g7_stamps().get(&key)), (Some(agora), Some(antes)) if agora != antes) {
+        g7_seen().invalidate(&key);
+    }
+    if let Some(s) = stamp {
+        g7_stamps().insert(key, s);
+    }
+    stamp
+}
+
+/// A rota de edição que o deny do G7 nomeia (D8: a frase só sai quando é verdadeira). O deny só
+/// dispara com o arquivo inalterado desde a leitura registrada (`g7_refresh_if_changed` zera a
+/// contagem quando ele muda), e o ledger do G3 foi alimentado por esta mesma leitura: o `Edit`
+/// direto passa no G3 e o harness o aceita. Sem carimbo (arquivo não mensurável) a afirmação
+/// «não mudou» não tem lastro — a frase não sai.
+fn g7_edit_route_note(fp: &str, measured: bool) -> String {
+    if !measured {
+        return String::new();
+    }
+    format!(
+        " Para EDITAR {fp}: Edit direto — o arquivo não mudou desde a leitura registrada, então o \
+         G3 e o harness a aceitam; se ele mudar, a releitura é liberada."
+    )
+}
+
 /// V0e3 (09/10/2026) — os fragmentos de path de um comando: quebra em todo
 /// char que não é de path e fica com os fragmentos que contêm `/`. O reset do
 /// G7 nunca funcionava no caso real porque o `trim_matches` das pontas cobria
@@ -4407,6 +4582,8 @@ fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
 
 // r3 shadow, A2 — ciclo de vida da oferta de rota, só observado (plan 2026-10-02-jev-harness-r3, S-8).
 mod r3_a2;
+// G10ROTA (30.4.97): qual rota do `touring run` EXECUTA o programa que o deny está para nomear.
+mod g10_route;
 
 /// A rota escrita que a apresentação entregou ao modelo, com o braço que a produziu.
 ///
@@ -5437,12 +5614,37 @@ pub(crate) fn code_mode_gates(
     )
 }
 
+/// A cadeia de gates com o veredito MAIS SEVERO (30.4.97, ordem G5/G9): nenhum advisory
+/// curto-circuita a cadeia. Os gates que só avisam depositam o texto em `avisos` e a avaliação
+/// segue; o deny aplicável (qualquer posição na cadeia) vence, e o aviso vai junto no texto dele.
 fn code_mode_gates_with(
     project_root: &Path,
     session: &str,
     tool_name: &str,
     tool_input: &Value,
     ovr: &GateOverrides,
+) -> Option<String> {
+    let mut avisos: Vec<String> = Vec::new();
+    let veredito = code_mode_gates_chain(
+        project_root,
+        session,
+        tool_name,
+        tool_input,
+        ovr,
+        &mut avisos,
+    );
+    // A regra de precedência mora em UM lugar, compartilhado com os handlers pre-bash/edit/write:
+    // deny > reescrita/advisory da cadeia > avisos soltos, e o aviso nunca se perde.
+    touring_hook_runtime::verdict::merge_pretool_json(veredito, avisos)
+}
+
+fn code_mode_gates_chain(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
+    avisos: &mut Vec<String>,
 ) -> Option<String> {
     use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
     let project = project_root.display().to_string();
@@ -5547,16 +5749,22 @@ fn code_mode_gates_with(
         }
         // W3 S-3.2 — G7: re-inspeção do MESMO alvo.
         let key = g7_key(project_root, session, fp);
+        // 30.4.97 (G7G3G9): reler um arquivo que MUDOU desde a leitura que o ledger lembra não é
+        // re-inspeção — é a releitura que o harness exige («File has been modified since read»)
+        // antes do próximo Edit. Contar essa leitura fechava o círculo: python escreve o arquivo
+        // (o G9 empurra para lá), o Edit fica obsoleto, e o Read que o destrava era o 3º.
+        let stamp = g7_refresh_if_changed(project_root, key, fp);
         let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
         g7_seen().insert(key, n);
         if !ovr.code_gates_disabled {
             if n >= 3 {
                 record_gate_event(GateId::G7, GateEvent::Denied);
                 let rota = r1_route_for(fp);
+                let edicao = g7_edit_route_note(fp, stamp.is_some());
                 return Some(deny_response(format!(
                     "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
                      mais direto de programa-faltando (campeões medidos: adw.py 39×, \
-                     cli_suggester.rs 32×). Varra de uma vez (R1): {rota}. \
+                     cli_suggester.rs 32×). Varra de uma vez (R1): {rota}.{edicao} \
                      Um `touring run` citando {fp} reseta o gate."
                 )));
             }
@@ -5602,11 +5810,13 @@ fn code_mode_gates_with(
         ];
         if g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m)) {
             crate::shared::gate_metrics::record_g5_observed();
-            return Some(advisory_response(format!(
+            // Advisory: NÃO curto-circuita a cadeia (30.4.97) — um deny aplicável adiante
+            // (G9 `sed -i` cego, G2, G6…) vence e leva este texto junto.
+            avisos.push(format!(
                 "[G5 telemetria] rajada de {g5} edits terminou sem build/teste — P9 \
                  medido em 17%. Valide agora (cargo check/test no crate tocado); a \
                  regressão silenciosa nasce aqui."
-            )));
+            ));
         }
     }
     // followed (S-1.4): houve deny de G2 nesta sessão e o comando agora traz
@@ -5815,10 +6025,21 @@ fn code_mode_gates_with(
             pending_g10().insert(session.to_string(), ());
             // zera para a próxima rajada — um deny por lote, nunca fadiga
             exec_burst_ledger().invalidate(&key);
+            // G10ROTA (30.4.97): qual rota do `touring run` EXECUTA este corpo? A pergunta é do
+            // executor (D8) — o deny que nomeia um comando que o X6 recusa ensina a falhar.
+            let rota = g10_inline_route(project_root, class, cmd);
+            if !rota.runs() {
+                return Some(deny_response(g10_unrunnable_deny(
+                    n,
+                    class,
+                    &rota,
+                    project_root,
+                )));
+            }
             // python-inline tem remédio 1:1 (o corpo do PRÓPRIO comando); as
             // demais classes fundem a rajada acumulada via R9.
             let programa = if class == "python-inline" {
-                python_inline_remedy(cmd)
+                python_inline_remedy_via(cmd, &rota)
             } else {
                 // S212: the ledger ends with the denied command; everything before it
                 // already ran and must not be replayed.
@@ -5840,9 +6061,10 @@ fn code_mode_gates_with(
             .unwrap_or_default();
             // N6 — e a escada entrega o bloco parecido, quando existe.
             let hint = snippet_hint_for_program(&programa, project_root);
+            let lead = g10_lead(&rota, project_root);
             return Some(deny_response(format!(
                 "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
-                 na janela de {}s) — a rajada desenrolada JÁ é o programa; rode-o de uma vez:\n  \
+                 na janela de {}s){lead}\n  \
                  {programa}\nSó o comando negado roda; os já executados da rajada vêm como \
                  comentário e NUNCA são repetidos (denies subprocess-only são advisory em \
                  `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra \
@@ -5912,6 +6134,7 @@ fn code_mode_gates_with(
     let inspect_class = scan_class_of(cmd)
         .filter(|c| CODE_MODE_COLLAPSED_CLASSES.contains(c))
         .or_else(|| python_inline_readonly_class(cmd));
+    let mut s3_avisou = false;
     if apresentacao == CodeModePresentation::Code
         && let Some(class) = inspect_class
         && !ovr.code_gates_disabled
@@ -5964,12 +6187,16 @@ fn code_mode_gates_with(
             // N6 — a escada entrega o bloco parecido, quando existe: a rajada
             // avisada vira descoberta, não só rota.
             let hint = snippet_hint_for_program(&programa, project_root);
-            return Some(advisory_response(format!(
+            // Advisory: segue a cadeia até o G6 (30.4.97) — a repetição byte-idêntica que o G6
+            // nega vence o aviso. O G1 NÃO volta a decidir esta chamada (`s3_avisou`): na
+            // 2ª inspeção a rajada só AVISA, por ordem do Gabriel (09/10/2026, D).
+            avisos.push(format!(
                 "[CODE MODE · rajada] aviso — {n}ª inspeção `{class}` em {}s, executada \
                  nativa. Se a próxima também for inspeção, rode o lote de uma vez:\n  \
                  touring run --lang {lang} --code '{programa}'\n{nota_omissao}{hint}",
                 INSPECT_BURST_WINDOW_SECS
-            )));
+            ));
+            s3_avisou = true;
         }
     }
     // `native` cala a indução inteira: o escopo declarou que não quer ser
@@ -5993,6 +6220,8 @@ fn code_mode_gates_with(
                 g6_seen().insert(h, (repeats + 1, epoch));
                 if repeats == 0 {
                     record_gate_event(GateId::G6, GateEvent::Emitted);
+                    // O G6 CONSOME a repetição idêntica inteira (advisory → deny): o G1 adiante
+                    // trata inspeção NOVA, então este advisory encerra a cadeia — por desenho.
                     return Some(
                         serde_json::json!({
                             "hookSpecificOutput": {
@@ -6034,6 +6263,9 @@ fn code_mode_gates_with(
     // janela de TEMPO (300s) em vez de um turno que sempre fecha.
     // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
     // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
+    if s3_avisou {
+        return None;
+    }
     if let Some(resp) = burst_gate_with(project_root, session, cmd, tool_input, ovr) {
         return Some(resp);
     }
@@ -6589,6 +6821,10 @@ pub(crate) fn burst_gate_limpo(proj: &Path, sess: &str, cmd: &str) -> Option<Str
 #[cfg(test)]
 #[path = "cli_suggester_tests.rs"]
 mod tests;
+
+/// Gates da 30.4.97 (G10ROTA · G7G3G9): os casos reais do `analise` como testes.
+#[cfg(test)]
+mod gates97_tests;
 
 #[cfg(test)]
 mod intent_codetag_tests {

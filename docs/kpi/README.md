@@ -108,6 +108,11 @@ total no job summary e passa. A primeira medição real na `main` vira o piso po
 - Snapshot por execução: `docs/kpi/<YYYY-MM>/<data>--<root-slug>.json`
   (persistido por `persist_snapshot`; raiz derivada do workspace — desde
   2026-08-28 aponta para `~/projects/touring`, não mais a árvore congelada).
+  O repositório é público: desde 17/10/2026 o escritor grava o caminho relativo
+  ao home (`~/projects/touring`), nunca o absoluto — o `<root-slug>` do NOME
+  (`~-projects-touring`) e todo campo string do JSON (`project_root`, `reason`,
+  `journal`, ...) passam por `scrub_home`. Os snapshots anteriores a essa data
+  foram mantidos como estavam.
 - Tendências: `docs/kpi/trends/`.
 - Gate de CI/entrega: `touring kpi --check` (advisory não trip a saída).
 

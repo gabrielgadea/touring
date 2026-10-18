@@ -1353,3 +1353,87 @@ fn legacy_rows_are_labelled_unverified_by_the_migration() {
         .unwrap();
     assert_eq!(origin, "legacy_unverified");
 }
+
+// C7 (2026-10-17): `prevented_errors` has no production producer, so the raw
+// column is a fabricated zero. Reporting it as "0 prevented in N hits" is a
+// lie by omission (law L2: an absent signal is not a zero).
+
+#[test]
+fn unmeasured_prevented_is_reported_as_null_not_zero() {
+    let (_tmp, db) = test_db();
+    let id = db
+        .add_gotcha("bridge", "test gotcha", "warning", None)
+        .unwrap();
+    for _ in 0..3 {
+        db.increment_gotcha_hit(id);
+    }
+    let (_total, hits, raw) = db.gotcha_stats();
+    assert!(hits >= 3, "hits are displays and DO accumulate: {hits}");
+    assert_eq!(raw, 0, "the raw column stays 0 — nothing ever wrote it");
+    assert_eq!(db.reported_prevented(raw), None, "0 must not be reported");
+    assert!(!db.prevented_measured());
+    let note = db.prevented_note().expect("the note names what is missing");
+    assert!(note.contains("increment_gotcha_prevented"), "{note}");
+
+    // Even a test-only write to the column must not surface while unmeasured:
+    // the gate is the PRODUCER's existence, not the column's value.
+    db.increment_gotcha_prevented(id);
+    let (_, _, raw) = db.gotcha_stats();
+    assert_eq!(raw, 1);
+    assert_eq!(db.reported_prevented(raw), None);
+}
+
+/// Every `.rs` under a `src/` directory of the workspace crates, minus build
+/// output and test-only files.
+fn production_sources(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if !matches!(
+                name.as_str(),
+                "target" | ".git" | ".claude" | "node_modules" | "tests"
+            ) {
+                production_sources(&path, out);
+            }
+        } else if name.ends_with(".rs") && name != "tests.rs" && !name.ends_with("_tests.rs") {
+            out.push(path);
+        }
+    }
+}
+
+#[test]
+fn prevented_flag_matches_the_existence_of_a_production_producer() {
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = Vec::new();
+    production_sources(&crates, &mut files);
+    assert!(
+        files.len() > 100,
+        "the scan must really cover the workspace"
+    );
+    let definition = std::path::Path::new("knowledge").join("gotchas.rs");
+    let producers: Vec<String> = files
+        .iter()
+        .filter(|f| !f.ends_with(&definition))
+        .filter_map(|f| {
+            let text = std::fs::read_to_string(f).ok()?;
+            text.lines()
+                .any(|l| {
+                    let l = l.trim_start();
+                    !l.starts_with("//")
+                        && l.contains("increment_gotcha_prevented(")
+                        && !l.contains("fn increment_gotcha_prevented")
+                })
+                .then(|| f.display().to_string())
+        })
+        .collect();
+    assert_eq!(
+        !producers.is_empty(),
+        FileKnowledgeDB::PREVENTED_MEASURED,
+        "PREVENTED_MEASURED must be true iff production code calls \
+         increment_gotcha_prevented (callers: {producers:?})"
+    );
+}

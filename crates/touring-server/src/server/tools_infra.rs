@@ -955,6 +955,10 @@ impl TouringServer {
         let action = params.0.action.as_deref().unwrap_or("list");
         let file_filter = params.0.file_path.as_deref();
         let limit = params.0.limit.unwrap_or(50);
+        // C7 (2026-10-17): `prevented_errors` has no production producer, so the
+        // raw column is a fabricated zero. Report `null` (+ the flag) until one
+        // exists — an absent signal is not a zero (law L2).
+        let prevented_measured = touring_storage::knowledge::FileKnowledgeDB::PREVENTED_MEASURED;
 
         // Check if decay_score column exists (added in S8 migration)
         let has_decay: bool = conn
@@ -1011,7 +1015,7 @@ impl TouringServer {
                         "language": r.get::<_, Option<String>>(4)?,
                         "symbol_name": r.get::<_, Option<String>>(5)?,
                         "hit_count": r.get::<_, i64>(6)?,
-                        "prevented_errors": r.get::<_, i64>(7)?,
+                        "prevented_errors": prevented_measured.then_some(r.get::<_, i64>(7)?),
                         "created_at": r.get::<_, String>(8)?,
                     });
                     if has_decay && let serde_json::Value::Object(ref mut map) = entry {
@@ -1041,7 +1045,7 @@ impl TouringServer {
                 .collect();
 
                 let count = rows.len();
-                serde_json::json!({ "gotchas": rows, "count": count })
+                serde_json::json!({ "gotchas": rows, "count": count, "prevented_measured": prevented_measured })
             }
             "stats" => {
                 let query = "SELECT pattern, COUNT(*) as cnt, SUM(hit_count) as total_hits, \
@@ -1057,7 +1061,7 @@ impl TouringServer {
                             "pattern": r.get::<_, String>(0)?,
                             "gotcha_count": r.get::<_, i64>(1)?,
                             "total_hits": r.get::<_, i64>(2)?,
-                            "total_prevented": r.get::<_, i64>(3)?,
+                            "total_prevented": prevented_measured.then_some(r.get::<_, i64>(3)?),
                         }))
                     })
                     .map_err(|e| McpError::internal_error(format!("query: {e}"), None))?
@@ -1077,6 +1081,7 @@ impl TouringServer {
                     "stats": rows,
                     "total_gotchas": total_gotchas,
                     "total_patterns": total_patterns,
+                    "prevented_measured": prevented_measured,
                 })
             }
             other => {

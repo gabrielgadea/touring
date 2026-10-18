@@ -71,6 +71,7 @@ pub mod shared;
 pub mod suggesters;
 pub mod task_digest;
 pub mod triad_hook;
+pub mod verdict;
 pub mod wiring;
 
 // ── Re-exports so the moved modules' historical `crate::X` paths resolve ──

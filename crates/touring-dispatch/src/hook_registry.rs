@@ -704,6 +704,30 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-definitions-semantic-search",
 ];
 
+/// Hooks that can DENY a tool call — the GUARDS (C4, 2026-10-17).
+///
+/// A guard that cannot read its input must fail CLOSED (the thin client denies with the
+/// cause named — see `HookRuntime::build_stdin_unreadable_deny`); every other hook is an
+/// ADVISORY and keeps failing open on a degraded stdin. The set is the one whose handlers
+/// emit `permissionDecision: "deny"`, directly (`HookResponse::Deny`) or through the schema
+/// check (`validation_deny`) — `guard_set_matches_the_handlers_that_can_deny` re-derives it
+/// from the handler sources, so a new denying handler cannot silently stay advisory.
+/// `pre-exec` is conditional on `CEG_ENFORCE=1` and handled in [`is_guard_hook`].
+pub const GUARD_HOOK_NAMES: &[&str] = &[
+    "pre-bash",
+    "pre-edit",
+    "pre-edit-prevention",
+    "pre-read",
+    "pre-tool-use",
+    "pre-write",
+];
+
+/// `true` when `name` is a guard: it can deny, so an unreadable stdin must deny too.
+pub fn is_guard_hook(name: &str) -> bool {
+    GUARD_HOOK_NAMES.contains(&name)
+        || (name == "pre-exec" && crate::ceg_adapter::enforcement_enabled())
+}
+
 /// Build the O(1) dispatch table for daemon hook handlers.
 ///
 /// Called once via `OnceLock::get_or_init` in `daemon.rs`.
