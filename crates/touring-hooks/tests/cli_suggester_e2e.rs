@@ -249,7 +249,7 @@ fn classifier_write_tsx_routes_to_perfect_create_tsx() {
 
 #[test]
 fn classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate() {
-    let (_tmp, rt) = make_runtime();
+    let (tmp, rt) = make_runtime();
     // O pipeline tem os gates ANTES do classificador: um Edit sem Read recente
     // leva o advisory G3 e o classificador nunca fala. O Read satisfaz o gate;
     // o objeto deste teste é o classificador de Edit.
@@ -259,6 +259,14 @@ fn classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate() {
         "tool_input": { "file_path": "crates/foo/src/lib.rs" }
     });
     let _ = cli_suggester::run(&rt, &read);
+    // Há um segundo filtro depois do classificador: o orçamento do TURNO (P3/S-3.3,
+    // teto de 2 000 B desde o S8). O Read acima gasta parte dele e, no mesmo turno,
+    // o Edit estoura e cai para só as diretivas — sem o cabeçalho do cluster, que
+    // é justamente o que este teste afirma. Cada turno novo do humano zera o
+    // orçamento (`prompt-enhance` chama `reset_turn`); reproduzi-lo aqui dá ao
+    // classificador o espaço de um turno real. O contrato do turno esgotado é
+    // fixado no teste seguinte.
+    touring_hook_runtime::turn_budget::reset_turn(tmp.path(), "e2e-edit-rust");
     let payload = json!({
         "tool_name": "Edit",
         "session_id": "e2e-edit-rust",
@@ -266,9 +274,49 @@ fn classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate() {
     });
     let out = cli_suggester::run(&rt, &payload);
     let ctx = additional_context(&out).expect("non-empty");
-    assert!(ctx.contains("pre-edit-triage-rust"));
-    assert!(ctx.contains("touring ast tdg"));
-    assert!(ctx.contains("STOP at grade D/F") || ctx.contains("STOP at TDG D/F"));
+    assert!(ctx.contains("pre-edit-triage-rust"), "cluster wrong: {ctx}");
+    assert!(ctx.contains("touring ast tdg"), "tdg hint missing: {ctx}");
+    assert!(
+        ctx.contains("STOP at grade D/F") || ctx.contains("STOP at TDG D/F"),
+        "STOP gate missing: {ctx}"
+    );
+}
+
+/// O avesso do teste anterior: com o orçamento do turno já gasto, o Edit perde a
+/// racionalização (cabeçalho do cluster, `Reason:`) e mantém as diretivas MUST/SHOULD
+/// — a ordem declarada em `turn_budget`. A elisão é declarada no próprio texto.
+#[test]
+fn classifier_edit_rust_in_an_exhausted_turn_keeps_only_the_directives() {
+    use touring_hook_runtime::turn_budget::{charge_turn, turn_budget};
+
+    let (tmp, rt) = make_runtime();
+    let read = json!({
+        "tool_name": "Read",
+        "session_id": "e2e-edit-rust-exhausted",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let _ = cli_suggester::run(&rt, &read);
+    // Esgota o turno de forma determinística, sem depender do tamanho do Read.
+    charge_turn(tmp.path(), "e2e-edit-rust-exhausted", turn_budget());
+    let payload = json!({
+        "tool_name": "Edit",
+        "session_id": "e2e-edit-rust-exhausted",
+        "tool_input": { "file_path": "crates/foo/src/lib.rs" }
+    });
+    let out = cli_suggester::run(&rt, &payload);
+    let ctx = additional_context(&out).expect("non-empty");
+    assert!(
+        ctx.contains("touring ast tdg"),
+        "a diretiva MUST de TDG sobrevive ao corte: {ctx}"
+    );
+    assert!(
+        ctx.contains("orçamento do turno esgotado"),
+        "a elisão é declarada: {ctx}"
+    );
+    assert!(
+        !ctx.contains("pre-edit-triage-rust"),
+        "o cabeçalho do cluster é racionalização e cai primeiro: {ctx}"
+    );
 }
 
 #[test]

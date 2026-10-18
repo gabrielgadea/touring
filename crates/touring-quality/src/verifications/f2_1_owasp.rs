@@ -66,39 +66,165 @@ fn is_detector_own_source(target: &Path) -> bool {
     DETECTOR_SOURCES.iter().any(|s| p.contains(s))
 }
 
-/// Real engine: delegate to the curated CWE/OWASP registry. F2.1 isolates the
-/// *vulnerability* signal (the OWASP/CWE patterns) from generic antipatterns
-/// (which belong to F4.1), mirroring `SecurityReport`'s own vuln-score formula.
+/// One located match of the F2.1 CWE/OWASP registry.
+#[derive(Debug, Clone, PartialEq)]
+pub struct OwaspMatch {
+    /// The pattern's name (`CMDi`, `SQLi`, ...).
+    pub pattern: String,
+    /// The CWE number (78 for command injection).
+    pub cwe_id: u32,
+    /// Severity in `[0, 10]`.
+    pub severity: f32,
+    /// Byte span of the match in the scanned text.
+    pub span: (usize, usize),
+    /// 1-based line of the match.
+    pub line: usize,
+}
+
+/// The F2.1 engine's verdict on one text: **the** CWE/OWASP registry, read by the
+/// gate (`touring-quality check --gate F2.1`) and by `touring scan`. Before this type
+/// `touring scan` ran a second, hand-kept detector (`touring_code::cwe_scan`, four
+/// Rust-hook-latency patterns) and answered "0 CWE(s), p0_block=false" for a
+/// `subprocess.run("ls " + user, shell=True)` that the gate scored 0.070.
+#[derive(Debug, Clone)]
+pub struct OwaspScan {
+    /// Language the registry ran as (`python`, `rust`, ...); `unknown` when it did not run.
+    pub lang: String,
+    /// Every match, in input order.
+    pub matches: Vec<OwaspMatch>,
+    /// The F2.1 score: `1 - sum(severity)/10`, clamped to `[0, 1]`.
+    pub score: f32,
+    /// Why the registry did NOT run on this text (allowlisted harness, detector own
+    /// source, attack-fixture pragma, engine not built) -- `None` when it ran.
+    pub not_scanned: Option<String>,
+}
+
+impl OwaspScan {
+    fn not_scanned(lang: &str, reason: impl Into<String>) -> Self {
+        Self {
+            lang: lang.to_string(),
+            matches: Vec::new(),
+            score: 1.0,
+            not_scanned: Some(reason.into()),
+        }
+    }
+
+    /// Whether the gate BLOCKS on this verdict (F2.1 is a P0 dimension).
+    #[must_use]
+    pub fn blocks(&self) -> bool {
+        crate::DimStatus::from_score(self.score) == crate::DimStatus::Fail
+    }
+
+    /// The tier one match of `severity` would put the dimension in on its own:
+    /// `P0` (fails it), `P1` (warns) or `P2` -- the gate's own thresholds.
+    #[must_use]
+    pub fn tier_of(severity: f32) -> &'static str {
+        match crate::DimStatus::from_score((1.0 - severity / 10.0).clamp(0.0, 1.0)) {
+            crate::DimStatus::Fail => "P0",
+            crate::DimStatus::Warn => "P1",
+            _ => "P2",
+        }
+    }
+}
+
+/// Run the F2.1 registry over `raw` (the text of `target`), honouring the same
+/// allowlists as the gate: non-production harness, detector own source, and the
+/// attack-fixture pragma (FILE targets only).
+#[must_use]
+pub fn owasp_scan(raw: &str, target: &Path) -> OwaspScan {
+    if is_detector_own_source(target) {
+        return OwaspScan::not_scanned(
+            "unknown",
+            "detector own source or non-production harness (tests/, benches/): its OWASP markers are detection data, allowlisted",
+        );
+    }
+    if target.is_file() && carries_attack_fixture_pragma(raw) {
+        return OwaspScan::not_scanned(
+            "unknown",
+            format!(
+                "file carries `{ALLOW_ATTACK_FIXTURE_PRAGMA}` (attack-payload fixture, explicitly allowlisted)"
+            ),
+        );
+    }
+    owasp_matches(raw, target)
+}
+
+/// 1-based line of byte `offset` in `raw`.
 #[cfg(feature = "workspace-integration")]
-fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
+fn line_of(raw: &str, offset: usize) -> usize {
+    let end = offset.min(raw.len());
+    raw.as_bytes()[..end]
+        .iter()
+        .filter(|&&b| b == b'\n')
+        .count()
+        + 1
+}
+
+/// The registry itself, no allowlist: language from the extension / shebang, then
+/// `SecurityAnalyzer`.
+#[cfg(feature = "workspace-integration")]
+fn owasp_matches(raw: &str, target: &Path) -> OwaspScan {
     use touring_analysis::quality::SecurityAnalyzer;
     let lang = crate::verifications::lang_for_source(target, raw);
     let report = SecurityAnalyzer::new().analyze(raw, lang);
-    let value = if report.vuln_matches.is_empty() {
+    let score = if report.vuln_matches.is_empty() {
         1.0
     } else {
         let sum: f32 = report.vuln_matches.iter().map(|v| v.severity).sum();
         (1.0 - sum / 10.0).clamp(0.0, 1.0)
     };
+    OwaspScan {
+        lang: report.lang.clone(),
+        matches: report
+            .vuln_matches
+            .iter()
+            .map(|v| OwaspMatch {
+                pattern: v.pattern_name.clone(),
+                cwe_id: v.cwe_id,
+                severity: v.severity,
+                span: v.span,
+                line: line_of(raw, v.span.0),
+            })
+            .collect(),
+        score,
+        not_scanned: None,
+    }
+}
+
+/// Without `workspace-integration` there is no registry to run: say so.
+#[cfg(not(feature = "workspace-integration"))]
+fn owasp_matches(_raw: &str, _target: &Path) -> OwaspScan {
+    OwaspScan::not_scanned(
+        "unknown",
+        "the CWE/OWASP engine is not built into this binary (`workspace-integration` is off)",
+    )
+}
+
+/// Real engine: delegate to the curated CWE/OWASP registry. F2.1 isolates the
+/// *vulnerability* signal (the OWASP/CWE patterns) from generic antipatterns
+/// (which belong to F4.1), mirroring `SecurityReport`'s own vuln-score formula.
+#[cfg(feature = "workspace-integration")]
+fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
+    let scan = owasp_matches(raw, target);
+    let value = scan.score;
     // Name the first match (pattern, line, source text). A bare count forces the
     // author to bisect the file to find out what tripped a BLOCK gate — which is
     // exactly what happened three times on 2026-08-02, all false positives.
     // Vulnerability matches are code patterns, not credentials, so quoting the
     // line is safe here (contrast F2.4, which must redact).
-    let evidence = match report.vuln_matches.first() {
+    let evidence = match scan.matches.first() {
         None => format!(
             "OWASP/CWE (SecurityAnalyzer, {} patterns): 0 vulnerability match(es), score={value:.3}",
-            report.lang
+            scan.lang
         ),
         Some(first) => {
-            let (line, excerpt) =
-                crate::verifications::locate_span(raw, (first.span.0, first.span.1), false);
+            let (line, excerpt) = crate::verifications::locate_span(raw, first.span, false);
             format!(
                 "OWASP/CWE (SecurityAnalyzer, {} patterns): {} vulnerability match(es), \
                  score={value:.3}; first: {} (CWE-{}) at line {line} — `{excerpt}`",
-                report.lang,
-                report.vuln_matches.len(),
-                first.pattern_name,
+                scan.lang,
+                scan.matches.len(),
+                first.pattern,
                 first.cwe_id,
             )
         }
@@ -360,6 +486,71 @@ mod tests {
         }
     }
 
+    /// F2.1 false positive (09/10/2026, touring-4f), measured through `measure`
+    /// on real files — the shape the P0 Write gate scores: the words
+    /// `javascript:` in a Python log message are prose (score 1.0), while the
+    /// same token as a URL still fails.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn javascript_in_prose_passes_but_a_javascript_url_still_fails() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let score = |name: &str, body: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, body).expect("write");
+            F2_1_Owasp.measure(&path).expect("measure")
+        };
+        let (value, evidence) = score(
+            "probe.py",
+            "def f(log):\n    log(\"rota javascript: handlers desativados\")\n",
+        );
+        assert_eq!(value, 1.0, "prose must pass: {evidence}");
+        for (name, body) in [
+            (
+                "href.py",
+                "html = '<a href=\"javascript:alert(1)\">x</a>'\n",
+            ),
+            ("loc.js", "var x = 1;\nlocation = 'javascript:' + x;\n"),
+            ("page.html", "<a href=\"javascript:alert(1)\">x</a>\n"),
+        ] {
+            let (value, evidence) = score(name, body);
+            assert!(value < 0.5, "{name} must still fail: {evidence}");
+        }
+    }
+
+    /// Follow-ups to the prose fix (09/10/2026), through `measure` on real files: a
+    /// scheme BLOCKLIST passes, while the scheme in any letter case as a URL fails.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn a_scheme_blocklist_passes_and_a_cased_javascript_url_fails() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let score = |name: &str, body: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, body).expect("write");
+            F2_1_Owasp.measure(&path).expect("measure")
+        };
+        let (value, evidence) = score(
+            "sanitizer.py",
+            "def is_unsafe(url):\n    if url.lower().startswith((\"javascript:\", \"data:\")):\n        return True\n    return url != \"javascript:\"\n",
+        );
+        assert_eq!(value, 1.0, "a scheme blocklist must pass: {evidence}");
+        let (value, evidence) = score(
+            "guard.js",
+            "function unsafe(u) {\n  if (u.startsWith('javascript:') || u === 'javascript:') { return true; }\n  return false;\n}\n",
+        );
+        assert_eq!(value, 1.0, "a JS scheme blocklist must pass: {evidence}");
+        for (name, body) in [
+            (
+                "cased.py",
+                "html = '<a href=\"JavaScript:alert(1)\">x</a>'\n",
+            ),
+            ("assign.js", "if (ok) el.href = \"javascript:\" + x;\n"),
+            ("cased.js", "location = 'JAVASCRIPT:' + x;\n"),
+        ] {
+            let (value, evidence) = score(name, body);
+            assert!(value < 0.5, "{name} must still fail: {evidence}");
+        }
+    }
+
     #[cfg(feature = "workspace-integration")]
     #[test]
     fn the_security_scan_reads_shell_and_shebangs() {
@@ -389,5 +580,110 @@ mod tests {
             "python",
             "the extension wins"
         );
+    }
+
+    // ---- 17/10/2026: `owasp_scan` is the registry the gate reads ---------------------
+
+    const CMDI_PY: &str =
+        "import subprocess, sys\nuser = sys.argv[1]\nsubprocess.run(\"ls \" + user, shell=True)\n";
+
+    fn write_py(content: &str) -> NamedTempFile {
+        let mut f = tempfile::Builder::new()
+            .suffix(".py")
+            .tempfile()
+            .expect("create temp");
+        f.write_all(content.as_bytes()).expect("write");
+        f
+    }
+
+    #[test]
+    fn owasp_scan_is_the_registry_the_gate_reads() {
+        let f = write_py(CMDI_PY);
+        let scan = owasp_scan(CMDI_PY, f.path());
+        assert!(scan.not_scanned.is_none(), "{scan:?}");
+        assert_eq!(scan.lang, "python");
+        assert!(
+            scan.matches.iter().any(|m| m.cwe_id == 78 && m.line == 3),
+            "{scan:?}"
+        );
+        assert!(scan.blocks(), "{scan:?}");
+        let gate = F2_1_Owasp.check(f.path()).expect("gate");
+        assert!(
+            (gate.value - scan.score).abs() < 1e-6,
+            "the gate scored {} and the scan {}",
+            gate.value,
+            scan.score
+        );
+        assert_eq!(gate.status == crate::DimStatus::Fail, scan.blocks());
+    }
+
+    #[test]
+    fn owasp_scan_of_clean_source_is_clean_and_does_not_block() {
+        let src = "def add(a, b):\n    return a + b\n";
+        let f = write_py(src);
+        let scan = owasp_scan(src, f.path());
+        assert!(
+            scan.not_scanned.is_none() && scan.matches.is_empty(),
+            "{scan:?}"
+        );
+        assert_eq!(scan.score, 1.0);
+        assert!(!scan.blocks());
+    }
+
+    #[test]
+    fn owasp_scan_says_when_it_did_not_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let harness = dir.path().join("tests/payloads.py");
+        std::fs::create_dir_all(harness.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&harness, CMDI_PY).expect("write");
+        let scan = owasp_scan(CMDI_PY, &harness);
+        assert!(
+            scan.not_scanned
+                .as_deref()
+                .is_some_and(|why| why.contains("harness")),
+            "{scan:?}"
+        );
+        assert!(scan.matches.is_empty() && !scan.blocks());
+
+        let fixture = format!("# {ALLOW_ATTACK_FIXTURE_PRAGMA}\n{CMDI_PY}");
+        let f = write_py(&fixture);
+        let scan = owasp_scan(&fixture, f.path());
+        assert!(
+            scan.not_scanned
+                .as_deref()
+                .is_some_and(|why| why.contains("allow-attack-fixture")),
+            "{scan:?}"
+        );
+        // The pragma is honoured for a FILE target only, like the gate.
+        let as_dir = owasp_scan(&fixture, dir.path());
+        assert!(
+            as_dir.not_scanned.is_none(),
+            "a directory never opts out: {as_dir:?}"
+        );
+    }
+
+    #[test]
+    fn tier_of_uses_the_gates_own_thresholds() {
+        assert_eq!(
+            OwaspScan::tier_of(9.3),
+            "P0",
+            "score 0.07 fails the dimension"
+        );
+        assert_eq!(OwaspScan::tier_of(5.1), "P0", "score 0.49 fails");
+        assert_eq!(OwaspScan::tier_of(3.0), "P1", "score 0.70 only warns");
+        assert_eq!(OwaspScan::tier_of(1.0), "P2", "score 0.90 passes");
+    }
+
+    #[test]
+    fn blocks_is_the_fail_line_of_the_dimension() {
+        let at = |score: f32| OwaspScan {
+            lang: "python".into(),
+            matches: Vec::new(),
+            score,
+            not_scanned: None,
+        };
+        assert!(at(0.49).blocks());
+        assert!(!at(0.5).blocks(), "0.5 is a warning, not a failure");
+        assert!(!at(1.0).blocks());
     }
 }

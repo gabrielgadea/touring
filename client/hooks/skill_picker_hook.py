@@ -16,7 +16,6 @@ Contrato (experiments/s5-skill-picker/CONTRACT.md):
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import time
@@ -108,5 +107,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:  # fail-open de última linha: hooks nunca quebram a sessão
+    except Exception as exc:  # noqa: BLE001 — fail-open de última linha: hooks nunca quebram a sessão
+        sys.stderr.write(f"skill_picker_hook: sugestão não processada ({type(exc).__name__}: {exc})\n")
         sys.exit(0)

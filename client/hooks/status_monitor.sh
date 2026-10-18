@@ -49,7 +49,7 @@ case "$input" in
 esac
 
 if ! command -v jq &> /dev/null; then
-    printf "${DIM}jq not installed${RESET}\n"
+    printf '%bjq not installed%b\n' "$DIM" "$RESET"
     exit 0
 fi
 
@@ -62,29 +62,26 @@ MODEL_ID=$(echo "$input" | jq -r '.model.id // ""' 2>/dev/null)
 # Janela real:
 #   MiniMax-M3 · opus[1m] · claude-opus-4-1 · display com "(1M)" ou "1M" → 1.000.000
 #   demais (Sonnet/Haiku) → valor do JSON se presente, senão 200.000 default
-# Diag: WIN_SRC ∈ {model,json,fallback}, WAS_FORCED bool — indica se OVERRIDE ativo.
+# WAS_FORCED bool — indica se OVERRIDE ativo (o selo WIN_BADGE abaixo o mostra).
 # Quando WAS_FORCED=true + janela 1M, Claude Code pode ter um clamp interno ativo
 # (CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 em ~/.claude/settings.json desabilita).
-WIN_SRC="fallback"
 WAS_FORCED="false"
 JSON_CTX_RAW=$(echo "$input" | jq -r '.context_window.context_window_size // empty' 2>/dev/null)
 
 # 1. Acordo natural: se o JSON JÁ reporta 1M, usar diretamente (sem override).
 if [ "$JSON_CTX_RAW" = "1000000" ]; then
     CONTEXT_SIZE=1000000
-    WIN_SRC="json"
 else
     # 2. JSON reporta outro valor (200k, vazio): tentar match por nome — se matcha, forçar 1M.
     case "$MODEL$MODEL_ID" in
-        *MiniMax*|*M3*|*m3*|*minimax*|*opus\[1m\]*|*claude-opus-4-1*|*opus-4-1*|*\ \(1M\)*|*"1M"*) CONTEXT_SIZE=1000000; WIN_SRC="model"; WAS_FORCED="true" ;;
-        *) CONTEXT_SIZE="$JSON_CTX_RAW"; WIN_SRC="json" ;;
+        *MiniMax*|*M3*|*m3*|*minimax*|*opus\[1m\]*|*claude-opus-4-1*|*opus-4-1*|*\ \(1M\)*|*"1M"*) CONTEXT_SIZE=1000000; WAS_FORCED="true" ;;
+        *) CONTEXT_SIZE="$JSON_CTX_RAW" ;;
     esac
 fi
 
 # 3. Fallback final: se mesmo assim vazio (modelo desconhecido + JSON vazio), 200k default.
 if [ -z "$CONTEXT_SIZE" ]; then
     CONTEXT_SIZE=200000
-    WIN_SRC="fallback"
 fi
 
 # WIN_BADGE — aparece SOMENTE quando OVERRIDE ativo (forçamos 1M contra JSON que dizia diferente).
@@ -116,29 +113,22 @@ else
     CONTEXT_PCT_DISPLAY="0.0%"
 fi
 
+# One-decimal millions in pure bash, truncated like bc's `scale=1`. bc is not installed on this machine, and the old
+# `$(… | bc || echo "$((n / 1000))K")M` fallback printed a 1M window as "1000KM" (17/10/2026).
+fmt_millions() { printf '%d.%dM' "$(($1 / 1000000))" "$((($1 % 1000000) / 100000))"; }
+
 # Format tokens (K for thousands)
 if [ "$CURRENT_TOKENS" -ge 1000000 ] 2>/dev/null; then
-    TOKENS_FMT="$(echo "scale=1; $CURRENT_TOKENS / 1000000" | bc 2>/dev/null || echo "$((CURRENT_TOKENS / 1000))K")M"
+    TOKENS_FMT="$(fmt_millions "$CURRENT_TOKENS")"
 elif [ "$CURRENT_TOKENS" -ge 1000 ] 2>/dev/null; then
     TOKENS_FMT="$((CURRENT_TOKENS / 1000))K"
 else
     TOKENS_FMT="${CURRENT_TOKENS}"
 fi
 
-# Format capacity (sempre K ou M para janelas grandes)
-if [ "$CONTEXT_SIZE" -ge 1000000 ] 2>/dev/null; then
-    SIZE_FMT="$((CONTEXT_SIZE / 1000000))M"
-elif [ "$CONTEXT_SIZE" -ge 1000 ] 2>/dev/null; then
-    SIZE_FMT="$((CONTEXT_SIZE / 1000))K"
-else
-    SIZE_FMT="$CONTEXT_SIZE"
-fi
-
-# Uso absoluto X/YM (ancla o tamanho real da janela no indicador)
-USAGE_ABS="${TOKENS_FMT}/${SIZE_FMT}"
 
 # Format cost
-if [ "$(echo "$COST > 0" | bc 2>/dev/null)" = "1" ]; then
+if awk -v c="$COST" 'BEGIN { exit !(c + 0 > 0) }' 2>/dev/null; then
     COST_FMT="\$$(LC_NUMERIC=C printf '%.2f' "$COST" 2>/dev/null || echo "$COST")"
 else
     COST_FMT=""
@@ -160,7 +150,7 @@ fi
 
 # Format total window (WINDOW_FMT) — used/total display, mirrors TOKENS_FMT formatting
 if [ "$CONTEXT_SIZE" -ge 1000000 ] 2>/dev/null; then
-    WINDOW_FMT="$(echo "scale=1; $CONTEXT_SIZE / 1000000" | bc 2>/dev/null || echo "$((CONTEXT_SIZE / 1000))K")M"
+    WINDOW_FMT="$(fmt_millions "$CONTEXT_SIZE")"
 elif [ "$CONTEXT_SIZE" -ge 1000 ] 2>/dev/null; then
     WINDOW_FMT="$((CONTEXT_SIZE / 1000))K"
 else
@@ -171,8 +161,15 @@ fi
 # context is back under it — that is, after the compaction — so the next cycle warns again.
 SESSION=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-')
 if [ -n "$SESSION" ]; then
+    printf -v NOW '%(%s)T' -1
+    # Heartbeat (17/10/2026): written on EVERY render, armed or not. check_context.sh can then tell "under the
+    # checkpoint" (fresh heartbeat, no flag) from "nobody is measuring" (no heartbeat: headless run or
+    # subagent, the status line never renders) and "the sensor went quiet" (stale heartbeat). An absent flag
+    # alone means none of those — absent signal is not zero.
+    printf '%s %s\n' "$NOW" "$CONTEXT_INT" > "${ALERT_DIR}/${SESSION}.seen"
     if [ "$CONTEXT_INT" -ge "$CHECKPOINT" ]; then
-        echo "$CONTEXT_INT" > "${ALERT_DIR}/${SESSION}.pct"
+        # Line 1 is the percentage (check_context.sh reads only that); line 2 stamps the render that armed it.
+        printf '%s\nts=%s\n' "$CONTEXT_INT" "$NOW" > "${ALERT_DIR}/${SESSION}.pct"
     else
         rm -f "${ALERT_DIR}/${SESSION}.pct" "${ALERT_DIR}/${SESSION}.delivered"
     fi

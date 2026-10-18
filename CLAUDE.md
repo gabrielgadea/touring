@@ -44,6 +44,16 @@ timestamp: 2026-08-20T11:15:00-03:00
    **uma** re-medição (ruído térmico) e exige a linha `1 passed` — `cargo test -- --ignored
    <filtro>` sai 0 quando o filtro não casa nada, e um exit não-zero do `hw-slot` (70 =
    machine check) reprova mesmo com `1 passed` no texto. O limite é o do teste (E5.2).
+   (e) o gate 1/6 roda os **testes dos crates tocados** e o clippy leva `--all-targets`
+   (09/10/2026): a 30.4.95 saiu com um e2e quebrado (`cli_suggester_e2e`) e dois testes de
+   `handlers/index.rs` que nunca compilaram, porque o gate só fazia `check` + clippy sem código
+   de teste. Pacotes = `git diff <último commit "release …">..HEAD` ∪ `git status`, cada arquivo
+   no `manifest_path` mais longo; um `cargo test -p <pkg> --no-fail-fast` por vez sob o `hw-slot`
+   (o `touring-hook-handlers` leva `--features pre-hooks,post-hooks`, §13b). rc 75 = «sem vaga»
+   (repete 1×, não é falha de teste); sem commit de release ou git falho = TODOS os pacotes
+   (sinal ausente nunca estreita); `Cargo.toml`/`Cargo.lock` da raiz não mapeiam a pacote e só
+   avisam. `--dry-run` lista pacotes e comandos sem executar; `--skip-gates` pula tudo.
+   Teste: `scripts/test_propagate_release.py` (probes + mutantes sobre cópia do script).
 2.2. **`update-touring` é versionado (18/08/2026)**: vive em `scripts/update-touring`
    e chega ao PATH por `~/.local/bin/update-touring`, um **symlink** — a mesma forma
    já usada para os binários. Antes existia só em `~/.local/bin/`: a ferramenta que

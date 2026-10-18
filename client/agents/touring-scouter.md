@@ -6,7 +6,7 @@ description: >
   intelligence", "integration scouting", "false positive detection", "verified discovery", "symbol
   index search", "feature trace cross-feature", "cargo_metadata". Deep codebase intelligence scout
   using the full Touring CLI stack. JSON-only output.
-model: sonnet
+model: haiku
 color: cyan
 tools: [Bash, Glob, Grep, Read, LS]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm

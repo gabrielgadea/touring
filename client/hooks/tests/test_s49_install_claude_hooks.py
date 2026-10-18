@@ -24,7 +24,9 @@ TOURING_PROJECT_HOOKS = REPO_ROOT / "client" / "claude" / "touring-project.hooks
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(INSTALL_SCRIPT), *args], capture_output=True, text=True, timeout=30)
+    return subprocess.run(
+        [sys.executable, str(INSTALL_SCRIPT), *args], capture_output=True, text=True, timeout=30, check=False
+    )
 
 
 def _hook(command: str, *, timeout: int | None = 5, if_: str | None = None) -> dict[str, Any]:
@@ -163,3 +165,17 @@ def test_versioned_source_has_no_lint_finding() -> None:
     proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
     findings = json.loads(proc.stdout)["findings"]
     assert findings == [], findings
+
+
+def test_cli_suggest_runs_for_the_agent_tool() -> None:
+    """17/10/2026: the sub-agent tool is `Agent` (`Task` is the legacy name). The group that ran
+    `cli-suggest` was keyed on `Task` only, and the hook payload carries `tool_name: "Agent"` (the
+    model gate keys on it), so no delegation ever got its nudge — 0 emissions in 227 transcripts."""
+    hooks = json.loads(HOOKS_SETTINGS.read_text(encoding="utf-8"))
+    covered = {
+        name
+        for group in hooks["PreToolUse"]
+        if any("touring-hook cli-suggest" in h.get("command", "") for h in group.get("hooks", []))
+        for name in group.get("matcher", "").split("|")
+    }
+    assert "Agent" in covered, f"cli-suggest never runs for the Agent tool; covered: {sorted(covered)}"

@@ -2179,7 +2179,34 @@ pub fn cli_ast_detail(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         return serde_json::json!({"error": "file_path required"}).to_string();
     }
 
-    let source = std::fs::read_to_string(file_path).unwrap_or_default();
+    // V1 (09/10/2026): caminho RELATIVO resolve contra o cwd do PAYLOAD — antes resolvia no cwd
+    // do daemon, e o `unwrap_or_default` transformava a falha em 0 detalhes em silêncio
+    let resolvido = {
+        let p = std::path::Path::new(file_path);
+        if p.is_absolute() {
+            p.to_path_buf()
+        } else {
+            let cwd = payload.get("cwd").and_then(|v| v.as_str()).unwrap_or("");
+            if cwd.is_empty() {
+                p.to_path_buf()
+            } else {
+                std::path::Path::new(cwd).join(p)
+            }
+        }
+    };
+    let source = match std::fs::read_to_string(&resolvido) {
+        Ok(s) => s,
+        Err(e) => {
+            return serde_json::json!({
+                "error": format!("arquivo ilegível: {} ({e})", resolvido.display()),
+                "symbol": symbol,
+                "file_path": file_path,
+                "details": [],
+                "count": 0
+            })
+            .to_string();
+        }
+    };
     let details: Vec<SymbolDetail> = extract_symbol_details(&source, symbol);
 
     serde_json::json!({
@@ -2189,6 +2216,66 @@ pub fn cli_ast_detail(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         "count": details.len()
     })
     .to_string()
+}
+
+#[cfg(test)]
+mod cli_ast_detail_tests {
+    use super::*;
+
+    fn payload(parts: &[(&str, &str)]) -> serde_json::Value {
+        serde_json::json!(
+            parts
+                .iter()
+                .cloned()
+                .collect::<std::collections::HashMap<_, _>>()
+        )
+    }
+
+    #[test]
+    fn caminho_relativo_resolve_no_cwd_do_payload() {
+        let tmp = std::env::temp_dir().join("vgp-ast-detail");
+        std::fs::create_dir_all(&tmp).unwrap();
+        std::fs::write(
+            tmp.join("m.py"),
+            "class K:
+    x: int
+",
+        )
+        .unwrap();
+        let rt_root = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(rt_root.path()).expect("HookRuntime::new");
+        let out: serde_json::Value = serde_json::from_str(&cli_ast_detail(
+            &mut rt,
+            &payload(&[
+                ("symbol", "K"),
+                ("file_path", "m.py"),
+                ("cwd", tmp.to_str().unwrap()),
+            ]),
+        ))
+        .unwrap();
+        assert_eq!(out["count"], 1, "saída: {out}");
+        assert!(out.get("error").is_none(), "erro indevido: {out}");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn arquivo_ilegivel_e_erro_explicito_nunca_zero_mudo() {
+        let rt_root = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(rt_root.path()).expect("HookRuntime::new");
+        let out: serde_json::Value = serde_json::from_str(&cli_ast_detail(
+            &mut rt,
+            &payload(&[
+                ("symbol", "K"),
+                ("file_path", "/nao/existe/x.py"),
+                ("cwd", "/tmp"),
+            ]),
+        ))
+        .unwrap();
+        assert!(
+            out["error"].as_str().unwrap().contains("arquivo ilegível"),
+            "saída: {out}"
+        );
+    }
 }
 
 /// `cli-ast-imports` — extract and resolve imports for a file.

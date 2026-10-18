@@ -77,6 +77,47 @@ def injection_family(text: str) -> str:
     return OTHER
 
 
+# `EMITTERS` — context_budget.rs (C10, 17/10/2026): a marca do EMISSOR que o Claude Code grava em
+# cada `hook_success` (`command`: o `statusMessage` do hook, ou a linha de comando). `True` = o hook
+# é DONO da saída (vence o texto); `False` = só resgata o que o texto deixa em `other`. A primeira
+# agulha que casa vence. `injection_family` (só texto) segue intacta: é ELA que o r3 usa para
+# definir o dataset congelado (`is_touring_family`); só a paridade do KPI passa pela atribuição.
+EMITTERS: tuple[tuple[str, str, bool], ...] = (
+    ("analyzing blast radius", "pre-edit", True),
+    ("speculative validation", "pre-write", True),
+    ("analyzing file context", "pre-read", True),
+    ("checking command history", "pre-bash", True),
+    ("syntax pre-check", "pre-edit-prevention", True),
+    ("verifying edit quality", "post-edit", True),
+    ("registering new file", "post-write", True),
+    ("evidence_guard.py", "evidence-guard", True),
+    ("CLAUDE_PLUGIN_ROOT", "plugin-hook", True),
+    ("prose_integrity_gate.py", "prose-integrity", True),
+    ("check_context.sh", "context-monitor", True),
+    ("delegation-nudge", "delegation-nudge", True),
+    ("touring cli-suggest", "touring-suggest", False),
+    ("loop_resume.py", "loop-outer", False),
+    ("touring-hook post-bash", "post-tool-echo", False),
+)
+
+
+def attributed_family(text: str, emitter: str | None) -> str:
+    """`attributed_family` — context_budget.rs (C10). Dono do emissor > agulhas do texto >
+    reserva do emissor > `other`. Sem marca (Claude Code antigo) é só o texto."""
+    claimed = None
+    if emitter:
+        for needle, family, owns in EMITTERS:
+            if needle in emitter:
+                claimed = (family, owns)
+                break
+    if claimed and claimed[1]:
+        return claimed[0]
+    family = injection_family(text)
+    if family == OTHER and claimed:
+        return claimed[0]
+    return family
+
+
 def count_propositions(text: str) -> int:
     """`count_propositions` — context_budget.rs:196-203.
 
@@ -92,7 +133,13 @@ def count_propositions(text: str) -> int:
 
 
 def hook_contexts(rec: dict) -> list[str]:
-    """`hook_contexts` — context_budget.rs:218-251.
+    """Só os textos de `hook_injections` — a forma de antes da atribuição por emissor."""
+    return [text for _, text in hook_injections(rec)]
+
+
+def hook_injections(rec: dict) -> list[tuple[str | None, str]]:
+    """`hook_injections` — context_budget.rs (C10; era `hook_contexts`, :218-251): pares
+    (marca do emissor, texto). A marca é `attachment.command`.
 
     Só `attachment.type == "hook_success"` (:222). Para cada chave de
     `["stdout", "content"]` (:226): tenta parsear como JSON; se casar, puxa
@@ -105,7 +152,9 @@ def hook_contexts(rec: dict) -> list[str]:
         return []
     if att.get("type") != HOOK_ATTACHMENT_TYPE:
         return []
-    out: list[str] = []
+    command = att.get("command")
+    emitter = command if isinstance(command, str) else None
+    out: list[tuple[str | None, str]] = []
     for key in RAW_KEYS:
         raw = att.get(key)
         if not isinstance(raw, str) or not raw.strip():
@@ -114,7 +163,7 @@ def hook_contexts(rec: dict) -> list[str]:
             parsed = json.loads(raw)
         except ValueError:
             # :246-247 — não é JSON: o texto puro ainda custa a janela
-            out.append(raw)
+            out.append((emitter, raw))
             continue
         if isinstance(parsed, dict):
             hso = parsed.get("hookSpecificOutput")
@@ -122,10 +171,10 @@ def hook_contexts(rec: dict) -> list[str]:
                 for k in HSO_KEYS:
                     s = hso.get(k)
                     if isinstance(s, str):
-                        out.append(s)
+                        out.append((emitter, s))
             s = parsed.get("systemMessage")
             if isinstance(s, str):
-                out.append(s)
+                out.append((emitter, s))
     return out
 
 
@@ -173,8 +222,8 @@ def agregar(paths: list[Path]) -> dict:
                 rec = json.loads(line)
             except ValueError:
                 continue
-            for text in hook_contexts(rec):
-                familia = injection_family(text)
+            for emitter, text in hook_injections(rec):
+                familia = attributed_family(text, emitter)
                 ln = len(text.encode("utf-8"))
                 props = count_propositions(text)
                 total_bytes += ln

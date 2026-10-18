@@ -71,7 +71,7 @@ fn extract_call(input: &serde_json::Value) -> Result<(String, String), GatewayEr
 /// deny. Default (unset, or any other value) is advisory **observe mode**: the
 /// hook reports but never blocks. Observe-before-enforce is the safe rollout
 /// while the gateway is still being hardened (P4).
-fn enforcement_enabled() -> bool {
+pub fn enforcement_enabled() -> bool {
     std::env::var("CEG_ENFORCE")
         .map(|v| v == "1")
         .unwrap_or(false)

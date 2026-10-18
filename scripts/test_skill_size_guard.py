@@ -29,6 +29,7 @@ Uso:
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -106,8 +107,24 @@ def _sintetico(tmp: Path, nome: str, chars: int) -> Path:
     return d
 
 
+def raizes_presentes(raizes: tuple[Path, ...] | None = None) -> list[Path]:
+    """As raizes que EXISTEM neste ambiente. `varrer` pula as ausentes em silencio: zero raizes = zero medidas."""
+    return [raiz for raiz in (SKILLS_DIRS if raizes is None else raizes) if raiz.is_dir()]
+
+
 def test_nada_acima_do_limite():
-    """A varredura real das raizes do usuario passa."""
+    """A varredura real das raizes do usuario passa.
+
+    Sem nenhuma raiz (o runner do CI nao tem ~/.claude/skills) a varredura mede VAZIO e passaria sem olhar
+    nada — o exato "nao olha" que o docstring do modulo condena. Entao PULA dizendo isso; no rito de release
+    (SKILL_SIZE_GUARD_REQUIRE_ROOTS=1, onde o lado vivo existe) a ausencia REPROVA.
+    """
+    if not raizes_presentes():
+        motivo = ("nenhuma raiz de skills existe neste ambiente (" + ", ".join(str(r) for r in SKILLS_DIRS)
+                  + "): a varredura real nao mediu nada")
+        if os.environ.get("SKILL_SIZE_GUARD_REQUIRE_ROOTS") == "1":
+            pytest.fail(motivo)
+        pytest.skip(motivo)
     violacoes, _ = varrer()
     nomes = ", ".join(f"{v['nome']} ({v['chars']})" for v in violacoes)
     assert not violacoes, f"{len(violacoes)} SKILL.md acima de {LIMITE}: {nomes}"
@@ -164,6 +181,33 @@ def test_isencao_aplica_ao_padrao_real_de_synced():
         assert "do-usuario" in nomes_v, "<skill>/SKILL.md fora do synced deve reprovar"
 
 
+def test_raizes_ausentes_nao_sao_aprovacao(tmp_path, monkeypatch, capsys):
+    """Controle do achado 17/10/2026: com todas as raizes ausentes o modo script saia 0 ("OK") sem medir nada."""
+    ausentes = (tmp_path / "nao-existe-a", tmp_path / "nao-existe-b")
+    assert raizes_presentes(ausentes) == []
+    monkeypatch.setattr(sys.modules[__name__], "SKILLS_DIRS", ausentes)
+    assert _rodar() == 2
+    assert "nenhuma raiz" in capsys.readouterr().err
+    assert raizes_presentes((tmp_path, ausentes[0])) == [tmp_path]
+
+
+def test_varredura_real_pula_sem_raizes_e_reprova_quando_o_release_as_exige(tmp_path, monkeypatch):
+    """No runner do CI nao ha ~/.claude/skills: pula DIZENDO; no release (REQUIRE_ROOTS=1) a ausencia reprova."""
+    monkeypatch.setattr(sys.modules[__name__], "SKILLS_DIRS", (tmp_path / "nao-existe",))
+    monkeypatch.delenv("SKILL_SIZE_GUARD_REQUIRE_ROOTS", raising=False)
+    with pytest.raises(pytest.skip.Exception, match="nao mediu nada"):
+        test_nada_acima_do_limite()
+    monkeypatch.setenv("SKILL_SIZE_GUARD_REQUIRE_ROOTS", "1")
+    try:
+        test_nada_acima_do_limite()
+    except pytest.fail.Exception as falha:
+        assert "nao mediu nada" in str(falha)
+    except pytest.skip.Exception:  # um skip aqui escaparia do pytest.raises e contaria como teste PULADO, nao falho
+        pytest.fail("com SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 a ausencia das raizes tem de REPROVAR, nao pular")
+    else:
+        pytest.fail("com SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 a ausencia das raizes passou sem medir nada")
+
+
 def test_fronteira_exata_no_limite_passa():
     """Exatamente LIMITE chars passa; e LIMITE+1 que reprova. A fronteira e medidas."""
     with tempfile.TemporaryDirectory() as t:
@@ -174,9 +218,13 @@ def test_fronteira_exata_no_limite_passa():
 
 
 def _rodar() -> int:
-    violacoes, isentos = varrer()
+    if not raizes_presentes(SKILLS_DIRS):
+        print("nenhuma raiz de skills existe neste ambiente: nada foi medido (sinal ausente nao e aprovacao)",
+              file=sys.stderr)
+        return 2
+    violacoes, isentos = varrer(SKILLS_DIRS)
     print(f"limite: {LIMITE} chars  ·  alvo do gerador: {FOLGA}")
-    print(f"varredas: {len(SKILLS_DIRS)} raizes\n")
+    print(f"varridas: {len(raizes_presentes(SKILLS_DIRS))} de {len(SKILLS_DIRS)} raizes\n")
     if isentos:
         print("ISENTAS:")
         for i in isentos:

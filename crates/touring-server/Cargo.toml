@@ -224,6 +224,7 @@ touring-cortex = { path = "../touring-cortex", features = ["fascicles"] }
 touring-intelligence = { path = "../touring-intelligence", features = ["simd-similarity", "smart-cache"] }
 touring-analysis = { path = "../touring-analysis", features = ["deep", "simd-wiring", "simd-temporal-ac"] }
 touring-quality = { path = "../touring-quality" }
+touring-pyright = { path = "../touring-pyright" }
 # F5/G3 (2026-07-24): tier model activated — the official binary carries the
 # full cap (tier gating of individual features is future commercial policy;
 # `touring license status` exposes the state read-only).

@@ -59,6 +59,10 @@ pub mod governor;
 /// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
 pub mod text_rank;
 
+/// Secret redaction + invisible/control-character stripping for model-visible text
+/// (the memory write path and recall output share this one implementation).
+pub mod text_sanitize;
+
 pub mod hash;
 pub mod health;
 pub mod health_events;

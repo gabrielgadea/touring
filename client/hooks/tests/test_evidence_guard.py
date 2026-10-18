@@ -31,7 +31,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parents[1]  # the hooks live one level up
 sys.path.insert(0, str(HERE))
 
-import evidence_guard as eg  # noqa: E402
+import evidence_guard as eg
 
 GUARD = HERE / "evidence_guard.py"
 FAILURES: list[str] = []
@@ -131,7 +131,7 @@ def test_the_hook_fails_open_but_the_detector_fails_closed() -> None:
     """[F] As duas propriedades são diferentes e ambas deliberadas: o gancho
     NUNCA trava a sessão; o detector NUNCA atesta o que não sabe."""
     p = subprocess.run([sys.executable, str(GUARD), "--stdin"],
-                       input="nao-e-json", capture_output=True, text=True, timeout=10)
+                       input="nao-e-json", capture_output=True, text=True, timeout=10, check=False)
     check("test_the_hook_fails_open_but_the_detector_fails_closed",
           p.returncode == 0, f"exit={p.returncode} (0 = fail-open no gancho)")
 
@@ -142,7 +142,7 @@ def test_clean_payload_injects_nothing() -> None:
     payload = json.dumps({"tool_input": {"command": "git status"},
                           "tool_response": {"stdout": "nothing to commit"}})
     p = subprocess.run([sys.executable, str(GUARD), "--stdin"],
-                       input=payload, capture_output=True, text=True, timeout=10)
+                       input=payload, capture_output=True, text=True, timeout=10, check=False)
     check("test_clean_payload_injects_nothing", p.stdout.strip() == "",
           f"{len(p.stdout)} bytes injetados (esperado 0)")
 

@@ -56,6 +56,7 @@ pub mod sdk;
 pub mod sdk_signal_mirror;
 pub mod semantics;
 pub mod types;
+pub mod vgp;
 
 pub use error::{Error, Result};
 pub use types::*;

@@ -5,7 +5,7 @@ title: "Economia de créditos e contexto — divisão operacional (Anthropic × 
 description: "Corpo canônico da regra que os CLAUDE.md de ~/projects/touring (regra 33) e ~/projects/analise (seção 📌) apontam: os quatro orçamentos, a matriz de roteamento por classe de subtarefa, os fatos datados de cada modelo com fonte oficial, o protocolo de delegação às sessões irmãs e o protocolo de atualização quando surge modelo novo."
 plan_id: docs
 tags: [rules, custo, contexto, modelos, delegacao, kimi, minimax]
-timestamp: 2026-10-08T12:10:00-03:00
+timestamp: 2026-10-17T15:00:00-03:00
 ---
 
 # Economia de créditos e contexto — divisão operacional
@@ -77,8 +77,8 @@ predicado testa:
 - sessão irmã Kimi/MiniMax, pelo mesmo `provider_of` do `sessoes_irmas.py` sobre o
   `ANTHROPIC_BASE_URL` que o hook herda (um teste exige que os dois predicados casem); só os
   provedores nomeados isentam — um gateway desconhecido pode estar na frente do Opus e é julgado;
-- `fork`, que roda no modelo da sessão por definição;
-- `model:` declarado no frontmatter da definição, **inclusive `inherit` escrito** (o autor decidiu
+- `fork`, que roda no modelo da sessão por definição (nenhuma regra de ajuste o alcança);
+- `model:` declarado no frontmatter da definição (julgado antes pelo ajuste abaixo, nos tipos de busca e de implementação), **inclusive `inherit` escrito** (o autor decidiu
   herdar: 5 agentes do plugin `claude-security` fazem isso); `model` ausente não é decisão. A
   definição é procurada como o Claude Code a resolve [C/sub-agents]: projeto, subindo do cwd até a
   raiz do repositório (a mais próxima vence) > `~/.claude/agents` > plugin, pelo `installPath` do
@@ -93,12 +93,67 @@ Erro interno do gate libera a chamada (fail-open), mas cada chamada `Agent` vira
 `~/.claude/touring/agent_model_gate.jsonl` com o motivo (`why`), sem prompt nem description — a
 série que mede a aderência daqui em diante e o insumo de rótulos da Laya (§7). Registro:
 `client/claude/hooks.settings.json` → `scripts/install_claude_hooks.py --apply`. Testes:
-`client/hooks/tests/test_agent_model_gate.py` (43; o guarda D8 exige que a lista acima espelhe
+`client/hooks/tests/test_agent_model_gate.py` (190; o guarda D8 exige que a lista acima espelhe
 `EXEMPTIONS` um a um, na ordem — confere a palavra-chave, não o sentido: mudou a semântica de uma
 isenção, reescreva o item à mão). Controle positivo ao vivo em 08/10: a chamada sem `model` voltou
 recusada com a matriz; a com `model: sonnet` passou. Uma revisão independente (subagente
 `sonnet`) achou 2 vereditos errados na 1ª versão — plugin fora do cache e agente de projeto em
 diretório-pai — e 3 perdas de veredito por encoding; todos viraram teste antes da correção.
+
+**Ajuste modelo × tarefa e consentimento do Fable (17/10/2026).** Presença não é adequação: um
+`model: "opus"` explícito num `Explore` passava como "decisão tomada". Depois das isenções de sessão
+(kill switch, irmã) e do `fork`, o gate julga o `model` que a **chamada nomeia** — o parâmetro vence a
+definição e o env na precedência do Claude Code [C/sub-agents], então nenhum dos dois o protege. Omitir
+`model` também não escapa: o modelo que a **definição** fixa no frontmatter é o que de fato rodaria, e é
+julgado pela mesma regra (a razão ensina a passar `model: "haiku"`, que vence a definição); `inherit` e
+definição sem `model` não têm regra de ajuste, o default de built-in (`statusline-setup` = sonnet) não é
+frontmatter e segue passando, e o env `CLAUDE_CODE_SUBAGENT_MODEL` é decisão tomada em outro lugar e não
+é julgado. Determinístico pelo `subagent_type`, com o `model` normalizado em minúsculas, nesta ordem:
+- busca (`Explore`, `touring-scouter`, `claude-code-guide`, `statusline-setup`) com sonnet, opus ou
+  fable → recusa `fit:busca-exige-haiku`;
+- fable em qualquer tipo → recusa `fable:sem-consentimento`, salvo consentimento vigente
+  (`fable:consentido`);
+- implementação (`touring-engineer`, `general-purpose`, `touring-architect`, `touring-auditor`,
+  `touring-scriber`, `Plan`) com opus → recusa `fit:opus-fica-na-sessao-principal`;
+- qualquer outro tipo: só a regra de presença e a do Fable.
+
+A razão da recusa ENSINA o caminho de volta (gate mudo degrada o retry): busca → `model: "haiku"`, ou
+a síntese na sessão principal, ou `touring-engineer`/`general-purpose` com `sonnet`; opus → fica na sessão
+principal, implementação com spec vai a `sonnet`, busca a `haiku`; fable → pedir ao Gabriel.
+
+O consentimento do Fable é decisão humana com prazo: `~/.claude/touring/fable_consent.json` =
+`{"valido_ate": "<ISO-8601 com fuso>", "criado_em", "motivo"}`. Quem liga é o Gabriel, no prompt:
+`! python3 ~/.claude/hooks/agent_model_gate.py --consentir-fable 2h [--motivo "..."]` (revoga com
+`--revogar-fable`). O teto de 24 h é do **leitor**, não só do escritor: arquivo ausente, expirado,
+ilegível, sem fuso ou a mais de 24 h de agora = sem consentimento (o `consent` fica no log, ao lado do
+`why`). Um consentimento vigente não faz do fable um bom `Explore` (a regra de busca vem primeiro) nem
+libera opus. O Bash do próprio agente também poderia rodar o comando de consentimento (o `!` do usuário
+não passa por hook PreToolUse, mas o Bash do modelo passa), então `client/hooks/fable_consent_guard.sh`
+(PreToolUse em `Bash` e em `Write|Edit|MultiEdit|NotebookEdit`, shell puro, ~3 ms) **nega ao modelo**:
+em `Bash`, comando com `--consentir-fable` ou `fable_consent.json`; nas ferramentas de arquivo, caminho com
+`fable_consent.json`. Revogar (`--revogar-fable`) é seguro e passa; o **conteúdo** de um Write/Edit não é
+julgado, e casa-se o nome exato `fable_consent.json`, não o radical `fable_consent` (que também está no nome
+do próprio guard, do teste e do hook: um guard que tranca a própria manutenção acaba desligado).
+**Limitação conhecida (residual):** o guard é textual — um comando que monta o caminho ou a flag em tempo de
+execução (`"fable_""consent.json"`, `$(printf ...)`) ou chega a um shell por uma ferramenta MCP de execução
+não é visto. O fechamento de substrato segue sendo o `sandbox.filesystem.denyWrite` do Claude Code nesse
+caminho, não implementado; e que o `!` do TUI tenha `/dev/tty` (outra via de endurecimento) segue por verificar.
+
+**Indução de delegação (17/10/2026).** O gate fiscaliza a escolha quando se delega; nada induzia
+delegar (haiku = 0,2% dos tokens Anthropic desde 08/10 pela régua oficial, deduplicada por `message.id`,
+`scripts/model_routing_adherence.py`; o Opus principal lia e buscava sozinho). `client/hooks/delegation_nudge.py` só **aconselha** — `additionalContext`, nunca
+`permissionDecision`. Em `PreToolUse` de `Read|Grep|Glob`, janela deslizante de 10 min por sessão
+(Read = tamanho do arquivo, limitado por `limit` ou pelo teto padrão de 2000 linhas, a 80 B/linha;
+Grep/Glob = 1 chamada): com ≥ 6 chamadas ou 150 KB na janela devolve 1 aviso (no máximo 1 a cada 10 min
+por sessão) com os 3 alvos mais recentes e o `Agent(subagent_type="Explore", model="haiku", ...)`
+derivado deles. Em `UserPromptSubmit`, lê só a cauda (~200 linhas) do transcript: mais de uma família
+Anthropic nos turnos da sessão principal avisa que a troca de modelo invalida o cache (§2) e que o
+effort sobe antes (regra 17) — 1 aviso por troca, e troca com mais de 30 min não é notícia. Só a sessão
+principal de backend Anthropic: pulam o kill switch `DELEGATION_NUDGE_DISABLED=1`, a sessão irmã (o
+mesmo `provider_of`) e o subagente (`agent_id` do JSON de entrada [C/hooks]; de reserva,
+`/subagents/` no `transcript_path`). Estado em `~/.claude/touring/delegation_nudge/<sessão>.json`, um
+log por aviso em `delegation_nudge.jsonl`. Registro pendente de deploy (matchers abaixo em §7).
+Testes: `client/hooks/tests/test_delegation_nudge.py` (66; 27 mutantes mortos). O guard do consentimento tem `client/hooks/tests/test_fable_consent_guard.py` (61; 17 mutantes do script e 5 do registro no template, todos mortos); o ajuste por definição, 8 mutantes mortos.
 
 **Kimi ou MiniMax?** O Kimi K3 serve a engenharia longa e autônoma, com raciocínio por corpus
 grande (*"sustain long engineering sessions"* [K/blog]; thinking em `max` por default). O
@@ -234,6 +289,13 @@ controle positivo ao vivo de 08/10 bateu com a verdade medida: `analise-a0` é o
 A pesquisa de 08/10 custou 4 subagentes (3 sonnet e 1 haiku) e 3 conferências diretas.
 
 ## 7. Lacunas medidas (UNVERIFIED em 08/10/2026) e potencializações propostas
+
+- **Roteamento de modelos — fechado × aberto (17/10/2026).**
+  - Fechado, em código e com teste: omissão de `model` (08/10); adequação modelo × tarefa — busca não vai a sonnet/opus/fable, implementação não vai a opus (§1); Fable só com consentimento humano de ≤ 24 h, com o teto no leitor (§1); indução de delegação por rajada de leitura e aviso de troca de modelo (§1, `delegation_nudge`).
+  - FECHADO (a), no caminho direto: o agente não concede o próprio consentimento do Fable — `fable_consent_guard.sh` nega ao modelo o `--consentir-fable` e a escrita de `fable_consent.json` (§1). Resíduo declarado: o guard é textual (indireção em tempo de execução e ferramenta MCP de execução não são vistas); o `denyWrite` do sandbox seguiria sendo o fechamento de substrato.
+  - FECHADO (b): omitir `model` num tipo de busca ou implementação cuja definição fixe um modelo inadequado (sonnet/opus/fable em busca, opus em implementação) agora é recusado — o modelo do frontmatter é julgado como o da chamada (§1). Hoje o `touring-scouter` vivo é `haiku` e nenhuma definição real dispara a regra (varredura de 192 arquivos de agentes em 17/10). O espelho `client/agents/touring-scouter.md` ainda diz `sonnet`: **a sincronizar no deploy**.
+  - Limites declarados, não fechados: (c) o gate vê o **tipo**, não a tarefa: busca disfarçada de `general-purpose` com sonnet passa — só classificador por prompt (probabilístico, candidato à Laya) alcança; (d) o aviso de delegação mede rajada de leitura na sessão principal, não a qualidade do que foi delegado — a eficácia se mede cruzando `delegation_nudge.jsonl` com os transcripts (linha de base: haiku = 0,2% dos tokens Anthropic pela régua deduplicada); (e) o aviso de troca de modelo vê a troca **depois** do 1º turno com o modelo novo, nunca antes.
+  - Registro (fonte `client/claude/hooks.settings.json`, pendente de `install_claude_hooks.py --apply` e dos symlinks em `~/.claude/hooks/`): `delegation_nudge.py` em `PreToolUse` `Read|Grep|Glob` e em `UserPromptSubmit` (`timeout: 5`; medido em 17/10: p50 24 ms, p95 32 ms em 200 chamadas sintéticas); `fable_consent_guard.sh` em `PreToolUse` `Bash` e `Write|Edit|MultiEdit|NotebookEdit` (`timeout: 2`; medido: p50 3,2 ms, p95 3,6 ms, contra 42,5 ms do `block_git.sh`, que usa `jq`).
 
 - **O modelo agora enxerga a própria franquia (implementado em 08/10, ordem do Gabriel).** O payload da status line traz `rate_limits.five_hour` e `rate_limits.seven_day`, cada um com `used_percentage` (0–100) e `resets_at` (epoch), só para Pro/Max e só depois da 1ª resposta da sessão; cada janela pode faltar sozinha [C/statusline]. O `status_monitor.sh` (versionado em `client/hooks/` desde então; `~/.claude/hooks/` tem o symlink) passa o payload, em background, a `client/hooks/rate_limits_snapshot.py`, que grava `~/.claude/touring/rate_limits.json` com **uma leitura por provedor** (`backend_provider.provider_of`, a mesma fonte do gate: uma irmã nunca sobrescreve a cota da Anthropic). Ausência nunca vira zero: payload sem leitura não cria nem apaga nada. Consultar antes de um fanout: `python3 ~/.claude/hooks/rate_limits_snapshot.py --show` (exit 3 sem leitura; `--json` para código). O `agent_model_gate` cita a mesma linha na recusa. 1ª leitura real: *"5 h 5% (zera 16:30) · 7 d 96% (zera 09/10 03:00)"*. Testes: `client/hooks/tests/test_rate_limits_snapshot.py` (18).
 - **Kimi.** Não se sabe a unidade da cota (requisição ou token). Os domínios divergem: `api.kimi.com/coding` (o local, que funciona) contra `api.kimi.ai/coding` (página de terceiros-tools). A data exata de lançamento do K3 também falta.

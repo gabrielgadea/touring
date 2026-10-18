@@ -10,6 +10,7 @@ use thiserror::Error;
 
 use super::palace::PalaceHierarchy;
 use super::tags;
+use touring_foundation::text_sanitize::sanitize_memory_text;
 
 /// Errors that can occur in RLM memory operations.
 #[derive(Error, Debug)]
@@ -100,6 +101,14 @@ pub struct MemoryMatch {
     pub created_at: i64,
     /// Unix timestamp of the last access.
     pub accessed_at: i64,
+}
+
+impl MemoryMatch {
+    /// The match with its `value` cleaned for replay as model context.
+    fn sanitized(mut self) -> Self {
+        self.value = sanitize_memory_text(&self.value).text;
+        self
+    }
 }
 
 /// RLM Memory storage backed by SQLite.
@@ -195,6 +204,22 @@ impl<'a> RichMemoryEntry<'a> {
             value,
             ..Self::default()
         }
+    }
+
+    /// The free-text fields (`value`, `outcome_context`) as they may be written.
+    ///
+    /// C6 (2026-10-17): a stored value is replayed to the model as recall
+    /// context, so secrets are redacted and bidi/zero-width/control characters
+    /// stripped at the ONE place every writer funnels through
+    /// ([`RlmMemory::store_rich`]), not at each caller. Idempotent: a caller
+    /// that sanitized first (to report counts) pays one cheap re-scan and
+    /// writes the same text.
+    fn sanitized_texts(&self) -> (String, Option<String>) {
+        (
+            sanitize_memory_text(self.value).text,
+            self.outcome_context
+                .map(|ctx| sanitize_memory_text(ctx).text),
+        )
     }
 }
 
@@ -658,6 +683,9 @@ impl RlmMemory {
         let embedding_bytes: Option<Vec<u8>> = entry
             .embedding
             .map(|emb| emb.iter().flat_map(|f| f.to_le_bytes()).collect());
+        // C6 (2026-10-17): the single choke point of every memory write (see
+        // `RichMemoryEntry::sanitized_texts`).
+        let (value, outcome_context) = entry.sanitized_texts();
 
         self.conn.execute(
             "INSERT INTO memory_entries
@@ -684,7 +712,7 @@ impl RlmMemory {
             params![
                 entry.key,
                 entry.tier,
-                entry.value,
+                value,
                 entry_type,
                 now,
                 embedding_bytes,
@@ -692,7 +720,7 @@ impl RlmMemory {
                 entry.graph_blast_radius,
                 entry.palace_path,
                 entry.outcome_reward,
-                entry.outcome_context,
+                outcome_context,
                 entry.importance,
                 i64::from(entry.pinned),
             ],
@@ -1078,7 +1106,13 @@ impl RlmMemory {
             })?
             .collect::<std::result::Result<Vec<_>, _>>()?;
 
-        Ok(rows)
+        // C6 (2026-10-17): `search` is the recall that the cortex handlers replay
+        // into hook context (`[rlm] …`). Rows written before the write-side guard
+        // may still hold secrets or bidi/zero-width characters — clean every
+        // delivered value on the way OUT. Key-addressed reads (`get*`,
+        // `scan_prefix`) stay raw on purpose: callers read-modify-write state
+        // through them.
+        Ok(rows.into_iter().map(MemoryMatch::sanitized).collect())
     }
 
     /// Normalize a loosely-typed `created_at`/`accessed_at` cell to epoch
@@ -2416,6 +2450,111 @@ mod tests {
             count("semantic"),
             2,
             "the tier-less writable read bumps the row"
+        );
+    }
+}
+
+/// C6 (2026-10-17): the write path redacts secrets and strips bidi/zero-width
+/// characters at the ONE place every writer funnels through.
+#[cfg(test)]
+mod sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::*;
+    use tempfile::TempDir;
+
+    fn fake_key() -> String {
+        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
+    }
+
+    fn row_texts(mem: &RlmMemory, key: &str) -> (String, Option<String>) {
+        mem.conn
+            .query_row(
+                "SELECT value, outcome_context FROM memory_entries WHERE key = ?1",
+                params![key],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .expect("row")
+    }
+
+    #[test]
+    fn store_rich_redacts_secrets_and_strips_bidi_before_the_row_lands() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
+        let key = fake_key();
+        let dirty = format!("deploy with {key} now\u{202E}x\u{200B}y");
+        let mut entry = RichMemoryEntry::new("c6-rlm", "semantic", &dirty);
+        entry.outcome_context = Some(dirty.as_str());
+        mem.store_rich(&entry).unwrap();
+
+        let (value, ctx) = row_texts(&mem, "c6-rlm");
+        let ctx = ctx.expect("outcome_context stored");
+        for text in [&value, &ctx] {
+            assert!(!text.contains(&key), "secret reached the row: {text}");
+            assert!(!text.contains('\u{202E}') && !text.contains('\u{200B}'));
+        }
+        assert_eq!(value, "deploy with [REDACTED] nowxy");
+        assert_eq!(ctx, value, "outcome_context is cleaned by the same rules");
+    }
+
+    #[test]
+    fn store_rich_keeps_ordinary_text_byte_identical() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
+        let plain = "Lesson: run `cargo test -p x`.\n\tNext: a\u{e7}\u{e3}o \u{1F642} done";
+        mem.store_rich(&RichMemoryEntry::new("c6-plain", "semantic", plain))
+            .unwrap();
+        assert_eq!(row_texts(&mem, "c6-plain").0, plain);
+    }
+
+    #[test]
+    fn re_storing_already_clean_text_is_a_fixed_point() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
+        let dirty = format!(
+            "GH_TOKEN={}\nplain line",
+            ["gh", "p_", "0123456789abcdefghijklmnop"].concat()
+        );
+        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &dirty))
+            .unwrap();
+        let once = row_texts(&mem, "c6-fix").0;
+        mem.store_rich(&RichMemoryEntry::new("c6-fix", "semantic", &once))
+            .unwrap();
+        assert_eq!(row_texts(&mem, "c6-fix").0, once);
+        assert!(once.contains("GH_TOKEN= [REDACTED]") && once.contains("plain line"));
+    }
+
+    #[test]
+    fn search_cleans_a_legacy_row_on_the_way_out_without_rewriting_it() {
+        let dir = TempDir::new().unwrap();
+        let mem = RlmMemory::new(&dir.path().join("memory.db")).unwrap();
+        let key = fake_key();
+        // A row planted the way pre-guard writers did (raw SQL, no sanitization).
+        let raw = format!("c6searchprobe token {key} \u{202E}tail");
+        mem.conn
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES ('c6-old', 'working', ?1, 'lesson')",
+                params![raw],
+            )
+            .unwrap();
+        let hits = mem.search("c6searchprobe", None, 5).unwrap();
+        assert_eq!(hits.len(), 1);
+        assert!(
+            !hits[0].value.contains(&key),
+            "secret leaked: {}",
+            hits[0].value
+        );
+        assert!(
+            !hits[0].value.contains('\u{202E}'),
+            "bidi leaked: {:?}",
+            hits[0].value
+        );
+        assert!(hits[0].value.contains("[REDACTED]"));
+        assert_eq!(
+            row_texts(&mem, "c6-old").0,
+            raw,
+            "read must not rewrite the row"
         );
     }
 }

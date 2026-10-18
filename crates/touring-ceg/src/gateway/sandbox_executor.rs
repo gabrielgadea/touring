@@ -14,12 +14,9 @@
 //!   without shell interpolation (command-injection safe).
 //! - `blake3` (workspace dep) — content-addressable hashing.
 
-use std::borrow::Cow;
 use std::path::{Path, PathBuf};
-use std::sync::LazyLock;
 use std::time::Duration;
 
-use regex::Regex;
 use serde_json::Value;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -578,9 +575,19 @@ fn sandbox_write_roots() -> Vec<PathBuf> {
 /// daemon's path socket stays reachable — Landlock does not gate `connect()`
 /// on a path socket. Without a run tmp (legacy callers) the grant is the old.
 fn sandbox_write_roots_for_run(run_tmp: Option<&std::path::Path>) -> Vec<PathBuf> {
+    sandbox_write_roots_at(std::env::current_dir().ok().as_deref(), run_tmp)
+}
+
+/// [`sandbox_write_roots_for_run`] com o `cwd` do run INJETADO. O run lê o cwd do próprio
+/// processo; quem consulta DE FORA — o gate do hook, que roda no daemon, cujo cwd não é o do
+/// run — passa o projeto que o run vai ter (30.4.97, G10ROTA).
+fn sandbox_write_roots_at(
+    cwd: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+) -> Vec<PathBuf> {
     let mut raizes: Vec<PathBuf> = Vec::new();
-    if let Ok(cwd) = std::env::current_dir()
-        && let Some(projeto) = project_root_for_writes(&cwd)
+    if let Some(cwd) = cwd
+        && let Some(projeto) = project_root_for_writes(cwd)
     {
         raizes.push(projeto);
     }
@@ -791,6 +798,68 @@ pub fn sandbox_can_reach(path: &Path) -> bool {
 fn path_within_roots(path: &Path, roots: &[PathBuf]) -> bool {
     let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
     roots.iter().any(|r| resolved.starts_with(r))
+}
+
+/// G10ROTA (30.4.97) — the ONE answer to "can a sandboxed program WRITE `path`?", derived from the
+/// very roots [`apply_landlock_to`] hands to the landlock ruleset (via [`sandbox_write_roots_at`]).
+///
+/// `cwd` is the project the run will have: the caller is the hook gate, which lives in the daemon
+/// and so cannot use its own cwd. Measured 10/10/2026: the G10 named `touring run --lang python`
+/// for a program that writes (the Sandboxed profile denies it) and, once the Trusted route is the
+/// right one, it still only holds INSIDE the workspace — the kernel grants writes to the project
+/// root, `~/.cache`, `~/.cargo`, `/dev` and the run's private tmp, nothing else.
+///
+/// The private tmp is deliberately NOT a destination: it vanishes with the run, so a literal path
+/// in `/tmp` is never somewhere a run can leave a file. `path` need not exist (it is usually about
+/// to be created): the deepest existing ancestor is resolved, so symlinked parents and `..` cannot
+/// smuggle a destination across the boundary.
+#[must_use]
+pub fn sandbox_can_write(cwd: &Path, path: &Path) -> bool {
+    let no_run_tmp = PathBuf::from("/\0touring-run-tmp");
+    let roots: Vec<PathBuf> = sandbox_write_roots_at(Some(cwd), Some(&no_run_tmp))
+        .into_iter()
+        .filter(|r| r != &no_run_tmp)
+        .map(|r| canonical_lenient(&r))
+        .collect();
+    let target = canonical_lenient(&lexical_normalize(path));
+    roots.iter().any(|r| target.starts_with(r))
+}
+
+/// `.` and `..` resolved by component, without touching the disk.
+fn lexical_normalize(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in p.components() {
+        match c {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// `canonicalize` that tolerates a path that does not exist yet: resolves the deepest EXISTING
+/// ancestor and re-appends the missing tail.
+fn canonical_lenient(p: &Path) -> PathBuf {
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = p.to_path_buf();
+    loop {
+        if let Ok(c) = std::fs::canonicalize(&cur) {
+            return tail.iter().rev().fold(c, |acc, seg| acc.join(seg));
+        }
+        match (
+            cur.file_name().map(std::ffi::OsStr::to_os_string),
+            cur.parent(),
+        ) {
+            (Some(name), Some(parent)) => {
+                tail.push(name);
+                cur = parent.to_path_buf();
+            }
+            _ => return p.to_path_buf(),
+        }
+    }
 }
 
 /// Confina o filho pelo landlock LSM: escrita nas raízes de projeto/temp, e
@@ -1674,80 +1743,12 @@ fn runtime_python_version(runtime: &Path) -> Option<(u32, u32)> {
     ver
 }
 
-/// T-09 (2026-06-15) — token-format secret patterns, matched ANYWHERE in a line.
-/// The env-var-name pass in [`redact_secrets`] only catches `KEY=value`; these
-/// catch a raw token value with no surrounding key (e.g. a `ghp_…` pasted into an
-/// error message or a `Bearer sk-…` header).
-static SECRET_TOKEN_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    [
-        r"gh[pousr]_[A-Za-z0-9_]{20,}", // GitHub PAT / OAuth / refresh / server / user
-        r"sk-[A-Za-z0-9_-]{20,}",       // OpenAI (incl. sk-proj-…)
-        r"AKIA[0-9A-Z]{16}",            // AWS access key id
-        r"xox[baprs]-[A-Za-z0-9-]{10,}", // Slack bot/app/user/refresh/legacy tokens
-    ]
-    .iter()
-    .filter_map(|p| Regex::new(p).ok())
-    .collect()
-});
-
-/// I-12 / T-09 — Redact secret-like material from captured output before it is
-/// stored, logged, or surfaced to the LLM. Three passes:
-/// 1. **PEM private-key blocks** — `-----BEGIN … PRIVATE KEY-----` … `-----END …`
-///    are dropped wholesale (header, base64 body, and footer).
-/// 2. **Env-var name pass** — a line containing a known credential var name
-///    (`GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, …) has its `KEY=value` / `KEY: value`
-///    value replaced (catches secrets whose value has no recognizable token format).
-/// 3. **Token-format pass (T-09)** — `SECRET_TOKEN_PATTERNS` redact a raw token
-///    value (GitHub/OpenAI/AWS/Slack) anywhere in the remaining text.
-pub fn redact_secrets(s: &str) -> String {
-    let needles: &[&str] = &[
-        "GH_TOKEN",
-        "GITHUB_TOKEN",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SESSION_TOKEN",
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY",
-        "NPM_TOKEN",
-    ];
-    let mut out = String::with_capacity(s.len());
-    let mut in_pem = false;
-    for line in s.lines() {
-        // Pass 1: PEM private-key block — drop BEGIN, base64 body, and END.
-        if line.contains("-----BEGIN") && line.contains("PRIVATE KEY") {
-            in_pem = true;
-            out.push_str("[REDACTED PEM PRIVATE KEY]\n");
-            continue;
-        }
-        if in_pem {
-            if line.contains("-----END") && line.contains("PRIVATE KEY") {
-                in_pem = false;
-            }
-            continue;
-        }
-        // Pass 2: env-var name → redact the value after the first `=`/`:`.
-        let mut redacted: Cow<'_, str> = Cow::Borrowed(line);
-        if needles.iter().any(|n| line.contains(n))
-            && let Some(eq_idx) = line.find(['=', ':'])
-        {
-            redacted = Cow::Owned(format!("{} [REDACTED]", &line[..=eq_idx]));
-        }
-        // Pass 3: token-format patterns anywhere in the (possibly redacted) line.
-        for re in SECRET_TOKEN_PATTERNS.iter() {
-            if re.is_match(&redacted) {
-                redacted = Cow::Owned(re.replace_all(&redacted, "[REDACTED]").into_owned());
-            }
-        }
-        out.push_str(&redacted);
-        out.push('\n');
-    }
-    // Preserve final-newline behaviour: if s ended without \n, drop the one
-    // we appended at the end of the last iteration.
-    if !s.ends_with('\n') && out.ends_with('\n') {
-        out.pop();
-    }
-    out
-}
+/// I-12 / T-09 — secret redaction for captured output. The implementation moved to
+/// [`touring_foundation::text_sanitize`] so crates below the CEG (the memory write
+/// path in `touring-intelligence`) share THE redactor instead of a second copy;
+/// re-exported here so every existing `sandbox_executor::redact_secrets` caller
+/// (and the T-09 regression tests below) keeps resolving.
+pub use touring_foundation::text_sanitize::redact_secrets;
 
 /// Computes the blake3 hex digest of the captured output (64 chars).
 pub fn hash_output(bytes: &[u8]) -> String {
@@ -2953,6 +2954,61 @@ mod tests {
         assert_eq!(
             super::project_root_for_writes(std::path::Path::new("/")),
             None
+        );
+    }
+
+    /// G10ROTA (30.4.97) — `sandbox_can_write` deriva das MESMAS raízes que o Landlock recebe: o
+    /// projeto do `cwd` injetado (existente, a criar, aninhado a criar) escreve; o irmão, o `..`
+    /// que escapa, o `/tmp` compartilhado (o run ganha um tmp privado que some com ele) e o
+    /// `~/.bashrc` não.
+    #[test]
+    fn sandbox_can_write_follows_the_landlock_write_roots() {
+        let base = tempfile::tempdir().expect("tempdir");
+        let projeto = base.path().join("proj");
+        let irmao = base.path().join("irmao");
+        std::fs::create_dir_all(projeto.join(".touring")).expect("mkdir projeto");
+        std::fs::create_dir_all(&irmao).expect("mkdir irmão");
+        std::fs::write(projeto.join("existente.md"), "x").expect("arquivo");
+
+        let pode = |p: &std::path::Path| super::sandbox_can_write(&projeto, p);
+        assert!(pode(&projeto.join("existente.md")), "arquivo existente");
+        assert!(pode(&projeto.join("novo.md")), "arquivo a criar");
+        assert!(pode(&projeto.join("a/b/c/novo.md")), "diretórios a criar");
+        assert!(!pode(&irmao.join("x.md")), "o irmão do projeto");
+        assert!(
+            !pode(&projeto.join("../irmao/x.md")),
+            "`..` que escapa do projeto não vira destino válido"
+        );
+        assert!(
+            pode(&projeto.join("../proj/novo.md")),
+            "`..` que volta ao projeto continua dentro"
+        );
+        assert!(
+            !pode(std::path::Path::new("/tmp/touring-g97-destino.md")),
+            "o /tmp compartilhado não é destino: o run ganha um tmp privado que some com ele"
+        );
+        if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
+            assert!(!pode(&home.join(".bashrc")), "o home não é raiz de escrita");
+            assert!(
+                pode(&home.join(".cache/touring-g97/x")),
+                "o cache de toolchain é"
+            );
+        }
+    }
+
+    /// Um symlink DENTRO do projeto que aponta para fora não é uma porta: o Landlock julga o alvo
+    /// resolvido, e o predicado também.
+    #[test]
+    fn sandbox_can_write_resolves_symlinks_out_of_the_project() {
+        let base = tempfile::tempdir().expect("tempdir");
+        let projeto = base.path().join("proj");
+        let fora = base.path().join("fora");
+        std::fs::create_dir_all(projeto.join(".touring")).expect("mkdir projeto");
+        std::fs::create_dir_all(&fora).expect("mkdir fora");
+        std::os::unix::fs::symlink(&fora, projeto.join("atalho")).expect("symlink");
+        assert!(
+            !super::sandbox_can_write(&projeto, &projeto.join("atalho/x.md")),
+            "o symlink resolve para fora do projeto"
         );
     }
 

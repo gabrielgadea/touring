@@ -72,6 +72,7 @@ members = [
     "crates/touring-intelligence",
     "crates/touring-bindings",
     "crates/touring-lsp",
+    "crates/touring-pyright",
     "crates/touring-hooks-saga",
     "crates/touring-hooks-rl",
     "crates/touring-contracts",
@@ -148,7 +149,7 @@ exclude_re = "(?i)(log|trace|debug|tracing|metric)"
 # through `env!("CARGO_PKG_VERSION")`. Bump it HERE and nowhere else, then
 # propagate with `scripts/propagate-release.sh <versão>`; the GA SemVer rebrand
 # is a Fase 5 decision.
-version = "30.4.95"
+version = "30.4.96"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 rust-version = "1.95"

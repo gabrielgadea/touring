@@ -92,6 +92,12 @@ pub mod session_hooks;
 pub mod stop;
 #[path = "hooks/team_hooks.rs"]
 pub mod team_hooks;
+#[cfg(feature = "pre-hooks")]
+#[path = "hooks/vgp_execucao.rs"]
+pub mod vgp_execucao;
+#[cfg(feature = "pre-hooks")]
+#[path = "hooks/vgp_l2.rs"]
+pub mod vgp_l2;
 
 // Integration tests — post_tool_rl RL feedback loop
 #[cfg(all(test, feature = "post-hooks"))]

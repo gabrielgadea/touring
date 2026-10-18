@@ -57,6 +57,10 @@ fn main() {
     // only diagnostics.
     touring_hooks::panic_log::install_hook();
 
+    // VGP camada 2: o pool pyright fica LIGADO neste processo (o daemon é o dono do pyright —
+    // o hook standalone efêmero NUNCA chama isto e `checar` devolve unknown sem spawnar).
+    touring_pyright::pool::habilitar_neste_processo();
+
     // Sprint 3 PC-1 (REGRA #19): set kernel-visible comm so `ps -o comm`,
     // `pgrep`, and the cli_handlers daemon detector can distinguish this
     // singleton from hook handlers / MCP bridges / CLI clients that share

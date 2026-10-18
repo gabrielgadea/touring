@@ -365,3 +365,81 @@ fn sprint_4_6_no_dispatch_entry_may_call_an_emitting_run() {
         );
     }
 }
+
+// ── C4 (2026-10-17): guards vs advisories ─────────────────────────────────────────
+
+/// Handler sources whose deny is a helper of another hook, not a hook of its own.
+const DENY_HELPER_FILES: &[&str] = &["vgp-execucao"];
+
+/// Production part of a source file: everything before its first `#[cfg(test)]`.
+fn production_part(src: &str) -> &str {
+    src.split("#[cfg(test)]").next().unwrap_or(src)
+}
+
+/// The set of hooks whose handler source can deny is DERIVED from the code, so the
+/// declared [`GUARD_HOOK_NAMES`] cannot drift: a new denying handler that is not declared a
+/// guard would stay fail-open on a degraded stdin — exactly the defect C4 closes.
+#[test]
+fn guard_set_matches_the_handlers_that_can_deny() {
+    let dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../touring-hook-handlers/src/hooks");
+    let mut derived: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read {}: {e}", dir.display())) {
+        let path = entry.expect("dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let src = std::fs::read_to_string(&path).expect("read handler source");
+        let prod = production_part(&src);
+        let can_deny = prod.contains("HookResponse::Deny")
+            || prod.contains("build_deny(")
+            || prod.contains("build_deny_with_context(")
+            || prod.contains("validation_deny(");
+        if !can_deny {
+            continue;
+        }
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .expect("utf8 stem")
+            .replace('_', "-");
+        if DENY_HELPER_FILES.contains(&name.as_str()) {
+            continue;
+        }
+        derived.insert(name);
+    }
+    let declared: std::collections::BTreeSet<String> =
+        GUARD_HOOK_NAMES.iter().map(|s| (*s).to_string()).collect();
+    assert_eq!(
+        derived, declared,
+        "GUARD_HOOK_NAMES must be exactly the hooks whose handler source can deny"
+    );
+}
+
+/// Every guard is a registered hook (a typo would make the guard branch dead code), and the
+/// advisories — the rest of the registry — are not guards.
+#[test]
+fn guards_are_registered_hooks_and_advisories_are_not_guards() {
+    let names = all_daemon_hook_names();
+    for g in GUARD_HOOK_NAMES {
+        assert!(names.contains(g), "guard '{g}' is not a registered hook");
+        assert!(is_guard_hook(g));
+    }
+    for advisory in [
+        "pre-grep",
+        "pre-glob",
+        "cli-suggest",
+        "ceg-observe",
+        "post-bash",
+        "post-edit",
+        "post-write",
+        "post-read",
+        "session-start",
+        "prompt-enhance",
+    ] {
+        assert!(
+            !is_guard_hook(advisory),
+            "'{advisory}' must stay an advisory"
+        );
+    }
+}
