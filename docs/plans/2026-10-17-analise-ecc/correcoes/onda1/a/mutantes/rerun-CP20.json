@@ -1,0 +1,23 @@
+{
+ "summary": {
+  "controles": {
+   "cp": 0
+  },
+  "total": 1,
+  "validos": 1,
+  "mortos": 1,
+  "sobreviventes": [],
+  "invalidos": [],
+  "segundos": 14
+ },
+ "results": [
+  {
+   "id": "CP20",
+   "why": "comentário conta como mudança de régua",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_whole_line_comment_is_not_a_weakening_in_the_text_path_either"
+  }
+ ]
+}

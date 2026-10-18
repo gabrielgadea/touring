@@ -1,0 +1,66 @@
+hw-slot: aguardando — temp 96C > 88C
+selftest: linha de base limpa (0 arquivos com erro)
+    FALHOU atributo: frontend/App.eager.tsx sem TS2339 sobre 'vgpPropAusentec6a09903e73a' (ocorreu: nenhum)
+    FALHOU componente: frontend/App.eager.tsx sem TS2304 sobre 'VgpCompAusenteb4b380e22758' (ocorreu: nenhum)
+    FALHOU import: frontend/App.eager.tsx sem TS2307 sobre '__vgpModAusentec2fdc80935e1' (ocorreu: nenhum)
+    FALHOU kwarg: frontend/App.eager.tsx sem TS2353 sobre 'vgpPropAusentefbdb2e2e5235' (ocorreu: nenhum)
+    FALHOU nome: frontend/App.eager.tsx sem TS2304 sobre 'vgpAusentebcbcbbfc313d' (ocorreu: nenhum)
+    FALHOU prop: frontend/App.eager.tsx sem TS2322 sobre 'vgpPropAusente70162b8dcdda' (ocorreu: nenhum)
+[delta] js: base com 96 arquivo(s) com erro, 97 .js
+    FALHOU delta/atributo: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/import: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/kwarg: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/nome: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+[delta] js: base com 96 arquivo(s) com erro, 97 .js
+    FALHOU delta/import: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/kwarg: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/nome: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+[delta] js: base com 96 arquivo(s) com erro, 97 .js
+    FALHOU delta/atributo: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/kwarg: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/nome: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+[delta] js: base com 96 arquivo(s) com erro, 97 .js
+    FALHOU delta/atributo: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/import: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/nome: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+[delta] js: base com 96 arquivo(s) com erro, 97 .js
+    FALHOU delta/atributo: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/import: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+    FALHOU delta/kwarg: analise/.claude/hooks/governance/metrics-dashboard.js: o mutado nao introduziu diagnostico novo (base: 0)
+  ok   controle positivo: a linha de base do projeto tem 0 erros
+  FALHA ts/tsx: atributo - o tsc acusa o mutado, e o original estava limpo
+  FALHA ts/tsx: componente - o tsc acusa o mutado, e o original estava limpo
+  FALHA ts/tsx: import - o tsc acusa o mutado, e o original estava limpo
+  FALHA ts/tsx: kwarg - o tsc acusa o mutado, e o original estava limpo
+  FALHA ts/tsx: nome - o tsc acusa o mutado, e o original estava limpo
+  FALHA ts/tsx: prop - o tsc acusa o mutado, e o original estava limpo
+  ok   html: recurso - o oraculo acusa o mutado e nao o original
+  ok   html: ancora - o oraculo acusa o mutado e nao o original
+  ok   html: classe_css - o oraculo acusa o mutado e nao o original
+  ok   html: cdn - o oraculo acusa o mutado e nao o original
+  ok   html: cdn_pin - o oraculo acusa o mutado e nao o original
+  FALHA delta/js: atributo - exatamente 1 diagnostico novo, o esperado
+  FALHA delta/js: import - exatamente 1 diagnostico novo, o esperado
+  FALHA delta/js: kwarg - exatamente 1 diagnostico novo, o esperado
+  FALHA delta/js: nome - exatamente 1 diagnostico novo, o esperado
+  ok   delta: controle positivo - o oraculo aceita o diagnostico esperado
+  ok   delta: o oraculo REPROVA codigo errado
+  ok   delta: o oraculo REPROVA linha errada
+  ok   mutante do oraculo delta: o laxo ACEITA codigo errado (reprovado)
+  ok   mutante do oraculo delta: o laxo ACEITA linha errada (reprovado)
+  ok   mutante que desliga atributo: reprovado aqui
+  ok   mutante que desliga componente: reprovado aqui
+  ok   mutante que desliga import: reprovado aqui
+  ok   mutante que desliga kwarg: reprovado aqui
+  ok   mutante que desliga nome: reprovado aqui
+  ok   mutante que desliga prop: reprovado aqui
+  ok   mutante que desliga recurso: reprovado aqui
+  ok   mutante que desliga ancora: reprovado aqui
+  ok   mutante que desliga classe_css: reprovado aqui
+  ok   mutante que desliga cdn: reprovado aqui
+  ok   mutante que desliga cdn_pin: reprovado aqui
+  ok   mutante que desliga atributo: reprovado aqui
+  ok   mutante que desliga import: reprovado aqui
+  ok   mutante que desliga kwarg: reprovado aqui
+  ok   mutante que desliga nome: reprovado aqui
+selftest: 26/36 em 41s - sombra em /home/gabrielgadea/.cache/vgp-semeado/proj-2q1y_jm2/frontend (NAO removida: exclusao recursiva e decisao do humano)

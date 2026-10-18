@@ -26,6 +26,26 @@ plan: /00-INDEX.md
 > (mudar para 1.0.0-rc.1 agora criaria drift com meta.toml/locks já vivos;
 > os `v30.3.4` antigos no CHANGELOG eram convenção de wave, não tags reais).
 
+## 0 · Pré-condição de release para TERCEIROS (decisão D1, 17/10/2026)
+
+Enquanto o GitHub Releases não tiver consumidor (v30.3.0: 0 downloads), o job `verify` do `release.yml`
+**bloqueia** CI que não esteja verde no SHA da tag e só **avisa** tag sem assinatura. Antes do primeiro release
+pensado para outras pessoas instalarem, a assinatura passa a ser obrigatória:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/touring_signing -C "touring tag signing"   # chave só de assinatura
+git config --global gpg.format ssh
+git config --global user.signingkey ~/.ssh/touring_signing.pub
+git config --global tag.gpgSign true
+gh ssh-key add ~/.ssh/touring_signing.pub --type signing --title "touring tag signing"
+git tag -s vX.Y.Z -m "release vX.Y.Z" && git push origin vX.Y.Z
+```
+
+Depois que o `verify` desse primeiro release imprimir `tag signature verified`, troque o `::warning::` do passo
+«tag signature (report-only)» do `.github/workflows/release.yml` por `::error::` + `exit 1`. A máquina não tem
+backup do `/home`: perder a chave obriga a gerar outra e registrá-la (as tags antigas continuam verificadas enquanto
+a chave antiga estiver registrada no GitHub).
+
 ## 1 · Git — commit do programa + tag (REGRA #11: só tu executas)
 
 ```bash

@@ -1,0 +1,8 @@
+selo_antes rc=0
+hibrido rc=0
+5c7b3d80 v2 rc=0 2026-10-18T08:06:18-03:00
+8fd0efb0 v2 rc=1 2026-10-18T08:07:00-03:00
+5c7b3d80 V3 rc=1 timeouts_camada2=86/1217 2026-10-18T08:23:59-03:00
+8fd0efb0 V3 rc=1 timeouts_camada2=76/1217 2026-10-18T08:41:51-03:00
+selo_depois rc=0
+FIM

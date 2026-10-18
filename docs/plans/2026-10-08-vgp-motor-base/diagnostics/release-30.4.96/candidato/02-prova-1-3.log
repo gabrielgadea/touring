@@ -1,0 +1,18 @@
+hw-slot: aguardando — temp 92C > 88C
+
+[1] `touring vgp check --camadas 1,2` — as células da política P4 (raiz: analise)
+  OK    inline · externo inventado → DENY — verdict deny · layer 2 · 529.160873 ms · caminho_inventado_vgp=deny
+  OK    inline · import inventado de módulo do projeto → DENY — verdict deny · layer 2 · 511.898396 ms · gravar_inventado_vgp=deny
+  OK    arquivo · externo inventado → DENY — verdict deny · layer 2 · 501.186322 ms · caminho_inventado_vgp=deny
+  OK    arquivo · símbolo do PROJETO ainda inexistente (RED de TDD) → só AVISA — verdict warn · layer 2 · 534.656295 ms · gravar_inventado_vgp=warn
+  OK    inline · membro de valor builtin (forma) → só AVISA — verdict warn · layer 2 · 546.185366 ms · metodo_inventado_vgp=warn
+  OK    inline · nome sob `import *` (dinâmico) → só AVISA — verdict warn · layer 2 · 544.202076 ms · nome_inventado_vgp=warn
+  OK    inline · programa limpo → ALLOW sem achado — verdict allow · layer 2 · 763.222937 ms · 
+  OK    arquivo · defeito que JÁ estava no disco não é culpa da edição → ALLOW — verdict allow · layer 2 · 608.267602 ms · 
+
+[3] juízes do plano (exit code)
+  OK    V2 — juiz do motor (camada 1) — rc 0 ·   falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 não prova o teto nem com 0 falsos; exige n ≥ 299) · 
+  FALHA V3 — juiz comparativo (camadas 1,2) — rc 1 ·   PENDENTE: p95 1029.1 ms > 1000.0 ms
+
+veredito: 1 FALHA(S)
+PROVA_RC=1

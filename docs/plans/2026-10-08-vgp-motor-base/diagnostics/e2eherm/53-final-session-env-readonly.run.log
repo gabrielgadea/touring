@@ -1,0 +1,13 @@
+
+running 6 tests
+test non_task_non_file_tool_returns_empty_context ... ok
+E2EHERM-RAN enter_plan_mode: control="" seeded="memory: e2eherm-seed-plan-mode"
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+

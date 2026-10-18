@@ -1,0 +1,18 @@
+{
+ "arquivos": 130,
+ "veredito": {
+  "warn": 69,
+  "allow": 61
+ },
+ "arquivos_com_achado": 69,
+ "achados_por_classe": {
+  "import": 68,
+  "nome": 169,
+  "atributo": 16
+ },
+ "achados_por_severidade": {
+  "warn": 253
+ },
+ "motivos_nao_medido": {},
+ "p95_ms": 34.219705000000005
+}

@@ -1,0 +1,2847 @@
+{
+ "ids": {
+  "00103526cb08": {
+   "classe": "",
+   "elapsed_ms": 0.257296,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "00d825f3bb9a": {
+   "classe": "",
+   "elapsed_ms": 0.255488,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0126924ea21a": {
+   "classe": "",
+   "elapsed_ms": 0.26572999999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "018cf76bdbfc": {
+   "classe": "",
+   "elapsed_ms": 0.232201,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0253933d7fdc": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.300765,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_019",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_019` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_019",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "039aea169d92": {
+   "classe": "",
+   "elapsed_ms": 0.251142,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "03c757249c57": {
+   "classe": "",
+   "elapsed_ms": 0.26077300000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "04dc75430e3c": {
+   "classe": "",
+   "elapsed_ms": 0.258084,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0629cd1b2526": {
+   "classe": "atributo",
+   "elapsed_ms": 0.288111,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_019",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "07e1c649eec7": {
+   "classe": "",
+   "elapsed_ms": 0.262791,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "08c667d786b2": {
+   "classe": "",
+   "elapsed_ms": 0.28898599999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0957a0575e20": {
+   "classe": "",
+   "elapsed_ms": 0.24811100000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "09af0cff0919": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.4446,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_000",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_000` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_000",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "09d6d7844a77": {
+   "classe": "",
+   "elapsed_ms": 0.265938,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0c611730d3bf": {
+   "classe": "",
+   "elapsed_ms": 0.307201,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ca86dcd485a": {
+   "classe": "kwarg",
+   "elapsed_ms": 1.305005,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_011",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_011` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_011",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "0cd0c17b085a": {
+   "classe": "nome",
+   "elapsed_ms": 0.28049599999999997,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_003",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_003",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "0e09b75597ca": {
+   "classe": "",
+   "elapsed_ms": 0.423862,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0eb0ece570eb": {
+   "classe": "",
+   "elapsed_ms": 0.253031,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0f4bc2ada4e7": {
+   "classe": "",
+   "elapsed_ms": 0.269503,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "109d583524b6": {
+   "classe": "atributo",
+   "elapsed_ms": 0.30080999999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_000",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "13414fe1a32a": {
+   "classe": "atributo",
+   "elapsed_ms": 0.277522,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_015",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "1400cec9f809": {
+   "classe": "",
+   "elapsed_ms": 0.282081,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "14142daf08d3": {
+   "classe": "nome",
+   "elapsed_ms": 0.300879,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_016",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_016",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "14a0856af8b0": {
+   "classe": "",
+   "elapsed_ms": 0.252229,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1690ceba8acf": {
+   "classe": "",
+   "elapsed_ms": 0.267621,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "16bd725aca4b": {
+   "classe": "",
+   "elapsed_ms": 0.24393700000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "16e9e1af43c7": {
+   "classe": "",
+   "elapsed_ms": 0.276748,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "18146822135a": {
+   "classe": "",
+   "elapsed_ms": 0.26231699999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "18288d954d80": {
+   "classe": "nome",
+   "elapsed_ms": 0.27154700000000004,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_005",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_005",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "18f7204de941": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.317654,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_018",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_018` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_018",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "198752a48018": {
+   "classe": "",
+   "elapsed_ms": 0.27293,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1aa0c383ae31": {
+   "classe": "",
+   "elapsed_ms": 0.38804500000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1ad8fc86bb99": {
+   "classe": "",
+   "elapsed_ms": 0.259695,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1bfb360da0a8": {
+   "classe": "atributo",
+   "elapsed_ms": 0.346702,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_016",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "1c5750185454": {
+   "classe": "",
+   "elapsed_ms": 0.26662399999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1d79a3bc1370": {
+   "classe": "",
+   "elapsed_ms": 0.375024,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1dcd955378ac": {
+   "classe": "",
+   "elapsed_ms": 0.54903,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1def41ebd1fa": {
+   "classe": "",
+   "elapsed_ms": 0.409845,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1ed58104d3f4": {
+   "classe": "kwarg",
+   "elapsed_ms": 1.174563,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_013",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_013` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_013",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "207821059723": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.950613,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_012",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_012` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_012",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "20c9eb113b60": {
+   "classe": "",
+   "elapsed_ms": 0.5425500000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "240abaedb4b3": {
+   "classe": "import",
+   "elapsed_ms": 0.335043,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_005",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "26680775edef": {
+   "classe": "",
+   "elapsed_ms": 0.282655,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "27666cf85b9b": {
+   "classe": "",
+   "elapsed_ms": 0.35403,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "278c3b03e3bf": {
+   "classe": "",
+   "elapsed_ms": 0.322571,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2879b4d335b4": {
+   "classe": "",
+   "elapsed_ms": 0.270093,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "294fc32aa6da": {
+   "classe": "",
+   "elapsed_ms": 0.335231,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "29b6e425dcb6": {
+   "classe": "",
+   "elapsed_ms": 0.362249,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2c60039e9721": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.438981,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_005",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_005` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_005",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "2d33b089d6f5": {
+   "classe": "nome",
+   "elapsed_ms": 0.27426300000000003,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_014",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_014",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "2d87825f8c82": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.44263199999999997,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_002",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_002` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_002",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "2f1018d02f01": {
+   "classe": "",
+   "elapsed_ms": 0.24264,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2f95f25b8276": {
+   "classe": "",
+   "elapsed_ms": 0.28625900000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3016de02b435": {
+   "classe": "atributo",
+   "elapsed_ms": 0.278359,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_009",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "302adef29d1b": {
+   "classe": "",
+   "elapsed_ms": 0.254809,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3345e23bebe3": {
+   "classe": "",
+   "elapsed_ms": 0.267233,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "350b54a20cbb": {
+   "classe": "nome",
+   "elapsed_ms": 0.37958600000000003,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_006",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_006",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "368cc153b968": {
+   "classe": "",
+   "elapsed_ms": 0.273484,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "381f75004e10": {
+   "classe": "",
+   "elapsed_ms": 0.27250100000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "394685f193d9": {
+   "classe": "import",
+   "elapsed_ms": 0.281,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_006",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "399790b78a85": {
+   "classe": "",
+   "elapsed_ms": 0.25718799999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3a2af3975cf0": {
+   "classe": "import",
+   "elapsed_ms": 0.417816,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_012",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "3c1407ac98f6": {
+   "classe": "",
+   "elapsed_ms": 0.368251,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3f4a6197d9af": {
+   "classe": "nome",
+   "elapsed_ms": 0.280694,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_009",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_009",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "3f63118f229c": {
+   "classe": "import",
+   "elapsed_ms": 0.29151900000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_009",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "40c4bda1f50c": {
+   "classe": "",
+   "elapsed_ms": 0.334099,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "41189fdf45ee": {
+   "classe": "",
+   "elapsed_ms": 0.264698,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4222dc8a8e13": {
+   "classe": "nome",
+   "elapsed_ms": 0.543629,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_001",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_001",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "42a5d849fc13": {
+   "classe": "",
+   "elapsed_ms": 0.30015800000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "43dee1a2fc0d": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.341351,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_006",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_006` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_006",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "43f9b2b131c1": {
+   "classe": "",
+   "elapsed_ms": 0.330878,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4403ad1224c5": {
+   "classe": "",
+   "elapsed_ms": 0.285156,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "45e7bd05e315": {
+   "classe": "",
+   "elapsed_ms": 0.255346,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4698882535b2": {
+   "classe": "atributo",
+   "elapsed_ms": 0.38249999999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_003",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "4739bc2f4f23": {
+   "classe": "",
+   "elapsed_ms": 0.287954,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4995a85a5b2e": {
+   "classe": "import",
+   "elapsed_ms": 0.290392,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_010",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "49dcba0730c8": {
+   "classe": "",
+   "elapsed_ms": 0.244384,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4b2c13e4ac4a": {
+   "classe": "",
+   "elapsed_ms": 0.246105,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4c9477bca471": {
+   "classe": "",
+   "elapsed_ms": 0.293657,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4cc5eb056890": {
+   "classe": "",
+   "elapsed_ms": 0.261714,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4de57e2ca944": {
+   "classe": "",
+   "elapsed_ms": 0.31272500000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5100faf8415a": {
+   "classe": "import",
+   "elapsed_ms": 0.28975300000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_017",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "513bd4b35af4": {
+   "classe": "",
+   "elapsed_ms": 0.33087099999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5309419d0375": {
+   "classe": "",
+   "elapsed_ms": 0.8400099999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "53767fe9c5f2": {
+   "classe": "",
+   "elapsed_ms": 0.36527899999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "55403b99bce0": {
+   "classe": "import",
+   "elapsed_ms": 0.289962,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_018",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "554873a1d8df": {
+   "classe": "",
+   "elapsed_ms": 0.268376,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "562cbc846c46": {
+   "classe": "",
+   "elapsed_ms": 0.293328,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "579ed7c656a5": {
+   "classe": "",
+   "elapsed_ms": 0.27625099999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "57ebc88e7df1": {
+   "classe": "",
+   "elapsed_ms": 0.28040200000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "59acd2f1eac4": {
+   "classe": "",
+   "elapsed_ms": 0.24442700000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "59afa0e09bf6": {
+   "classe": "",
+   "elapsed_ms": 0.331694,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "59d037dc2ab9": {
+   "classe": "",
+   "elapsed_ms": 0.27050799999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "59e43f04381e": {
+   "classe": "",
+   "elapsed_ms": 0.387401,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5a9bf3368253": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.322876,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_003",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_003` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_003",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "5c6f6fbcac4f": {
+   "classe": "",
+   "elapsed_ms": 0.25582699999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5db16eaec6da": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.37234300000000004,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_010",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_010` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_010",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "5decddf1f0e5": {
+   "classe": "",
+   "elapsed_ms": 0.319969,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5e3de1ae2f1a": {
+   "classe": "",
+   "elapsed_ms": 0.24793500000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5f2be8f66641": {
+   "classe": "nome",
+   "elapsed_ms": 0.27168400000000004,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_011",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_011",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "5fdb2495cf53": {
+   "classe": "",
+   "elapsed_ms": 0.262602,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "616a13567f52": {
+   "classe": "import",
+   "elapsed_ms": 0.28054399999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_014",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "61bb9214a2ef": {
+   "classe": "import",
+   "elapsed_ms": 0.291628,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_002",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "61de16eedb1d": {
+   "classe": "atributo",
+   "elapsed_ms": 0.436133,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_017",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "62186880efe8": {
+   "classe": "",
+   "elapsed_ms": 0.375431,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "64cfab95528b": {
+   "classe": "atributo",
+   "elapsed_ms": 0.28509199999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_004",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "66670a612858": {
+   "classe": "",
+   "elapsed_ms": 0.24355700000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "667a2cc91f7d": {
+   "classe": "",
+   "elapsed_ms": 0.282701,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6694a1ad984a": {
+   "classe": "",
+   "elapsed_ms": 0.323123,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "66e1ddafbf98": {
+   "classe": "",
+   "elapsed_ms": 0.266069,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "67f850194abb": {
+   "classe": "",
+   "elapsed_ms": 0.269139,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "68fb0109a4fd": {
+   "classe": "",
+   "elapsed_ms": 0.283059,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "69e86fb8f79a": {
+   "classe": "",
+   "elapsed_ms": 0.229412,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6b8d79fcf17b": {
+   "classe": "",
+   "elapsed_ms": 0.34861099999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6baa57b599a4": {
+   "classe": "",
+   "elapsed_ms": 0.25549999999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6bf39ac9a14f": {
+   "classe": "",
+   "elapsed_ms": 0.335072,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6c25c2496584": {
+   "classe": "",
+   "elapsed_ms": 0.372186,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6c7f324d93ef": {
+   "classe": "nome",
+   "elapsed_ms": 0.368244,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_008",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_008",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "6ce488bedaef": {
+   "classe": "",
+   "elapsed_ms": 0.28719500000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6e84e8b4e3ed": {
+   "classe": "",
+   "elapsed_ms": 0.259746,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "71014281658b": {
+   "classe": "",
+   "elapsed_ms": 0.36444,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "739fb1eb7dda": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.46534099999999995,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_001",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_001` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_001",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "7417bdd03121": {
+   "classe": "",
+   "elapsed_ms": 0.6443720000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "79012114a688": {
+   "classe": "",
+   "elapsed_ms": 0.27178,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7b243cab36ff": {
+   "classe": "",
+   "elapsed_ms": 0.27991499999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7b714a95ceb7": {
+   "classe": "",
+   "elapsed_ms": 0.21358,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ba3f544a4df": {
+   "classe": "nome",
+   "elapsed_ms": 0.37174,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_017",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_017",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "7be69c6ece12": {
+   "classe": "",
+   "elapsed_ms": 0.265445,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7c192d6ee700": {
+   "classe": "",
+   "elapsed_ms": 0.571962,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7cb2d7b536d1": {
+   "classe": "",
+   "elapsed_ms": 0.285963,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7dcf9cfafe87": {
+   "classe": "",
+   "elapsed_ms": 0.222903,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "815381771dfd": {
+   "classe": "atributo",
+   "elapsed_ms": 0.341151,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_013",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "816f7fa3ca75": {
+   "classe": "nome",
+   "elapsed_ms": 0.28695899999999996,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_000",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_000",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "821266bedff6": {
+   "classe": "atributo",
+   "elapsed_ms": 0.30910699999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_008",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "82668ba3c474": {
+   "classe": "",
+   "elapsed_ms": 0.27386499999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "849959881ccf": {
+   "classe": "",
+   "elapsed_ms": 0.25115899999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8706b0ceb8b7": {
+   "classe": "nome",
+   "elapsed_ms": 0.349241,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_015",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_015",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "8a19eeec10cb": {
+   "classe": "",
+   "elapsed_ms": 0.407892,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8a9725f996d5": {
+   "classe": "",
+   "elapsed_ms": 0.22310400000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8ab92cefbc0a": {
+   "classe": "",
+   "elapsed_ms": 0.38100900000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8b1f5f738899": {
+   "classe": "import",
+   "elapsed_ms": 0.28579499999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_004",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "8b4f938a52a7": {
+   "classe": "",
+   "elapsed_ms": 0.24777399999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8bbdc0d57fe5": {
+   "classe": "import",
+   "elapsed_ms": 0.273449,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_007",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "8cdc627e07d0": {
+   "classe": "",
+   "elapsed_ms": 0.25471,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8d45f76a977c": {
+   "classe": "",
+   "elapsed_ms": 0.200888,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8d887fcb7adb": {
+   "classe": "",
+   "elapsed_ms": 0.358873,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8e4c477df414": {
+   "classe": "",
+   "elapsed_ms": 0.285304,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8eec88f76461": {
+   "classe": "",
+   "elapsed_ms": 0.309997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8fccd8633a76": {
+   "classe": "",
+   "elapsed_ms": 0.255882,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9010a49218a8": {
+   "classe": "atributo",
+   "elapsed_ms": 0.379702,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_014",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "90b03528a5c1": {
+   "classe": "",
+   "elapsed_ms": 0.270764,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90dde6ee55ac": {
+   "classe": "",
+   "elapsed_ms": 0.382925,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90e1b17eede2": {
+   "classe": "",
+   "elapsed_ms": 0.275443,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "91568b8a6f29": {
+   "classe": "",
+   "elapsed_ms": 0.256232,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "930c7173fa91": {
+   "classe": "",
+   "elapsed_ms": 0.236216,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9514809ac61c": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.8956609999999999,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_014",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_014` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_014",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "97feb0993fbc": {
+   "classe": "",
+   "elapsed_ms": 0.362255,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "996a816e16a3": {
+   "classe": "",
+   "elapsed_ms": 0.38099299999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9a0bff9a12ca": {
+   "classe": "",
+   "elapsed_ms": 0.271225,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b76ce122fbc": {
+   "classe": "",
+   "elapsed_ms": 0.241658,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9c904e02fdae": {
+   "classe": "",
+   "elapsed_ms": 0.255364,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9d85148e5459": {
+   "classe": "",
+   "elapsed_ms": 0.270861,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9f07fd0d00f4": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.429495,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_016",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_016` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_016",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "9ffbe9b56ee0": {
+   "classe": "",
+   "elapsed_ms": 0.44604900000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a04020721a9d": {
+   "classe": "atributo",
+   "elapsed_ms": 0.414672,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_011",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "a0c5e82b3636": {
+   "classe": "",
+   "elapsed_ms": 0.243737,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a1db569b7a22": {
+   "classe": "",
+   "elapsed_ms": 0.247493,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a250f00081b9": {
+   "classe": "",
+   "elapsed_ms": 0.266924,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a41893b260f9": {
+   "classe": "",
+   "elapsed_ms": 0.665804,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a4df8fba8ead": {
+   "classe": "",
+   "elapsed_ms": 0.386052,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a57886cd56bc": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.422252,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_004",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_004` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_004",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "a723a88be25c": {
+   "classe": "",
+   "elapsed_ms": 0.251982,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a7ec3d94f939": {
+   "classe": "",
+   "elapsed_ms": 0.25141600000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a847d59db62e": {
+   "classe": "",
+   "elapsed_ms": 0.24582299999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a986b618a2d9": {
+   "classe": "",
+   "elapsed_ms": 1.882225,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "aa2b04ff949c": {
+   "classe": "",
+   "elapsed_ms": 0.28186500000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ab1a153a0663": {
+   "classe": "",
+   "elapsed_ms": 0.334532,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ab2278bf4e3a": {
+   "classe": "import",
+   "elapsed_ms": 0.298251,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_000",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "ac8e2e582d39": {
+   "classe": "",
+   "elapsed_ms": 0.5978370000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ad3d3151377d": {
+   "classe": "",
+   "elapsed_ms": 0.259067,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "af1283994c26": {
+   "classe": "",
+   "elapsed_ms": 0.329312,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "af5ffc513a5a": {
+   "classe": "",
+   "elapsed_ms": 0.34576799999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "afe050ffad41": {
+   "classe": "",
+   "elapsed_ms": 0.26096600000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "aff028d6e920": {
+   "classe": "",
+   "elapsed_ms": 0.26362599999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "aff05a30e007": {
+   "classe": "nome",
+   "elapsed_ms": 0.263513,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_012",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_012",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "b01913f9ab17": {
+   "classe": "",
+   "elapsed_ms": 0.251199,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b0606673915b": {
+   "classe": "import",
+   "elapsed_ms": 0.276557,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_008",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "b07d67c6d133": {
+   "classe": "",
+   "elapsed_ms": 0.254094,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b146fad217fd": {
+   "classe": "atributo",
+   "elapsed_ms": 0.286684,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_010",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "b47077d52ea7": {
+   "classe": "",
+   "elapsed_ms": 0.257194,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b7898ecbe969": {
+   "classe": "",
+   "elapsed_ms": 0.258971,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b81f57f19ef4": {
+   "classe": "",
+   "elapsed_ms": 0.26575699999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b853500d6eac": {
+   "classe": "",
+   "elapsed_ms": 0.488265,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b8aee947c6f3": {
+   "classe": "import",
+   "elapsed_ms": 0.30686,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_019",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "b957b6d10a7e": {
+   "classe": "import",
+   "elapsed_ms": 0.283094,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_001",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "b9639a59b0d8": {
+   "classe": "",
+   "elapsed_ms": 0.336384,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b9d39aa14b6b": {
+   "classe": "",
+   "elapsed_ms": 0.29906000000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bac0d86772d4": {
+   "classe": "atributo",
+   "elapsed_ms": 0.39058400000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_018",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "baeb95eb80b2": {
+   "classe": "",
+   "elapsed_ms": 0.266021,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bb323064a9d2": {
+   "classe": "import",
+   "elapsed_ms": 0.29112499999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_003",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "bb556d68b2e1": {
+   "classe": "",
+   "elapsed_ms": 0.34349,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bdf5bec3b846": {
+   "classe": "import",
+   "elapsed_ms": 0.274151,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_016",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "be05fdbeb7be": {
+   "classe": "",
+   "elapsed_ms": 0.260837,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "be5fda5cdc31": {
+   "classe": "",
+   "elapsed_ms": 0.269383,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bedd3146cfa7": {
+   "classe": "",
+   "elapsed_ms": 0.253127,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "beef85fa34d9": {
+   "classe": "",
+   "elapsed_ms": 0.35153799999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bf95c806c718": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.30936800000000003,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_017",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_017` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_017",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "bfdbf92a4618": {
+   "classe": "",
+   "elapsed_ms": 0.36704499999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bff8c39d231f": {
+   "classe": "",
+   "elapsed_ms": 0.26018800000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c0d003330218": {
+   "classe": "",
+   "elapsed_ms": 0.256073,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c1e48eb22635": {
+   "classe": "",
+   "elapsed_ms": 0.251263,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c2803b7a4f84": {
+   "classe": "",
+   "elapsed_ms": 0.241597,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c29cdf3ede96": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.318008,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_008",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_008` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_008",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "c2d24866ef3f": {
+   "classe": "",
+   "elapsed_ms": 0.306381,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c3bc318b45c7": {
+   "classe": "",
+   "elapsed_ms": 0.21759599999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c430a21e094a": {
+   "classe": "",
+   "elapsed_ms": 0.265285,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c4416d1462b6": {
+   "classe": "",
+   "elapsed_ms": 0.317907,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c6685de58dac": {
+   "classe": "",
+   "elapsed_ms": 0.21919,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c8c2da404bf6": {
+   "classe": "",
+   "elapsed_ms": 0.355457,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ccf14310e57a": {
+   "classe": "",
+   "elapsed_ms": 0.296642,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ced2bdafd4c1": {
+   "classe": "import",
+   "elapsed_ms": 0.419106,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_011",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "cedf840e9cda": {
+   "classe": "",
+   "elapsed_ms": 0.24671099999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d17b55bdf72b": {
+   "classe": "",
+   "elapsed_ms": 0.246774,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d1db1d483d77": {
+   "classe": "",
+   "elapsed_ms": 0.30942,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d34f24dc785f": {
+   "classe": "",
+   "elapsed_ms": 0.359348,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d381bfcc862d": {
+   "classe": "nome",
+   "elapsed_ms": 0.927485,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_002",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_002",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "d69e54c945a4": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.473943,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_015",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_015` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_015",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "d7ecbfa9a37e": {
+   "classe": "",
+   "elapsed_ms": 0.265859,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d8804c5ab174": {
+   "classe": "",
+   "elapsed_ms": 0.23651799999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d92087883dd4": {
+   "classe": "",
+   "elapsed_ms": 0.397901,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d957706ff6aa": {
+   "classe": "nome",
+   "elapsed_ms": 0.267924,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_013",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_013",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "daa504b005d8": {
+   "classe": "",
+   "elapsed_ms": 0.254439,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "db2e5c676b62": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.301593,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_009",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_009` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_009",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "db4058e66424": {
+   "classe": "",
+   "elapsed_ms": 0.25141399999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "db635135fa45": {
+   "classe": "atributo",
+   "elapsed_ms": 0.27068600000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_007",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "de2c5c3d16c2": {
+   "classe": "",
+   "elapsed_ms": 0.256641,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "df9ca8efdea3": {
+   "classe": "",
+   "elapsed_ms": 0.246485,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e053ea55094c": {
+   "classe": "",
+   "elapsed_ms": 0.26339799999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e0d5466dc49e": {
+   "classe": "",
+   "elapsed_ms": 0.27309900000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e13239ff4a5f": {
+   "classe": "atributo",
+   "elapsed_ms": 0.277764,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_002",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e1d38aad5c4a": {
+   "classe": "",
+   "elapsed_ms": 0.340843,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e21228e28358": {
+   "classe": "atributo",
+   "elapsed_ms": 0.267973,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_005",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e21fc544ddfa": {
+   "classe": "",
+   "elapsed_ms": 0.391612,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e23a6d859860": {
+   "classe": "nome",
+   "elapsed_ms": 0.27280000000000004,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_018",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_018",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "e37bf028bee0": {
+   "classe": "",
+   "elapsed_ms": 0.24713600000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e4739e25252f": {
+   "classe": "",
+   "elapsed_ms": 0.269283,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e59673e8e494": {
+   "classe": "atributo",
+   "elapsed_ms": 0.29035900000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_006",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e59def695f1c": {
+   "classe": "import",
+   "elapsed_ms": 0.309072,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_015",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e61c3e245895": {
+   "classe": "",
+   "elapsed_ms": 0.246312,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e685860b2c03": {
+   "classe": "",
+   "elapsed_ms": 0.273357,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e74968c57e03": {
+   "classe": "",
+   "elapsed_ms": 0.344692,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e75d55c98fb9": {
+   "classe": "atributo",
+   "elapsed_ms": 0.36757,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_001",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e75f90aee313": {
+   "classe": "nome",
+   "elapsed_ms": 0.396801,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_007",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_007",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "e77adb7bb4f9": {
+   "classe": "",
+   "elapsed_ms": 0.764144,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e85a8d1fa110": {
+   "classe": "",
+   "elapsed_ms": 0.26186200000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e877903a7596": {
+   "classe": "",
+   "elapsed_ms": 0.349281,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "eb6f8008b3a3": {
+   "classe": "",
+   "elapsed_ms": 0.378205,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ec459251ed8f": {
+   "classe": "",
+   "elapsed_ms": 0.387088,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "edb9a3a88569": {
+   "classe": "import",
+   "elapsed_ms": 0.33269400000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_import_ausente_013",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "ee0226b18732": {
+   "classe": "nome",
+   "elapsed_ms": 0.26195199999999996,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_019",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_019",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "ee3073b7e0ac": {
+   "classe": "atributo",
+   "elapsed_ms": 0.43041,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "vgp_atributo_ausente_012",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "ee8824d5f7d0": {
+   "classe": "",
+   "elapsed_ms": 0.280748,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ef880575be70": {
+   "classe": "",
+   "elapsed_ms": 0.268953,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "efbc350dffa8": {
+   "classe": "",
+   "elapsed_ms": 0.279956,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f12472f54323": {
+   "classe": "",
+   "elapsed_ms": 0.223709,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f14158b76a89": {
+   "classe": "",
+   "elapsed_ms": 0.388168,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f1ca950000c8": {
+   "classe": "nome",
+   "elapsed_ms": 0.294242,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_010",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_010",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "f1dc04a2e88d": {
+   "classe": "",
+   "elapsed_ms": 0.28080299999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f3775c1c5e32": {
+   "classe": "nome",
+   "elapsed_ms": 0.29097500000000004,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 16,
+     "nome": "vgp_nome_ausente_004",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_nome_ausente_004",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "f3a40fa43584": {
+   "classe": "kwarg",
+   "elapsed_ms": 0.314469,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 16,
+     "nome": "vgp_kwarg_ausente_007",
+     "severidade": "warn",
+     "sugestao": "o literal não tem campo `vgp_kwarg_ausente_007` no tipo alvo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "vgp_kwarg_ausente_007",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "f420e22ae27d": {
+   "classe": "",
+   "elapsed_ms": 0.345453,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f5128a73df9f": {
+   "classe": "",
+   "elapsed_ms": 0.257819,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f7cb6e62f997": {
+   "classe": "",
+   "elapsed_ms": 0.29703900000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f8476e4d5a4d": {
+   "classe": "",
+   "elapsed_ms": 0.284451,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fbecc6c603b5": {
+   "classe": "",
+   "elapsed_ms": 0.28089400000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fd41873ee031": {
+   "classe": "",
+   "elapsed_ms": 0.25944100000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fe5334ad4666": {
+   "classe": "",
+   "elapsed_ms": 0.266509,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fe85b3a64a84": {
+   "classe": "",
+   "elapsed_ms": 0.277952,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fe86620d4330": {
+   "classe": "",
+   "elapsed_ms": 0.25801300000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "",
+   "rotulo": "negativo",
+   "verdict": "allow"
+  }
+ },
+ "juiz_sha16": "6c8a31b02075da1e",
+ "n": 280,
+ "touring": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V15/touring"
+}

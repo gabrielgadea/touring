@@ -1,0 +1,167 @@
+# B.W1.P1.T1 — Release pipeline (Master Plan "Premium de Elite de Mercado", Track B)
+# Builds the 3-product binary bundle (touring + touring-daemon + touring-hook) for
+# Linux x86_64 (musl, static) and macOS aarch64, strips, packages, checksums, and
+# attaches to the GitHub Release on tag push (v*).
+#
+# Ground truth (cargo metadata 2026-06-11):
+#   touring        -> -p touring-server
+#   touring-daemon -> -p touring-hooks
+#   touring-hook   -> -p touring-hooks
+#
+# NOTE: authored ahead of first public release; the macOS leg is best-effort
+# (landlock enforcement is Linux-only and cfg-gated in touring-ceg). First CI
+# run may surface target-specific dep issues — fail-fast is disabled so the
+# Linux artifact still ships.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write # CICD-07: cosign keyless (sigstore OIDC)
+  attestations: write # CICD-07: SLSA build-provenance attestation
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      # W14 matrix expansion (registered 2026-07-24): musl needs a C++ cross
+      # toolchain (tokenizers→esaxx-rs via the default semantic-embeddings
+      # chain) and darwin needs target-gating of the Linux-only eBPF/netlink
+      # defaults. Until then the release ships the target the product actually
+      # runs and is fully tested on.
+      matrix:
+        include:
+          # ubuntu-24.04: the workspace .cargo/config.toml links -lpython3.12
+          # into every x86_64-linux-gnu artifact (pyo3 test baseline, W0) —
+          # 24.04 ships python3.12; 22.04 does not. W14: move that flag out of
+          # the committed config so plain builds stop requiring libpython.
+          - os: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            archive: touring-x86_64-unknown-linux-gnu.tar.gz
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl tools (Linux)
+        if: contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
+
+      - name: Install system deps (linux-gnu)
+        if: contains(matrix.target, 'linux-gnu')
+        # libpython3.12-dev: workspace rustflags link -lpython3.12 (pyo3 baseline).
+        # capnproto: touring-bindings build.rs shells out to `capnp` (bind-capnp).
+        run: sudo apt-get update && sudo apt-get install -y libpython3.12-dev capnproto
+
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binaries
+        run: |
+          cargo build --release --target ${{ matrix.target }} \
+            -p touring-server -p touring-hooks --bins
+
+      - name: Strip + package + checksum
+        run: |
+          set -euo pipefail
+          OUT="target/${{ matrix.target }}/release"
+          STAGE="$(mktemp -d)"
+          # Toolchain layout (Pln2 F5): binaries under bin/ so the archive
+          # extracts 1:1 into ~/.touring/toolchains/<version>/ — the shape
+          # `touring toolchain install` and install.touring.dev.sh expect.
+          mkdir -p "${STAGE}/bin"
+          for bin in touring touring-daemon touring-hook; do
+            cp "${OUT}/${bin}" "${STAGE}/bin/"
+            strip "${STAGE}/bin/${bin}" || true
+          done
+          tar -C "${STAGE}" -czf "${{ matrix.archive }}" bin
+          shasum -a 256 "${{ matrix.archive }}" > "${{ matrix.archive }}.sha256"
+
+      # CICD-07: CycloneDX SBOM for the release archive (supply-chain transparency).
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0
+        with:
+          file: ${{ matrix.archive }}
+          format: cyclonedx-json
+          output-file: ${{ matrix.archive }}.sbom.cdx.json
+
+      - name: Smoke test (native arch only)
+        if: contains(matrix.target, 'linux')
+        run: |
+          set -euo pipefail
+          SMOKE="$(mktemp -d)"
+          tar -C "${SMOKE}" -xzf "${{ matrix.archive }}"
+          "${SMOKE}/bin/touring" --help >/dev/null
+          echo "smoke OK"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.archive }}
+          path: |
+            ${{ matrix.archive }}
+            ${{ matrix.archive }}.sha256
+            ${{ matrix.archive }}.sbom.cdx.json
+          if-no-files-found: error
+
+  release:
+    name: attach to GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-22.04
+    # CICD-07: id-token (cosign keyless OIDC) + attestations (SLSA provenance).
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          merge-multiple: true
+
+      # CICD-07: keyless signing of every archive via cosign + sigstore (OIDC, no
+      # long-lived keys) → emits `<archive>.sig` (signature) + `<archive>.pem` (cert).
+      - uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac # v3
+      - name: Sign archives (cosign keyless)
+        run: |
+          set -euo pipefail
+          for f in touring-*.tar.gz; do
+            cosign sign-blob --yes \
+              --output-signature "${f}.sig" \
+              --output-certificate "${f}.pem" \
+              "${f}"
+          done
+
+      # CICD-07: SLSA build-provenance attestation (GitHub-native, SLSA L3).
+      # Gated on repo visibility, NOT continue-on-error (security review
+      # 2026-07-25: an unconditional continue-on-error is fail-open — it would
+      # swallow real attestation failures too). Private user-owned repos cannot
+      # persist attestations (GitHub limitation); the step SKIPS visibly there
+      # and enforces fail-closed the moment the repo goes public.
+      - name: Attest build provenance
+        if: ${{ !github.event.repository.private }}
+        uses: actions/attest-build-provenance@ef244123eb79f2f7a7e75d99086184180e6d0018 # v1
+        with:
+          subject-path: "touring-*.tar.gz"
+
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          files: |
+            touring-*.tar.gz
+            touring-*.tar.gz.sha256
+            touring-*.tar.gz.sbom.cdx.json
+            touring-*.tar.gz.sig
+            touring-*.tar.gz.pem
+          generate_release_notes: true

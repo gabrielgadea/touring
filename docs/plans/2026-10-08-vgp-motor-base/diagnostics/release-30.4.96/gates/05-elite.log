@@ -1,0 +1,21 @@
+# gate=05-elite
+# cmd=scripts/hw-slot -- python3 docs/elite_aggregate.py --check
+# inicio_utc=2026-10-09T23:13:45Z
+# disco_livre_gb=392
+hw-slot: aguardando — temp 96C > 88C
+elite_aggregate: composite=0.8169 tier=Gold
+  02_architecture                score=1.00 status=PASS     kind=block
+  03_security_advisories         score=1.00 status=N/A      kind=block
+  05_testing                     score=0.96 status=MEASURED kind=block
+  06_documentation               score=0.00 status=FAIL     kind=block
+  08_ci_cd_devops                score=1.00 status=PASS     kind=block
+  09_modularization              score=0.85 status=MEASURED kind=block
+  10_scalability                 score=1.00 status=PASS     kind=warn
+  11_extensibility               score=0.50 status=WARN     kind=warn
+  14_craftsmanship               score=0.50 status=WARN     kind=warn
+  15_dependencies_advisories     score=1.00 status=MEASURED kind=block
+  16_ux                          score=1.00 status=PASS     kind=warn
+  17_product_docs                score=1.00 status=PASS     kind=block
+  04_performance                 score=0.50 status=ADVISORY kind=advisory
+# rc=1
+# fim_utc=2026-10-09T23:22:15Z

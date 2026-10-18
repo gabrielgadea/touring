@@ -1,0 +1,232 @@
+{
+  "lote": "H6-touring-nao-verificados",
+  "lidos": [
+    "scripts/hooks/session-start.js (constantes :38-45)",
+    "scripts/lib/instinct-relevance.js (:20-40, :100-125)",
+    "agents/silent-failure-hunter.md (inteiro, 47 linhas de corpo)",
+    "agents/type-design-analyzer.md (inteiro)",
+    "skills/codehealth-mcp/SKILL.md (:1-40)",
+    "scripts/loop-status.js (:1-60, :440-527)",
+    "ecc2/src/notifications.rs (:1-70, :140-175, índice de funções e testes)",
+    "docs/architecture/cross-harness.md (:50-58, :83-108, :164-170)",
+    "docs/MIGRATION-1X-TO-2.0.md (:34-44)",
+    "scripts/lib/memory-vault.js (linhas de segredo/symlink/unreviewed, :300-330)",
+    "tests/lib/memory-vault.test.js (:415-446)",
+    "commitlint.config.js (inteiro)",
+    ".coderabbit.yaml (inteiro)",
+    "greptile.json (:1-30)",
+    "SECURITY.md (:14-39 lido; :59-96 só as linhas casadas por grep)",
+    ".github/CODEOWNERS"
+  ],
+  "classificados": [
+    {"caminho": "CODE_OF_CONDUCT.md", "motivo": "só existência e tamanho (128 linhas); o texto de um código de conduta não muda o veredito de governança"},
+    {"caminho": "CONTRIBUTING.md", "motivo": "só tamanho (552 linhas); a linha G5:16 pergunta pela existência de revisor e de commitlint, que estão nos arquivos de configuração lidos"},
+    {"caminho": "greptile.json (:30-67)", "motivo": "o restante é layout de seções do comentário; a configuração relevante (strictness, statusCheck, ignorePatterns) está nas linhas lidas"}
+  ],
+  "linhas": [
+    {
+      "dominio": "memoria",
+      "funcionalidade": "Injeção de lições no início da sessão com piso de confiança, teto de quantidade e reforço de relevância",
+      "ecc": {
+        "como": "SessionStart injeta instintos com confiança >= 0,7, no máximo 6 (DEFAULT_INSTINCT_CONFIDENCE_THRESHOLD, DEFAULT_MAX_INJECTED_INSTINCTS); o ranking soma +0,25 para escopo de projeto e +0,2 para stack casada por token inteiro, deliberadamente não configurável por env.",
+        "evidencia": "scripts/hooks/session-start.js:38-39; scripts/lib/instinct-relevance.js:27-28,104-116"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "No SessionStart o Touring não injeta lição nenhuma: o modo SLIM é o default (TOURING_SESSIONSTART_SLIM só desliga com 0/false/no/off), e _fmt_path_slim só usa DAG pronto, órfãos e próximas ações. Medido em recall_journal.jsonl (01/10 a 17/10): 266 SessionStarts, 8.967 candidatos recuperados, 0 injetados. A KPI decision.recall_curated_share devolve status 'measured' com curated_share 0.0 sobre esses mesmos números. As lições entram em outro ponto, por arquivo: no pre-edit, no máximo 3 gotchas (MAX_GOTCHAS_IN_WARNING = 3), só as com hit_count >= 2 (MIN_GOTCHA_HITS = 2), ordenadas por rank_gotchas_by_relevance(file_path); e a promoção working->semantic exige confiança >= 0,8, 5 amostras e recompensa média >= 0,7. Piso e teto existem; o reforço por stack não, e o reforço por escopo é a relevância ao arquivo editado.",
+        "evidencia": "python3 -I script sobre ~/.claude/touring/logs/recall_journal.jsonl (266 linhas, injected=0 em todas); client/hooks/session_startup_intelligence.py:78-84 (slim default), :223-256 (collect_path dispara 4 memory recall mesmo em slim), :338-348 (_fmt_path_slim), :806; crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs:35,38,320; crates/touring-hook-runtime/src/hook_memory.rs:34-38; crates/touring-cortex/src/enrichment.rs:300; `touring kpi -j` -> decision.recall_curated_share = {candidates_total:8967, injected_total:0, curated_share:0.0, recalls:266}; `touring index find rank_gotchas_by_relevance` found crates/touring-hook-runtime/src/shared/signals.rs:341 (10 refs)"
+      },
+      "veredito": "equivalente",
+      "acao": "corrigir",
+      "aprofunda": "B:B6",
+      "nota": "Muda a linha B6: o piso/teto/relevância do ECC têm equivalente no Touring, mas por arquivo no pre-edit, não no SessionStart (escolha deliberada do slim, -83,6% de bytes). O que NÃO tem equivalente é a medição de que o ECC carece e o Touring tem: o defeito está no Touring. Em slim, collect_path ainda paga 4 `touring memory recall` (cada um com teto de 2 s) cujo resultado é descartado, e a KPI recall_curated_share vira um número que mede a configuração, não a curadoria. Corrigir: ou collect_path pula os memory_* quando slim, ou a KPI declara 'not_applicable' quando o modo é slim. Não copiar o boost por stack: o Touring já ranqueia pelo arquivo e a evidência de ganho do boost do ECC é uma frase no comentário do código (instinct-relevance.js:20-26), sem medição."
+    },
+    {
+      "dominio": "inteligencia-codigo",
+      "funcionalidade": "Revisão de falha silenciosa (catch vazio, fallback que esconde erro, Result descartado) e de design de tipos",
+      "ecc": {
+        "como": "silent-failure-hunter é um prompt de 5 alvos (catch vazio, log insuficiente, fallback perigoso como .catch(() => []), propagação de erro, falta de tratamento) com formato de saída; type-design-analyzer é um prompt de 4 critérios (encapsulamento, expressão de invariante, utilidade, enforcement). Ambos sonnet, sem script determinístico nem teste.",
+        "evidencia": "agents/silent-failure-hunter.md:3,19-47; agents/type-design-analyzer.md:3,19-45"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Detectores determinísticos existem e foram exercitados com um corpus de controle de 15 padrões (7 Rust, 5 Python, 3 TS). Rust: `ast quality` acusou só `let _ =` (ignored_result, Warning); `.ok();` descartado, `unwrap_or_default()`/`unwrap_or(0)` sobre Result, `if let Err(_) = … {}` e `Err(_) => {}` passaram sem aviso, e F1.6 deu 0,850 Gold ao arquivo. Python: bare_except e broad_except acusados; F1.6 contou `except Tipo: pass` (expect=2) e bare (panic=1) e reprovou com 0,000 e 1 blocker; `except ValueError: return 0` e handler que só imprime passaram. TypeScript: 0 achados nos 3 padrões (catch {} vazio, .catch(() => []), catch(e){return null}) — os detectores TS/JS são any_type, ts_ignore, ts_nocheck, non_null_assertion, eval, with, var, ==, console. clippy: [workspace.lints.clippy] tem all=deny e uma lista, sem let_underscore_must_use, unused_result_ok nem map_err_ignore. Escala em código Rust de produção (contagem grosseira, para na primeira #[cfg(test)]): 705 `let _ =`, 137 `.ok();`, 1.026 `unwrap_or_default()`, 2 `Err(_) => {}` em 1.531 arquivos / 420.492 linhas. Design de tipos: F1.9 (analyze_api_design), F1.10 (analyze_data_model: stringly-typed, type-erasure, bool-flag) e F1.11 (analyze_design_patterns) existem como analisadores e deram 1,000 ao controle.",
+        "evidencia": "`touring ast quality <ctl>.rs|.py|.ts -j` e `touring-quality score <ctl> --dims F1.6` e `--dims F1.9,F1.10,F1.4,F1.11` sobre /tmp/…/scratchpad/h6_silent/{rust_ctl.rs,py_ctl.py,ts_ctl.ts}; crates/touring-code/src/ast/quality.rs:461-470 (ignored_result), :477-495 (bare/broad except), :559-640 (detect_typescript/js, sem catch vazio); crates/touring-analysis/src/quality/unwrap_audit.rs:95-190 (count_prod_hazards, Python `except T: pass`); Cargo.toml:646-704 (lints); /tmp/…/scratchpad/h6_count.py"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "G1:19",
+      "nota": "Corrige G1:19: 'ecc_melhor / nao_verificado' era errado nos dois lados. O ECC é um prompt sem medição; o Touring tem detector determinístico e mede, mas o cobre de forma desigual: Python bom, Rust só `let _ =`, TypeScript nada — justamente o catch vazio e o .catch(() => []) que o ECC lista. Adaptar = estender detect_rust_style (`.ok();` como statement, `unwrap_or*` sobre Result, `Err(_) => {}`) e detect_typescript/detect_js_shared (catch vazio, .catch(() => literal)) com os mesmos testes de controle positivo/negativo, e acrescentar a F1.6 o que hoje só conta unwrap/expect/panic (a F1.6 recompensa um arquivo cheio de falha silenciosa). Não criar agent: um agent de prompt é pior que o detector que já roda no hook. type-design: nada a adotar, F1.9-F1.11 cobrem."
+    },
+    {
+      "dominio": "inteligencia-codigo",
+      "funcionalidade": "Score de saúde estrutural do código e verificação de regressão depois de cada mudança",
+      "ecc": {
+        "como": "codehealth-mcp é um bloco-modelo opt-in em mcp-configs/mcp-servers.json para o serviço externo CodeScene (@codescene/codehealth-mcp via npx): exige CS_ACCESS_TOKEN do usuário, não vem habilitado, e sem o MCP a instrução é 'não invente scores'. Não há código de score no ECC.",
+        "evidencia": "skills/codehealth-mcp/SKILL.md:1-40"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "`touring ast tdg` devolve nota e componentes locais (quality.rs: composite 0,749, grade C, com complexity/coverage/churn/entropy/duplication/antipatterns); `touring-quality` pontua 50 dimensões; e há um livro-razão de delta: `touring health-delta history` tem 18.113 eventos (19/09 a 17/10), dos 10.000 devolvidos 4.513 neutros, 4.343 regressões e 1.144 melhorias, com 297 valores distintos de new_health; `status` mostra contadores de sequência de regressão (alert_threshold 3). É o 'verificar delta depois da mudança' do CodeScene, local e sem token.",
+        "evidencia": "`touring ast tdg crates/touring-code/src/ast/quality.rs -j`; `touring health-delta status` e `touring health-delta history -j --limit 20000` (agregado por script em scratchpad/h6_hd.json); `touring-quality list` (50 dimensões)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G1:20",
+      "nota": "Corrige G1:20 de 'equivalente / a confirmar' para touring_melhor: o lado Touring foi executado e o ECC não tem implementação, só um ponteiro para serviço pago com token. Ressalva honesta: o `ast quality` que alimenta o score de `ast meta` em cache-miss tem os defeitos listados em achados_touring (conta token em comentário/teste; arquivo ausente vale 1,0). Para o delta de health-delta não verifiquei de onde sai o valor."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Detecção de sessão travada: tool call pendente e ScheduleWakeup vencido, lidos do transcript",
+      "ecc": {
+        "como": "loop-status.js percorre os JSONL do transcript, pareia tool_use com tool_result, e emite pending_bash_tool_result quando um Bash fica sem resultado >= 1800 s (age null nunca dispara), schedule_wakeup_overdue (delay x 2 sem progresso do assistente depois do vencimento) e transcript_parse_errors; --exit-code, --watch, --write-dir.",
+        "evidencia": "scripts/loop-status.js:16-36,452-526"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Não existe detector. Busca por script em scripts/, client/hooks/, crates/ e ~/.claude/{tools,hooks,skills/Touring/scripts,skills/loop-engineering} por arquivos com tool_use_id + tool_result + palavra de pendência achou 2 (context_budget.rs e transcript_miner.rs), nenhum é detector de travamento. sessoes_irmas.py lê ~/.claude/sessions/<pid>.json (name, status, cwd) e para aí. Experimento: apliquei a regra do ECC (tool_use sem tool_result, idade do último evento) às 4 sessões vivas. O registro de sessões diz analise-00 'busy' há 266,5 min, mas o transcript tem último evento há 0,4 min: só o registro daria alarme falso, o transcript não. Pareamento ingênuo achou 3-4 tool_use sem resultado por sessão, todos sem timestamp (idade null, que a regra do ECC ignora). Hoje nenhuma das 4 está travada.",
+        "evidencia": "python3 -I scratchpad/h6_stall.py (2 arquivos, nenhum detector); `python3 -I ~/.claude/tools/sessoes_irmas.py --all --text`; leitura de ~/.claude/sessions/*.json (campos status e statusUpdatedAt) e de ~/.claude/projects/*/<sessionId>.jsonl; stop hook = loop_stop_guard.py (settings.json, evento Stop) trata convergência, não travamento"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G2:3",
+      "nota": "Confirma G2:3 com evidência. Adaptar como um script `touring run` sobre ~/.claude/projects/*/<id>.jsonl que usa a idade do último evento e o pareamento só com timestamp (o registro de sessões sozinho engana, como analise-00 mostrou), com saída agregada e exit code. Valor real para as sessões irmãs Kimi/MiniMax lançadas por notify_when_idle: hoje 'a irmã não respondeu' é indistinguível de 'está pensando'."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Notificação externa de evento da sessão com horário de silêncio",
+      "ecc": {
+        "como": "ecc2 notifica por desktop (notify-send no Linux, osascript no macOS) e por webhook Slack/Discord, para 5 eventos (início, conclusão, falha, alerta de orçamento, pedido de aprovação), cada um com flag; QuietHoursConfig com janela que cruza meia-noite; payload Discord desabilita menções; ~6 testes cobrem quiet hours, flags, sanitização de URL e payloads.",
+        "evidencia": "ecc2/src/notifications.rs:10-15,20-28,56-59,152-163; testes :445-640"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "O hook Notification (matcher idle_prompt|permission_prompt, async, timeout 3) chama `touring-hook notification`, que cai no ramo genérico de eventos de ciclo de vida: grava record_access('__notification__') e, se há mensagem, um BashOutcome com command 'notification:<msg>', exit_code 0, success true, ambos com `let _ =`. Não entrega nada a ninguém: nem desktop, nem webhook, nem horário de silêncio. Dispara de fato: 398 notification, 147 stop-failure e 111 permission-request em 14 dias no hook_trace. A única entrega ao usuário vem do Claude Code (settings.json: agentPushNotifEnabled true), não do Touring; notify-send existe na máquina e nenhum hook ou ferramenta do Touring o chama.",
+        "evidencia": "~/.claude/settings.json hooks.Notification / StopFailure / PermissionRequest (script scratchpad/h6_notif.py); crates/touring-hooks/src/main.rs:290-312 e :605-650 (run_lifecycle_event); crates/touring-cortex/src/handlers/lifecycle.rs:1281-1334 (NotificationHandler, grava mesma coisa); contagem por hook em ~/.claude/touring/hook_trace.jsonl (14 dias, scratchpad/h6_dup.py); varredura de ~/.claude/{hooks,tools} e client/hooks por notify-send|ntfy|webhook|osascript sem chamada"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G2:8",
+      "nota": "Corrige G2:8: o hook 'notification' do Touring é só telemetria, não notificação. O ECC é melhor no mecanismo, mas o caso de uso do Gabriel (aviso de sessão parada ou de franquia) já tem canal nativo ligado (agentPushNotifEnabled); não verifiquei na doc oficial a semântica desse campo. Só valeria um hook StopFailure rate_limit -> notify-send, de ~15 linhas, e decisão do Gabriel. Webhook Slack/Discord: ignorar (superfície de saída de dados sem demanda). O defeito registrado em achados_touring é a gravação de eventos que não são comandos como Bash bem-sucedido."
+    },
+    {
+      "dominio": "multi-harness",
+      "funcionalidade": "Matriz declarada do que cada harness (ou backend) executa de verdade e do que se perde na adaptação",
+      "ecc": {
+        "como": "Declara por harness: Claude Code tem execução nativa de hook; Codex só por instrução (AGENTS.md); OpenCode por adaptador de plugin; Cursor com superfícies traduzidas; Gemini 'superfície de compatibilidade, não paridade de hook'. 'Paridade exata de hook' consta como 'still maturing'. harness-adapter-compliance.js verifica os adaptadores.",
+        "evidencia": "docs/architecture/cross-harness.md:50-58,164-170; scripts/lib/harness-adapter-compliance.js"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O Touring tem um harness (Claude Code), mas o eixo análogo existe: o backend. As sessões irmãs Kimi/MiniMax são Claude Code com ANTHROPIC_BASE_URL trocado, então herdam CLAUDE.md, hooks, skills e permissões. Executado: `sessoes_irmas.py --all --text` lista 2 minimax e 2 anthropic ao vivo. As exceções por backend estão em código, com UM predicado (backend_provider.provider_of) usado por agent_model_gate, delegation_nudge e rate_limits_snapshot, e o teste test_provider_predicate_matches_sessoes_irmas reprova se divergir do helper. O binário kimi-code é outro harness e a doc diz que não herda nada. Falta uma tabela hook x backend: quem a quiser tem de ler 3 hooks.",
+        "evidencia": "`python3 -I ~/.claude/tools/sessoes_irmas.py --all --text`; client/hooks/backend_provider.py:1-40; client/hooks/agent_model_gate.py:98,213-217; client/hooks/delegation_nudge.py:59,86-91; client/hooks/rate_limits_snapshot.py:42,142; client/hooks/tests/test_agent_model_gate.py:760; docs/economia-de-creditos-e-contexto.md:58-69,194-209"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": "G3:7",
+      "nota": "Corrige G3:7: 'sem matriz porque só existe um harness' ignora a irmã por backend, que o Touring trata melhor que a matriz do ECC (um predicado, um teste de igualdade, três consumidores). A matriz por harness é dispensável enquanto houver um harness; se um dia houver o kimi-code como executor, a tabela hook x backend entra no §3.1 da doc de economia (10 linhas). Não é trabalho agora."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Canal privado e prazos para relatar vulnerabilidade",
+      "ecc": {
+        "como": "SECURITY.md dá o link de advisory privado do GitHub (security/advisories/new), um e-mail funcional (e avisa que o alias security@ não é monitorado) e prazos: reconhecimento em 48 h, avaliação em 7 dias, correção/mitigação crítica em 14 dias, divulgação coordenada.",
+        "evidencia": "SECURITY.md:14-39"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Existem SECURITY.md (50 linhas), CODE_OF_CONDUCT.md (133), CONTRIBUTING.md (57), SUPPORT.md, CODEOWNERS, dependabot.yml, pull_request_template.md e 3 issue templates. Mas SECURITY.md:11 manda relatar 'ao mantenedor (veja SUPPORT.md)' e SUPPORT.md:28 manda quem tem problema de segurança seguir SECURITY.md: a referência é circular, e nenhum dos dois traz e-mail ou link. Consulta de leitura ao GitHub: o repositório é público, private-vulnerability-reporting.enabled = false, secret_scanning, push protection e dependabot_security_updates = disabled. Não há prazo declarado ('uma janela razoável').",
+        "evidencia": "ls SECURITY.md CODE_OF_CONDUCT.md CONTRIBUTING.md SUPPORT.md .github/CODEOWNERS .github/dependabot.yml; grep -n 'secur|mail|@' SUPPORT.md (só a linha 28); SECURITY.md:9-18; `gh api repos/gabrielgadea/touring/private-vulnerability-reporting` -> {\"enabled\":false}; `gh api repos/gabrielgadea/touring --jq security_and_analysis` -> todos disabled"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "corrigir",
+      "aprofunda": "G5:16",
+      "nota": "A lacuna que G5:16 chamou 'de forma, não de conteúdo' é de conteúdo: hoje um pesquisador que ache uma fuga do sandbox do CEG não tem como avisar em privado. Correção de 3 passos, todos do Gabriel: ligar o private vulnerability reporting no GitHub, pôr o link e um e-mail em SECURITY.md (e tirar a circularidade do SUPPORT.md), e declarar prazos. Ligar secret scanning e push protection pelo mesmo caminho (repositório público, custo zero); a memória do repo registra chave por rotacionar. O comentário do CODEOWNERS (\"placeholder… repo não publicado\") está desatualizado: o repo é público e o handle bate com o dono do remote."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Verificação automática de mensagem de commit e revisor automático de PR",
+      "ecc": {
+        "como": "commitlint.config.js estende config-conventional com type-enum de 11 tipos, subject-case e header-max-length 100; .coderabbit.yaml (perfil assertive, instruções por caminho para workflows, scripts, skills/agents/rules) e greptile.json (strictness 2, statusCheck) configuram dois revisores externos. Medido no clone: a palavra 'commitlint' aparece só no próprio config, no hook config-protection.js e no teste dele (que PROTEGEM o arquivo de edição), e em nenhum package.json, workflow ou husky: o commitlint do ECC não roda. CodeRabbit e Greptile são aplicativos de GitHub; o arquivo só configura, a instalação não é verificável.",
+        "evidencia": "commitlint.config.js; .coderabbit.yaml:1-36; greptile.json:1-30; grep -rIl commitlint no clone -> 3 arquivos (config, scripts/hooks/config-protection.js, tests/hooks/config-protection.test.js)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Sem commitlint, sem hook commit-msg, sem CodeRabbit/Greptile. O CI tem jobs check, test, coverage, gates, supply-chain (cargo-deny), integration, fuzz e msrv, e o release-plz.toml usa protect_breaking_commits, o que pressupõe Conventional Commits. Medido nos últimos 500 commits sem merge: 401 (80,2%) seguem tipo(escopo): assunto; os 99 restantes são sobretudo 'release: …' (26), 'hooks: …' (13), 'quality'/'touring-quality' (12) e 'wiring' (5); 153 (30,6%) têm assunto > 100 caracteres, o teto do ECC.",
+        "evidencia": "ls commitlint.config.* .commitlintrc* .coderabbit.yaml greptile.json .githooks .husky (todos ausentes); .github/workflows/ci.yml (jobs: check test coverage gates supply-chain integration fuzz msrv); release-plz.toml:34-35; `git log --no-merges -n 500 --format=%s` classificado por regex em Python"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": "G5:16",
+      "nota": "Os dois lados declaram e nenhum aplica; o do Touring ao menos tem CI que roda. Um commitlint só faria sentido se release-plz for de fato o caminho de versão — as versões 30.4.x saem por propagate-release.sh com commits 'release …', fora do padrão por construção. Revisor automático SaaS: ignorar, a revisão independente do Touring é o cross-audit e o juiz por código. Se o Gabriel quiser o piso, 1 job de CI de ~10 linhas valida o tipo contra a lista do ECC sem dependência nova."
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Execução duplicada de hook por pilha global mais projeto",
+      "ecc": {
+        "como": "A migração 1.x -> 2.0 avisa para usar um só caminho de instalação: empilhar o plugin com o instalador manual cria skills duplicadas e execuções duplicadas de hook; indica reset/uninstall se já empilhou.",
+        "evidencia": "docs/MIGRATION-1X-TO-2.0.md:38-40"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Por configuração: o settings.json global tem 152 handlers em 27 eventos; o do projeto tem 5 (3 PreToolUse prompt/haiku e 2 PostToolUse agent, todos com `if` em lib.rs/mod.rs/main.rs); sobreposição exata de comando global x projeto = 0. O client/claude/hooks.settings.json NÃO é uma segunda pilha: é a fonte da seção hooks do global (152 handlers = 152, comuns 152, só-global 0, só-client 0; `install_claude_hooks.py --check` -> OK: no drift). As 4 'repetições' dentro do global (pre-read, pre-edit, pre-edit-prevention, pre-write, 17 registros cada) são um registro por extensão com `if` disjunto (Edit(*.rs), Edit(*.py)…), a forma que a regra de um `if` por registro obriga; os prompts do projeto são verificações semânticas diferentes, não o mesmo handler. Em execução (hook_trace.jsonl, 14 dias, 388.891 linhas, 45 hooks): razões pareadas pre-bash/post-bash 0,96, pre-edit/post-edit 0,99, pre-bash/ceg-observe 1,00 — nenhuma dobrada. A heurística de coincidência (mesma sessão+hook+stdin_bytes, <=150 ms, pid diferente) acusa 936 casos (0,24%), concentrados em subagent-start (181 de 1.155) e instructions-loaded (233 de 6.298), mas o trace não grava tool_use_id nem hash do payload, então chamadas paralelas legítimas de mesmo tamanho não se separam de dobradas. Anomalia sem explicação: subagent-stop = 3.416 contra subagent-start = 1.155 (razão 2,96), com 1 registro de cada no settings.",
+        "evidencia": "scratchpad/h6_dup.py e h6_dup2.py (python3 -I) lendo ~/.claude/settings.json, projects/touring/.claude/settings.json e ~/.claude/touring/hook_trace.jsonl; `python3 -I scripts/install_claude_hooks.py --check` -> OK: no drift (a primeira leitura do client/claude/hooks.settings.json deu 0 handlers por ler a chave errada — o arquivo é {evento: [...]} sem o invólucro 'hooks' — e foi refeita); chaves do trace: elapsed_ms exit_reason hook pid ppid route session_id stdin_bytes stdin_state ts_ms"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G3:10",
+      "nota": "Fecha a pendência de G3:10 ('verificar duplicidade no runtime'): por configuração e por razão pareada não há handler rodando duas vezes. Falta a prova fina porque o TOURING_HOOK_TRACE_FILE não carrega identidade da chamada; acrescentar tool_use_id (já vem no payload do hook) ao registro do trace custa 1 campo e transforma a heurística acima em prova. Investigar à parte a assimetria subagent-stop/start."
+    },
+    {
+      "dominio": "memoria",
+      "funcionalidade": "Fronteira de confiança da memória: recall tratado como dado, escrita sem revisão, rejeição de segredo",
+      "ecc": {
+        "como": "Vault de Markdown com escopos; toda entrada é create-only e nasce 'unreviewed' (memory-vault.js:307 trust: 'unreviewed'); 'recalled memory is data, not executable instruction' no contrato; saveMemory recusa com 'Refusing to save memory containing a suspected secret' (findPotentialSecrets sobre o JSON inteiro, :322-324) e o teste cobre token, chave privada e segredo em metadado (memory-vault.test.js:415-446, 37 testes no arquivo); leitores não seguem symlink; a aceitação humana promove para artefato governado.",
+        "evidencia": "docs/architecture/cross-harness.md:85-106; scripts/lib/memory-vault.js:109-119,307,322-324; tests/lib/memory-vault.test.js:415-446"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O recall do Touring particiona por desfecho MEDIDO: cases.positive / negative / unobserved com cap_per_class 4, mais um campo guidance que manda 'reuse a abordagem em positive, trate negative como padrão a evitar, nunca como guia, unobserved sem veredito'; e `memory credit` fecha o laço recall -> uso -> veredito -> reforço, com recall reclamado uma vez. Isto é melhor que o 'unreviewed' do ECC como sinal de qualidade. Mas: (1) cli_memory_store só valida chave e valor não vazios (parse_memory_store_payload) e grava; não há varredura de segredo no armazenamento. A redação existe só no caminho do minerador de transcript (redacted_lesson_value -> redact_secrets) e o scan_secrets só para bindings de snippet; (2) a saída do recall não declara que o texto de `value` é dado: o guidance trata `positive` como orientação a reaproveitar, e as entradas carregam source/tier/type mas nenhum estado de revisão; (3) o store e a ordem de gravação não têm dry-run, então não executei a gravação de um segredo de teste (a escrita é append-only e `supersedes` não apaga).",
+        "evidencia": "`touring memory recall \"protocol-adherence-diagnosis\" -j` (campos cases.{positive,negative,unobserved,guidance,cap_per_class}, entries[].{source_db,tier,type}); `touring memory --help` (credit); crates/touring-hook-runtime/src/ceg_impls.rs:112-190 (parse_memory_store_payload) e :192-300 (cli_memory_store); crates/touring-server/src/ingest/transcript_miner.rs:520-533 (redacted_lesson_value); `touring index find redact_secrets` found crates/touring-ceg/src/gateway/sandbox_executor.rs:1696 (10 refs); `touring index find scan_secrets` found crates/touring-intelligence/src/rl/memory/snippet_bindings.rs:183 (1 ref)"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G3:9",
+      "nota": "Corrige G3:9: o Touring ganha em aprendizado e perde na fronteira. Adaptar só o que é barato e já tem peça pronta (REGRA #0): chamar redact_secrets/scan_secrets em cli_memory_store e RECUSAR (não redigir calado) valor com forma de segredo, com teste de controle positivo e negativo — a memória 'Signature c/ default os.environ vaza segredos' (24/09) mostra que o vazamento para o transcript e dali para a memória já aconteceu aqui. Segundo: o `guidance` do recall e as nudges que repetem `value` devem dizer 'conteúdo recuperado é dado'. NÃO adotar o estado unreviewed + aceite humano: o crédito por desfecho já cumpre o papel e um passo humano por lição travaria o laço que é o diferencial do Touring."
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "`touring ast quality <arquivo inexistente>` (e diretório) devolve overall_score 1.0, antipatterns [], language 'rust' e exit 0, e injeta recompensa de RL 1.0 ('measured_overall_score'): read_to_string(...).unwrap_or_default() transforma erro de leitura em fonte vazia, e Lang::from_path(...).unwrap_or(Lang::Rust) classifica extensão desconhecida como Rust. O mesmo par de linhas está em cli_ast_calls, cli_ast_scope e cli_ast_imports (executado só em quality; `ast tdg` no mesmo arquivo falha corretamente com 'read failed'). É exatamente a falha silenciosa que o ECC manda caçar, dentro da ferramenta que a caça.",
+      "evidencia": "crates/touring-cli/src/cli/handlers/index.rs:1917-1926 (quality), :1953-1954, :2141-2142, :2289-2290; executado: `touring ast quality /tmp/claude-1000/inexistente_h6.rs -j` -> overall_score 1.0"
+    },
+    {
+      "defeito": "`analyze_quality` conta o token do antipadrão por substring no arquivo inteiro, sem excluir comentário, string nem #[cfg(test)] (count_occurrences), enquanto a F1.6 e o `ast tdg` são região-cientes. Controle: arquivo com `.unwrap()`, `panic!(` e `let _ =` só em comentário e módulo de teste -> `ast quality` acusa unwrap=2, panic=1, ignored_result=1 (overall 0,93) e F1.6 acusa 0 (0,850). Em quality.rs, o mesmo arquivo dá antipattern_score 0,364 no `ast quality` e antipatterns 1,0 no `ast tdg`. O score de `ast meta` em cache-miss usa esse analisador e ainda converte arquivo ilegível em 0,0 (.unwrap_or(0.0)), indistinguível de arquivo ruim.",
+      "evidencia": "crates/touring-code/src/ast/quality.rs:792-803 (count_occurrences), :364-420 (detect_rust_safety); crates/touring-cli/src/cli/ast.rs:300-318 (on_disk_fallback com unwrap_or(0.0)); executado: scratchpad/h6_silent/test_only_unwrap.rs e `touring ast quality`/`touring ast tdg crates/touring-code/src/ast/quality.rs -j`"
+    },
+    {
+      "defeito": "Os eventos de ciclo de vida do hook (notification, stop-failure, session-end, subagent-start, post-compact, config-change, instructions-loaded, worktree-*, setup, elicitation*, cwd-changed, file-changed, post-tool-failure) passam por um único ramo que grava, quando há mensagem, um BashOutcome com command '<evento>:<texto>', exit_code 0 e success true, ignorando o Result com `let _ =`. Eventos que não são comandos entram no histórico de bash como sucessos. Lido no código; não confirmado em dados porque bash_outcomes do knowledge.db global tem 0 linhas e não localizei o banco por projeto.",
+      "evidencia": "crates/touring-hooks/src/main.rs:290-312 e :605-650 (run_lifecycle_event, record_bash_outcome em :633); crates/touring-cortex/src/handlers/lifecycle.rs:1281-1334"
+    },
+    {
+      "defeito": "Instrumento que mede a configuração: com o SLIM como default, o SessionStart nunca injeta lição (0 de 8.967 candidatos em 266 sessões), mas decision.recall_curated_share sai com status 'measured' e curated_share 0.0, e collect_path continua pagando 4 `memory recall` por sessão (1.064 chamadas no período) que o formatador slim descarta.",
+      "evidencia": "client/hooks/session_startup_intelligence.py:78-84,223-256,338-348,806; crates/touring-cli/src/cli/kpi/decision.rs:355-358; `touring kpi -j` -> decision.recall_curated_share; ~/.claude/touring/logs/recall_journal.jsonl"
+    },
+    {
+      "defeito": "`touring memory store` não varre segredo: parse_memory_store_payload só exige chave e valor não vazios. Só o minerador de transcript redige (redact_secrets). Qualquer chamada direta, de hook ou de agente grava um token ou chave no memory.db, que depois volta pelo recall e pelas nudges.",
+      "evidencia": "crates/touring-hook-runtime/src/ceg_impls.rs:112-190,192-300; crates/touring-server/src/ingest/transcript_miner.rs:520-533 (a única redação)"
+    },
+    {
+      "defeito": "O repositório público não tem canal privado para relatar vulnerabilidade: SECURITY.md aponta para SUPPORT.md e SUPPORT.md aponta de volta para SECURITY.md, sem e-mail nem link; private-vulnerability-reporting, secret scanning, push protection e dependabot_security_updates estão desabilitados no GitHub (consulta de leitura). O comentário do CODEOWNERS ainda diz 'repo não publicado… placeholder'.",
+      "evidencia": "SECURITY.md:9-18; SUPPORT.md:28; .github/CODEOWNERS:1-5; `gh api repos/gabrielgadea/touring/private-vulnerability-reporting` -> enabled:false; `gh api repos/gabrielgadea/touring --jq .security_and_analysis`"
+    },
+    {
+      "defeito": "O hook_trace.jsonl (202 MB, 904.218 linhas) não grava tool_use_id nem hash do payload, só stdin_bytes: execução duplicada de hook não se distingue de chamadas paralelas de mesmo tamanho (936 coincidências em 14 dias, 0,24%). E subagent-stop dispara 2,96 vezes mais que subagent-start com 1 registro de cada no settings, sem explicação.",
+      "evidencia": "chaves de ~/.claude/touring/hook_trace.jsonl (elapsed_ms exit_reason hook pid ppid route session_id stdin_bytes stdin_state ts_ms); scratchpad/h6_dup.py e h6_dup2.py"
+    },
+    {
+      "defeito": "A F1.6 (tratamento de erro) mede só o ruído alto (unwrap/expect/panic) e recompensa result_ratio: um arquivo Rust com 7 padrões de falha silenciosa (let _ =, .ok();, unwrap_or*, braços Err vazios) recebe 0,850 Gold, e um arquivo TypeScript com catch vazio e .catch(() => []) também recebe 0,850.",
+      "evidencia": "crates/touring-quality/src/verifications/f1_6_error_handling.rs:55-80; `touring-quality score scratchpad/h6_silent/{rust_ctl.rs,ts_ctl.ts} --dims F1.6`"
+    }
+  ]
+}

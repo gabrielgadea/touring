@@ -33,6 +33,22 @@ do ledger foi reclassificada (a)→(c), lote "2026-10-09-release-30.4.94" → 39
 6ª reconciliação (09/10, fim da tarde, release agrupado da V0e5): C1 +1 — as 11 citações
 datadas da release anterior (3 arquivos do bundle da VGP) entraram como (c), linha 124
 do ledger, lote "2026-10-09-release-30.4.95" → 392→393.
+7ª reconciliação (09/10, noite, motor VGP camada 1 + wiring da camada 2): C1 +1 e C4 +1 —
+"30.4.96" (release futura citada no RETOMAR-AQUI do bundle VGP, 2 ocorrências) e "vgp"
+(comando novo: existe no fonte e no help do binário novo; o GT é o binário INSTALADO, que
+só o terá no deploy 30.4.96) entraram como (c), lote "2026-10-09-vgp-motor" → 393→395.
+8ª reconciliação (09/10, noite, coordenação VGP touring-09): C1 +1 e C5 +1 — "30.4.97"
+(release futura planejada no RETOMAR-AQUI do bundle VGP) e "touring-wt-semeado" (diretório de
+worktree lido como crate pelo predicado C5) entraram como (c), linhas 126-127 do ledger (127-128
+antes da remoção da órfã na 9ª reconciliação), lote
+"2026-10-09-vgp-motor-noite" → 395→397.
+9ª reconciliação (10/10, bump 30.4.96 = release do motor VGP camada 1 + wiring da camada 2):
+C1 saldo 0 — "30.4.96" virou corrente e saiu do scan (a linha 126 do ledger, órfã por
+construção, foi removida) e "30.4.95" entrou como release ANTERIOR (c); C6 +4 — as variáveis
+TOURING_VGP_L2_{OFF,WARMUP_S,RA_BUILD,MAX_RA} da camada 2 genérica, citadas no relatório datado
+RELATORIO-VL0-camada2-generica.md, cujo código vive só na worktree touring-wt-l2 (pool.rs,
+rust_analyzer.rs) e ainda não está nesta árvore — (c), stale por construção até a integração;
+lote "2026-10-10-release-30.4.96" → 397→401.
 É o C1 "por construção" (pergunta 1 da Kimi a Gabriel, drift-reconciliacao/RELATORIO.md):
 todo release mexe neste literal.
 Ledger completo:
@@ -79,9 +95,9 @@ NUMERIC_CATEGORIES = ["C1", "C3", "C4", "C5", "C6"]
 FILES_ONLY_CATEGORIES = ["C2", "C7"]
 ALL_CATEGORIES = NUMERIC_CATEGORIES + FILES_ONLY_CATEGORIES
 
-# Totais reconciliados 09/10/2026, 6ª reconciliação (ver docstring do módulo).
-EXPECTED_TOTAL = 393
-EXPECTED_BY_CAT = {"C1": 84, "C3": 11, "C4": 106, "C5": 166, "C6": 26}
+# Totais reconciliados 10/10/2026, 9ª reconciliação (ver docstring do módulo).
+EXPECTED_TOTAL = 401
+EXPECTED_BY_CAT = {"C1": 86, "C3": 11, "C4": 107, "C5": 167, "C6": 30}
 
 _scan_check_cache: tuple[int, str, str] | None = None
 _scan_full_cache: tuple[int, dict] | None = None
@@ -171,7 +187,7 @@ def test_scan_check_exits_one(errors: list) -> None:
 
 
 def test_scan_check_total_reconciled(errors: list) -> None:
-    """Scan --check reporta EXATAMENTE 393 stale signals (C1+C3+C4+C5+C6).
+    """Scan --check reporta EXATAMENTE 401 stale signals (C1+C3+C4+C5+C6).
 
     REQUIREMENT: a métrica reconciliada em 08/10/2026 é literal (era 561 até a
     reconciliação — ver ledger em docs/plans/2026-10-08-drift-reconciliacao/).
@@ -187,7 +203,7 @@ def test_scan_check_total_reconciled(errors: list) -> None:
 
 
 def test_scan_categories_breakdown(errors: list) -> None:
-    """Decomposição C1+C3+C4+C5+C6 = 84+11+106+166+26 = 393 (6ª reconciliação, 09/10, release agrupado V0e5)."""
+    """Decomposição C1+C3+C4+C5+C6 = 86+11+107+167+30 = 401 (9ª reconciliação, 10/10, bump 30.4.96)."""
     code, data = run_scan_full()
     if code != 0:
         errors.append(f"FAIL scan_categories_breakdown: scan default exit {code}")
@@ -243,7 +259,7 @@ def test_guard_covers_only_c3(errors: list) -> None:
 def test_files_only_categories_not_in_check(errors: list) -> None:
     """C2 (paths) e C7 (hooks) NÃO contam em --check (são files-only)."""
     _, _, stderr = run_scan_check()
-    # O stderr do check: "CHECK: 393 stale signals (C1=84, C3=11, C4=106, C5=166, C6=26)"
+    # O stderr do check: "CHECK: 401 stale signals (C1=86, C3=11, C4=107, C5=167, C6=30)"
     # Não menciona C2 nem C7.
     has_c2 = "C2=" in stderr
     has_c7 = "C7=" in stderr

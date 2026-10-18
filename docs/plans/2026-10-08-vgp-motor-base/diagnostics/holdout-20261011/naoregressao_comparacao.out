@@ -1,0 +1,16 @@
+campos_novos_so_no_novo: True
+ids_comparados_orig: 762
+ids_comparados_novo: 762
+mesmo_conjunto_de_ids: True
+ids_com_veredito_do_motor_diferente: []
+ids_com_reais_ou_sugestao_diferentes (nao-determinismo do motor, nao do juiz): ['15d469304a03', '2463291faf76', '34511b9ac100', '8b7a3476e024', 'c876d78f82ee', 'cda03737f157']
+ids_com_registro_bruto_diferente: 7
+json_igual_fora_dos_campos_novos_e_do_tempo: True
+campos_do_json_que_diferem: []
+pendencias_iguais_fora_do_p95: True
+pronto: {'orig': True, 'novo': True}
+pendencias_de_p95: {'orig': [], 'novo': []}
+stdout_igual_fora_da_tabela_nova_e_do_p95: True
+rc: {'orig': ['0'], 'novo': ['0']}
+limite_superior_95_do_novo: {'arquivo': {'falsos': 0, 'n': 400, 'taxa': 0.0, 'limite_superior_95': 0.0074613555287995625}, 'inline': {'falsos': 0, 'n': 300, 'taxa': 0.0, 'limite_superior_95': 0.00993608194445772}}
+NAO_REGRESSAO: True

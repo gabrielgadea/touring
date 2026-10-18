@@ -46,14 +46,44 @@ if [[ -n "${TOURING_HOOK_SHIM_FORCE_BIN:-}" ]]; then
 fi
 
 # ── Layer 2: per-project walk-up ─────────────────────────────────────────────
+# Trust boundary (17/10/2026, ECC analysis C2): this shim runs at USER level on every hook event, so exec'ing
+# whatever `.touring/bin/touring-hook` a repository carries ran repository code as the user, around Claude
+# Code's folder trust. A per-project binary is trusted only when it resolves INTO the user's installed
+# toolchains (what `touring update --project` links to), is owned by the user and is not group/other-writable.
+# Anything else is ignored, logged once, and the walk continues; a nearer untrusted file never shadows a
+# trusted pin further up. Guarded by scripts/test_touring_hook_shim.py.
+touring_home="${TOURING_HOME:-$HOME/.touring}"
 start_dir="${CLAUDE_PROJECT_DIR:-$PWD}"
+project_bin_trusted() {
+    local real root owner perm
+    real=$(readlink -f -- "$1" 2>/dev/null) || return 1
+    root=$(readlink -f -- "$touring_home/toolchains" 2>/dev/null) || return 1
+    [[ -n "$real" && -n "$root" && "$real" == "$root"/* ]] || return 1
+    read -r owner perm < <(stat -c '%u %A' -- "$real" 2>/dev/null) || return 1
+    [[ "$owner" == "$EUID" ]] || return 1
+    # %A is e.g. -rwxr-xr-x: index 5 is the group write bit, index 8 the other write bit.
+    [[ "${perm:5:1}" != "w" && "${perm:8:1}" != "w" ]]
+}
+note_rejected() {
+    local log_dir="$HOME/.claude/touring/logs"
+    local log="$log_dir/hook-shim-rejected.log"
+    trace "untrusted project_bin ignored: $1"
+    mkdir -p "$log_dir" 2>/dev/null || return 0
+    grep -qsF -- "$1 " "$log" && return 0
+    printf '%s %s -> %s: not inside %s/toolchains, or not owned by uid %s, or group/other-writable\n' \
+        "$(date -Is)" "$1" "$(readlink -f -- "$1" 2>/dev/null)" "$touring_home" "$EUID" >>"$log" 2>/dev/null
+    printf 'touring-hook-shim: ignored untrusted %s (logged in %s)\n' "$1" "$log" >&2
+}
 walk_up_project_bin() {
     local dir="$1"
     while :; do
         local candidate="$dir/.touring/bin/touring-hook"
         if [[ -x "$candidate" ]]; then
-            printf '%s' "$candidate"
-            return 0
+            if project_bin_trusted "$candidate"; then
+                printf '%s' "$candidate"
+                return 0
+            fi
+            note_rejected "$candidate"
         fi
         # Stop at root (parent == self)
         local parent
@@ -71,7 +101,6 @@ fi
 trace "no project_bin found from $start_dir"
 
 # ── Layer 3: user-default toolchain ──────────────────────────────────────────
-touring_home="${TOURING_HOME:-$HOME/.touring}"
 default_file="$touring_home/default"
 if [[ -f "$default_file" ]]; then
     default_version=$(head -n 1 "$default_file" | tr -d '[:space:]')

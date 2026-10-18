@@ -4,7 +4,9 @@
 Measures whether a loop run is "complete AND perfect" instead of asserting it.
 Evaluates the convergence clauses from the ``loop-engineering`` skill and exits
 0 (converged) or 1 (continue). Composes Touring CLI (decompose, touring-quality,
-wiring, cargo) as a Layer-3 deterministic pipeline; fail-open on daemon errors.
+wiring, cargo) as a Layer-3 deterministic pipeline. It never raises — a tool error
+becomes rc 127 — and the clause that needed that signal FAILS (fail-closed, Law L2:
+absent signal ≠ zero). Only the optional CCE ledger import is fail-open.
 
 Clauses (a clause is PASS / FAIL / N/A; converged ⟺ no clause is FAIL):
   1. judge_intact  — the graders match the judge of record (judge_attest).  (always)
@@ -70,7 +72,7 @@ def run(cmd, timeout=900, cwd=None, env=None):
     """Run a command; return (rc, stdout, stderr). Never raises (fail-open)."""
     try:
         p = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout, cwd=cwd, env=env
+            cmd, capture_output=True, check=False, text=True, timeout=timeout, cwd=cwd, env=env
         )
         return p.returncode, p.stdout, p.stderr
     except Exception as exc:  # noqa: BLE001 — fail-open by design
@@ -431,7 +433,7 @@ def _isolated_daemon_env(scope: Path):
         if os.path.exists(sock):
             subprocess.run(
                 ["touring", "daemon-ctl", "stop", "--socket", sock],
-                capture_output=True,
+                capture_output=True, check=False,
                 timeout=30,
                 env=env,
             )
@@ -457,7 +459,7 @@ def _isolated_daemon_env(scope: Path):
             if os.path.exists(sock):
                 break
             time.sleep(0.5)
-    except Exception:  # noqa: BLE001 — fail-open by design
+    except Exception:  # noqa: BLE001, S110 — fail-open by design: a failed warm-up never blocks the gate
         pass
     return env
 
@@ -471,7 +473,7 @@ CARGO_DETAIL_MAX = 5
 #: A libtest summary entry: four spaces, then the test path, nothing else.
 _TEST_FAILURE_LINE = re.compile(r"^ {4}(\S.*?)\s*$")
 #: libtest's own tally, per test binary. Authoritative for HOW MANY.
-_TEST_FAILED_COUNT = re.compile(r"^test result: FAILED\..*?(\d+) failed", re.M)
+_TEST_FAILED_COUNT = re.compile(r"^test result: FAILED\..*?(\d+) failed", re.MULTILINE)
 #: A rustc/clippy diagnostic header.
 _RUSTC_ERROR = re.compile(r"^error(?:\[(?P<code>E\d+)\])?: (?P<msg>.+?)\s*$")
 _RUSTC_LOCATION = re.compile(r"^\s*--> (?P<at>\S+)\s*$")
@@ -584,11 +586,11 @@ def _stop_private_daemon(env) -> None:
     try:
         subprocess.run(
             ["touring", "daemon-ctl", "stop", "--socket", sock],
-            capture_output=True,
+            capture_output=True, check=False,
             timeout=30,
             env=env,
         )
-    except Exception:  # noqa: BLE001 — cleanup never changes a verdict
+    except Exception:  # noqa: BLE001, S110 — cleanup never changes a verdict
         pass
 
 
@@ -653,7 +655,7 @@ def clause_cross_audit(bundle: Path, requested: bool):
         if requested:
             return False, f"--bundle given but {script} is missing — the plan's artifact check cannot run"
         return None, "no --bundle given — no plan artifact check was requested"
-    rc, out, err = run(["bash", str(script)], timeout=1200)
+    rc, _out, _err = run(["bash", str(script)], timeout=1200)
     return rc == 0, f"cross-audit rc={rc}"
 
 
@@ -698,10 +700,10 @@ def clause_judge_intact():
         # anything converged: the clause fails until a human attests the change.
         return (
             False,
-            f"grader changed since it was attested ({', '.join(advisory)}) — "
-            f"{n} clauses, but this verdict is not the verdict of record",
-            "inspect the diff, then attest it BY HAND in a terminal: "
-            "judge_attest.py --attest --why '<reason>' (needs a TTY on purpose)",
+            (f"grader changed since it was attested ({', '.join(advisory)}) — "
+            f"{n} clauses, but this verdict is not the verdict of record"),
+            ("inspect the diff, then attest it BY HAND in a terminal: "
+            "judge_attest.py --attest --why '<reason>' (needs a TTY on purpose)"),
         )
     return True, f"judge of record intact, {n} clauses", None
 
@@ -787,7 +789,7 @@ def _global_baseline_dir(scope: Path) -> Path:
 def _mtime_iso(path: Path) -> str:
     from datetime import datetime
 
-    return datetime.fromtimestamp(path.stat().st_mtime).isoformat(timespec="minutes")
+    return datetime.fromtimestamp(path.stat().st_mtime).astimezone().isoformat(timespec="minutes")
 
 
 def _label(ok):

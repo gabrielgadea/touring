@@ -1,0 +1,83 @@
+   Compiling ring v0.17.14
+   Compiling tokio-util v0.7.18
+   Compiling tower v0.5.3
+   Compiling tree-sitter v0.26.9
+   Compiling h2 v0.4.19
+   Compiling tower-http v0.6.11
+   Compiling futures-executor v0.3.32
+   Compiling rusqlite v0.40.2
+   Compiling rustls-webpki v0.103.13
+   Compiling rustls v0.23.41
+   Compiling hyper v1.10.1
+   Compiling futures v0.3.32
+   Compiling naga v26.0.0
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-util v0.1.20
+   Compiling wasmtime v36.0.14
+   Compiling hyper-rustls v0.27.9
+   Compiling reqwest v0.12.28
+   Compiling wgpu-hal v26.0.6
+   Compiling moka v0.12.15
+   Compiling wasmtime-c-api-impl v36.0.12
+   Compiling onig v6.5.3
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling ureq v3.3.0
+   Compiling wgpu-core-deps-windows-linux-android v26.0.0
+   Compiling tokenizers v0.22.2
+   Compiling ort v2.0.0-rc.12
+   Compiling hf-hub v0.5.0
+   Compiling wgpu-core v26.0.1
+   Compiling notify-types v1.0.1
+   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling notify v7.0.0
+   Compiling fastembed v5.17.2
+   Compiling wgpu v26.0.1
+   Compiling ast-grep-core v0.42.3
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling ast-grep-language v0.42.3
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling notify-debouncer-mini v0.5.0
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling argmin v0.9.0
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling linfa-ftrl v0.7.1
+   Compiling deadpool-sqlite v0.14.0
+   Compiling tokenizers v0.20.4
+   Compiling deranged v0.5.8
+   Compiling time v0.3.51
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling tantivy-common v0.7.0
+   Compiling globwalk v0.9.1
+   Compiling tera v1.20.1
+   Compiling rustix v0.38.44
+   Compiling tantivy-stacker v0.3.0
+   Compiling wasmtime v46.0.3
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling capnp-rpc v0.24.0
+   Compiling tantivy-sstable v0.3.0
+   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/inferlets)
+   Compiling fs4 v0.8.4
+   Compiling tantivy-columnar v0.3.0
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling lru v0.12.5
+   Compiling tantivy-tokenizer-api v0.3.0
+   Compiling sketches-ddsketch v0.2.2
+   Compiling rust-stemmers v1.2.0
+   Compiling tantivy v0.22.1
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
+   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-orchestration)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
+   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-resilience)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 34s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

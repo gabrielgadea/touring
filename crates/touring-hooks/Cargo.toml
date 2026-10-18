@@ -59,6 +59,7 @@ txn_lock_enforcement = ["touring-dispatch/txn_lock_enforcement"]
 semantic-embeddings = ["touring-dispatch/semantic-embeddings"]
 
 [dependencies]
+touring-pyright = { path = "../touring-pyright" } # VGP camada 2: pool pyright opt-in por processo (daemon liga; hook standalone não)
 touring-dispatch = { path = "../touring-dispatch", default-features = false }
 # Direct dep so the binaries can name `touring_hook_runtime::hook_runtime::HookDispatchError`
 # (the unified hook-dispatch error type) in their `match subcommand` arms.

@@ -1,0 +1,268 @@
+--- a/crates/touring-server/src/cli/vgp.rs	2026-10-10 12:51:33.140890929 -0300
++++ b/crates/touring-server/src/cli/vgp.rs	2026-10-10 12:51:33.141772075 -0300
+@@ -48,25 +48,68 @@
+             }
+             out
+         }
+-        Err(motivo) => touring_code::vgp::CheckOutput {
++        Err(recusa) => touring_code::vgp::CheckOutput {
+             verdict: "unknown".into(),
+             layer: 1,
+-            lang: "python".into(),
++            // a linguagem do PEDIDO (flag, senão extensão), nunca um `python` fixo: um `.html`
++            // que o motor não consegue ler não pode voltar etiquetado como outra linguagem
++            lang: recusa.lang,
+             elapsed_ms: 0.0,
+-            findings: vec![touring_code::vgp::Finding::new(
+-                "erro",
+-                "argumentos",
+-                0,
+-                "warn",
+-                motivo.clone(),
+-                Vec::new(),
+-            )],
++            findings: if recusa.nao_utf8 {
++                Vec::new()
++            } else {
++                vec![touring_code::vgp::Finding::new(
++                    "erro",
++                    "argumentos",
++                    0,
++                    "warn",
++                    recusa.motivo.clone(),
++                    Vec::new(),
++                )]
++            },
+             camada2: None,
+-            motivo: Some(motivo),
++            motivo: Some(recusa.motivo),
+         },
+     }
+ }
+ 
++/// Why [`parse_args`] gave up on building a [`CheckInput`]. `lang` is what the file WOULD have
++/// been judged as; `nao_utf8` marks a file that exists but is not text: that is "could not
++/// measure" (`unknown` with a reason), not a bad argument, so it carries no `erro` finding —
++/// a `warn` here would be counted as noise against a clean file.
++#[derive(Debug)]
++struct Recusa {
++    motivo: String,
++    lang: String,
++    nao_utf8: bool,
++}
++
++impl Recusa {
++    fn argumento(motivo: impl Into<String>, lang: &str) -> Self {
++        Self {
++            motivo: motivo.into(),
++            lang: lang.into(),
++            nao_utf8: false,
++        }
++    }
++}
++
++/// Read `arq` as text; `rotulo` names the flag in the reason. Non-UTF-8 content is its own
++/// refusal (`InvalidData`), distinct from an IO failure.
++fn ler_texto(arq: &str, rotulo: &str, lang: &str) -> std::result::Result<String, Recusa> {
++    std::fs::read_to_string(arq).map_err(|e| {
++        if e.kind() == std::io::ErrorKind::InvalidData {
++            Recusa {
++                motivo: format!("conteúdo não é UTF-8: {rotulo} {arq}"),
++                lang: lang.into(),
++                nao_utf8: true,
++            }
++        } else {
++            Recusa::argumento(format!("{rotulo} ilegível {arq}: {e}"), lang)
++        }
++    })
++}
++
+ /// Merge a layer-2 result into the layer-1 output: findings deduped by (nome, linha) with the
+ /// STRONGER severity winning, elapsed summed, `layer` raised. An `unknown` layer-2 annotates
+ /// `camada2` and leaves the layer-1 answer standing — fail-open, never an implicit allow.
+@@ -145,9 +188,12 @@
+         .unwrap_or_else(|| "python".into())
+ }
+ 
+-fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>), String> {
++fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>), Recusa> {
+     let mut o = Opt::default();
+-    let mut overlays = HashMap::new();
++    // sem flags lidos ainda a linguagem do pedido é a default (a mesma de `lang_efetiva`)
++    let padrao = lang_efetiva(None, "<string>");
++    // lidos só depois de a linguagem ser conhecida: toda recusa a leva consigo
++    let mut overlays_pedidos: Vec<(String, String)> = Vec::new();
+     // o handler recebe o argv INTEIRO (["touring", "vgp", "check", …]): os flags começam depois
+     // do posicional "check" (ou do primeiro token com "--", quando "check" não vem)
+     let mut i = args
+@@ -160,43 +206,45 @@
+         match args[i].as_str() {
+             "-j" | "--json" | "--brief" | "--full" => i += 1,
+             "--overlay" => {
+-                let par = args.get(i + 1).ok_or("--overlay sem valor")?;
+-                let (orig, arq) = par
+-                    .split_once('=')
+-                    .ok_or_else(|| "--overlay espera <orig>=<arquivo>".to_string())?;
+-                overlays.insert(
+-                    orig.to_string(),
+-                    std::fs::read_to_string(arq)
+-                        .map_err(|e| format!("overlay ilegível {arq}: {e}"))?,
+-                );
++                let par = args
++                    .get(i + 1)
++                    .ok_or_else(|| Recusa::argumento("--overlay sem valor", &padrao))?;
++                let (orig, arq) = par.split_once('=').ok_or_else(|| {
++                    Recusa::argumento("--overlay espera <orig>=<arquivo>", &padrao)
++                })?;
++                overlays_pedidos.push((orig.to_string(), arq.to_string()));
+                 i += 2;
+             }
+             flag => {
+                 let v = args
+                     .get(i + 1)
+-                    .ok_or_else(|| format!("flag {flag} sem valor"))?
++                    .ok_or_else(|| Recusa::argumento(format!("flag {flag} sem valor"), &padrao))?
+                     .clone();
+                 o.set(flag, v);
+                 i += 2;
+             }
+         }
+     }
+-    let content_file = o.content_file.ok_or("--content-file é obrigatório")?;
+-    let content = std::fs::read_to_string(&content_file)
+-        .map_err(|e| format!("content-file ilegível {content_file}: {e}"))?;
+-    let disk = match o.disk_file {
+-        Some(d) => {
+-            Some(std::fs::read_to_string(&d).map_err(|e| format!("disk-file ilegível {d}: {e}"))?)
+-        }
+-        None => None,
+-    };
++    // a linguagem sai do pedido (flag, senão extensão) ANTES de qualquer leitura de conteúdo
++    let path = o.path.unwrap_or_else(|| "<string>".into());
++    let lang = lang_efetiva(o.lang, &path);
++    let content_file = o
++        .content_file
++        .ok_or_else(|| Recusa::argumento("--content-file é obrigatório", &lang))?;
++    let content = ler_texto(&content_file, "content-file", &lang)?;
++    let disk = o
++        .disk_file
++        .map(|d| ler_texto(&d, "disk-file", &lang))
++        .transpose()?;
++    let mut overlays = HashMap::new();
++    for (orig, arq) in overlays_pedidos {
++        overlays.insert(orig, ler_texto(&arq, "overlay", &lang)?);
++    }
+     let camadas = o
+         .camadas
+         .as_deref()
+         .map(parse_camadas)
+         .unwrap_or_else(|| vec![1]);
+-    let path = o.path.unwrap_or_else(|| "<string>".into());
+-    let lang = lang_efetiva(o.lang, &path);
+     Ok((
+         CheckInput {
+             path,
+@@ -438,6 +486,103 @@
+     }
+ 
+     #[test]
++    fn conteudo_nao_utf8_e_unknown_com_motivo_e_a_lang_do_pedido() {
++        // 1.236 dos 6.509 HTML do `analise` são Latin-1: antes voltavam como `"lang":"python"` +
++        // um achado `erro` (warn) que o juiz contava como aviso num arquivo limpo
++        let tmp = std::env::temp_dir().join("vgp-cli-nao-utf8");
++        std::fs::create_dir_all(&tmp).unwrap();
++        let f = tmp.join("latin1");
++        std::fs::write(&f, b"<p>caf\xe9</p>\n").unwrap();
++        for (path, lang) in [
++            ("/p/a.html", "html"),
++            ("/p/a.py", "python"),
++            ("/p/a.tsx", "tsx"),
++        ] {
++            let out = run_json(&args(&[
++                "check",
++                "--path",
++                path,
++                "--content-file",
++                f.to_str().unwrap(),
++                "-j",
++            ]));
++            assert_eq!(out.verdict, "unknown", "{path}");
++            assert_eq!(
++                out.lang, lang,
++                "{path}: a linguagem do pedido, não `python`"
++            );
++            let motivo = out.motivo.as_deref().unwrap_or_default();
++            assert!(
++                motivo.starts_with("conteúdo não é UTF-8"),
++                "{path}: {motivo}"
++            );
++            assert!(
++                out.findings.is_empty(),
++                "{path}: não medir não é um achado `erro`"
++            );
++        }
++        let _ = std::fs::remove_dir_all(&tmp);
++    }
++
++    #[test]
++    fn disk_file_e_overlay_nao_utf8_tambem_sao_unknown_sem_achado() {
++        let tmp = std::env::temp_dir().join("vgp-cli-nao-utf8-disco");
++        std::fs::create_dir_all(&tmp).unwrap();
++        let (bom, ruim) = (tmp.join("novo.html"), tmp.join("disco.html"));
++        std::fs::write(&bom, "<p>ok</p>\n").unwrap();
++        std::fs::write(&ruim, b"<p>caf\xe9</p>\n").unwrap();
++        let sobreposto = format!("a.html={}", ruim.display());
++        for extra in [
++            ["--disk-file", ruim.to_str().unwrap()],
++            ["--overlay", sobreposto.as_str()],
++        ] {
++            let mut a = vec![
++                "check",
++                "--path",
++                "/p/a.html",
++                "--content-file",
++                bom.to_str().unwrap(),
++                "-j",
++            ];
++            a.extend(extra);
++            let out = run_json(&args(&a));
++            assert_eq!(out.verdict, "unknown", "{extra:?}");
++            assert_eq!(out.lang, "html", "{extra:?}");
++            assert!(out.findings.is_empty(), "{extra:?}");
++            assert!(out.motivo.unwrap().starts_with("conteúdo não é UTF-8"));
++        }
++        let _ = std::fs::remove_dir_all(&tmp);
++    }
++
++    #[test]
++    fn recusa_de_argumento_leva_a_lang_do_pedido_e_mantem_o_achado_erro() {
++        let out = run_json(&args(&[
++            "check",
++            "--path",
++            "/p/a.html",
++            "--content-file",
++            "/nao/existe.html",
++            "-j",
++        ]));
++        assert_eq!(
++            (out.verdict.as_str(), out.lang.as_str()),
++            ("unknown", "html")
++        );
++        assert_eq!(out.findings.len(), 1);
++        assert_eq!(out.findings[0].classe, "erro");
++        let out = run_json(&args(&["check", "--path", "/p/a.ts", "-j"]));
++        assert_eq!(
++            out.lang, "typescript",
++            "falta --content-file: a lang vem do caminho"
++        );
++        let out = run_json(&args(&["check", "--overlay", "sem-igual", "-j"]));
++        assert_eq!(
++            out.lang, "python",
++            "antes de qualquer flag a lang é a default"
++        );
++    }
++
++    #[test]
+     fn overlay_alimenta_a_resolucao_de_modulos() {
+         let tmp = std::env::temp_dir().join("vgp-cli-ovl");
+         std::fs::create_dir_all(&tmp).unwrap();

@@ -1,0 +1,49 @@
+{
+ "amostra": 150,
+ "universo_vivo": 763,
+ "t_indice_s": 12.7,
+ "t_fecho_s": 11.5,
+ "s_por_entrada": 0.076,
+ "git_memo": {
+  "hits": 1026,
+  "miss": 1050
+ },
+ "tamanho": {
+  "n": 150,
+  "soma": 1038,
+  "min": 0,
+  "mediana": 0,
+  "media": 6.92,
+  "p90": 6,
+  "p99": 91,
+  "max": 415
+ },
+ "profundidade_maxima": {
+  "0": 107,
+  "1": 26,
+  "2": 6,
+  "3": 4,
+  "5": 1,
+  "8": 1,
+  "9": 2,
+  "10": 2,
+  "13": 1
+ },
+ "bytes_total_overlays": 9889863,
+ "bytes_unicos_por_conteudo": 5518483,
+ "conteudos_unicos": 473,
+ "antes_regra_prof1": {
+  "estado incompleto: módulo importado não reconstrói no instante": 9,
+  "estado incompleto: submódulo importado não reconstrói no instante": 19,
+  "ok": 121,
+  "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 1
+ },
+ "depois_fecho": {
+  "estado incompleto: módulo importado não reconstrói no instante": 9,
+  "estado incompleto: submódulo importado não reconstrói no instante": 19,
+  "ok": 115,
+  "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 4,
+  "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 2,
+  "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 1
+ }
+}

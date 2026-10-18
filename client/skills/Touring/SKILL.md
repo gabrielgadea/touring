@@ -48,6 +48,13 @@ For dependency tree, follow with `touring ast blast <file>`. For Rust grade-lett
 
 ### 2. VGP — Verified Generation Protocol + Symbol Verification Table
 
+> **Motor VGP (09/10/2026)** — a verificação mora no EXECUTOR: `touring vgp check` + hooks (Edit/MultiEdit/Write e
+> Python inline do Bash) checam o conteúdo proposto contra o projeto real (camada 1 nativa + `pyright-langserver` do
+> projeto). Política P4: código que roda agora (inline, `/tmp`) nega símbolo inventado; arquivo do projeto nega só
+> alvo externo e avisa o resto (RED de TDD é legítimo); forma do dado e atributo dinâmico só avisam. Modo
+> `[vgp] modo = "sombra"|"ativo"` no `.touring/touring.toml`. Manual: `~/projects/touring/docs/vgp-motor.md`.
+> Ao ESCREVER spec/plano que cita API, o motor não vê o texto — aí vale o passo manual abaixo.
+
 Before generating **any** code, verify symbols exist:
 
 ```bash

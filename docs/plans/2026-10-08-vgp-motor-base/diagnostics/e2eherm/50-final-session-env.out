@@ -1,0 +1,20 @@
+hw-slot: aguardando — temp 95C > 88C
+session-env rc=0
+TOURING_DAEMON_SOCKET=<set>
+TOURING_PROJECT_ROOT=<set>
+E2EHERM-RAN enter_plan_mode: control="" seeded="memory: e2eherm-seed-plan-mode"
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test non_task_non_file_tool_returns_empty_context ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.10s
+dbs 20 | tables identical 258 | tables changed 5 | files w/ new mtime/size 0
+  CHANGED projects/touring/.claude/touring/knowledge.db bash_outcomes 17343 -> 17344
+  CHANGED projects/touring/.claude/touring/memory.db memories_fts_data 2672 -> 2673
+  CHANGED projects/touring/.claude/touring/memory.db memories_fts_idx 1879 -> 1880
+  CHANGED projects/touring/.claude/touring/memory.db tags_fts_data 172 -> 174
+  CHANGED projects/touring/.claude/touring/memory.db tags_fts_idx 52 -> 54
+rc=0

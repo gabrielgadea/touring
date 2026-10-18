@@ -1,0 +1,65 @@
+hw-slot: aguardando — temp 91C > 88C
+################ phase mA
+pretask.rs sha256: 5787e2d863ba124599cd36336238897fc84b6ffa3709e958af2b42d33de01069  (original 3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18)
+extractor : 387:        for key in ["subject", "description"] {
+mem push  : 279:            parts.push(format!("memory: {}", keys.join(", ")));
+daemon build rc=0
+daemon binary mtime: 15:05:02
+test rc=101
+test file_based_tool_preserves_existing_shape ... ok
+test enter_plan_mode_prompt_is_treated_as_subject ... FAILED
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test non_task_non_file_tool_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+test result: FAILED. 5 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s
+thread 'enter_plan_mode_prompt_is_treated_as_subject' (489765) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:274:5:
+EnterPlanMode with `prompt` must surface the seeded memory `e2eherm-seed-plan-mode`; got: 
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+### revert A by content
+mutate.py: replaced 1 occurrence in /home/gabrielgadea/projects/touring-wt-e2eherm/crates/touring-cli/src/cli/pretask.rs
+### apply B by content
+mutate.py: replaced 1 occurrence in /home/gabrielgadea/projects/touring-wt-e2eherm/crates/touring-cli/src/cli/pretask.rs
+################ phase mB
+pretask.rs sha256: f01253da39593850ca351b301c4778db0fca8030f90b7a6b9acadce44b2b5ff7  (original 3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18)
+extractor : 387:        for key in ["subject", "description", "prompt"] {
+mem push  : 279:            let _ = format!("memory: {}", keys.join(", "));
+daemon build rc=0
+daemon binary mtime: 15:05:13
+test rc=101
+test non_task_non_file_tool_returns_empty_context ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test enter_plan_mode_prompt_is_treated_as_subject ... FAILED
+test task_list_without_subject_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+test task_create_payload_returns_enriched_context ... FAILED
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s
+thread 'enter_plan_mode_prompt_is_treated_as_subject' (491699) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:274:5:
+EnterPlanMode with `prompt` must surface the seeded memory `e2eherm-seed-plan-mode`; got: 
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+--
+thread 'task_create_payload_returns_enriched_context' (491951) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:244:5:
+TaskCreate must surface the seeded memory `e2eherm-seed-task-create` in its hint; got: 
+test task_create_payload_returns_enriched_context ... FAILED
+### revert B by content
+mutate.py: replaced 1 occurrence in /home/gabrielgadea/projects/touring-wt-e2eherm/crates/touring-cli/src/cli/pretask.rs
+################ phase restored
+pretask.rs sha256: 3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18  (original 3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18)
+extractor : 387:        for key in ["subject", "description", "prompt"] {
+mem push  : 279:            parts.push(format!("memory: {}", keys.join(", ")));
+daemon build rc=0
+daemon binary mtime: 15:05:24
+test rc=0
+test non_task_non_file_tool_returns_empty_context ... ok
+E2EHERM-RAN enter_plan_mode: control="" seeded="memory: e2eherm-seed-plan-mode"
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+E2EHERM-RAN task_create: control="" seeded="memory: e2eherm-seed-task-create"
+test task_create_payload_returns_enriched_context ... ok
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.30s
+FINAL sha256 now=3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18 original=3af3bbe2cc4aa69c09d468cdc33bd9ca77283d7481c4c5361c896fb021d5fa18 IDENTICAL
+git diff --stat touring-cli: []
+mutant-cycle rc=0

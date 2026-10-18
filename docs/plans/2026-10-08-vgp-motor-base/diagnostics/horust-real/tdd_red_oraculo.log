@@ -1,0 +1,11 @@
+ERROR test_oraculo_cargo_json.py
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.12s
+=========================== short test summary info ============================
+FAILED test_oraculo_cargo_json.py::test_comando_do_cargo_pelo_slot_com_rotulo_e_alvo
+FAILED test_oraculo_cargo_json.py::test_comando_sem_slot_e_offline_para_o_teste_sintetico
+2 failed, 26 passed in 0.09s
+FAILED test_oraculo_cargo_json.py::test_comando_do_cargo_pelo_slot_com_rotulo_e_alvo
+FAILED test_oraculo_cargo_json.py::test_comando_sem_slot_e_offline_para_o_teste_sintetico
+2 failed, 26 passed in 0.09s

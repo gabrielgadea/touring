@@ -1,0 +1,22 @@
+# Dispensas da prontidão (`scripts/readiness.py`).
+#
+# Um item de atenção só some do veredito aqui, e NUNCA em silêncio: cada dispensa nomeia o
+# item (o `id` que o `readiness.py` imprime), o motivo, o dono e a validade. Regras:
+#
+#   * `valido_ate` é AAAA-MM-DD e fica a no máximo 90 dias de hoje (prazo de verdade, não 2099).
+#   * Dispensa vencida PARA de dispensar e o item volta à lista marcado `dispensa_expirada`.
+#   * Dispensa incompleta (sem motivo, dono ou data válida) NÃO vale e vira o item
+#     `dispensas.invalida.*` — o veredito continua `atencao`.
+#   * Dispensa cujo item não existe mais é listada (`dispensas_sem_item`): pode sair daqui.
+#
+# Formato:
+#
+#   dispensas:
+#     - item: kpi.touring.cache.hit_ratio
+#       motivo: cache em memória zera a cada restart do daemon (rationale do commitment)
+#       dono: gabriel
+#       valido_ate: 2026-12-01
+#
+# Decisão do Gabriel (N5): nenhuma dispensa é pré-aprovada aqui. A primeira rodada real lista
+# o que existe; aceitar um item é ato dele, com prazo.
+dispensas: []

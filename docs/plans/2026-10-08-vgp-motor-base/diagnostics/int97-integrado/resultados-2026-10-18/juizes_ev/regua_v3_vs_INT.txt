@@ -1,0 +1,1 @@
+{"comparados": 738, "so_base": 0, "so_novo": 0, "R1_divergencias": 10, "R2_divergencias_findings_inteiros": 499, "R2_sem_R1_so_em": {"camada2": 488, "camada2,findings.sugestao": 1}}

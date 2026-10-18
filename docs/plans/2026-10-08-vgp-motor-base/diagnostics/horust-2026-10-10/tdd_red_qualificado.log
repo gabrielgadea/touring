@@ -1,0 +1,15 @@
+......................................F...............                   [100%]
+=================================== FAILURES ===================================
+_______________ test_uso_qualificado_por_caminho_nao_e_classe_a ________________
+
+    def test_uso_qualificado_por_caminho_nao_e_classe_a():
+        """`crate::m::alvo()` (rustc: «cannot find function `alvo` in module `crate::m`»): ele procura em `m`, nao no escopo do uso,
+        entao o `alvo` do proprio modulo nao e o que falta — achado na medicao do HORUST (2 dos 8 «A» eram assim)."""
+>       assert A("fn principal() { crate::m::@@alvo(); }\nfn alvo() {}\n", "alvo") is None
+E       AssertionError: assert 'item `alvo` declarado no módulo do uso (L2)' is None
+E        +  where 'item `alvo` declarado no módulo do uso (L2)' = A('fn principal() { crate::m::@@alvo(); }\nfn alvo() {}\n', 'alvo')
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py:306: AssertionError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_rust_no_instante.py::test_uso_qualificado_por_caminho_nao_e_classe_a
+1 failed, 53 passed in 0.75s

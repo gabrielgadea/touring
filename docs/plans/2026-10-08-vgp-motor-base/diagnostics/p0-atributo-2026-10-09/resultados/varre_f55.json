@@ -1,0 +1,1795 @@
+{
+ "IPython": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "PIL": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "affine": {
+  "n": 21,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiofile": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiofiles": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiohappyeyeballs": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiohttp": {
+  "n": 110,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiosignal": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "aiosqlite": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "alembic": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "annotated_doc": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "annotated_types": {
+  "n": 56,
+  "negados": [],
+  "n_negados": 0
+ },
+ "anthropic": {
+  "n": 74,
+  "negados": [],
+  "n_negados": 0
+ },
+ "antlr4": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "anyio": {
+  "n": 87,
+  "negados": [],
+  "n_negados": 0
+ },
+ "apiclient": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "apify_fingerprint_datapoints": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "apscheduler": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "ast_serialize": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asttokens": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "async_generator": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asyncer": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "asyncpg": {
+  "n": 294,
+  "negados": [],
+  "n_negados": 0
+ },
+ "attr": {
+  "n": 35,
+  "negados": [],
+  "n_negados": 0
+ },
+ "attrs": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "authlib": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "backoff": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bcrypt": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "beartype": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bitarray": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bleach": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "branca": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "bs4": {
+  "n": 47,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cachetools": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "caio": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "catalogue": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "certifi": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cffi": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "charset_normalizer": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "click": {
+  "n": 64,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cloudpathlib": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cloudpickle": {
+  "n": 47,
+  "negados": [],
+  "n_negados": 0
+ },
+ "coloredlogs": {
+  "n": 54,
+  "negados": [],
+  "n_negados": 0
+ },
+ "colorlog": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "confection": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "contextily": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "contourpy": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "coverage": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cpuinfo": {
+  "n": 21,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cryptography": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cssselect": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cssselect2": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "curl_cffi": {
+  "n": 48,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cv2": {
+  "n": 2439,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cycler": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cyclopts": {
+  "n": 30,
+  "negados": [],
+  "n_negados": 0
+ },
+ "cymem": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster": {
+  "n": 442,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_anthropic": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_docker": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_gemini": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_graphql": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_pipes": {
+  "n": 123,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_prometheus": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_qdrant": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_shared": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dagster_webserver": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dateutil": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "defusedxml": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dill": {
+  "n": 33,
+  "negados": [],
+  "n_negados": 0
+ },
+ "diskcache": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "distro": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dns": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docker": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docker_image": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_core": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_ibm_models": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docling_parse": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docstring_parser": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "docx": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "dotenv": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "ecdsa": {
+  "n": 38,
+  "negados": [],
+  "n_negados": 0
+ },
+ "ee": {
+  "n": 54,
+  "negados": [],
+  "n_negados": 0
+ },
+ "elementpath": {
+  "n": 40,
+  "negados": [],
+  "n_negados": 0
+ },
+ "email_validator": {
+  "n": 17,
+  "negados": [],
+  "n_negados": 0
+ },
+ "et_xmlfile": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "exceptiongroup": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "executing": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "faker": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastapi": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastmcp": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fastuuid": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "filelock": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "filetype": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fitz": {
+  "n": 995,
+  "negados": [],
+  "n_negados": 0
+ },
+ "flatbuffers": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "folium": {
+  "n": 45,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fontTools": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "formulaic": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "frontmatter": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "frozenlist": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "fsspec": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geographiclib": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geopandas": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "geopy": {
+  "n": 36,
+  "negados": [],
+  "n_negados": 0
+ },
+ "gepa": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "google_crc32c": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "googleapiclient": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "gql": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "graphene": {
+  "n": 44,
+  "negados": [],
+  "n_negados": 0
+ },
+ "graphql": {
+  "n": 324,
+  "negados": [],
+  "n_negados": 0
+ },
+ "graphql_relay": {
+  "n": 38,
+  "negados": [],
+  "n_negados": 0
+ },
+ "greenlet": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "griffe": {
+  "n": 219,
+  "negados": [],
+  "n_negados": 0
+ },
+ "grpc": {
+  "n": 70,
+  "negados": [],
+  "n_negados": 0
+ },
+ "grpc_health": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "grpc_status": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "h11": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "h2": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "hf_xet": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "hpack": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpcore": {
+  "n": 49,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpcore2": {
+  "n": 50,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httplib2": {
+  "n": 74,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httptools": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx": {
+  "n": 66,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx2": {
+  "n": 73,
+  "negados": [],
+  "n_negados": 0
+ },
+ "httpx_sse": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "huggingface_hub": {
+  "n": 424,
+  "negados": [],
+  "n_negados": 0
+ },
+ "humanfriendly": {
+  "n": 2,
+  "negados": [
+   "aliases",
+   "module"
+  ],
+  "n_negados": 2
+ },
+ "hyperframe": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "hypothesis": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "idna": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "imageio": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "importlib_metadata": {
+  "n": 58,
+  "negados": [],
+  "n_negados": 0
+ },
+ "iniconfig": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "interface_meta": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jedi": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jeepney": {
+  "n": 29,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jinja2": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jiter": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "joblib": {
+  "n": 21,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jose": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "joserfc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "json_repair": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonlines": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema_path": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jsonschema_specifications": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "jwt": {
+  "n": 29,
+  "negados": [],
+  "n_negados": 0
+ },
+ "key_value": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "keyring": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "kiwisolver": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langchain_core": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langchain_protocol": {
+  "n": 136,
+  "negados": [],
+  "n_negados": 0
+ },
+ "langsmith": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "latex2mathml": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "lazy_loader": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "loguru": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "lxml": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "magic": {
+  "n": 110,
+  "negados": [],
+  "n_negados": 0
+ },
+ "magika": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mako": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mapclassify": {
+  "n": 28,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markdown": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markdown_it": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markdownify": {
+  "n": 45,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markitdown": {
+  "n": 11,
+  "negados": [],
+  "n_negados": 0
+ },
+ "marko": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "markupsafe": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "matplotlib": {
+  "n": 49,
+  "negados": [],
+  "n_negados": 0
+ },
+ "matplotlib_inline": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mcp": {
+  "n": 65,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mdurl": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mercantile": {
+  "n": 43,
+  "negados": [],
+  "n_negados": 0
+ },
+ "more_itertools": {
+  "n": 174,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mpire": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mpmath": {
+  "n": 374,
+  "negados": [],
+  "n_negados": 0
+ },
+ "msgpack": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "msgspec": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "multidict": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "multipart": {
+  "n": 13,
+  "negados": [],
+  "n_negados": 0
+ },
+ "multiprocess": {
+  "n": 42,
+  "negados": [],
+  "n_negados": 0
+ },
+ "murmurhash": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mypy": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "mypyc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "narwhals": {
+  "n": 84,
+  "negados": [],
+  "n_negados": 0
+ },
+ "neo4j": {
+  "n": 52,
+  "negados": [],
+  "n_negados": 0
+ },
+ "networkx": {
+  "n": 932,
+  "negados": [],
+  "n_negados": 0
+ },
+ "numpy": {
+  "n": 481,
+  "negados": [],
+  "n_negados": 0
+ },
+ "omegaconf": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openai": {
+  "n": 102,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openapi_pydantic": {
+  "n": 35,
+  "negados": [],
+  "n_negados": 0
+ },
+ "openpyxl": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "orjson": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "outcome": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "packaging": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pandas": {
+  "n": 109,
+  "negados": [],
+  "n_negados": 0
+ },
+ "parso": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pathable": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pathlib_abc": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pathspec": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "patsy": {
+  "n": 37,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pdfminer": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pexpect": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pikepdf": {
+  "n": 86,
+  "negados": [],
+  "n_negados": 0
+ },
+ "platformdirs": {
+  "n": 39,
+  "negados": [],
+  "n_negados": 0
+ },
+ "playwright_stealth": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "plotly": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pluggy": {
+  "n": 13,
+  "negados": [],
+  "n_negados": 0
+ },
+ "polars": {
+  "n": 207,
+  "negados": [],
+  "n_negados": 0
+ },
+ "polyfactory": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "portalocker": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pptx": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "preshed": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "prometheus_client": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "prompt_toolkit": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "propcache": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "protego": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "proto": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "psutil": {
+  "n": 111,
+  "negados": [],
+  "n_negados": 0
+ },
+ "ptyprocess": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pure_eval": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyarrow": {
+  "n": 297,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyasn1": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyasn1_modules": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyclipper": {
+  "n": 44,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pycparser": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydantic": {
+  "n": 149,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydantic_core": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydantic_settings": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pydyf": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyee": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pygments": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pylatexenc": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pymupdf": {
+  "n": 992,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pymupdf4llm": {
+  "n": 14,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyogrio": {
+  "n": 19,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyparsing": {
+  "n": 233,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pypdf": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pypdfium2": {
+  "n": 31,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pypdfium2_raw": {
+  "n": 1134,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyperclip": {
+  "n": 40,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyphen": {
+  "n": 18,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyproj": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pystac": {
+  "n": 42,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pystac_client": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytesseract": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytest": {
+  "n": 87,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytest_asyncio": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytest_benchmark": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytest_cov": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "python_calamine": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "python_multipart": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pytz": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "pyxlsb": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "qdrant_client": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rapidocr": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rasterio": {
+  "n": 53,
+  "negados": [],
+  "n_negados": 0
+ },
+ "redis": {
+  "n": 36,
+  "negados": [],
+  "n_negados": 0
+ },
+ "referencing": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "regex": {
+  "n": 58,
+  "negados": [],
+  "n_negados": 0
+ },
+ "requests": {
+  "n": 35,
+  "negados": [],
+  "n_negados": 0
+ },
+ "requests_toolbelt": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "respx": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rich": {
+  "n": 13,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rich_rst": {
+  "n": 63,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rpds": {
+  "n": 6,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rsa": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "rtree": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "scipy": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "scrapling": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "seaborn": {
+  "n": 67,
+  "negados": [],
+  "n_negados": 0
+ },
+ "secretstorage": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "selectolax": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "semchunk": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "shapely": {
+  "n": 157,
+  "negados": [],
+  "n_negados": 0
+ },
+ "shellingham": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "skimage": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sklearn": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "smart_open": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sniffio": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sortedcontainers": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "soupsieve": {
+  "n": 20,
+  "negados": [],
+  "n_negados": 0
+ },
+ "spacy_legacy": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "spacy_loggers": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sqlalchemy": {
+  "n": 252,
+  "negados": [],
+  "n_negados": 0
+ },
+ "srsly": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sse_starlette": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "stack_data": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "starlette": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "statsmodels": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "stripe": {
+  "n": 30,
+  "negados": [],
+  "n_negados": 0
+ },
+ "structlog": {
+  "n": 22,
+  "negados": [],
+  "n_negados": 0
+ },
+ "sympy": {
+  "n": 901,
+  "negados": [],
+  "n_negados": 0
+ },
+ "syrupy": {
+  "n": 34,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tabulate": {
+  "n": 27,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tantivy": {
+  "n": 23,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tenacity": {
+  "n": 68,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tifffile": {
+  "n": 71,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tiktoken": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tinycss2": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tinyhtml5": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tld": {
+  "n": 8,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tomli": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tomlkit": {
+  "n": 27,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toon": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toon_format": {
+  "n": 10,
+  "negados": [],
+  "n_negados": 0
+ },
+ "toons": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tqdm": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "traitlets": {
+  "n": 67,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter": {
+  "n": 15,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_c": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_javascript": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_python": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tree_sitter_typescript": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "trio": {
+  "n": 67,
+  "negados": [],
+  "n_negados": 0
+ },
+ "trio_typing": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "trio_websocket": {
+  "n": 17,
+  "negados": [],
+  "n_negados": 0
+ },
+ "truststore": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typeguard": {
+  "n": 26,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typer": {
+  "n": 32,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typesafe_sdk": {
+  "n": 37,
+  "negados": [],
+  "n_negados": 0
+ },
+ "typing_inspection": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tzdata": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "tzlocal": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uncalled_for": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "upath": {
+  "n": 2,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uritemplate": {
+  "n": 4,
+  "negados": [],
+  "n_negados": 0
+ },
+ "urllib3": {
+  "n": 22,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uuid_utils": {
+  "n": 22,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uvicorn": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "uvloop": {
+  "n": 3,
+  "negados": [],
+  "n_negados": 0
+ },
+ "w3lib": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wasabi": {
+  "n": 12,
+  "negados": [],
+  "n_negados": 0
+ },
+ "watchdog": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "watchfiles": {
+  "n": 9,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wcwidth": {
+  "n": 25,
+  "negados": [],
+  "n_negados": 0
+ },
+ "weasel": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "weasyprint": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "webdriver_manager": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "webencodings": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "websocket": {
+  "n": 44,
+  "negados": [],
+  "n_negados": 0
+ },
+ "websockets": {
+  "n": 76,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wrapt": {
+  "n": 34,
+  "negados": [],
+  "n_negados": 0
+ },
+ "wsproto": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xlrd": {
+  "n": 52,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xlsxwriter": {
+  "n": 1,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xmlschema": {
+  "n": 62,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xsdata": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xxhash": {
+  "n": 24,
+  "negados": [],
+  "n_negados": 0
+ },
+ "xyzservices": {
+  "n": 5,
+  "negados": [],
+  "n_negados": 0
+ },
+ "yaml": {
+  "n": 88,
+  "negados": [],
+  "n_negados": 0
+ },
+ "yarl": {
+  "n": 7,
+  "negados": [],
+  "n_negados": 0
+ },
+ "zipp": {
+  "n": 16,
+  "negados": [],
+  "n_negados": 0
+ },
+ "zopfli": {
+  "n": 0,
+  "negados": [],
+  "n_negados": 0
+ },
+ "zstandard": {
+  "n": 80,
+  "negados": [],
+  "n_negados": 0
+ }
+}

@@ -1,0 +1,573 @@
+# Touring CI — quality gates (masterplan C.W1.P2.T5 + C.W2/C.W3 dogfooding)
+#
+# Jobs:
+#   check   — cargo check + clippy -D warnings (compile gates)
+#   test    — unit tests (--lib only: integration test `graph_service_e2e`
+#             has a known deterministic hang — finding 2026-06-11; do NOT
+#             add `--tests` here until it is fixed)
+#   gates   — deterministic Python gates (daemon-optional, fail-open by design):
+#             sync_metrics (anti doc-drift), file_size_gate (anti bloat),
+#             sync_reference (anti reference-doc drift), root hygiene (tf-bak)
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# NOTE: no global `RUSTFLAGS: -D warnings`; clippy enforces -D warnings explicitly
+# in its own step. touring-generator's missing_docs debt is CLOSED (2026-06-13,
+# D.W2.P3.T6): all 340 items documented + `#![deny(missing_docs)]` enforced in-source.
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    name: check + clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: cargo fmt --check (RBP, 2026-06-13 — workspace is fmt-clean)
+        run: cargo fmt --all --check
+      - name: cargo check (workspace, all targets)
+        run: cargo check --workspace --tests
+      # DOC-06 (2026-06-13): clippy now gates --all-targets — test & example code
+      # is linted too (was lib-only). The full --all-targets debt was cleared the
+      # same day: items_after_test_module ×9, redundant_pattern_matching ×2,
+      # clone_on_copy, dead test helpers ×2, refining_impl_trait ×4 (capnp RPC
+      # impls), one unused import, one doc_lazy_continuation, plus two capnp
+      # examples that were hard-broken (E0053 stale `&mut self` receiver).
+      - name: cargo clippy (deny warnings, all targets)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      # DOC-06 (2026-06-13): rustdoc ratchet COMPLETE — the whole workspace is
+      # rustdoc-clean (248 sites fixed across 18 crates + a bin/lib doc-output
+      # name collision resolved via `doc = false`). Gate is now strict
+      # `-D warnings`, upgraded from the prior build-only state.
+      - name: cargo doc (-D warnings, no-deps)
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --no-deps --workspace
+      # D.W2.P3.T6 (CLOSED 2026-06-13): touring-generator is now FULLY documented
+      # (#![deny(missing_docs)] in-source). This gate keeps it at zero — a cheap,
+      # daemon-free signal that complements the workspace clippy -D warnings step.
+      - name: missing-docs gate (touring-generator == 0)
+        run: |
+          set -e
+          count=$(cargo rustc -p touring-generator --lib -- -W missing-docs 2>&1 \
+            | grep -c 'missing documentation' || true)
+          echo "missing_docs count: $count (target 0)"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::missing_docs regressed: $count > 0 — document new public items"
+            exit 1
+          fi
+
+  test:
+    # The `integration` job runs the full lib+integration+e2e suite under
+    # nextest; nextest does NOT execute doctests, so this job closes that gap
+    # (the rustdoc examples are a compiled part of the public-API contract that
+    # nothing else in CI was running). F-2 / D5 (2026-06-21).
+    name: doctests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: cargo test --doc
+        run: cargo test --workspace --doc
+
+  coverage:
+    # W4.6 (2026-07-02 harness reform): generate REAL LCOV line coverage so the
+    # F3.1 Test-Coverage dimension consumes actual coverage (cargo-llvm-cov)
+    # instead of the test-presence proxy. The `lcov.info` is published as an
+    # artifact; F3.1's walk-up discovery (`coverage_artifact.rs`) picks it up so
+    # `touring-quality` reports real hit/found ratios in CI-driven runs.
+    name: coverage (llvm-cov → lcov)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      # 2026-08-02: `dtolnay/rust-toolchain@stable` RESOLVES "stable" to the
+      # concrete version and installs the toolchain under that name, so
+      # llvm-tools-preview lands on e.g. `1.95.0-x86_64-...`. But this repo pins
+      # `channel = "stable"` in rust-toolchain.toml, so cargo resolves the
+      # `stable-x86_64-...` toolchain instead — which had no llvm-tools and, for
+      # cargo-llvm-cov (it builds an absolute rustc path rather than going
+      # through the rustup proxy), did not exist at all:
+      #   could not execute process `.../toolchains/stable-x86_64-.../bin/rustc`
+      #   (never executed): No such file or directory
+      # Installing the channel by its pinned name fixes both. Idempotent.
+      - name: install llvm-tools on the channel pinned by rust-toolchain.toml
+        run: rustup toolchain install stable --component llvm-tools-preview
+      - name: install cargo-llvm-cov
+        # 2026-08-02: the `@<tool-name>` shorthand resolved to a ref that ran with
+        # no `tool` input at all ("no tool specified"), so nothing was installed
+        # and the next step died with `no such command`. The explicit `@v2` +
+        # `tool:` form is the documented, dependabot-safe spelling.
+        uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: cargo-llvm-cov
+      - name: build the touring binary the E2E tests shell out to
+        # `cargo llvm-cov` runs `cargo test --tests`, and `--tests` builds test
+        # targets ONLY — never another package's `[[bin]]`. So the `touring`
+        # binary that `crates/{touring-generator,touring-hooks}/tests/
+        # e2e_diagnostic_rfc100.rs` invoke did not exist in this job, and those
+        # tests died with a panic whose text claimed they were being skipped
+        # (CI run 30757323428, 2026-08-02). The panic is fixed — they now skip
+        # honestly — but a silent skip is a hollow green, so build the binary
+        # and let them actually run. `locate_binary` falls back to
+        # `target/{release,debug}`, which is where this lands.
+        run: cargo build -p touring-server --bin touring
+      - name: generate LCOV coverage
+        # 2026-08-02: this workspace sets `rustc-wrapper = ""` in
+        # .cargo/config.toml to override the global sccache (a correctness
+        # hazard here — it once served a stale object, binary != source).
+        # cargo itself treats the empty string as "no wrapper", but
+        # cargo-llvm-cov concatenates it into the rustc invocation, producing a
+        # leading space and therefore a path that cannot exist:
+        #   could not execute process ` /home/.../bin/rustc -vV` (never executed)
+        # Reproduced verbatim on a dev machine, so `cargo cov` was broken locally
+        # too. An explicit empty RUSTC_WRAPPER in the environment takes
+        # precedence and resolves it while keeping sccache off. Verified with
+        # `cargo llvm-cov -p touring-license --lcov`.
+        env:
+          RUSTC_WRAPPER: ""
+        run: cargo llvm-cov --workspace --lcov --output-path lcov.info
+      - name: upload lcov artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: lcov-coverage
+          path: lcov.info
+
+  gates:
+    name: deterministic quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Needed by the sync_metrics auto-sync step below, which pushes the
+    # regenerated ARCHITECTURE.md block back to the branch.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Check out the branch itself, not the detached SHA — otherwise the
+          # auto-sync step below would have nothing to push to.
+          ref: ${{ github.head_ref || github.ref_name }}
+      # 2026-08-02: this gate compares a LIVE measurement (crate count, loc_src,
+      # test_fns) against the block committed in ARCHITECTURE.md, so ANY commit
+      # touching .rs invalidated it and turned the build red until someone
+      # remembered to run `--sync`. The drift is mechanically derivable, so
+      # failing the build asked a human to do what the script already does.
+      # Now CI regenerates it and pushes the result back.
+      #
+      # Guards: `[skip ci]` keeps the push from triggering another run (which
+      # would sync, push, trigger... indefinitely); the push is skipped on forks,
+      # where GITHUB_TOKEN cannot write — those fall back to a hard failure so
+      # the drift is reported rather than silently ignored.
+      - name: sync_metrics — auto-sync ARCHITECTURE.md from measured reality
+        env:
+          IS_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+        run: |
+          set -euo pipefail
+          python3 docs/sync_metrics.py --sync
+
+          if git diff --quiet -- ARCHITECTURE.md; then
+            echo "ARCHITECTURE.md already in sync — nothing to push"
+            exit 0
+          fi
+
+          echo "::notice::ARCHITECTURE.md metrics drifted; regenerated from source"
+          git --no-pager diff --stat -- ARCHITECTURE.md
+
+          if [ "${IS_FORK}" = "true" ]; then
+            echo "::error::Metrics drift on a fork PR, where CI cannot push."
+            echo "::error::Run 'python3 docs/sync_metrics.py --sync' and commit the result."
+            exit 1
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ARCHITECTURE.md
+          git commit -m "chore(docs): auto-sync ARCHITECTURE.md metrics [skip ci]"
+
+          # A concurrent push can land between checkout and here; rebase once
+          # and retry before giving up.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed metrics sync (attempt ${attempt})"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto the updated branch (attempt ${attempt})"
+            git pull --rebase --autostash
+          done
+          echo "::error::Could not push the metrics sync after 3 attempts."
+          exit 1
+      - name: client mirror — integridade do espelho contra seu próprio manifesto
+        # O CI NÃO consegue comparar client/ com ~/.claude (o lado vivo só existe na
+        # máquina do operador), e um passo verde que não verifica nada é justamente a
+        # armadilha que criou este problema: o guard anti-injeção varria dois espelhos
+        # e nunca a biblioteca implantada. O que dá para provar aqui é o outro erro —
+        # alguém editar client/ diretamente, edição que o próximo --apply desfaz em
+        # silêncio. A comparação completa roda em propagate-release.sh.
+        run: python3 -m pytest scripts/test_sync_client_skills.py -q
+      - name: client/omarchy — fonte do OmarchyOS Agêntico (plano 2026-08-23)
+        # Ao contrário do espelho acima, client/omarchy/ é ORIGEM: a máquina Omarchy
+        # é provisionada a partir dele, então o que se prova aqui é o contrato dos
+        # scripts (fail-closed, --json, shellcheck limpo) e o manifesto do plugin
+        # contra o validador oficial vendorizado (bash+jq, roda sem o shell Quickshell).
+        # `systemd-analyze --user verify` e `touring adw lint` só existem no Pop/Omarchy,
+        # por isso os testes que dependem deles fazem pytest.skip quando ausentes.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"   # the mirror-hygiene test above walks client/ for __pycache__
+        run: |
+          sudo apt-get install -y shellcheck jq
+          bash -n client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          shellcheck -S warning client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          client/omarchy/vendor/omarchy-plugin-validate client/omarchy/skills-deck
+          python3 -m pytest client/omarchy/tests -q
+      - name: client/hooks — seção hooks global versionada (S48/S49, plano 2026-09-25)
+        # client/claude/hooks.settings.json é a FONTE da seção hooks do ~/.claude/settings.json
+        # (scripts/install_claude_hooks.py --apply). O CI não vê o settings vivo, mas vê a fonte:
+        # o lint (`if` de regra única, `if` só nos 5 eventos de ferramenta, script de projeto no
+        # global, timeout declarado) e check/apply contra arquivos de rascunho. O teste da S31 é
+        # xfail(strict): vermelho declarado enquanto os seis `if` com `|` estiverem na fonte —
+        # quando saírem, o XPASS reprova e obriga a tirar o marcador. Os testes que leem o
+        # settings do operador fazem skip com o motivo; os demais rodam com HOME de rascunho.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m pytest client/hooks/tests -q -rs
+      - name: client/hooks — lint com ruff PINADO (varredura de 17/10/2026)
+        # O repo não tem config de ruff: o veredito é o default da VERSÃO instalada. A 0.16.6
+        # levou o default a 413 regras e tirou E402/PLC0415/F403 dele — 59 achados em
+        # client/hooks, 6 deles `noqa` documentados que um --fix cego teria apagado com a
+        # justificativa. Sem pin, o runner instala a última versão e o gate muda de régua
+        # sozinho; subir de versão é decisão (bumpar aqui + limpar o que ela acusar). Venv no
+        # RUNNER_TEMP e --no-cache: nada fica no checkout que os passos seguintes varrem.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ruff-venv"
+          "$RUNNER_TEMP/ruff-venv/bin/pip" install -q ruff==0.16.6
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" --version
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" check --no-cache client/hooks
+      - name: mutants config — 19 minutos rendendo zero, lidos como aprovação
+        # `additional_cargo_args = ["--all-targets"]` ficava sob um comentário que
+        # dizia "Skip bench/doctest targets". --all-targets faz o contrário: INCLUI
+        # benches. `nextest list` então tentava enumerar o harness iai-callgrind,
+        # falhava sem iai-callgrind-runner no PATH, e o baseline do cargo-mutants
+        # morria — 0 mutantes, que o CLI reportava como ok:true e o repo-score
+        # consumia como a categoria "testing". O exclude_glob **/benches/** não
+        # cobria isso: ele pula a GERAÇÃO de mutantes, nunca a lista de testes.
+        run: python3 -m pytest scripts/test_mutants_config.py -q
+      - name: skill pins — uma skill é uma AFIRMAÇÃO sobre algo que muda sem ela
+        # O espelho garante que client/ == o lado vivo, byte a byte. Não garante
+        # que o conteúdo ainda seja VERDADEIRO: uma skill que ficou obsoleta é
+        # espelhada fielmente como uma skill obsoleta. Este gate mede o outro eixo.
+        #
+        # Duas classes, com forças distintas:
+        #   · comando ENSINADO que não existe em `touring --help` → BLOQUEIA.
+        #     A skill manda o leitor a um erro; é dano ativo, não desatualização.
+        #   · fonte pinada cujo sha256 mudou → BLOQUEIA (alguém precisa reler a
+        #     skill contra a fonte e re-pinar deliberadamente com --update).
+        #
+        # Uma fonte simplesmente AUSENTE deste checkout (o ~/.claude/CLAUDE.md
+        # global não é espelhado) é reportada e NÃO bloqueia: um gate que falha
+        # em toda execução é um gate que todos aprendem a pular.
+        run: |
+          python3 client/skills/TACO-skilling/scripts/skill_pin_gate.py \
+            --root client/skills --claude-root client --repo-root . --check
+      - name: skill principles — um papel implica uma obrigação
+        # O pin gate mede se uma skill ainda é VERDADEIRA. Este mede se ela é
+        # COERENTE com o papel que declara: quem decompõe ou despacha trabalho
+        # tem de reivindicar atomicamente (`decompose claim` — `ready` só LÊ, e
+        # duas sessões que o consultam recebem o MESMO subtask), e quem delega
+        # um veredito a um agente tem de passá-lo por um painel cego
+        # (`critic-panel`), porque auditor que assistiu à obra não é cego.
+        #
+        # A população é MEDIDA (skills que invocam o CLI do Touring), nunca uma
+        # lista chumbada — assim uma skill NOVA já nasce coberta. As regras são
+        # por SINAL, não por vocabulário: casar a palavra "cross-audit" no corpo
+        # acusou uma skill de redação de documentos (10 achados → 3 reais).
+        run: python3 client/skills/TACO-skilling/scripts/skill_principle_gate.py --root client/skills
+      - name: skill gates — o instrumento também regride em silêncio
+        # Os dois gates acima subiram sem suíte, e os DOIS já haviam regredido
+        # sem ninguém notar: o pin gate comparava só o primeiro nível (então
+        # `touring search symbols`, inexistente, passava enquanto `touring search`
+        # existisse — o regex já capturava o segundo nível e nenhum sítio o usava),
+        # e o principle gate acusava por vocabulário (10 achados, 7 falsos).
+        run: python3 -m pytest client/skills/TACO-skilling/scripts/test_skill_gates.py -q
+      - name: update-touring — a ferramenta de deploy é versionada e escopada
+        # O script que faz TODO deploy viveu até 18/08/2026 só em
+        # ~/.local/bin/, fora do controle de versão. Aqui não há
+        # ~/.local/bin para comparar, mas as invariantes de CONTEÚDO são
+        # verificáveis: raiz do workspace nunca apontando para a árvore
+        # congelada, e nenhum check de processo largo o bastante para
+        # matar o daemon de outro projeto (REGRA #19).
+        run: python3 -m pytest scripts/test_update_touring.py -q
+      - name: touring-quality-score — o wrapper que o juiz chama é versionado e testado
+        # Viveu até 14/09/2026 só em ~/.local/bin. Seu `flock -n` saía 1 mudo
+        # com outra pontuação ativa, e o juiz de convergência lia "qualidade
+        # não medida". Os testes rodam o script REAL contra um motor falso,
+        # cache e lock temporários: espera e recusa com 75, cache vazio nunca
+        # servido, falha do motor nunca cacheada, motor derivado do checkout.
+        run: python3 -m pytest scripts/test_touring_quality_score.py -q
+      - name: ceg serial(gate_metrics) — teste no pipeline do gateway DEVE ser serial
+        # Os testes de gateway/metrics.rs medem DELTAS exatos dos contadores
+        # globais de processo; um teste que chama run_gateway* fora do grupo
+        # serial(gate_metrics) intercala com a medição sob paralelismo do cargo
+        # e a suíte flaka (7 sítios corrigidos em 25/08/2026). O guard é
+        # provado por mutação (remover o atributo → exit 1; restaurar → exit 0).
+        run: python3 -m pytest scripts/test_ceg_serial_gate_metrics.py -q
+      - name: OKF audits — todo report de auditoria DEVE ser documento OKF
+        # 30/08/2026: o cross-audit do dia saiu sem frontmatter e o censo achou
+        # outros 5 (o template do flow ADW gerava date: sem description). A
+        # regra "every .md the loop writes is an OKF document" não tinha
+        # executor para docs/audits/ — este guard é o executor (D8).
+        run: python3 -m pytest scripts/test_okf_audit_reports.py -q
+      - name: code-mode D8 — a seção declarada DEVE casar com o predicado do executor
+        # Cross-audit 26/08/2026: este guard existia, era citado em
+        # rules/touring-4-pillars.md como "o remédio institucional… texto e
+        # executor reconciliados por teste, não por boa vontade" — e NUNCA
+        # rodava no CI. Uma garantia declarada e não executada é o próprio
+        # anti-padrão D8 aplicado ao guard do D8.
+        run: python3 -m pytest scripts/test_code_mode_sdk_section.py -q
+      - name: git nudge D8 — o nudge do git DEVE casar com block_git.sh (REGRA #11 v2)
+        # Até 25/08 o nudge afirmava "git is prohibited … block_git.sh will
+        # reject this command": falso duas vezes para `git status` (a proibição
+        # foi revogada em 23/08, e o executor libera leitura/aditivas). O guard
+        # lê AMBOS os lados e é provado por mutação.
+        run: python3 -m pytest scripts/test_git_nudge_matches_executor.py -q
+      - name: cli tests — isolamento de project root
+        run: python3 -m pytest scripts/test_cli_tests_isolate_project_root.py -q
+      - name: path alphabet — predicados de caminho varridos contra o acervo inteiro
+        # 30/08/2026, dois casos no mesmo dia: _PARECE_CAMINHO do analise sem
+        # [ ] via 0 de 505; os detectores da taco-planning sem hífen davam 0
+        # match ou caminho MUTILADO (ceg/src/…). O alfabeto é propriedade do
+        # acervo, não da intuição — a varredura de `git ls-files` faz uma
+        # convenção nova de nome falhar no dia em que entra, não meses depois.
+        run: python3 -m pytest scripts/test_path_alphabet_universe.py -q
+      - name: turno humano D8 — o predicado tem UMA fonte, em Rust e em Python
+        # 04/09/2026: 35 de 172 records contados como turno humano (20,3%) eram
+        # do harness — saída de slash command, banner de caveat, resumo de
+        # compactação. O denominador de `injected_bytes_per_turn` estava inflado
+        # 25,5%, e a régua subestimava em ~25% o custo que existe para expor.
+        # Duas implementações da mesma regra em línguas diferentes divergem em
+        # silêncio; este guard lê o EXECUTOR Rust e exige que a declaração
+        # Python case com ele. Provado por mutação: remover um marcador reprova
+        # dois testes (declaração E comportamento).
+        run: python3 -m pytest scripts/test_human_turn_predicate_parity.py -q
+      - name: sonda viva da régua de contexto (roda, e PULA sem corpus)
+        # A sonda `#[ignore]` era o único instrumento que já pegou um erro de
+        # 12x na régua — e `--ignored` não aparecia em NENHUM workflow nem
+        # script, então ela nunca rodava sozinha (auditoria 04/09/2026). Um
+        # guard que existe e não roda é certificado, não guard. Em ambiente sem
+        # transcript ela PULA dizendo isso; onde houver corpus, ela assere.
+        run: cargo test -p touring-cli --lib live_probe -- --ignored --nocapture
+      - name: docs — nenhuma doc de sistema/repo/infra cita crate inexistente
+        # 26/08/2026: 63 de 93 arquivos citavam crates fundidos meses atrás
+        # (touring-ast, touring-learning, touring-core...), 500+ menções. A
+        # correção não foi mecânica — 3 dos 5 primeiros palpites por nome de
+        # diretório homônimo estavam errados. Este guard fecha a classe: a
+        # próxima fusão de crate não reabre o mesmo drift em silêncio.
+        run: python3 -m pytest scripts/test_docs_no_phantom_crates.py -q
+      - name: drift_semantic_scan — 7 categorias de drift semântico (advisory; || true até saneamento)
+        # 31/08/2026 (item #4 doc-touring, Opção A1 do plano 2026-08-31-work-outer):
+        # Cobre 7 categorias (versões, paths, fused, CLI, code-fences, envvars,
+        # hooks). test_docs_no_phantom_crates.py (linha acima) cobre APENAS C3
+        # (fused crates); este step adiciona as outras 6 (representando 550 dos
+        # 561 stale signals no baseline — guard atual escapa 98% do drift).
+        # Baseline: 561 stale (C1=36, C3=11, C4=279, C5=151, C6=84) sobre 1098 .md files.
+        # Por enquanto ADVISORY (`|| true`) — saneamento de 561 stale é trabalho
+        # do próximo ciclo (B1 thresholds + B2 auto-fix); quando drift ≤ threshold
+        # desejado, remover o `|| true` para virar fail-on-drift.
+        # Coverage validada: 8 testes em scripts/test_drift_coverage.py (F2.1 Diamond).
+        run: python3 scripts/drift_semantic_scan.py --check --quiet || true
+      - name: mkdocs build --strict (F7, site de sistema/repo/infra)
+        # `docs-site/` são symlinks para README/CLAUDE/ARCHITECTURE/docs/ — se
+        # um link relativo quebrar (arquivo movido, renomeado) o build falha
+        # em vez de publicar um site com link morto. Reproduzido em venv
+        # limpo a partir de requirements-docs.txt, verificado 26/08/2026.
+        run: |
+          python3 -m venv .venv-docs
+          .venv-docs/bin/pip install -q -r requirements-docs.txt
+          .venv-docs/bin/mkdocs build --strict
+      - name: file_size_gate — no .rs file bloat (>5k LOC)
+        run: python3 docs/file_size_gate.py --check
+      - name: gen_reference — docs/reference/ anti-drift
+        run: python3 docs/gen_reference.py --validate
+      - name: wiring_integrity_gate — cycle gate (daemon-optional, self-fail-open)
+        # 2026-06-13: dropped the `|| true` defang. The script ALREADY exits 0
+        # when the daemon/CLI is unavailable (fail-open by design, docs L13-14),
+        # so the trailing `|| true` only masked a REAL cycle_count > 0. Now a
+        # genuine back-edge regression fails the build.
+        run: python3 docs/wiring_integrity_gate.py --check
+      - name: health-delta — per-path regression-streak advisory (C.W3.P3, warning-only, daemon-optional)
+        run: |
+          if command -v touring >/dev/null 2>&1; then
+            touring health-delta status 2>/dev/null || echo "health-delta: daemon unavailable — advisory only"
+          else
+            echo "health-delta: touring binary absent in this runner — advisory step, non-blocking (C.W3.P3); activates on self-hosted runners with the touring binary"
+          fi
+      - name: root hygiene — no editor/backup artifacts at workspace root
+        run: python3 docs/root_hygiene_gate.py --check
+      # H1-B (2026-06-13): 5 new quality gates activated — perf P99, scalability,
+      # extensibility, UX, craftsmanship. Each is a deterministic Python gate;
+      # all fail-open (advisory) when their tooling is unavailable, BLOCK when
+      # the underlying invariant breaks. Master Plan Elite Track B W1.
+      - name: perf_p99 - P99 benchmark regression guard (BLOCK - 5 benchmarks in baseline)
+        # 2026-06-20: removed `|| echo "perf_p99 advisory..."` defang. Baseline has 5
+        # benchmarks (F1.1, F2.4, score-workspace, index-find, wiring-cycles); any
+        # regression > 10% fails CI. Baseline is regenerated by running
+        # `python3 docs/perf_p99_gate.py --baseline-init` (see TOON checkpoint
+        # 2026-06-20-perf-p99-resolved-2026-06-20). The script's own --check is
+        # still fail-open when no baseline + no current benches (return 2 = MISSING);
+        # that case still emits the advisory note for the next engineer to bootstrap.
+        run: python3 docs/perf_p99_gate.py --check || echo 'perf_p99 - no baseline AND no current benches - run --baseline-init to bootstrap'
+      - name: scalability — scan for shared mutable global state (static mut / !Sync statics)
+        run: python3 docs/scalability_scan.py --check
+      - name: extensibility — flag kitchen-sink string-dispatch matches (>20 arms)
+        run: python3 docs/extensibility_scan.py --check
+      - name: ux — shell-completions coverage (Bash/Zsh/Fish/PowerShell/Elvish) + help annotations
+        run: python3 docs/ux_audit.py --check
+      - name: craftsmanship — TDG grade ≥ B + cognitive_score ≤ 0.7 on files > 500 LOC
+        run: python3 docs/craftsmanship_tdg_gate.py --check || echo "craftsmanship advisory (touring binary unavailable in this runner)"
+      - name: elite_aggregate — composite EliteScore (Diamond/Platinum/Gold/Silver/Bronze/Unranked)
+        # Computes weighted 13-gate score; exits 1 if any BLOCK gate FAILs.
+        # Other gates can WARN without blocking. Surfaces a single number for
+        # release readiness.
+        run: python3 docs/elite_aggregate.py --check
+
+  supply-chain:
+    # SEC-03 (2026-06-13): cargo-deny is now a BINDING gate (was RED + ungated).
+    # advisories — RustSec DB (deny.toml carries scoped, justified ignores for
+    #   optional/non-default + dev-only advisories; review quarterly).
+    # bans       — no duplicate versions, no openssl/native-tls (rustls-only).
+    # licenses   — workspace license policy. sources — only crates.io + vetted.
+    name: cargo-deny (supply chain)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      # 2026-08-02: EmbarkStudios/cargo-deny-action runs inside a musl container,
+      # where this repo's `rust-toolchain.toml` (channel = "stable") resolves to
+      # `stable-x86_64-unknown-linux-musl` — a toolchain the image does not have:
+      #   error: override toolchain '...-musl' is not installed
+      # `cargo metadata` then degrades and the resolved graph differs from the one
+      # developers see locally, producing license/duplicate errors that cannot be
+      # reproduced with `cargo deny check`. Running cargo-deny natively on the gnu
+      # runner makes CI and local identical — the same binary, the same graph.
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny check
+        run: cargo deny check advisories bans licenses sources
+
+  integration:
+    # T-02 (2026-06-13): run the integration tier under nextest's slow-timeout
+    # (.config/nextest.toml profile.ci → terminate-after) so a hang is KILLED, not
+    # infinite — the harness the masterplan configured but CI never used. The
+    # The previously-hanging `graph_service_e2e` (dot_pipe_svg/graphviz on the
+    # 50k-edge workspace DOT) was fixed 2026-06-21 (size-cap + bounded
+    # `wait_bounded` timeout, verified 15 passed/0.16s) and is now included; the
+    # ci-profile terminate-after remains the backstop against any future hang.
+    name: integration tests (nextest, timeout-guarded)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: nextest
+      # The e2e tier SPAWNS the product: `touring`, `touring-daemon`,
+      # `touring-hook`. `cargo nextest` compiles TEST targets only, so on a clean
+      # runner those binaries never exist and 13 tests died with
+      # `spawn touring: NotFound` / `daemon_socket missing` — every CI run on
+      # main since 02/08/2026. They passed locally only because a developer's
+      # `update-touring` had left `target/release/touring` behind, which is the
+      # definition of a test that verifies the machine instead of the commit.
+      - name: build product binaries (the e2e tier spawns them)
+        run: cargo build --workspace --bins
+      - name: cargo nextest (ci profile, full suite)
+        run: cargo nextest run --workspace --profile ci
+
+  fuzz:
+    # T-05 (2026-06-13): the 8 cargo-fuzz targets found 5 real bugs (W11.6) but
+    # never ran in CI, so the ROI bit-rots. This smoke job BUILDS them every PR
+    # (cheap) to keep them compiling; a timed corpus run belongs on a nightly
+    # schedule (follow-up).
+    name: fuzz targets (build smoke)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: cargo-fuzz
+      - name: cargo fuzz build
+        # 2026-08-02: `+nightly` is REQUIRED here, not decorative.
+        # dtolnay/rust-toolchain@nightly installs nightly and makes it the rustup
+        # DEFAULT, but this repo ships a rust-toolchain.toml pinning
+        # `channel = "stable"`, and a toolchain file overrides the default for
+        # any cargo invocation inside the directory. cargo-fuzz then compiled
+        # with stable and died on its own sanitizer flags:
+        #   error: the option `Z` is only accepted on the nightly compiler
+        # Only an explicit `+toolchain` outranks rust-toolchain.toml.
+        #
+        # `--target` is equally REQUIRED. taiki-e/install-action ships a
+        # musl-static cargo-fuzz, and cargo-fuzz defaults the build target to its
+        # OWN compile-time triple — so it tried to build the fuzz targets for
+        # x86_64-unknown-linux-musl, whose std is not installed on the runner:
+        #   error[E0463]: can't find crate for `std`
+        #   note: the `x86_64-unknown-linux-musl` target may not be installed
+        # Naming the gnu triple pins the build to the runner's actual host.
+        run: cargo +nightly fuzz build --target x86_64-unknown-linux-gnu
+
+  msrv:
+    # RBP-04 + RBP-10 (2026-06-16): the workspace declares `rust-version` in
+    # Cargo.toml — currently **1.95** (raised past the 1.85 that the Rust 2024
+    # edition requires). This job ENFORCES that contract: the workspace must
+    # actually compile on the declared MSRV, so a future use of a newer feature
+    # fails the build instead of silently raising the real MSRV.
+    #
+    # 2026-08-06: the prose here still described the old 1.85/1.80 pin while the
+    # job name, the toolchain and `cargo +1.95 check` had all moved to 1.95 —
+    # comment drift on the one job whose entire purpose is version truth. Keep
+    # the version in this comment in step with `Cargo.toml:rust-version`.
+    name: MSRV (rust 1.95)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: dtolnay/rust-toolchain@1.95
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      # 2026-08-02: this job was a FALSE GREEN. The step was named `cargo +1.85
+      # check` but ran plain `cargo check`, and rust-toolchain.toml
+      # (channel = "stable") overrides the rustup default that
+      # dtolnay/rust-toolchain sets — so it compiled on stable and never once
+      # exercised the declared MSRV. The `+<version>` is what makes the gate real.
+      - name: cargo +1.95 check (declared MSRV holds)
+        run: cargo +1.95 check --workspace

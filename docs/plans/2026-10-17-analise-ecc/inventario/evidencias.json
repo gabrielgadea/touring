@@ -1,0 +1,606 @@
+{
+ "H4-ecc2-src-schemas.json": [
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1177-1245",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:2312-2317",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/config/mod.rs:311-312",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/main.rs:2921-2930",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/tui/dashboard.rs:4067",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 1,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/daemon.rs:20-55",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 2,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:1927-1930",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 2,
+   "lado": "ecc",
+   "ref": "ecc2/src/config/mod.rs:342-348",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 2,
+   "lado": "ecc",
+   "ref": "scripts/hooks/cost-tracker.js:21-24",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 2,
+   "lado": "ecc",
+   "ref": "scripts/lib/session-cost-snapshot.js:132-151",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 2,
+   "lado": "touring",
+   "ref": "medir_relevancia.py:2",
+   "ok": false,
+   "motivo": "arquivo não encontrado"
+  },
+  {
+   "linha": 3,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:2661",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 3,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:211",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 3,
+   "lado": "ecc",
+   "ref": "scripts/hooks/session-activity-tracker.js:576-586",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 3,
+   "lado": "ecc",
+   "ref": "scripts/hooks/cost-tracker.js:237-241",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 4,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1866-1946",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 4,
+   "lado": "ecc",
+   "ref": "ecc2/src/worktree/mod.rs:101-149",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 4,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/runtime.rs:210-214",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 4,
+   "lado": "touring",
+   "ref": "crates/touring-server/src/cli/exec.rs:1033",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 4,
+   "lado": "touring",
+   "ref": "crates/touring-ceg/src/gateway/txn.rs:77",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1255-1463",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "ecc",
+   "ref": "ecc2/src/tui/dashboard.rs:4075",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "ecc",
+   "ref": "scripts/hooks/session-activity-tracker.js:111-131",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:4351-4455",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1262",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 5,
+   "lado": "touring",
+   "ref": "crates/touring-server/src/cli/exec.rs:1033",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/daemon.rs:46",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "ecc",
+   "ref": "ecc2/src/config/mod.rs:293",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1738-1753",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "ecc",
+   "ref": "ecc2/src/worktree/mod.rs:197-223",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "touring",
+   "ref": "~/.claude/rules/git-safety-protocol.md:13",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "touring",
+   "ref": "skills/Touring/references/git-safety-protocol.md:38",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 6,
+   "lado": "touring",
+   "ref": "client/hooks/block_git.sh:64",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 7,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:3582-3606",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 7,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/daemon.rs:58-93",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 7,
+   "lado": "touring",
+   "ref": "crates/touring-dispatch/src/daemon.rs:741-748",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 7,
+   "lado": "touring",
+   "ref": "~/.claude/hooks/touring-process-guard.sh:35-45",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 8,
+   "lado": "ecc",
+   "ref": "ecc2/src/main.rs:652-655",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 8,
+   "lado": "touring",
+   "ref": "touring-bindings/src/web/server/mod.rs:1467",
+   "ok": true,
+   "motivo": "por nome"
+  },
+  {
+   "linha": 8,
+   "lado": "touring",
+   "ref": "touring-server/src/telemetry_init.rs:121",
+   "ok": true,
+   "motivo": "por nome"
+  },
+  {
+   "linha": 9,
+   "lado": "ecc",
+   "ref": "ecc2/src/harness_eval.rs:192-250",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 9,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:504-511",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 9,
+   "lado": "touring",
+   "ref": "~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py:440-456",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 10,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:2481-2568",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 10,
+   "lado": "touring",
+   "ref": "~/.claude/skills/loop-engineering/scripts/loop_converged.py:10-17",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 11,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/runtime.rs:177-187",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 11,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:787-831",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 11,
+   "lado": "ecc",
+   "ref": "ecc2/src/config/mod.rs:294",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "ecc",
+   "ref": "ecc2/src/comms/mod.rs:29-50",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:903-948",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/daemon.rs:186-246",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:124-206",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "touring",
+   "ref": "crates/touring-cli/src/cli/handlers/decompose/wayfinder.rs:135-153",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 12,
+   "lado": "touring",
+   "ref": "wayfinder.rs:72",
+   "ok": true,
+   "motivo": "por nome"
+  },
+  {
+   "linha": 13,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:209-216",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 13,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/daemon.rs:20-55",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 13,
+   "lado": "ecc",
+   "ref": "scripts/lib/state-store/file-lock.js:79-125",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 14,
+   "lado": "ecc",
+   "ref": "ecc2/src/observability/mod.rs:60-133",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 14,
+   "lado": "ecc",
+   "ref": "ecc2/src/config/mod.rs:326-330",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 14,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:2074-2079",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 14,
+   "lado": "ecc",
+   "ref": "ecc2/src/main.rs:8380",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 14,
+   "lado": "ecc",
+   "ref": "store.rs:2074",
+   "ok": true,
+   "motivo": "ambíguo (5)"
+  },
+  {
+   "linha": 14,
+   "lado": "touring",
+   "ref": "crates/touring-ceg/src/gateway/pre_exec.rs:208",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 15,
+   "lado": "ecc",
+   "ref": "schemas/install-modules.schema.json:89-93",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 16,
+   "lado": "ecc",
+   "ref": "scripts/ci/validate-context-profiles.js:14-18",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 17,
+   "lado": "ecc",
+   "ref": ".github/workflows/ci.yml:335-348",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 17,
+   "lado": "ecc",
+   "ref": ".github/dependabot.yml:86-87",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 17,
+   "lado": "ecc",
+   "ref": "scripts/observability-readiness.js:103",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 17,
+   "lado": "touring",
+   "ref": ".github/workflows/ci.yml:45",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 18,
+   "lado": "ecc",
+   "ref": "src/llm/cli/selector.py:34-49",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 18,
+   "lado": "ecc",
+   "ref": "scripts/lib/compute-sponsor.js:3-12",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 18,
+   "lado": "ecc",
+   "ref": "scripts/ito.js:34",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 18,
+   "lado": "ecc",
+   "ref": "scripts/platform-audit.js:454",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 18,
+   "lado": "touring",
+   "ref": "scripts/_archive/generate_w0_premium_artifacts.py:730",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "ecc",
+   "ref": "src/llm/tools/executor.py:23-34",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "ecc",
+   "ref": "src/llm/providers/resolver.py:94-119",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "ecc",
+   "ref": "src/llm/providers/claude.py:18",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "ecc",
+   "ref": "scripts/hooks/cost-tracker.js:84-96",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "ecc",
+   "ref": ".github/workflows/ci.yml:335-343",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 19,
+   "lado": "touring",
+   "ref": "client/hooks/agent_model_gate.py:50-54",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 20,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/mod.rs:12-100",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 20,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:3071-3188",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 21,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/store.rs:80",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 21,
+   "lado": "ecc",
+   "ref": "ecc2/src/main.rs:2121-2129",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 21,
+   "lado": "ecc",
+   "ref": "ecc2/src/session/manager.rs:1377-1385",
+   "ok": true,
+   "motivo": ""
+  },
+  {
+   "linha": 21,
+   "lado": "ecc",
+   "ref": "scripts/lib/control-pane/state.js:10",
+   "ok": true,
+   "motivo": ""
+  }
+ ]
+}

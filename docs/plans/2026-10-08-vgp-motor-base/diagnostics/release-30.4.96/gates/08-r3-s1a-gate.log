@@ -1,0 +1,40 @@
+hw-slot: aguardando — temp 93C > 88C
+hw-slot: sem vaga após 600s: temp 91C > 88C
+r3-s1a-gate: S1a reprovou na 1ª tentativa — UMA re-medição (ruído térmico vira atraso; regressão reprova de novo)
+hw-slot: aguardando — temp 92C > 88C
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-contracts)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
+   Compiling touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-saga)
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 29.48s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (target/debug/deps/touring_hook_runtime-4d0f89a5120a0c5d)
+
+running 1 test
+OFF  p50=510 ns   p99=863 ns
+EMIT p50=12 µs  p99=15 µs
+test r3_shadow::tests::r3_emission_cost_is_bounded ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 488 filtered out; finished in 0.18s
+
+   Doc-tests touring_hook_runtime
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+all doctests ran in 0.27s; merged doctests compilation took 0.26s
+r3-s1a-gate: S1a ok na re-medição
+r3-s1a rc=0

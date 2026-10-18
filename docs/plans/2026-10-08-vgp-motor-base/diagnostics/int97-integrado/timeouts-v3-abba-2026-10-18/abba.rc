@@ -1,0 +1,5 @@
+1_A rc=1 timeouts/ids=50 738 temp=+95.0°C 2026-10-18T07:33:40-03:00
+2_B rc=1 timeouts/ids=34 738 temp=+83.0°C 2026-10-18T07:44:08-03:00
+3_B rc=1 timeouts/ids=38 738 temp=+83.0°C 2026-10-18T07:54:54-03:00
+4_A rc=1 timeouts/ids=37 738 temp=+83.0°C 2026-10-18T08:05:35-03:00
+FIM

@@ -1,0 +1,13 @@
+arvore vl0=15b5a5f4d781dd3ffeddf84c1c362711d4e42c14 int97=163948c52155a16ca477c802c01eeb06bc543e2e
+vtransv: arvore=6eaba76289d4aa1ff5b585b31b73c475908b22d0  16 files changed, 6718 insertions(+), 71 deletions(-) sha=186d8b8aa9e7
+vts: arvore=bc92748de3fce0e6af11c056ea5bddb3c3d1592a  17 files changed, 11621 insertions(+), 99 deletions(-) sha=dd22107f68ae
+vhtml: arvore=04838445cae1451d871f0f747ff23a94b725b0ee  11 files changed, 3047 insertions(+), 34 deletions(-) sha=7c44b7e9c62b
+vrs2: arvore=c90516a5e7fb86e11062a2cafee47ce22ea203d8  2 files changed, 4456 insertions(+), 33 deletions(-) sha=7ddd6eb193e6
+f21k:  3 files changed, 297 insertions(+), 6 deletions(-) sha=40434c7b5cb7
+SIM vtransv: APLICA
+SIM vts: APLICA
+SIM vhtml: APLICA
+SIM vrs2: APLICA
+SIM f21k: APLICA
+arvore simulada=f670d1eccb0a89353cc4ed66b6a5f3986ac60c57
+FIM

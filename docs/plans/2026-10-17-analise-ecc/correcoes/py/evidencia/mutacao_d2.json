@@ -1,0 +1,1954 @@
+{
+ "rodada_1": [
+  {
+   "id": "-C stored as a config",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_points_the_check_at_the_other_repo",
+    "1 failed, 367 passed in 66.00s (0:01:05)"
+   ]
+  },
+  {
+   "id": "-c without a following arg still taken",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 68.58s (0:01:08)"
+   ]
+  },
+  {
+   "id": "am dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[am --no-verify]",
+    "1 failed, 17 passed in 2.95s"
+   ]
+  },
+  {
+   "id": "commit dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.18s"
+   ]
+  },
+  {
+   "id": "push dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP push]",
+    "1 failed, 36 passed in 6.00s"
+   ]
+  },
+  {
+   "id": "-c core.hooksPath never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 3.38s"
+   ]
+  },
+  {
+   "id": "commit -m not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 74 passed in 11.25s"
+   ]
+  },
+  {
+   "id": "commit -c not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -c -n (a commit named -n)]",
+    "1 failed, 79 passed in 11.52s"
+   ]
+  },
+  {
+   "id": "commit -S not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -Sn-expected32]",
+    "1 failed, 418 passed in 65.19s (0:01:05)"
+   ]
+  },
+  {
+   "id": "am -S not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Sn-expected27]",
+    "1 failed, 413 passed in 63.38s (0:01:03)"
+   ]
+  },
+  {
+   "id": "-n never found in a cluster",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit -n]",
+    "1 failed, 1 passed in 0.32s"
+   ]
+  },
+  {
+   "id": "attached letter ends nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Sn-expected27]",
+    "1 failed, 413 passed in 61.86s (0:01:01)"
+   ]
+  },
+  {
+   "id": "long option value skip dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit --message --no-verify-expected21]",
+    "1 failed, 407 passed in 62.67s (0:01:02)"
+   ]
+  },
+  {
+   "id": "abbreviation exact only",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verif abbreviation]",
+    "1 failed, 6 passed in 0.97s"
+   ]
+  },
+  {
+   "id": "short options for every sub",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[push -n is a dry run]",
+    "1 failed, 67 passed in 9.87s"
+   ]
+  },
+  {
+   "id": "hooksPath key by suffix",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[-c key that merely contains hooksPath]",
+    "1 failed, 91 passed in 12.45s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY one digit",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[GIT_CONFIG_KEY_12=core.hooksPath git commit-expected35]",
+    "1 failed, 421 passed in 62.64s (0:01:02)"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_PARAMETERS ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_PARAMETERS]",
+    "1 failed, 29 passed in 4.87s"
+   ]
+  },
+  {
+   "id": "ALLOW_NO_CONFIG any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[PRE_COMMIT_ALLOW_NO_CONFIG=0]",
+    "1 failed, 99 passed in 18.14s"
+   ]
+  },
+  {
+   "id": "HUSKY ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[HUSKY=0]",
+    "1 failed, 33 passed in 5.01s"
+   ]
+  },
+  {
+   "id": "-C chain does not expand $VAR",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_tilde_and_variables_are_expanded",
+    "1 failed, 370 passed in 60.16s (0:01:00)"
+   ]
+  },
+  {
+   "id": "cd ignored by the target",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 371 passed in 61.65s (0:01:01)"
+   ]
+  },
+  {
+   "id": "cd with several operands accepted",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 64.41s (0:01:04)"
+   ]
+  },
+  {
+   "id": "cd without operand goes nowhere",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_without_an_argument_goes_home",
+    "1 failed, 372 passed in 59.20s"
+   ]
+  },
+  {
+   "id": "export not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[export SKIP]",
+    "1 failed, 37 passed in 5.63s"
+   ]
+  },
+  {
+   "id": "command assignments leak",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[assignment scoped to another command]",
+    "1 failed, 101 passed in 12.86s"
+   ]
+  },
+  {
+   "id": "text scope leaks env only",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 63.23s (0:01:03)"
+   ]
+  },
+  {
+   "id": "assignment scan stops nowhere",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 68.66s (0:01:08)"
+   ]
+  },
+  {
+   "id": "hooksPath not tilde-expanded",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_core_hookspath_outside_the_repo_and_with_a_tilde",
+    "1 failed, 378 passed in 64.57s (0:01:04)"
+   ]
+  },
+  {
+   "id": "non-regular files count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 13.43s"
+   ]
+  },
+  {
+   "id": "no hooks still active",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 13.72s"
+   ]
+  },
+  {
+   "id": "shim test too loose",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 379 passed in 61.67s (0:01:01)"
+   ]
+  },
+  {
+   "id": "cut marker always shown",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_names_the_form_the_repo_the_hooks_and_the_way_out",
+    "1 failed, 381 passed in 61.16s (0:01:01)"
+   ]
+  },
+  {
+   "id": "ids cut marker always",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 69.88s (0:01:09)"
+   ]
+  },
+  {
+   "id": "target taken as absolute",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 368 passed in 60.18s (0:01:00)"
+   ]
+  },
+  {
+   "id": "forms joined without e",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 66.76s (0:01:06)"
+   ]
+  },
+  {
+   "id": "message loses the token",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.36s"
+   ]
+  },
+  {
+   "id": "bypass token waived by the destructive one",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[rebase --no-verify]",
+    "1 failed, 19 passed in 3.13s"
+   ]
+  },
+  {
+   "id": "bypass case removed from the note loop",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_bypass_and_a_destructive_in_one_command_are_both_judged",
+    "1 failed, 366 passed in 46.73s"
+   ]
+  },
+  {
+   "id": "resolver failure allowed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 14.89s"
+   ]
+  },
+  {
+   "id": "cwd argument dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.28s"
+   ]
+  },
+  {
+   "id": "-c stored as a dir",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 3.51s"
+   ]
+  },
+  {
+   "id": "push dropped from --no-verify subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[push --no-verify]",
+    "1 failed, 15 passed in 2.93s"
+   ]
+  },
+  {
+   "id": "rebase dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[rebase --no-verify]",
+    "1 failed, 19 passed in 3.38s"
+   ]
+  },
+  {
+   "id": "pull dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[HUSKY=0 pull]",
+    "1 failed, 34 passed in 6.46s"
+   ]
+  },
+  {
+   "id": "env forms for every subcommand",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[SKIP only for a command that runs no hook]",
+    "1 failed, 94 passed in 14.51s"
+   ]
+  },
+  {
+   "id": "--no-verify never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.25s"
+   ]
+  },
+  {
+   "id": "commit -F not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -F -n (a file name)]",
+    "1 failed, 78 passed in 13.28s"
+   ]
+  },
+  {
+   "id": "commit -t not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -t -n (a template named -n)]",
+    "1 failed, 81 passed in 13.15s"
+   ]
+  },
+  {
+   "id": "am -C not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Cn-expected33]",
+    "1 failed, 419 passed in 68.46s (0:01:08)"
+   ]
+  },
+  {
+   "id": "am dropped from the -n subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[am -n]",
+    "1 failed, 18 passed in 3.07s"
+   ]
+  },
+  {
+   "id": "value letter always takes the next word",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit attached message then -n]",
+    "1 failed, 8 passed in 1.46s"
+   ]
+  },
+  {
+   "id": "-- no longer ends the options",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m x -- -n (a pathspec)]",
+    "1 failed, 76 passed in 11.43s"
+   ]
+  },
+  {
+   "id": "long option value skip for every sub",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[merge --squash is a flag, not a value]",
+    "1 failed, 9 passed in 1.50s"
+   ]
+  },
+  {
+   "id": "abbreviation too short allowed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[--no-ver is ambiguous (no-verbose)]",
+    "1 failed, 93 passed in 13.05s"
+   ]
+  },
+  {
+   "id": "hooksPath key case-sensitive",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 3.63s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[GIT_CONFIG_KEY other key]",
+    "1 failed, 100 passed in 13.86s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY prefix match",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[GIT_CONFIG_KEY_0x=core.hooksPath git commit-expected36]",
+    "1 failed, 422 passed in 64.36s (0:01:04)"
+   ]
+  },
+  {
+   "id": "SKIP empty counts",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[SKIP empty]",
+    "1 failed, 97 passed in 13.19s"
+   ]
+  },
+  {
+   "id": "ALLOW_NO_CONFIG ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[PRE_COMMIT_ALLOW_NO_CONFIG]",
+    "1 failed, 32 passed in 5.00s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 4.55s"
+   ]
+  },
+  {
+   "id": "-C chain keeps only the last",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 368 passed in 55.03s"
+   ]
+  },
+  {
+   "id": "-C ignored by the target",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_points_the_check_at_the_other_repo",
+    "1 failed, 367 passed in 57.07s"
+   ]
+  },
+  {
+   "id": "cd - followed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[cd x && cd - && git commit -n-expected37]",
+    "1 failed, 423 passed in 62.23s (0:01:02)"
+   ]
+  },
+  {
+   "id": "cd options kept as operands",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 371 passed in 59.37s"
+   ]
+  },
+  {
+   "id": "bare assignment not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[bare assignment on its own line]",
+    "1 failed, 39 passed in 5.83s"
+   ]
+  },
+  {
+   "id": "text scope leaks",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_inside_a_nested_shell_or_substitution_does_not_leak",
+    "1 failed, 373 passed in 67.47s (0:01:07)"
+   ]
+  },
+  {
+   "id": "nested text does not inherit",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP inherited by bash -c]",
+    "1 failed, 50 passed in 7.69s"
+   ]
+  },
+  {
+   "id": "note not deduped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -n; git commit -n-expected3]",
+    "1 failed, 389 passed in 66.31s (0:01:06)"
+   ]
+  },
+  {
+   "id": "hooks dir not joined to the repo",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.26s"
+   ]
+  },
+  {
+   "id": "non-executable files count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 14.06s"
+   ]
+  },
+  {
+   "id": "framework ids without the shim",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 379 passed in 62.36s (0:01:02)"
+   ]
+  },
+  {
+   "id": "hooks dir always shown absolute",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_names_the_form_the_repo_the_hooks_and_the_way_out",
+    "1 failed, 381 passed in 61.98s (0:01:01)"
+   ]
+  },
+  {
+   "id": "hook list cap off by one",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 384 passed in 63.79s (0:01:03)"
+   ]
+  },
+  {
+   "id": "ids not capped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 384 passed in 64.84s (0:01:04)"
+   ]
+  },
+  {
+   "id": "forms repeated per note",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_same_form_twice_is_named_once",
+    "1 failed, 383 passed in 68.22s (0:01:08)"
+   ]
+  },
+  {
+   "id": "repo without hooks named too",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 13.77s"
+   ]
+  },
+  {
+   "id": "message loses the destructive contrast",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_names_the_form_the_repo_the_hooks_and_the_way_out",
+    "1 failed, 381 passed in 62.54s (0:01:02)"
+   ]
+  },
+  {
+   "id": "bypass token counted in the raw command",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[token only as data]",
+    "1 failed, 62 passed in 9.37s"
+   ]
+  },
+  {
+   "id": "deny without checking the message",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 13.62s"
+   ]
+  },
+  {
+   "id": "resolver failure silent",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_resolver_failing_is_a_loud_deny_not_a_silent_allow",
+    "1 failed, 385 passed in 62.33s (0:01:02)"
+   ]
+  },
+  {
+   "id": "cwd read from the wrong field",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.28s"
+   ]
+  },
+  {
+   "id": "--config-env ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[--config-env core.hooksPath]",
+    "1 failed, 26 passed in 4.34s"
+   ]
+  },
+  {
+   "id": "merge dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[merge --squash is a flag, not a value]",
+    "1 failed, 9 passed in 1.95s"
+   ]
+  },
+  {
+   "id": "cherry-pick dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[cherry-pick --no-verify]",
+    "1 failed, 20 passed in 3.46s"
+   ]
+  },
+  {
+   "id": "revert dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP revert]",
+    "1 failed, 35 passed in 6.54s"
+   ]
+  },
+  {
+   "id": "env forms never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 4.71s"
+   ]
+  },
+  {
+   "id": "no-subcommand -c form dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git -c core.hooksPath=/dev/null-expected12]",
+    "1 failed, 398 passed in 71.84s (0:01:11)"
+   ]
+  },
+  {
+   "id": "commit -C not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -C -n (a commit named -n)]",
+    "1 failed, 80 passed in 12.20s"
+   ]
+  },
+  {
+   "id": "commit -u not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -un-expected28]",
+    "1 failed, 414 passed in 66.42s (0:01:06)"
+   ]
+  },
+  {
+   "id": "am -p not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -pn-expected34]",
+    "1 failed, 420 passed in 65.32s (0:01:05)"
+   ]
+  },
+  {
+   "id": "-n also on push",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[push -n is a dry run]",
+    "1 failed, 67 passed in 10.58s"
+   ]
+  },
+  {
+   "id": "value letter never takes the next word",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 74 passed in 10.61s"
+   ]
+  },
+  {
+   "id": "-- of a value skip",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 74 passed in 11.26s"
+   ]
+  },
+  {
+   "id": "long option value skip even with =",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit long option with value then -n]",
+    "1 failed, 13 passed in 2.15s"
+   ]
+  },
+  {
+   "id": "abbreviation needs one more char",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-veri shortest abbreviation]",
+    "1 failed, 7 passed in 1.22s"
+   ]
+  },
+  {
+   "id": "hooksPath key by prefix",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[-c with another key]",
+    "1 failed, 90 passed in 11.68s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY digits optional",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 61.83s (0:01:01)"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_PARAMETERS any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[GIT_CONFIG_PARAMETERS for another key]",
+    "1 failed, 83 passed in 11.48s"
+   ]
+  },
+  {
+   "id": "SKIP ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP]",
+    "1 failed, 30 passed in 4.65s"
+   ]
+  },
+  {
+   "id": "HUSKY any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[HUSKY=1]",
+    "1 failed, 98 passed in 13.18s"
+   ]
+  },
+  {
+   "id": "-C chain does not expand ~",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_tilde_and_variables_are_expanded",
+    "1 failed, 370 passed in 56.58s"
+   ]
+  },
+  {
+   "id": "-C chain keeps only the first",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 368 passed in 57.65s"
+   ]
+  },
+  {
+   "id": "cd not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 371 passed in 65.60s (0:01:05)"
+   ]
+  },
+  {
+   "id": "cd needs no operand",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 371 passed in 61.23s (0:01:01)"
+   ]
+  },
+  {
+   "id": "cd relative to nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 371 passed in 60.76s (0:01:00)"
+   ]
+  },
+  {
+   "id": "command assignments not applied",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 4.40s"
+   ]
+  },
+  {
+   "id": "text scope leaks cwd only",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_inside_a_nested_shell_or_substitution_does_not_leak",
+    "1 failed, 373 passed in 60.54s (0:01:00)"
+   ]
+  },
+  {
+   "id": "env wrapper assignment ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[env wrapper]",
+    "1 failed, 41 passed in 6.15s"
+   ]
+  },
+  {
+   "id": "hooksPath config ignored",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 62.97s (0:01:02)"
+   ]
+  },
+  {
+   "id": "samples count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 109 passed in 14.13s"
+   ]
+  },
+  {
+   "id": "missing hooks dir crashes",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[pathed_missing-commit --no-verify]",
+    "1 failed, 237 passed in 34.19s"
+   ]
+  },
+  {
+   "id": "framework ids never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 379 passed in 65.95s (0:01:05)"
+   ]
+  },
+  {
+   "id": "hooks dir always relative",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_core_hookspath_outside_the_repo_and_with_a_tilde",
+    "1 failed, 378 passed in 64.89s (0:01:04)"
+   ]
+  },
+  {
+   "id": "hook list cap lower",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 384 passed in 63.64s (0:01:03)"
+   ]
+  },
+  {
+   "id": "-C that does not resolve falls to nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_that_does_not_resolve_falls_back_to_the_cwd",
+    "1 failed, 369 passed in 57.78s"
+   ]
+  },
+  {
+   "id": "one form wording for many",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_lists_every_form_of_the_command_and_every_repo",
+    "1 failed, 382 passed in 66.50s (0:01:06)"
+   ]
+  },
+  {
+   "id": "resolver reads every line",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 67.91s (0:01:07)"
+   ]
+  },
+  {
+   "id": "bypass token ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[token for the bypass]",
+    "1 failed, 104 passed in 13.51s"
+   ]
+  },
+  {
+   "id": "bypass notes pattern drifts",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.17s"
+   ]
+  },
+  {
+   "id": "never deny",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.27s"
+   ]
+  },
+  {
+   "id": "cwd fallback lost",
+   "status": "SURVIVED",
+   "detail": [
+    "427 passed in 67.46s (0:01:07)"
+   ]
+  }
+ ],
+ "rodada_final": [
+  {
+   "id": "-C stored as a config",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_points_the_check_at_the_other_repo",
+    "1 failed, 374 passed in 62.06s (0:01:02)"
+   ]
+  },
+  {
+   "id": "-c without a following arg still taken",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git -c-expected32]",
+    "1 failed, 426 passed in 69.92s (0:01:09)"
+   ]
+  },
+  {
+   "id": "am dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[am --no-verify]",
+    "1 failed, 17 passed in 3.57s"
+   ]
+  },
+  {
+   "id": "commit dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.21s"
+   ]
+  },
+  {
+   "id": "push dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP push]",
+    "1 failed, 36 passed in 7.96s"
+   ]
+  },
+  {
+   "id": "-c core.hooksPath never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 4.07s"
+   ]
+  },
+  {
+   "id": "commit -m not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 75 passed in 12.21s"
+   ]
+  },
+  {
+   "id": "commit -c not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -c -n (a commit named -n)]",
+    "1 failed, 80 passed in 13.69s"
+   ]
+  },
+  {
+   "id": "commit -S not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -Sn-expected34]",
+    "1 failed, 428 passed in 74.93s (0:01:14)"
+   ]
+  },
+  {
+   "id": "am -S not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Sn-expected27]",
+    "1 failed, 421 passed in 64.20s (0:01:04)"
+   ]
+  },
+  {
+   "id": "-n never found in a cluster",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit -n]",
+    "1 failed, 1 passed in 0.34s"
+   ]
+  },
+  {
+   "id": "attached letter ends nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Sn-expected27]",
+    "1 failed, 421 passed in 64.42s (0:01:04)"
+   ]
+  },
+  {
+   "id": "long option value skip dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit --message --no-verify-expected21]",
+    "1 failed, 415 passed in 86.38s (0:01:26)"
+   ]
+  },
+  {
+   "id": "abbreviation exact only",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verif abbreviation]",
+    "1 failed, 6 passed in 1.12s"
+   ]
+  },
+  {
+   "id": "short options for every sub",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[push -n is a dry run]",
+    "1 failed, 68 passed in 10.63s"
+   ]
+  },
+  {
+   "id": "hooksPath key by suffix",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[-c key that merely contains hooksPath]",
+    "1 failed, 92 passed in 14.58s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY one digit",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[GIT_CONFIG_KEY_12=core.hooksPath git commit-expected37]",
+    "1 failed, 431 passed in 77.27s (0:01:17)"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_PARAMETERS ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_PARAMETERS]",
+    "1 failed, 29 passed in 4.67s"
+   ]
+  },
+  {
+   "id": "ALLOW_NO_CONFIG any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[PRE_COMMIT_ALLOW_NO_CONFIG=0]",
+    "1 failed, 100 passed in 14.32s"
+   ]
+  },
+  {
+   "id": "HUSKY ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[HUSKY=0]",
+    "1 failed, 33 passed in 5.65s"
+   ]
+  },
+  {
+   "id": "-C chain does not expand $VAR",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_tilde_and_variables_are_expanded",
+    "1 failed, 377 passed in 74.24s (0:01:14)"
+   ]
+  },
+  {
+   "id": "cd ignored by the target",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 378 passed in 74.17s (0:01:14)"
+   ]
+  },
+  {
+   "id": "cd with several operands accepted",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[cd a b && git commit -n-expected41]",
+    "1 failed, 435 passed in 77.04s (0:01:17)"
+   ]
+  },
+  {
+   "id": "cd without operand goes nowhere",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_without_an_argument_goes_home",
+    "1 failed, 379 passed in 81.75s (0:01:21)"
+   ]
+  },
+  {
+   "id": "export not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[export SKIP]",
+    "1 failed, 37 passed in 7.91s"
+   ]
+  },
+  {
+   "id": "command assignments leak",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[assignment scoped to another command]",
+    "1 failed, 102 passed in 17.83s"
+   ]
+  },
+  {
+   "id": "text scope leaks env only",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[export inside a command substitution does not leak]",
+    "1 failed, 105 passed in 17.88s"
+   ]
+  },
+  {
+   "id": "assignment scan stops nowhere",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[an argument that looks like an assignment]",
+    "1 failed, 106 passed in 16.46s"
+   ]
+  },
+  {
+   "id": "samples count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 17.18s"
+   ]
+  },
+  {
+   "id": "missing hooks dir crashes",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[pathed_missing-commit --no-verify]",
+    "1 failed, 242 passed in 42.25s"
+   ]
+  },
+  {
+   "id": "framework ids never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 386 passed in 78.39s (0:01:18)"
+   ]
+  },
+  {
+   "id": "hooks dir always relative",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_core_hookspath_outside_the_repo_and_with_a_tilde",
+    "1 failed, 385 passed in 79.00s (0:01:19)"
+   ]
+  },
+  {
+   "id": "hook list cap lower",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 391 passed in 84.82s (0:01:24)"
+   ]
+  },
+  {
+   "id": "-C that does not resolve falls to nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_that_does_not_resolve_falls_back_to_the_cwd",
+    "1 failed, 376 passed in 78.66s (0:01:18)"
+   ]
+  },
+  {
+   "id": "one form wording for many",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_lists_every_form_of_the_command_and_every_repo",
+    "1 failed, 389 passed in 89.83s (0:01:29)"
+   ]
+  },
+  {
+   "id": "resolver reads every line",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_resolve_main_reads_only_the_bypass_notes",
+    "1 failed, 392 passed in 82.42s (0:01:22)"
+   ]
+  },
+  {
+   "id": "bypass token ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[token for the bypass]",
+    "1 failed, 107 passed in 16.62s"
+   ]
+  },
+  {
+   "id": "bypass notes pattern drifts",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.22s"
+   ]
+  },
+  {
+   "id": "never deny",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.33s"
+   ]
+  },
+  {
+   "id": "cwd argument dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.37s"
+   ]
+  },
+  {
+   "id": "git -C empty dir not defaulted",
+   "status": "SURVIVED",
+   "detail": [
+    "439 passed in 80.75s (0:01:20)"
+   ]
+  },
+  {
+   "id": "-c stored as a dir",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 4.08s"
+   ]
+  },
+  {
+   "id": "push dropped from --no-verify subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[push --no-verify]",
+    "1 failed, 15 passed in 2.91s"
+   ]
+  },
+  {
+   "id": "rebase dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[rebase --no-verify]",
+    "1 failed, 19 passed in 3.63s"
+   ]
+  },
+  {
+   "id": "pull dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[HUSKY=0 pull]",
+    "1 failed, 34 passed in 5.74s"
+   ]
+  },
+  {
+   "id": "env forms for every subcommand",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[SKIP only for a command that runs no hook]",
+    "1 failed, 95 passed in 13.46s"
+   ]
+  },
+  {
+   "id": "--no-verify never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.25s"
+   ]
+  },
+  {
+   "id": "commit -F not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -F -n (a file name)]",
+    "1 failed, 79 passed in 11.43s"
+   ]
+  },
+  {
+   "id": "commit -t not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -t -n (a template named -n)]",
+    "1 failed, 82 passed in 11.26s"
+   ]
+  },
+  {
+   "id": "am -C not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -Cn-expected35]",
+    "1 failed, 429 passed in 69.70s (0:01:09)"
+   ]
+  },
+  {
+   "id": "am dropped from the -n subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[am -n]",
+    "1 failed, 18 passed in 3.04s"
+   ]
+  },
+  {
+   "id": "value letter always takes the next word",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit attached message then -n]",
+    "1 failed, 8 passed in 1.62s"
+   ]
+  },
+  {
+   "id": "-- no longer ends the options",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m x -- -n (a pathspec)]",
+    "1 failed, 77 passed in 14.83s"
+   ]
+  },
+  {
+   "id": "long option value skip for every sub",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[merge --squash is a flag, not a value]",
+    "1 failed, 9 passed in 1.74s"
+   ]
+  },
+  {
+   "id": "abbreviation too short allowed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[--no-ver is ambiguous (no-verbose)]",
+    "1 failed, 94 passed in 14.70s"
+   ]
+  },
+  {
+   "id": "hooksPath key case-sensitive",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[-c core.hooksPath]",
+    "1 failed, 21 passed in 4.00s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[GIT_CONFIG_KEY other key]",
+    "1 failed, 101 passed in 16.22s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY prefix match",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[GIT_CONFIG_KEY_0x=core.hooksPath git commit-expected38]",
+    "1 failed, 432 passed in 74.10s (0:01:14)"
+   ]
+  },
+  {
+   "id": "SKIP empty counts",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[SKIP empty]",
+    "1 failed, 98 passed in 12.88s"
+   ]
+  },
+  {
+   "id": "ALLOW_NO_CONFIG ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[PRE_COMMIT_ALLOW_NO_CONFIG]",
+    "1 failed, 32 passed in 4.73s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 4.02s"
+   ]
+  },
+  {
+   "id": "-C chain keeps only the last",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 375 passed in 57.65s"
+   ]
+  },
+  {
+   "id": "-C ignored by the target",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_points_the_check_at_the_other_repo",
+    "1 failed, 374 passed in 66.25s (0:01:06)"
+   ]
+  },
+  {
+   "id": "cd - followed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[cd x && cd - && git commit -n-expected40]",
+    "1 failed, 434 passed in 79.33s (0:01:19)"
+   ]
+  },
+  {
+   "id": "cd options kept as operands",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 378 passed in 74.34s (0:01:14)"
+   ]
+  },
+  {
+   "id": "bare assignment not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[bare assignment on its own line]",
+    "1 failed, 39 passed in 6.52s"
+   ]
+  },
+  {
+   "id": "text scope leaks",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[export inside a command substitution does not leak]",
+    "1 failed, 105 passed in 14.22s"
+   ]
+  },
+  {
+   "id": "nested text does not inherit",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP inherited by bash -c]",
+    "1 failed, 51 passed in 8.84s"
+   ]
+  },
+  {
+   "id": "note not deduped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -n; git commit -n-expected3]",
+    "1 failed, 397 passed in 79.11s (0:01:19)"
+   ]
+  },
+  {
+   "id": "non-regular files count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 18.51s"
+   ]
+  },
+  {
+   "id": "no hooks still active",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 16.74s"
+   ]
+  },
+  {
+   "id": "shim test too loose",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 386 passed in 75.61s (0:01:15)"
+   ]
+  },
+  {
+   "id": "cut marker always shown",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 386 passed in 81.52s (0:01:21)"
+   ]
+  },
+  {
+   "id": "ids cut marker always",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 386 passed in 82.30s (0:01:22)"
+   ]
+  },
+  {
+   "id": "target taken as absolute",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 375 passed in 70.99s (0:01:10)"
+   ]
+  },
+  {
+   "id": "forms joined without e",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_lists_every_form_of_the_command_and_every_repo",
+    "1 failed, 389 passed in 76.03s (0:01:16)"
+   ]
+  },
+  {
+   "id": "message loses the token",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.47s"
+   ]
+  },
+  {
+   "id": "bypass token waived by the destructive one",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[rebase --no-verify]",
+    "1 failed, 19 passed in 4.29s"
+   ]
+  },
+  {
+   "id": "bypass case removed from the note loop",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_bypass_and_a_destructive_in_one_command_are_both_judged",
+    "1 failed, 373 passed in 67.10s (0:01:07)"
+   ]
+  },
+  {
+   "id": "resolver failure allowed",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 18.23s"
+   ]
+  },
+  {
+   "id": "cwd read from the wrong field",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.41s"
+   ]
+  },
+  {
+   "id": "cwd read failure falls to root",
+   "status": "SURVIVED",
+   "detail": [
+    "439 passed in 86.56s (0:01:26)"
+   ]
+  },
+  {
+   "id": "--config-env ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[--config-env core.hooksPath]",
+    "1 failed, 26 passed in 5.17s"
+   ]
+  },
+  {
+   "id": "merge dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[merge --squash is a flag, not a value]",
+    "1 failed, 9 passed in 1.96s"
+   ]
+  },
+  {
+   "id": "cherry-pick dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[cherry-pick --no-verify]",
+    "1 failed, 20 passed in 3.70s"
+   ]
+  },
+  {
+   "id": "revert dropped from hook-running subs",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP revert]",
+    "1 failed, 35 passed in 6.02s"
+   ]
+  },
+  {
+   "id": "env forms never",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 4.50s"
+   ]
+  },
+  {
+   "id": "no-subcommand -c form dropped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git -c core.hooksPath=/dev/null-expected12]",
+    "1 failed, 406 passed in 64.71s (0:01:04)"
+   ]
+  },
+  {
+   "id": "commit -C not a value letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -C -n (a commit named -n)]",
+    "1 failed, 81 passed in 11.83s"
+   ]
+  },
+  {
+   "id": "commit -u not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git commit -un-expected28]",
+    "1 failed, 422 passed in 78.48s (0:01:18)"
+   ]
+  },
+  {
+   "id": "am -p not an attached letter",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[git am -pn-expected36]",
+    "1 failed, 430 passed in 74.97s (0:01:14)"
+   ]
+  },
+  {
+   "id": "-n also on push",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[push -n is a dry run]",
+    "1 failed, 68 passed in 10.08s"
+   ]
+  },
+  {
+   "id": "value letter never takes the next word",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 75 passed in 10.91s"
+   ]
+  },
+  {
+   "id": "-- of a value skip",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[commit -m -n (the message)]",
+    "1 failed, 75 passed in 11.32s"
+   ]
+  },
+  {
+   "id": "long option value skip even with =",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit long option with value then -n]",
+    "1 failed, 13 passed in 2.36s"
+   ]
+  },
+  {
+   "id": "abbreviation needs one more char",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-veri shortest abbreviation]",
+    "1 failed, 7 passed in 1.29s"
+   ]
+  },
+  {
+   "id": "hooksPath key by prefix",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[-c with another key]",
+    "1 failed, 91 passed in 11.71s"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_KEY digits optional",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_masker_notes_exactly_the_bypass_forms[GIT_CONFIG_KEY_=core.hooksPath git commit-expected39]",
+    "1 failed, 433 passed in 62.66s (0:01:02)"
+   ]
+  },
+  {
+   "id": "GIT_CONFIG_PARAMETERS any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[GIT_CONFIG_PARAMETERS for another key]",
+    "1 failed, 84 passed in 12.60s"
+   ]
+  },
+  {
+   "id": "SKIP ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[SKIP]",
+    "1 failed, 30 passed in 4.84s"
+   ]
+  },
+  {
+   "id": "HUSKY any value",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_what_does_not_skip_hooks_is_allowed[HUSKY=1]",
+    "1 failed, 99 passed in 20.27s"
+   ]
+  },
+  {
+   "id": "-C chain does not expand ~",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_tilde_and_variables_are_expanded",
+    "1 failed, 377 passed in 74.18s (0:01:14)"
+   ]
+  },
+  {
+   "id": "-C chain keeps only the first",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_dash_C_relative_and_chained",
+    "1 failed, 375 passed in 70.83s (0:01:10)"
+   ]
+  },
+  {
+   "id": "cd not tracked",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 378 passed in 66.99s (0:01:06)"
+   ]
+  },
+  {
+   "id": "cd needs no operand",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 378 passed in 77.35s (0:01:17)"
+   ]
+  },
+  {
+   "id": "cd relative to nothing",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_moves_the_target",
+    "1 failed, 378 passed in 72.47s (0:01:12)"
+   ]
+  },
+  {
+   "id": "command assignments not applied",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[GIT_CONFIG_KEY_0]",
+    "1 failed, 27 passed in 5.03s"
+   ]
+  },
+  {
+   "id": "text scope leaks cwd only",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_cd_inside_a_nested_shell_or_substitution_does_not_leak",
+    "1 failed, 380 passed in 79.02s (0:01:19)"
+   ]
+  },
+  {
+   "id": "env wrapper assignment ignored",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[env wrapper]",
+    "1 failed, 41 passed in 8.33s"
+   ]
+  },
+  {
+   "id": "hooks dir not joined to the repo",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.34s"
+   ]
+  },
+  {
+   "id": "non-executable files count",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 17.26s"
+   ]
+  },
+  {
+   "id": "framework ids without the shim",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_pre_commit_framework_ids_are_named_only_when_its_shim_is_installed",
+    "1 failed, 386 passed in 83.31s (0:01:23)"
+   ]
+  },
+  {
+   "id": "hooks dir always shown absolute",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_names_the_form_the_repo_the_hooks_and_the_way_out",
+    "1 failed, 388 passed in 75.57s (0:01:15)"
+   ]
+  },
+  {
+   "id": "hook list cap off by one",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 391 passed in 80.23s (0:01:20)"
+   ]
+  },
+  {
+   "id": "ids not capped",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_listings_are_capped",
+    "1 failed, 391 passed in 79.73s (0:01:19)"
+   ]
+  },
+  {
+   "id": "forms repeated per note",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_same_form_twice_is_named_once",
+    "1 failed, 390 passed in 84.48s (0:01:24)"
+   ]
+  },
+  {
+   "id": "repo without hooks named too",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 18.32s"
+   ]
+  },
+  {
+   "id": "message loses the destructive contrast",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_deny_names_the_form_the_repo_the_hooks_and_the_way_out",
+    "1 failed, 388 passed in 90.81s (0:01:30)"
+   ]
+  },
+  {
+   "id": "bypass token counted in the raw command",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[token only as data]",
+    "1 failed, 63 passed in 17.34s"
+   ]
+  },
+  {
+   "id": "deny without checking the message",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[plain-commit --no-verify]",
+    "1 failed, 112 passed in 17.89s"
+   ]
+  },
+  {
+   "id": "resolver failure silent",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_resolver_failing_is_a_loud_deny_not_a_silent_allow",
+    "1 failed, 393 passed in 80.38s (0:01:20)"
+   ]
+  },
+  {
+   "id": "hooks dir fixed to .git/hooks",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[pathed_empty-commit --no-verify]",
+    "1 failed, 177 passed in 31.74s"
+   ]
+  },
+  {
+   "id": "resolver sees no notes from stdin",
+   "status": "killed",
+   "detail": [
+    "FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]",
+    "1 failed in 0.30s"
+   ]
+  }
+ ]
+}

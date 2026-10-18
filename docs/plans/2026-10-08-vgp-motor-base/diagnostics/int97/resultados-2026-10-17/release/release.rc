@@ -1,0 +1,10 @@
+build 1 rc=0 2026-10-17T10:24:33-03:00
+sha256 8fd0efb0e62e64a882380d109e922ea4635daca7ff24321b1232b9382d4c96d7
+congelado em /home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0 (cmp rc=0)
+touch das 5 fontes 2026-10-17T10:24:33-03:00
+build 2 rc=0 2026-10-17T10:31:03-03:00
+8fd0efb0e62e64a8
+cmp build 2 x congelado rc=0
+REPRODUZIVEL
+BIN_NOVO=/home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
+FIM

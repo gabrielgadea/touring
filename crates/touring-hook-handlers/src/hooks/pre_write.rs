@@ -13,6 +13,9 @@
 //!
 //! Target latency: <50ms.
 
+use touring_code::vgp::CheckInput;
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+
 use super::error_predictor::ErrorPredictor;
 use super::knowledge::FileKnowledgeDB;
 use super::pre_edit_prevention;
@@ -122,6 +125,13 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
 
     if file_path.is_empty() || content.is_empty() {
         return HookResponse::Allow;
+    }
+
+    // ── VGP sombra/ativo (V2, 09/10): o motor julga o conteúdo proposto (o arquivo inteiro novo)
+    // e grava UMA linha no sombra.jsonl — "sombra" (default) nunca muda a resposta; "ativo" é só
+    // por [vgp] modo do projeto (V4). Fail-open de ponta a ponta.
+    if let Some(resposta_vgp) = vgp_sombra_de_write(runtime, input, file_path, content) {
+        return resposta_vgp;
     }
 
     // E14: Skip expensive analysis for high-durability files (vendor, node_modules, etc.).
@@ -1327,3 +1337,75 @@ pub use touring_hooks_core::health_delta::emit_b302_if_low_confidence_expansion;
 #[cfg(test)]
 #[path = "pre_write_tests.rs"]
 mod tests;
+
+/// VGP sobre o Write inteiro: o proposto é o `content`; o disco é o arquivo atual (delta só nega
+/// o que a escrita introduz). `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
+fn vgp_sombra_de_write(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    file_path: &str,
+    content: &str,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    if mode == VgpMode::Off || !file_path.ends_with(".py") {
+        return None;
+    }
+    let vgp_in = CheckInput {
+        path: file_path.to_string(),
+        content: content.to_string(),
+        project_root: runtime.project_root.clone(),
+        disk: std::fs::read_to_string(file_path).ok(),
+        overlays: std::collections::HashMap::new(),
+        lang: "python".into(),
+    };
+    let out = sombra_check(
+        "pre-write",
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    let resumo = out
+        .findings
+        .iter()
+        .take(3)
+        .map(|f| {
+            format!(
+                "{} `{}` ({}:{})",
+                f.classe,
+                f.nome,
+                make_relative(file_path, &runtime.project_root),
+                f.linha
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    match out.verdict.as_str() {
+        "deny" => Some(HookResponse::Deny {
+            reason: format!(
+                "[VGP · deny] {resumo}{}",
+                out.findings
+                    .first()
+                    .map(|f| format!(" — {}", f.sugestao))
+                    .unwrap_or_default()
+            ),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        "warn" => Some(HookResponse::Context {
+            context: format!("[VGP · aviso] {resumo}"),
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        _ => None,
+    }
+}

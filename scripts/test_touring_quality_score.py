@@ -230,6 +230,45 @@ def test_a_lock_released_within_the_wait_is_measured(env):
     assert engine_calls(env) == 1
 
 
+def test_a_single_file_is_measured_while_a_directory_scan_holds_the_lock(env):
+    """Lanes (17/10/2026, Gabriel's decision): the singleton lock exists so that only ONE full scan
+    (250%+ CPU, 165-184 s for ~/projects/analise) runs at a time. A single-file score (0.03 s typical,
+    5.8 s max measured) waited behind it, and every Write/Edit P0 gate of every session sat in the hook
+    for its budget and then skipped. A file target no longer takes the scan lock; a directory still does
+    (test_a_held_lock_is_waited_for_then_refused_loudly_with_exit_75)."""
+    held = HeldLock(env["lock"], seconds=4).start()
+    started = time.monotonic()
+    proc = run(env, "score", str(env["target"] / "lib.rs"), extra={"TOURING_QUALITY_LOCK_WAIT_SECS": "1"})
+    elapsed = time.monotonic() - started
+    held.join()
+    assert proc.returncode == 0, (proc.returncode, proc.stderr)
+    assert '"tier": "Gold"' in proc.stdout
+    assert elapsed < 3, f"a file score waited {elapsed:.1f}s behind the scan lock"
+
+
+def test_two_concurrent_scores_of_the_same_file_both_answer(env):
+    """Without the lock, two runs of the same key can overlap; temporaries named by the key alone
+    let the first run delete the file the second was still writing (its grep then read nothing)."""
+    target = str(env["target"] / "lib.rs")
+    procs = []
+    for _ in range(2):
+        child_env = {
+            "PATH": os.environ["PATH"], "HOME": str(env["tmp"]), "FAKE_LOG": str(env["log"]),
+            "FAKE_SLEEP": "1", "TOURING_QUALITY_CACHE_DIR": str(env["cache"]),
+            "TOURING_QUALITY_LOCK": str(env["lock"]), "TOURING_QUALITY_BIN": str(env["engine"]),
+        }
+        procs.append(subprocess.Popen([str(SCRIPT), "score", target], env=child_env, text=True,
+                                      stdout=subprocess.PIPE, stderr=subprocess.PIPE))
+        time.sleep(0.3)
+    outs = [p.communicate(timeout=60) for p in procs]
+    for p, (out, err) in zip(procs, outs):
+        assert p.returncode == 0, (p.returncode, err)
+        assert out == '{"tier": "Gold", "composite": 0.9}\n', (out, err)
+    [entry] = cached_entries(env)
+    assert entry.read_text() == '{"tier": "Gold", "composite": 0.9}\n'
+    assert not list(env["cache"].glob("*.tmp*")) and not list(env["cache"].glob("*.out*")), "no temporaries left"
+
+
 def test_a_failing_engine_prints_its_output_keeps_its_exit_code_and_is_never_cached(env):
     proc = run(env, "score", str(env["target"]), extra={"FAKE_RC": "1"})
     assert proc.returncode == 1

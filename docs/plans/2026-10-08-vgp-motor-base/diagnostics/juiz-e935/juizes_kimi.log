@@ -1,0 +1,24 @@
+21:01:55Z
+== v2 VIVO
+recall de símbolo · arquivo 11/13 · inline 20/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 58 | p95 108.4 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+veredito: PRONTO
+rc=0
+== V3 VIVO
+recall de símbolo · arquivo 12/13 · inline 22/27 | forma (fora) {'arquivo': [1, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 60 | p95 907.9 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+veredito: PRONTO
+rc=0
+== v2 STAGING
+recall de símbolo · arquivo 11/13 · inline 14/20 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 274} | avisos em negativos 58 | p95 118.6 ms | chamadas 729 | não classificados 0 | defeito de corpus (snap não compila) 0
+veredito: PRONTO
+rc=0
+== V3 STAGING
+Terminated                 timeout 3600 python3 juiz_motor_vgp.py --touring $BIN --v5-estrito --corpus $S/corpus_staging --arg-motor=--camadas --arg-motor=1,2 --p95-ms 1000 --base $S/k_v2_stg.json --json $S/k_v3_stg.json 2>&1 | grep -E "^recall|PENDENTE|veredito"
+rc=143
+== prova [1]
+  OK    inline · programa limpo → ALLOW sem achado — verdict allow · layer 2 · 464.285642 ms · 
+  OK    arquivo · defeito que JÁ estava no disco não é culpa da edição → ALLOW — verdict allow · layer 2 · 474.271662 ms · 
+
+veredito: TUDO AFIRMADO
+rc=0
+pyright-langserver: 5
+21:14:27Z

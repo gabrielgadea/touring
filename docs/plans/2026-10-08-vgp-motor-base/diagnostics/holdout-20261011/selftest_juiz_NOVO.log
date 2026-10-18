@@ -1,0 +1,14 @@
+  OK  motor bom: pronto
+  OK  motor so_avisa: pronto
+  OK  motor avisa_negativos: pronto
+  OK  motor pega_forma: pronto
+  OK  motor cego: ['recall de símbolo (arquivo) 0.000 < 0.7 (0/7)', 'recall de símbolo (inline) 0.000 < 0.7 (0/3)']
+  OK  motor paranoico: ['falso deny (arquivo) 100.000% > 1% (120/120)', 'falso deny (inline) 100.000% > 1% (10/10)']
+  OK  motor nega_inline: ['falso deny (inline) 100.000% > 1% (10/10)']
+  OK  motor lento: ['p95 500.0 ms > 150.0 ms']
+  OK  motor lixo: ['144 chamada(s) do motor falharam (falha fechada) — 1ª: {\'id\': \'p0\', \'erro\': "rc 0, stdout não-JSON: \'isto não é json\\\\n\' · stderr: \'\'"}', 'recall de símbolo (arquivo) 0.000 < 0.7 (0/0)']
+selftest: 9/9 cenários + 11 casos de classe_erro + 5 valores de referência + 8 cenários do limite superior + 2 da CLI
+
+real	0m32.010s
+user	0m25.268s
+sys	0m6.645s

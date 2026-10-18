@@ -1,0 +1,287 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.96% > 1% (6/600, taxa 1.000%) — com n=600 o teto admite no máximo 1 falso(s)"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 6,
+   "n": 600,
+   "taxa": 0.01,
+   "limite_superior_95": 0.01964133024229326,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 1,
+   "n": 553,
+   "taxa": 0.0018083182640144665,
+   "limite_superior_95": 0.008549433150403789,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.7777777777777778
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   5,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "0e48b5ce9591",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/b6_sizing.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "touring",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f7bd1c497347",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/medir_telefone_rodape.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_ler_texto",
+     "linha": 36,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.gate_pii_acervo` não tem atributo `_ler_texto`",
+     "reais": [
+      "Achado",
+      "DOMINIOS_NEUTROS",
+      "ISENCOES",
+      "RAIZ",
+      "RX_CPF",
+      "RX_EMAIL",
+      "TEXTO",
+      "achados_de"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "RX_TELEFONE",
+     "linha": 37,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.gate_pii_acervo` não tem atributo `RX_TELEFONE`",
+     "reais": [
+      "Achado",
+      "DOMINIOS_NEUTROS",
+      "ISENCOES",
+      "RAIZ",
+      "RX_CPF",
+      "RX_EMAIL",
+      "TEXTO",
+      "achados_de"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "4ea3ea29072a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_l6.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "pytest",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "pytest",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Arquivo",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e4833baaf33f",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/sonda_registro_2022.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "datetime",
+     "linha": 52,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "60225beed834",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/projects-analise-medir.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "x",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f17e1a2c9a95",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/commits_executar.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "pii_do_commit",
+     "linha": 163,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "53e17c15ddbc",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "módulo `typesafe_sdk` não tem atributo `__file__`",
+     "reais": [
+      "Answer",
+      "AsyncModels",
+      "AsyncTypeSafeClient",
+      "Choice",
+      "ChoiceAnswer",
+      "ChoiceModel",
+      "JSONContent",
+      "JSONValue"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 553
+ },
+ "avisos_em_negativos": 47,
+ "defeito_de_corpus": [],
+ "p95_ms": 67.30460500000001,
+ "chamadas": 1217,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  }
+ ]
+}

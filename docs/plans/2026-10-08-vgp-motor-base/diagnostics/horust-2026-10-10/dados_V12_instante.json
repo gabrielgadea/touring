@@ -1,0 +1,4465 @@
+{
+ "ids": {
+  "01ed98b5cb50": {
+   "classe": null,
+   "elapsed_ms": 8.910810999999999,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 92,
+     "nome": "PyModule",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "01f168db1c6b": {
+   "classe": null,
+   "elapsed_ms": 77.545632,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3052,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "0222c2b39770": {
+   "classe": null,
+   "elapsed_ms": 23.300066,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "0252cd495603": {
+   "classe": null,
+   "elapsed_ms": 16.300717,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0459656943ef": {
+   "classe": null,
+   "elapsed_ms": 17.82499,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "045d18d1f53d": {
+   "classe": null,
+   "elapsed_ms": 29.630097000000003,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 25,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "06261579b5dd": {
+   "classe": null,
+   "elapsed_ms": 8.367087,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "062ae4fe5f92": {
+   "classe": null,
+   "elapsed_ms": 50.576213,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 406,
+     "nome": "entry_keys_with_all_tags",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "0663d50ac9d8": {
+   "classe": null,
+   "elapsed_ms": 17.386855,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 27,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "07397dcc0c8f": {
+   "classe": null,
+   "elapsed_ms": 14.878832,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "076befdb5cc8": {
+   "classe": null,
+   "elapsed_ms": 8.952444,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "07f01065494c": {
+   "classe": null,
+   "elapsed_ms": 8.227307,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "08851e92f613": {
+   "classe": "kwarg",
+   "elapsed_ms": 75.556257,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 93,
+     "nome": "CallToolResult",
+     "severidade": "warn"
+    },
+    {
+     "classe": "kwarg",
+     "linha": 229,
+     "nome": "evaluate",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 231,
+     "nome": "diff_violations",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "evaluate",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "0987e4364335": {
+   "classe": null,
+   "elapsed_ms": 7.201586000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "09e20e7d76c6": {
+   "classe": null,
+   "elapsed_ms": 7.603894,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 83,
+     "nome": "LAST_ERROR",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "0a4a64a427f6": {
+   "classe": null,
+   "elapsed_ms": 14.555755999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0c6e5e1bf2c2": {
+   "classe": null,
+   "elapsed_ms": 6.219040000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0cb05d618bf6": {
+   "classe": null,
+   "elapsed_ms": 15.253849,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ce7ea92a799": {
+   "classe": null,
+   "elapsed_ms": 7.713451,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0d61a66d24ec": {
+   "classe": null,
+   "elapsed_ms": 69.067233,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ffd879d1914": {
+   "classe": null,
+   "elapsed_ms": 80.77049799999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 43,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3695,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3705,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "108d89b5d3fa": {
+   "classe": null,
+   "elapsed_ms": 23.985812,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 53,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "114cb7c531d9": {
+   "classe": null,
+   "elapsed_ms": 1.572932,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "136bdfe9fb89": {
+   "classe": null,
+   "elapsed_ms": 24.380939,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "13b8185bf85b": {
+   "classe": null,
+   "elapsed_ms": 31.745856000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "13d6122089ad": {
+   "classe": null,
+   "elapsed_ms": 19.196889000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "149948d49d3e": {
+   "classe": null,
+   "elapsed_ms": 23.5041,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "15599982552c": {
+   "classe": null,
+   "elapsed_ms": 1.240209,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "16398209bb21": {
+   "classe": "nome",
+   "elapsed_ms": 96.249363,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 843,
+     "nome": "AUTOMATED_PAYLOAD_PREFIXES",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "17ce84a8e549": {
+   "classe": null,
+   "elapsed_ms": 14.448897,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "18a1556cf509": {
+   "classe": null,
+   "elapsed_ms": 25.951404,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "19a5ae0b4f0c": {
+   "classe": null,
+   "elapsed_ms": 82.06527,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 1105,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1411,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "1c0fc168822b": {
+   "classe": null,
+   "elapsed_ms": 22.485149,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1caef2e28777": {
+   "classe": null,
+   "elapsed_ms": 8.085093,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1d51d7509ed8": {
+   "classe": null,
+   "elapsed_ms": 9.685704999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1d781a002db6": {
+   "classe": null,
+   "elapsed_ms": 1.00851,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1da173cbfb50": {
+   "classe": null,
+   "elapsed_ms": 25.271752000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1db872c23c43": {
+   "classe": null,
+   "elapsed_ms": 31.969385000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1dccd0a514a5": {
+   "classe": null,
+   "elapsed_ms": 11.603369,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1e791307270b": {
+   "classe": null,
+   "elapsed_ms": 24.370645,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1ef9d641b749": {
+   "classe": null,
+   "elapsed_ms": 10.24348,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1f496f2ea65f": {
+   "classe": null,
+   "elapsed_ms": 33.852857,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 18,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 34,
+     "nome": "from_base",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 61,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "1fe62336ab0e": {
+   "classe": null,
+   "elapsed_ms": 0.652382,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2038e5b9c46e": {
+   "classe": null,
+   "elapsed_ms": 15.92754,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "20f98adb6688": {
+   "classe": null,
+   "elapsed_ms": 30.737376,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "210f9c4028d6": {
+   "classe": null,
+   "elapsed_ms": 10.988526,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "213f0dadc274": {
+   "classe": null,
+   "elapsed_ms": 78.67360099999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "2222e4b50103": {
+   "classe": null,
+   "elapsed_ms": 32.326271,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2268002d3f81": {
+   "classe": null,
+   "elapsed_ms": 43.215838,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "22b1dd3e1a9c": {
+   "classe": null,
+   "elapsed_ms": 63.048742000000004,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 1085,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "22fc988e2ba0": {
+   "classe": null,
+   "elapsed_ms": 14.111754000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "233326bdee2f": {
+   "classe": null,
+   "elapsed_ms": 60.89252,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "23f4832be1f2": {
+   "classe": null,
+   "elapsed_ms": 44.600111,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "253f9711ec94": {
+   "classe": null,
+   "elapsed_ms": 35.856627,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "254252b3f2cf": {
+   "classe": null,
+   "elapsed_ms": 16.673201,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2681f4f36022": {
+   "classe": null,
+   "elapsed_ms": 64.629156,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "27e381897ffc": {
+   "classe": null,
+   "elapsed_ms": 14.273178,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 27,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "29327db33955": {
+   "classe": null,
+   "elapsed_ms": 5.2667779999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "297d1ede3252": {
+   "classe": null,
+   "elapsed_ms": 2.477801,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "299b401681e3": {
+   "classe": null,
+   "elapsed_ms": 16.598762999999998,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 793,
+     "nome": "TouringConfig",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "2a4cdcc56083": {
+   "classe": null,
+   "elapsed_ms": 104.606213,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 44,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 4014,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 4024,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "2b665ba86f02": {
+   "classe": null,
+   "elapsed_ms": 8.536274,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2bf62902d126": {
+   "classe": null,
+   "elapsed_ms": 35.574866,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2c380344e148": {
+   "classe": null,
+   "elapsed_ms": 36.815931000000006,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2d222e86d976": {
+   "classe": null,
+   "elapsed_ms": 12.382205,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2d86264097de": {
+   "classe": null,
+   "elapsed_ms": 9.091359,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "300ca1d776f5": {
+   "classe": null,
+   "elapsed_ms": 64.065181,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "314d6b248fa9": {
+   "classe": null,
+   "elapsed_ms": 8.58702,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "31f6a780d766": {
+   "classe": null,
+   "elapsed_ms": 17.512903,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "33c82b876628": {
+   "classe": null,
+   "elapsed_ms": 10.48071,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "358f627d263d": {
+   "classe": null,
+   "elapsed_ms": 92.814886,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2120,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "378ac0f7a5cf": {
+   "classe": "atributo",
+   "elapsed_ms": 71.493185,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 303,
+     "nome": "session_context",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 335,
+     "nome": "attest",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 360,
+     "nome": "derive",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 368,
+     "nome": "open",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": "7 caminho(s) sem resolução estática: `super::error_predictor::ErrorPredictor` (módulo pai ilegível ou fora da árvore declarada); `super::runtime::HookResponse` (módulo pai ilegível ou fora da árvore declarada); `super::runtime::HookRuntime` (módulo pai ilegível ou fora da árvore declarada) (+4)",
+   "nome_esperado": "with",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "3b501fcbb880": {
+   "classe": null,
+   "elapsed_ms": 18.693255999999998,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 111,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "3b671a29c237": {
+   "classe": null,
+   "elapsed_ms": 93.84007299999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2088,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "3bc784a386dc": {
+   "classe": "import",
+   "elapsed_ms": 78.169035,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "burst_gate",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "3d6fd5af0e2b": {
+   "classe": null,
+   "elapsed_ms": 30.979566,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "413878eef45a": {
+   "classe": null,
+   "elapsed_ms": 1.822548,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "41897187ec14": {
+   "classe": null,
+   "elapsed_ms": 10.052282,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4193b5d65eec": {
+   "classe": null,
+   "elapsed_ms": 8.474291000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "41c2318be7e7": {
+   "classe": null,
+   "elapsed_ms": 105.667918,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3218,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 352,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1736,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1738,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3663,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6138,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "41edb90a12f3": {
+   "classe": null,
+   "elapsed_ms": 14.271921,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "43351b6a9001": {
+   "classe": null,
+   "elapsed_ms": 37.253547999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4465b852bd0c": {
+   "classe": null,
+   "elapsed_ms": 109.302642,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3182,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 287,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1682,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1684,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3645,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6429,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "44d3e360bfba": {
+   "classe": null,
+   "elapsed_ms": 52.025252,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "455b05e16490": {
+   "classe": "import",
+   "elapsed_ms": 100.915977,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "48440c6da31b": {
+   "classe": null,
+   "elapsed_ms": 8.898562,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "494623f04362": {
+   "classe": null,
+   "elapsed_ms": 15.194765,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 26,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "497f2d4e3ffb": {
+   "classe": null,
+   "elapsed_ms": 18.197461,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 111,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "4ac19113062d": {
+   "classe": null,
+   "elapsed_ms": 7.767534,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4c10503f5181": {
+   "classe": null,
+   "elapsed_ms": 8.775079,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4c956c8dbf4b": {
+   "classe": null,
+   "elapsed_ms": 16.14287,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4d23f99e034c": {
+   "classe": null,
+   "elapsed_ms": 72.81309399999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4da0968e5c51": {
+   "classe": null,
+   "elapsed_ms": 76.76367400000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "4de733e87408": {
+   "classe": null,
+   "elapsed_ms": 45.634923,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4e7e0aa48a7b": {
+   "classe": null,
+   "elapsed_ms": 10.736958,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 175,
+     "nome": "LAST_ERROR",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "4f0df34bc27a": {
+   "classe": null,
+   "elapsed_ms": 33.177566999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4f274e38ece0": {
+   "classe": null,
+   "elapsed_ms": 53.047028000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4fc41b545702": {
+   "classe": null,
+   "elapsed_ms": 27.238049,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "500cda2f6836": {
+   "classe": "import",
+   "elapsed_ms": 102.043514,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 32,
+     "nome": "Decided",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 32,
+     "nome": "Gated",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "Capability",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "51d90089ed47": {
+   "classe": null,
+   "elapsed_ms": 8.388059,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 158,
+     "nome": "LAST_ERROR",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "531c319ae3a1": {
+   "classe": null,
+   "elapsed_ms": 51.950787999999996,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 806,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 962,
+     "nome": "RecallEmpty",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 972,
+     "nome": "TfidfActivated",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 991,
+     "nome": "RrfFusion",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1135,
+     "nome": "load_cache",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1142,
+     "nome": "build_from_db",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "536c02cf3748": {
+   "classe": null,
+   "elapsed_ms": 39.704625,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "53a9e211e5b8": {
+   "classe": "nome",
+   "elapsed_ms": 191.134293,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 24,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1710,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "compose_details",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "54839a2c04bb": {
+   "classe": "nome",
+   "elapsed_ms": 28.086482,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "cli_decompose_finalize",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "54b9523d806e": {
+   "classe": null,
+   "elapsed_ms": 10.327264,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "55db3bfae2a5": {
+   "classe": null,
+   "elapsed_ms": 25.749757000000002,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 1816,
+     "nome": "follow_intra_crate_reexport",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "55f542b1a809": {
+   "classe": "atributo",
+   "elapsed_ms": 16.698280999999998,
+   "findings": [
+    {
+     "classe": "atributo",
+     "linha": 890,
+     "nome": "UnresolvedDependencies",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "UnresolvedDependencies",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "57968fa1583c": {
+   "classe": null,
+   "elapsed_ms": 10.334505,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5858bed87447": {
+   "classe": null,
+   "elapsed_ms": 32.91098,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5898a881ed8c": {
+   "classe": null,
+   "elapsed_ms": 29.684362,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "599f576a8e24": {
+   "classe": null,
+   "elapsed_ms": 52.471024,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5aa4b4bc11f5": {
+   "classe": null,
+   "elapsed_ms": 84.13430500000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5b79117af3f0": {
+   "classe": null,
+   "elapsed_ms": 36.786381999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5b8572940f94": {
+   "classe": null,
+   "elapsed_ms": 15.524560999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5c695cf9e98b": {
+   "classe": null,
+   "elapsed_ms": 88.502278,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 44,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3970,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3980,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5ca22774bb58": {
+   "classe": null,
+   "elapsed_ms": 34.456674,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5d7c62fa71d3": {
+   "classe": null,
+   "elapsed_ms": 16.00347,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5dac067cf512": {
+   "classe": null,
+   "elapsed_ms": 9.715043,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5e8130636858": {
+   "classe": null,
+   "elapsed_ms": 102.61087500000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2138,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5e9f6b1fa55d": {
+   "classe": null,
+   "elapsed_ms": 116.316524,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3171,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 287,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1682,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1684,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3626,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6208,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5eab3c848973": {
+   "classe": null,
+   "elapsed_ms": 83.01594700000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 43,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3864,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3874,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5f90e21f4e92": {
+   "classe": null,
+   "elapsed_ms": 3.7424020000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6043285a330d": {
+   "classe": null,
+   "elapsed_ms": 52.246408,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 406,
+     "nome": "entry_keys_with_all_tags",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6072f2975dca": {
+   "classe": "import",
+   "elapsed_ms": 31.972134,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "Self",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "61e6abdc1803": {
+   "classe": null,
+   "elapsed_ms": 18.483297999999998,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 111,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "61fa0941efb5": {
+   "classe": null,
+   "elapsed_ms": 52.775384,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 542,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1719,
+     "nome": "RunSaga",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1769,
+     "nome": "parse_message",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1773,
+     "nome": "serialize_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1773,
+     "nome": "error_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1775,
+     "nome": "errors",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1793,
+     "nome": "default",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1794,
+     "nome": "success_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2093,
+     "nome": "RunHook",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2337,
+     "nome": "Shutdown",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 2486,
+     "nome": "flock",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "62bc25c4452c": {
+   "classe": null,
+   "elapsed_ms": 12.574989,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "62c50f05ae9e": {
+   "classe": null,
+   "elapsed_ms": 86.534471,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 44,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3895,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3905,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "62e14a98b45f": {
+   "classe": null,
+   "elapsed_ms": 81.812617,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3094,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "63107c51d5ed": {
+   "classe": "import",
+   "elapsed_ms": 187.250655,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "63ae88b79b1e": {
+   "classe": null,
+   "elapsed_ms": 13.327653999999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 26,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6441124f3160": {
+   "classe": null,
+   "elapsed_ms": 12.329976,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6611c274cd26": {
+   "classe": null,
+   "elapsed_ms": 63.429678,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "670ac2ee6654": {
+   "classe": "import",
+   "elapsed_ms": 100.203058,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "serial_test",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "671a757eb635": {
+   "classe": null,
+   "elapsed_ms": 65.761075,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "674724a4e443": {
+   "classe": null,
+   "elapsed_ms": 81.583631,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3094,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6784a5d7bf97": {
+   "classe": null,
+   "elapsed_ms": 9.968881000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6878159c49d2": {
+   "classe": null,
+   "elapsed_ms": 1.984446,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6a36964936e2": {
+   "classe": null,
+   "elapsed_ms": 7.380145000000001,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 112,
+     "nome": "LAST_ERROR",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6c6a484e7a77": {
+   "classe": "nome",
+   "elapsed_ms": 60.068489,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 843,
+     "nome": "AUTOMATED_PAYLOAD_PREFIXES",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "6d059458c575": {
+   "classe": null,
+   "elapsed_ms": 40.700113,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 1886,
+     "nome": "follow_intra_crate_reexport",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6d8b49820fb4": {
+   "classe": null,
+   "elapsed_ms": 30.103542,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6e3d4f98ab20": {
+   "classe": null,
+   "elapsed_ms": 8.212098,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6e79fd7a1a9c": {
+   "classe": "nome",
+   "elapsed_ms": 111.775211,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "cli_decompose_ready",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "716fa41b1a3b": {
+   "classe": null,
+   "elapsed_ms": 7.369321,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "727843b8043a": {
+   "classe": null,
+   "elapsed_ms": 28.45751,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "72d01144b53e": {
+   "classe": "nome",
+   "elapsed_ms": 28.845475,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "refresh_parent_status",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "733a73c2c2f7": {
+   "classe": null,
+   "elapsed_ms": 31.192292,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "738dac5e0f53": {
+   "classe": "atributo",
+   "elapsed_ms": 15.012687999999999,
+   "findings": [
+    {
+     "classe": "atributo",
+     "linha": 890,
+     "nome": "UnresolvedDependencies",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "UnresolvedDependencies",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "74cdfbefe7e3": {
+   "classe": null,
+   "elapsed_ms": 11.691933,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "75709ed1e368": {
+   "classe": "import",
+   "elapsed_ms": 52.962723000000004,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 406,
+     "nome": "entry_keys_with_all_tags",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "retirement",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "764e3f5bcca9": {
+   "classe": null,
+   "elapsed_ms": 7.9725909999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "793ada534137": {
+   "classe": null,
+   "elapsed_ms": 77.62043100000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3028,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "794ac3ac1adb": {
+   "classe": null,
+   "elapsed_ms": 29.433525,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 25,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "79e903be82ea": {
+   "classe": null,
+   "elapsed_ms": 61.711327000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "79edc827a6ac": {
+   "classe": null,
+   "elapsed_ms": 15.2395,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ada95b6b021": {
+   "classe": null,
+   "elapsed_ms": 72.239496,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7b2e9b5f308b": {
+   "classe": null,
+   "elapsed_ms": 79.476886,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3094,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "7be9ac4c53a1": {
+   "classe": null,
+   "elapsed_ms": 15.526358,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 31,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "7bf4da1eb23e": {
+   "classe": null,
+   "elapsed_ms": 26.488129,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7bfec10bbd06": {
+   "classe": null,
+   "elapsed_ms": 3.628555,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7cf682f91c8f": {
+   "classe": "nome",
+   "elapsed_ms": 39.483986,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 1453,
+     "nome": "source_declares",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "source_declares",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "7e2d81fa2161": {
+   "classe": null,
+   "elapsed_ms": 16.328845,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ee6192b78e9": {
+   "classe": null,
+   "elapsed_ms": 31.464764,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ee984f122fa": {
+   "classe": null,
+   "elapsed_ms": 14.138391,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "806eabc7b0a0": {
+   "classe": null,
+   "elapsed_ms": 99.319594,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 8,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 15,
+     "nome": "compose_high_signal_context",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 183,
+     "nome": "compose_high_signal_context_budgeted",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 221,
+     "nome": "large_file_touring_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 275,
+     "nome": "suggest_touring_for_code_file",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 314,
+     "nome": "SymbolStore",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 332,
+     "nome": "build_symbol_map_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 467,
+     "nome": "bfs_hop_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "kwarg",
+     "linha": 477,
+     "nome": "build_symbol_index",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 525,
+     "nome": "scope_shadowing_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 602,
+     "nome": "gotcha_drift_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 622,
+     "nome": "SymbolIndex",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 704,
+     "nome": "recency_score_from_str",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 752,
+     "nome": "source_based_signals",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 842,
+     "nome": "blast_radius_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 909,
+     "nome": "external_callers_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 1002,
+     "nome": "similar_symbol_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 1254,
+     "nome": "ts_js_exports_signal",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 1409,
+     "nome": "count_external_refs",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 1475,
+     "nome": "collect_shadow_pairs",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 1816,
+     "nome": "format_plan_scope_line",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": "1 caminho(s) sem resolução estática: `super` (módulo pai ilegível ou fora da árvore declarada)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "874b6c7badc3": {
+   "classe": null,
+   "elapsed_ms": 26.887725,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "890fad2a4b18": {
+   "classe": null,
+   "elapsed_ms": 12.724071,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "89a6aa72bd26": {
+   "classe": null,
+   "elapsed_ms": 67.470581,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "89cf17e67da6": {
+   "classe": "nome",
+   "elapsed_ms": 63.99539899999999,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 843,
+     "nome": "AUTOMATED_PAYLOAD_PREFIXES",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "8a11c381614d": {
+   "classe": null,
+   "elapsed_ms": 79.512338,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3094,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "8a632b246d58": {
+   "classe": null,
+   "elapsed_ms": 74.794839,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2851,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "8ae38daa07d0": {
+   "classe": null,
+   "elapsed_ms": 15.624014,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8b7ca449bb15": {
+   "classe": null,
+   "elapsed_ms": 11.688016000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8cccb6bdc648": {
+   "classe": null,
+   "elapsed_ms": 97.527206,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 1971,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "8fc41de4684d": {
+   "classe": null,
+   "elapsed_ms": 27.554626,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90944d320c36": {
+   "classe": null,
+   "elapsed_ms": 18.546336,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90c40afb6acc": {
+   "classe": null,
+   "elapsed_ms": 93.15110299999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2088,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "91f667c3a0d4": {
+   "classe": null,
+   "elapsed_ms": 8.555729,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "92634b78d0e1": {
+   "classe": null,
+   "elapsed_ms": 22.915339,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 53,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "92896d21ab77": {
+   "classe": null,
+   "elapsed_ms": 65.44928,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "92a3b2ddd60a": {
+   "classe": null,
+   "elapsed_ms": 222.082856,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3218,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 352,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1736,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1738,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3663,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6178,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "93e34b297370": {
+   "classe": null,
+   "elapsed_ms": 32.861123,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "94cb99f99d9d": {
+   "classe": null,
+   "elapsed_ms": 138.28716899999998,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 1105,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "96c5fab87a0c": {
+   "classe": null,
+   "elapsed_ms": 54.706003,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 519,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1696,
+     "nome": "RunSaga",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1746,
+     "nome": "parse_message",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1750,
+     "nome": "serialize_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1750,
+     "nome": "error_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1752,
+     "nome": "errors",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1770,
+     "nome": "default",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1771,
+     "nome": "success_response",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2066,
+     "nome": "RunHook",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2310,
+     "nome": "Shutdown",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 2459,
+     "nome": "flock",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "974b0eb25d02": {
+   "classe": null,
+   "elapsed_ms": 15.917969000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "977ed69aa06a": {
+   "classe": null,
+   "elapsed_ms": 39.742793999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "992a4f800f52": {
+   "classe": null,
+   "elapsed_ms": 10.271834,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "995b79d41337": {
+   "classe": null,
+   "elapsed_ms": 5.456194999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "99686f2fe982": {
+   "classe": null,
+   "elapsed_ms": 27.438788,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 25,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "9a1fa66297ad": {
+   "classe": null,
+   "elapsed_ms": 28.404743,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9a25456361d2": {
+   "classe": null,
+   "elapsed_ms": 17.344332,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9aa4c0700042": {
+   "classe": null,
+   "elapsed_ms": 26.253938,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b69fee4a1a2": {
+   "classe": null,
+   "elapsed_ms": 32.335082,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b7c0d0ac4ec": {
+   "classe": null,
+   "elapsed_ms": 107.11489,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 43,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3652,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3662,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "9e254cda16a2": {
+   "classe": null,
+   "elapsed_ms": 33.32724,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 25,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "9e4a4267e6b2": {
+   "classe": null,
+   "elapsed_ms": 78.193516,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a147caa9f3a7": {
+   "classe": null,
+   "elapsed_ms": 11.559527,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a26c5f06ffef": {
+   "classe": "import",
+   "elapsed_ms": 76.418397,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 406,
+     "nome": "entry_keys_with_all_tags",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "retirement",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "a3923cbedf1e": {
+   "classe": null,
+   "elapsed_ms": 84.14867299999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a3a8e6e2370c": {
+   "classe": "import",
+   "elapsed_ms": 163.478316,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "a91f63f35f34": {
+   "classe": null,
+   "elapsed_ms": 11.03603,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a971b1d47dd7": {
+   "classe": null,
+   "elapsed_ms": 17.080005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "aa0fff97b669": {
+   "classe": "nome",
+   "elapsed_ms": 34.238433,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 1553,
+     "nome": "star_target_names",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "star_target_names",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "aacd04b3dfb1": {
+   "classe": null,
+   "elapsed_ms": 145.172633,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 1916,
+     "nome": "follow_intra_crate_reexport",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ac3791d22f3d": {
+   "classe": null,
+   "elapsed_ms": 22.774798999999998,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ad19d72a3f2f": {
+   "classe": null,
+   "elapsed_ms": 61.545458999999994,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ad7106a888b6": {
+   "classe": null,
+   "elapsed_ms": 172.50843,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b1384529c3b9": {
+   "classe": null,
+   "elapsed_ms": 8.429030000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b236949f5dcb": {
+   "classe": null,
+   "elapsed_ms": 7.038558999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b3c7456d8681": {
+   "classe": null,
+   "elapsed_ms": 16.788854,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b3e48d334c14": {
+   "classe": null,
+   "elapsed_ms": 15.87562,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 36,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "b615d23932b7": {
+   "classe": null,
+   "elapsed_ms": 47.675598,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b6c46f435a3f": {
+   "classe": null,
+   "elapsed_ms": 5.508768,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b6e395d9815c": {
+   "classe": null,
+   "elapsed_ms": 33.764335,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b819e04a73ce": {
+   "classe": null,
+   "elapsed_ms": 23.008083,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "b8be4ea22e6a": {
+   "classe": null,
+   "elapsed_ms": 23.743364,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b96080f2f793": {
+   "classe": null,
+   "elapsed_ms": 53.000445,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 307,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "bac21b1a8b2b": {
+   "classe": null,
+   "elapsed_ms": 29.040307000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bb4f07031afd": {
+   "classe": null,
+   "elapsed_ms": 0.9407009999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bb9abb7c1257": {
+   "classe": null,
+   "elapsed_ms": 65.03240100000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "bccc570e5e9c": {
+   "classe": null,
+   "elapsed_ms": 27.344549999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bdaecbfe4e50": {
+   "classe": null,
+   "elapsed_ms": 10.953935,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "be54816f15f2": {
+   "classe": null,
+   "elapsed_ms": 35.987284,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "bea91387b214": {
+   "classe": null,
+   "elapsed_ms": 87.840189,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c1783d218f09": {
+   "classe": null,
+   "elapsed_ms": 28.442767,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c1cf0f44877a": {
+   "classe": "import",
+   "elapsed_ms": 78.29172399999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "pending_for",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "c21bc9b0a325": {
+   "classe": null,
+   "elapsed_ms": 20.270101,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 81,
+     "nome": "INPUT",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "c226f6b8a39a": {
+   "classe": null,
+   "elapsed_ms": 37.375462999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c271936deb30": {
+   "classe": null,
+   "elapsed_ms": 22.342414,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c352075387bd": {
+   "classe": null,
+   "elapsed_ms": 35.219730999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c67ddaa9afd9": {
+   "classe": null,
+   "elapsed_ms": 159.640651,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3177,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 287,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1682,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1684,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3632,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6268,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "c68f49efc864": {
+   "classe": null,
+   "elapsed_ms": 7.46834,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c753e2e741a2": {
+   "classe": null,
+   "elapsed_ms": 25.683729,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c867ade96887": {
+   "classe": null,
+   "elapsed_ms": 62.648932,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 632,
+     "nome": "Allow",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 668,
+     "nome": "Context",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "c902d387a878": {
+   "classe": null,
+   "elapsed_ms": 116.091816,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c9eb801de249": {
+   "classe": null,
+   "elapsed_ms": 35.64517,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 18,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 34,
+     "nome": "from_base",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 61,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ca5d3b0dcc47": {
+   "classe": null,
+   "elapsed_ms": 58.464938000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cb2f529a95a6": {
+   "classe": null,
+   "elapsed_ms": 80.554821,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cc0d0da5e79a": {
+   "classe": null,
+   "elapsed_ms": 51.865606,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cf2ceb3d1017": {
+   "classe": null,
+   "elapsed_ms": 81.12470400000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 43,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3360,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3370,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "cf87e1831c66": {
+   "classe": "import",
+   "elapsed_ms": 82.331609,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3092,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "d1c70750236b": {
+   "classe": null,
+   "elapsed_ms": 8.732654,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d3be38220b7b": {
+   "classe": null,
+   "elapsed_ms": 0.917378,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d3fc8a3462b3": {
+   "classe": null,
+   "elapsed_ms": 11.244558,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d4396acb68a6": {
+   "classe": null,
+   "elapsed_ms": 6.741099,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d4c351a37bf5": {
+   "classe": null,
+   "elapsed_ms": 6.019404,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d5248b88cd04": {
+   "classe": null,
+   "elapsed_ms": 116.51041500000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "d5424dd02817": {
+   "classe": null,
+   "elapsed_ms": 46.641977000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d6345f971d7e": {
+   "classe": null,
+   "elapsed_ms": 36.251042,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d64661f05b97": {
+   "classe": "nome",
+   "elapsed_ms": 131.526613,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 48,
+     "nome": "query_cache",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 904,
+     "nome": "feature_flags",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 906,
+     "nome": "memory_stats_probe",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 937,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1044,
+     "nome": "tantivy_docs",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1063,
+     "nome": "detect_language",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2296,
+     "nome": "reindex",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 2788,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "cli_index_ingest",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "d66f1ad330b3": {
+   "classe": null,
+   "elapsed_ms": 39.923624999999994,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d6dddc212f0a": {
+   "classe": null,
+   "elapsed_ms": 7.888377,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d7269c3247d7": {
+   "classe": null,
+   "elapsed_ms": 2.396166,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d78fcf6f6345": {
+   "classe": null,
+   "elapsed_ms": 30.636841,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d9b8129db834": {
+   "classe": null,
+   "elapsed_ms": 43.219611,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "da644c10bd19": {
+   "classe": null,
+   "elapsed_ms": 5.065609,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "db212acd6614": {
+   "classe": null,
+   "elapsed_ms": 132.326221,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 575,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "dd48c44f8a72": {
+   "classe": null,
+   "elapsed_ms": 16.371219,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dd914ae99583": {
+   "classe": null,
+   "elapsed_ms": 7.9949010000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ddda7b9a4cf1": {
+   "classe": null,
+   "elapsed_ms": 7.353116,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dfa74028efa4": {
+   "classe": null,
+   "elapsed_ms": 27.805384,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dfebd6217c77": {
+   "classe": null,
+   "elapsed_ms": 31.503069,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e0e979afd6f0": {
+   "classe": null,
+   "elapsed_ms": 34.828162000000006,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e14bf32a2d05": {
+   "classe": null,
+   "elapsed_ms": 9.417757,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e293a00bae6b": {
+   "classe": null,
+   "elapsed_ms": 15.229014000000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 27,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "e5b1c566524a": {
+   "classe": null,
+   "elapsed_ms": 28.325384,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e619ec1b1088": {
+   "classe": null,
+   "elapsed_ms": 41.348569000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e65ff51d4744": {
+   "classe": null,
+   "elapsed_ms": 30.242441,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e7b97433ae40": {
+   "classe": null,
+   "elapsed_ms": 8.613977,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e7c2a3712413": {
+   "classe": null,
+   "elapsed_ms": 13.534039,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 26,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "e7fecc1131ea": {
+   "classe": null,
+   "elapsed_ms": 24.953785,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 1809,
+     "nome": "follow_intra_crate_reexport",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "e87083f5fac7": {
+   "classe": null,
+   "elapsed_ms": 57.626211,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 24,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1701,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "e89397b12181": {
+   "classe": "nome",
+   "elapsed_ms": 118.47627299999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 24,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1710,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "compose_details",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "e97286704e79": {
+   "classe": null,
+   "elapsed_ms": 11.941975000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ea93cbf30c73": {
+   "classe": null,
+   "elapsed_ms": 106.669267,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3177,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 287,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1682,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1684,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3632,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6304,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "eb2238188f2d": {
+   "classe": null,
+   "elapsed_ms": 35.356156999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ebb065a1e6ab": {
+   "classe": null,
+   "elapsed_ms": 66.022571,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 569,
+     "nome": "invalidate_wiring_modules_cache",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ebd1e9d6c318": {
+   "classe": null,
+   "elapsed_ms": 83.438583,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 43,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3828,
+     "nome": "E_METHOD_NOT_FOUND",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 3838,
+     "nome": "E_INVALID_MESSAGE",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ed89f323b081": {
+   "classe": null,
+   "elapsed_ms": 23.094005,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f04a880cb4e6": {
+   "classe": null,
+   "elapsed_ms": 49.234183,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 8,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 15,
+     "nome": "compose_edit_context",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 37,
+     "nome": "HookRuntime",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 62,
+     "nome": "run_returning",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 307,
+     "nome": "callgraph_signal_for_file",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 333,
+     "nome": "compose_rust_workflow_advisory",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 528,
+     "nome": "suggest_replace_symbol_body",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 651,
+     "nome": "detect_unresolved_types",
+     "severidade": "warn"
+    },
+    {
+     "classe": "nome",
+     "linha": 924,
+     "nome": "compose_quality_evolution",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": "1 caminho(s) sem resolução estática: `super` (módulo pai ilegível ou fora da árvore declarada)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f1de498b4fc5": {
+   "classe": null,
+   "elapsed_ms": 22.545475,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 9,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f24e99c9513b": {
+   "classe": null,
+   "elapsed_ms": 36.539784,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f2ce6a369697": {
+   "classe": null,
+   "elapsed_ms": 15.320387,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f353870930b2": {
+   "classe": null,
+   "elapsed_ms": 22.139365,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f4568a708fd2": {
+   "classe": null,
+   "elapsed_ms": 37.604889,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f5a1ef9eed75": {
+   "classe": null,
+   "elapsed_ms": 26.093376000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f5c03f1b4e30": {
+   "classe": null,
+   "elapsed_ms": 87.175545,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3207,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 352,
+     "nome": "from_examples",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1736,
+     "nome": "Plain",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1738,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 3629,
+     "nome": "from_pre_tool",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 6066,
+     "nome": "from_pre_tool_with_cognitive",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f6fdcb0d820b": {
+   "classe": null,
+   "elapsed_ms": 22.054645,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f70f764d5484": {
+   "classe": null,
+   "elapsed_ms": 5.366046,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f72b5af06fac": {
+   "classe": null,
+   "elapsed_ms": 79.217972,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3043,
+     "nome": "gate_metrics",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 548,
+     "nome": "Plain",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f86c4957b850": {
+   "classe": null,
+   "elapsed_ms": 23.152756,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f8cb51d02f45": {
+   "classe": null,
+   "elapsed_ms": 6.673128999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f8f947717a70": {
+   "classe": null,
+   "elapsed_ms": 14.704093,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 27,
+     "nome": "new",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f9eae7025408": {
+   "classe": null,
+   "elapsed_ms": 13.150181,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fc9114a3a57f": {
+   "classe": null,
+   "elapsed_ms": 45.445868,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 192,
+     "nome": "JavaScript",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 193,
+     "nome": "Python",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 194,
+     "nome": "TypeScript",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 195,
+     "nome": "Ruby",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 196,
+     "nome": "Go",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 197,
+     "nome": "Perl",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 198,
+     "nome": "R",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 199,
+     "nome": "Elixir",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 200,
+     "nome": "Php",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 201,
+     "nome": "Rust",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 202,
+     "nome": "Shell",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 734,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "fd068f36d525": {
+   "classe": null,
+   "elapsed_ms": 19.882182,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fe0e48c00b5d": {
+   "classe": null,
+   "elapsed_ms": 14.259039,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 801,
+     "nome": "TouringConfig",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "fef5d54c398e": {
+   "classe": null,
+   "elapsed_ms": 37.886424000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ff57c9b45a99": {
+   "classe": null,
+   "elapsed_ms": 60.461326,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 24,
+     "nome": "new",
+     "severidade": "warn"
+    },
+    {
+     "classe": "import",
+     "linha": 1710,
+     "nome": "default",
+     "severidade": "warn"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ffd593460f6f": {
+   "classe": null,
+   "elapsed_ms": 8.662695999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  }
+ },
+ "juiz_sha16": "6c8a31b02075da1e",
+ "n": 301,
+ "touring": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V12/touring"
+}

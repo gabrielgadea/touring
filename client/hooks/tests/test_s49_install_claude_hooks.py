@@ -18,13 +18,16 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_claude_hooks.py"
-HOOKS_SETTINGS = REPO_ROOT / "client" / "claude" / "hooks.settings.json"
+# The two env overrides let the mutation runner aim the suite at a mutated copy; unset, the real files are judged.
+INSTALL_SCRIPT = Path(os.environ.get("INSTALL_CLAUDE_HOOKS_SCRIPT") or REPO_ROOT / "scripts" / "install_claude_hooks.py")
+HOOKS_SETTINGS = Path(os.environ.get("HOOKS_SETTINGS_SOURCE") or REPO_ROOT / "client" / "claude" / "hooks.settings.json")
 TOURING_PROJECT_HOOKS = REPO_ROOT / "client" / "claude" / "touring-project.hooks.settings.json"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, str(INSTALL_SCRIPT), *args], capture_output=True, text=True, timeout=30)
+    return subprocess.run(
+        [sys.executable, str(INSTALL_SCRIPT), *args], capture_output=True, text=True, timeout=30, check=False
+    )
 
 
 def _hook(command: str, *, timeout: int | None = 5, if_: str | None = None) -> dict[str, Any]:
@@ -163,3 +166,45 @@ def test_versioned_source_has_no_lint_finding() -> None:
     proc = _run("--lint-only", "--source", str(HOOKS_SETTINGS), "--json")
     findings = json.loads(proc.stdout)["findings"]
     assert findings == [], findings
+
+
+def test_lint_flags_a_touring_passthrough_on_the_worktree_events(tmp_path: Path) -> None:
+    """L5: the Claude Code contract (code.claude.com/docs/en/hooks, lido em 18/10/2026) makes a `WorktreeCreate`
+    hook REPLACE the default `git worktree add` — it must print the created path on stdout, or `Agent(isolation:
+    "worktree")` fails with "hook succeeded but returned no worktree path" (reproduzido em 17/10). A
+    `touring-hook worktree-create` handler only records the event and prints no path. `WorktreeRemove` runs only
+    for a worktree a WorktreeCreate hook made, and its exit 0 counts as "removed" whether or not the directory
+    is gone — registering the Touring recorder there leaves the worktree on disk."""
+    for event, handler in (("WorktreeCreate", "worktree-create"), ("WorktreeRemove", "worktree-remove")):
+        bad = {event: [{"hooks": [_hook(f"$HOME/.claude/hooks/touring-hook {handler}")]}]}
+        assert "L5" in _lint(tmp_path, bad), event
+    # a script of the operator's own is not judged here (its stdout is not statically knowable)
+    own = {"WorktreeCreate": [{"hooks": [_hook("$HOME/.claude/hooks/make_worktree.sh")]}]}
+    assert "L5" not in _lint(tmp_path, own)
+    # the recorder is fine on events that carry no such contract
+    ok = {"SubagentStart": [{"hooks": [_hook("$HOME/.claude/hooks/touring-hook subagent-start")]}]}
+    assert _lint(tmp_path, ok) == []
+
+
+def test_the_versioned_source_leaves_worktree_creation_to_claude_code() -> None:
+    """Neither worktree event is registered: with no `WorktreeCreate` hook Claude Code creates the worktree itself
+    (git, `.worktreeinclude`, its own base ref), and `WorktreeRemove` would never fire — the contract runs it only
+    for worktrees a `WorktreeCreate` hook created. The registered recorder (`touring-hook worktree-create`) read
+    `worktree_path`, a field only the REMOVE payload carries (create carries `name`), so it was a no-op that
+    printed nothing and broke every isolated subagent."""
+    hooks = json.loads(HOOKS_SETTINGS.read_text(encoding="utf-8"))
+    assert "WorktreeCreate" not in hooks and "WorktreeRemove" not in hooks
+
+
+def test_cli_suggest_runs_for_the_agent_tool() -> None:
+    """17/10/2026: the sub-agent tool is `Agent` (`Task` is the legacy name). The group that ran
+    `cli-suggest` was keyed on `Task` only, and the hook payload carries `tool_name: "Agent"` (the
+    model gate keys on it), so no delegation ever got its nudge — 0 emissions in 227 transcripts."""
+    hooks = json.loads(HOOKS_SETTINGS.read_text(encoding="utf-8"))
+    covered = {
+        name
+        for group in hooks["PreToolUse"]
+        if any("touring-hook cli-suggest" in h.get("command", "") for h in group.get("hooks", []))
+        for name in group.get("matcher", "").split("|")
+    }
+    assert "Agent" in covered, f"cli-suggest never runs for the Agent tool; covered: {sorted(covered)}"

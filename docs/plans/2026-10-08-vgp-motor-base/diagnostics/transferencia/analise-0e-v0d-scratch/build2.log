@@ -1,0 +1,48 @@
+<unknown>:13: SyntaxWarning: invalid escape sequence '\$'
+/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
+  [
+{
+ "gerado_em": "2026-10-09T12:33:03-0300",
+ "jobs": 4,
+ "candidatos_v0a": 100,
+ "positivos_no_corpus": 91,
+ "incompletos_por_motivo": {
+  "[atribuido] Edit que nao casa sobre a base do git": 2,
+  "[inline] erro dentro de script .sh — programa indireto, nao extraivel": 1,
+  "[atribuido] o arquivo nao existia no commit anterior e a dobra quebrou": 1,
+  "duplicata de inventario (mesmo evento)": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-05T14:44:33.082Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T14:47:14.849Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T16:48:04.154Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T16:48:36.055Z e nenhum Write da sessao o criou": 1
+ },
+ "reproduzem": 61,
+ "reproduzem_por_classe": {
+  "atributo": 35,
+  "import": 4,
+  "kwarg": 1,
+  "nome": 21
+ },
+ "reproduzem_por_origem": {
+  "atribuido": 9,
+  "inline": 41,
+  "tmp": 11
+ },
+ "taxa_de_reproducao": 0.6703,
+ "negativos": {
+  "universo": {
+   "vistos": 4473,
+   "candidatos": 13139
+  },
+  "pool_registrado": 9738,
+  "sorteados": 300,
+  "no_corpus": 300,
+  "podas": {
+   "podados": 3401,
+   "rodadas": 104
+  }
+ },
+ "wall_s": 772.7
+}
+nao reproduzem: 30
+build2 rc=0

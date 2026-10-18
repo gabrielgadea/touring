@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Testes vendados de skill_picker_hook.py (S-5.1 registration)."""
 
 from __future__ import annotations

@@ -1,0 +1,10 @@
+k_v2_ev.json x k_v2_vivo_p2.json | pronto True True | chaves divergentes (fora p95/limite/pendencias): ['exigir_limite_superior']
+    exigir_limite_superior ref= null | novo= false
+   pendencias novo: [] | p95 120.377522 -> 136.242316
+   limite_superior_95 novo: {'arquivo': 0.0074613555287995625, 'inline': 0.01087377784900223}
+k_v3_ev.json x k_v3_vivo_p2.json | pronto True False | chaves divergentes (fora p95/limite/pendencias): ['exigir_limite_superior', 'forma_fora_do_recall', 'pronto']
+    exigir_limite_superior ref= null | novo= false
+    forma_fora_do_recall ref= {"arquivo": [1, 11], "inline": [0, 13]} | novo= {"arquivo": [0, 11], "inline": [0, 13]}
+    pronto ref= true | novo= false
+   pendencias novo: ['p95 1000.9 ms > 1000.0 ms'] | p95 954.162296 -> 1000.895035
+   limite_superior_95 novo: {'arquivo': 0.0074613555287995625, 'inline': 0.01087377784900223}

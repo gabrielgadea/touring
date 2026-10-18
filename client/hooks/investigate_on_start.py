@@ -49,6 +49,7 @@ def run_investigate(topic: str) -> str | None:
             capture_output=True,
             text=True,
             timeout=INVESTIGATE_TIMEOUT,
+            check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return None

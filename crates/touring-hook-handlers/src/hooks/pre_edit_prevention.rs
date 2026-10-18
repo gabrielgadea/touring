@@ -17,6 +17,9 @@
 //!
 //! Target latency: <10ms.
 
+use touring_code::vgp::CheckInput;
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+
 use std::collections::{HashMap, HashSet};
 
 use touring_code::ast::{
@@ -140,6 +143,22 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let applied = AppliedEdit::replay(file_path, old_string, new_string, replace_all);
+
+    // ── VGP sombra/ativo (V2, 09/10): o motor julga o conteúdo proposto e grava UMA linha em
+    // ~/.claude/touring/vgp/sombra.jsonl — em "sombra" (default) NADA muda na resposta; em
+    // "ativo" (só por [vgp] modo do projeto, V4) o deny vira `[VGP · deny] ` e o aviso,
+    // `[VGP · aviso] `. Fail-open: qualquer falha interna vira "unknown" e a chamada segue.
+    if let Some(resposta_vgp) = vgp_sombra_de_edit(
+        runtime,
+        input,
+        file_path,
+        old_string,
+        new_string,
+        applied.as_ref(),
+    ) {
+        return resposta_vgp;
+    }
+
     relabel_fragment_syntax(&mut all_warnings, spec_result.as_ref(), applied.is_some());
     if let Some(deny_response) =
         check_deny_gate(file_path, &rel_path, &all_warnings, applied.as_ref())
@@ -454,6 +473,134 @@ fn apply_edit(body: &str, old: &str, new: &str, replace_all: bool) -> Option<Str
 }
 
 /// S210 — the target file before and after the Edit.
+/// VGP sobre a edição (Edit e MultiEdit): devolve `Some(resposta)` só no modo "ativo" quando o
+/// motor nega ou avisa; em "sombra" e "off" devolve sempre None — a resposta do hook NUNCA muda.
+fn vgp_sombra_de_edit(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    file_path: &str,
+    _old_string: &str,
+    _new_string: &str,
+    applied: Option<&AppliedEdit>,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    if mode == VgpMode::Off || !file_path.ends_with(".py") {
+        return None;
+    }
+    // MultiEdit: /tool_input/edits é uma lista — a dobra sequencial sobre o disco (uma edição
+    // que não casa interrompe, e a entrada fica de fora, nunca com conteúdo errado)
+    let (hook, disco, proposto) = if input
+        .pointer("/tool_input/edits")
+        .and_then(|v| v.as_array())
+        .is_some()
+    {
+        let disco = applied
+            .map(|a| a.before.clone())
+            .or_else(|| std::fs::read_to_string(file_path).ok())
+            .unwrap_or_default();
+        let mut texto = disco.clone();
+        let mut ok = true;
+        for e in input
+            .pointer("/tool_input/edits")
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
+            let (o, n, all) = (
+                e.pointer("/old_string")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+                e.pointer("/new_string")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(""),
+                e.pointer("/replace_all")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false),
+            );
+            match apply_edit(&texto, o, n, all) {
+                Some(t) => texto = t,
+                None => {
+                    ok = false;
+                    break;
+                }
+            }
+        }
+        ("multiedit", disco, if ok { Some(texto) } else { None })
+    } else {
+        (
+            "pre-edit",
+            applied
+                .map(|a| a.before.clone())
+                .or_else(|| std::fs::read_to_string(file_path).ok())
+                .unwrap_or_default(),
+            applied.map(|a| a.after.clone()),
+        )
+    };
+    let proposto = proposto?;
+    let vgp_in = CheckInput {
+        path: file_path.to_string(),
+        content: proposto,
+        project_root: runtime.project_root.clone(),
+        disk: Some(disco),
+        overlays: std::collections::HashMap::new(),
+        lang: "python".into(),
+    };
+    let out = sombra_check(
+        hook,
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    let resumo = out
+        .findings
+        .iter()
+        .map(|f| {
+            format!(
+                "{} `{}` ({}:{})",
+                f.classe,
+                f.nome,
+                rel_path_of(&runtime.project_root, file_path),
+                f.linha
+            )
+        })
+        .take(3)
+        .collect::<Vec<_>>()
+        .join(" · ");
+    match out.verdict.as_str() {
+        "deny" => Some(HookResponse::Deny {
+            reason: format!(
+                "[VGP · deny] {resumo}{}",
+                out.findings
+                    .first()
+                    .map(|f| format!(" — {}", f.sugestao))
+                    .unwrap_or_default()
+            ),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        "warn" => Some(HookResponse::Context {
+            context: format!("[VGP · aviso] {resumo}"),
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        _ => None,
+    }
+}
+
+fn rel_path_of(root: &std::path::Path, path: &str) -> String {
+    make_relative(path, root)
+}
+
 struct AppliedEdit {
     before: String,
     after: String,

@@ -1,0 +1,1053 @@
+diff --git a/crates/touring-code/src/vgp/lang/python.rs b/crates/touring-code/src/vgp/lang/python.rs
+index 72519f6f..82e65fd5 100644
+--- a/crates/touring-code/src/vgp/lang/python.rs
++++ b/crates/touring-code/src/vgp/lang/python.rs
+@@ -21,7 +21,10 @@ use tree_sitter::Node;
+ use crate::ast::languages::Lang;
+ use crate::ast::parser::parse_thread_local;
+ 
+-use self::modules::{ModuleInfo, Resolver, Tri, extract_module_info, resolve_relative};
++use self::modules::{
++    ClassInfo, ModuleInfo, Resolver, Tri, extract_module_info, implicito_de_modulo_opaco,
++    resolve_relative,
++};
+ use self::scope::ScopeTree;
+ use self::stdlib_model::{builtin_type_members, call_result_type, stdlib_module_members};
+ use super::{Adaptador, Verificacao};
+@@ -222,6 +225,11 @@ impl<'a, 't> Checks<'a, 't> {
+         if modulo.top_names.contains(nome) {
+             return Tri::Yes;
+         }
++        // P0B (a): o que o sistema de import liga em TODO módulo carregado (`__file__` só com arquivo,
++        // `__path__` só em pacote) — o `__init__.py` não precisa nem consegue declará-lo
++        if modulo.atributo_implicito(nome) {
++            return Tri::Yes;
++        }
+         // namespace não enumerável (getattr aberto, import *, ligação dinâmica aberta): abstenção
+         // IGUAL em arquivo e inline — a incerteza não depende do balde, logo nem a severidade
+         if modulo.has_getattr || modulo.has_star || modulo.has_dynamic {
+@@ -272,6 +280,7 @@ impl<'a, 't> Checks<'a, 't> {
+             Some(Tipo::Stdlib(dotted)) => {
+                 if let Some(members) = stdlib_module_members(&dotted)
+                     && !members.contains(&nome.as_str())
++                    && !implicito_de_modulo_opaco(&nome)
+                 {
+                     out_find(
+                         self.out,
+@@ -490,14 +499,18 @@ impl<'a, 't> Checks<'a, 't> {
+         }
+     }
+ 
+-    /// The signature `C(...)` is checked against; `None` = unknowable (abstain). A plain class keeps its
+-    /// own `__init__` (or none). A dataclass keeps an explicit `__init__` too — `dataclasses` never
+-    /// overwrites one — and otherwise gets the GENERATED one: fields of the bases in reverse MRO, then
+-    /// its own (see [`Self::parametros_do_dataclass`]).
++    /// The signature `C(...)` is checked against; `None` = unknowable (abstain). A class keeps its own
++    /// explicit `__init__` — a dataclass too, `dataclasses` never overwrites one. A dataclass without
++    /// one gets the GENERATED one: fields of the bases in reverse MRO, then its own (see
++    /// [`Self::parametros_do_dataclass`]). A plain class without one INHERITS: the first `__init__` in
++    /// its MRO (see [`Self::init_herdado`]).
+     fn construtor_de(&self, cls: &str, modulo: &Rc<ModuleInfo>) -> Option<self::modules::FuncSig> {
+         let ci = modulo.classes.get(cls)?;
+-        if ci.methods.contains("__init__") || !ci.is_dataclass {
+-            return Some(ci.init.clone());
++        if ci.methods.contains("__init__") {
++            return Some(sem_instancia(ci.init.clone()));
++        }
++        if !ci.is_dataclass {
++            return self.init_herdado(cls, modulo);
+         }
+         if ci.dc_init_false {
+             return None; // no generated `__init__`: inherited, so not known here
+@@ -505,6 +518,34 @@ impl<'a, 't> Checks<'a, 't> {
+         self.parametros_do_dataclass(cls, modulo)
+     }
+ 
++    /// The signature of a PLAIN class with no `__init__` of its own (P0B (c), the `Filha(Base)` that
++    /// `Filha(a=1)` made a false deny): CPython resolves `__init__` along the MRO, so the answer is the
++    /// FIRST class of the C3 linearization ([`Self::mro`], identity (file, name)) that defines one — a
++    /// dataclass without an explicit one defines the generated one — and `object.__init__` (no keyword
++    /// at all) when none does. `None` (abstain) when the MRO cannot be built (unresolved or opaque
++    /// base, inconsistent hierarchy) or any class of it can reroute construction
++    /// ([`opaco_para_construcao`]).
++    fn init_herdado(&self, cls: &str, modulo: &Rc<ModuleInfo>) -> Option<self::modules::FuncSig> {
++        let linear = self.mro(cls, modulo, 0)?;
++        let mut elos = Vec::with_capacity(linear.len());
++        for (_, nome, m) in &linear {
++            let ci = m.classes.get(nome)?;
++            if opaco_para_construcao(ci) {
++                return None;
++            }
++            elos.push((nome, m, ci));
++        }
++        for (nome, m, ci) in elos {
++            if ci.methods.contains("__init__") {
++                return Some(sem_instancia(ci.init.clone()));
++            }
++            if ci.is_dataclass && !ci.dc_init_false {
++                return self.parametros_do_dataclass(nome, m);
++            }
++        }
++        Some(self::modules::FuncSig::default())
++    }
++
+     /// `__init__` parameters of the dataclass `cls`, following `dataclasses`' own rule (CPython 3.13
+     /// `Doc/library/dataclasses.rst`): fields are collected walking the REVERSE MRO (bases first, the
+     /// class last); a redeclared field keeps its first position and takes the new definition; the
+@@ -883,6 +924,41 @@ fn c3_merge(mut listas: Vec<Vec<ClasseNo>>) -> Option<Vec<ClasseNo>> {
+     }
+ }
+ 
++/// The keywords `C(...)` accepts from a `def __init__`: CPython binds the FIRST parameter to the new
++/// instance, so it is no keyword (`C(self=1)` is a TypeError, "multiple values for argument") and no
++/// suggestion to show. A dataclass' generated `__init__` is built without it
++/// ([`modules::dc_init_params`]).
++fn sem_instancia(mut sig: self::modules::FuncSig) -> self::modules::FuncSig {
++    if !sig.params.is_empty() {
++        sig.params.remove(0);
++    }
++    sig
++}
++
++/// Can this class of an MRO reroute how `C(...)` is built, so that the first `__init__` is not the
++/// whole story? (P0B (c)) A custom `__new__` (it takes the arguments first), a metaclass or class
++/// keyword (`__call__` / `__init_subclass__` of the header), an `__init_subclass__` or `__signature__`
++/// of the class, an `__init__` bound by assignment instead of `def`, or a base with its OWN
++/// construction (`NamedTuple`, `TypedDict`, the enums — `is_builtin_base` minus the ones that only add
++/// `object.__init__` or `BaseException.__init__`, which take no keyword).
++fn opaco_para_construcao(ci: &ClassInfo) -> bool {
++    const DESVIADORES: [&str; 3] = ["__new__", "__init_subclass__", "__signature__"];
++    let liga = |nome: &str| ci.methods.contains(nome) || ci.fields.contains(nome);
++    let init_por_atribuicao = ci.fields.contains("__init__") && !ci.methods.contains("__init__");
++    let base_com_construtor_proprio = ci.dc_bases.iter().any(|b| {
++        let nome = b.rsplit('.').next().unwrap_or(b);
++        is_builtin_base(nome)
++            && !matches!(
++                nome,
++                "object" | "ABC" | "Generic" | "Protocol" | "Exception" | "BaseException"
++            )
++    });
++    ci.has_class_kwargs
++        || init_por_atribuicao
++        || base_com_construtor_proprio
++        || DESVIADORES.iter().any(|d| liga(d))
++}
++
+ fn is_builtin_base(nome: &str) -> bool {
+     matches!(
+         nome,
+diff --git a/crates/touring-code/src/vgp/lang/python/modules.rs b/crates/touring-code/src/vgp/lang/python/modules.rs
+index 536e9dcc..2d589341 100644
+--- a/crates/touring-code/src/vgp/lang/python/modules.rs
++++ b/crates/touring-code/src/vgp/lang/python/modules.rs
+@@ -53,6 +53,10 @@ pub struct ClassInfo {
+     pub dc_bases: Vec<String>,
+     /// A base expression the collector cannot name (call, `*bases`, …) — the MRO is then unknowable.
+     pub bases_opaque: bool,
++    /// A keyword in the class header (`class C(Base, metaclass=Meta)`, `class C(Base, flag=True)`):
++    /// a metaclass `__call__` or an `__init_subclass__` may change what `C(...)` accepts — the
++    /// constructor signature is then not decidable from the `__init__` methods alone.
++    pub has_class_kwargs: bool,
+     /// `@dataclass(kw_only=True)`: every field this class declares is keyword-only.
+     pub dc_kw_only: bool,
+     /// `@dataclass(init=False)`: no generated `__init__` — the signature is inherited, i.e. unknowable here.
+@@ -140,6 +144,48 @@ pub struct ModuleInfo {
+     pub functions: HashMap<String, FuncSig>,
+ }
+ 
++/// The attributes the import system gives EVERY loaded module, file or not — Python reference
++/// (CPython 3.13, via Context7 `/python/cpython/v3.13.9`): `Doc/reference/import.rst` (the import
++/// machinery sets the import-related attributes `__name__`, `__loader__`, `__package__`, `__spec__`
++/// on the module object, `_init_module_attrs(spec, module)`), `Doc/c-api/module.rst`
++/// (`PyModule_NewObject` starts `__name__`, `__doc__`, `__package__` and `__loader__`), and the data
++/// model for `__dict__` (the module namespace) and `__builtins__` (the entry `exec` adds to it).
++/// `__file__` and `__path__` are NOT here: they depend on the file and on being a package.
++const IMPLICITOS_DE_TODO_MODULO: &[&str] = &[
++    "__name__",
++    "__doc__",
++    "__spec__",
++    "__loader__",
++    "__package__",
++    "__dict__",
++    "__builtins__",
++];
++
++/// Is `nome` something the import system may or may not set on a module the motor cannot read (a
++/// stdlib C module such as `math`)? Whether it has a `__file__` depends on how the interpreter was
++/// built (`sys.__file__` raises `AttributeError`, `Doc/using/configure.rst`), so the closed tables
++/// abstain on the whole family instead of denying a module attribute CPython may well provide.
++pub fn implicito_de_modulo_opaco(nome: &str) -> bool {
++    IMPLICITOS_DE_TODO_MODULO.contains(&nome) || matches!(nome, "__file__" | "__path__")
++}
++
++impl ModuleInfo {
++    /// Does the import system give THIS module the attribute `nome`? The universal ones always;
++    /// `__file__` only when the module has a file; `__path__` only when it is a package (its file is
++    /// an `__init__.py`). A plain module has no `__path__` — that stays an absent attribute.
++    pub fn atributo_implicito(&self, nome: &str) -> bool {
++        match nome {
++            "__file__" => self.file.is_some(),
++            "__path__" => self
++                .file
++                .as_deref()
++                .and_then(Path::file_name)
++                .is_some_and(|f| f == "__init__.py"),
++            _ => IMPLICITOS_DE_TODO_MODULO.contains(&nome),
++        }
++    }
++}
++
+ /// Does `name` resolve as a member of this module? `__all__` narrows when present;
+ /// `__getattr__` or `import *` makes the question unknowable.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -441,6 +487,9 @@ fn collect_class(info: &mut ModuleInfo, source: &str, node: Node, decorators: &[
+                     ci.dc_bases.push(text(source, ch).to_string());
+                 }
+                 "keyword_argument" => {
++                    // `metaclass=Meta` (its `__call__` decides what `C(...)` accepts) or a class
++                    // keyword for `__init_subclass__`: the constructor is then not the plain MRO walk
++                    ci.has_class_kwargs = true;
+                     if let Some(v) = ch.child_by_field_name("value") {
+                         ci.bases.push(text(source, v).to_string());
+                     }
+diff --git a/crates/touring-code/src/vgp/lang/python/tests.rs b/crates/touring-code/src/vgp/lang/python/tests.rs
+index aca1b8bb..8d6d8bd5 100644
+--- a/crates/touring-code/src/vgp/lang/python/tests.rs
++++ b/crates/touring-code/src/vgp/lang/python/tests.rs
+@@ -1565,3 +1565,363 @@ fn dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_fal
+     assert_eq!(achados[1].1, lista(&["x", "y", "g"]));
+     let _ = std::fs::remove_dir_all(&tmp);
+ }
++
++// ---------------------------------------------------------------------------------------------
++// P0B (a) — atributos implícitos de módulo, na camada 1.
++//
++// Fonte (Context7 `/python/cpython/v3.13.9`): `Doc/reference/import.rst` — o import liga os atributos
++// do módulo com `_init_module_attrs(spec, module)` (`__name__`, `__loader__`, `__package__`, `__spec__`,
++// `__file__` quando há arquivo, `__path__` em pacote); `Doc/reference/datamodel.rst` — `__name__` e
++// `__spec__.name` de um módulo; `Doc/c-api/module.rst` — `PyModule_NewObject` inicia `__name__`,
++// `__doc__`, `__package__`, `__loader__` e deixa `__file__` a cargo de quem carrega;
++// `Doc/using/configure.rst` — módulo embutido (`sys`) NÃO tem `__file__` (`AttributeError`).
++// A forma medida no P0M: `import folium; folium.__file__` (id 636f9a7adec1), onde o `__init__.py` do
++// pacote de terceiros tem `__all__` e não liga `__file__`.
++
++fn projeto_pa(tmp: &Path) -> PathBuf {
++    let sp = ".venv/lib/python3.12/site-packages";
++    escreve(tmp, "pkg/__init__.py", "def topo():\n    return 1\n");
++    escreve(tmp, "pkg/m.py", "X = 1\n");
++    escreve(
++        tmp,
++        &format!("{sp}/folium/__init__.py"),
++        "from folium.map import Map\n__all__ = ['Map']\n",
++    );
++    escreve(
++        tmp,
++        &format!("{sp}/folium/map.py"),
++        "class Map:\n    pass\n",
++    );
++    tmp.to_path_buf()
++}
++
++#[test]
++fn p0b_a_todo_modulo_carregado_tem_os_atributos_implicitos_em_todo_balde() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-a1");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pa(&tmp);
++    let src = "import pkg, pkg.m as m, folium\n\
++               print(pkg.__name__, pkg.__doc__, pkg.__file__, pkg.__spec__, pkg.__loader__, pkg.__package__, pkg.__dict__, pkg.__builtins__, pkg.__path__)\n\
++               print(m.__name__, m.__doc__, m.__file__, m.__spec__, m.__loader__, m.__package__, m.__dict__, m.__builtins__)\n\
++               print(folium.__name__, folium.__file__, folium.__path__, folium.__spec__)\n";
++    for (balde, path) in BALDES {
++        assert_eq!(achados(&roda(&root, path, src)), vec![], "balde {balde}");
++    }
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_a_controles_inexistencia_de_verdade_e_path_de_modulo_comum_seguem_negando() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-a2");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pa(&tmp);
++    // `__path__` só existe em PACOTE: `pkg.m` é um módulo comum (AttributeError em runtime)
++    let src = "import pkg, pkg.m as m, folium\n\
++               print(pkg.nada1)\n\
++               print(m.__path__)\n\
++               print(folium.nada2)\n";
++    let d = |n: &str| ("deny".to_string(), "atributo".to_string(), n.to_string());
++    assert_eq!(
++        achados(&roda(&root, "/tmp/vgp-t/a.py", src)),
++        vec![d("__path__"), d("nada1"), d("nada2")]
++    );
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_a_from_import_do_atributo_implicito_nao_nega_e_do_inventado_nega() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-a3");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pa(&tmp);
++    let src = "from pkg import __file__, __name__, __path__\nfrom pkg import nada3\n";
++    assert_eq!(
++        achados(&roda(&root, "/tmp/vgp-t/a.py", src)),
++        vec![(
++            "deny".to_string(),
++            "import".to_string(),
++            "nada3".to_string()
++        )]
++    );
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_a_modulo_stdlib_de_tabela_fechada_tem_os_implicitos_e_o_inventado_nega() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-a4");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pa(&tmp);
++    // `math` é C (embutido ou extensão conforme o build): os cinco que TODO módulo tem passam; `__file__`
++    // depende de como o interpretador foi construído — abstém, nunca nega
++    let src = "import math\n\
++               print(math.__name__, math.__doc__, math.__spec__, math.__loader__, math.__package__, math.__file__)\n\
++               print(math.nada4)\n";
++    for (balde, path) in BALDES {
++        let nomes: Vec<String> = roda(&root, path, src)
++            .findings
++            .iter()
++            .map(|f| f.nome.clone())
++            .collect();
++        assert_eq!(nomes, ["nada4"], "balde {balde}");
++    }
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_a_atributo_implicito_depende_de_arquivo_e_de_pacote() {
++    use super::modules::ModuleInfo;
++    let universais = [
++        "__name__",
++        "__doc__",
++        "__spec__",
++        "__loader__",
++        "__package__",
++        "__dict__",
++        "__builtins__",
++    ];
++    let sem_arquivo = ModuleInfo::default();
++    let comum = ModuleInfo {
++        file: Some(PathBuf::from("/x/pkg/m.py")),
++        ..Default::default()
++    };
++    let pacote = ModuleInfo {
++        file: Some(PathBuf::from("/x/pkg/__init__.py")),
++        ..Default::default()
++    };
++    for nome in universais {
++        for (rotulo, info) in [
++            ("sem arquivo", &sem_arquivo),
++            ("comum", &comum),
++            ("pacote", &pacote),
++        ] {
++            assert!(info.atributo_implicito(nome), "{rotulo}: {nome}");
++        }
++    }
++    assert!(
++        !sem_arquivo.atributo_implicito("__file__"),
++        "sem arquivo não há __file__"
++    );
++    assert!(comum.atributo_implicito("__file__") && pacote.atributo_implicito("__file__"));
++    assert!(!sem_arquivo.atributo_implicito("__path__"));
++    assert!(
++        !comum.atributo_implicito("__path__"),
++        "módulo comum não é pacote"
++    );
++    assert!(pacote.atributo_implicito("__path__"));
++    for info in [&sem_arquivo, &comum, &pacote] {
++        for nome in [
++            "__nada__",
++            "__version__",
++            "_privado",
++            "nada",
++            "file",
++            "__init__",
++        ] {
++            assert!(!info.atributo_implicito(nome), "{nome} não é implícito");
++        }
++    }
++}
++
++// ---------------------------------------------------------------------------------------------
++// P0B (c) — `__init__` herdado em classe COMUM sem `__init__` próprio (P0BMRO).
++// A assinatura é a do PRIMEIRO `__init__` no MRO C3; qualquer elo que não se enxerga abstém.
++
++const PC_M: &str = r#"
++from dataclasses import dataclass
++
++class Base:
++    def __init__(self, a, b=2):
++        self.a = a
++
++@dataclass
++class DcBase:
++    x: int
++    y: int = 0
++
++class DcFilha(DcBase):
++    pass
++
++class Filha(Base):
++    pass
++
++class Neta(Filha):
++    pass
++
++class Sozinha:
++    pass
++
++class ComInit(Base):
++    def __init__(self, z):
++        pass
++
++class P1:
++    pass
++
++class P2:
++    def __init__(self, q):
++        pass
++
++class F(P1, P2):
++    pass
++
++class DA:
++    def __init__(self, a):
++        pass
++
++class DB(DA):
++    pass
++
++class DC(DA):
++    def __init__(self, c):
++        pass
++
++class DD(DB, DC):
++    pass
++
++class Erro(Exception):
++    pass
++"#;
++
++const PC_ABSTEM: &str = r#"
++from typing import NamedTuple
++from outside import Fora
++from pkg.pc_m import Base
++
++class Meta(type):
++    def __call__(cls, *a, **k):
++        return super().__call__(*a, **k)
++
++class SemBase(Fora):
++    pass
++
++class ComNew(Base):
++    def __new__(cls, *a, **k):
++        return super().__new__(cls)
++
++class ComMeta(Base, metaclass=Meta):
++    pass
++
++class Hook:
++    def __init_subclass__(cls, **kw):
++        pass
++
++class ComHook(Hook):
++    pass
++
++class ComSig(Base):
++    __signature__ = None
++
++class InitPorAtribuicao(Base):
++    __init__ = Base.__init__
++
++class Pt(NamedTuple):
++    x: int
++"#;
++
++const PC_B1: &str = "class Base:\n    def __init__(self, a):\n        pass\n";
++const PC_B2: &str = "class Base:\n    def __init__(self, b):\n        pass\n";
++const PC_K: &str = "from pkg.pc_b1 import Base as B1\nfrom pkg.pc_b2 import Base as B2\n\nclass K(B1, B2):\n    pass\n";
++
++fn projeto_pc(tmp: &Path) -> PathBuf {
++    escreve(tmp, "pkg/__init__.py", "");
++    escreve(tmp, "pkg/pc_m.py", PC_M);
++    escreve(tmp, "pkg/pc_abstem.py", PC_ABSTEM);
++    escreve(tmp, "pkg/pc_b1.py", PC_B1);
++    escreve(tmp, "pkg/pc_b2.py", PC_B2);
++    escreve(tmp, "pkg/pc_k.py", PC_K);
++    tmp.to_path_buf()
++}
++
++#[test]
++fn p0b_c_classe_comum_sem_init_herda_a_assinatura_do_primeiro_init_no_mro() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-c1");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pc(&tmp);
++    // `Filha(Base)`: a sonda `sonda_init` — `Filha(a=1)` NÃO é achado (herda `Base.__init__(self, a, b=2)`)
++    let src = "from pkg.pc_m import Filha, Neta, ComInit, F, DD, DcFilha\n\
++               Filha(a=1)\nFilha(a=1, b=3)\nNeta(a=1)\nComInit(z=1)\n\
++               F(q=1)\n\
++               DD(c=1)\n\
++               DcFilha(x=1, y=2)\n";
++    for (balde, path) in BALDES {
++        assert_eq!(kwargs_achados(&root, path, src), vec![], "balde {balde}");
++    }
++    // controles: o que é inexistência de verdade continua negando, com a assinatura HERDADA nas `reais`
++    let src = "from pkg.pc_m import Filha, Neta, Sozinha, ComInit, F, DD, Erro, DcFilha\n\
++               Filha(zz=1)\n\
++               Sozinha(x=1)\n\
++               ComInit(a=1)\n\
++               F(p=1)\n\
++               DD(w=1)\n\
++               Erro(code=1)\n\
++               DcFilha(nada=1)\n";
++    assert_eq!(
++        kwargs_achados(&root, "/tmp/vgp-t/a.py", src),
++        vec![
++            ("zz".to_string(), lista(&["a", "b"])),
++            ("x".to_string(), vec![]),
++            ("a".to_string(), lista(&["z"])),
++            ("p".to_string(), lista(&["q"])),
++            // C3: DD → DB → DC → DA; o primeiro `__init__` é o de DC (`c`), não o de DA (`a`)
++            ("w".to_string(), lista(&["c"])),
++            ("code".to_string(), vec![]),
++            // o `__init__` GERADO do dataclass da base é herdado pela filha comum
++            ("nada".to_string(), lista(&["x", "y"])),
++        ]
++    );
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-c3");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pc(&tmp);
++    // `self` está ligado à instância: `C(self=1)` é TypeError no CPython, tanto no `__init__` próprio
++    // quanto no herdado pelo MRO, e não aparece entre as `reais`. Uma fonte por caso: o motor guarda
++    // um achado por (classe, nome), então dois `self=` na mesma fonte viram um só.
++    let proprio = "from pkg.pc_m import ComInit\nComInit(self=1)\n";
++    assert_eq!(
++        kwargs_achados(&root, "/tmp/vgp-t/a.py", proprio),
++        vec![("self".to_string(), lista(&["z"]))]
++    );
++    let herdado = "from pkg.pc_m import Filha\nFilha(self=1)\n";
++    assert_eq!(
++        kwargs_achados(&root, "/tmp/vgp-t/a.py", herdado),
++        vec![("self".to_string(), lista(&["a", "b"]))]
++    );
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_c_a_identidade_do_no_e_arquivo_e_nome_e_nao_so_o_nome() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-c2");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pc(&tmp);
++    // duas classes `Base` de arquivos distintos: o MRO de `K(B1, B2)` é K, B1.Base, B2.Base — o primeiro
++    // `__init__` é o de pc_b1 (`a`); com identidade só pelo nome as duas virariam um nó
++    let src = "from pkg.pc_k import K\nK(a=1)\nK(b=1)\n";
++    assert_eq!(
++        kwargs_achados(&root, "/tmp/vgp-t/a.py", src),
++        vec![("b".to_string(), lista(&["a"]))]
++    );
++    let _ = std::fs::remove_dir_all(&tmp);
++}
++
++#[test]
++fn p0b_c_base_irresolvida_new_metaclasse_init_subclass_e_signature_abstem_em_todo_balde() {
++    let tmp = std::env::temp_dir().join("vgp-t-p0b-c3");
++    let _ = std::fs::remove_dir_all(&tmp);
++    let root = projeto_pc(&tmp);
++    let src = "from pkg.pc_abstem import SemBase, ComNew, ComMeta, ComHook, ComSig, Pt, InitPorAtribuicao\n\
++               SemBase(zz1=1)\n\
++               ComNew(zz2=1)\n\
++               ComMeta(zz3=1)\n\
++               ComHook(zz4=1)\n\
++               ComSig(zz5=1)\n\
++               Pt(zz6=1)\n\
++               InitPorAtribuicao(zz7=1)\n";
++    for (balde, path) in BALDES {
++        assert_eq!(kwargs_achados(&root, path, src), vec![], "balde {balde}");
++    }
++    let _ = std::fs::remove_dir_all(&tmp);
++}
+diff --git a/crates/touring-code/src/vgp/sombra.rs b/crates/touring-code/src/vgp/sombra.rs
+index 039ecab8..c60c9235 100644
+--- a/crates/touring-code/src/vgp/sombra.rs
++++ b/crates/touring-code/src/vgp/sombra.rs
+@@ -20,7 +20,7 @@ use std::sync::{Mutex, OnceLock};
+ 
+ use serde::Serialize;
+ 
+-use super::{CheckInput, CheckOutput, Finding, check};
++use super::{Alvo, CheckInput, CheckOutput, Finding, check};
+ 
+ /// The resolved mode for a project.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -330,6 +330,11 @@ pub fn sombra_check(
+ 
+ /// Merge extra-layer findings into a findings vec: dedupe by (nome, linha), the STRONGER
+ /// severity wins. Shared by the shadow line and by the CLI's `--camadas 1,2` merge.
++///
++/// The one exception (P0B (b)): a finding layer 1 declared UNCERTAIN ([`Alvo::Incerto`] — a name that
++/// `exec`/`eval`/`globals()`/`import *` may have bound) is never escalated by the extra layer. Layer 1
++/// reads the program's own scopes; pyright does not see the `exec`, so its `deny` over the same
++/// (nome, linha) is the very false deny layer 1 abstained from (`cr` after `exec(open(…).read())`).
+ pub fn fundir_findings(base: &mut Vec<Finding>, novos: Vec<Finding>) {
+     for f in novos {
+         match base
+@@ -337,7 +342,10 @@ pub fn fundir_findings(base: &mut Vec<Finding>, novos: Vec<Finding>) {
+             .find(|b| b.nome == f.nome && b.linha == f.linha)
+         {
+             Some(existente) => {
+-                if existente.severidade != "deny" && f.severidade == "deny" {
++                if existente.severidade != "deny"
++                    && f.severidade == "deny"
++                    && existente.alvo != Alvo::Incerto
++                {
+                     *existente = f;
+                 }
+             }
+@@ -605,4 +613,100 @@ mod tests {
+         assert!(r.is_err());
+         assert_eq!(sombra_path(), antes, "restaurado também no pânico");
+     }
++
++    // ── P0B (b3): a camada 2 não escala o que a camada 1 declarou incerto ─────────
++
++    fn nome_l2_deny(nome: &str, linha: usize) -> Finding {
++        Finding::new(
++            "nome",
++            nome,
++            linha,
++            "deny",
++            format!("\"{nome}\" is not defined"),
++            Vec::new(),
++        )
++    }
++
++    fn entrada_py(path: &str, content: &str, raiz: &Path) -> CheckInput {
++        CheckInput {
++            path: path.into(),
++            content: content.into(),
++            project_root: raiz.to_path_buf(),
++            disk: None,
++            overlays: HashMap::new(),
++            lang: "python".into(),
++        }
++    }
++
++    fn resumo(fs: &[Finding]) -> Vec<(String, usize, String)> {
++        fs.iter()
++            .map(|f| (f.nome.clone(), f.linha, f.severidade.clone()))
++            .collect()
++    }
++
++    #[test]
++    fn p0b_b_fusao_nao_deixa_a_camada2_negar_por_cima_do_dinamico_da_camada_1() {
++        // forma de eb898e2aa211: `cr` ligado por `exec(open('contraste.py').read())` — a camada 1
++        // ABSTEVE (warn) e a camada 2 negou por cima; quem declara incerteza não é desmentido por quem
++        // não vê o `exec`
++        let raiz = std::env::temp_dir();
++        for conteudo in [
++            "exec(open('contraste.py').read())\nprint(cr)\n",
++            "eval('cr = 1')\nprint(cr)\n",
++            "globals().update(cr=1)\nprint(cr)\n",
++        ] {
++            let mut out = check(&entrada_py("<string>", conteudo, &raiz));
++            assert_eq!(out.verdict, "warn", "{conteudo:?}: {:?}", out.findings);
++            fundir_findings(&mut out.findings, vec![nome_l2_deny("cr", 2)]);
++            assert_eq!(
++                resumo(&out.findings),
++                [("cr".to_string(), 2, "warn".to_string())],
++                "{conteudo:?}"
++            );
++            assert_eq!(
++                crate::vgp::politica::verdict_dos(&out.findings, &out.verdict),
++                "warn",
++                "{conteudo:?}"
++            );
++        }
++    }
++
++    #[test]
++    fn p0b_b_fusao_controles_sem_sinal_dinamico_a_camada2_segue_escalando() {
++        // `fantasma` em arquivo do projeto: a camada 1 só AVISA (P3, alvo do projeto) e a camada 2, que
++        // vê o nome como do programa, continua podendo escalar — o veto é só ao alvo INCERTO
++        let raiz = Path::new("/home/u/proj");
++        let mut out = check(&entrada_py("/home/u/proj/a.py", "print(fantasma)\n", raiz));
++        assert_eq!(
++            resumo(&out.findings),
++            [("fantasma".to_string(), 1, "warn".to_string())]
++        );
++        fundir_findings(&mut out.findings, vec![nome_l2_deny("fantasma", 1)]);
++        assert_eq!(
++            resumo(&out.findings),
++            [("fantasma".to_string(), 1, "deny".to_string())]
++        );
++        // o veto vale para o MESMO (nome, linha): outro nome, ou a mesma linha de outro nome, entra
++        let mut out = check(&entrada_py(
++            "<string>",
++            "exec('x = 1')\nprint(cr)\nprint(outro)\n",
++            &std::env::temp_dir(),
++        ));
++        fundir_findings(
++            &mut out.findings,
++            vec![nome_l2_deny("cr", 2), nome_l2_deny("novo", 3)],
++        );
++        let por_nome = |n: &str| {
++            out.findings
++                .iter()
++                .find(|f| f.nome == n)
++                .map(|f| f.severidade.as_str())
++        };
++        assert_eq!(por_nome("cr"), Some("warn"), "veto ao (cr, 2)");
++        assert_eq!(
++            por_nome("novo"),
++            Some("deny"),
++            "nome que a camada 1 não declarou incerto"
++        );
++    }
+ }
+diff --git a/crates/touring-pyright/src/achado.rs b/crates/touring-pyright/src/achado.rs
+index 4d992c7c..ec64585d 100644
+--- a/crates/touring-pyright/src/achado.rs
++++ b/crates/touring-pyright/src/achado.rs
+@@ -37,6 +37,12 @@ pub enum Escopo {
+     /// A member of a builtin *value type* (`int.add`, `str.get`): the shape of the data, not a
+     /// missing symbol. pyright infers e.g. `list[int | set]` and accuses `int.add` in a program that ran.
+     Forma,
++    /// A member of an object that is NOT a module (`Cannot access attribute "lineno" for class "AST"`):
++    /// what the checker said is a claim about the receiver's INFERRED type, never about existence — the
++    /// object may be a subclass that has the member (`ast.AST` has no `lineno`, its subclasses do;
++    /// `Assign.value: expr` has no `args`, the `Call` it holds does). Only a module's missing attribute
++    /// is an existence claim (P0B (b)).
++    Tipo,
+     /// Unknowable statically: an undefined name in a text with `from <m> import *`, or a dunder
+     /// attribute (`__wrapped__`, `__self__`) that a decorator, descriptor or C extension creates at run time.
+     Dinamico,
+@@ -127,11 +133,13 @@ impl L2Resultado {
+     }
+ }
+ 
+-/// The severity policy P4 (V3 spec §3: P2 + `forma` + `dinamico`), one pure function over the 3 baskets
+-/// x 5 scopes:
++/// The severity policy P4 (V3 spec §3: P2 + `forma` + `dinamico`, and P0B's `tipo`), one pure function
++/// over the 3 baskets x 6 scopes:
+ ///
+ /// * [`Escopo::Forma`] → **warn**, in every basket: a member of a builtin value type asks about the
+ ///   shape of the data, which static inference cannot settle;
++/// * [`Escopo::Tipo`] → **warn**, in every basket: a member of any other non-module object is a static
++///   type claim, not an existence claim;
+ /// * [`Escopo::Dinamico`] → **warn**, in every basket: under `from <m> import *` or for a dunder
+ ///   attribute the name space is unknowable statically;
+ /// * code that runs now ([`Balde::Inline`], [`Balde::Tmp`]) → deny for every other scope;
+@@ -145,7 +153,7 @@ impl L2Resultado {
+ /// 0/100 and 1/300 (the remaining one is a corpus defect) at zero cost in deny recall.
+ pub fn severidade(balde: Balde, escopo: Escopo) -> Severidade {
+     match (balde, escopo) {
+-        (_, Escopo::Forma | Escopo::Dinamico) => Severidade::Warn,
++        (_, Escopo::Forma | Escopo::Tipo | Escopo::Dinamico) => Severidade::Warn,
+         (Balde::Arquivo, Escopo::Externo) => Severidade::Deny,
+         (Balde::Arquivo, _) => Severidade::Warn,
+         (Balde::Inline | Balde::Tmp, _) => Severidade::Deny,
+diff --git a/crates/touring-pyright/src/pyright.rs b/crates/touring-pyright/src/pyright.rs
+index 16a52561..45a2d14d 100644
+--- a/crates/touring-pyright/src/pyright.rs
++++ b/crates/touring-pyright/src/pyright.rs
+@@ -350,7 +350,10 @@ pub fn escopo(d: &Value, texto: &str, raiz: &Path, origem: &Path) -> Escopo {
+ }
+ 
+ /// Scope of `Cannot access attribute "x" for class "C"`. The order matters: a dunder attribute is
+-/// `dinamico` even on a builtin class, and only then is a builtin class `forma`.
++/// `dinamico` even on a builtin class, and only then is a builtin class `forma`. Any other concrete
++/// class is `tipo` (P0B (b)): the message is about the receiver's INFERRED type, so the member may
++/// still exist on the object that arrives at run time — only a module's missing attribute is an
++/// existence claim. A message that names no concrete class keeps the conservative `projeto`.
+ fn escopo_de_membro(msg: &str) -> Escopo {
+     let Some(classe) = classe_concreta(msg) else {
+         return Escopo::Projeto;
+@@ -360,10 +363,24 @@ fn escopo_de_membro(msg: &str) -> Escopo {
+     } else if is_builtin_class(classe) {
+         Escopo::Forma
+     } else {
+-        Escopo::Projeto
++        Escopo::Tipo
+     }
+ }
+ 
++/// P0B (b): a PRIVATE (`_x`) or DUNDER (`__x__`) member of an EXTERNAL module is not something the
++/// checker can call missing. Stubs omit private members (`ssl._ssl._test_decode_cert` exists at run
++/// time) and packages serve dunders lazily through PEP 562 `__getattr__`
++/// (`jsonschema.__version__`) or the import system (`folium.__file__`). Layer 1 reads the real source:
++/// when it confirms the absence its own finding stands in the merge; without that confirmation the
++/// extra layer abstains. The module's own public names keep denying (`os.pathx`, `json.loadz`), and a
++/// project module is not external (layer 1 reads it too, but nothing here is "third party").
++fn membro_nao_publico_de_modulo_externo(d: &Value, nome: &str, escopo: Escopo) -> bool {
++    let msg = mensagem(d);
++    escopo == Escopo::Externo
++        && nome.starts_with('_')
++        && (msg.contains(MODULE_ATTRIBUTE) || msg.contains(UNKNOWN_IMPORT))
++}
++
+ /// `^__\w+__$`: a protocol attribute (`__wrapped__` of `functools.wraps`, `__self__`, …) that a
+ /// decorator, descriptor or C extension creates at run time and the static checker does not model.
+ fn is_dunder(name: &str) -> bool {
+@@ -623,6 +640,9 @@ fn achados_de(diags: &[Value], pedido: &Pedido<'_>, raiz: &Path) -> Vec<L2Achado
+         .filter_map(|d| {
+             let nome = negacao(d)?;
+             let escopo = escopo(d, pedido.content, raiz, &pedido.origem);
++            if membro_nao_publico_de_modulo_externo(d, &nome, escopo) {
++                return None;
++            }
+             Some(L2Achado {
+                 classe: classe_do_achado(d).to_string(),
+                 nome,
+@@ -875,7 +895,7 @@ mod tests {
+             "__",
+             "wrapped",
+         ] {
+-            for (classe, esperado) in [("Recibo", Escopo::Projeto), ("str", Escopo::Forma)] {
++            for (classe, esperado) in [("Recibo", Escopo::Tipo), ("str", Escopo::Forma)] {
+                 let d = attr(&format!(
+                     "Cannot access attribute \"{nome}\" for class \"{classe}\""
+                 ));
+@@ -935,7 +955,7 @@ mod tests {
+             ));
+             assert_eq!(
+                 escopo(&d, "", &tree.root, &origem),
+-                Escopo::Projeto,
++                Escopo::Tipo,
+                 "{classe}"
+             );
+         }
+@@ -945,13 +965,15 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn escopo_unknown_class_is_project_the_conservative_side() {
+-        // selftest: "escopo: classe desconhecida = projeto (lado conservador)"
++    fn escopo_concrete_class_member_is_tipo_a_static_type_never_an_existence_claim() {
++        // P0B (b): `Cannot access attribute "x" for class "C"` is what the checker INFERRED about the
++        // receiver (`ast.AST` has no `lineno`; `Assign.value: expr` has no `args`); the object may be a
++        // subclass that has it, so the member's existence is not decided here
+         let tree = TempTree::new("esc_cls");
+         let d = attr("Cannot access attribute \"total\" for class \"Recibo\"");
+         assert_eq!(
+             escopo(&d, "", &tree.root, &tree.root.join("a.py")),
+-            Escopo::Projeto
++            Escopo::Tipo
+         );
+     }
+ 
+@@ -1042,28 +1064,32 @@ mod tests {
+     #[test]
+     fn severidade_policy_p4_every_cell() {
+         use Balde::{Arquivo, Inline, Tmp};
+-        use Escopo::{Dinamico, Externo, Forma, Projeto, Proprio};
++        use Escopo::{Dinamico, Externo, Forma, Projeto, Proprio, Tipo};
+         use Severidade::{Deny, Warn};
+-        // 3 baskets x 5 scopes = 15 cells. `forma` (shape of the data) and `dinamico` (name space or
+-        // attribute unknowable statically) are never denied, whatever the basket.
++        // 3 baskets x 6 scopes = 18 cells. `forma` (shape of the data), `tipo` (a static type is not an
++        // existence claim) and `dinamico` (name space or attribute unknowable statically) are never
++        // denied, whatever the basket.
+         let cells = [
+             (Inline, Proprio, Deny),
+             (Inline, Projeto, Deny),
+             (Inline, Externo, Deny),
+             (Inline, Forma, Warn),
++            (Inline, Tipo, Warn),
+             (Inline, Dinamico, Warn),
+             (Tmp, Proprio, Deny),
+             (Tmp, Projeto, Deny),
+             (Tmp, Externo, Deny),
+             (Tmp, Forma, Warn),
++            (Tmp, Tipo, Warn),
+             (Tmp, Dinamico, Warn),
+             (Arquivo, Proprio, Warn),
+             (Arquivo, Projeto, Warn),
+             (Arquivo, Externo, Deny),
+             (Arquivo, Forma, Warn),
++            (Arquivo, Tipo, Warn),
+             (Arquivo, Dinamico, Warn),
+         ];
+-        assert_eq!(cells.len(), 15);
++        assert_eq!(cells.len(), 18);
+         for (balde, escopo, esperado) in cells {
+             assert_eq!(
+                 severidade(balde, escopo),
+@@ -1253,6 +1279,9 @@ def diags_for(uri, text):
+         m = re.match(r"# uniao (\S+)", line)
+         if m:
+             add("reportAttributeAccessIssue", 'Cannot access attribute "%s" for class "X | None"' % m.group(1))
++        m = re.match(r"from (\S+) import (\S+)\s+# unk", line)
++        if m:
++            add("reportAttributeAccessIssue", '"%s" is unknown import symbol' % m.group(2))
+         if line.startswith("# probe"):
+             names = "|".join(sorted(os.path.basename(u) for u in docs if u != uri))
+             add("reportUndefinedVariable", '"%s" is not defined' % names)
+@@ -1404,11 +1433,12 @@ while True:
+             (r.verdict, r.achados[0].escopo),
+             (Verdict::Deny, Escopo::Proprio)
+         );
+-        // …and a non-dunder member of the same unknown class stays project scope
++        // …and a non-dunder member of the same unknown class is a static TYPE claim (P0B (b)): it
++        // warns where it used to deny, because the receiver's inferred class is not proof of absence
+         let r = s.check("<string>", "# membro total FixtureFunction\n", None, &[]);
+         assert_eq!(
+             (r.verdict, r.achados[0].escopo),
+-            (Verdict::Deny, Escopo::Projeto)
++            (Verdict::Warn, Escopo::Tipo)
+         );
+     }
+ 
+@@ -1561,5 +1591,114 @@ while True:
+         };
+         let v = serde_json::to_value(&dinamico).unwrap();
+         assert_eq!(v["escopo"].as_str(), Some("dinamico"));
++        let tipo = L2Achado {
++            escopo: Escopo::Tipo,
++            ..dinamico
++        };
++        let v = serde_json::to_value(&tipo).unwrap();
++        assert_eq!(v["escopo"].as_str(), Some("tipo"));
++    }
++
++    // ── P0B (b): a camada 2 só nega inexistência DEFINITIVA ────────────────────
++    //
++    // As formas são as dos falsos de MOTOR do P0M (diagnostics/p0m/DIAGNOSTICO.md §2), com o mesmo
++    // formato de diagnóstico do pyright:
++    //   eb2d7b7ba5b9  `no.lineno`            → Cannot access attribute "lineno" for class "AST"
++    //   d85ca025881a  `n.value.args`         → Cannot access attribute "args" for class "expr"
++    //   b4aeefe5820e  `ssl._ssl._test_decode_cert` → "_test_decode_cert" is not a known attribute of module "ssl._ssl"
++    //   f01b4181af57  `jsonschema.__version__`      → "__version__" is not a known attribute of module "jsonschema"
++    //   636f9a7adec1  `folium.__file__`             → "__file__" is not a known attribute of module "folium"
++
++    fn tres_baldes(tree: &TempTree) -> [String; 3] {
++        [
++            "<string>".to_string(),
++            "/tmp/nao_existe_vgp_l2.py".to_string(),
++            tree.root.join("app.py").to_string_lossy().into_owned(),
++        ]
++    }
++
++    #[test]
++    fn p0b_b_membro_de_objeto_que_nao_e_modulo_so_avisa_em_todo_balde() {
++        let (tree, mut s) = session(5000);
++        for path in tres_baldes(&tree) {
++            for (texto, nome) in [
++                ("# membro lineno AST\n", "lineno"),
++                ("# membro args expr\n", "args"),
++                ("# membro total Recibo\n", "total"),
++            ] {
++                let r = s.check(&path, texto, None, &[]);
++                assert_eq!(r.verdict, Verdict::Warn, "{path} {texto:?}: {r:?}");
++                let a = &r.achados[0];
++                assert_eq!(
++                    (a.classe.as_str(), a.nome.as_str(), a.escopo, a.severidade),
++                    ("membro", nome, Escopo::Tipo, Severidade::Warn),
++                    "{path} {texto:?}"
++                );
++            }
++        }
++        // controle: o atributo inexistente de um MÓDULO segue negando onde o código roda agora
++        let r = s.check("<string>", "# modattr nada os\n", None, &[]);
++        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
++    }
++
++    #[test]
++    fn p0b_b_modulo_externo_membro_privado_ou_dunder_abstem_em_todo_balde() {
++        let (tree, mut s) = session(5000);
++        for path in tres_baldes(&tree) {
++            for texto in [
++                "# modattr _test_decode_cert ssl._ssl\n",
++                "# modattr __version__ jsonschema\n",
++                "# modattr __file__ folium\n",
++                "# modattr _privado os\n",
++            ] {
++                let r = s.check(&path, texto, None, &[]);
++                assert_eq!(r.verdict, Verdict::Allow, "{path} {texto:?}: {r:?}");
++                assert!(r.achados.is_empty(), "{path} {texto:?}: {r:?}");
++            }
++        }
++    }
++
++    #[test]
++    fn p0b_b_import_de_simbolo_privado_ou_dunder_de_modulo_externo_abstem() {
++        let (tree, mut s) = session(5000);
++        for path in tres_baldes(&tree) {
++            for texto in [
++                "from jsonschema import __version__  # unk\n",
++                "from ssl import _ssl  # unk\n",
++            ] {
++                let r = s.check(&path, texto, None, &[]);
++                assert_eq!(r.verdict, Verdict::Allow, "{path} {texto:?}: {r:?}");
++            }
++        }
++        // controle: um símbolo PÚBLICO inexistente de módulo externo segue negando
++        let r = s.check("<string>", "from os import nada  # unk\n", None, &[]);
++        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
++        assert_eq!(
++            (r.achados[0].classe.as_str(), r.achados[0].escopo),
++            ("import", Escopo::Externo)
++        );
++    }
++
++    #[test]
++    fn p0b_b_controles_o_publico_de_modulo_externo_e_o_privado_de_modulo_do_projeto_seguem_negando()
++    {
++        let (tree, mut s) = session(5000);
++        tree.file("pkg/__init__.py", "");
++        // `os.pathx` / `json.loadz`: públicos, módulo externo — negam em todo balde (arquivo incluso)
++        for path in tres_baldes(&tree) {
++            let r = s.check(
++                &path,
++                "# modattr pathx os\n# modattr loadz json\n",
++                None,
++                &[],
++            );
++            assert_eq!(r.verdict, Verdict::Deny, "{path}: {r:?}");
++            assert_eq!(nomes(&r), ["pathx", "loadz"], "{path}");
++            assert!(r.achados.iter().all(|a| a.escopo == Escopo::Externo));
++        }
++        // o privado de módulo do PROJETO não é abstenção da camada 2 (a abstenção é de terceiros)
++        let r = s.check("<string>", "# modattr _ajuda pkg\n", None, &[]);
++        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
++        assert_eq!(r.achados[0].escopo, Escopo::Projeto);
+     }
+ }
+diff --git a/crates/touring-pyright/tests/pyright_real.rs b/crates/touring-pyright/tests/pyright_real.rs
+index 9f897815..5f597c3c 100644
+--- a/crates/touring-pyright/tests/pyright_real.rs
++++ b/crates/touring-pyright/tests/pyright_real.rs
+@@ -137,16 +137,17 @@ fn invented_method_of_a_str() {
+ 
+ #[test]
+ #[ignore = "needs the real pyright-langserver of the analise project"]
+-fn invented_member_of_a_stdlib_class_instance_is_project_scope_and_denies_inline() {
++fn invented_member_of_a_stdlib_class_instance_is_a_type_claim_and_only_warns() {
+     // `os.stat()` returns a `stat_result`: a concrete class that is NOT a builtin value type, so it is
+-    // not `forma`. The probe only knows builtins by name, so it cannot tell a stdlib class from a
+-    // project one and answers the conservative `projeto`: inline still denies, a project file warns.
++    // not `forma`. P0B (b): a member of an object that is not a module is what the checker INFERRED
++    // about the receiver (`tipo`), never proof of absence — it warns inline as well as in a file;
++    // layer 1 is the one that may deny a member of a class it can read.
+     check_invented(&Invented {
+         code: "import os\nresultado = os.stat('.')\nresultado.campo_inventado\n",
+         nome: "campo_inventado",
+         classe: "membro",
+-        escopo: Escopo::Projeto,
+-        inline: Severidade::Deny,
++        escopo: Escopo::Tipo,
++        inline: Severidade::Warn,
+         in_file: Severidade::Warn,
+     });
+ }

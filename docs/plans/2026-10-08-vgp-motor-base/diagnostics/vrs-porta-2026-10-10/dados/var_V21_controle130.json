@@ -1,0 +1,38 @@
+[
+ {
+  "arquivo": "crates/touring-code/src/ast/languages.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `THREAD_PARSERS` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `MockObserver` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `prop` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+  "verdict": "unknown"
+ }
+]

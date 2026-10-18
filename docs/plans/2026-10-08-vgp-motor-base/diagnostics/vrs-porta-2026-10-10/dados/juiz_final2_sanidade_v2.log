@@ -1,0 +1,5 @@
+recall de símbolo · arquivo 40/80 · inline 0/0 | forma (fora) {'arquivo': [0, 0], 'inline': [0, 0]} | falsos deny 0 em {'arquivo': 100, 'inline': 0} | avisos em negativos 0 | p95 0.4 ms | chamadas 180 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 0/100 · taxa 0.000% · limite_superior_95 2.95% (teto 1%; o n=100 não prova o teto nem com 0 falsos; exige n ≥ 299) · LIMITE ACIMA DO TETO
+  PENDENTE: recall de símbolo (arquivo) 0.500 < 0.7 (40/80)
+  PENDENTE: falso deny (arquivo) limite superior 95% 2.95% > 1% (0/100, taxa 0.000%) — n=100 não prova ≤ 1% nem com 0 falsos; exige n ≥ 299
+veredito: NÃO PRONTO

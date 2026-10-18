@@ -1,0 +1,168 @@
+== nome 5c5d2fc52582 nome_valor E0425 crate=touring-generator touring-generator/src/template/engine.rs:173
+   templates -> get_templates | error[E0425]: cannot find function `get_templates` in this scope
+   ORIGINAL
+     171 |     pub fn new(metrics: Arc<dyn TelemetrySink>) -> Self {
+     172 |         // Eagerly initialize the OnceLock so the first render call has no cold start.
+     173>|         let _ = templates();
+     174 |         Self {
+     175 |             variable_validator: VariableAllowlist::new(),
+   INJETADO
+     171 |     pub fn new(metrics: Arc<dyn TelemetrySink>) -> Self {
+     172 |         // Eagerly initialize the OnceLock so the first render call has no cold start.
+     173>|         let _ = get_templates();
+     174 |         Self {
+     175 |             variable_validator: VariableAllowlist::new(),
+== nome ffa4cd775e90 nome_valor E0425 crate=touring-foundation touring-foundation/src/rules/cli.rs:56
+   apply_fixes -> try_apply_fixes | error[E0425]: cannot find function `try_apply_fixes` in this scope
+   ORIGINAL
+      54 |         println!("\nDry run — no changes written.");
+      55 |     } else {
+      56>|         apply_fixes(&fixes)?;
+      57 |         println!("Applied {} fix(es).", fixes.len());
+      58 |     }
+   INJETADO
+      54 |         println!("\nDry run — no changes written.");
+      55 |     } else {
+      56>|         try_apply_fixes(&fixes)?;
+      57 |         println!("Applied {} fix(es).", fixes.len());
+      58 |     }
+== nome f581ee72cd97 nome_tipo E0425 crate=touring-cortex touring-cortex/src/signal_fusion.rs:177
+   SoftmaxFusion -> SodftmpxFusion | error[E0425]: cannot find type `SodftmpxFusion` in this scope
+   ORIGINAL
+     175 | /// selection or mixing.
+     176 | #[must_use]
+     177>| pub fn fuse_signals_softmax(signals: &[HandlerSignal]) -> SoftmaxFusion {
+     178 |     if signals.is_empty() {
+     179 |         return SoftmaxFusion::default();
+   INJETADO
+     175 | /// selection or mixing.
+     176 | #[must_use]
+     177>| pub fn fuse_signals_softmax(signals: &[HandlerSignal]) -> SodftmpxFusion {
+     178 |     if signals.is_empty() {
+     179 |         return SoftmaxFusion::default();
+== import 207b20fe3ee2 import_use E0432 crate=touring-hook-runtime touring-hook-runtime/src/shared/session_context.rs:16
+   knowledge -> knowledd | error[E0432]: unresolved import `crate::knowledd`
+   ORIGINAL
+      14 | //! (cold-start, standalone mode, or daemon restart mid-session).
+      15 | 
+      16>| use crate::knowledge::FileKnowledgeDB;
+      17 | 
+      18 | /// Project-level context computed once at session-start and reused across hook
+   INJETADO
+      14 | //! (cold-start, standalone mode, or daemon restart mid-session).
+      15 | 
+      16>| use crate::knowledd::FileKnowledgeDB;
+      17 | 
+      18 | /// Project-level context computed once at session-start and reused across hook
+== import 5b77b92e3ef4 import_use E0432 crate=touring-intelligence touring-intelligence/src/rl/n1/basic_generator.rs:23
+   objective_spec -> objectfive_spec | error[E0432]: unresolved import `crate::rl::n1::objectfive_spec`
+   ORIGINAL
+      21 | 
+      22 | use crate::rl::aco::UnifiedPheromoneBus;
+      23>| use crate::rl::n1::objective_spec::QualityGate;
+      24 | use crate::rl::n1::tool_call::{RetryPolicy, ToolArguments, topological_order};
+      25 | use crate::rl::n1::{
+   INJETADO
+      21 | 
+      22 | use crate::rl::aco::UnifiedPheromoneBus;
+      23>| use crate::rl::n1::objectfive_spec::QualityGate;
+      24 | use crate::rl::n1::tool_call::{RetryPolicy, ToolArguments, topological_order};
+      25 | use crate::rl::n1::{
+== import 192a2bc4e59b import_use E0432 crate=touring-quality touring-quality/src/scope_report.rs:18
+   verifications -> verificatiopns | error[E0432]: unresolved import `crate::verificatiopns`
+   ORIGINAL
+      16 | use crate::aggregate::{AggKind, FileScore, aggregate};
+      17 | use crate::scope::{Scope, file_loc};
+      18>| use crate::verifications::run_verification;
+      19 | use crate::{
+      20 |     DimId, DimScore, DimStatus, Tier, compute_composite, default_weights, tier_from_composite,
+   INJETADO
+      16 | use crate::aggregate::{AggKind, FileScore, aggregate};
+      17 | use crate::scope::{Scope, file_loc};
+      18>| use crate::verificatiopns::run_verification;
+      19 | use crate::{
+      20 |     DimId, DimScore, DimStatus, Tier, compute_composite, default_weights, tier_from_composite,
+== atributo 326842a44032 atributo_campo E0609 crate=touring-server-visual touring-server-visual/src/visual/mermaid.rs:63
+   include_tests -> includ_tests | error[E0609]: no field `includ_tests` on type `&MermaidOpts`
+   ORIGINAL
+      61 |             continue;
+      62 |         }
+      63>|         let shape = encoding::node_shape(node.is_orphan, opts.include_tests, false);
+      64 |         let fillcolor = encoding::quality_fillcolor(node.quality_score);
+      65 |         let border_style = encoding::border_style(node.has_unsafe, false);
+   INJETADO
+      61 |             continue;
+      62 |         }
+      63>|         let shape = encoding::node_shape(node.is_orphan, opts.includ_tests, false);
+      64 |         let fillcolor = encoding::quality_fillcolor(node.quality_score);
+      65 |         let border_style = encoding::border_style(node.has_unsafe, false);
+== atributo c0abdcd6089e atributo_campo E0609 crate=touring-generator touring-generator/src/core/adapters/concolic_pre_tool_adapter.rs:102
+   satisfiable_fn -> satisfliable_n | error[E0609]: no field `satisfliable_n` on type `&ConcolicPreToolAdapter`
+   ORIGINAL
+     100 |     #[must_use]
+     101 |     pub fn satisfiable_fn(&self) -> ConcolicSatisfiableFn {
+     102>|         Arc::clone(&self.satisfiable_fn)
+     103 |     }
+     104 | 
+   INJETADO
+     100 |     #[must_use]
+     101 |     pub fn satisfiable_fn(&self) -> ConcolicSatisfiableFn {
+     102>|         Arc::clone(&self.satisfliable_n)
+     103 |     }
+     104 | 
+== atributo 0518ffbfc2cb atributo_campo E0609 crate=touring-offensive touring-offensive/src/erickson/sentence_boundaries.rs:178
+   end -> end_count | error[E0609]: no field `end_count` on type `&mut std::ops::Range<usize>`
+   ORIGINAL
+     176 |                 if current.start < last.end {
+     177 |                     // Overlapping ranges: merge
+     178>|                     last.end = last.end.max(current.end);
+     179 |                 } else {
+     180 |                     merged.push(current.clone());
+   INJETADO
+     176 |                 if current.start < last.end {
+     177 |                     // Overlapping ranges: merge
+     178>|                     last.end = last.end_count.max(current.end);
+     179 |                 } else {
+     180 |                     merged.push(current.clone());
+== kwarg f8313b04bcad kwarg_chave E0560 crate=touring-storage touring-storage/src/vfs/file_set.rs:20
+   overlay_paths -> overlay_paths_id | error[E0560]: struct `FileSet` has no field named `overlay_paths_id`
+   ORIGINAL
+      18 |         FileSet {
+      19 |             vfs,
+      20>|             overlay_paths: HashMap::new(),
+      21 |         }
+      22 |     }
+   INJETADO
+      18 |         FileSet {
+      19 |             vfs,
+      20>|             overlay_paths_id: HashMap::new(),
+      21 |         }
+      22 |     }
+== kwarg 4366c1bef472 kwarg_remove E0063 crate=touring-server-visual touring-server-visual/src/visual/flow.rs:121
+   paths -> FlowResult | error[E0063]: missing field `paths` in initializer of `FlowResult`
+   ORIGINAL
+     119 |         None => {
+     120 |             return FlowResult {
+     121>|                 paths: vec![],
+     122 |                 count: 0,
+     123 |                 truncated: false,
+   INJETADO
+     119 |         None => {
+     120 |             return FlowResult {
+     121>|                 count: 0,
+     122 |                 truncated: false,
+     123 |                 from: symbol_a.to_string(),
+== kwarg 124ea7b0cbf7 kwarg_remove E0063 crate=inferlets inferlets/src/composite_health_trend.rs:268
+   window -> Output | error[E0063]: missing field `window` in initializer of `composite_health_trend::Output`
+   ORIGINAL
+     266 |     let output = Output {
+     267 |         current_score,
+     268>|         window: inp.window,
+     269 |         trend,
+     270 |         slope,
+   INJETADO
+     266 |     let output = Output {
+     267 |         current_score,
+     268>|         trend,
+     269 |         slope,
+     270 |         samples: scores.len(),

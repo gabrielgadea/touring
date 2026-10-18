@@ -16,7 +16,7 @@ jobs:
       RUSTDOCFLAGS: "--cfg docsrs -D warnings"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
       - name: Install system deps (capnp + libpython — all-features pulls bind-capnp/pyo3)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - name: Mirror docs.rs build

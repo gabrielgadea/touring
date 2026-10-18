@@ -1,0 +1,6 @@
+hw-slot: aguardando — temp 91C > 88C
+recall de símbolo · arquivo 11/13 · inline 21/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 13]} | falsos deny 0 em {'arquivo': 600, 'inline': 553} | avisos em negativos 53 | p95 80.3 ms | chamadas 1217 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 0/600 · taxa 0.000% · limite_superior_95 0.50% (teto 1%; o n=600 admite até 1 falso(s))
+  falso deny (inline): 0/553 · taxa 0.000% · limite_superior_95 0.54% (teto 1%; o n=553 admite até 1 falso(s))
+veredito: PRONTO
+[instrumentado] 1217 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j13/5c7b3d80_v2.porid.json

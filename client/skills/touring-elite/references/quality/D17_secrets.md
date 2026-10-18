@@ -1,4 +1,4 @@
-# D17 — Cryptographic Issues & Secrets (F2.4)
+# D17 — Hardcoded Secrets (F2.4)
 
 **Phase**: 2 (Security & Performance) | **Priority**: P0 | **Tier target**: ≥0.95 (P0 — sempre PASS)
 **Status**: ✅ wired | **Verifier**: `touring_quality::verifications::f2_4_secrets::F2_4`
@@ -7,9 +7,9 @@
 
 ## Definition
 
-Detecta **segredos hardcoded** (API keys, tokens, senhas, chaves privadas) e **uso de criptografia fraca** (algoritmos obsoletos MD5/SHA1/DES, IV estático, key management ruim). Cobre OWASP A02 Cryptographic Failures.
+Detecta **segredos hardcoded** (API keys, tokens, senhas, chaves privadas) commitados no código ou na config. **Não mede criptografia**: MD5/SHA1/DES, IV estático e gestão de chaves ficam fora do F2.4. O rótulo antigo, «Cryptographic Issues & Secrets», prometia o que o verifier não faz (corrigido em 17/10/2026, análise do ECC: rótulo no `META_TABLE` e nas evidências).
 
-**Cobertura do verifier (`f2_4_secrets`, estendido 2026-06-20)**: prefixos de provedor — GitHub (`ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`), Slack (`xoxb-`/`xoxp-`/`xoxa-`/`xoxr-`/`xoxs-`), Stripe (`sk_live_`/`rk_live_`), AWS (`AKIA`/`ASIA`), Google (`AIza`), headers PEM; **assignments com nome de segredo** (`password = "…"`); **entropia genérica** (Shannon ≥ 4.5, len ≥ 24, sem espaços — pega tokens base62, ignora hashes hex cuja entropia ≤ 4.0). Bandas: strong → 0.0 (Fail/BLOCK) · keyword sem valor → 0.5 (Warn) · limpo → 1.0 (Pass).
+**Cobertura do verifier (`f2_4_secrets`, estendido 2026-06-20)**: prefixos de provedor — GitHub (`ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_`/`github_pat_`), Slack (`xoxb-`/`xoxp-`/`xoxa-`/`xoxr-`/`xoxs-`), Stripe (`sk_live_`/`rk_live_`), AWS (`AKIA`/`ASIA`), Google (`AIza`), headers PEM; **assignments com nome de segredo** (`password = "…"`); **entropia genérica** (Shannon ≥ 4.5, len ≥ 24, sem espaços — pega tokens base62, ignora hashes hex cuja entropia ≤ 4.0). Bandas: strong → 0.0 (Fail/BLOCK) · keyword sem valor → 0.5 (Warn) · limpo → 1.0 (Pass). **Allowlist** por literal exato e isolado: os pares de exemplo da documentação da AWS não bloqueiam; um caractere a mais já é outra string e volta a ser julgado.
 
 ## Why it matters
 
@@ -19,9 +19,9 @@ Um segredo commitado é **100% vazável** — uma vez no histórico, vale para s
 
 | Score | Status | Action |
 |-------|--------|--------|
-| 1.0   | ✅ Pass | sem segredo/crypto fraca |
+| 1.0   | ✅ Pass | sem segredo |
 | 0.5–0.9 | ⚠ Warn | match de baixa entropia — revisar |
-| <0.5  | ❌ Fail | ⛔ **BLOCK** — segredo de alta entropia / crypto fraca |
+| <0.5  | ❌ Fail | ⛔ **BLOCK** — segredo de alta entropia ou de formato de provedor |
 
 ## MUST
 
@@ -33,8 +33,8 @@ touring-quality score <FILE> --dims F2.4 --format json
 ## SHOULD
 
 ```bash
-touring gotcha match <FILE>                                 # pitfalls de secret/crypto do arquivo
-# Remediação: mover segredo p/ env/Vault e rotacionar; reescrever uso de crypto:
+touring gotcha match <FILE>                                 # pitfalls de segredo do arquivo
+# Remediação: mover segredo p/ env/Vault e rotacionar:
 Edit tool --path <FILE> --operation rewrite --pattern '<segredo literal>' --replacement '<std::env::var("KEY")?>'
 # `Edit tool --path <FILE> --operation ssr --pattern 'const [A-Z_]+: &str = "[a-zA-Z0-9]{32}";' --replacement 'fn <name>() -> String { std::env::var("<NAME>").expect("<NAME> set") }'` (gitleaks/detect-secrets)
 ```
@@ -51,21 +51,20 @@ touring memory recall "quality:F2.4"                        # lições passadas 
 2. **Validar regra com true/false positives** — toda rule nova é validada contra `tps` (deve casar) e `fps` (não deve). Fonte: `CONTRIBUTING.md` (`func Beamer()` + `validate(r, tps, fps)`). Aplica-se a qualquer detector custom.
 3. **Allowlist estruturado, não desabilitar a regra** — usar `[[rules.allowlists]]` com `condition`, `paths`, `regexes`, `stopwords` em vez de remover a regra. Fonte: `extend_rule_allowlist_and.toml`. Mantém cobertura.
 4. **Estender config default, não substituir** — `[extend] useDefault = true` + `disabledRules` cirúrgico. Fonte: `README.md`. Herda centenas de regras curadas.
-5. **Crypto**: nunca MD5/SHA1 para segurança; usar `ring`/`RustCrypto` (Argon2/bcrypt para senhas, AES-GCM/ChaCha20-Poly1305 para AEAD), IV/nonce aleatório por mensagem, keys via KMS/Vault. [training-data: OWASP Cryptographic Storage Cheat Sheet]
+5. **Crypto** (boa prática vizinha, **fora do que o F2.4 mede**): nunca MD5/SHA1 para segurança; usar `ring`/`RustCrypto` (Argon2/bcrypt para senhas, AES-GCM/ChaCha20-Poly1305 para AEAD), IV/nonce aleatório por mensagem, keys via KMS/Vault. [training-data: OWASP Cryptographic Storage Cheat Sheet]
 
 ## Common pitfalls
 
 - ⛔ `const API_KEY = "sk-..."` / `let token = "ghp_..."` — segredo literal.
 - ⛔ Segredo em `.env` commitado, em comentário, ou em teste fixture.
-- MD5/SHA1 para hashing de senha; IV/nonce constante; `rand` não-CSPRNG para chaves.
+- MD5/SHA1 para hashing de senha; IV/nonce constante; `rand` não-CSPRNG para chaves — o F2.4 **não** acusa nenhum destes.
 - Desabilitar a regra inteira em vez de allowlist do FP específico.
 
 ## Remediation
 
-1. `touring-quality check --gate F2.4 --target <FILE>` → localizar o segredo/uso fraco.
+1. `touring-quality check --gate F2.4 --target <FILE>` → localizar o segredo.
 2. Mover segredo para env/Vault/SOPS (ver D52), **rotacionar** o segredo exposto.
-3. Trocar crypto fraca por `ring`/`RustCrypto` via `Edit tool`.
-4. Re-score `touring-quality check --gate F2.4` → PASS.
+3. Re-score `touring-quality check --gate F2.4` → PASS.
 
 ## Cross-references
 

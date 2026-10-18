@@ -32,13 +32,14 @@ import fcntl
 import json
 import os
 import sys
+import time
 from collections.abc import Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from backend_provider import provider_of  # noqa: E402 — the hooks dir, resolved through the symlink
+sys.path.insert(0, str(Path(__file__).resolve().parent))  # the hooks dir, resolved through the symlink
+from backend_provider import provider_of
 
 SCHEMA = 1
 REWRITE_AFTER_S = 60
@@ -124,7 +125,7 @@ def _reset(resets_at: Any, now: float) -> str:
 
 def quota_line(home: Path, provider: str = "anthropic", now: float | None = None) -> str | None:
     """One pt-BR line with every recorded window of `provider`; None when nothing was recorded."""
-    now = datetime.now().timestamp() if now is None else now
+    now = time.time() if now is None else now
     record = read_snapshot(home).get("providers", {}).get(provider)
     if not isinstance(record, dict) or not isinstance(record.get("windows"), dict) or not record["windows"]:
         return None
@@ -138,7 +139,7 @@ def _write_from_stdin(home: Path) -> int:
     try:
         payload = json.loads(sys.stdin.buffer.read().decode("utf-8", errors="replace"))
         if isinstance(payload, dict):
-            record_reading(home, provider_of(os.environ.get("ANTHROPIC_BASE_URL")), payload, datetime.now().timestamp())
+            record_reading(home, provider_of(os.environ.get("ANTHROPIC_BASE_URL")), payload, time.time())
     except Exception as exc:  # noqa: BLE001 — the status line must render whatever happens here
         sys.stderr.write(f"rate_limits_snapshot: leitura não gravada ({type(exc).__name__}: {exc})\n")
     return 0

@@ -1,0 +1,298 @@
+   Compiling serde_core v1.0.228
+   Compiling num-traits v0.2.19
+   Compiling serde_json v1.0.150
+   Compiling matrixmultiply v0.3.10
+   Compiling half v2.7.1
+   Compiling backtrace v0.3.76
+   Compiling num-integer v0.1.46
+   Compiling serde v1.0.228
+   Compiling bytes v1.12.0
+   Compiling http v1.4.2
+   Compiling tokio v1.52.3
+   Compiling num-bigint v0.4.6
+   Compiling http-body v1.0.1
+   Compiling num-rational v0.4.2
+   Compiling ahash v0.8.12
+   Compiling v_frame v0.3.9
+   Compiling av1-grain v0.2.5
+   Compiling av-scenechange v0.14.1
+   Compiling rav1e v0.8.1
+   Compiling hashbrown v0.14.5
+   Compiling ureq-proto v0.6.0
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling tokio-util v0.7.18
+   Compiling h2 v0.4.19
+   Compiling tower v0.5.3
+   Compiling tokio-rustls v0.26.4
+   Compiling num-complex v0.4.6
+   Compiling bytemuck v1.25.0
+   Compiling exr v1.74.0
+   Compiling hyper v1.10.1
+   Compiling qoi v0.4.1
+   Compiling moxcms v0.8.1
+   Compiling hyper-util v0.1.20
+   Compiling hyper-rustls v0.27.9
+   Compiling ravif v0.13.0
+   Compiling toml_edit v0.22.27
+   Compiling compact_str v0.9.1
+   Compiling spm_precompiled v0.1.4
+   Compiling tiff v0.11.3
+   Compiling monostate v0.1.18
+   Compiling png v0.18.1
+   Compiling onig v6.5.3
+   Compiling tower-http v0.6.11
+   Compiling ndarray v0.17.2
+   Compiling ureq v3.3.0
+   Compiling http-body-util v0.1.3
+   Compiling dary_heap v0.3.9
+   Compiling serde_urlencoded v0.7.1
+   Compiling hashbrown v0.16.1
+   Compiling uuid v1.23.4
+   Compiling backtrace-ext v0.2.1
+   Compiling unicode-normalization-alignments v0.1.12
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling tokenizers v0.22.2
+   Compiling miette v7.6.0
+   Compiling moka v0.12.15
+   Compiling chrono v0.4.45
+   Compiling reqwest v0.12.28
+   Compiling hf-hub v0.5.0
+   Compiling safetensors v0.8.0
+   Compiling ort v2.0.0-rc.12
+   Compiling image v0.25.10
+   Compiling toml v0.8.23
+   Compiling hashlink v0.9.1
+   Compiling dashmap v6.2.1
+   Compiling hdrhistogram v7.5.4
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling salsa v0.18.0
+   Compiling fastembed v5.17.2
+   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 37s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_storage-0676a464ad330bed)
+
+running 144 tests
+test embeddings::adapter::tests::test_plugin_adapter_size ... ok
+test embeddings::adapter::tests::test_plugin_adapter_type_name ... ok
+test embeddings::family::tests::test_model_family_compatibility_same ... ok
+test embeddings::family::tests::test_model_family_incompatibility_different_generation ... ok
+test embeddings::providers::fastembed::tests::arctic_m_real_model_embeds_768_and_is_semantic ... ignored, downloads ~440MB arctic-embed-m on first run; run with --ignored
+test embeddings::family::tests::test_model_family_incompatibility_different_name ... ok
+test embeddings::providers::fastembed::tests::cuda_runtime_matches_cpu_vectors ... ignored, needs an NVIDIA GPU, CUDA 13, cuDNN 9 and cached weights
+test embeddings::providers::fastembed::tests::cuda_arena_bytes_defaults_and_honours_override ... ok
+test embeddings::providers::fastembed::tests::embed_device_labels_are_the_gate_metrics_values ... ok
+test embeddings::providers::fastembed::tests::embed_device_policy_parses_documented_values ... ok
+test embeddings::providers::fastembed::tests::embed_device_policy_rejects_unknown_value ... ok
+test embeddings::providers::fastembed::tests::stub_provider_reports_no_device ... ok
+test embeddings::providers::fastembed::tests::test_cache_dir_env_override ... ok
+test embeddings::providers::fastembed::tests::stub_embed_one_sync_matches_declared_width ... ok
+test embeddings::providers::fastembed::tests::test_fastembed_model_dimensions ... ok
+test embeddings::providers::fastembed::tests::test_embed_empty_batch ... ok
+test embeddings::providers::fastembed::tests::test_embed_query_stub ... ok
+test embeddings::providers::fastembed::tests::test_embed_single_text_stub ... ok
+test embeddings::providers::fastembed::tests::test_fastembed_model_id ... ok
+test embeddings::providers::fastembed::tests::test_model_conversion ... ok
+test embeddings::providers::fastembed::tests::test_provider_creation_stub ... ok
+test embeddings::tests::test_embedding_model_dimensions ... ok
+test embeddings::tests::test_embedding_result_empty ... ok
+test embeddings::tests::test_embedding_result_len ... ok
+test embeddings::tests::test_model_family_compatibility ... ok
+test embeddings::tests::test_provider_from_env_default ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_default_k ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_empty ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_normalized ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_two_lists ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_with_weights ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank0 ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank1 ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank10 ... ok
+test hybrid_search::hybrid::pipeline::tests::a_query_matching_nothing_is_empty_but_not_unwired ... ok
+test hybrid_search::hybrid::pipeline::tests::a_wired_keyword_backend_produces_real_hits ... ok
+test hybrid_search::hybrid::pipeline::tests::test_fusion_weights_intent_lookup ... ok
+test hybrid_search::hybrid::pipeline::tests::rerank_applies_to_real_hits ... ok
+test hybrid_search::hybrid::pipeline::tests::test_fusion_weights_intent_understand ... ok
+test hybrid_search::hybrid::pipeline::tests::test_query_intent_weights ... ok
+test hybrid_search::hybrid::pipeline::tests::test_search_pipeline_default ... ok
+test hybrid_search::hybrid::pipeline::tests::test_upsert_documents_without_provider_or_store ... ok
+test hybrid_search::hybrid::pipeline::tests::unwired_pipeline_returns_nothing_and_says_why ... ok
+test hybrid_search::hybrid::reranker::tests::test_rerank_result_new ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_new ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_with_batch_size ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_with_threshold ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_default ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_no_candidates ... ok
+test hybrid_search::hybrid::tests::test_hybrid_config_defaults ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_id ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_new ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_scores ... ok
+test hybrid_search::hybrid::tests::test_rrf_fusion_ordering ... ok
+test hybrid_search::intent::tests::test_confidence_low_total ... ok
+test hybrid_search::intent::tests::test_detect_debug ... ok
+test hybrid_search::intent::tests::test_detect_document ... ok
+test hybrid_search::intent::tests::test_detect_implement ... ok
+test hybrid_search::intent::tests::test_detect_explore ... ok
+test hybrid_search::intent::tests::test_detect_refactor ... ok
+test hybrid_search::intent::tests::test_detect_understand ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_debug ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_implement ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_no_match ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_refactor ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_understand ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_with_threshold_filters ... ok
+test salsa::db::tests::symbol_kind_eq ... ok
+test salsa::db::tests::create_and_set_file ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_sorts_by_rerank_score ... ok
+test salsa::ingest::tests::blast_for_unknown_file_is_none ... ok
+test salsa::ingest::tests::blast_for_real_data_is_transitive ... ok
+test salsa::ingest::tests::incremental_recompute_on_real_data ... ok
+test salsa::ingest::tests::populate_builds_all_inputs ... ok
+test salsa::ingest::tests::unresolved_use_is_skipped ... ok
+test salsa::queries::blast::tests::direct_consumers_finds_b_for_a ... ok
+test salsa::queries::blast::tests::blast_radius_is_transitive ... ok
+test salsa::queries::blast::tests::leaf_file_has_empty_blast ... ok
+test salsa::queries::file_knowledge::tests::extended_knowledge_default ... ok
+test salsa::queries::blast::tests::invalidation_recomputes_only_on_change ... ok
+test salsa::queries::file_knowledge::tests::file_knowledge_extended_unknown_file ... ok
+test salsa::queries::wiring::tests::chain_tree_default_is_empty ... ok
+test salsa::queries::wiring::tests::wiring_chains_from_simple_symbol ... ok
+test salsa::tests::blast_radius_result_debug ... ok
+test salsa::tests::chain_tree_empty ... ok
+test salsa::tests::extended_knowledge_default ... ok
+test vec::backends::sqlite_vec::tests::test_cosine_similarity ... ok
+test salsa::queries::blast::tests::unread_field_change_does_not_invalidate ... ok
+test vec::backends::sqlite_vec::tests::test_vector_blob_roundtrip ... ok
+test vec::tests::test_cosine_similarity ... ok
+test vfs::abs_path::tests::abs_path_accepts_absolute ... ok
+test vec::tests::test_in_memory_basic ... ok
+test vfs::abs_path::tests::abs_path_buf_eq ... ok
+test vfs::abs_path::tests::abs_path_buf_rejects_relative ... ok
+test vfs::abs_path::tests::abs_path_buf_try_from ... ok
+test vfs::abs_path::tests::abs_path_eq ... ok
+test vfs::abs_path::tests::abs_path_rejects_relative ... ok
+test vfs::abs_path::tests::abs_path_to_buf ... ok
+test vfs::file_id::tests::file_id_clone ... ok
+test vfs::file_id::tests::file_id_default ... ok
+test vfs::file_id::tests::file_id_display ... ok
+test vfs::file_id::tests::file_id_eq ... ok
+test vfs::file_id::tests::file_id_new_and_index ... ok
+test vfs::file_set::tests::file_set_add_path ... ok
+test vfs::file_set::tests::file_set_glob_simple ... ok
+test vfs::file_set::tests::file_set_list_dir ... ok
+test vfs::file_set::tests::file_set_new ... ok
+test vfs::file_set::tests::simple_glob_matches_double_star ... ok
+test vfs::file_set::tests::simple_glob_matches_star ... ok
+test vfs::manifest::tests::manifest_apply_move ... ok
+test vfs::manifest::tests::manifest_detect_duplicate_vs_move ... ok
+test vec::backends::sqlite_vec::tests::test_sqlite_vec_basic ... ok
+test vfs::manifest::tests::manifest_detect_move ... ok
+test vfs::manifest::tests::manifest_detect_new_file ... ok
+test vfs::manifest::tests::manifest_insert_and_hash_of ... ok
+test vfs::manifest::tests::manifest_new_is_empty ... ok
+test vfs::manifest::tests::manifest_modified_file_not_a_move ... ok
+test vfs::manifest::tests::manifest_multiple_no_manifest ... ok
+test vfs::manifest::tests::manifest_unhashable_file_goes_to_new_files ... ok
+test vfs::overlay::tests::overlay_new_is_empty ... ok
+test vfs::overlay::tests::overlay_paths_includes_base ... ok
+test vfs::overlay::tests::overlay_remove ... ok
+test vfs::overlay::tests::overlay_set_and_read ... ok
+test vfs::overlay::tests::overlay_wins_over_base ... ok
+test vfs::overlay::tests::overlay_with_base ... ok
+test vfs::projector::tests::change_debug ... ok
+test vfs::projector::tests::noop_projector_no_changes ... ok
+test vfs::projector::tests::symbol_id_construction ... ok
+test vfs::projector::tests::symbol_id_invalid ... ok
+test vfs::tests::abs_path_buf_owned ... ok
+test vfs::tests::abs_path_from_str ... ok
+test vfs::tests::abs_path_rejects_relative ... ok
+test vfs::tests::file_id_construction ... ok
+test vfs::tests::file_id_invalid ... ok
+test vfs::vfs::tests::vfs_add_overlay ... ok
+test vfs::vfs::tests::vfs_add_overlay_twice_same_path ... ok
+test vfs::vfs::tests::vfs_file_id_lookup ... ok
+test vfs::vfs::tests::vfs_new ... ok
+test vfs::vfs::tests::vfs_not_found ... ok
+test vfs::vfs::tests::vfs_overlay_wins_over_fs ... ok
+test vfs::vfs::tests::vfs_paths ... ok
+test vfs::vfs::tests::vfs_read_overlay ... ok
+test vfs::vfs::tests::vfs_remove ... ok
+test salsa::bench::tests::incremental_beats_full_and_meets_50ms_target ... ok
+
+test result: ok. 142 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/e2e_candle_bge.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_candle_bge-a3a418f64fa2881d)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_embed_to_qdrant.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_embed_to_qdrant-9b1dd8f107a322e1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_qdrant.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_qdrant-92c08062a679ca60)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_sqlite_vec_ann.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_sqlite_vec_ann-f33c1719138d0581)
+
+running 1 test
+test e2e_sqlite_vec_ann_recall ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.90s
+
+     Running tests/polyglot_wiring_poc.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/polyglot_wiring_poc-8cf8a41b512ba607)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_backend.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/test_backend-501dca7c1c75db40)
+
+running 1 test
+test test_in_memory_backend_basic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_provider.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/test_provider-1e6b10cb10658db4)
+
+running 4 tests
+test test_model_family_equality ... ok
+test test_embedding_model_variants ... ok
+test test_model_family_inequality ... ok
+test test_embedding_result_construction ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vfs_tests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/vfs_tests-53367a70e77d5530)
+
+running 11 tests
+test abs_path_validation ... ok
+test abs_path_buf_roundtrip ... ok
+test acceptance_fileset_isolation ... ok
+test acceptance_snapshot_correctness ... ok
+test vfs_content_versioning ... ok
+test fileset_glob_patterns ... ok
+test vfs_overlay_empty_base ... ok
+test vfs_remove_and_nonexistent ... ok
+test watcher_nop_when_disabled ... ok
+test acceptance_concurrent_reads ... ok
+test acceptance_overlay_isolation ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests touring_storage
+
+running 3 tests
+test crates/touring-storage/src/embeddings/adapter.rs - embeddings::adapter (line 19) ... ignored
+test crates/touring-storage/src/embeddings/adapter.rs - embeddings::adapter (line 29) ... ignored
+test crates/touring-storage/src/hybrid_search/hybrid.rs - hybrid_search::hybrid (line 11) ... ok
+
+test result: ok. 1 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+all doctests ran in 2.40s; merged doctests compilation took 2.38s

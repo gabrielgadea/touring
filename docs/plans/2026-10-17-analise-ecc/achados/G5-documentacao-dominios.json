@@ -1,0 +1,337 @@
+{
+ "area": "G5-documentacao-dominios",
+ "linhas": [
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Instalacao e propagacao de versao",
+   "ecc": {
+    "como": "install.sh e install.ps1 com manifests e instalacao seletiva por harness; a arquitetura esta documentada em docs/SELECTIVE-INSTALL-ARCHITECTURE.md.",
+    "evidencia": "install.sh:1; docs/SELECTIVE-INSTALL-ARCHITECTURE.md"
+   },
+   "touring": {
+    "como": "Modelo rustup-like: fonte, toolchain imutavel, shim e .touring por projeto; propagacao em um comando com gates e rollback.",
+    "evidencia": "~/projects/touring/CLAUDE.md secao 2.1 (scripts/propagate-release.sh) e rules/touring-per-project.md",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "ECC instala em muitos harnesses; Touring propaga release com gates. Objetivos diferentes."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "Suporte a varios harnesses (Claude, Codex, Cursor, Kiro, Gemini, Qwen...)",
+   "ecc": {
+    "como": "Diretorios de configuracao por harness no repo (.codex, .cursor, .kiro, .opencode, .gemini, .kimi, .qwen, etc.) e agents gitagent.",
+    "evidencia": "ECC/.codex, ECC/.cursor, ECC/.kiro, ECC/agent.yaml (listagem do clone)"
+   },
+   "touring": {
+    "como": "Somente Claude Code. A identidade TACO e o modelo de subagents sao do Claude Code.",
+    "evidencia": "~/.claude/CLAUDE.md:1 e ~/.claude/settings.json (harness unico)",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "ignorar",
+   "nota": "Multi-harness nao e requisito do Gabriel. Custo de manutencao alto."
+  },
+  {
+   "dominio": "cat-agentes",
+   "funcionalidade": "Catalogo de agentes especializados",
+   "ecc": {
+    "como": "Declara 71 agentes em SOUL.md e 68 no ROADMAP. A contagem diverge entre os proprios documentos.",
+    "evidencia": "ECC/SOUL.md:4; ECC/docs/ROADMAP.md:40-42"
+   },
+   "touring": {
+    "como": "Agentes touring-scouter, architect, engineer, auditor e scriber, mais o pool geral.",
+    "evidencia": "lista de agent types da sessao (touring-*)",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "anti_licao",
+   "nota": "ECC reconhece que o catalogo e passivo ('a liability as much as an asset'). Nao crescer por contagem."
+  },
+  {
+   "dominio": "cat-skills",
+   "funcionalidade": "Volume e curadoria de skills",
+   "ecc": {
+    "como": "311 diretorios com SKILL.md. O ROADMAP admite sobreposicao e skills nao referenciadas.",
+    "evidencia": "ECC/skills (311 SKILL.md); ECC/docs/ROADMAP.md:43-46"
+   },
+   "touring": {
+    "como": "189 entradas em ~/.claude/skills, 102 delas symlinks. Skills de dominio com gatilho na description.",
+    "evidencia": "ls ~/.claude/skills com contagem de symlinks; memoria triggers-inertes-no-frontmatter",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "anti_licao",
+   "nota": "ECC ganha em amplitude. Touring ganha em profundidade de dominio. Nao copiar a amplitude sem uso medido."
+  },
+  {
+   "dominio": "cat-commands",
+   "funcionalidade": "Slash commands de atalho",
+   "ecc": {
+    "como": "Cerca de 94 comandos legados mais um quick-ref. Um deles e /gh-pr, que envelopa gh com opcoes preferidas.",
+    "evidencia": "ECC/COMMANDS-QUICK-REF.md; ECC/the-longform-guide.md:24-30"
+   },
+   "touring": {
+    "como": "Poucos comandos (/plan, /checkpoint). Operacoes via touring CLI e master commands.",
+    "evidencia": "~/.claude/commands/{plan,checkpoint}.md citado em ~/.claude/CLAUDE.md:259",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Adaptar a ideia do wrapper de CLI sem MCP, que o ECC mesmo recomenda. Os touring masters cobrem a parte."
+  },
+  {
+   "dominio": "hooks",
+   "funcionalidade": "Hooks de ciclo de vida",
+   "ecc": {
+    "como": "Diretorio hooks/ com scripts; o TROUBLESHOOTING documenta bugs de hooks e workarounds da comunidade.",
+    "evidencia": "ECC/hooks/; ECC/docs/TROUBLESHOOTING.md:9-57"
+   },
+   "touring": {
+    "como": "152 hooks em 28 eventos, incluindo CEG, cli-suggester, prose gate e trace por TOURING_HOOK_TRACE_FILE. Hook de 'if' falha aberto (documentado).",
+    "evidencia": "settings.json: 28 chaves de evento e 152 entradas; ~/.claude/rules/touring-process-hygiene.md; ~/projects/touring/CLAUDE.md:13",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Touring tem enforcement no executor e prova de disparo. O ECC tem so catalogo de workarounds."
+  },
+  {
+   "dominio": "seguranca",
+   "funcionalidade": "Seguranca, prompt defense e segredos",
+   "ecc": {
+    "como": "Baseline de prompt-defense em texto (tratar conteudo externo como nao confiavel), the-security-guide.md de 30 KB e SECURITY.md.",
+    "evidencia": "ECC/CLAUDE.md:9-17; ECC/the-security-guide.md"
+   },
+   "touring": {
+    "como": "Regra #20 anti-injection, block_git com ritual, CEG com Landlock e capabilities deny-by-default, env_clear. A politica e aplicada por hook, nao por texto.",
+    "evidencia": "~/.claude/CLAUDE.md:239-243; ~/projects/touring/CLAUDE.md:14 (tmp privado e Landlock)",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "ECC baseline e prosa. D8 do Touring: enforcement mora no executor."
+  },
+  {
+   "dominio": "memoria",
+   "funcionalidade": "Memoria persistente e aprendizado entre sessoes",
+   "ecc": {
+    "como": "Secao Continuous Learning/Memory no longform e skill continuous-learning-v2; a spec esta em docs/continuous-learning-v2-spec.md.",
+    "evidencia": "ECC/the-longform-guide.md:89; ECC/docs/continuous-learning-v2-spec.md"
+   },
+   "touring": {
+    "como": "touring memory store/recall com facetas de hashtag, MOCs, links tipados e reward; MEMORY.md com 164 entradas e .remember com cerca de 60 arquivos done.",
+    "evidencia": "touring memory recall (CLI); wc MEMORY.md=164 linhas; ls ~/projects/touring/.remember = 60+ today-*.done.md",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "ECC tem a ideia; Touring tem o loop medido (reward) e o indice."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "Economia de contexto e tokens, substituicao de MCPs",
+   "ecc": {
+    "como": "Recomenda trocar MCPs por skills que chamam o CLI (ex. /gh-pr). Vende mgrep como 50 por cento menos tokens, benchmark do proprio fornecedor. Avisa para evitar os ultimos 20 por cento do contexto.",
+    "evidencia": "ECC/the-longform-guide.md:24-30, 136-139; ECC/AGENTS.md:197"
+   },
+   "touring": {
+    "como": "2 MCPs no settings (gemini-flash, qgis). Economia por code mode, economia-de-creditos-e-contexto.md, gates de rajada e CLAUDE_AUTOCOMPACT_PCT_OVERRIDE citado na propria constituicao.",
+    "evidencia": "settings.json mcpServers (2); ~/projects/touring/CLAUDE.md:17 (economia de creditos); ~/.claude/CLAUDE.md:117 Compact Instructions",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "mgrep nao instalado (command -v: absent). Benchmark nao reproduzido. Nao adotar sem medir."
+  },
+  {
+   "dominio": "roteamento",
+   "funcionalidade": "Escolha de modelo por subagent e custo",
+   "ecc": {
+    "como": "Nao encontrei roteamento de modelo por custo nos guias lidos. Os guias descrevem apenas delegacao a agentes.",
+    "evidencia": "ECC/the-shortform-guide.md:76-95 (subagents e permissoes por agente)"
+   },
+   "touring": {
+    "como": "Regra 17: tarefa vai ao executor mais barato que passa no juiz (codigo, haiku, sonnet, opus). Gate agent_model_gate recusa Agent sem model.",
+    "evidencia": "~/projects/touring/CLAUDE.md:17 e hook agent_model_gate.py",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Sem equivalente no ECC lido. Touring ja tem isso como regra e gate."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Orquestracao multi-agente e gates de fase",
+   "ecc": {
+    "como": "Principios de agent-first e orquestracao em AGENTS.md; sem gate mecanico de fase nos guias lidos.",
+    "evidencia": "ECC/AGENTS.md:89-114; ECC/SOUL.md:13-15"
+   },
+   "touring": {
+    "como": "TACO Phase Protocol v6.2 de 9 fases com HEALTH GATE bloqueante, PRE-IMPL AUDIT e loop-engineering com convergencia por exit code.",
+    "evidencia": "~/.claude/CLAUDE.md:130 (TACO PHASE PROTOCOL v6.2); skill loop-engineering",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "ECC descreve o principio. Touring o mecaniza."
+  },
+  {
+   "dominio": "planejamento",
+   "funcionalidade": "Planejamento antes da execucao",
+   "ecc": {
+    "como": "plan-canvas (skill e docs/design) e PLAN-PRD-PATTERN.md. Ambos existem no repo.",
+    "evidencia": "ECC/docs/design/plan-canvas.md; ECC/docs/PLAN-PRD-PATTERN.md; ECC/skills/plan-canvas"
+   },
+   "touring": {
+    "como": "taco-planning com 9 dimensoes e ground truth via VGP; decision-canvas e grilling para decisoes com alternativas.",
+    "evidencia": "skills taco-planning, decision-canvas, grilling (listagem de skills)",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "Verificar se PLAN-PRD-PATTERN traz algo nao coberto por taco-planning. Nao li o arquivo."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Metricas de sucesso e gate de qualidade",
+   "ecc": {
+    "como": "Criterios de sucesso genericos: testes passam, cobertura 80 por cento, sem vulnerabilidade. Nao sao medidos por codigo.",
+    "evidencia": "ECC/AGENTS.md:216-222"
+   },
+   "touring": {
+    "como": "loop_converged.py exit 0 como unico criterio; elite 50-dim com Gold 0.80; touring e2e com baseline por componente.",
+    "evidencia": "~/.claude/CLAUDE.md:245 (REGRA #21) e ~/projects/touring/CLAUDE.md:25 (baseline e2e 0,857)",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "anti_licao",
+   "nota": "Metrica declarada sem medicao vira checklist. O ECC mesmo admite que 'Success Metrics' nao sao verificadas."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "Dashboard e telemetria de sessao",
+   "ecc": {
+    "como": "ecc_dashboard.py de 41 KB e dashboard-web.js. O TROUBLESHOOTING tem uma secao de dashboard que nao sobe.",
+    "evidencia": "ECC/ecc_dashboard.py; ECC/docs/TROUBLESHOOTING.md:70"
+   },
+   "touring": {
+    "como": "touring status -j, touring kpi -j, touring gate-metrics -j, statusLine em status_monitor.sh (symlink valido) e logs em .remember/logs.",
+    "evidencia": "~/.claude/settings.json statusLine; ls -la status_monitor.sh (symlink); .remember/logs/memory-2026-10-17.log (599 linhas)",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Touring ja tem statusline customizada, pratica que o guia do ECC recomenda."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "Indice e analise de impacto de codigo",
+   "ecc": {
+    "como": "Nao encontrei indice de simbolos ou blast radius nos guias. O repo e de catalogo de skills e harness.",
+    "evidencia": "ausencia nos guias lidos (the-longform-guide.md, the-shortform-guide.md)"
+   },
+   "touring": {
+    "como": "touring index find, ast blast, wiring orphans, pre-edit com score, tantivy search.",
+    "evidencia": "comandos touring (CLI) citados em ~/.claude/rules/touring-cli-index.md",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Diferencial central do Touring. Nao aparece no ECC lido."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Governanca de repositorio open source",
+   "ecc": {
+    "como": "CODE_OF_CONDUCT, SECURITY.md, CONTRIBUTING, commitlint, .coderabbit e greptile como revisores automatizados.",
+    "evidencia": "ECC/CODE_OF_CONDUCT.md; ECC/SECURITY.md; ECC/.coderabbit.yaml; ECC/greptile.json"
+   },
+   "touring": {
+    "como": "Repo publico ja existe (memoria 2026-08-02). Constituicao v8 e git-safety-protocol cobrem governanca interna. Nao verifiquei SECURITY.md nem CoC no repo.",
+    "evidencia": "memoria repo-publico-2026-08-02; docs/CONSTITUTION-v8.md; nao verificado no repo",
+    "estado": "nao_verificado"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Antes de decidir, verificar se o repo publico do Touring tem SECURITY.md e CoC. A lacuna e de forma, nao de conteudo."
+  },
+  {
+   "dominio": "documentacao",
+   "funcionalidade": "Documentacao em multiplos idiomas (i18n)",
+   "ecc": {
+    "como": "1527 .md em docs/, com 15 locales. ja-JP tem 524 e zh-CN 416, mas quase nenhum caminho coincide com os 33 docs EN de topo (0 a 2). A manutencao e so um pedido em CONTRIBUTING; a unica checagem e de frontmatter das skills traduzidas.",
+    "evidencia": "contagem de docs/<lang>/*.md; ECC/CONTRIBUTING.md:430; ECC/scripts/ci/validate-skills.js:215-220"
+   },
+   "touring": {
+    "como": "Monolingue em PT-BR. Nao ha docs/<lang>. docs/ tem 1562 .md e docs/guide com 3 arquivos.",
+    "evidencia": "ls docs/ (0 pastas de idioma); find docs -name '*.md' = 1562; ls docs/guide = 3",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "anti_licao",
+   "nota": "Traducao sem gate de sincronia vira drift. Pelo ECC, o custo de manter 15 idiomas nao e sustentado. Nao replicar."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "Dominio juridico-administrativo e publico brasileiro",
+   "ecc": {
+    "como": "Nenhuma skill de ANTT, DETRAN, licitacao ou parecer. Ha contract-first e master-agreement-generator, que sao genericos.",
+    "evidencia": "ECC/skills (busca por antt|detran|licita|parecer: 0)"
+   },
+   "touring": {
+    "como": "Cerca de 22 skills juridico-administrativas: lexcore-antt, lexcore-br-law-typify, gestao-daa-antt, detran-document-elaborator, analysis-loop, lexcore-mercosul. Mais dataviz e critic-panel.",
+    "evidencia": "ls ~/.claude/skills: 22 na faixa juridico/administrativo (heuristica de description)",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Diferencial de dominio do Gabriel. Heuristica por description, nao classificacao manual."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "Marketing, brand voice, healthcare, x402 e conteudo",
+   "ecc": {
+    "como": "marketing ~35 skills, healthcare ~10, x402 e payments ~8, article-writing, crosspost, brand-voice, bengali-nlp e carrier-relationship-management. Contagem por heuristica.",
+    "evidencia": "ECC/skills frontmatter (script g5_scan.py); ECC/skills/brand-voice; ECC/skills/crosspost"
+   },
+   "touring": {
+    "como": "Ha 10 em marketing/conteudo e 1 em voz. Brand-voice existe como plugin (brand-voice:*), nao em ~/.claude/skills. Nao ha healthcare nem x402.",
+    "evidencia": "ls ~/.claude/skills: 10 em marketing/conteudo; listagem de plugins brand-voice:*",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "ignorar",
+   "nota": "Fora do foco do Touring. Adotar so se houver demanda do Gabriel."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "Pipeline de midia criativa (taste) e release de video",
+   "ecc": {
+    "como": "Pipeline taste com testes offline (blender, mint3d, resolve, overlays, transport). scripts/release-video-suite.js (1119 linhas) gera o manifesto de producao de video de lancamento.",
+    "evidencia": "ECC/tests/test_taste_*.py (8 arquivos, 67 testes); ECC/scripts/release-video-suite.js:1-20"
+   },
+   "touring": {
+    "como": "Nao ha pipeline de midia nem geracao de video. A skill remotion existe mas nao como pipeline de release.",
+    "evidencia": "ls ~/.claude/skills (remotion, hyperframes); sem equivalente em ~/projects/touring",
+    "estado": "ausente"
+   },
+   "veredito": "so_ecc",
+   "acao": "ignorar",
+   "nota": "Fora do escopo do Touring. Util apenas como padrao de testes offline com fail-closed."
+  }
+ ],
+ "praticas_operacionais_dos_guias": [
+  "Worktrees git para instancias paralelas de Claude, um checkout por instancia (ECC/the-shortform-guide.md:203-207). Touring: hooks WorktreeCreate e WorktreeRemove registrados em settings.json.",
+  "tmux para comandos longos com detach e reattach (ECC/the-shortform-guide.md:210-218). Touring: tmux instalado (/usr/bin/tmux); hook de lembrete nao verificado.",
+  "Aliases de terminal como claude-dev e claude-review com --system-prompt (ECC/the-longform-guide.md:68-74). Touring: nao verificado.",
+  "Status line customizada com branch, percentual de contexto e todos (ECC/the-shortform-guide.md:234, 362). Touring: statusLine configurado para ~/.claude/hooks/status_monitor.sh.",
+  "Voz para o Claude Code via superwhisper ou MacWhisper (ECC/the-longform-guide.md:297-301). Touring: voice.enabled=false no settings.json; ferramenta de voz ausente.",
+  "mgrep no lugar de grep, com ganho de tokens anunciado pelo fornecedor (ECC/the-longform-guide.md:136-139). Touring: mgrep ausente; usa tantivy e index find.",
+  "Sandboxing para operacoes arriscadas (ECC/the-shortform-guide.md:245-249). O ECC/docs/ROADMAP.md:58-70 admite que nao ha contencao de SO real. Touring: CEG com Landlock e tmp privado (CLAUDE.md item 14).",
+  "Trocar MCPs por skills e comandos que chamam o CLI, para liberar contexto (ECC/the-longform-guide.md:24-30). Touring: 2 MCPs; code mode e masters CLI ja fazem isso.",
+  "Evitar os ultimos 20 por cento da janela para refatoracoes grandes (ECC/AGENTS.md:197). Touring: CLAUDE_AUTOCOMPACT_PCT_OVERRIDE e aviso aos 55 por cento na constituicao."
+ ],
+ "nao_coberto": "Nao li o conteudo de PLAN-PRD-PATTERN.md, the-security-guide.md nem docs/releases/* (apenas contagem de 53 pastas); a classificacao por dominio das skills e heuristica por nome e description, com estimativa de erro; o benchmark do mgrep nao foi reproduzido; nao verifiquei aliases nem hooks de tmux no ~/.claude/hooks; nao verifiquei o conteudo de SECURITY.md e CoC no repo publico do Touring; docs/business, docs/design e docs/examples do ECC foram so contados (3, 13 e 2 arquivos), nao lidos."
+}

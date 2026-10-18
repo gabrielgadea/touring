@@ -79,7 +79,7 @@ def test_the_panel_of_a_session_whose_touring_is_slow_never_reads_zero(tmp_path)
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
     env = {**os.environ, "PATH": f"{fake}:{os.environ['PATH']}", "TOURING_SESSIONSTART_SLIM": "1"}
     p = subprocess.run([sys.executable, str(HOOK)], input=json.dumps({"cwd": str(tmp_path), "session_id": "t"}),
-                       capture_output=True, text=True, env=env, timeout=30)
+                       capture_output=True, text=True, env=env, timeout=30, check=False)
     assert p.returncode == 0, p.stderr
     ctx = json.loads(p.stdout)["hookSpecificOutput"]["additionalContext"]
     assert "composite **0.00**" not in ctx and "0/0" not in ctx, ctx[:600]

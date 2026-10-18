@@ -1,0 +1,11 @@
+Diff in /home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence/tests/cross_audit.rs:7:
+ //! Every test here exercises a **contract**, not just "does not crash".
+ 
+ use touring_intelligence::rl::memory::{
+[31m-    async_rlm::AsyncRlmMemory,
+(B[m[31m-    recall_cache::RecallCache,
+(B[m[31m-    recall_cache::RecallEntry,
+(B[m[32m+    async_rlm::AsyncRlmMemory, recall_cache::RecallCache, recall_cache::RecallEntry,
+(B[m     rlm::MemoryTier,
+ };
+ 

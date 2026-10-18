@@ -14,6 +14,9 @@
 //!
 //! Target latency: <10ms.
 
+use touring_code::vgp::CheckInput;
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+
 use super::knowledge::FileKnowledgeDB;
 use super::runtime::{HookResponse, HookRuntime};
 use super::shared::hook_helpers;
@@ -58,6 +61,13 @@ pub fn run_returning(runtime: &HookRuntime, input: &serde_json::Value) -> HookRe
 
     if command.is_empty() {
         return HookResponse::Allow;
+    }
+
+    // ── VGP inline (V5, 09/10): `python3 - <<EOF` / `python3 -c` / `touring run --code|--file`
+    // passam pelo MESMO motor com path <string> e a raiz da sessão — "sombra" (default) só
+    // registra; "ativo" é só por [vgp] modo do projeto (V4). Fail-open de ponta a ponta.
+    if let Some(resposta_vgp) = vgp_sombra_de_bash(runtime, input, command) {
+        return resposta_vgp;
     }
 
     // Wave v4.29.0 — S2: structural bash validation. Strips quoted strings
@@ -868,5 +878,186 @@ mod tests {
             ctx.contains("test"),
             "BM25 should rank 'test failed' higher for 'cargo' query, got: {ctx}"
         );
+    }
+}
+
+// ─────────────────────────── V5 — inline Python no pre-bash ───────────────────────────
+
+/// Extrai o programa Python de um comando, quando há um: `touring run --code|--file` (hook
+/// "touring-run"), `python3 - <<'TAG' … TAG` ou `python3 -c '…'` (hook "pre-bash", path <string>).
+fn extrai_inline_python(command: &str) -> Option<(&'static str, String, String)> {
+    if command.contains("touring run") {
+        if let Some(code) = valor_de_flag_shell(command, "--code") {
+            return Some(("touring-run", code, "<string>".into()));
+        }
+        if let Some(f) = valor_de_flag_shell(command, "--file") {
+            let prog = std::fs::read_to_string(&f).unwrap_or_default();
+            return Some(("touring-run", prog, "<string>".into()));
+        }
+        return None;
+    }
+    if !command.contains("python") {
+        return None;
+    }
+    if let Some(code) = valor_de_flag_shell(command, "-c") {
+        return Some(("pre-bash", code, "<string>".into()));
+    }
+    heredoc_python(command).map(|prog| ("pre-bash", prog, "<stdin>".into()))
+}
+
+/// `python3 - <<'PY' … PY` / `python3 - <<PY … PY`: o corpo do heredoc, como o traceback o nomeia.
+fn heredoc_python(command: &str) -> Option<String> {
+    let pos = command.find("<<")?;
+    let rest = &command[pos + 2..];
+    let rest = rest.trim_start_matches(['-', ' ']);
+    let (tag, quoted) = match rest.chars().next() {
+        Some(q @ ('\'' | '"')) => (&rest[1..rest[1..].find(q).map(|i| i + 1)?], true),
+        _ => {
+            let end = rest.find([' ', '\n'])?;
+            (&rest[..end], false)
+        }
+    };
+    let _ = quoted;
+    let corpo = &rest[rest.find('\n')? + 1..];
+    let fim = corpo.find(&format!("\n{tag}"))?;
+    Some(format!("{}\n", &corpo[..fim]))
+}
+
+/// O valor de uma flag num comando shell, com aspas simples/duplas — mínimo e fail-open (a V5 é
+/// sombra: uma aspa mal balanceada vira None, nunca um erro).
+fn valor_de_flag_shell(command: &str, flag: &str) -> Option<String> {
+    let mut rest = command;
+    while let Some(pos) = rest.find(flag) {
+        rest = &rest[pos + flag.len()..];
+        let rest = rest.trim_start();
+        if flag == "-c" && !rest.starts_with(['\'', '"']) {
+            // -c exige o programa logo após — senão era outra flag (-cp, -count…)
+            continue;
+        }
+        return match rest.chars().next() {
+            Some('\'') => rest[1..].find('\'').map(|i| rest[1..i + 1].to_string()),
+            Some('"') => rest[1..].find('"').map(|i| rest[1..i + 1].to_string()),
+            _ => rest.split([' ', '\t', '\n']).next().map(str::to_string),
+        };
+    }
+    None
+}
+
+/// A raiz dos nomes do inline: o segmento `-projects-<nome>` do path (como vivos.project_root),
+/// senão CLAUDE_PROJECT_DIR, senão a raiz do hook.
+fn raiz_inline(path: &str, runtime: &HookRuntime) -> std::path::PathBuf {
+    for (nome, raiz) in [("analise", "analise"), ("touring", "touring")] {
+        if path.contains(&format!("-projects-{nome}/"))
+            || path.ends_with(&format!("-projects-{nome}"))
+        {
+            let home = std::env::var("HOME").unwrap_or_default();
+            return std::path::PathBuf::from(format!("{home}/projects/{raiz}"));
+        }
+    }
+    if let Ok(dir) = std::env::var("CLAUDE_PROJECT_DIR")
+        && !dir.is_empty()
+    {
+        return std::path::PathBuf::from(dir);
+    }
+    runtime.project_root.clone()
+}
+
+/// VGP sobre o programa inline (V5): `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
+fn vgp_sombra_de_bash(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    command: &str,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    if mode == VgpMode::Off {
+        return None;
+    }
+    let (hook, programa, path) = extrai_inline_python(command)?;
+    if programa.trim().is_empty() {
+        return None;
+    }
+    let vgp_in = CheckInput {
+        path: path.clone(),
+        content: programa,
+        project_root: raiz_inline(&path, runtime),
+        disk: None,
+        overlays: std::collections::HashMap::new(),
+        lang: "python".into(),
+    };
+    let out = sombra_check(
+        hook,
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    let resumo = out
+        .findings
+        .iter()
+        .take(3)
+        .map(|f| format!("{} `{}` ({}:{})", f.classe, f.nome, path, f.linha))
+        .collect::<Vec<_>>()
+        .join(" · ");
+    match out.verdict.as_str() {
+        "deny" => Some(HookResponse::Deny {
+            reason: format!(
+                "[VGP · deny] {resumo}{}",
+                out.findings
+                    .first()
+                    .map(|f| format!(" — {}", f.sugestao))
+                    .unwrap_or_default()
+            ),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        "warn" => Some(HookResponse::Context {
+            context: format!("[VGP · aviso] {resumo}"),
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod vgp_inline_tests {
+    use super::*;
+
+    #[test]
+    fn extrai_python_c() {
+        let (hook, prog, path) = extrai_inline_python("python3 -c 'print(1)' 2>&1 | head").unwrap();
+        assert_eq!(
+            (hook, prog.as_str(), path.as_str()),
+            ("pre-bash", "print(1)", "<string>")
+        );
+    }
+
+    #[test]
+    fn extrai_touring_run_code() {
+        let (_, prog, _) = extrai_inline_python(
+            "touring run --lang python --timeout-ms 30000 --code '\nimport os\nprint(os)'",
+        )
+        .unwrap();
+        assert!(prog.contains("import os"));
+    }
+
+    #[test]
+    fn extrai_heredoc() {
+        let (_, prog, path) = extrai_inline_python("python3 - <<'PY'\nprint(2)\nPY\n").unwrap();
+        assert_eq!((prog.as_str(), path.as_str()), ("print(2)\n", "<stdin>"));
+    }
+
+    #[test]
+    fn comando_sem_python_e_none() {
+        assert!(extrai_inline_python("ls -la /tmp").is_none());
     }
 }

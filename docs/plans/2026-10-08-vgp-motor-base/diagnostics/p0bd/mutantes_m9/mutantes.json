@@ -1,0 +1,13 @@
+{
+ "M9-PROMOVE-QUALQUER-ALVO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::sombra::tests::p0bd_a_corroboracao_exige_o_alvo_fechado_nao_so_o_receptor_igual"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 179 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s"
+  ],
+  "cauda": ""
+ }
+}

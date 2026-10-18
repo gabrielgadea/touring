@@ -1,0 +1,6 @@
+# gate=01-fmt
+# cmd=cargo fmt --all -- --check
+# inicio_utc=2026-10-09T21:47:47Z
+# disco_livre_gb=83
+# rc=0
+# fim_utc=2026-10-09T21:47:51Z

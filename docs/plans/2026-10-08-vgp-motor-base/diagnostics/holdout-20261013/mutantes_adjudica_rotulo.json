@@ -1,0 +1,621 @@
+{
+ "adjudicador": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/adjudica_rotulo.py",
+ "sha_antes": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+ "sha_depois": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "falhas": [],
+  "traceback": false,
+  "reprovou": false,
+  "resumo": "selftest: 84/84 casos + lote"
+ },
+ "mutantes_mortos": "49/49",
+ "mutantes": [
+  {
+   "mutante": "a1",
+   "descricao": "ignora import estrela",
+   "rc": 1,
+   "falhas": [
+    "FALHA import estrela: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/import_estrela"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a2",
+   "descricao": "ignora exec/eval/globals/locals",
+   "rc": 1,
+   "falhas": [
+    "FALHA exec: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/exec_eval_globals_locals",
+    "FALHA eval: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/exec_eval_globals_locals"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (4 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a3",
+   "descricao": "ignora __dict__/__builtins__",
+   "rc": 1,
+   "falhas": [
+    "FALHA __dict__: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dict_ou_builtins_dinamico"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a4",
+   "descricao": "ignora builtins.exec",
+   "rc": 1,
+   "falhas": [
+    "FALHA builtins.exec: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/exec_eval_globals_locals"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a5",
+   "descricao": "ignora setattr de modulo",
+   "rc": 1,
+   "falhas": [
+    "FALHA setattr de módulo: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/setattr_dinamico"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a6",
+   "descricao": "setattr em self tambem recusa",
+   "rc": 1,
+   "falhas": [
+    "FALHA setattr em self é inofensivo: nao_adjudica/setattr_dinamico ≠ bug_latente/*"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a7",
+   "descricao": "ignora sys.modules mutado",
+   "rc": 1,
+   "falhas": [
+    "FALHA sys.modules mutado: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/sys_modules_mutado"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "a8",
+   "descricao": "ignora __getattr__ de modulo",
+   "rc": 1,
+   "falhas": [
+    "FALHA __getattr__ de módulo: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/getattr_de_modulo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b1",
+   "descricao": "atribuicao nao liga",
+   "rc": 1,
+   "falhas": [
+    "FALHA ligado em função: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo",
+    "FALHA atribuição: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (7 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b2",
+   "descricao": "parametro nao liga",
+   "rc": 1,
+   "falhas": [
+    "FALHA parâmetro: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b3",
+   "descricao": "def/class nao ligam",
+   "rc": 1,
+   "falhas": [
+    "FALHA def: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo",
+    "FALHA class: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b4",
+   "descricao": "import nao liga",
+   "rc": 1,
+   "falhas": [
+    "FALHA import: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo",
+    "FALHA import pontilhado liga a raiz: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (3 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b5",
+   "descricao": "import pontilhado liga o nome inteiro",
+   "rc": 1,
+   "falhas": [
+    "FALHA import pontilhado liga a raiz: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b6",
+   "descricao": "except-as nao liga",
+   "rc": 1,
+   "falhas": [
+    "FALHA except as: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b7",
+   "descricao": "global/nonlocal nao ligam",
+   "rc": 1,
+   "falhas": [
+    "FALHA global declarado: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b8",
+   "descricao": "match capture nao liga",
+   "rc": 1,
+   "falhas": [
+    "FALHA match capture: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b9",
+   "descricao": "builtin/implicito nao conta",
+   "rc": 1,
+   "falhas": [
+    "FALHA builtin: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/builtin_ou_implicito",
+    "FALHA __file__ implícito: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/builtin_ou_implicito"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b10",
+   "descricao": "ligado em algum escopo nao conta",
+   "rc": 1,
+   "falhas": [
+    "FALHA ligado em função: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo",
+    "FALHA atribuição: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/ligado_em_algum_escopo"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (16 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "b11",
+   "descricao": "ignora a linha do achado",
+   "rc": 1,
+   "falhas": [
+    "FALHA linha que não tem o nome: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/sem_uso_na_linha",
+    "FALHA só a linha pedida decide: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/corpo_de_funcao"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c1",
+   "descricao": "corpo de funcao e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA função não chamada: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/corpo_de_funcao",
+    "FALHA função chamada (regra literal: corpo de função nunca): bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/corpo_de_funcao"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (5 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c2",
+   "descricao": "corpo de lambda e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA lambda: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/corpo_de_lambda"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c3",
+   "descricao": "ramo do if e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA ramo do if: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_if",
+    "FALHA guarda __main__: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_if"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (5 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c4",
+   "descricao": "corpo do while e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA corpo do while: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_while"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c5",
+   "descricao": "corpo do for e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA corpo do for: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_for"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c6",
+   "descricao": "try captura NameError mas segue",
+   "rc": 1,
+   "falhas": [
+    "FALHA try com except Exception: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/capturado_por_except",
+    "FALHA try com except bare: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/capturado_por_except"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (5 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c7",
+   "descricao": "finally tratado como condicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA finally com nome nunca ligado (o caso P0M): nao_adjudica/dentro_de_except_ou_else ≠ bug_latente/*",
+    "FALHA finally dentro de with: nao_adjudica/dentro_de_except_ou_else ≠ bug_latente/*"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (5 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c8",
+   "descricao": "handler/else do try e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA handler do except: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_except_ou_else",
+    "FALHA else do try: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_except_ou_else"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c9",
+   "descricao": "with suppress ignorado",
+   "rc": 1,
+   "falhas": [
+    "FALHA with suppress: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/with_suppress"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c10",
+   "descricao": "ramo do match e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA match: ramo: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_match"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c11",
+   "descricao": "curto-circuito do BoolOp ignorado",
+   "rc": 1,
+   "falhas": [
+    "FALHA segundo operando de and: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/curto_circuito"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c12",
+   "descricao": "ramo do IfExp ignorado",
+   "rc": 1,
+   "falhas": [
+    "FALHA ramo do ifexp: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/curto_circuito"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c13",
+   "descricao": "comparacao encadeada ignorada",
+   "rc": 1,
+   "falhas": [
+    "FALHA comparação encadeada: terceiro operando: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/curto_circuito"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c14",
+   "descricao": "compreensao: 2o iteravel e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA segundo iterável da compreensão: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_compreensao"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c15",
+   "descricao": "compreensao: elemento e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA elemento da compreensão: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_compreensao"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c16",
+   "descricao": "mensagem do assert e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA mensagem do assert: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/dentro_de_assert_msg"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c17",
+   "descricao": "future annotations ignorado",
+   "rc": 1,
+   "falhas": [
+    "FALHA anotação com future adia: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/anotacao_adiada",
+    "FALHA anotação de variável com future: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/anotacao_adiada"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c18",
+   "descricao": "anotacao sempre adiada",
+   "rc": 1,
+   "falhas": [
+    "FALHA anotação de parâmetro sem future: nao_adjudica/anotacao_adiada ≠ bug_latente/*",
+    "FALHA anotação de retorno sem future: nao_adjudica/anotacao_adiada ≠ bug_latente/*"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (3 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c19",
+   "descricao": "detector de future sempre falso",
+   "rc": 1,
+   "falhas": [
+    "FALHA anotação com future adia: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/anotacao_adiada",
+    "FALHA anotação de variável com future: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/anotacao_adiada"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c20",
+   "descricao": "raise/return nao encerram o fluxo",
+   "rc": 1,
+   "falhas": [
+    "FALHA depois de raise: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/depois_de_saida"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c21",
+   "descricao": "sys.exit nao encerra o fluxo",
+   "rc": 1,
+   "falhas": [
+    "FALHA depois de sys.exit: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/depois_de_saida"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c22",
+   "descricao": "while True nao encerra o fluxo",
+   "rc": 1,
+   "falhas": [
+    "FALHA depois de while True sem break: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/depois_de_saida"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c23",
+   "descricao": "codigo depois de saida e incondicional",
+   "rc": 1,
+   "falhas": [
+    "FALHA depois de sys.exit: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/depois_de_saida",
+    "FALHA depois de raise: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/depois_de_saida"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (3 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c24",
+   "descricao": "except bare nao captura",
+   "rc": 1,
+   "falhas": [
+    "FALHA try com except bare: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/capturado_por_except"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c25",
+   "descricao": "except Exception nao captura",
+   "rc": 1,
+   "falhas": [
+    "FALHA try com except Exception: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/capturado_por_except",
+    "FALHA try com except NameError: bug_latente/nome_nunca_ligado_em_uso_incondicional ≠ nao_adjudica/capturado_por_except"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (3 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "c26",
+   "descricao": "except de nome desconhecido nao captura",
+   "rc": 1,
+   "falhas": [],
+   "traceback": true,
+   "reprovou": false,
+   "resumo": "",
+   "morto": true
+  },
+  {
+   "mutante": "c27",
+   "descricao": "sujeito do match deixa de ser seguro",
+   "rc": 1,
+   "falhas": [
+    "FALHA match: sujeito: nao_adjudica/construto_desconhecido ≠ bug_latente/*"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (1 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "d1",
+   "descricao": "lote: basta UM achado adjudicado",
+   "rc": 1,
+   "falhas": [
+    "FALHA lote: b = bug_latente ≠ nao_adjudica",
+    "FALHA lote: balde arquivo {'n': 10, 'falsos_brutos': 2, 'adjudicados_bug_latente': 2, 'falsos_apos_adjudicacao': 0, 'ids_adjudicados': ['a', 'b'], 'ids_mantidos': {}}"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "d2",
+   "descricao": "lote: achado que nao e nome entra como nome",
+   "rc": 1,
+   "falhas": [
+    "FALHA lote: b = bug_latente ≠ nao_adjudica",
+    "FALHA lote: balde arquivo {'n': 10, 'falsos_brutos': 2, 'adjudicados_bug_latente': 2, 'falsos_apos_adjudicacao': 0, 'ids_adjudicados': ['a', 'b'], 'ids_mantidos': {}}"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (2 falhas)",
+   "morto": true
+  },
+  {
+   "mutante": "d3",
+   "descricao": "lote: ignora a possivel truncagem em 3",
+   "rc": 1,
+   "falhas": [
+    "FALHA lote: e = bug_latente ≠ nao_adjudica",
+    "FALHA lote: motivo de truncado/fora do corpus"
+   ],
+   "traceback": false,
+   "reprovou": true,
+   "resumo": "selftest: REPROVOU (3 falhas)",
+   "morto": true
+  }
+ ]
+}

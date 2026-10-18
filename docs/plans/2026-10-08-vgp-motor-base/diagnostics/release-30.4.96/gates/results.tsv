@@ -1,0 +1,20 @@
+gate	rc	duracao_s	inicio_utc	comando
+01-fmt	0	4	2026-10-09T21:47:47Z	cargo fmt --all -- --check
+02-clippy	101	56	2026-10-09T21:47:51Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo clippy --workspace --all-targets -- -D warnings
+03a-touring-code	0	262	2026-10-09T21:48:47Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-code --no-fail-fast
+03b-touring-pyright	0	429	2026-10-09T21:53:09Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-pyright --no-fail-fast
+03c-touring-pyright-ignored	0	11	2026-10-09T22:00:18Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-pyright --no-fail-fast -- --ignored
+03d-touring-lsp	0	314	2026-10-09T22:00:29Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-lsp --no-fail-fast
+03e-touring-server	0	687	2026-10-09T22:05:43Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-server --no-fail-fast
+03f-touring-hook-handlers	0	247	2026-10-09T22:17:10Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-hook-handlers --features pre-hooks,post-hooks --no-fail-fast
+03g-touring-hooks	101	926	2026-10-09T22:21:17Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-hooks --no-fail-fast
+03h-touring-cli	0	117	2026-10-09T22:36:43Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-cli --no-fail-fast
+03i-touring-foundation	0	48	2026-10-09T22:38:40Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-foundation --no-fail-fast
+03j-touring-hooks-core	0	552	2026-10-09T22:39:28Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-hooks-core --no-fail-fast
+03k-touring-storage-knowledge	0	1488	2026-10-09T22:48:40Z	scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-storage --features knowledge --lib --no-fail-fast
+04-drift-coverage	1	17	2026-10-09T23:13:28Z	python3 scripts/test_drift_coverage.py
+05-elite	1	510	2026-10-09T23:13:45Z	scripts/hw-slot -- python3 docs/elite_aggregate.py --check
+06-e2e	0	1	2026-10-09T23:22:15Z	touring e2e -j > e2e.json
+ALL_DONE
+02b-clippy-rerun	0	4897	2026-10-09T23:22:20Z	scripts/hw-slot --class rust -- cargo clippy --workspace --all-targets -- -D warnings
+ALL_DONE_02B

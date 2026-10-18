@@ -1,0 +1,9 @@
+M	crates/touring-code/src/vgp/lang/python.rs
+M	crates/touring-code/src/vgp/lang/python/stdlib_model.rs
+M	crates/touring-code/src/vgp/lang/python/tests.rs
+M	crates/touring-code/src/vgp/mod.rs
+M	crates/touring-code/src/vgp/politica.rs
+M	crates/touring-code/src/vgp/sombra.rs
+M	crates/touring-hook-handlers/src/hooks/vgp_l2.rs
+M	crates/touring-pyright/src/pyright.rs
+M	crates/touring-server/src/cli/vgp.rs

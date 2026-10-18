@@ -416,3 +416,21 @@ commitments:
     advisory: true
     source: "external:cd ~/projects/analise && python3 -m scripts.medicao.adherence --emit docs/kpi/external/touring.medicao.adherence.json # → docs/kpi/external/touring.medicao.adherence.json"
     rationale: "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado."
+
+  # ─── Aderência ao roteamento de modelos (roteamento, 2026-10-17) ───────────────
+  # A matriz de CLAUDE.md §17 manda busca/extração para subagente `haiku`; o gate
+  # `agent_model_gate.py` só exige que `model` EXISTA. Desde 08/10
+  # o haiku ficou com 0,2% dos tokens Anthropic (régua deduplicada por message.id) e
+  # nenhuma régua media o desvio. Esta mede o que é
+  # DECIDÍVEL por tipo: das chamadas `Explore`/`touring-scouter` que pediram `model`,
+  # a fração que pediu haiku (1 - desajustes/elegíveis). Um `general-purpose` que busca
+  # sob sonnet é invisível aqui — é um piso, não a prova do roteamento certo.
+  # Abaixo de 10 buscas decidíveis o produtor emite `value: null` + `detalhe` — STUB com
+  # causa, jamais zero. Fresco por 14 dias (mtime do arquivo): re-rodar o `source`.
+  - id: touring.routing.adherence
+    name: "Model routing adherence (search subagents on haiku)"
+    threshold: 0.8
+    direction: gte
+    advisory: true
+    source: "external:cd ~/projects/touring && python3 scripts/model_routing_adherence.py --emit docs/kpi/external/touring.routing.adherence.json # → docs/kpi/external/touring.routing.adherence.json"
+    rationale: "A matriz de roteamento (busca/extração → haiku) só existe se for medida: o gate de modelo exige o campo, não a escolha. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série e o piso é provisório — re-armar como blocking depois de dias de dado. Detalhe por tipo/modelo, tokens por família e sessões que delegaram: `python3 scripts/model_routing_adherence.py --json`."

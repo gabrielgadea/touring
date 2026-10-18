@@ -1,0 +1,12 @@
+
+[1] `touring vgp check --camadas 1,2` — as células da política P4 (raiz: analise)
+  OK    inline · externo inventado → DENY — verdict deny · layer 2 · 557.184053 ms · caminho_inventado_vgp=deny
+  OK    inline · import inventado de módulo do projeto → DENY — verdict deny · layer 2 · 556.940905 ms · gravar_inventado_vgp=deny
+  OK    arquivo · externo inventado → DENY — verdict deny · layer 2 · 525.190861 ms · caminho_inventado_vgp=deny
+  OK    arquivo · símbolo do PROJETO ainda inexistente (RED de TDD) → só AVISA — verdict warn · layer 2 · 543.635417 ms · gravar_inventado_vgp=warn
+  OK    inline · membro de valor builtin (forma) → só AVISA — verdict warn · layer 2 · 513.258291 ms · metodo_inventado_vgp=warn
+  OK    inline · nome sob `import *` (dinâmico) → só AVISA — verdict warn · layer 2 · 563.21669 ms · nome_inventado_vgp=warn
+  OK    inline · programa limpo → ALLOW sem achado — verdict allow · layer 2 · 534.147553 ms · 
+  OK    arquivo · defeito que JÁ estava no disco não é culpa da edição → ALLOW — verdict allow · layer 2 · 595.286875 ms · 
+
+veredito: TUDO AFIRMADO

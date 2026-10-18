@@ -1,0 +1,1745 @@
+diff --git a/client/claude/hooks.settings.json b/client/claude/hooks.settings.json
+index aa47dee..fdfb286 100644
+--- a/client/claude/hooks.settings.json
++++ b/client/claude/hooks.settings.json
+@@ -717,6 +717,16 @@
+           "timeout": 5
+         }
+       ]
++    },
++    {
++      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
++      "hooks": [
++        {
++          "type": "command",
++          "command": "python3 $HOME/.claude/hooks/config_protection.py",
++          "timeout": 5
++        }
++      ]
+     }
+   ],
+   "PostToolUse": [
+@@ -1245,30 +1255,6 @@
+       ]
+     }
+   ],
+-  "WorktreeCreate": [
+-    {
+-      "hooks": [
+-        {
+-          "type": "command",
+-          "command": "$HOME/.claude/hooks/touring-hook worktree-create",
+-          "timeout": 30,
+-          "statusMessage": "TACO: initializing worktree index..."
+-        }
+-      ]
+-    }
+-  ],
+-  "WorktreeRemove": [
+-    {
+-      "hooks": [
+-        {
+-          "type": "command",
+-          "command": "$HOME/.claude/hooks/touring-hook worktree-remove",
+-          "timeout": 10,
+-          "async": true
+-        }
+-      ]
+-    }
+-  ],
+   "StopFailure": [
+     {
+       "matcher": "rate_limit|max_output_tokens|server_error",
+diff --git a/client/hooks/check_context.sh b/client/hooks/check_context.sh
+index 49a1938..1f4d265 100755
+--- a/client/hooks/check_context.sh
++++ b/client/hooks/check_context.sh
+@@ -29,6 +29,13 @@
+ #
+ # Journal: ~/.claude/touring/logs/context_check_journal.jsonl (same family as skill_suggestion_journal.jsonl).
+ #
++# 18/10/2026 — the franchise quota rides the same channel.  status_monitor.sh arms <session>.quota at 85% of the
++# 5 h window (line 1 = percentage, line 2 = `resets=<epoch>`, the window's identity); this hook delivers it ONCE PER
++# WINDOW (<session>.quota.delivered holds the delivered `resets=` key, so a new window announces itself) and the
++# status line clears both when the window drops under the threshold.  Independent of the context sensor and of a
++# project monitor: the franchise is not the context.  Due together, the two messages leave as ONE additionalContext
++# (context first, unchanged byte for byte).  A delivery is one journal line with detail "quota_5h".
++#
+ # Contract: PostToolUse (*). Exit 0 always; injects only when this session has an undelivered flag.
+ 
+ INPUT=$(cat)
+@@ -84,6 +91,51 @@ fi
+ FLAG="${ALERT_DIR}/${SESSION}.pct"
+ DELIVERED="${ALERT_DIR}/${SESSION}.delivered"
+ SEEN="${ALERT_DIR}/${SESSION}.seen"
++QUOTA_FLAG="${ALERT_DIR}/${SESSION}.quota"
++QUOTA_DELIVERED="${ALERT_DIR}/${SESSION}.quota.delivered"
++
++# emit <text>: the one channel — PostToolUse additionalContext, exactly as the context warning always left.
++emit() {
++    jq -cn --arg m "$1" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $m}}'
++}
++
++# finish: leave without a context warning; the quota alert, when due, still speaks.
++finish() {
++    [[ -n "$QUOTA_MSG" ]] && emit "$QUOTA_MSG"
++    exit 0
++}
++
++# countdown <seconds>: rounded UP to the minute — 1h04, 42m (the status line prints it the same way).
++countdown() {
++    local mins=$((($1 + 59) / 60))
++    if (( mins >= 60 )); then printf '%dh%02d' $((mins / 60)) $((mins % 60)); else printf '%dm' "$mins"; fi
++}
++
++# quota_message: the alert text when the 5 h marker is armed and not yet delivered for THIS window ("" otherwise).
++# Marks it delivered and journals the delivery.  A marker whose window already reset is stale (the status line has
++# not rendered since): it is not announced.  An unreadable percentage is silence, never a guess.
++quota_message() {
++    [[ -f "$QUOTA_FLAG" ]] || return 0
++    local pct key done_key="" left clock when=""
++    pct=$(head -n1 "$QUOTA_FLAG" | tr -cd '0-9')
++    key=$(sed -n 's/^resets=//p' "$QUOTA_FLAG" | head -n1 | tr -cd '0-9-')
++    [[ -n "$pct" ]] || return 0
++    [[ -n "$key" ]] || key="-"
++    if [[ -r "$QUOTA_DELIVERED" ]]; then
++        done_key=$(head -n1 "$QUOTA_DELIVERED" | tr -cd '0-9-')
++    fi
++    [[ "$key" != "$done_key" ]] || return 0
++    if [[ "$key" =~ ^[0-9]+$ ]]; then
++        left=$(( key - NOW ))
++        (( left > 0 )) || return 0
++        clock=$(date -d "@$key" +%H:%M 2>/dev/null)
++        when=" (zera ${clock:-?}, em $(countdown "$left"))"
++    fi
++    printf '%s\n' "$key" > "$QUOTA_DELIVERED" 2>/dev/null || true
++    journal true "" "$SESSION" "$pct" "" "quota_5h"
++    printf '%s' "Cota da franquia: janela de 5 h em ${pct}%${when}. Ela é comum a todos os modelos e paga cada subagente, workflow e mensagem entre sessões: antes de novo fanout rode \`python3 ~/.claude/hooks/rate_limits_snapshot.py --show\`, reduza o fanout e desça cada parte ao executor mais barato que ainda passa no juiz. No limite o trabalho para até a janela zerar."
++}
++QUOTA_MSG=$(quota_message)
+ 
+ # The status line's last heartbeat: age in seconds and the percentage it saw ("" when there is none / it is unreadable).
+ SENSOR_AGE=""
+@@ -108,7 +160,7 @@ if [[ -n "${CLAUDE_PROJECT_DIR:-}" ]]; then
+     for settings in "${CLAUDE_PROJECT_DIR}/.claude/settings.json" "${CLAUDE_PROJECT_DIR}/.claude/settings.local.json"; do
+         if [[ -f "$settings" ]] && grep -q 'context_monitor\.py' "$settings"; then
+             journal_silent monitor_projeto "$SESSION" "$SEEN_PCT" "$SENSOR_AGE"
+-            exit 0
++            finish
+         fi
+     done
+ fi
+@@ -124,11 +176,11 @@ if [[ ! -f "$FLAG" ]]; then
+     else
+         journal_silent abaixo "$SESSION" "$SEEN_PCT" "$SENSOR_AGE"
+     fi
+-    exit 0
++    finish
+ fi
+ if [[ -f "$DELIVERED" ]]; then
+     journal_silent entregue "$SESSION" "$(head -n1 "$FLAG" | tr -cd '0-9')" "$SENSOR_AGE"
+-    exit 0
++    finish
+ fi
+ 
+ PCT=$(head -n1 "$FLAG" | tr -cd '0-9')
+@@ -136,5 +188,6 @@ PCT=$(head -n1 "$FLAG" | tr -cd '0-9')
+ journal true "" "$SESSION" "$PCT" "$SENSOR_AGE"
+ 
+ MSG="Contexto em ${PCT:-?}% — a autocompactação dispara aos ${AUTO}%. Grave agora o estado em disco (RETOMADA do bundle, \`touring decompose\`, nó no grafo) para que a retomada não dependa do resumo. Se a próxima tarefa for distinta desta, prefira /clear e reconstrução pelo disco a /compact."
+-jq -cn --arg m "$MSG" '{hookSpecificOutput: {hookEventName: "PostToolUse", additionalContext: $m}}'
++[[ -n "$QUOTA_MSG" ]] && MSG="${MSG}"$'\n\n'"${QUOTA_MSG}"
++emit "$MSG"
+ exit 0
+diff --git a/client/hooks/config_protection.py b/client/hooks/config_protection.py
+new file mode 100755
+index 0000000..c7ee8bb
+--- /dev/null
++++ b/client/hooks/config_protection.py
+@@ -0,0 +1,284 @@
++#!/usr/bin/env python3
++"""config_protection.py — PreToolUse(Edit|Write|MultiEdit|NotebookEdit): a régua não muda para passar no check.
++
++POR QUE ISTO EXISTE
++===================
++Um agente cuja tarefa é "passar no clippy / ruff / pytest" tem um atalho que não corrige nada: afrouxar a
++régua (`ignore = [...]`, `fail_under = 0`, `#![allow(dead_code)]`, um `ruff.toml` novo numa subpasta). A
++REGRA #21 proíbe o atalho; a prosa não o impediu (D8: a regra dita no anúncio não se aplica sozinha), então o
++executor pergunta. O precedente do motivo é o `config-protection.js` do ECC (análise 17/10/2026).
++
++VEREDITO
++========
++`permissionDecision: "ask"` — não bloqueia, **pergunta**: mexer na régua às vezes é intencional (subir uma
++versão do ruff, tirar uma regra obsoleta). A razão ensina as duas saídas: corrigir o código, ou confirmar.
++
++O QUE PERGUNTA
++==============
++1. **Pelo nome** (`PROTECTED_NAMES`, `PROTECTED_PREFIXES`, `.cargo/mutants.toml`): `ruff.toml`, `clippy.toml`,
++   `rustfmt.toml`, `deny.toml`, `.eslintrc*`, `eslint.config.*`, `.prettierrc*`, `biome.json[c]`,
++   `pyrightconfig.json`, `mypy.ini`, `pytest.ini`, `.coveragerc`, `.flake8`, `.pylintrc`, `.shellcheckrc`,
++   `.pre-commit-config.yaml`. Editar, sobrescrever **ou criar** — ao contrário do ECC, criar também pergunta: o
++   `ruff.toml` mais próximo vence o do raiz, então um novo, numa pasta, silencia a árvore inteira. Comparação
++   sem distinção de caixa (APFS/NTFS gravam no mesmo inode).
++2. **Pelo conteúdo**, para arquivos que misturam régua e metadados — `pyproject.toml` (tabelas `[tool.X]` de
++   `LINT_TOOLS`), `setup.cfg` e `tox.ini` (seções `INI_LINT_SECTIONS`) — e para `lib.rs`/`main.rs`
++   (`#![allow(...)]`). O veredito vem da comparação ANTES×DEPOIS do texto que a ferramenta produziria
++   (Edit/MultiEdit simulados sobre o arquivo em disco; Write = o conteúdo novo), nunca de procurar o cabeçalho
++   no trecho editado: `select = ["E"]` → `select = []` não contém `[tool.ruff]` e é exatamente o atalho. Em
++   pyproject a comparação é semântica (`tomllib`: comentário e espaço não contam); TOML inválido cai na
++   comparação por seção do texto. Em Rust, só entra lint NOVO (multiconjunto de nomes dentro de
++   `#![allow(...)]`): remover ou apertar passa; `#[allow]` de item e a menção em comentário também.
++
++FAIL-OPEN, NUNCA MUDO
++=====================
++Payload ilegível, tool desconhecida, caminho ausente, arquivo que não abre: stdout vazio e exit 0 — um bug
++aqui não pode travar o trabalho. O motivo da falha sai em stderr (o canal de diagnóstico). O kill switch é
++HUMANO: `TOURING_CONFIG_PROTECTION_DISABLED=1` no ambiente do Claude Code (o Bash do modelo não o alcança).
++
++Registro: `client/claude/hooks.settings.json` (PreToolUse, matcher `Edit|Write|MultiEdit|NotebookEdit`) →
++`scripts/install_claude_hooks.py --apply`. Testes: `client/hooks/tests/test_config_protection.py`.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import re
++import sys
++from collections import Counter
++from pathlib import Path
++from typing import Any
++
++import tomllib
++
++KILL_SWITCH = "TOURING_CONFIG_PROTECTION_DISABLED"
++MAX_STDIN_BYTES = 8 * 1024 * 1024
++REASON = (
++    "mudar a régua para passar no check é o atalho que a REGRA #21 proíbe; corrija o código, "
++    "ou confirme se a mudança da régua é intencional"
++)
++
++PROTECTED_NAMES = frozenset({
++    "ruff.toml", ".ruff.toml", "clippy.toml", ".clippy.toml", "rustfmt.toml", ".rustfmt.toml", "deny.toml",
++    "biome.json", "biome.jsonc", "pyrightconfig.json", "mypy.ini", ".pre-commit-config.yaml",
++    "pytest.ini", ".coveragerc", ".flake8", ".pylintrc", ".shellcheckrc",
++})
++#: `.eslintrc`, `.eslintrc.json`, `eslint.config.mjs`, `.prettierrc.yaml`, `prettier.config.js`, …
++PROTECTED_PREFIXES = (".eslintrc", "eslint.config.", ".prettierrc", "prettier.config.")
++PROTECTED_SUFFIXES = ("/.cargo/mutants.toml",)
++
++#: `[tool.X]` tables of pyproject.toml that hold lint, format, type-check, test or coverage settings.
++LINT_TOOLS = ("ruff", "black", "isort", "pylint", "mypy", "pyright", "pytest", "coverage", "bandit")
++#: First token of a setup.cfg / tox.ini section name (after a leading `tool:`) that holds the same settings.
++INI_LINT_SECTIONS = frozenset({
++    "flake8", "pycodestyle", "pep8", "pydocstyle", "pylint", "isort", "mypy", "pytest", "coverage", "bandit",
++})
++RUST_ROOTS = frozenset({"lib.rs", "main.rs"})
++EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
++
++_TOML_NAME = r"""(?:[A-Za-z0-9_-]+|"[^"]*"|'[^']*')"""
++TOML_HEADER = re.compile(rf"^\s*\[\[?\s*({_TOML_NAME}(?:\s*\.\s*{_TOML_NAME})*)\s*\]\]?\s*(?:#.*)?$")
++INI_HEADER = re.compile(r"^\s*\[([^\]]+)\]")
++INNER_ALLOW = re.compile(r"^[ \t]*#!\[\s*allow\s*\((.*?)\)\s*\]", re.MULTILINE | re.DOTALL)
++
++
++# ── what the tool would leave on disk ─────────────────────────────────────────────────────────────────
++
++
++def _read(path: Path) -> str | None:
++    """The file's text, "" when it does not exist yet, None when it exists but cannot be read."""
++    try:
++        return path.read_text(encoding="utf-8", errors="replace")
++    except FileNotFoundError:
++        return ""
++    except OSError:
++        return None
++
++
++def _apply_edit(text: str, old: str, new: str, replace_all: bool) -> str:
++    if old == "":
++        return new if text == "" else text  # Edit with an empty old_string creates the file
++    if old not in text:
++        return text  # the tool would reject it; nothing changes
++    return text.replace(old, new) if replace_all else text.replace(old, new, 1)
++
++
++def _multi_after(tool_input: dict[str, Any], before: str) -> str | None:
++    edits = tool_input.get("edits")
++    if not isinstance(edits, list):
++        return None
++    text = before
++    for edit in edits:
++        pair = _edit_pair(edit if isinstance(edit, dict) else {})
++        if pair is None:
++            return None
++        text = _apply_edit(text, *pair, bool(edit.get("replace_all")))
++    return text
++
++
++def _edit_pair(fields: dict[str, Any]) -> tuple[str, str] | None:
++    old, new = fields.get("old_string"), fields.get("new_string")
++    return (old, new) if isinstance(old, str) and isinstance(new, str) else None
++
++
++def _after(tool: str, tool_input: dict[str, Any], before: str) -> str | None:
++    """The text the tool would write; None when the payload carries no recognisable change."""
++    if tool == "Write":
++        content = tool_input.get("content")
++        return content if isinstance(content, str) else None
++    if tool == "MultiEdit":
++        return _multi_after(tool_input, before)
++    pair = _edit_pair(tool_input)
++    return None if pair is None else _apply_edit(before, *pair, bool(tool_input.get("replace_all")))
++
++
++# ── lint views: what the "ruler" of a mixed file is ───────────────────────────────────────────────────
++
++
++def _toml_semantic(text: str) -> Any:
++    """`{tool: settings}` for every lint tool present; raises on invalid TOML."""
++    tool = tomllib.loads(text).get("tool", {})
++    return {name: tool[name] for name in LINT_TOOLS if isinstance(tool, dict) and name in tool}
++
++
++def _clean_lines(lines: list[str], comment_marks: tuple[str, ...]) -> list[str]:
++    """Trailing space, blank lines and whole-line comments do not change a ruler."""
++    kept = (line.rstrip() for line in lines)
++    return [line for line in kept if line.strip() and not line.lstrip().startswith(comment_marks)]
++
++
++def _sections(text: str, header: re.Pattern[str], is_lint: Any, comment_marks: tuple[str, ...]) -> dict[str, list[str]]:
++    sections: dict[str, list[str]] = {}
++    current: str | None = None
++    for line in text.splitlines():
++        match = header.match(line)
++        if match:
++            name = re.sub(r"[\s\"']", "", match.group(1)) if header is TOML_HEADER else match.group(1).strip()
++            current = name if is_lint(name) else None
++            if current is not None:
++                sections.setdefault(current, []).append("")  # an empty section still exists
++            continue
++        if current is not None:
++            sections[current].append(line)
++    return {name: _clean_lines(body, comment_marks) for name, body in sections.items()}
++
++
++def _is_toml_lint(name: str) -> bool:
++    return any(name == f"tool.{tool}" or name.startswith(f"tool.{tool}.") for tool in LINT_TOOLS)
++
++
++def _is_ini_lint(name: str) -> bool:
++    base = name.strip().lower().removeprefix("tool:")
++    return re.split(r"[:.\-]", base, maxsplit=1)[0] in INI_LINT_SECTIONS
++
++
++def _pyproject_changed(before: str, after: str) -> bool:
++    try:
++        return _toml_semantic(before) != _toml_semantic(after)
++    except (tomllib.TOMLDecodeError, TypeError, ValueError):
++        pass
++    textual = (TOML_HEADER, _is_toml_lint, ("#",))
++    return _sections(before, *textual) != _sections(after, *textual)
++
++
++def _ini_changed(before: str, after: str) -> bool:
++    textual = (INI_HEADER, _is_ini_lint, ("#", ";"))
++    return _sections(before, *textual) != _sections(after, *textual)
++
++
++def _allowed_lints(text: str) -> Counter[str]:
++    names: Counter[str] = Counter()
++    for body in INNER_ALLOW.findall(text):
++        names.update(item.strip() for item in body.split(",") if item.strip())
++    return names
++
++
++def _rust_loosened(before: str, after: str) -> list[str]:
++    return sorted((_allowed_lints(after) - _allowed_lints(before)).elements())
++
++
++# ── the verdict ───────────────────────────────────────────────────────────────────────────────────────
++
++
++def _is_protected_name(path: str) -> bool:
++    lower = path.replace("\\", "/").lower()
++    base = lower.rsplit("/", 1)[-1]
++    return (base in PROTECTED_NAMES or base.startswith(PROTECTED_PREFIXES)
++            or any(lower.endswith(suffix) for suffix in PROTECTED_SUFFIXES))
++
++
++def _target(tool_input: dict[str, Any], cwd: Any) -> tuple[str, Path] | None:
++    raw = tool_input.get("file_path") or tool_input.get("notebook_path")
++    if not isinstance(raw, str) or not raw:
++        return None
++    path = Path(raw)
++    if not path.is_absolute() and isinstance(cwd, str) and cwd:
++        path = Path(cwd) / path
++    return raw, path
++
++
++def _content_verdict(kind: str, tool: str, tool_input: dict[str, Any], path: Path) -> str | None:
++    """The ask-reason for a file that mixes ruler and metadata, from the text before × after."""
++    before = _read(path)
++    after = _after(tool, tool_input, before) if before is not None else None
++    if before is None or after is None:
++        return None  # unreadable target or an unrecognisable change: the tool itself will reject or fail
++    name = path.name
++    if kind == "toml" and _pyproject_changed(before, after):
++        return f"esta mudança altera uma tabela `[tool.*]` de lint/teste de `{name}`"
++    if kind == "ini" and _ini_changed(before, after):
++        return f"esta mudança altera uma seção de lint/teste de `{name}`"
++    added = _rust_loosened(before, after) if kind == "rust" else []
++    return f"esta mudança introduz `#![allow({', '.join(added)})]` em `{name}`" if added else None
++
++
++def _kind(name: str) -> str | None:
++    if name == "pyproject.toml":
++        return "toml"
++    if name in {"setup.cfg", "tox.ini"}:
++        return "ini"
++    return "rust" if name in RUST_ROOTS else None
++
++
++def judge(payload: Any) -> str | None:
++    """The ask-reason for this tool call, or None when it leaves the ruler alone."""
++    if not isinstance(payload, dict) or not isinstance(payload.get("tool_input"), dict):
++        return None
++    tool, tool_input = payload.get("tool_name"), payload["tool_input"]
++    if tool not in EDIT_TOOLS:
++        return None  # the matcher already narrows this; a Read of ruff.toml must never ask
++    target = _target(tool_input, payload.get("cwd"))
++    if target is None:
++        return None
++    raw, path = target
++    if _is_protected_name(raw):
++        return f"`{path.name}` é config de lint/format/teste"
++    kind = _kind(path.name)
++    if kind is None or tool == "NotebookEdit":
++        return None
++    return _content_verdict(kind, tool, tool_input, path)
++
++
++def main() -> int:
++    if os.environ.get(KILL_SWITCH) == "1":
++        return 0
++    try:
++        payload = json.loads(sys.stdin.buffer.read(MAX_STDIN_BYTES).decode("utf-8", errors="replace"))
++        why = judge(payload)
++    except Exception as exc:  # noqa: BLE001 — fail-open by contract: a bug here must not stall the work
++        sys.stderr.write(f"config_protection: payload não avaliado ({type(exc).__name__}: {exc})\n")
++        return 0
++    if why is None:
++        return 0
++    verdict = {"hookSpecificOutput": {
++        "hookEventName": "PreToolUse",
++        "permissionDecision": "ask",
++        "permissionDecisionReason": f"{why}: {REASON}",
++    }}
++    sys.stdout.write(json.dumps(verdict) + "\n")  # ASCII-escaped: no terminal config can corrupt the verdict
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/client/hooks/status_monitor.sh b/client/hooks/status_monitor.sh
+index 4aac0e0..bc03c1e 100755
+--- a/client/hooks/status_monitor.sh
++++ b/client/hooks/status_monitor.sh
+@@ -2,7 +2,7 @@
+ # =============================================================================
+ # Claude Code Context Monitor - StatusLine Script
+ # Reads official JSON input from Claude Code statusLine API
+-# Fields: model, cost, context_window (with current_usage), workspace
++# Fields: model, cost, context_window (with current_usage), workspace, rate_limits
+ # =============================================================================
+ 
+ # 08/10/2026 (Gabriel: "autocompactar aos 65%"): auto-compaction fires at
+@@ -12,6 +12,9 @@
+ AUTOCOMPACT=${CLAUDE_AUTOCOMPACT_PCT_OVERRIDE:-65}
+ CHECKPOINT=${CONTEXT_CHECKPOINT_PCT:-$((AUTOCOMPACT - 10))}
+ ALERT_DIR="${HOME}/.claude/touring/context_alert"
++# 18/10/2026: franchise quota. Red band and the one-per-window alert share the 5 h threshold (85), yellow starts at 70.
++QUOTA_ALERT=${QUOTA_ALERT_PCT:-85}
++QUOTA_WARN=${QUOTA_WARN_PCT:-70}
+ 
+ mkdir -p "$ALERT_DIR"
+ 
+@@ -148,6 +151,45 @@ if [ -n "$COST_FMT" ]; then
+     COST_SEG=" ${DIM}│${RESET} ${WHITE}${COST_FMT}${RESET}"
+ fi
+ 
++# Franchise quota segment (18/10/2026): "5h 60% ↻1h04 · 7d 50%". The 5 h and 7 d windows come from the payload's
++# `rate_limits` (Pro/Max only, after the session's first reply; each window may be missing alone). ABSENT IS NOT
++# ZERO: a payload without a numeric reading for a window shows nothing for it — never "0%". The percentage is
++# floored and capped at 100; a negative or non-number is junk and dropped. `resets_at` (epoch) only decorates the
++# 5 h window and only while it is in the future and plausible for a 5 h window (<= 10 h).
++printf -v QUOTA_NOW '%(%s)T' -1
++quota_color() {  # $1 = integer percentage → the band's colour
++    if [ "$1" -ge "$QUOTA_ALERT" ]; then printf '%s' "$RED"
++    elif [ "$1" -ge "$QUOTA_WARN" ]; then printf '%s' "$YELLOW"
++    else printf '%s' "$GREEN"; fi
++}
++fmt_countdown() {  # $1 = seconds left (> 0), rounded UP to the minute: 1h04, 42m
++    local mins=$((($1 + 59) / 60))
++    if [ "$mins" -ge 60 ]; then printf '%dh%02d' $((mins / 60)) $((mins % 60)); else printf '%dm' "$mins"; fi
++}
++QUOTA_FIELDS=$(echo "$input" | jq -r '
++    def pct: if type == "number" and . >= 0 then (if . > 100 then 100 else . end | floor) else "-" end;
++    def epoch: if type == "number" and . > 0 then floor else "-" end;
++    (.rate_limits | objects) as $r
++    | [ ((($r.five_hour | objects | .used_percentage) // null) | pct),
++        ((($r.five_hour | objects | .resets_at) // null) | epoch),
++        ((($r.seven_day | objects | .used_percentage) // null) | pct) ]
++    | join(" ")' 2>/dev/null)
++read -r Q5_PCT Q5_RESET Q7_PCT <<< "$QUOTA_FIELDS"
++QUOTA_SEG=""
++QUOTA_PARTS=""
++if [[ "$Q5_PCT" =~ ^[0-9]{1,3}$ ]]; then
++    QUOTA_PARTS="$(quota_color "$Q5_PCT")5h ${Q5_PCT}%${RESET}"
++    if [[ "$Q5_RESET" =~ ^[0-9]{1,12}$ ]] && [ "$Q5_RESET" -gt "$QUOTA_NOW" ] && [ $((Q5_RESET - QUOTA_NOW)) -le 36000 ]; then
++        QUOTA_PARTS+=" ${DIM}↻$(fmt_countdown $((Q5_RESET - QUOTA_NOW)))${RESET}"
++    fi
++fi
++if [[ "$Q7_PCT" =~ ^[0-9]{1,3}$ ]]; then
++    QUOTA_PARTS="${QUOTA_PARTS:+$QUOTA_PARTS ${DIM}·${RESET} }$(quota_color "$Q7_PCT")7d ${Q7_PCT}%${RESET}"
++fi
++if [ -n "$QUOTA_PARTS" ]; then
++    QUOTA_SEG=" ${DIM}│${RESET} ${QUOTA_PARTS}"
++fi
++
+ # Format total window (WINDOW_FMT) — used/total display, mirrors TOKENS_FMT formatting
+ if [ "$CONTEXT_SIZE" -ge 1000000 ] 2>/dev/null; then
+     WINDOW_FMT="$(fmt_millions "$CONTEXT_SIZE")"
+@@ -173,15 +215,28 @@ if [ -n "$SESSION" ]; then
+     else
+         rm -f "${ALERT_DIR}/${SESSION}.pct" "${ALERT_DIR}/${SESSION}.delivered"
+     fi
++    # Quota marker, same directory and the same arm/clear cycle (check_context.sh delivers it once per window). Line 1
++    # is the 5 h percentage, line 2 `resets=<epoch>` — the window's identity, so a NEW window announces itself even
++    # when no render happened under the threshold in between. Only a numeric 5 h reading moves it: a render that
++    # carries none must not read as "the window reset" (absent is not zero).
++    if [[ "$Q5_PCT" =~ ^[0-9]{1,3}$ ]]; then
++        if [ "$Q5_PCT" -ge "$QUOTA_ALERT" ]; then
++            QUOTA_KEY=$Q5_RESET
++            [[ "$QUOTA_KEY" =~ ^[0-9]{1,12}$ ]] || QUOTA_KEY="-"
++            printf '%s\nresets=%s\n' "$Q5_PCT" "$QUOTA_KEY" > "${ALERT_DIR}/${SESSION}.quota"
++        else
++            rm -f "${ALERT_DIR}/${SESSION}.quota" "${ALERT_DIR}/${SESSION}.quota.delivered"
++        fi
++    fi
+ fi
+ 
+ # Output tiers (08/10/2026): green < CHECKPOINT, yellow CHECKPOINT (save state to disk), red at
+ # AUTOCOMPACT (the compaction is imminent). Display shows used/total + percent of the FULL window.
+ # echo -e (NOT printf) para não interpretar '%' dentro de ${CONTEXT_PCT_DISPLAY}.
+ if [ "$CONTEXT_INT" -ge "$AUTOCOMPACT" ]; then
+-    echo -e "${BOLD}${BG_RED}${BRIGHT_WHITE} COMPACT ${RESET} ${BRIGHT_RED}${bar}${RESET} ${BOLD}${RED}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
++    echo -e "${BOLD}${BG_RED}${BRIGHT_WHITE} COMPACT ${RESET} ${BRIGHT_RED}${bar}${RESET} ${BOLD}${RED}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
+ elif [ "$CONTEXT_INT" -ge "$CHECKPOINT" ]; then
+-    echo -e "${BOLD}${YELLOW}SALVE${RESET} ${BRIGHT_YELLOW}${bar}${RESET} ${BOLD}${YELLOW}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
++    echo -e "${BOLD}${YELLOW}SALVE${RESET} ${BRIGHT_YELLOW}${bar}${RESET} ${BOLD}${YELLOW}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
+ else
+-    echo -e "${BRIGHT_GREEN}${bar}${RESET} ${GREEN}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
++    echo -e "${BRIGHT_GREEN}${bar}${RESET} ${GREEN}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
+ fi
+diff --git a/client/hooks/tests/test_config_protection.py b/client/hooks/tests/test_config_protection.py
+new file mode 100644
+index 0000000..d4bfc21
+--- /dev/null
++++ b/client/hooks/tests/test_config_protection.py
+@@ -0,0 +1,432 @@
++"""test_config_protection.py — a régua de lint/format/teste não muda para fazer o check passar.
++
++Um agente cuja tarefa é "passar no clippy/ruff/pytest" tem um atalho que não corrige nada: afrouxar a
++régua (`ignore = [...]`, `fail_under = 0`, `#![allow(dead_code)]`). A REGRA #21 proíbe o atalho; este hook
++é o executor dela (D8: a regra dita no anúncio não se aplica sozinha). PreToolUse em
++`Edit|Write|MultiEdit|NotebookEdit` devolve `permissionDecision: "ask"` — não bloqueia, **pergunta** — quando o
++caminho é config de lint/format/teste, ou quando o texto novo muda uma seção de lint (pyproject.toml, setup.cfg,
++tox.ini) ou introduz um `#![allow(...)]` em lib.rs/main.rs.
++
++Precedente do motivo: `config-protection.js` do ECC (análise 17/10/2026). Divergências deliberadas:
++criar o arquivo TAMBÉM pergunta (um `ruff.toml` novo num subdiretório vence o do raiz para aquela árvore —
++é o jeito mais barato de silenciar uma pasta inteira); e o veredito da edição de pyproject/setup.cfg/tox.ini/
++lib.rs/main.rs vem da comparação ANTES×DEPOIS do texto, não de procurar o cabeçalho no trecho editado
++(`select = ["E"]` → `select = []` não contém `[tool.ruff]`).
++
++Cada teste roda o hook REAL (subprocesso, payload no stdin). `CONFIG_PROTECTION_HOOK` troca o script —
++é por onde o runner de mutantes aplica cada mutação sem tocar o original.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import subprocess
++import sys
++from pathlib import Path
++from typing import Any
++
++import pytest
++from helpers import CLIENT_HOOKS, REPO_ROOT, HookResult
++
++HOOK = Path(os.environ.get("CONFIG_PROTECTION_HOOK") or CLIENT_HOOKS / "config_protection.py")
++SETTINGS_SOURCE = Path(os.environ.get("HOOKS_SETTINGS_SOURCE") or REPO_ROOT / "client" / "claude" / "hooks.settings.json")
++REASON_CORE = "mudar a régua para passar no check é o atalho que a REGRA #21 proíbe"
++Verdict = dict[str, Any] | None
++
++
++def _run(payload: Any, *, raw: bytes | None = None, env: dict[str, str] | None = None) -> subprocess.CompletedProcess[bytes]:
++    data = raw if raw is not None else json.dumps(payload).encode()
++    full_env = {**os.environ, "TOURING_CONFIG_PROTECTION_DISABLED": "", **(env or {})}
++    return subprocess.run([sys.executable, str(HOOK)], input=data, capture_output=True, env=full_env,
++                          timeout=20, check=False)
++
++
++def _verdict(proc: subprocess.CompletedProcess[bytes]) -> Verdict:
++    """The parsed answer; None when the hook stayed silent. A silent hook must also exit 0."""
++    assert proc.returncode == 0, proc.stderr.decode(errors="replace")
++    out = proc.stdout.decode().strip()
++    return json.loads(out) if out else None
++
++
++def _decision(verdict: Verdict) -> str | None:
++    return None if verdict is None else verdict["hookSpecificOutput"]["permissionDecision"]
++
++
++def _payload(tool: str, tool_input: dict[str, Any], **extra: Any) -> dict[str, Any]:
++    return {"hook_event_name": "PreToolUse", "tool_name": tool, "tool_input": tool_input, "session_id": "cfg-sess", **extra}
++
++
++def _edit(path: Path, old: str, new: str, **kw: Any) -> dict[str, Any]:
++    return _payload("Edit", {"file_path": str(path), "old_string": old, "new_string": new, **kw})
++
++
++def _write(path: Path, content: str) -> dict[str, Any]:
++    return _payload("Write", {"file_path": str(path), "content": content})
++
++
++def _multi(path: Path, edits: list[tuple[str, str]]) -> dict[str, Any]:
++    return _payload("MultiEdit", {"file_path": str(path), "edits": [{"old_string": o, "new_string": n} for o, n in edits]})
++
++
++def _asks(payload: dict[str, Any]) -> Verdict:
++    verdict = _verdict(_run(payload))
++    assert _decision(verdict) == "ask", f"esperava ask, veio {verdict!r}"
++    return verdict
++
++
++def _silent(payload: dict[str, Any]) -> None:
++    proc = _run(payload)
++    assert _verdict(proc) is None, proc.stdout.decode()
++
++
++def _file(tmp_path: Path, rel: str, text: str) -> Path:
++    path = tmp_path / rel
++    path.parent.mkdir(parents=True, exist_ok=True)
++    path.write_text(text, encoding="utf-8")
++    return path
++
++
++PYPROJECT = """\
++[project]
++name = "demo"
++dependencies = ["requests"]
++
++[tool.ruff]
++line-length = 100
++
++[tool.ruff.lint]
++select = ["E", "F"]
++ignore = []
++
++[tool.pytest.ini_options]
++addopts = "-q"
++
++[tool.coverage.report]
++fail_under = 90
++"""
++
++# ── o motivo e o formato da resposta ─────────────────────────────────────────────────────────────────
++
++
++def test_the_verdict_is_a_pretooluse_ask_that_names_the_rule_and_the_file(tmp_path: Path) -> None:
++    payload = _edit(_file(tmp_path, "ruff.toml", "x = 1\n"), "x = 1", "x = 2")
++    proc = _run(payload)
++    verdict = _verdict(proc)
++    assert verdict is not None and _decision(verdict) == "ask"
++    hso = verdict["hookSpecificOutput"]
++    assert hso["hookEventName"] == "PreToolUse" and set(hso) == {"hookEventName", "permissionDecision", "permissionDecisionReason"}
++    assert REASON_CORE in hso["permissionDecisionReason"]
++    assert "corrija o código, ou confirme se a mudança da régua é intencional" in hso["permissionDecisionReason"]
++    assert "ruff.toml" in hso["permissionDecisionReason"]
++    assert set(verdict) == {"hookSpecificOutput"}
++    assert HookResult(HOOK, payload, proc).schema_ok("PreToolUse")  # the shared hooks contract
++
++
++def test_the_answer_is_ascii_bytes_whatever_the_locale(tmp_path: Path) -> None:
++    proc = _run(_edit(_file(tmp_path, "ruff.toml", "x"), "x", "y"), env={"PYTHONIOENCODING": "ascii", "LC_ALL": "C"})
++    proc.stdout.decode("ascii")  # raises on a non-ASCII byte: a verdict must survive any terminal config
++    assert _decision(_verdict(proc)) == "ask"
++
++
++# ── arquivos que SÃO a régua, pelo nome ──────────────────────────────────────────────────────────────
++
++PROTECTED_NAMES = [
++    "ruff.toml", ".ruff.toml", "clippy.toml", ".clippy.toml", "rustfmt.toml", ".rustfmt.toml", "deny.toml",
++    ".eslintrc", ".eslintrc.json", ".eslintrc.cjs", ".eslintrc.yml", "eslint.config.js", "eslint.config.mjs",
++    "eslint.config.ts", ".prettierrc", ".prettierrc.json", ".prettierrc.yaml", "prettier.config.js",
++    "biome.json", "biome.jsonc", "pyrightconfig.json", "mypy.ini", ".pre-commit-config.yaml",
++    ".cargo/mutants.toml", "pytest.ini", ".coveragerc", ".flake8", ".pylintrc", ".shellcheckrc",
++]
++
++
++@pytest.mark.parametrize("name", PROTECTED_NAMES)
++def test_editing_an_existing_config_file_asks(tmp_path: Path, name: str) -> None:
++    path = _file(tmp_path, f"proj/{name}", "a = 1\n")
++    _asks(_edit(path, "a = 1", "a = 2"))
++
++
++@pytest.mark.parametrize("name", PROTECTED_NAMES)
++def test_overwriting_or_creating_a_config_file_asks(tmp_path: Path, name: str) -> None:
++    _asks(_write(tmp_path / "proj" / name, "[x]\n"))  # not on disk: a NEW ruff.toml still overrides the root one
++    _asks(_write(_file(tmp_path, f"other/{name}", "old\n"), "new\n"))
++
++
++def test_multiedit_on_a_config_file_asks(tmp_path: Path) -> None:
++    _asks(_multi(_file(tmp_path, "ruff.toml", "a\nb\n"), [("a", "c"), ("b", "d")]))
++
++
++def test_the_name_match_ignores_case(tmp_path: Path) -> None:
++    _asks(_write(tmp_path / "RUFF.TOML", "x\n"))
++    _asks(_write(tmp_path / ".ESLintRC.JSON", "x\n"))
++
++
++@pytest.mark.parametrize("name", [
++    "ruff_notes.toml", "myruff.toml", "ruff.toml.md", "ruff.toml.bak", "mutants.toml", "eslint.configuration.md",
++    "deny.toml.example", "biome.json5", "clippy.rs", "README.md", "app.py", "Cargo.toml", "package.json",
++    "tsconfig.json", "pre-commit-config.yaml",
++])
++def test_files_that_only_resemble_a_config_name_stay_silent(tmp_path: Path, name: str) -> None:
++    _silent(_edit(_file(tmp_path, f"proj/{name}", "a = 1\n"), "a = 1", "a = 2"))
++    _silent(_write(tmp_path / "proj2" / name, "a = 1\n"))
++
++
++def test_mutants_toml_is_protected_only_inside_dot_cargo(tmp_path: Path) -> None:
++    _silent(_write(tmp_path / "docs" / "mutants.toml", "x\n"))
++    _asks(_write(tmp_path / "proj" / ".cargo" / "mutants.toml", "x\n"))
++
++
++# ── pyproject.toml: só a seção de lint, medida antes×depois ─────────────────────────────────────────
++
++
++@pytest.mark.parametrize(("old", "new"), [
++    ('select = ["E", "F"]', 'select = ["E"]'),                        # a key inside the section; no header in the strings
++    ("ignore = []", 'ignore = ["E501", "F401"]'),
++    ("line-length = 100", "line-length = 400"),
++    ('addopts = "-q"', 'addopts = "-q --no-cov"'),
++    ("fail_under = 90", "fail_under = 0"),
++    ("[tool.pytest.ini_options]", "[tool.pytest.ini_options]\nasyncio_mode = 'auto'"),
++    ("[tool.coverage.report]\nfail_under = 90\n", ""),                # deleting a lint section
++])
++def test_editing_inside_a_lint_section_of_pyproject_asks(tmp_path: Path, old: str, new: str) -> None:
++    _asks(_edit(_file(tmp_path, "pyproject.toml", PYPROJECT), old, new))
++
++
++@pytest.mark.parametrize("header", ["[tool.ruff]", "[tool.pytest.ini_options]", "[tool.mypy]", "[tool.pyright]",
++                                    "[tool.coverage.run]", "[tool.black]", "[tool.isort]", "[tool.pylint.main]",
++                                    "[tool.bandit]"])
++def test_adding_a_lint_table_to_pyproject_asks(tmp_path: Path, header: str) -> None:
++    path = _file(tmp_path, "pyproject.toml", PYPROJECT)
++    _asks(_edit(path, 'name = "demo"', f'name = "demo"\n\n{header}\nx = 1'))
++
++
++def test_writing_a_pyproject_that_changes_a_lint_section_asks(tmp_path: Path) -> None:
++    path = _file(tmp_path, "pyproject.toml", PYPROJECT)
++    _asks(_write(path, PYPROJECT.replace('select = ["E", "F"]', "select = []")))
++
++
++def test_creating_a_pyproject_with_lint_config_asks_but_without_it_stays_silent(tmp_path: Path) -> None:
++    _asks(_write(tmp_path / "new1" / "pyproject.toml", PYPROJECT))
++    _silent(_write(tmp_path / "new2" / "pyproject.toml", '[project]\nname = "x"\ndependencies = ["a"]\n'))
++
++
++@pytest.mark.parametrize(("old", "new"), [
++    ('dependencies = ["requests"]', 'dependencies = ["requests", "httpx"]'),
++    ('name = "demo"', 'name = "demo2"'),
++])
++def test_editing_outside_the_lint_sections_stays_silent(tmp_path: Path, old: str, new: str) -> None:
++    path = _file(tmp_path, "pyproject.toml", PYPROJECT)
++    _silent(_edit(path, old, new))
++    _silent(_write(path, PYPROJECT.replace(old, new)))
++
++
++def test_a_comment_or_whitespace_change_inside_a_lint_section_is_not_a_weakening(tmp_path: Path) -> None:
++    path = _file(tmp_path, "pyproject.toml", PYPROJECT)
++    _silent(_edit(path, "line-length = 100", "line-length = 100  # keep in sync with black\n"))
++    _silent(_edit(path, "[tool.ruff.lint]", "[tool.ruff.lint]\n\n"))
++
++
++def test_a_whole_line_comment_is_not_a_weakening_in_the_text_path_either(tmp_path: Path) -> None:
++    """Invalid TOML (and every ini file) is compared as text: a note above a key must not read as a changed ruler."""
++    broken = _file(tmp_path, "broken/pyproject.toml", PYPROJECT + "\n[tool.other\nkey = \n")
++    _silent(_edit(broken, "line-length = 100", "# keep in sync with black\nline-length = 100"))
++    ini = _file(tmp_path, "tox.ini", INI)
++    _silent(_edit(ini, "max-line-length = 100", "# a note\nmax-line-length = 100"))
++    _silent(_edit(ini, "[flake8]", "[flake8]\n; another note"))
++
++
++def test_an_edit_whose_old_string_is_not_in_the_file_changes_nothing_and_stays_silent(tmp_path: Path) -> None:
++    _silent(_edit(_file(tmp_path, "pyproject.toml", PYPROJECT), "select = ['nope']", "select = []"))
++
++
++def test_replace_all_counts_every_occurrence(tmp_path: Path) -> None:
++    text = "[project]\nname = 'a'\n\n[tool.ruff]\nname = 'a'\n"
++    path = _file(tmp_path, "pyproject.toml", text)
++    _asks(_edit(path, "name = 'a'", "name = 'b'", replace_all=True))
++
++
++def test_multiedit_is_judged_on_the_text_after_all_its_edits(tmp_path: Path) -> None:
++    path = _file(tmp_path, "pyproject.toml", PYPROJECT)
++    _silent(_multi(path, [('name = "demo"', 'name = "d2"'), ('requests', 'httpx')]))
++    _asks(_multi(path, [('name = "demo"', 'name = "d2"'), ("fail_under = 90", "fail_under = 10")]))
++    # the second edit only exists after the first: the sequence is applied in order
++    _asks(_multi(path, [("ignore = []", "ignore = ['X']"), ("ignore = ['X']", "ignore = ['X', 'Y']")]))
++
++
++def test_a_broken_toml_falls_back_to_the_section_text(tmp_path: Path) -> None:
++    broken = PYPROJECT + "\n[tool.other\nkey = \n"
++    path = _file(tmp_path, "pyproject.toml", broken)
++    _asks(_edit(path, 'select = ["E", "F"]', "select = []"))
++    _silent(_edit(path, 'dependencies = ["requests"]', 'dependencies = ["httpx"]'))
++
++
++def test_a_quoted_table_name_is_still_a_lint_table(tmp_path: Path) -> None:
++    text = '[project]\nname = "a"\n\n[tool."ruff".lint]\nselect = ["E"]\n\n[tool.other\n'  # invalid TOML: text path
++    _asks(_edit(_file(tmp_path, "pyproject.toml", text), 'select = ["E"]', "select = []"))
++
++
++# ── setup.cfg / tox.ini ──────────────────────────────────────────────────────────────────────────────
++
++INI = """\
++[metadata]
++name = demo
++
++[flake8]
++max-line-length = 100
++extend-ignore = E203
++
++[tool:pytest]
++addopts = -q
++
++[coverage:run]
++branch = True
++
++[mypy-vendor.*]
++ignore_errors = False
++
++[options]
++install_requires = requests
++"""
++
++
++@pytest.mark.parametrize("name", ["setup.cfg", "tox.ini"])
++@pytest.mark.parametrize(("old", "new"), [
++    ("extend-ignore = E203", "extend-ignore = E203,E501,F401"),
++    ("addopts = -q", "addopts = -q -p no:cacheprovider"),
++    ("branch = True", "branch = False"),
++    ("ignore_errors = False", "ignore_errors = True"),
++])
++def test_editing_a_lint_section_of_an_ini_config_asks(tmp_path: Path, name: str, old: str, new: str) -> None:
++    _asks(_edit(_file(tmp_path, name, INI), old, new))
++
++
++@pytest.mark.parametrize("name", ["setup.cfg", "tox.ini"])
++def test_editing_outside_the_lint_sections_of_an_ini_config_stays_silent(tmp_path: Path, name: str) -> None:
++    path = _file(tmp_path, name, INI)
++    _silent(_edit(path, "name = demo", "name = demo2"))
++    _silent(_edit(path, "install_requires = requests", "install_requires = httpx"))
++    _silent(_write(path, INI.replace("name = demo", "name = demo3")))
++
++
++def test_adding_a_lint_section_to_an_ini_config_asks(tmp_path: Path) -> None:
++    _asks(_edit(_file(tmp_path, "tox.ini", INI), "[options]", "[pycodestyle]\nignore = E1\n\n[options]"))
++
++
++# ── #![allow(...)] novo em lib.rs / main.rs ─────────────────────────────────────────────────────────
++
++LIB = "//! crate docs\n#![deny(missing_docs)]\n#![allow(clippy::module_name_repetitions)]\n\npub fn f() {}\n"
++
++
++@pytest.mark.parametrize("name", ["lib.rs", "main.rs"])
++def test_a_new_crate_level_allow_asks(tmp_path: Path, name: str) -> None:
++    path = _file(tmp_path, f"src/{name}", LIB)
++    _asks(_edit(path, "pub fn f() {}", "#![allow(dead_code)]\npub fn f() {}"))
++    _asks(_write(path, LIB + "#![allow(unused)]\n"))
++
++
++def test_widening_an_existing_allow_asks(tmp_path: Path) -> None:
++    path = _file(tmp_path, "src/lib.rs", LIB)
++    _asks(_edit(path, "clippy::module_name_repetitions", "clippy::module_name_repetitions, clippy::all"))
++
++
++def test_a_multiline_allow_is_seen_too(tmp_path: Path) -> None:
++    path = _file(tmp_path, "src/lib.rs", LIB)
++    _asks(_edit(path, "pub fn f() {}", "#![allow(\n    dead_code,\n    unused\n)]\npub fn f() {}"))
++
++
++def test_a_new_lib_rs_with_an_allow_asks_and_without_it_stays_silent(tmp_path: Path) -> None:
++    _asks(_write(tmp_path / "n1" / "src" / "lib.rs", "#![allow(dead_code)]\n"))
++    _silent(_write(tmp_path / "n2" / "src" / "lib.rs", "pub fn f() {}\n"))
++
++
++@pytest.mark.parametrize(("old", "new"), [
++    ("pub fn f() {}", "pub fn f() { println!(); }"),                       # code edit, allow untouched
++    ("#![allow(clippy::module_name_repetitions)]\n", ""),                  # removing a loosening
++    ("#![deny(missing_docs)]", "#![deny(missing_docs, unsafe_code)]"),     # tightening
++    ("//! crate docs", "//! crate docs\n//! mentions #![allow(dead_code)] in prose"),
++    ("pub fn f() {}", "#[allow(dead_code)]\npub fn f() {}"),               # an item-level allow is not the crate-level one
++])
++def test_edits_that_do_not_loosen_the_crate_attributes_stay_silent(tmp_path: Path, old: str, new: str) -> None:
++    _silent(_edit(_file(tmp_path, "src/lib.rs", LIB), old, new))
++
++
++def test_the_same_allow_in_another_rust_file_is_out_of_scope(tmp_path: Path) -> None:
++    _silent(_write(tmp_path / "src" / "module.rs", "#![allow(dead_code)]\n"))
++    _silent(_write(tmp_path / "src" / "mod.rs", "#![allow(dead_code)]\n"))
++
++
++# ── negativos: editar código não é mexer na régua ───────────────────────────────────────────────────
++
++
++@pytest.mark.parametrize("name", ["src/app.py", "src/engine.rs", "web/index.ts", "README.md", "scripts/run.sh", "notes.txt"])
++def test_editing_ordinary_files_stays_silent(tmp_path: Path, name: str) -> None:
++    path = _file(tmp_path, name, "a\n")
++    _silent(_edit(path, "a", "b"))
++    _silent(_write(path, "c\n"))
++    _silent(_multi(path, [("a", "b")]))
++
++
++def test_a_notebook_edit_is_judged_by_notebook_path(tmp_path: Path) -> None:
++    _silent(_payload("NotebookEdit", {"notebook_path": str(tmp_path / "a.ipynb"), "new_source": "x = 1", "cell_id": "c1"}))
++    _asks(_payload("NotebookEdit", {"notebook_path": str(tmp_path / "ruff.toml"), "new_source": "x = 1"}))
++
++
++def test_a_relative_path_is_resolved_against_the_payload_cwd(tmp_path: Path) -> None:
++    _file(tmp_path, "proj/pyproject.toml", PYPROJECT)
++    payload = _payload("Edit", {"file_path": "pyproject.toml", "old_string": "fail_under = 90", "new_string": "fail_under = 0"},
++                       cwd=str(tmp_path / "proj"))
++    _asks(payload)
++    _silent({**payload, "cwd": str(tmp_path)})  # a different cwd: the file does not exist, nothing to compare
++
++
++# ── fail-open: payload ilegível jamais trava o trabalho ─────────────────────────────────────────────
++
++
++@pytest.mark.parametrize("raw", [b"", b"not json", b"[1, 2]", b'"str"', b"null", b"{}", b'{"tool_name": "Edit"}',
++                                 b'{"tool_name": "Edit", "tool_input": null}', b'{"tool_name": "Edit", "tool_input": []}',
++                                 b'{"tool_name": "Edit", "tool_input": {"file_path": 7}}',
++                                 b'{"tool_name": "Write", "tool_input": {"file_path": "pyproject.toml", "content": 3}}',
++                                 b"\xff\xfe\x00bad bytes"])
++def test_a_malformed_payload_is_silence_with_exit_zero(raw: bytes) -> None:
++    proc = _run(None, raw=raw)
++    assert proc.returncode == 0 and not proc.stdout.strip()
++
++
++def test_a_tool_that_is_not_an_edit_is_silence() -> None:
++    _silent(_payload("Bash", {"command": "echo hi > ruff.toml"}))
++    _silent(_payload("Read", {"file_path": "/x/ruff.toml"}))
++
++
++def test_an_unreadable_target_is_silence_not_a_crash(tmp_path: Path) -> None:
++    (tmp_path / "pyproject.toml").mkdir()  # a directory where a file is expected
++    _silent(_edit(tmp_path / "pyproject.toml", "a", "b"))
++
++
++def test_the_human_kill_switch_silences_the_hook(tmp_path: Path) -> None:
++    payload = _write(tmp_path / "ruff.toml", "x\n")
++    assert _verdict(_run(payload, env={"TOURING_CONFIG_PROTECTION_DISABLED": "1"})) is None
++    assert _decision(_verdict(_run(payload, env={"TOURING_CONFIG_PROTECTION_DISABLED": "0"}))) == "ask"
++
++
++# ── registro: o hook existe, está no settings-fonte e não quebra o lint do instalador ───────────────
++
++
++def _registered_groups() -> list[dict[str, Any]]:
++    hooks = json.loads(SETTINGS_SOURCE.read_text(encoding="utf-8"))
++    return [g for g in hooks["PreToolUse"]
++            if any("config_protection.py" in h.get("command", "") for h in g.get("hooks", []))]
++
++
++def test_the_hook_is_registered_once_on_the_four_edit_tools() -> None:
++    groups = _registered_groups()
++    assert len(groups) == 1, groups
++    group = groups[0]
++    assert set(group["matcher"].split("|")) == {"Edit", "Write", "MultiEdit", "NotebookEdit"}
++    (hook,) = group["hooks"]
++    assert hook["command"] == "python3 $HOME/.claude/hooks/config_protection.py"
++    assert hook["type"] == "command" and 0 < hook["timeout"] <= 5
++    assert "if" not in hook and "if" not in group  # one rule per `if`, and the content filter lives in the handler
++
++
++def test_the_registered_script_exists_in_the_client_mirror() -> None:
++    assert (CLIENT_HOOKS / "config_protection.py").is_file()
+diff --git a/client/hooks/tests/test_s49_install_claude_hooks.py b/client/hooks/tests/test_s49_install_claude_hooks.py
+index 11915dc..6166f49 100644
+--- a/client/hooks/tests/test_s49_install_claude_hooks.py
++++ b/client/hooks/tests/test_s49_install_claude_hooks.py
+@@ -18,8 +18,9 @@ from pathlib import Path
+ from typing import Any
+ 
+ REPO_ROOT = Path(__file__).resolve().parents[3]
+-INSTALL_SCRIPT = REPO_ROOT / "scripts" / "install_claude_hooks.py"
+-HOOKS_SETTINGS = REPO_ROOT / "client" / "claude" / "hooks.settings.json"
++# The two env overrides let the mutation runner aim the suite at a mutated copy; unset, the real files are judged.
++INSTALL_SCRIPT = Path(os.environ.get("INSTALL_CLAUDE_HOOKS_SCRIPT") or REPO_ROOT / "scripts" / "install_claude_hooks.py")
++HOOKS_SETTINGS = Path(os.environ.get("HOOKS_SETTINGS_SOURCE") or REPO_ROOT / "client" / "claude" / "hooks.settings.json")
+ TOURING_PROJECT_HOOKS = REPO_ROOT / "client" / "claude" / "touring-project.hooks.settings.json"
+ 
+ 
+@@ -167,6 +168,34 @@ def test_versioned_source_has_no_lint_finding() -> None:
+     assert findings == [], findings
+ 
+ 
++def test_lint_flags_a_touring_passthrough_on_the_worktree_events(tmp_path: Path) -> None:
++    """L5: the Claude Code contract (code.claude.com/docs/en/hooks, lido em 18/10/2026) makes a `WorktreeCreate`
++    hook REPLACE the default `git worktree add` — it must print the created path on stdout, or `Agent(isolation:
++    "worktree")` fails with "hook succeeded but returned no worktree path" (reproduzido em 17/10). A
++    `touring-hook worktree-create` handler only records the event and prints no path. `WorktreeRemove` runs only
++    for a worktree a WorktreeCreate hook made, and its exit 0 counts as "removed" whether or not the directory
++    is gone — registering the Touring recorder there leaves the worktree on disk."""
++    for event, handler in (("WorktreeCreate", "worktree-create"), ("WorktreeRemove", "worktree-remove")):
++        bad = {event: [{"hooks": [_hook(f"$HOME/.claude/hooks/touring-hook {handler}")]}]}
++        assert "L5" in _lint(tmp_path, bad), event
++    # a script of the operator's own is not judged here (its stdout is not statically knowable)
++    own = {"WorktreeCreate": [{"hooks": [_hook("$HOME/.claude/hooks/make_worktree.sh")]}]}
++    assert "L5" not in _lint(tmp_path, own)
++    # the recorder is fine on events that carry no such contract
++    ok = {"SubagentStart": [{"hooks": [_hook("$HOME/.claude/hooks/touring-hook subagent-start")]}]}
++    assert _lint(tmp_path, ok) == []
++
++
++def test_the_versioned_source_leaves_worktree_creation_to_claude_code() -> None:
++    """Neither worktree event is registered: with no `WorktreeCreate` hook Claude Code creates the worktree itself
++    (git, `.worktreeinclude`, its own base ref), and `WorktreeRemove` would never fire — the contract runs it only
++    for worktrees a `WorktreeCreate` hook created. The registered recorder (`touring-hook worktree-create`) read
++    `worktree_path`, a field only the REMOVE payload carries (create carries `name`), so it was a no-op that
++    printed nothing and broke every isolated subagent."""
++    hooks = json.loads(HOOKS_SETTINGS.read_text(encoding="utf-8"))
++    assert "WorktreeCreate" not in hooks and "WorktreeRemove" not in hooks
++
++
+ def test_cli_suggest_runs_for_the_agent_tool() -> None:
+     """17/10/2026: the sub-agent tool is `Agent` (`Task` is the legacy name). The group that ran
+     `cli-suggest` was keyed on `Task` only, and the hook payload carries `tool_name: "Agent"` (the
+diff --git a/client/hooks/tests/test_status_monitor_quota.py b/client/hooks/tests/test_status_monitor_quota.py
+new file mode 100644
+index 0000000..b8a4323
+--- /dev/null
++++ b/client/hooks/tests/test_status_monitor_quota.py
+@@ -0,0 +1,374 @@
++"""test_status_monitor_quota.py — a cota da franquia na barra de status, e o aviso único aos 85%.
++
++O payload da status line traz `rate_limits.five_hour` e `rate_limits.seven_day` (`used_percentage` 0–100,
++`resets_at` em epoch) para assinantes Pro/Max, depois da 1ª resposta da sessão, cada janela podendo faltar
++sozinha. `status_monitor.sh` já repassava o payload ao `rate_limits_snapshot.py`, mas não o mostrava: a cota
++que paga cada subagente era invisível justamente a quem decide lançar o fanout.
++
++Contrato (18/10/2026):
++* segmento compacto `5h 60% ↻1h04 · 7d 50%`, cor por faixa (verde < 70, amarelo < 85, vermelho >= 85), cada
++  janela pela própria porcentagem; o reset (`↻`) só da janela de 5 h;
++* **ausência nunca vira zero**: payload sem `rate_limits` (outro backend, versão antiga), janela sem número
++  ou com lixo não mostra NADA daquela janela;
++* aos 85% da janela de 5 h o monitor arma `<sessão>.quota` (linha 1 = porcentagem, linha 2 = `resets=<epoch>`)
++  no MESMO diretório e pelo MESMO ciclo do marcador de contexto (`.pct` / `.delivered`), e o `check_context.sh`
++  (PostToolUse) o entrega UMA vez por janela — sem um terceiro canal. Sai quando a janela cai abaixo do limiar
++  (renderização com leitura); ausência de leitura NÃO desarma.
++"""
++
++from __future__ import annotations
++
++import json
++import os
++import re
++import subprocess
++import time
++from pathlib import Path
++from typing import Any
++
++import pytest
++from helpers import CLIENT_HOOKS, run_hook_sh
++
++HOOKS_DIR = Path(os.environ.get("QUOTA_HOOKS_DIR") or CLIENT_HOOKS)  # the mutation runner points it at a mutated copy
++STATUS = HOOKS_DIR / "status_monitor.sh"
++CHECK = HOOKS_DIR / "check_context.sh"
++ANSI = re.compile(r"\x1b\[[0-9;]*m")
++GREEN, YELLOW, RED = "32", "33", "31"
++SESSION = "quota-sess"
++CONTEXT_WARNING_HEAD = "Contexto em 57% — a autocompactação dispara aos 65%."
++
++
++def _window(pct: Any, resets_in_min: float | None = None) -> dict[str, Any]:
++    """A window `resets_in_min` minutes from now, less 20 s so the countdown (rounded UP) reads exactly that."""
++    window: dict[str, Any] = {"used_percentage": pct}
++    if resets_in_min is not None:
++        window["resets_at"] = int(time.time() + resets_in_min * 60 - 20)
++    return window
++
++
++def _payload(rate_limits: Any = ..., *, session: str | None = SESSION, tokens: int = 250_000) -> dict[str, Any]:
++    body: dict[str, Any] = {"model": {"display_name": "T", "id": "t"}, "cost": {"total_cost_usd": 0.0},
++                            "context_window": {"context_window_size": 1_000_000, "current_usage": {"input_tokens": tokens}}}
++    if session is not None:
++        body["session_id"] = session
++    if rate_limits is not ...:
++        body["rate_limits"] = rate_limits
++    return body
++
++
++def _render(home: Path, payload: dict[str, Any], **env: str) -> str:
++    proc = subprocess.run(["bash", str(STATUS)], input=json.dumps(payload).encode(), capture_output=True,
++                          env={**os.environ, "HOME": str(home), **env}, timeout=15, check=False)
++    assert proc.returncode == 0, proc.stderr
++    return proc.stdout.decode("utf-8", errors="replace")
++
++
++def _plain(out: str) -> str:
++    return ANSI.sub("", out)
++
++
++def _alerts(home: Path) -> Path:
++    d = home / ".claude" / "touring" / "context_alert"
++    d.mkdir(parents=True, exist_ok=True)
++    return d
++
++
++def _color_of(out: str, label: str) -> str:
++    match = re.search(rf"\x1b\[(\d+)m{re.escape(label)}", out)
++    assert match, f"{label!r} is not preceded by a colour code in {out!r}"
++    return match.group(1)
++
++
++# ── o segmento ───────────────────────────────────────────────────────────────────────────────────────
++
++
++def test_both_windows_render_compactly_with_the_five_hour_reset(tmp_path: Path) -> None:
++    out = _render(tmp_path, _payload({"five_hour": _window(60, 64), "seven_day": _window(50, 3000)}))
++    assert "5h 60% ↻1h04 · 7d 50%" in _plain(out)
++
++
++@pytest.mark.parametrize(("pct", "color"), [(0, GREEN), (69, GREEN), (70, YELLOW), (84, YELLOW), (85, RED), (100, RED)])
++def test_each_window_is_coloured_by_its_own_band(tmp_path: Path, pct: int, color: str) -> None:
++    out = _render(tmp_path, _payload({"five_hour": _window(pct, 90), "seven_day": _window(10, 3000)}), CLAUDE_AUTOCOMPACT_PCT_OVERRIDE="65")
++    assert _color_of(out, f"5h {pct}%") == color
++    assert _color_of(out, "7d 10%") == GREEN
++    other = _render(tmp_path, _payload({"five_hour": _window(10, 90), "seven_day": _window(pct, 3000)}))
++    assert _color_of(other, f"7d {pct}%") == color
++
++
++def test_the_band_limits_follow_the_environment(tmp_path: Path) -> None:
++    out = _render(tmp_path, _payload({"five_hour": _window(87, 90)}), QUOTA_ALERT_PCT="90", QUOTA_WARN_PCT="50")
++    assert _color_of(out, "5h 87%") == YELLOW
++
++
++def test_a_payload_without_rate_limits_shows_nothing_and_never_zero(tmp_path: Path) -> None:
++    plain = _plain(_render(tmp_path, _payload()))
++    assert not re.search(r"\b[57][hd]\b", plain) and "↻" not in plain, plain
++    assert "250K/1.0M (25.0%)" in plain  # the rest of the line is untouched
++
++
++@pytest.mark.parametrize("rate_limits", [{}, None, "x", [], [1], 7, {"five_hour": None}, {"five_hour": "high"},
++                                         {"five_hour": {}}, {"five_hour": {"resets_at": 1}}, {"seven_day": []}])
++def test_a_rate_limits_field_without_a_reading_shows_nothing(tmp_path: Path, rate_limits: Any) -> None:
++    plain = _plain(_render(tmp_path, _payload(rate_limits)))
++    assert not re.search(r"\b[57][hd]\b", plain) and "↻" not in plain, plain
++
++
++@pytest.mark.parametrize("bad", ["abc", None, True, [], {}, -1, -0.5, "50"])
++def test_a_window_with_junk_instead_of_a_number_is_dropped_alone(tmp_path: Path, bad: Any) -> None:
++    plain = _plain(_render(tmp_path, _payload({"five_hour": {"used_percentage": bad, "resets_at": 99999999999},
++                                               "seven_day": _window(50)})))
++    assert "7d 50%" in plain and "5h" not in plain and "↻" not in plain, plain
++
++
++def test_one_window_alone_renders_alone(tmp_path: Path) -> None:
++    only_week = _plain(_render(tmp_path, _payload({"seven_day": _window(50)})))
++    assert "7d 50%" in only_week and "5h" not in only_week and "·" not in only_week
++    only_hours = _plain(_render(tmp_path, _payload({"five_hour": _window(60, 64)})))
++    assert "5h 60% ↻1h04" in only_hours and "7d" not in only_hours and "·" not in only_hours
++
++
++@pytest.mark.parametrize(("pct", "shown"), [(59.9, "59%"), (59.0, "59%"), (0.4, "0%"), (100.0, "100%"), (250, "100%")])
++def test_the_percentage_is_floored_and_capped_at_one_hundred(tmp_path: Path, pct: float, shown: str) -> None:
++    assert f"5h {shown}" in _plain(_render(tmp_path, _payload({"five_hour": _window(pct)})))
++
++
++@pytest.mark.parametrize(("minutes", "text"), [(64, "↻1h04"), (120, "↻2h00"), (60, "↻1h00"), (59, "↻59m"),
++                                               (42, "↻42m"), (1, "↻1m"), (299, "↻4h59")])
++def test_the_countdown_rounds_up_to_the_minute(tmp_path: Path, minutes: int, text: str) -> None:
++    assert f"5h 60% {text}" in _plain(_render(tmp_path, _payload({"five_hour": _window(60, minutes)})))
++
++
++def test_a_reset_too_far_for_a_five_hour_window_hides_the_countdown(tmp_path: Path) -> None:
++    """A window that closes in 10 days is a data error; printing '↻240h00' would also break the width budget."""
++    far = {"used_percentage": 60, "resets_at": int(time.time()) + 10 * 86400}
++    plain = _plain(_render(tmp_path, _payload({"five_hour": far})))
++    assert "5h 60%" in plain and "↻" not in plain
++    edge = {"used_percentage": 60, "resets_at": int(time.time()) + 36000 - 5}
++    assert "↻10h00" in _plain(_render(tmp_path, _payload({"five_hour": edge})))
++
++
++def test_half_a_minute_left_still_reads_one_minute(tmp_path: Path) -> None:
++    payload = _payload({"five_hour": {"used_percentage": 60, "resets_at": int(time.time()) + 30}})
++    assert "5h 60% ↻1m" in _plain(_render(tmp_path, payload))
++
++
++@pytest.mark.parametrize("resets_at", [None, "soon", 0, -5, 1, "1760000000", True])
++def test_a_missing_stale_or_junk_reset_hides_only_the_countdown(tmp_path: Path, resets_at: Any) -> None:
++    window = {"used_percentage": 60, **({} if resets_at is None else {"resets_at": resets_at})}
++    plain = _plain(_render(tmp_path, _payload({"five_hour": window})))
++    assert "5h 60%" in plain and "↻" not in plain, plain
++
++
++def test_the_segment_stays_inside_the_budget_even_at_one_hundred_percent(tmp_path: Path) -> None:
++    plain = _plain(_render(tmp_path, _payload({"five_hour": _window(100, 299), "seven_day": _window(100, 9999)})))
++    segment = "5h 100% ↻4h59 · 7d 100%"
++    assert segment in plain
++    assert len(segment) <= 23  # the example in the request is 21 wide with two-digit values
++
++
++@pytest.mark.parametrize(("tokens", "tier"), [(250_000, "green"), (600_000, "SALVE"), (700_000, "COMPACT")])
++def test_the_segment_rides_every_context_tier(tmp_path: Path, tokens: int, tier: str) -> None:
++    """The status line has three output lines (green, SALVE, COMPACT); the quota must not vanish from the loud ones."""
++    plain = _plain(_render(tmp_path, _payload({"five_hour": _window(60, 64), "seven_day": _window(50)}, tokens=tokens)))
++    assert "5h 60% ↻1h04 · 7d 50%" in plain, plain
++    if tier != "green":
++        assert tier in plain
++
++
++def test_the_quota_does_not_displace_cost_or_model(tmp_path: Path) -> None:
++    payload = _payload({"five_hour": _window(60, 64)})
++    payload["cost"] = {"total_cost_usd": 1.5}
++    plain = _plain(_render(tmp_path, payload))
++    assert plain.index("T") < plain.index("$1.50") < plain.index("5h 60%")
++
++
++# ── o marcador de alerta (mesmo diretório e ciclo do marcador de contexto) ──────────────────────────
++
++
++def _flag(home: Path, session: str = SESSION) -> Path:
++    return _alerts(home) / f"{session}.quota"
++
++
++def test_crossing_the_threshold_arms_a_per_session_marker_with_percentage_and_window_key(tmp_path: Path) -> None:
++    payload = _payload({"five_hour": {"used_percentage": 87, "resets_at": 1_900_000_000}})
++    _render(tmp_path, payload)
++    assert _flag(tmp_path).read_text().splitlines() == ["87", "resets=1900000000"]
++
++
++def test_below_the_threshold_no_marker_exists(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(84, 90)}))
++    assert not _flag(tmp_path).exists()
++
++
++def test_only_the_five_hour_window_arms_the_alert(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(10, 90), "seven_day": _window(99, 3000)}))
++    assert not _flag(tmp_path).exists()
++
++
++def test_a_reading_without_a_reset_still_arms_with_a_placeholder_key(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(90)}))
++    assert _flag(tmp_path).read_text().splitlines() == ["90", "resets=-"]
++
++
++def test_the_marker_is_rewritten_with_the_latest_reading(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": {"used_percentage": 86, "resets_at": 1_900_000_000}}))
++    _render(tmp_path, _payload({"five_hour": {"used_percentage": 93, "resets_at": 1_900_000_000}}))
++    assert _flag(tmp_path).read_text().splitlines()[0] == "93"
++
++
++def test_dropping_under_the_threshold_clears_the_marker_and_its_delivery_stamp(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": {"used_percentage": 90, "resets_at": 1_900_000_000}}))
++    delivered = _alerts(tmp_path) / f"{SESSION}.quota.delivered"
++    delivered.write_text("1900000000\n")
++    _render(tmp_path, _payload({"five_hour": _window(40, 200)}))
++    assert not _flag(tmp_path).exists() and not delivered.exists()
++
++
++@pytest.mark.parametrize("without", [_payload(), _payload({}), _payload({"seven_day": _window(10)}),
++                                     _payload({"five_hour": {"used_percentage": "junk"}})])
++def test_an_absent_reading_never_disarms(tmp_path: Path, without: dict[str, Any]) -> None:
++    """Absent signal is not zero: a render that carries no 5 h reading must not read as 'the window reset'."""
++    _render(tmp_path, _payload({"five_hour": {"used_percentage": 90, "resets_at": 1_900_000_000}}))
++    delivered = _alerts(tmp_path) / f"{SESSION}.quota.delivered"
++    delivered.write_text("1900000000\n")
++    _render(tmp_path, without)
++    assert _flag(tmp_path).exists() and delivered.exists()
++
++
++def test_the_marker_is_per_session(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(90, 90)}, session="s-one"))
++    assert _flag(tmp_path, "s-one").exists() and not _flag(tmp_path, "s-two").exists()
++
++
++def test_the_threshold_follows_the_environment(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(87, 90)}), QUOTA_ALERT_PCT="90")
++    assert not _flag(tmp_path).exists()
++    _render(tmp_path, _payload({"five_hour": _window(87, 90)}), QUOTA_ALERT_PCT="80")
++    assert _flag(tmp_path).exists()
++
++
++def test_a_payload_without_a_session_id_arms_nothing_and_still_renders(tmp_path: Path) -> None:
++    out = _render(tmp_path, _payload({"five_hour": _window(90, 90)}, session=None))
++    assert "5h 90%" in _plain(out) and not list(_alerts(tmp_path).glob("*.quota"))
++
++
++def test_the_context_marker_cycle_is_untouched(tmp_path: Path) -> None:
++    _render(tmp_path, _payload({"five_hour": _window(40, 90)}, tokens=600_000))
++    assert (_alerts(tmp_path) / f"{SESSION}.pct").read_text().splitlines()[0] == "60"
++
++
++# ── a entrega: check_context.sh, uma vez por janela, no mesmo canal ─────────────────────────────────
++
++
++def _check(home: Path, session: str | None = SESSION, **env: str):
++    payload: dict[str, Any] = {"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_input": {}}
++    if session is not None:
++        payload["session_id"] = session
++    return run_hook_sh(CHECK, payload, home=home, extra_env=env or None)
++
++
++def _arm_quota(home: Path, pct: int = 87, resets: int | str = 1_900_000_000, session: str = SESSION) -> Path:
++    path = _flag(home, session)
++    path.write_text(f"{pct}\nresets={resets}\n")
++    return path
++
++
++def _journal(home: Path) -> list[dict[str, Any]]:
++    path = home / ".claude" / "touring" / "logs" / "context_check_journal.jsonl"
++    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
++
++
++def test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel(tmp_path: Path) -> None:
++    resets = int(time.time()) + 64 * 60
++    _arm_quota(tmp_path, 87, resets)
++    first = _check(tmp_path)
++    assert first.rc == 0 and first.json is not None
++    hso = first.json["hookSpecificOutput"]
++    assert hso["hookEventName"] == "PostToolUse" and set(first.json) == {"hookSpecificOutput"}
++    text = hso["additionalContext"]
++    clock = time.strftime("%H:%M", time.localtime(resets))
++    assert "87%" in text and "5 h" in text and clock in text
++    assert "rate_limits_snapshot.py --show" in text  # the actionable pointer
++    assert first.schema_ok("PostToolUse")
++    second = _check(tmp_path)
++    assert second.rc == 0 and second.json is None and not second.stdout_raw.strip()
++    assert (_alerts(tmp_path) / f"{SESSION}.quota.delivered").read_text().strip() == str(resets)
++
++
++def test_a_new_window_is_announced_again(tmp_path: Path) -> None:
++    _arm_quota(tmp_path, 87, 1_900_000_000)
++    assert _check(tmp_path).json is not None
++    assert _check(tmp_path).json is None
++    _arm_quota(tmp_path, 88, 1_900_018_000)  # the next 5 h window crossed the threshold again
++    again = _check(tmp_path).json
++    assert again is not None and "88%" in again["hookSpecificOutput"]["additionalContext"]
++
++
++def test_a_marker_whose_window_already_reset_is_not_announced(tmp_path: Path) -> None:
++    """The status line has not rendered since the reset: the reading is stale, and 'zera 14:32' would be in the past."""
++    _arm_quota(tmp_path, 90, int(time.time()) - 60)
++    result = _check(tmp_path)
++    assert result.rc == 0 and result.json is None
++    assert not (_alerts(tmp_path) / f"{SESSION}.quota.delivered").exists()
++
++
++def test_no_reset_key_delivers_once_until_the_marker_is_cleared(tmp_path: Path) -> None:
++    _arm_quota(tmp_path, 90, "-")
++    assert _check(tmp_path).json is not None
++    assert _check(tmp_path).json is None
++
++
++def test_the_quota_alert_is_journalled_as_such(tmp_path: Path) -> None:
++    _arm_quota(tmp_path, 87)
++    _check(tmp_path)
++    spoke = [line for line in _journal(tmp_path) if line["said"] is True]
++    assert len(spoke) == 1 and spoke[0]["detail"] == "quota_5h" and spoke[0]["pct"] == 87
++
++
++def test_context_and_quota_due_together_make_one_message_and_the_context_part_is_unchanged(tmp_path: Path) -> None:
++    (_alerts(tmp_path) / f"{SESSION}.pct").write_text("57\nts=1\n")
++    _arm_quota(tmp_path, 91)
++    both = _check(tmp_path)
++    assert both.json is not None
++    text = both.json["hookSpecificOutput"]["additionalContext"]
++    assert text.startswith(CONTEXT_WARNING_HEAD) and "91%" in text and text.count("Contexto em") == 1
++    assert _check(tmp_path).json is None  # both are now delivered
++
++
++def test_the_context_warning_alone_is_byte_for_byte_what_it_was(tmp_path: Path) -> None:
++    (_alerts(tmp_path) / f"{SESSION}.pct").write_text("57\nts=1\n")
++    alone = _check(tmp_path)
++    assert alone.json is not None and "Franquia" not in alone.json["hookSpecificOutput"]["additionalContext"]
++    assert "Cota" not in alone.json["hookSpecificOutput"]["additionalContext"]
++
++
++def test_quota_delivery_does_not_wait_for_the_context_sensor(tmp_path: Path) -> None:
++    """No heartbeat at all (`sem_sensor` for the context) says nothing about the franchise."""
++    _arm_quota(tmp_path)
++    assert _check(tmp_path).json is not None
++
++
++def test_a_registered_project_monitor_does_not_swallow_the_quota_alert(tmp_path: Path) -> None:
++    project = tmp_path / "proj"
++    (project / ".claude").mkdir(parents=True)
++    (project / ".claude" / "settings.json").write_text('{"hooks": {"x": "context_monitor.py"}}')
++    _arm_quota(tmp_path)
++    assert _check(tmp_path, CLAUDE_PROJECT_DIR=str(project)).json is not None
++
++
++def test_a_marker_without_a_readable_percentage_is_silence_not_a_crash(tmp_path: Path) -> None:
++    _flag(tmp_path).write_text("not-a-number\nresets=1900000000\n")  # a FUTURE window: only the percentage is wrong
++    result = _check(tmp_path)
++    assert result.rc == 0 and result.json is None
++
++
++def test_no_session_id_means_no_quota_delivery(tmp_path: Path) -> None:
++    _arm_quota(tmp_path)
++    result = _check(tmp_path, None)
++    assert result.rc == 0 and result.json is None
++
++
++def test_another_sessions_marker_is_not_delivered_here(tmp_path: Path) -> None:
++    _arm_quota(tmp_path, session="someone-else")
++    assert _check(tmp_path).json is None
+diff --git a/docs/economia-de-creditos-e-contexto.md b/docs/economia-de-creditos-e-contexto.md
+index ce2ce0b..73cbff2 100644
+--- a/docs/economia-de-creditos-e-contexto.md
++++ b/docs/economia-de-creditos-e-contexto.md
+@@ -298,6 +298,7 @@ A pesquisa de 08/10 custou 4 subagentes (3 sonnet e 1 haiku) e 3 conferências d
+   - Registro (fonte `client/claude/hooks.settings.json`, pendente de `install_claude_hooks.py --apply` e dos symlinks em `~/.claude/hooks/`): `delegation_nudge.py` em `PreToolUse` `Read|Grep|Glob` e em `UserPromptSubmit` (`timeout: 5`; medido em 17/10: p50 24 ms, p95 32 ms em 200 chamadas sintéticas); `fable_consent_guard.sh` em `PreToolUse` `Bash` e `Write|Edit|MultiEdit|NotebookEdit` (`timeout: 2`; medido: p50 3,2 ms, p95 3,6 ms, contra 42,5 ms do `block_git.sh`, que usa `jq`).
+ 
+ - **O modelo agora enxerga a própria franquia (implementado em 08/10, ordem do Gabriel).** O payload da status line traz `rate_limits.five_hour` e `rate_limits.seven_day`, cada um com `used_percentage` (0–100) e `resets_at` (epoch), só para Pro/Max e só depois da 1ª resposta da sessão; cada janela pode faltar sozinha [C/statusline]. O `status_monitor.sh` (versionado em `client/hooks/` desde então; `~/.claude/hooks/` tem o symlink) passa o payload, em background, a `client/hooks/rate_limits_snapshot.py`, que grava `~/.claude/touring/rate_limits.json` com **uma leitura por provedor** (`backend_provider.provider_of`, a mesma fonte do gate: uma irmã nunca sobrescreve a cota da Anthropic). Ausência nunca vira zero: payload sem leitura não cria nem apaga nada. Consultar antes de um fanout: `python3 ~/.claude/hooks/rate_limits_snapshot.py --show` (exit 3 sem leitura; `--json` para código). O `agent_model_gate` cita a mesma linha na recusa. 1ª leitura real: *"5 h 5% (zera 16:30) · 7 d 96% (zera 09/10 03:00)"*. Testes: `client/hooks/tests/test_rate_limits_snapshot.py` (18).
++- **A cota agora também está na barra de status (18/10/2026).** O `status_monitor.sh` mostra `5h 60% ↻1h04 · 7d 50%` ao fim da linha, cada janela colorida pela própria faixa (verde < 70, amarelo < 85, vermelho ≥ 85; `QUOTA_WARN_PCT`/`QUOTA_ALERT_PCT` ajustam), o `↻` só na janela de 5 h e só enquanto o reset está no futuro. **Ausência nunca vira zero**: payload sem `rate_limits` (outro backend, versão antiga), janela sem número ou com lixo não desenha nada daquela janela. Aos 85% da janela de 5 h o monitor arma `~/.claude/touring/context_alert/<sessão>.quota` (porcentagem + `resets=<epoch>`, a identidade da janela) e o `check_context.sh` (PostToolUse, o MESMO canal do aviso de contexto) o entrega **uma vez por janela** — junto do aviso de contexto, quando os dois vencem na mesma chamada, em uma só mensagem. Sai quando a leitura cai abaixo do limiar; render sem leitura não desarma. Testes: `client/hooks/tests/test_status_monitor_quota.py`.
+ - **Kimi.** Não se sabe a unidade da cota (requisição ou token). Os domínios divergem: `api.kimi.com/coding` (o local, que funciona) contra `api.kimi.ai/coding` (página de terceiros-tools). A data exata de lançamento do K3 também falta.
+ - **MiniMax.** Não se sabe o máximo de saída, o preço nem os benchmarks do M3.1-Flash-Preview. A doc oficial recomenda `CLAUDE_CODE_AUTO_COMPACT_WINDOW=524288`; a função local usa `1000000` (decisão do Gabriel).
+ - **Anthropic.** A janela exata das mensagens "Opus limit" não foi encontrada. O effort default do Sonnet 5.5 diverge: `high` na API, `medium` no Claude Code.
+diff --git a/scripts/install_claude_hooks.py b/scripts/install_claude_hooks.py
+old mode 100644
+new mode 100755
+index d90d703..8626c75
+--- a/scripts/install_claude_hooks.py
++++ b/scripts/install_claude_hooks.py
+@@ -19,6 +19,11 @@ GROUP and never fired, 26/09/2026):
+       hooks guide — Context7 26/09/2026)
+   L3  a project's script registered globally by path: every other project pays a process
+   L4  no `timeout`: Claude Code's default is 600 s
++  L5  a `touring-hook worktree-create|remove` recorder on the worktree events: a `WorktreeCreate` hook REPLACES
++      the default `git worktree add` and must print the created path (the recorder prints none, so
++      `Agent(isolation: "worktree")` fails — "hook succeeded but returned no worktree path", 17/10/2026);
++      `WorktreeRemove` runs only for worktrees such a hook created, and its exit 0 counts as "removed"
++      whether or not the directory is gone (code.claude.com/docs/en/hooks, read 18/10/2026)
+ """
+ 
+ from __future__ import annotations
+@@ -43,6 +48,9 @@ IF_SUPPORTED_EVENTS = frozenset(
+ IF_MULTIPATTERN = re.compile(r"\||&&")
+ #: A command that runs a script living inside ONE project, by path.
+ PROJECT_SCRIPT = re.compile(r"(\$HOME|~|/home/[^/\s]+)/projects/[^/\s]+/")
++#: The Touring lifecycle recorder for the worktree events — it records, and prints no path.
++WORKTREE_RECORDER = re.compile(r"touring-hook\s+worktree-(?:create|remove)\b")
++WORKTREE_EVENTS = frozenset({"WorktreeCreate", "WorktreeRemove"})
+ 
+ 
+ def load_json(path: Path) -> Any:
+@@ -107,6 +115,9 @@ def lint_hooks(hooks: dict[str, Any]) -> list[dict[str, str]]:
+             findings.append(_finding("L3", event, group, hook, f"project script registered globally: {command!r}"))
+         if hook.get("timeout") is None:
+             findings.append(_finding("L4", event, group, hook, "no `timeout` (Claude Code's default is 600 s)"))
++        if event in WORKTREE_EVENTS and WORKTREE_RECORDER.search(command):
++            detail = f"recorder on {event}, which needs a worktree path or a deletion: {command!r}"
++            findings.append(_finding("L5", event, group, hook, detail))
+     return findings
+ 
+ 
+diff --git a/scripts/snapshot_safety.py b/scripts/snapshot_safety.py
+new file mode 100755
+index 0000000..1feb328
+--- /dev/null
++++ b/scripts/snapshot_safety.py
+@@ -0,0 +1,139 @@
++#!/usr/bin/env python3
++"""Snapshot aditivo de worktrees git — passo SNAPSHOT do Git Safety Protocol v2.
++
++Recriado em 17/10/2026: o original de 10/10 vivia no scratchpad e morreu com o /tmp no boot.
++
++Para cada worktree: copia o índice dela para um arquivo temporário, roda ``git add -A`` na
++cópia, ``write-tree``, ``commit-tree -p HEAD`` e ``update-ref`` de uma ref ``safety/`` NOVA.
++O índice, o HEAD, as branches e os arquivos da worktree nunca são tocados; ref existente nunca
++é sobrescrita; nada é empurrado. Uma segunda captura do zero precisa dar a mesma árvore — é o
++que prova que a ref guarda a worktree byte a byte (menos o que o .gitignore exclui).
++
++Uso:
++    snapshot_safety.py --prefix safety/2026-10-17 NOME=CAMINHO [NOME=CAMINHO ...] [--dry-run]
++"""
++
++from __future__ import annotations
++
++import argparse
++import collections
++import hashlib
++import json
++import os
++import shutil
++import subprocess
++import sys
++import tempfile
++
++MAX_MB_DEFAULT = 50
++TRAILER = "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
++PASSA = ("OK", "DRY-RUN", "COBERTO-PELO-HEAD")
++
++
++class SnapshotError(RuntimeError):
++    pass
++
++
++def git(wt: str, *args: str, index: str | None = None, check: bool = True) -> str:
++    env = dict(os.environ)
++    if index is not None:
++        env["GIT_INDEX_FILE"] = index
++    r = subprocess.run(["git", "-C", wt, *args], capture_output=True, text=True, env=env, check=False)
++    if check and r.returncode != 0:
++        raise SnapshotError(f"git {' '.join(args)} (rc={r.returncode}): {r.stderr.strip()}")
++    return r.stdout.strip()
++
++
++def _sha(path: str) -> str | None:
++    if not os.path.exists(path):
++        return None
++    with open(path, "rb") as fh:
++        return hashlib.sha256(fh.read()).hexdigest()
++
++
++def capture_tree(wt: str, max_bytes: int) -> tuple[str, list[str]]:
++    """(árvore, acima_do_teto) da worktree como ``git add -A`` a vê, num índice descartável."""
++    real_index = git(wt, "rev-parse", "--path-format=absolute", "--git-path", "index")
++    with tempfile.TemporaryDirectory(prefix="snapshot-safety-") as td:
++        idx = os.path.join(td, "index")
++        if os.path.exists(real_index):
++            shutil.copyfile(real_index, idx)
++        else:
++            git(wt, "read-tree", "HEAD", index=idx)
++        listed = git(wt, "ls-files", "-z", "--others", "--modified", "--exclude-standard", index=idx)
++        oversized = []
++        for rel in filter(None, listed.split("\0")):
++            p = os.path.join(wt, rel)
++            if os.path.isfile(p) and not os.path.islink(p) and os.path.getsize(p) > max_bytes:
++                oversized.append(f"{rel} ({os.path.getsize(p) >> 20} MiB)")
++        if oversized:
++            return "", oversized
++        git(wt, "add", "-A", index=idx)
++        return git(wt, "write-tree", index=idx), []
++
++
++def snapshot(name: str, wt: str, ref: str, max_bytes: int, dry_run: bool) -> dict:
++    out: dict = {"nome": name, "worktree": wt}
++    head = git(wt, "rev-parse", "HEAD")
++    head_tree = git(wt, "rev-parse", "HEAD^{tree}")
++    index_path = git(wt, "rev-parse", "--path-format=absolute", "--git-path", "index")
++    index_before = _sha(index_path)
++    tree, oversized = capture_tree(wt, max_bytes)
++    if oversized:
++        return {**out, "status": "RECUSADO", "motivo": "arquivo acima do teto", "acima_do_teto": oversized}
++    changed = git(wt, "diff-tree", "-r", "--no-renames", "--name-status", head_tree, tree).splitlines()
++    out.update(
++        head=head[:8],
++        caminhos_sobre_head=len(changed),
++        por_status=dict(collections.Counter(line.split("\t", 1)[0] for line in changed)),
++    )
++    if git(wt, "rev-parse", "--verify", "-q", ref, check=False):
++        return {**out, "status": "RECUSADO", "motivo": f"{ref} já existe"}
++    if not changed:
++        return {**out, "status": "COBERTO-PELO-HEAD"}
++    if dry_run:
++        return {**out, "status": "DRY-RUN", "ref": ref}
++    msg = (
++        f"safety: snapshot {name} ({len(changed)} caminhos sobre {head[:8]})\n\n"
++        "Aditivo: índice temporário + commit-tree + update-ref; sem push, sem tocar branch.\n\n"
++        f"{TRAILER}\n"
++    )
++    commit = git(wt, "commit-tree", tree, "-p", head, "-m", msg)
++    git(wt, "update-ref", "-m", "snapshot_safety", ref, commit, "")
++    again, _ = capture_tree(wt, max_bytes)
++    checks = {
++        "ref_aponta_o_commit": git(wt, "rev-parse", ref) == commit,
++        "recaptura_igual": again == tree,
++        "indice_intocado": _sha(index_path) == index_before,
++        "head_intocado": git(wt, "rev-parse", "HEAD") == head,
++    }
++    return {**out, "status": "OK" if all(checks.values()) else "DIVERGIU", "ref": ref, "commit": commit[:8], **checks}
++
++
++def main(argv: list[str] | None = None) -> int:
++    ap = argparse.ArgumentParser(description="Snapshot aditivo de worktrees em refs safety/.")
++    ap.add_argument("--prefix", required=True, help="prefixo da ref, ex.: safety/2026-10-17")
++    ap.add_argument("--max-mb", type=int, default=MAX_MB_DEFAULT, help="teto por arquivo (MiB)")
++    ap.add_argument("--dry-run", action="store_true", help="mede e mostra, não grava ref")
++    ap.add_argument("trees", nargs="+", metavar="NOME=CAMINHO")
++    a = ap.parse_args(argv)
++    if not a.prefix.startswith("safety/"):
++        ap.error("o prefixo precisa começar com safety/")
++    rc = 0
++    for spec in a.trees:
++        name, _, path = spec.partition("=")
++        if not name or not path:
++            ap.error(f"esperado NOME=CAMINHO, veio {spec!r}")
++        ref = f"refs/heads/{a.prefix}/{name}"
++        try:
++            res = snapshot(name, os.path.abspath(path), ref, a.max_mb << 20, a.dry_run)
++        except SnapshotError as e:
++            res = {"nome": name, "status": "ERRO", "motivo": str(e)}
++        print(json.dumps(res, ensure_ascii=False))
++        if res["status"] not in PASSA:
++            rc = 1
++    return rc
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/scripts/test_snapshot_safety.py b/scripts/test_snapshot_safety.py
+new file mode 100644
+index 0000000..7f9fb9e
+--- /dev/null
++++ b/scripts/test_snapshot_safety.py
+@@ -0,0 +1,131 @@
++"""Tests for snapshot_safety.py — the SNAPSHOT step of the Git Safety Protocol (REGRA #11), run on REAL git repos.
++
++The script was born in a plan directory (10/10/2026), died with the /tmp it lived in, was recreated there on
++17/10 and was never versioned or tested; `/checkpoint` depends on it, so it is promoted here with the invariant
++that makes it a safety net instead of another way to lose work: the snapshot is ADDITIVE.
++
++  · the worktree's files, the index file and HEAD are byte-identical after the run;
++  · the new ref's tree holds the working tree as it was (tracked changes AND untracked files), minus .gitignore;
++  · a ref that already exists is never overwritten, a clean tree makes no ref, a huge file refuses the snapshot;
++  · nothing is stashed, pushed or branched into the current branch.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++import subprocess
++import sys
++from pathlib import Path
++
++import pytest
++
++SCRIPT = Path(os.environ.get("SNAPSHOT_SAFETY_SCRIPT") or Path(__file__).resolve().parent / "snapshot_safety.py")  # env: mutation runner
++PREFIX = "safety/2026-10-18"
++ENV = {**os.environ, "GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t",
++       "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
++
++
++def _git(repo: Path, *args: str) -> str:
++    done = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True, env=ENV, check=True)
++    return done.stdout.strip()
++
++
++@pytest.fixture
++def repo(tmp_path: Path) -> Path:
++    root = tmp_path / "repo"
++    root.mkdir()
++    _git(root, "init", "-q", "-b", "main")
++    (root / "tracked.txt").write_text("v1\n")
++    (root / ".gitignore").write_text("ignored.log\n")
++    _git(root, "add", "-A")
++    _git(root, "commit", "-q", "-m", "init")
++    return root
++
++
++def _snapshot(repo: Path, name: str = "work", *flags: str, prefix: str = PREFIX) -> tuple[int, dict]:
++    done = subprocess.run([sys.executable, str(SCRIPT), "--prefix", prefix, *flags, f"{name}={repo}"],
++                          capture_output=True, text=True, env=ENV, check=False)
++    lines = [line for line in done.stdout.splitlines() if line.strip()]
++    return done.returncode, json.loads(lines[-1]) if lines else {}
++
++
++def _digest(repo: Path) -> dict[str, str]:
++    index = Path(_git(repo, "rev-parse", "--path-format=absolute", "--git-path", "index"))
++    files = {str(p.relative_to(repo)): hashlib.sha256(p.read_bytes()).hexdigest()
++             for p in sorted(repo.rglob("*")) if p.is_file() and ".git" not in p.relative_to(repo).parts}
++    return {"head": _git(repo, "rev-parse", "HEAD"), "index": hashlib.sha256(index.read_bytes()).hexdigest(), **files}
++
++
++def test_a_dirty_tree_is_captured_in_a_new_safety_ref_and_nothing_else_moves(repo: Path) -> None:
++    (repo / "tracked.txt").write_text("v2 edited\n")
++    (repo / "brand_new.py").write_text("print('untracked')\n")
++    (repo / "ignored.log").write_text("noise\n")
++    _git(repo, "add", "tracked.txt")  # a staged change must stay staged
++    (repo / "tracked.txt").write_text("v3 edited again\n")
++    before = _digest(repo)
++
++    rc, out = _snapshot(repo)
++
++    assert rc == 0 and out["status"] == "OK", out
++    assert out["ref"] == f"refs/heads/{PREFIX}/work"
++    assert _digest(repo) == before  # every file, the index and HEAD: byte-identical
++    assert _git(repo, "show", f"{out['ref']}:tracked.txt") == "v3 edited again"
++    assert _git(repo, "show", f"{out['ref']}:brand_new.py") == "print('untracked')"
++    assert "ignored.log" not in _git(repo, "ls-tree", "-r", "--name-only", out["ref"])
++    assert _git(repo, "rev-parse", f"{out['ref']}^") == before["head"]  # a child of HEAD
++    assert _git(repo, "stash", "list") == ""
++    assert _git(repo, "rev-parse", "--abbrev-ref", "HEAD") == "main"
++
++
++def test_the_staged_state_survives(repo: Path) -> None:
++    (repo / "tracked.txt").write_text("staged\n")
++    _git(repo, "add", "tracked.txt")
++    staged = _git(repo, "diff", "--cached", "--name-only")
++    _snapshot(repo)
++    assert _git(repo, "diff", "--cached", "--name-only") == staged == "tracked.txt"
++
++
++def test_a_clean_tree_makes_no_ref(repo: Path) -> None:
++    rc, out = _snapshot(repo)
++    assert rc == 0 and out["status"] == "COBERTO-PELO-HEAD"
++    assert _git(repo, "for-each-ref", f"refs/heads/{PREFIX}") == ""
++
++
++def test_an_existing_ref_is_never_overwritten(repo: Path) -> None:
++    (repo / "tracked.txt").write_text("first\n")
++    rc, first = _snapshot(repo)
++    assert rc == 0
++    commit = _git(repo, "rev-parse", first["ref"])
++    (repo / "tracked.txt").write_text("second\n")
++    rc, again = _snapshot(repo)
++    assert rc == 1 and again["status"] == "RECUSADO" and "já existe" in again["motivo"]
++    assert _git(repo, "rev-parse", first["ref"]) == commit
++
++
++def test_dry_run_measures_without_writing(repo: Path) -> None:
++    (repo / "tracked.txt").write_text("edited\n")
++    rc, out = _snapshot(repo, "work", "--dry-run")
++    assert rc == 0 and out["status"] == "DRY-RUN" and out["caminhos_sobre_head"] == 1
++    assert _git(repo, "for-each-ref", f"refs/heads/{PREFIX}") == ""
++
++
++def test_a_file_above_the_ceiling_refuses_the_snapshot_and_names_it(repo: Path) -> None:
++    (repo / "big.bin").write_bytes(b"x" * (2 << 20))
++    rc, out = _snapshot(repo, "work", "--max-mb", "1")
++    assert rc == 1 and out["status"] == "RECUSADO" and "big.bin" in out["acima_do_teto"][0]
++    assert _git(repo, "for-each-ref", f"refs/heads/{PREFIX}") == ""
++
++
++def test_the_prefix_must_live_under_safety(repo: Path) -> None:
++    done = subprocess.run([sys.executable, str(SCRIPT), "--prefix", "feature/x", f"w={repo}"], capture_output=True,
++                          text=True, env=ENV, check=False)
++    assert done.returncode == 2 and "safety/" in done.stderr
++
++
++def test_a_path_that_is_not_a_repository_is_an_error_line_not_a_traceback(tmp_path: Path) -> None:
++    plain = tmp_path / "plain"
++    plain.mkdir()
++    rc, out = _snapshot(plain)
++    assert rc == 1 and out["status"] == "ERRO"

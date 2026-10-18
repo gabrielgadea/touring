@@ -1,0 +1,5 @@
+recall de símbolo · arquivo 0/13 · inline 0/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 700 | p95 0.0 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+  PENDENTE: recall de símbolo (arquivo) 0.000 < 0.7 (0/13)
+  PENDENTE: recall de símbolo (inline) 0.000 < 0.7 (0/27)
+veredito: NÃO PRONTO
+juiz_rc=1

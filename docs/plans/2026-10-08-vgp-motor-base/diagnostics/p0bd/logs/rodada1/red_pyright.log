@@ -1,0 +1,26 @@
+   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-pyright)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1.76s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0bd/debug/deps/touring_pyright-a050e28069285cbb)
+
+running 1 test
+test pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro ... FAILED
+
+failures:
+
+---- pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro stdout ----
+
+thread 'pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro' (2867020) panicked at crates/touring-pyright/src/pyright.rs:1700:9:
+assertion `left == right` failed
+  left: None
+ right: Some("stat_result")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 177 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p touring-pyright --lib`
+error: 1 target failed:
+    `-p touring-pyright --lib`

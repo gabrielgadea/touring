@@ -1,0 +1,34 @@
+    Checking h2 v0.4.19
+    Checking naga v26.0.0
+    Checking wasmtime v36.0.14
+    Checking tower-http v0.6.11
+    Checking miette v7.6.0
+    Checking fastembed v5.17.2
+    Checking hyper v1.10.1
+    Checking deadpool-sqlite v0.14.0
+    Checking touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-orchestration)
+    Checking hyper-util v0.1.20
+    Checking hyper-rustls v0.27.9
+    Checking wasmtime-c-api-impl v36.0.12
+    Checking reqwest v0.12.28
+    Checking tree-sitter v0.26.9
+    Checking wgpu-hal v26.0.6
+    Checking ast-grep-core v0.42.3
+    Checking tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+    Checking ast-grep-language v0.42.3
+    Checking wgpu-core-deps-windows-linux-android v26.0.0
+    Checking wgpu-core v26.0.1
+    Checking touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+    Checking wgpu v26.0.1
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+    Checking touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+    Checking touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+    Checking touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
+    Checking touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+    Checking touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 37.66s

@@ -1,0 +1,229 @@
+{
+ "area": "A-hooks",
+ "ecc_resumo": "ECC 2.2.3 registra 27 comandos Node em hooks.json (contagem minha; docs/HERMES-HOOKS.md:17 diz 24), nos eventos PreToolUse, UserPromptSubmit, PreCompact, SessionStart, PostToolUse (sync e async), PostToolUseFailure, Stop e SessionEnd. run-with-flags.js liga e desliga cada hook por perfil (minimal, standard ou strict), por lista de IDs e por dry-run. Dispatchers fundem vários hooks em um processo. Um sidecar guarda ID e fingerprint de cada entrada. O padrão é fail-open (stdout vazio, exit 0); só guardas nomeados falham fechado, quando a entrada truncou. O GateGuard nega a primeira edição de cada arquivo até haver fatos. O ECC mediu o próprio efeito: não confirmado (p=0,210), com custo de +37 a +61%. Os testes cobrem protocolo, um corpus de cenários rotulados e injeção de estouro de cota no parser. O PR #3596 é moderação de CI, não é hook.",
+ "findings": [
+  {
+   "id": "A1",
+   "mecanismo": "Parser de shell recursivo com orçamento de trabalho, fail-closed e heredoc como dado só para destino passivo",
+   "evidencia_ecc": "scripts/hooks/lib/shell-scan.js:7 'let remaining = 24 * (length + 1) + 4096' ; block-no-verify.js:1018 'BLOCKED: Shell analysis work budget exceeded; hook-bypass safety could not be established.' ; gateguard-heredoc.js:5-8 'proven-passive sinks ... cat and tee'",
+   "como_funciona": "eval, sh -c, env -S, sed e e heredoc com destino shell são re-escaneados. O orçamento é proporcional à entrada. Estouro ou escape não suportado vira bloqueio. O corpo do heredoc só é dado se o destino for cat ou tee. block-no-verify.test.js:581-586 injeta estouro de cota em cada ponto de gasto.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "PROBE EXECUTADO com `bash client/hooks/block_git.sh`: `git reset --hard HEAD` deu DENY. Deram allow: `bash -c 'git reset --hard HEAD'`, `sh -c \"git clean -fd\"`, `bash <<'EOF'` com reset no corpo, `eval \"git stash\"` e `python3 -c \"os.system('git reset --hard')\"`. Na cadeia Rust, `touring-hook pre-bash`, `ceg-observe` e `cli-suggest` deram saída vazia nas duas formas aninhadas testadas; a forma simples recebe o nudge regra-11-git-destructive (conf 0.99). Causa: client/hooks/_shell_mask.py apaga todo literal entre aspas e todo corpo de heredoc, seja qual for o destino.",
+   "licao_tipo": "corrigir",
+   "proposta": "Tratar `sh|bash|zsh -c`, `eval`, heredoc para shell e `xargs` como código: re-escanear o payload com orçamento, e estouro vira deny que nomeia GIT_DESTRUCTIVE_OK=1. Só cat, tee, echo e printf mantêm o corpo como dado. Fazer isso no validador Rust (ver A9) e testar por mutação de cota.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Falso positivo em texto citado dentro de `bash -c`. Não executei a prova da cadeia completa (CEG X2/X6, process-guard).",
+   "confianca": 0.9
+  },
+  {
+   "id": "A2",
+   "mecanismo": "Guarda contra bypass de hooks do git (--no-verify, -n, core.hooksPath, includes e GIT_CONFIG_*)",
+   "evidencia_ecc": "scripts/hooks/block-no-verify.js:5-6 'Blocks git hook-bypass flags (--no-verify, -c core.hooksPath=) to protect pre-commit, commit-msg, and pre-push hooks'",
+   "como_funciona": "Varre commit, push, merge, cherry-pick, rebase e am. Rejeita --no-verify, o -n de cluster curto, -c core.hooksPath, include.path, includeIf.*.path e as variáveis GIT_CONFIG_COUNT/KEY/VALUE exportadas.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep de 'no-verify|hooksPath' em client/hooks, touring-hook-handlers, touring-hooks-shared e touring-hooks-core: 0 arquivos. Probe do block_git.sh: `git commit --no-verify -m x` e `git -c core.hooksPath=/dev/null commit -m x` deram allow. O repo Touring não tem hook git ativo (ls .git/hooks sem amostras). Quais outros projetos de Gabriel têm pre-commit: nao_verificado.",
+   "licao_tipo": "complementar",
+   "proposta": "Deny desses padrões com token por comando (ex.: GIT_HOOKS_BYPASS_OK=1), reaproveitando a varredura de A1.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "A REGRA #11 v2 trata commit como aditivo livre. Isso muda política e é decisão de Gabriel.",
+   "confianca": 0.8
+  },
+  {
+   "id": "A3",
+   "mecanismo": "config-protection: bloquear o enfraquecimento de configs de lint/format e das listas de ignore",
+   "evidencia_ecc": "scripts/hooks/config-protection.js:5-7 'Agents frequently modify these to make checks pass instead of fixing the actual code.' ; :88-92 ignore files ; :176-193 lstat, só ENOENT conta como ausente",
+   "como_funciona": "Pelo basename (case-insensitive) e por padrões `eslint.config.<qual>.<ext>`, bloqueia edição de config existente. Criar uma config nova é permitido. Erro de stat que não seja ENOENT conta como 'existe'. pyproject é excluído de propósito (:55-57). Em entrada truncada, bloqueia.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "grep de ruff.toml|clippy.toml|rustfmt.toml|deny.toml|eslintrc|biome.json em client/hooks, touring-hook-handlers e touring-hooks-shared: só ruído de 'baseline'. Nenhum hook protege config de lint nem os insumos do juiz (flow_manifests.json, baseline de órfãos). O índice de memória cita 'Juiz gravável pelo julgado'; se foi corrigido: nao_verificado.",
+   "licao_tipo": "complementar",
+   "proposta": "PreToolUse Edit|Write|MultiEdit, e Bash via masker de A1, negando edição de config existente: ruff.toml, clippy.toml, rustfmt.toml, deny.toml, e [lints] / [tool.ruff] por diff de tabela. Incluir os arquivos do juiz. lstat fail-closed, criação inicial livre, mensagem 'corrija o código' e token por comando.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Fricção quando a mudança de config é legítima. Bypass por Bash se A1 não fechar.",
+   "confianca": 0.8
+  },
+  {
+   "id": "A4",
+   "mecanismo": "Princípio de confiança: regra vinda do repositório não ativa sozinha",
+   "evidencia_ecc": "README.md:179-180 'Files tracked by Git are disabled by default because opening a repository must not activate repository-authored instructions' ; hookify-runtime.js:308 tracked rules require explicit approval ; run-with-flags.js:228-233 guarda de path traversal",
+   "como_funciona": "Regras `.claude/hookify.*.local.md` versionadas no git são ignoradas, a menos que haja ECC_HOOKIFY_ALLOW_TRACKED=1. Symlink, arquivo grande ou malformado é pulado com diagnóstico. O caminho do script não pode escapar da raiz do plugin.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "~/.claude/hooks/touring-hook:50-69 (Layer 2) sobe de $CLAUDE_PROJECT_DIR ou $PWD até `/` e faz `exec` do primeiro `.touring/bin/touring-hook` executável. Não há checagem de hash contra toolchain.lock, de dono, nem de 'rastreado pelo git'. O shim é de nível usuário e roda em todo evento. Um repo clonado com esse arquivo 755 executa código como o usuário ao abrir a sessão. Verificado por leitura de código; não explorei.",
+   "licao_tipo": "corrigir",
+   "proposta": "O shim só aceita o candidato se o sha256 bater com .touring/toolchain.lock, o dono for o uid sem escrita de grupo ou outros, e o git não o rastrear (`git ls-files --error-unmatch`). Senão, cai para a toolchain do usuário e avisa uma vez.",
+   "valor": "alto",
+   "custo": "P",
+   "risco": "Quebra o fluxo dev iterativo em projeto sem lock. Hash de binário grande custa, então cachear por mtime e tamanho.",
+   "confianca": 0.85
+  },
+  {
+   "id": "A5",
+   "mecanismo": "Direção da falha por classe de hook: guarda falha fechado quando não consegue inspecionar, sempre com mensagem, saída estreita nomeada e contador",
+   "evidencia_ecc": "run-with-flags.js:20-24 FAIL_CLOSED_ON_TRUNCATION_HOOKS ; :137-141 'BLOCKED: Hook input exceeded ... could not safely inspect the complete request.' ; hookify-runtime.js:659-670 regra block + timeout vira match ; gateguard-fact-force.js:2098-2103 falha de estado vira allow + stderr + métrica",
+   "como_funciona": "O padrão é fail-open. Só guardas listados negam quando a entrada truncou ou o orçamento estourou, e regras de aviso continuam. Todo passe por falha vira registro ('state-error', hook_input_truncated em governance-capture.js:13).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "hook_runtime_ext.rs:441-480 read_stdin devolve Ok({}) em Timeout, Empty e ReadError, com só um warn, então a guarda vê comando vazio e libera. Não há teto de tamanho (read_all_with_timeout :640-668). touring-quality-block-all.sh:26 e :126 pulam o gate P0 (OWASP/segredos) em silêncio, só com linha em /tmp/hook_invocations.log. Nesse log, 6 de 756 invocações foram puladas (0,79%; CP95 até 1,72%), 5 por lock ocupado e 1 por score vazio. block_git.sh: jq ausente leva a CMD vazio e `exit 0` mudo.",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Separar guarda de conselheiro. Guardas negam com stdin_state em timeout, read-error ou parse-error, ou acima do teto, nomeando a saída. Todo skip de guarda emite stderr e contador no gate-metrics. Antes, medir no trace a fração de stdin_state diferente de ok.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Brickar a sessão por timeout espúrio (o socketpair libuv já enganou, F0.3b). Daí medir antes de endurecer.",
+   "confianca": 0.8
+  },
+  {
+   "id": "A6",
+   "mecanismo": "Corpus de cenários rotulados (mustDeny, redundant, expect) com comparação contra refs do git",
+   "evidencia_ecc": "docs/gateguard/evaluation.md:34-35 'Must-deny bypasses ... Must be 0 for the working tree' ; :77-84 184 passos, 20 cenários, redundantes 38 para 0, bypass 8 para 0 ; tests/hooks/gateguard-scenarios.test.js",
+   "como_funciona": "Cada passo é uma chamada de hook com transcript e payload. O autor rotula a decisão certa e se negar seria redundante. O script roda na árvore e em refs antigas (`git show <ref>`), sai com código diferente de 0 em bypass ou divergência, e um teste congela as decisões.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "scripts/prova_code_mode_ceg.py (35 asserções contra o binário deployado, gate 5.5 do propagate-release) e `touring gate-metrics -j` com contadores g1_* e g10_*. Em scripts/ e docs/ não achei corpus rotulado de cenários, nem métrica de negação redundante, nem comparação entre refs.",
+   "licao_tipo": "complementar",
+   "proposta": "scripts/gate_replay.py mais fixtures JSON para G1-G11, block_git e o deny do pre-bash. Métricas: negações, redundantes, bypass de must-deny (=0), divergência contra a ref anterior. Ligar ao gate do propagate-release. Semear com as formas aninhadas de A1.",
+   "valor": "alto",
+   "custo": "G",
+   "risco": "Rótulos são opinião do autor (evaluation.md:323-329 admite). Corpus sintético dá direção, não taxa.",
+   "confianca": 0.8
+  },
+  {
+   "id": "A7",
+   "mecanismo": "Medir o efeito e o custo do gate com braços contrafactuais pré-registrados",
+   "evidencia_ecc": "docs/gateguard/question-effectiveness.md:451-456 'gate 25 of 48 (52%), off 18 of 48 (38%) ... exact two-sided McNemar p is 0.210' ; :470-472 'about 37% more turns and 40% more cost' ; :296-303 asked the user, p=1.000",
+   "como_funciona": "Braços off, gate, minus-target e placebo, pareados por cenário e repetição. Hipótese e N fixados antes, McNemar exato, Wilson, classes de buraco (silence, targeting, coverage). O piloto de 72 sessões deu 18/18 em tudo ('returned no information'), porque o fato decisivo estava no repositório e o canal de perguntas estava fechado.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "TOURING_CODE_GATES_DISABLED (CLAUDE.md do repo, item 10) é o braço 'off' pronto. docs/agentic-bench/run_bench.py gera .ab-latest.json com chaves arm, control_composite, treatment_composite, delta, epsilon e verdict (nao_verificado se há braço com gates desligados). gate-metrics tem g1_post_deny_same_class_count (seguimento), mas nenhum custo em turnos ou tokens por gate e nenhum placebo. Nesta pesquisa G10 e G11 negaram 2 chamadas Bash (n=1, anedota).",
+   "licao_tipo": "refinar",
+   "proposta": "Um experimento pré-registrado e pareado, com G1, G10 e G11 ligados contra desligados, em tarefas com custo medido. Reportar turnos e tokens ao lado do acerto. O fato decisivo fica fora do repositório. Reusar o método, não o código.",
+   "valor": "alto",
+   "custo": "G",
+   "risco": "Custa créditos (o ECC gastou US$ 7 a 12 por rodada; 177 pares para detectar 15 pontos). Poder baixo com N pequeno.",
+   "confianca": 0.75
+  },
+  {
+   "id": "A8",
+   "mecanismo": "ID estável por hook com fingerprint, lista única de desativação, perfis e dry-run",
+   "evidencia_ecc": "hooks/README.md:24-25 'Each sidecar entry also carries a fingerprint of the matcher entry'; scripts/lib/hook-flags.js:7-8 ECC_HOOK_PROFILE e ECC_DISABLED_HOOKS; :119 ECC_DRY_RUN=1",
+   "como_funciona": "O sidecar casa ID com matcher por índice e fingerprint. Reordenar ou editar sem atualizar o sidecar é pego no CI. O ID alimenta a desativação por lista e o perfil. O dry-run imprime o que rodaria.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "Superior em deriva: scripts/install_claude_hooks.py faz lint, --check e --apply (test_s49_install_claude_hooks.py:92 test_check_detects_manual_drift). Ausente: ID por entrada e desativação por lista. Há 152 comandos registrados em ~/.claude/settings.json (jq) e pelo menos 26 variáveis de desligamento ad hoc em 8 diretórios (TOURING_CODE_GATES_DISABLED, TOURING_SUGGESTER_DISABLED, TOURING_G1/G2/G8_REWRITE_DISABLED, TOURING_PROCESS_GUARD_DISABLED…). `touring --help` não lista comando de explicar quais hooks disparam.",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "ID e fingerprint no sidecar da fonte versionada. `TOURING_DISABLED_HOOKS=id,…` e `TOURING_HOOK_PROFILE=minimal|standard|strict` lidos pelo shim. `touring-hook explain <payload>` em dry-run. O perfil minimal substitui a flag ad hoc que sessões headless e irmãs herdam (gotcha 8a do CLAUDE.md).",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Os kill switches são humano-only. O perfil só pode vir do ambiente do daemon, nunca de um escape que o agente use.",
+   "confianca": 0.8
+  },
+  {
+   "id": "A9",
+   "mecanismo": "Consolidar processos e manter um único predicado",
+   "evidencia_ecc": "hooks/hooks.metadata.json:83-92 'Run synchronous PostToolUse hooks in one process while preserving per-hook controls' ; run-with-flags.js:248-250 require() em vez de spawn",
+   "como_funciona": "Dispatchers (pre-bash-dispatcher, posttooluse-dispatcher sync e async) rodam vários hooks em um processo Node. O GateGuard custa 17 ms de p50 em processo novo (evaluation.md:241).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "Medido com `touring run`, no sandbox, em máquina compartilhada, n=15: block_git.sh p50 119,5 ms e p90 133,6 (bash vazio 2,0); evidence_guard.py p50 101,8 e p90 137,0 (python vazio 12,8); process-guard 16,3; check_context 14,8; fable_consent 7,1. Cada Bash dispara 6 PreToolUse e 5 PostToolUse (settings.json), em paralelo. _shell_mask.py cita como referência o Rust mask_shell_data (crates/touring-ceg/src/gateway/gate.rs:1651): são duas implementações do mesmo predicado.",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Levar a lógica do block_git e o masker para o handler Rust (bash_ast_validator.rs:215 já tem 'git reset --hard' como Warn), com um shim fino. Isso elimina a cópia Python e cerca de 40 forks, e entrega A1 de quebra. Portar os casos de test_s25_*.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "A medida é ruidosa (sandbox mais 6+ sessões, 'p95 de rodada mede a máquina'). Regressão nos casos do s25.",
+   "confianca": 0.6
+  },
+  {
+   "id": "A10",
+   "mecanismo": "Detector de laço de ferramenta e cobertura de PostToolUseFailure",
+   "evidencia_ecc": "scripts/hooks/ecc-context-monitor.js:24-29 'LOOP_THRESHOLD = 5 ... At 3, three repeats of a legitimate command (retries, polling) among five mixed calls fired a false warning.'",
+   "como_funciona": "Anel das últimas 5 chamadas com ferramenta e parâmetros. Só avisa se as 5 forem idênticas, com debounce por severidade em arquivo atômico. PostToolUseFailure cobre ^mcp__ e Skill para saúde e telemetria.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "settings.json: PostToolUseFailure tem só os matchers `Edit|Write|Bash` e `Bash` (falha de MCP, Skill e Agent sem observação). G7 e G10 cobrem rajadas de inspeção e execução. Anel genérico de chamada idêntica: nao_verificado (0 hits de loop|repeat|identical em post_tool_batch.rs). A regra 'loop detection' do CLAUDE.md é manual.",
+   "licao_tipo": "complementar",
+   "proposta": "Anel de 5 chamadas por sessão no post-tool-batch com limiar 5 e aviso consultivo com debounce. Ampliar o matcher de PostToolUseFailure para `^mcp__|Skill|Agent`, só com contador.",
+   "valor": "baixo",
+   "custo": "P",
+   "risco": "Ruído. É apenas consultivo.",
+   "confianca": 0.65
+  }
+ ],
+ "anti_licoes": [
+  "Não importar o GateGuard (negar a 1ª edição até haver fatos): o próprio ECC mediu efeito não confirmado (p=0,210), custo +37% a +61% em turnos e custo, e o gate não muda se o agente pergunta (p=1,0). São 2.574 linhas de hook e 7.561 de teste para um efeito não provado. Só o método de medir vale (A6, A7).",
+  "Não copiar a arquitetura de processo Node por hook (24 a 27 spawns, bootstrap com `node -e` inline, require() decidido por regex em run-with-flags.js:256-267). O daemon Rust do Touring é melhor; os dispatchers do ECC compensam um custo que o Touring não tem do mesmo jeito.",
+  "Não copiar o protocolo de bloqueio por exit 2 com stderr e o eco legado de stdin como saída. O ECC gastou testes inteiros para suprimir esse eco. O deny em JSON do Touring é superior.",
+  "Não copiar a inconsistência de direção da falha: block-no-verify.js:1017 relança erro que não é RangeError e bash-hook-dispatcher.js:159-161 engole a exceção, então um crash vira allow.",
+  "Não copiar métricas opt-in e desligadas por padrão (GATEGUARD_METRICS): o efeito do ECC nunca é medido por padrão. Os contadores sempre ligados do Touring são melhores.",
+  "Não copiar o PR #3596: lista fixa de ID numérico de conta e bloqueio automático por PAT em política do repo. Fica só o princípio de recusar decisão com dado incompleto (listPages lança erro ao atingir o limite de paginação), que o Touring já pratica como 'sinal ausente não é zero'."
+ ],
+ "claims_nao_verificados": [
+  "Ganho do GateGuard: o corpus de evaluation.md é sintético, com rótulos do autor (:316-329), e os agregados numéricos históricos não são recomputáveis (question-effectiveness.md:277-282).",
+  "'Economiza ~50-100 ms por hook' com require() (run-with-flags.js:250) é comentário; o próprio doc mediu 12 a 30 ms em processo novo e o cache V8 não ajudou (evaluation.md:274-278).",
+  "docs/hook-bug-workarounds.md:36-42 diz que CLAUDE_AUTOCOMPACT_PCT_OVERRIDE pode antecipar a compactação em alguns builds (issue #644, 'community-tested'). Não reproduzi; o Touring usa 65, então vale conferir.",
+  "'strict adiciona guardrails mais rígidos' (README) não vem com nenhuma medição.",
+  "Segurança do shim (A4): confirmada por leitura do código, sem exploração. Quanto o workspace trust do Claude Code cobre hooks de usuário: nao_verificado."
+ ],
+ "symbol_verification": [
+  {
+   "simbolo_ou_caminho": "crates/touring-hook-runtime/src/verdict.rs (with_advisories, merge_pretool_json)",
+   "categoria": "not_found",
+   "evidencia": "`find crates -name 'verdict*'` vazio na árvore de trabalho; grep dos dois símbolos em crates: 0. O arquivo existe em `git show f9ba1491:crates/touring-hook-runtime/src/verdict.rs` (branch safety/2026-10-17/int97-pos-frag; worktree touring-wt-int97), não em feat/2026-09-16-shell-quality-wiring-python."
+  },
+  {
+   "simbolo_ou_caminho": "client/hooks/block_git.sh e client/hooks/_shell_mask.py",
+   "categoria": "found",
+   "evidencia": "Lidos por inteiro; probe com 10 comandos: simples DENY, aninhados allow."
+  },
+  {
+   "simbolo_ou_caminho": "crates/touring-hook-runtime/src/hook_runtime_ext.rs read_stdin e read_all_with_timeout",
+   "categoria": "found",
+   "evidencia": "Linhas 441-480 e 640-668 lidas; sem teto de bytes."
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/hooks/touring-hook (shim Layer 2)",
+   "categoria": "found",
+   "evidencia": "Linhas 50-69: exec do primeiro .touring/bin/touring-hook encontrado, sem verificação."
+  },
+  {
+   "simbolo_ou_caminho": "client/hooks/tests/test_hook_fail_open_contract.py",
+   "categoria": "found",
+   "evidencia": "Docstring: fail-open, mas nunca mudo (stderr)."
+  },
+  {
+   "simbolo_ou_caminho": "TOURING_HOOK_TRACE_FILE (crates/touring-hook-runtime/src/hook_trace.rs)",
+   "categoria": "found",
+   "evidencia": "Contrato lido nas linhas 1-60: opt-in, uma linha por processo, sem payload."
+  },
+  {
+   "simbolo_ou_caminho": "loop_stop_guard.py: stop_hook_active",
+   "categoria": "not_found",
+   "evidencia": "grep -c = 0; usa teto de contador (MAX_CONTINUATIONS=30, OUTER=5), então não é lacuna."
+  },
+  {
+   "simbolo_ou_caminho": "redact_secrets",
+   "categoria": "found",
+   "evidencia": "crates/touring-ceg/src/gateway/sandbox_executor.rs:1702, usado em sandbox_output_store.rs:100 e transcript_miner.rs:536; superior ao ECC nesse ponto."
+  },
+  {
+   "simbolo_ou_caminho": "touring hooks explain",
+   "categoria": "not_found",
+   "evidencia": "`touring --help | grep -i hook` não lista comando de explicar."
+  },
+  {
+   "simbolo_ou_caminho": "/tmp/hook_invocations.log",
+   "categoria": "found",
+   "evidencia": "756 'invoked', 6 'WARN fail-open' (5 lock busy, 1 empty score)."
+  }
+ ],
+ "cobertura": {
+  "arquivos_lidos": 55,
+  "principais": [
+   "hooks/README.md",
+   "hooks/hooks.json (parseado)",
+   "hooks/hooks.metadata.json",
+   "docs/hook-bug-workarounds.md",
+   "docs/HERMES-HOOKS.md",
+   "docs/gateguard/{design-notes,evaluation,question-effectiveness,change-profile}.md (parciais)",
+   "scripts/hooks/{run-with-flags,hook-input,hook-input-limits,config-protection,block-no-verify (parcial),gateguard-heredoc,gateguard-fact-force (parcial),bash-hook-dispatcher,governance-capture,mcp-health-check,ecc-context-monitor,hookify-runtime (parcial)}.js",
+   "tests/hooks (nomes de testes de 8 arquivos)",
+   "PR #3596 (policy, workflow, guard)",
+   "Touring: block_git.sh, _shell_mask.py, touring-hook (shim), hook_runtime_ext.rs, hook_trace.rs, touring-quality-block-all.sh, settings.json (hooks), install_claude_hooks tests"
+  ],
+  "nao_lidos": "hooks/hermes/*.py, scripts/hooks/{session-start,pre-compact,cost-tracker,observe-runner,plan-canvas*,stop-format-typecheck,pre-bash-commit-quality,suggest-compact}.js, tests/hooks/hooks.test.js (6.708 linhas) e o miolo de gateguard-fact-force.js e block-no-verify.js. Do Touring, não li pre_bash.rs, pre_write.rs nem pre_edit_prevention.rs por inteiro, e a cadeia CEG X0-X9 não foi exercitada."
+ }
+}

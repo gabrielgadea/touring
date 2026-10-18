@@ -8,7 +8,8 @@
 # convergence judge "quality unmeasured" with nobody able to review the tool.
 # Origin: docs/plans/2026-08-31-cpu-otimizacao-notebook/strategy.md (FASE 2) —
 # a full score holds 250%+ CPU, so an unchanged target is served from cache and
-# only one score runs at a time.
+# only one DIRECTORY score runs at a time (a single file does not queue behind it:
+# see «Lanes» below).
 #
 # Cache: $TOURING_QUALITY_CACHE_DIR/<sha256>.json, the key hashing the ENGINE
 # (mtime+size), the ARGUMENTS, and the target listing (mtime+size+path of tracked
@@ -297,7 +298,14 @@ if cache_fresh; then
 fi
 
 mkdir -p "$CACHE_DIR"
-take_lock
+# Lanes (17/10/2026, Gabriel's decision): the lock keeps ONE full scan (250%+ CPU; 165-184 s for
+# ~/projects/analise, requested by the convergence judge) at a time. A single-file score is light
+# (0.03 s typical, 5.8 s max measured on 17/10) and the Write/Edit P0 gate of EVERY session runs
+# one: queued behind a directory scan, the hook spent its budget and skipped the gate. A file
+# target therefore does not take the scan lock; a directory (and `--output`, above) still does.
+if [[ -d "$TARGET_REAL" ]]; then
+  take_lock
+fi
 # The holder may have just cached this very state.
 if cache_fresh; then
   cat "$CACHE_FILE"
@@ -305,18 +313,22 @@ if cache_fresh; then
 fi
 
 rc=0
-run_engine "$@" > "$CACHE_FILE.tmp" || rc=$?
+# Temporaries are named by the PROCESS, not only by the key: two unlocked runs of the same key
+# can overlap, and a shared name let the first run delete the file the second was still writing.
+tmp_raw="$CACHE_FILE.tmp.$$"
+tmp_out="$CACHE_FILE.out.$$"
+run_engine "$@" > "$tmp_raw" || rc=$?
 # One filter for what is printed AND what is cached, so a cache hit prints exactly
 # what the measurement printed (the version banner and blank lines are dropped).
-grep -Ev '^touring [0-9]|^$' "$CACHE_FILE.tmp" > "$CACHE_FILE.out" || true
-cat "$CACHE_FILE.out"
-rm -f "$CACHE_FILE.tmp"
+grep -Ev '^touring [0-9]|^$' "$tmp_raw" > "$tmp_out" || true
+cat "$tmp_out"
+rm -f "$tmp_raw"
 # Only a successful, non-empty measurement is cached; a failed `--fail-below`
 # (rc 1 with JSON) is printed but never cached.
-if (( rc == 0 )) && [[ -s "$CACHE_FILE.out" ]]; then
-  mv -f "$CACHE_FILE.out" "$CACHE_FILE"
+if (( rc == 0 )) && [[ -s "$tmp_out" ]]; then
+  mv -f "$tmp_out" "$CACHE_FILE"
 else
-  rm -f "$CACHE_FILE.out"
+  rm -f "$tmp_out"
   if (( rc == 0 )); then
     echo "touring-quality-score: the engine produced no output for $TARGET_REAL" >&2
     rc=1

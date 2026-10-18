@@ -1,0 +1,21 @@
+numpy np.array+np.where                proj   -> allow  
+numpy np.array+np.where                tmp    -> allow  
+numpy np.array+np.where                inline -> allow  
+PIL Image.LANCZOS                      proj   -> allow  
+PIL Image.LANCZOS                      tmp    -> allow  
+PIL Image.LANCZOS                      inline -> allow  
+rust_bridge.RUST_AVAILABLE             proj   -> allow  
+rust_bridge.RUST_AVAILABLE             tmp    -> allow  
+rust_bridge.RUST_AVAILABLE             inline -> allow  
+CTL np.arrai (deve ser deny)           proj   -> warn   [('warn', 'atributo', 'arrai')]
+CTL np.arrai (deve ser deny)           tmp    -> deny   [('deny', 'atributo', 'arrai')]
+CTL np.arrai (deve ser deny)           inline -> deny   [('deny', 'atributo', 'arrai')]
+CTL os.path.join (deve ser allow)      proj   -> allow  
+CTL os.path.join (deve ser allow)      tmp    -> allow  
+CTL os.path.join (deve ser allow)      inline -> allow  
+OBS os.pathh                           proj   -> allow  
+OBS os.pathh                           tmp    -> allow  
+OBS os.pathh                           inline -> allow  
+OBS math.sqr (stdlib fechado)          proj   -> deny   [('deny', 'atributo', 'sqr')]
+OBS math.sqr (stdlib fechado)          tmp    -> deny   [('deny', 'atributo', 'sqr')]
+OBS math.sqr (stdlib fechado)          inline -> deny   [('deny', 'atributo', 'sqr')]

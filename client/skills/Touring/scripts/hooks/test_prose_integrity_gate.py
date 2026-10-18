@@ -111,7 +111,7 @@ def run_hook(payload, tmp_path, **env):
         if k not in env:
             e.pop(k, None)
     data = payload if isinstance(payload, str) else json.dumps(payload)
-    p = subprocess.run([sys.executable, str(GATE)], input=data, capture_output=True, text=True,
+    p = subprocess.run([sys.executable, str(GATE)], input=data, capture_output=True, check=False, text=True,
                        env=e, timeout=20)
     log = tmp_path / "events.jsonl"
     events = [json.loads(l) for l in log.read_text().splitlines()] if log.exists() else []
@@ -132,7 +132,7 @@ def test_shadow_never_blocks_logs_and_advises(tmp_path):
 
 
 def test_block_mode_blocks_sendmessage_and_teaches_the_escape(tmp_path):
-    rc, out, err, events = run_hook(SEND_DIRTY, tmp_path, TOURING_PROSE_GATE_MODE="block")
+    rc, _out, err, events = run_hook(SEND_DIRTY, tmp_path, TOURING_PROSE_GATE_MODE="block")
     assert rc == 2
     assert "U+8DEF" in err and "crases" in err and "TOURING_PROSE_GATE_DISABLED" not in err, err
     assert events[0]["action"] == "blocked"
@@ -140,7 +140,7 @@ def test_block_mode_blocks_sendmessage_and_teaches_the_escape(tmp_path):
 
 def test_the_sendmessage_mode_does_not_govern_files(tmp_path):
     payload = {"tool_name": "Write", "tool_input": {"file_path": str(tmp_path / "n.md"), "content": "Para节省"}}
-    rc, out, err, events = run_hook(payload, tmp_path, TOURING_PROSE_GATE_MODE="block",
+    rc, _out, err, events = run_hook(payload, tmp_path, TOURING_PROSE_GATE_MODE="block",
                                     TOURING_PROSE_GATE_FILE_MODE="shadow")
     assert rc == 0 and events[0]["action"] == "advised" and events[0]["mode"] == "shadow", (rc, err)
 
@@ -186,7 +186,7 @@ def test_backticks_in_a_file_are_quotation(tmp_path):
 
 def test_the_pragma_escapes_its_line_only(tmp_path):
     content = f'DADO = "{CJK_A}"  # prose-integrity: allow\nOUTRO = "{CJK_B}"\n'
-    rc, out, err, events = run_hook(_write(tmp_path, content, "t.py"), tmp_path)
+    rc, _out, err, events = run_hook(_write(tmp_path, content, "t.py"), tmp_path)
     assert rc == 2 and "U+51B3" in err and "U+8DEF" not in err, err
     assert events[0]["escaped"] == 1
 
@@ -243,7 +243,7 @@ def test_a_directory_path_is_not_unknown_content(tmp_path):
 
 def test_a_sendmessage_escape_alone_is_logged(tmp_path):
     payload = {"tool_name": "SendMessage", "tool_input": {"to": "p", "message": f"cito `{CJK_A}`"}}
-    rc, out, err, events = run_hook(payload, tmp_path)
+    rc, out, _err, events = run_hook(payload, tmp_path)
     assert (rc, out.strip()) == (0, "")
     assert [e["action"] for e in events] == ["escaped"]
 
@@ -261,20 +261,20 @@ def test_a_write_over_a_file_too_large_to_read_never_blocks(tmp_path, monkeypatc
 
 
 def test_clean_text_is_silent(tmp_path):
-    rc, out, err, events = run_hook({"tool_name": "SendMessage", "tool_input": {"to": "p", "message": "ok"}},
+    rc, out, _err, events = run_hook({"tool_name": "SendMessage", "tool_input": {"to": "p", "message": "ok"}},
                                     tmp_path)
     assert (rc, out.strip(), events) == (0, "", [])
 
 
 def test_kill_switch(tmp_path):
-    rc, out, err, events = run_hook(SEND_DIRTY, tmp_path, TOURING_PROSE_GATE_DISABLED="1",
+    rc, out, _err, events = run_hook(SEND_DIRTY, tmp_path, TOURING_PROSE_GATE_DISABLED="1",
                                     TOURING_PROSE_GATE_MODE="block")
     assert (rc, out.strip(), events) == (0, "", [])
 
 
 @pytest.mark.parametrize("raw", ["", "not json", "[]", '{"tool_name": 3}'])
 def test_unreadable_payload_fails_open(tmp_path, raw):
-    rc, out, err, events = run_hook(raw, tmp_path, TOURING_PROSE_GATE_MODE="block")
+    rc, out, _err, events = run_hook(raw, tmp_path, TOURING_PROSE_GATE_MODE="block")
     assert (rc, out.strip(), events) == (0, "", [])
 
 
@@ -317,3 +317,10 @@ def test_criterion_counts_unclear_as_legit_and_needs_thirty(legit, unclear, corr
 def test_greek_stays_out_whatever_the_fast_path():
     assert g.LOWEST_SIGNAL >= 0x0400, "a range at or below Greek makes Greek notation signal"
     assert g.find("Δ τ κ λ μ σ ω") == []
+
+
+@pytest.mark.parametrize("args", [["--criterion"], ["--criterion", "/nonexistent/labels.jsonl"]])
+def test_criterion_without_a_readable_labels_file_is_a_usage_error_not_a_traceback(args, capsys):
+    assert g.main(["prose_integrity_gate.py", *args]) == 2
+    err = capsys.readouterr().err
+    assert "--criterion <labels.jsonl>" in err

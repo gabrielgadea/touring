@@ -1,0 +1,307 @@
+{
+ "baldes": {
+  "arquivo": 600,
+  "inline": 553,
+  "inline_por_estrato": {
+   "c": 200,
+   "heredoc": 200,
+   "touring_run": 153
+  },
+  "limite_para_selar": 300,
+  "arquivo_ok": true,
+  "inline_ok": true,
+  "baldes_do_20261013": {
+   "arquivo": 600,
+   "inline": 553,
+   "inline_por_estrato": {
+    "c": 200,
+    "heredoc": 200,
+    "touring_run": 153
+   }
+  }
+ },
+ "recusas_por_estado_incompleto": {
+  "20261013_regra_de_profundidade_1": {
+   "arquivo": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 145,
+    "estado incompleto: módulo importado não reconstrói no instante": 75,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2
+   },
+   "inline": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 22,
+    "estado incompleto: módulo importado não reconstrói no instante": 5
+   }
+  },
+  "20261013f_fecho": {
+   "arquivo": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 164,
+    "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 37,
+    "estado incompleto: módulo importado não reconstrói no instante": 84,
+    "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 24,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2
+   },
+   "inline": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 22,
+    "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 2,
+    "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 5,
+    "estado incompleto: módulo importado não reconstrói no instante": 5
+   }
+  }
+ },
+ "vies_do_fecho_por_balde (mesma corrente de candidatos avaliados, regra de profundidade 1 x fecho)": {
+  "arquivo": {
+   "avaliados": 911,
+   "recusados_regra_profundidade_1": 250,
+   "recusados_fecho": 311,
+   "recusados_so_pelo_fecho": 61,
+   "taxa_regra_profundidade_1": 0.2744,
+   "taxa_fecho": 0.3414,
+   "motivos_regra_profundidade_1": {
+    "ok": 661,
+    "estado incompleto: submódulo importado não reconstrói no instante": 164,
+    "estado incompleto: módulo importado não reconstrói no instante": 84,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2
+   },
+   "motivos_fecho": {
+    "ok": 600,
+    "estado incompleto: submódulo importado não reconstrói no instante": 164,
+    "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 37,
+    "estado incompleto: módulo importado não reconstrói no instante": 84,
+    "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 24,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2
+   },
+   "tamanho_do_fecho_dos_avaliados": {
+    "n": 911,
+    "soma": 6400,
+    "min": 0,
+    "mediana": 0,
+    "media": 7.03,
+    "p90": 11,
+    "p99": 69,
+    "max": 415
+   }
+  },
+  "c": {
+   "avaliados": 223,
+   "recusados_regra_profundidade_1": 18,
+   "recusados_fecho": 23,
+   "recusados_so_pelo_fecho": 5,
+   "taxa_regra_profundidade_1": 0.0807,
+   "taxa_fecho": 0.1031,
+   "motivos_regra_profundidade_1": {
+    "ok": 205,
+    "estado incompleto: submódulo importado não reconstrói no instante": 16,
+    "estado incompleto: módulo importado não reconstrói no instante": 2
+   },
+   "motivos_fecho": {
+    "ok": 200,
+    "estado incompleto: submódulo importado não reconstrói no instante": 16,
+    "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 2,
+    "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 3,
+    "estado incompleto: módulo importado não reconstrói no instante": 2
+   },
+   "tamanho_do_fecho_dos_avaliados": {
+    "n": 223,
+    "soma": 219,
+    "min": 0,
+    "mediana": 0,
+    "media": 0.98,
+    "p90": 3,
+    "p99": 28,
+    "max": 68
+   }
+  },
+  "heredoc": {
+   "avaliados": 209,
+   "recusados_regra_profundidade_1": 7,
+   "recusados_fecho": 9,
+   "recusados_so_pelo_fecho": 2,
+   "taxa_regra_profundidade_1": 0.0335,
+   "taxa_fecho": 0.0431,
+   "motivos_regra_profundidade_1": {
+    "ok": 202,
+    "estado incompleto: submódulo importado não reconstrói no instante": 4,
+    "estado incompleto: módulo importado não reconstrói no instante": 3
+   },
+   "motivos_fecho": {
+    "ok": 200,
+    "estado incompleto: submódulo importado não reconstrói no instante": 4,
+    "estado incompleto: módulo importado não reconstrói no instante": 3,
+    "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 2
+   },
+   "tamanho_do_fecho_dos_avaliados": {
+    "n": 209,
+    "soma": 77,
+    "min": 0,
+    "mediana": 0,
+    "media": 0.37,
+    "p90": 0,
+    "p99": 5,
+    "max": 21
+   }
+  },
+  "touring_run": {
+   "avaliados": 155,
+   "recusados_regra_profundidade_1": 2,
+   "recusados_fecho": 2,
+   "recusados_so_pelo_fecho": 0,
+   "taxa_regra_profundidade_1": 0.0129,
+   "taxa_fecho": 0.0129,
+   "motivos_regra_profundidade_1": {
+    "ok": 153,
+    "estado incompleto: submódulo importado não reconstrói no instante": 2
+   },
+   "motivos_fecho": {
+    "ok": 153,
+    "estado incompleto: submódulo importado não reconstrói no instante": 2
+   },
+   "tamanho_do_fecho_dos_avaliados": {
+    "n": 155,
+    "soma": 10,
+    "min": 0,
+    "mediana": 0,
+    "media": 0.06,
+    "p90": 0,
+    "p99": 3,
+    "max": 3
+   }
+  }
+ },
+ "tamanho_do_fecho_das_entradas_aceitas": {
+  "n": 1153,
+  "soma": 767,
+  "min": 0,
+  "mediana": 0,
+  "media": 0.67,
+  "p90": 0,
+  "p99": 28,
+  "max": 51
+ },
+ "entradas_aceitas_por_profundidade_maxima": {
+  "0": 1048,
+  "1": 75,
+  "2": 16,
+  "3": 4,
+  "4": 2,
+  "7": 1,
+  "8": 3,
+  "9": 4
+ },
+ "entradas_aceitas_com_fecho_vazio": 1048,
+ "entradas_aceitas_com_modulo_de_profundidade_2_ou_mais": 30,
+ "verificador_independente (tem de ser 0)": {
+  "entradas_com_lacuna": 0,
+  "entradas_incompletas": 0
+ },
+ "mix_de_projetos": {
+  "arquivo_20261013f": {
+   "analise": 519,
+   "touring": 71,
+   ".claude": 6,
+   "simulador-urna-rs-2026": 4
+  },
+  "arquivo_20261013": {
+   "analise": 519,
+   "touring": 71,
+   ".claude": 6,
+   "simulador-urna-rs-2026": 4
+  },
+  "arquivo_vivo_negativos": {
+   "analise": 259,
+   "touring": 36,
+   ".claude": 3,
+   "simulador-urna-rs-2026": 2
+  },
+  "arquivo_20261013f_pct": {
+   "analise": 86.5,
+   "touring": 11.8,
+   ".claude": 1.0,
+   "simulador-urna-rs-2026": 0.7
+  },
+  "arquivo_vivo_negativos_pct": {
+   "analise": 86.3,
+   "touring": 12.0,
+   ".claude": 1.0,
+   "simulador-urna-rs-2026": 0.7
+  },
+  "inline_20261013f": {
+   "analise": 553
+  },
+  "inline_20261013": {
+   "analise": 553
+  },
+  "inline_vivo_negativos": {
+   "analise": 374
+  }
+ },
+ "parentesco_com_o_20261013 (informativo; ele nunca foi aberto)": {
+  "ids_em_comum": 1086,
+  "ids_20261013f": 1153,
+  "ids_20261013": 1153,
+  "so_no_20261013": 67,
+  "so_no_20261013f": 67,
+  "fe5620ecee0a_no_20261013f": false
+ },
+ "arquivos_distintos_e_teto": {
+  "20261013f": {
+   "max_por_arquivo": 6,
+   "arquivos_distintos": 516
+  },
+  "20261013": {
+   "max_por_arquivo": 6,
+   "arquivos_distintos": 508
+  }
+ },
+ "selecao_inline": {
+  "c": {
+   "quota": 200,
+   "aceitos": 200,
+   "pool": 2324,
+   "faltou": 0
+  },
+  "heredoc": {
+   "quota": 200,
+   "aceitos": 200,
+   "pool": 2602,
+   "faltou": 0
+  },
+  "touring_run": {
+   "quota": 200,
+   "aceitos": 153,
+   "pool": 795,
+   "faltou": 47
+  },
+  "tmp_escrito_e_executado": {
+   "quota": 100,
+   "aceitos": 0,
+   "pool": 1,
+   "faltou": 100
+  }
+ },
+ "selecao_inline_20261013": {
+  "c": {
+   "quota": 200,
+   "aceitos": 200,
+   "pool": 2324,
+   "faltou": 0
+  },
+  "heredoc": {
+   "quota": 200,
+   "aceitos": 200,
+   "pool": 2602,
+   "faltou": 0
+  },
+  "touring_run": {
+   "quota": 200,
+   "aceitos": 153,
+   "pool": 795,
+   "faltou": 47
+  },
+  "tmp_escrito_e_executado": {
+   "quota": 100,
+   "aceitos": 0,
+   "pool": 1,
+   "faltou": 100
+  }
+ }
+}

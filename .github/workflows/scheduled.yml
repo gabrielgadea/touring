@@ -1,0 +1,108 @@
+# Touring — weekly watch (ECC analysis, decision N3 + N1, 17/10/2026).
+#
+# ci.yml only runs on push/PR, so three kinds of rot were invisible until somebody pushed:
+#   advisories    — a new RustSec advisory / yanked crate against the UNCHANGED lockfile
+#                   (Dependabot proposes bumps weekly, but never FAILS a build on a CVE);
+#   mutants-full  — the survivors a diff-scoped run cannot see: tests that pass without proving.
+# A third watcher (clean-install test, plan item T6) joins here when T6 lands.
+#
+# Monday 09:00 UTC (06:00 BRT). `workflow_dispatch` is on purpose: the first run CALIBRATES the
+# shard budget below, and GitHub switches scheduled workflows off after 60 days without repo
+# activity — a hand trigger is the way back. Failure e-mails go to whoever last edited the cron.
+name: scheduled
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+# Least privilege: nothing here writes to the repository.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+concurrency:
+  group: scheduled
+  cancel-in-progress: false
+
+jobs:
+  advisories:
+    # Same engine and policy as ci.yml's `supply-chain` job (native gnu runner, deny.toml with its
+    # justified ignores) but ONLY `advisories`: bans/licenses/sources change with a diff and are
+    # already gated on every push. `unmaintained`/`unsound` follow deny.toml (workspace scope).
+    name: cargo-deny advisories (RustSec vs the unchanged lockfile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: cargo-deny
+      - name: cargo deny check advisories
+        run: cargo deny check advisories
+
+  mutants-full:
+    # `cargo mutants --list` counts 65.537 mutants in the workspace on 18/10/2026 (touring-intelligence
+    # 8.652, touring-analysis 6.378, touring-server 5.932, ...). At even 30 s each that is ~550 runner
+    # hours, so a literal "full scan" does not fit in a week: this job SAMPLES. The mutants are split
+    # in 16 contiguous slices (`--shard k/16`, k is 0-based) and each slice is run in SHUFFLED order
+    # under a hard time budget, so what the budget cuts off is a random subset — never always the
+    # same tail of the same crate. The first run measures how many mutants a slice completes in
+    # the budget (see "budget" in the job log); change the matrix to a size that finishes
+    # (up to 256 entries) once that number is known.
+    #
+    # Survivors are REPORTED, never red: exit 2 (missed mutants), 3 (timeouts) and 124 (budget
+    # reached) are expected outcomes; anything else — a baseline that fails without any mutation,
+    # a usage error — keeps the job red, because then nothing was measured.
+    name: cargo-mutants slice ${{ matrix.shard }}/16
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false  # one slow or broken slice must not cancel the other fifteen
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: nextest,cargo-mutants@27.1.0  # the version whose --shard/--shuffle/--in-place/--in-diff were checked
+      # The e2e tier spawns the product binaries (see ci.yml `integration`); `--in-place` below keeps
+      # them in this checkout's target/, where the tests look for them.
+      - name: build product binaries (the e2e tier spawns them)
+        run: cargo build --workspace --bins
+      - name: cargo mutants (shuffled slice, 4 h budget)
+        run: |
+          set +e
+          timeout --signal=INT --kill-after=5m 240m \
+            cargo mutants --in-place --shard ${{ matrix.shard }}/16 --shuffle
+          rc=$?
+          set -e
+          echo "cargo-mutants exit: ${rc}"
+          echo "budget: 240m; outcomes in mutants.out/outcomes.json"
+          case "${rc}" in
+            0|2|3|124) exit 0 ;;
+          esac
+          exit "$rc"
+      - name: upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mutants-report-${{ matrix.shard }}
+          path: |
+            mutants.out/outcomes.json
+            mutants.out/missed.txt
+            mutants.out/caught.txt
+            mutants.out/timeout.txt
+            mutants.out/unviable.txt
+          if-no-files-found: ignore

@@ -1,0 +1,29 @@
+diff --git i/crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs w/crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs
+index 841289cc..cdc1b0b4 100644
+--- i/crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs
++++ w/crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs
+@@ -28,18 +28,13 @@ mod private_daemon;
+ use private_daemon::private_daemon_env;
+ 
+ /// Locate the `touring` release / debug binary, skipping if absent.
++///
++/// Delegates to the shared helper (10/10/2026): this file kept its own copy that
++/// looked ONLY under `<workspace>/target`, ignoring `CARGO_TARGET_DIR` and the
++/// root that built this test — so in a worktree with its own target dir every
++/// test here took the silent SKIP path and "passed" without running anything.
+ fn touring_binary() -> Option<PathBuf> {
+-    let target = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+-        .parent()
+-        .and_then(|p| p.parent())
+-        .map(|p| p.join("target"))?;
+-    for profile in ["release", "debug"] {
+-        let candidate = target.join(profile).join("touring");
+-        if candidate.exists() {
+-            return Some(candidate);
+-        }
+-    }
+-    None
++    private_daemon::locate_binary("touring")
+ }
+ 
+ /// Run `touring pre-task-scout` with the given hook payload, return the

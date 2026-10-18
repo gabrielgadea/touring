@@ -2,7 +2,7 @@
 # =============================================================================
 # Claude Code Context Monitor - StatusLine Script
 # Reads official JSON input from Claude Code statusLine API
-# Fields: model, cost, context_window (with current_usage), workspace
+# Fields: model, cost, context_window (with current_usage), workspace, rate_limits
 # =============================================================================
 
 # 08/10/2026 (Gabriel: "autocompactar aos 65%"): auto-compaction fires at
@@ -12,6 +12,9 @@
 AUTOCOMPACT=${CLAUDE_AUTOCOMPACT_PCT_OVERRIDE:-65}
 CHECKPOINT=${CONTEXT_CHECKPOINT_PCT:-$((AUTOCOMPACT - 10))}
 ALERT_DIR="${HOME}/.claude/touring/context_alert"
+# 18/10/2026: franchise quota. Red band and the one-per-window alert share the 5 h threshold (85), yellow starts at 70.
+QUOTA_ALERT=${QUOTA_ALERT_PCT:-85}
+QUOTA_WARN=${QUOTA_WARN_PCT:-70}
 
 mkdir -p "$ALERT_DIR"
 
@@ -49,7 +52,7 @@ case "$input" in
 esac
 
 if ! command -v jq &> /dev/null; then
-    printf "${DIM}jq not installed${RESET}\n"
+    printf '%bjq not installed%b\n' "$DIM" "$RESET"
     exit 0
 fi
 
@@ -62,29 +65,26 @@ MODEL_ID=$(echo "$input" | jq -r '.model.id // ""' 2>/dev/null)
 # Janela real:
 #   MiniMax-M3 · opus[1m] · claude-opus-4-1 · display com "(1M)" ou "1M" → 1.000.000
 #   demais (Sonnet/Haiku) → valor do JSON se presente, senão 200.000 default
-# Diag: WIN_SRC ∈ {model,json,fallback}, WAS_FORCED bool — indica se OVERRIDE ativo.
+# WAS_FORCED bool — indica se OVERRIDE ativo (o selo WIN_BADGE abaixo o mostra).
 # Quando WAS_FORCED=true + janela 1M, Claude Code pode ter um clamp interno ativo
 # (CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 em ~/.claude/settings.json desabilita).
-WIN_SRC="fallback"
 WAS_FORCED="false"
 JSON_CTX_RAW=$(echo "$input" | jq -r '.context_window.context_window_size // empty' 2>/dev/null)
 
 # 1. Acordo natural: se o JSON JÁ reporta 1M, usar diretamente (sem override).
 if [ "$JSON_CTX_RAW" = "1000000" ]; then
     CONTEXT_SIZE=1000000
-    WIN_SRC="json"
 else
     # 2. JSON reporta outro valor (200k, vazio): tentar match por nome — se matcha, forçar 1M.
     case "$MODEL$MODEL_ID" in
-        *MiniMax*|*M3*|*m3*|*minimax*|*opus\[1m\]*|*claude-opus-4-1*|*opus-4-1*|*\ \(1M\)*|*"1M"*) CONTEXT_SIZE=1000000; WIN_SRC="model"; WAS_FORCED="true" ;;
-        *) CONTEXT_SIZE="$JSON_CTX_RAW"; WIN_SRC="json" ;;
+        *MiniMax*|*M3*|*m3*|*minimax*|*opus\[1m\]*|*claude-opus-4-1*|*opus-4-1*|*\ \(1M\)*|*"1M"*) CONTEXT_SIZE=1000000; WAS_FORCED="true" ;;
+        *) CONTEXT_SIZE="$JSON_CTX_RAW" ;;
     esac
 fi
 
 # 3. Fallback final: se mesmo assim vazio (modelo desconhecido + JSON vazio), 200k default.
 if [ -z "$CONTEXT_SIZE" ]; then
     CONTEXT_SIZE=200000
-    WIN_SRC="fallback"
 fi
 
 # WIN_BADGE — aparece SOMENTE quando OVERRIDE ativo (forçamos 1M contra JSON que dizia diferente).
@@ -116,29 +116,22 @@ else
     CONTEXT_PCT_DISPLAY="0.0%"
 fi
 
+# One-decimal millions in pure bash, truncated like bc's `scale=1`. bc is not installed on this machine, and the old
+# `$(… | bc || echo "$((n / 1000))K")M` fallback printed a 1M window as "1000KM" (17/10/2026).
+fmt_millions() { printf '%d.%dM' "$(($1 / 1000000))" "$((($1 % 1000000) / 100000))"; }
+
 # Format tokens (K for thousands)
 if [ "$CURRENT_TOKENS" -ge 1000000 ] 2>/dev/null; then
-    TOKENS_FMT="$(echo "scale=1; $CURRENT_TOKENS / 1000000" | bc 2>/dev/null || echo "$((CURRENT_TOKENS / 1000))K")M"
+    TOKENS_FMT="$(fmt_millions "$CURRENT_TOKENS")"
 elif [ "$CURRENT_TOKENS" -ge 1000 ] 2>/dev/null; then
     TOKENS_FMT="$((CURRENT_TOKENS / 1000))K"
 else
     TOKENS_FMT="${CURRENT_TOKENS}"
 fi
 
-# Format capacity (sempre K ou M para janelas grandes)
-if [ "$CONTEXT_SIZE" -ge 1000000 ] 2>/dev/null; then
-    SIZE_FMT="$((CONTEXT_SIZE / 1000000))M"
-elif [ "$CONTEXT_SIZE" -ge 1000 ] 2>/dev/null; then
-    SIZE_FMT="$((CONTEXT_SIZE / 1000))K"
-else
-    SIZE_FMT="$CONTEXT_SIZE"
-fi
-
-# Uso absoluto X/YM (ancla o tamanho real da janela no indicador)
-USAGE_ABS="${TOKENS_FMT}/${SIZE_FMT}"
 
 # Format cost
-if [ "$(echo "$COST > 0" | bc 2>/dev/null)" = "1" ]; then
+if awk -v c="$COST" 'BEGIN { exit !(c + 0 > 0) }' 2>/dev/null; then
     COST_FMT="\$$(LC_NUMERIC=C printf '%.2f' "$COST" 2>/dev/null || echo "$COST")"
 else
     COST_FMT=""
@@ -158,9 +151,48 @@ if [ -n "$COST_FMT" ]; then
     COST_SEG=" ${DIM}│${RESET} ${WHITE}${COST_FMT}${RESET}"
 fi
 
+# Franchise quota segment (18/10/2026): "5h 60% ↻1h04 · 7d 50%". The 5 h and 7 d windows come from the payload's
+# `rate_limits` (Pro/Max only, after the session's first reply; each window may be missing alone). ABSENT IS NOT
+# ZERO: a payload without a numeric reading for a window shows nothing for it — never "0%". The percentage is
+# floored and capped at 100; a negative or non-number is junk and dropped. `resets_at` (epoch) only decorates the
+# 5 h window and only while it is in the future and plausible for a 5 h window (<= 10 h).
+printf -v QUOTA_NOW '%(%s)T' -1
+quota_color() {  # $1 = integer percentage → the band's colour
+    if [ "$1" -ge "$QUOTA_ALERT" ]; then printf '%s' "$RED"
+    elif [ "$1" -ge "$QUOTA_WARN" ]; then printf '%s' "$YELLOW"
+    else printf '%s' "$GREEN"; fi
+}
+fmt_countdown() {  # $1 = seconds left (> 0), rounded UP to the minute: 1h04, 42m
+    local mins=$((($1 + 59) / 60))
+    if [ "$mins" -ge 60 ]; then printf '%dh%02d' $((mins / 60)) $((mins % 60)); else printf '%dm' "$mins"; fi
+}
+QUOTA_FIELDS=$(echo "$input" | jq -r '
+    def pct: if type == "number" and . >= 0 then (if . > 100 then 100 else . end | floor) else "-" end;
+    def epoch: if type == "number" and . > 0 then floor else "-" end;
+    (.rate_limits | objects) as $r
+    | [ ((($r.five_hour | objects | .used_percentage) // null) | pct),
+        ((($r.five_hour | objects | .resets_at) // null) | epoch),
+        ((($r.seven_day | objects | .used_percentage) // null) | pct) ]
+    | join(" ")' 2>/dev/null)
+read -r Q5_PCT Q5_RESET Q7_PCT <<< "$QUOTA_FIELDS"
+QUOTA_SEG=""
+QUOTA_PARTS=""
+if [[ "$Q5_PCT" =~ ^[0-9]{1,3}$ ]]; then
+    QUOTA_PARTS="$(quota_color "$Q5_PCT")5h ${Q5_PCT}%${RESET}"
+    if [[ "$Q5_RESET" =~ ^[0-9]{1,12}$ ]] && [ "$Q5_RESET" -gt "$QUOTA_NOW" ] && [ $((Q5_RESET - QUOTA_NOW)) -le 36000 ]; then
+        QUOTA_PARTS+=" ${DIM}↻$(fmt_countdown $((Q5_RESET - QUOTA_NOW)))${RESET}"
+    fi
+fi
+if [[ "$Q7_PCT" =~ ^[0-9]{1,3}$ ]]; then
+    QUOTA_PARTS="${QUOTA_PARTS:+$QUOTA_PARTS ${DIM}·${RESET} }$(quota_color "$Q7_PCT")7d ${Q7_PCT}%${RESET}"
+fi
+if [ -n "$QUOTA_PARTS" ]; then
+    QUOTA_SEG=" ${DIM}│${RESET} ${QUOTA_PARTS}"
+fi
+
 # Format total window (WINDOW_FMT) — used/total display, mirrors TOKENS_FMT formatting
 if [ "$CONTEXT_SIZE" -ge 1000000 ] 2>/dev/null; then
-    WINDOW_FMT="$(echo "scale=1; $CONTEXT_SIZE / 1000000" | bc 2>/dev/null || echo "$((CONTEXT_SIZE / 1000))K")M"
+    WINDOW_FMT="$(fmt_millions "$CONTEXT_SIZE")"
 elif [ "$CONTEXT_SIZE" -ge 1000 ] 2>/dev/null; then
     WINDOW_FMT="$((CONTEXT_SIZE / 1000))K"
 else
@@ -171,10 +203,30 @@ fi
 # context is back under it — that is, after the compaction — so the next cycle warns again.
 SESSION=$(echo "$input" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-')
 if [ -n "$SESSION" ]; then
+    printf -v NOW '%(%s)T' -1
+    # Heartbeat (17/10/2026): written on EVERY render, armed or not. check_context.sh can then tell "under the
+    # checkpoint" (fresh heartbeat, no flag) from "nobody is measuring" (no heartbeat: headless run or
+    # subagent, the status line never renders) and "the sensor went quiet" (stale heartbeat). An absent flag
+    # alone means none of those — absent signal is not zero.
+    printf '%s %s\n' "$NOW" "$CONTEXT_INT" > "${ALERT_DIR}/${SESSION}.seen"
     if [ "$CONTEXT_INT" -ge "$CHECKPOINT" ]; then
-        echo "$CONTEXT_INT" > "${ALERT_DIR}/${SESSION}.pct"
+        # Line 1 is the percentage (check_context.sh reads only that); line 2 stamps the render that armed it.
+        printf '%s\nts=%s\n' "$CONTEXT_INT" "$NOW" > "${ALERT_DIR}/${SESSION}.pct"
     else
         rm -f "${ALERT_DIR}/${SESSION}.pct" "${ALERT_DIR}/${SESSION}.delivered"
+    fi
+    # Quota marker, same directory and the same arm/clear cycle (check_context.sh delivers it once per window). Line 1
+    # is the 5 h percentage, line 2 `resets=<epoch>` — the window's identity, so a NEW window announces itself even
+    # when no render happened under the threshold in between. Only a numeric 5 h reading moves it: a render that
+    # carries none must not read as "the window reset" (absent is not zero).
+    if [[ "$Q5_PCT" =~ ^[0-9]{1,3}$ ]]; then
+        if [ "$Q5_PCT" -ge "$QUOTA_ALERT" ]; then
+            QUOTA_KEY=$Q5_RESET
+            [[ "$QUOTA_KEY" =~ ^[0-9]{1,12}$ ]] || QUOTA_KEY="-"
+            printf '%s\nresets=%s\n' "$Q5_PCT" "$QUOTA_KEY" > "${ALERT_DIR}/${SESSION}.quota"
+        else
+            rm -f "${ALERT_DIR}/${SESSION}.quota" "${ALERT_DIR}/${SESSION}.quota.delivered"
+        fi
     fi
 fi
 
@@ -182,9 +234,9 @@ fi
 # AUTOCOMPACT (the compaction is imminent). Display shows used/total + percent of the FULL window.
 # echo -e (NOT printf) para não interpretar '%' dentro de ${CONTEXT_PCT_DISPLAY}.
 if [ "$CONTEXT_INT" -ge "$AUTOCOMPACT" ]; then
-    echo -e "${BOLD}${BG_RED}${BRIGHT_WHITE} COMPACT ${RESET} ${BRIGHT_RED}${bar}${RESET} ${BOLD}${RED}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
+    echo -e "${BOLD}${BG_RED}${BRIGHT_WHITE} COMPACT ${RESET} ${BRIGHT_RED}${bar}${RESET} ${BOLD}${RED}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
 elif [ "$CONTEXT_INT" -ge "$CHECKPOINT" ]; then
-    echo -e "${BOLD}${YELLOW}SALVE${RESET} ${BRIGHT_YELLOW}${bar}${RESET} ${BOLD}${YELLOW}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
+    echo -e "${BOLD}${YELLOW}SALVE${RESET} ${BRIGHT_YELLOW}${bar}${RESET} ${BOLD}${YELLOW}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
 else
-    echo -e "${BRIGHT_GREEN}${bar}${RESET} ${GREEN}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}"
+    echo -e "${BRIGHT_GREEN}${bar}${RESET} ${GREEN}${TOKENS_FMT}/${WINDOW_FMT} (${CONTEXT_PCT_DISPLAY})${RESET} ${DIM}│${RESET} ${BRIGHT_CYAN}${MODEL}${RESET}${WIN_BADGE}${COST_SEG}${QUOTA_SEG}"
 fi

@@ -1,0 +1,340 @@
+{
+ "sha_rust_rs": "76101e58b2214ef2",
+ "resultados": [
+  {
+   "id": "BASE",
+   "resultado": "OK",
+   "falhos": [],
+   "contagem": [
+    26,
+    0
+   ]
+  },
+  {
+   "id": "RED-stub",
+   "descricao": "contra o stub (unknown) os testes por classe reprovam",
+   "resultado": "FAILED",
+   "falhos": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow",
+    "vgp::lang::rust::tests::atributo_item_associado_de_enum_nao_e_variante_ausente",
+    "vgp::lang::rust::tests::atributo_variante_inventada_de_enum_do_projeto",
+    "vgp::lang::rust::tests::delta_pre_existente_vira_warn_nunca_deny",
+    "vgp::lang::rust::tests::despacho_do_nucleo_rust_responde_pelo_adaptador_real_nao_pelo_stub",
+    "vgp::lang::rust::tests::import_crate_nao_declarada_avisa_externo_declarado_abstem",
+    "vgp::lang::rust::tests::import_cross_crate_do_workspace",
+    "vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado",
+    "vgp::lang::rust::tests::import_mod_decl_sem_arquivo_e_com_arquivo",
+    "vgp::lang::rust::tests::import_nome_inventado_em_modulo_do_projeto",
+    "vgp::lang::rust::tests::import_pub_use_glob_e_seguido",
+    "vgp::lang::rust::tests::import_pub_use_reexport_passa_e_e_seguido",
+    "vgp::lang::rust::tests::import_segmento_intermediario_e_lista_mista",
+    "vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo",
+    "vgp::lang::rust::tests::kwarg_aridade_de_funcao_do_projeto",
+    "vgp::lang::rust::tests::kwarg_campo_inventado_em_literal_de_struct",
+    "vgp::lang::rust::tests::kwarg_non_exhaustive_e_struct_tupla_abstem",
+    "vgp::lang::rust::tests::nome_chamada_direta_ausente_nega_em_tmp",
+    "vgp::lang::rust::tests::nome_controles_de_escopo_passam_limpos",
+    "vgp::lang::rust::tests::nome_glob_de_crate_declarado_e_incerto_nunca_projeto",
+    "vgp::lang::rust::tests::nome_glob_externo_e_macro_nunca_negam",
+    "vgp::lang::rust::tests::nome_referencia_como_valor_e_path_head",
+    "vgp::lang::rust::tests::nome_self_fora_de_impl_e_dentro",
+    "vgp::lang::rust::tests::parse_quebrado_e_unknown_com_motivo_nunca_deny_nem_allow",
+    "vgp::lang::rust::tests::politica_arquivo_do_projeto_so_avisa_e_onde_roda_agora_nega",
+    "vgp::lang::rust::tests::projeto_sob_tmp_nao_e_scratch_o_ausente_vira_incerto_e_so_avisa"
+   ],
+   "contagem": [
+    0,
+    26
+   ],
+   "morto": true
+  },
+  {
+   "id": "R1-crate-vira-arquivo-atual",
+   "descricao": "`crate::` resolve a partir do arquivo corrente em vez da raiz do crate",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow",
+    "vgp::lang::rust::tests::atributo_item_associado_de_enum_nao_e_variante_ausente",
+    "vgp::lang::rust::tests::atributo_variante_inventada_de_enum_do_projeto",
+    "vgp::lang::rust::tests::import_nome_inventado_em_modulo_do_projeto",
+    "vgp::lang::rust::tests::import_pub_use_reexport_passa_e_e_seguido",
+    "vgp::lang::rust::tests::kwarg_aridade_de_funcao_do_projeto",
+    "vgp::lang::rust::tests::kwarg_campo_inventado_em_literal_de_struct"
+   ],
+   "segundos": 8.7,
+   "nota": ""
+  },
+  {
+   "id": "R2-self-vira-nome-de-modulo",
+   "descricao": "`self::` nao pula o segmento `self` (vira nome de modulo)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado",
+    "vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo"
+   ],
+   "segundos": 5.0,
+   "nota": ""
+  },
+  {
+   "id": "R3-super-como-crate",
+   "descricao": "`super::` resolvido como `crate::`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo"
+   ],
+   "segundos": 6.3,
+   "nota": ""
+  },
+  {
+   "id": "R4-ignora-mod-rs",
+   "descricao": "`mod x;` so procura `x.rs`, nunca `x/mod.rs`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow",
+    "vgp::lang::rust::tests::import_pub_use_glob_e_seguido",
+    "vgp::lang::rust::tests::import_segmento_intermediario_e_lista_mista",
+    "vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo",
+    "vgp::lang::rust::tests::nome_glob_de_crate_declarado_e_incerto_nunca_projeto"
+   ],
+   "segundos": 6.2,
+   "nota": ""
+  },
+  {
+   "id": "R5-ignora-pub-use",
+   "descricao": "reexportacoes `pub use` explicitas nunca sao seguidas",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_pub_use_reexport_passa_e_e_seguido"
+   ],
+   "segundos": 5.1,
+   "nota": ""
+  },
+  {
+   "id": "R6-ignora-pub-use-glob",
+   "descricao": "reexportacoes `pub use x::*` nunca sao seguidas",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_pub_use_glob_e_seguido"
+   ],
+   "segundos": 6.4,
+   "nota": ""
+  },
+  {
+   "id": "R7-ignora-workspace",
+   "descricao": "membros do workspace nao sao consultados (cross-crate)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_cross_crate_do_workspace"
+   ],
+   "segundos": 5.6,
+   "nota": ""
+  },
+  {
+   "id": "R8-ignora-dependencias",
+   "descricao": "tabelas de dependencias do Cargo.toml ignoradas (crate declarado vira inexistente)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow",
+    "vgp::lang::rust::tests::import_crate_nao_declarada_avisa_externo_declarado_abstem",
+    "vgp::lang::rust::tests::nome_glob_de_crate_declarado_e_incerto_nunca_projeto"
+   ],
+   "segundos": 5.8,
+   "nota": ""
+  },
+  {
+   "id": "R9-ignora-path-attr",
+   "descricao": "`#[path = \"x.rs\"]` ignorado",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado"
+   ],
+   "segundos": 6.5,
+   "nota": ""
+  },
+  {
+   "id": "R10-macro-de-item-como-inexistente",
+   "descricao": "macro em nivel de item tratada como inexistente (nao introduz dinamismo)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::nome_glob_externo_e_macro_nunca_negam"
+   ],
+   "segundos": 5.1,
+   "nota": ""
+  },
+  {
+   "id": "R11a-glob-externo-sem-dinamismo",
+   "descricao": "`use crate_declarado::*` nao marca o escopo como dinamico",
+   "resultado": "OK",
+   "morto": false,
+   "testes_que_mataram": [],
+   "segundos": 4.7,
+   "nota": ""
+  },
+  {
+   "id": "R11b-glob-nao-resolvido-sem-dinamismo",
+   "descricao": "glob que nao fecha nao marca o escopo como dinamico",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::nome_glob_externo_e_macro_nunca_negam"
+   ],
+   "segundos": 4.6,
+   "nota": ""
+  },
+  {
+   "id": "R12-variante-invertida",
+   "descricao": "o teste de variante de enum do projeto invertido",
+   "resultado": "ERRO_DO_RUNNER",
+   "ocorrencias": 0
+  },
+  {
+   "id": "R22-item-associado-vira-variante",
+   "descricao": "item associado (snake_case/SCREAMING_CASE) tomado por variante ausente (RED do ajuste de precisao)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::atributo_item_associado_de_enum_nao_e_variante_ausente"
+   ],
+   "segundos": 4.9,
+   "nota": ""
+  },
+  {
+   "id": "R23-atributos-nao-sao-irmaos",
+   "descricao": "atributos externos nunca encontrados (o bug original: lidos como filhos do item, onde nao estao)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado",
+    "vgp::lang::rust::tests::kwarg_non_exhaustive_e_struct_tupla_abstem"
+   ],
+   "segundos": 4.7,
+   "nota": ""
+  },
+  {
+   "id": "R13-ignora-non-exhaustive",
+   "descricao": "`#[non_exhaustive]` deixa de abster o literal de struct",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::kwarg_non_exhaustive_e_struct_tupla_abstem"
+   ],
+   "segundos": 4.4,
+   "nota": ""
+  },
+  {
+   "id": "R14-parse-com-erro-vira-allow",
+   "descricao": "abstencao vira allow: sintaxe quebrada devolve `medido(vazio)`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::parse_quebrado_e_unknown_com_motivo_nunca_deny_nem_allow"
+   ],
+   "segundos": 4.6,
+   "nota": ""
+  },
+  {
+   "id": "R15-resolucao-nao-fechada-vira-allow",
+   "descricao": "abstencao vira allow: a resolucao tentada e nao fechada nao e registrada",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow"
+   ],
+   "segundos": 4.7,
+   "nota": ""
+  },
+  {
+   "id": "R16-motivo-nunca-sai",
+   "descricao": "abstencao vira allow: o motivo calculado nunca chega ao `Verificacao`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow"
+   ],
+   "segundos": 5.3,
+   "nota": ""
+  },
+  {
+   "id": "R17-projeto-sob-tmp-vira-scratch",
+   "descricao": "projeto que mora em /tmp deixa de ser `Incerto` (vira `Projeto` e a politica nega)",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::atributo_item_associado_de_enum_nao_e_variante_ausente",
+    "vgp::lang::rust::tests::atributo_variante_inventada_de_enum_do_projeto",
+    "vgp::lang::rust::tests::import_crate_nao_declarada_avisa_externo_declarado_abstem",
+    "vgp::lang::rust::tests::import_cross_crate_do_workspace",
+    "vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado",
+    "vgp::lang::rust::tests::import_mod_decl_sem_arquivo_e_com_arquivo",
+    "vgp::lang::rust::tests::import_nome_inventado_em_modulo_do_projeto",
+    "vgp::lang::rust::tests::import_pub_use_glob_e_seguido",
+    "vgp::lang::rust::tests::import_segmento_intermediario_e_lista_mista",
+    "vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo",
+    "vgp::lang::rust::tests::kwarg_aridade_de_funcao_do_projeto",
+    "vgp::lang::rust::tests::kwarg_campo_inventado_em_literal_de_struct",
+    "vgp::lang::rust::tests::nome_glob_de_crate_declarado_e_incerto_nunca_projeto",
+    "vgp::lang::rust::tests::projeto_sob_tmp_nao_e_scratch_o_ausente_vira_incerto_e_so_avisa"
+   ],
+   "segundos": 5.6,
+   "nota": ""
+  },
+  {
+   "id": "R18-nome-dinamico-vira-projeto",
+   "descricao": "nome possivelmente dinamico deixa de ser `Incerto`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::nome_glob_externo_e_macro_nunca_negam"
+   ],
+   "segundos": 4.2,
+   "nota": ""
+  },
+  {
+   "id": "R19-aridade-nunca-estoura",
+   "descricao": "aridade de funcao do projeto nunca acusa",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::kwarg_aridade_de_funcao_do_projeto"
+   ],
+   "segundos": 5.1,
+   "nota": ""
+  },
+  {
+   "id": "R20-mod-sem-arquivo-nao-acusa",
+   "descricao": "`mod x;` sem arquivo deixa de ser `import`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::import_mod_decl_sem_arquivo_e_com_arquivo"
+   ],
+   "segundos": 4.8,
+   "nota": ""
+  },
+  {
+   "id": "R21-self-fora-de-impl-nao-acusa",
+   "descricao": "`Self` fora de `impl` deixa de ser `nome`",
+   "resultado": "FAILED",
+   "morto": true,
+   "testes_que_mataram": [
+    "vgp::lang::rust::tests::nome_self_fora_de_impl_e_dentro"
+   ],
+   "segundos": 4.6,
+   "nota": ""
+  }
+ ],
+ "vivos": [
+  "R11a-glob-externo-sem-dinamismo",
+  "R12-variante-invertida"
+ ]
+}

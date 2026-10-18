@@ -1,0 +1,706 @@
+{
+ "ate": "2026-10-09T18:54:00Z",
+ "since": "2026-09-17",
+ "janelas": {
+  "A": [
+   "2026-09-17T00:00:00Z",
+   "2026-10-09T14:16:43Z"
+  ],
+  "B": [
+   "2026-10-09T14:16:43Z",
+   "2026-10-09T16:32:42Z"
+  ],
+  "C": [
+   "2026-10-09T16:32:42Z",
+   "2026-10-09T18:54:00Z"
+  ]
+ },
+ "gates": {
+  "G1 rajada-de-inspeção": {
+   "ferramenta_exposta": "Bash",
+   "janelas": {
+    "A": {
+     "exposicao": 42997,
+     "negacoes": 182,
+     "taxa_por_100": 0.42,
+     "ic95": [
+      0.37,
+      0.49
+     ],
+     "rota_seguida": 0.6,
+     "rota_julgada": 181
+    },
+    "B": {
+     "exposicao": 391,
+     "negacoes": 0,
+     "taxa_por_100": 0.0,
+     "ic95": [
+      0.0,
+      0.97
+     ],
+     "rota_seguida": null,
+     "rota_julgada": 0
+    },
+    "C": {
+     "exposicao": 634,
+     "negacoes": 0,
+     "taxa_por_100": 0.0,
+     "ic95": [
+      0.0,
+      0.6
+     ],
+     "rota_seguida": null,
+     "rota_julgada": 0
+    }
+   }
+  },
+  "exec-burst (python-inline seriado)": {
+   "ferramenta_exposta": "Bash",
+   "janelas": {
+    "A": {
+     "exposicao": 42997,
+     "negacoes": 402,
+     "taxa_por_100": 0.93,
+     "ic95": [
+      0.85,
+      1.03
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 402
+    },
+    "B": {
+     "exposicao": 391,
+     "negacoes": 3,
+     "taxa_por_100": 0.77,
+     "ic95": [
+      0.26,
+      2.23
+     ],
+     "rota_seguida": 33.3,
+     "rota_julgada": 3
+    },
+    "C": {
+     "exposicao": 634,
+     "negacoes": 1,
+     "taxa_por_100": 0.16,
+     "ic95": [
+      0.03,
+      0.89
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 1
+    }
+   }
+  },
+  "write→run (script escrito-e-executado)": {
+   "ferramenta_exposta": "Bash",
+   "janelas": {
+    "A": {
+     "exposicao": 42997,
+     "negacoes": 122,
+     "taxa_por_100": 0.28,
+     "ic95": [
+      0.24,
+      0.34
+     ],
+     "rota_seguida": 0.8,
+     "rota_julgada": 122
+    },
+    "B": {
+     "exposicao": 391,
+     "negacoes": 0,
+     "taxa_por_100": 0.0,
+     "ic95": [
+      0.0,
+      0.97
+     ],
+     "rota_seguida": null,
+     "rota_julgada": 0
+    },
+    "C": {
+     "exposicao": 634,
+     "negacoes": 1,
+     "taxa_por_100": 0.16,
+     "ic95": [
+      0.03,
+      0.89
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 1
+    }
+   }
+  },
+  "G11 orçamento de bypass": {
+   "ferramenta_exposta": "Bash",
+   "janelas": {
+    "A": {
+     "exposicao": 42997,
+     "negacoes": 172,
+     "taxa_por_100": 0.4,
+     "ic95": [
+      0.34,
+      0.46
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 172
+    },
+    "B": {
+     "exposicao": 391,
+     "negacoes": 1,
+     "taxa_por_100": 0.26,
+     "ic95": [
+      0.05,
+      1.43
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 1
+    },
+    "C": {
+     "exposicao": 634,
+     "negacoes": 4,
+     "taxa_por_100": 0.63,
+     "ic95": [
+      0.25,
+      1.61
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 4
+    }
+   }
+  },
+  "rm guard": {
+   "ferramenta_exposta": "Bash",
+   "janelas": {
+    "A": {
+     "exposicao": 42997,
+     "negacoes": 97,
+     "taxa_por_100": 0.23,
+     "ic95": [
+      0.18,
+      0.28
+     ],
+     "rota_seguida": 4.1,
+     "rota_julgada": 97
+    },
+    "B": {
+     "exposicao": 391,
+     "negacoes": 0,
+     "taxa_por_100": 0.0,
+     "ic95": [
+      0.0,
+      0.97
+     ],
+     "rota_seguida": null,
+     "rota_julgada": 0
+    },
+    "C": {
+     "exposicao": 634,
+     "negacoes": 2,
+     "taxa_por_100": 0.32,
+     "ic95": [
+      0.09,
+      1.14
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 2
+    }
+   }
+  },
+  "G7 re-inspeção (3ª leitura)": {
+   "ferramenta_exposta": "Read",
+   "janelas": {
+    "A": {
+     "exposicao": 9790,
+     "negacoes": 471,
+     "taxa_por_100": 4.81,
+     "ic95": [
+      4.4,
+      5.25
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 470
+    },
+    "B": {
+     "exposicao": 58,
+     "negacoes": 7,
+     "taxa_por_100": 12.07,
+     "ic95": [
+      5.97,
+      22.88
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 7
+    },
+    "C": {
+     "exposicao": 52,
+     "negacoes": 7,
+     "taxa_por_100": 13.46,
+     "ic95": [
+      6.68,
+      25.27
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 7
+    }
+   }
+  },
+  "G3 edit sem Read recente": {
+   "ferramenta_exposta": "Edit",
+   "janelas": {
+    "A": {
+     "exposicao": 13113,
+     "negacoes": 448,
+     "taxa_por_100": 3.42,
+     "ic95": [
+      3.12,
+      3.74
+     ],
+     "rota_seguida": 0.5,
+     "rota_julgada": 439
+    },
+    "B": {
+     "exposicao": 100,
+     "negacoes": 3,
+     "taxa_por_100": 3.0,
+     "ic95": [
+      1.03,
+      8.45
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 3
+    },
+    "C": {
+     "exposicao": 140,
+     "negacoes": 1,
+     "taxa_por_100": 0.71,
+     "ic95": [
+      0.13,
+      3.93
+     ],
+     "rota_seguida": 0.0,
+     "rota_julgada": 1
+    }
+   }
+  },
+  "python_pre_gate (F82 etc.)": {
+   "ferramenta_exposta": "Edit",
+   "janelas": {
+    "A": {
+     "exposicao": 13113,
+     "negacoes": 417,
+     "taxa_por_100": 3.18,
+     "ic95": [
+      2.89,
+      3.49
+     ],
+     "rota_seguida": 98.8,
+     "rota_julgada": 410
+    },
+    "B": {
+     "exposicao": 100,
+     "negacoes": 4,
+     "taxa_por_100": 4.0,
+     "ic95": [
+      1.57,
+      9.84
+     ],
+     "rota_seguida": 100.0,
+     "rota_julgada": 4
+    },
+    "C": {
+     "exposicao": 140,
+     "negacoes": 15,
+     "taxa_por_100": 10.71,
+     "ic95": [
+      6.6,
+      16.93
+     ],
+     "rota_seguida": 100.0,
+     "rota_julgada": 15
+    }
+   }
+  }
+ },
+ "eventos_C": [
+  {
+   "ts": "2026-10-09T16:33:28.421Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_01SAwdPvrca8n6ZeSXzWzije",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote"
+  },
+  {
+   "ts": "2026-10-09T16:44:56.604Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "touring-quality-block-all",
+   "toolUseID": "toolu_01AzsnfgZwWk48CwZ1a7yekk",
+   "texto": "PreToolUse:Write hook error: ⛔ BLOCK [ABSOLUTE]: 50-dim P0 regression in /tmp/claude-1000/-home-gabrielgadea-projects-an"
+  },
+  {
+   "ts": "2026-10-09T16:46:48.718Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "toolu_01VoCaEPgCt6EnCWq5NmeWvk",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T17:30:30.875Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_01CzDxnCLxQ8K1adEwha8PWo",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `python-inline` em 300s, executada nativa. Se a próxima também for inspeção, ro"
+  },
+  {
+   "ts": "2026-10-09T17:31:31.293Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "write→run (script escrito-e-executado)",
+   "toolUseID": "toolu_01EU9h7rJNbJgtEMwUKJ4LDx",
+   "texto": "PreToolUse:Bash hook error: [G10 write→run] 2º script escrito-e-executado na janela de 600s (`/tmp/claude-1000/-home-gab"
+  },
+  {
+   "ts": "2026-10-09T17:31:47.070Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G11 orçamento de bypass",
+   "toolUseID": "toolu_013xrC8vdZNHYKUMWGsdhYjB",
+   "texto": "PreToolUse:Bash hook error: [G11 orçamento de bypass] dois bypasses seguidos: 2 seguido(s), 2 desde a última rota, janel"
+  },
+  {
+   "ts": "2026-10-09T17:35:24.110Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "exec-burst (python-inline seriado)",
+   "toolUseID": "toolu_01V7qqWV7gFV814WjYirCWE6",
+   "texto": "PreToolUse:Bash hook error: [G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` na janela d"
+  },
+  {
+   "ts": "2026-10-09T17:47:56.008Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G11 orçamento de bypass",
+   "toolUseID": "toolu_0152fKbWCB3Wb4qXsvkVhJHa",
+   "texto": "PreToolUse:Bash hook error: [G11 orçamento de bypass] dois bypasses seguidos: 2 seguido(s), 2 desde a última rota, janel"
+  },
+  {
+   "ts": "2026-10-09T17:49:02.691Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_018pQH7xMrWBYPh6hPAqUcXB",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote"
+  },
+  {
+   "ts": "2026-10-09T17:53:01.447Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_01DaYwaoY5b43AdVvy42N5d8",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `sed-n` em 300s, executada nativa. Se a próxima também for inspeção, rode o lot"
+  },
+  {
+   "ts": "2026-10-09T17:53:34.026Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "rm guard",
+   "toolUseID": "toolu_01PHMvbSBZ58jUkegCR5dVCq",
+   "texto": "PreToolUse:Bash hook error: Force without confirmation: flag `-f` — in `rm -f $S/mut1/inventario_erros.py $S/mut2/invent"
+  },
+  {
+   "ts": "2026-10-09T18:01:01.767Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G11 orçamento de bypass",
+   "toolUseID": "toolu_01FV9KaFeXQkFAnhwNe25292",
+   "texto": "PreToolUse:Bash hook error: [G11 orçamento de bypass] terceiro bypass sem usar a rota: 1 seguido(s), 3 desde a última ro"
+  },
+  {
+   "ts": "2026-10-09T18:01:10.505Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "toolu_01W8K74g6jjNtnMz54rA7xhw",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `ATE_V0E5`"
+  },
+  {
+   "ts": "2026-10-09T18:01:49.198Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "toolu_01SFHX92pKkrHFgudY8HFEmp",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `rotulo`"
+  },
+  {
+   "ts": "2026-10-09T18:14:14.562Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G11 orçamento de bypass",
+   "toolUseID": "toolu_01CzoSWqGtsQF5YYeVhdZMPd",
+   "texto": "PreToolUse:Bash hook error: [G11 orçamento de bypass] terceiro bypass sem usar a rota: 1 seguido(s), 3 desde a última ro"
+  },
+  {
+   "ts": "2026-10-09T18:41:20.947Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_0121jc1BLMpNvLnrzvScm11L",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `wc` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote d"
+  },
+  {
+   "ts": "2026-10-09T18:45:24.973Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "escrita cega inline (sed -i/awk/perl)",
+   "toolUseID": "toolu_01JNzyMUsC7wPX9LPDeTvSHB",
+   "texto": "PreToolUse:Bash hook error: [G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às cegas — zero dos 17 "
+  },
+  {
+   "ts": "2026-10-09T18:46:27.729Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "toolu_01Jdgem2ywAdKxgV9LMBoS2C",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T18:47:22.579Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_01LKE9qZfJn3kgCqJyQxADqV",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `python-inline` em 300s, executada nativa. Se a próxima também for inspeção, ro"
+  },
+  {
+   "ts": "2026-10-09T18:52:08.513Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "toolu_01SfdMMpzU4aHtkxvfYpfchW",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T18:52:09.089Z",
+   "sessao": "e7c33fba-4d8d-4026-84db-fe7083ece971",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "toolu_01RSTnBqZFKkfxV8yvumKxbU",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 4ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T17:30:29.637Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_g1BJKo5eJjW5KSqmr9611oDQ",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `wc` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote d"
+  },
+  {
+   "ts": "2026-10-09T17:31:45.596Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_yTsXah2foaUvjH6gznCmWeYV",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote"
+  },
+  {
+   "ts": "2026-10-09T17:33:34.051Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_tvorfbjJk3k74WltU9lHwoGV",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `sed-n` em 300s, executada nativa. Se a próxima também for inspeção, rode o lot"
+  },
+  {
+   "ts": "2026-10-09T18:41:14.829Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_PyJGgMO3Ck9F3vmwKOhjfxxz",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `cat` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote "
+  },
+  {
+   "ts": "2026-10-09T18:47:24.378Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_FGU5rOS2Ro8uUliIaC2LXcO3",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `grep` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote"
+  },
+  {
+   "ts": "2026-10-09T18:52:49.929Z",
+   "sessao": "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "tool_R295zFQhgxmocXjiL57X9i2T",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `python-inline` em 300s, executada nativa. Se a próxima também for inspeção, ro"
+  },
+  {
+   "ts": "2026-10-09T17:41:39.879Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c19cd37222a54c4f36",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `re`"
+  },
+  {
+   "ts": "2026-10-09T17:41:43.926Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "call_01a121c1ade273d7ba565bb4",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T17:41:49.824Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c1c46e71f1be90a545",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `reencontrar`"
+  },
+  {
+   "ts": "2026-10-09T17:42:04.230Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c1fccb732f951efc43",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — invalid-syntax: Expected an indented b"
+  },
+  {
+   "ts": "2026-10-09T17:42:28.327Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c258ee75e8a631d895",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — invalid-syntax: Expected a statement; "
+  },
+  {
+   "ts": "2026-10-09T17:45:37.120Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c53ee470bb8b963c34",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `na_tabela`"
+  },
+  {
+   "ts": "2026-10-09T17:45:40.804Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121c54d9373909e70fd56",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `na_tabela`"
+  },
+  {
+   "ts": "2026-10-09T17:55:17.584Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121ce162d730799a107f2",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `gate_of`; F821: "
+  },
+  {
+   "ts": "2026-10-09T17:56:28.606Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121cf2d52766d8c7fda7a",
+   "texto": "PreToolUse:Write hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `julia`"
+  },
+  {
+   "ts": "2026-10-09T17:56:56.454Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121cf9b02707e8fd95934",
+   "texto": "PreToolUse:Write hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `n`"
+  },
+  {
+   "ts": "2026-10-09T18:01:25.069Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "call_01a121d3b5fe726b884d22e0",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp"
+  },
+  {
+   "ts": "2026-10-09T18:01:55.834Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121d42d857348a96e9b43",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `_extrai_inline`"
+  },
+  {
+   "ts": "2026-10-09T18:08:01.879Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121d9c16d740390e24706",
+   "texto": "PreToolUse:Write hook error: python_pre_gate: the edit ADDS code that cannot run — invalid-syntax: Unexpected indentatio"
+  },
+  {
+   "ts": "2026-10-09T18:11:52.516Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121dd3faf752a8aa2581b",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — invalid-syntax: Expected a statement; "
+  },
+  {
+   "ts": "2026-10-09T18:18:33.589Z",
+   "sessao": "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+   "tipo": "negacao",
+   "gate": "python_pre_gate (F82 etc.)",
+   "toolUseID": "call_01a121e3628d77bc82ca2335",
+   "texto": "PreToolUse:Edit hook error: python_pre_gate: the edit ADDS code that cannot run — F821: Undefined name `_consumidor_do_h"
+  },
+  {
+   "ts": "2026-10-09T17:50:35.347Z",
+   "sessao": "agent-av3-camada2-38289e41324fb466",
+   "tipo": "AVISO S3",
+   "gate": "S3 (aviso)",
+   "toolUseID": "toolu_01FJrzFiNBUEKqgag4gj257b",
+   "texto": "[CODE MODE · rajada] aviso — 2ª inspeção `cat` em 300s, executada nativa. Se a próxima também for inspeção, rode o lote "
+  },
+  {
+   "ts": "2026-10-09T17:58:03.580Z",
+   "sessao": "agent-av3-camada2-38289e41324fb466",
+   "tipo": "negacao",
+   "gate": "G3 edit sem Read recente",
+   "toolUseID": "toolu_01R7gSzQMf83sGbXNuCz2uhK",
+   "texto": "PreToolUse:Edit hook error: [G3 edit-sem-read] 2º Edit sem Read recente nesta sessão — os 11 erros `edit_string_not_foun"
+  },
+  {
+   "ts": "2026-10-09T18:08:17.781Z",
+   "sessao": "agent-av3-camada2-38289e41324fb466",
+   "tipo": "negacao",
+   "gate": "rm guard",
+   "toolUseID": "toolu_01VkPuDUgx1gbZQR6kgP1GB1",
+   "texto": "PreToolUse:Bash hook error: Force without confirmation: flag `-f` — in `rm -f ~/projects/touring/docs/plans/2026-10-08-v"
+  },
+  {
+   "ts": "2026-10-09T18:13:53.510Z",
+   "sessao": "agent-av3-camada2-38289e41324fb466",
+   "tipo": "negacao",
+   "gate": "G7 re-inspeção (3ª leitura)",
+   "toolUseID": "toolu_018gKGCwe6QiqYY4Ty9QtuFJ",
+   "texto": "PreToolUse:Read hook error: [G7 re-inspeção] 3ª leitura de /home/gabrielgadea/projects/touring/crates/touring-lsp/tests/"
+  }
+ ],
+ "s3_avisos": {
+  "C": {
+   "avisos": 13,
+   "julgados": 13,
+   "seguiram_rota": 0,
+   "taxa": 0.0,
+   "ic95": [
+    0.0,
+    22.81
+   ]
+  }
+ }
+}

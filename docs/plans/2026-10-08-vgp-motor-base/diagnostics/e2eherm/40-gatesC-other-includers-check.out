@@ -1,0 +1,14 @@
+hw-slot: aguardando — temp 97C > 88C
+### cargo check -p touring-generator --test e2e_diagnostic_rfc100
+rc=0
+    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-e2eherm/crates/touring-generator)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 1m 39s
+### cargo check -p touring-integration-tests --test wave15_cli_exposure_e2e --test entity_mcp_e2e --test wave16_status_mcp_e2e --test wave17_query_cache_e2e --test wave18_cache_expansion_e2e
+rc=0
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+### cargo check -p touring-server --test binary_e2e --test cli_language_e2e --test e2e_hook_integration --test f3_update_component_e2e --test graph_service_e2e
+rc=0
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+gatesC rc=0

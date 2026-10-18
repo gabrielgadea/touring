@@ -1,0 +1,23 @@
+{
+ "summary": {
+  "controles": {
+   "ck": 0
+  },
+  "total": 1,
+  "validos": 1,
+  "mortos": 1,
+  "sobreviventes": [],
+  "invalidos": [],
+  "segundos": 6
+ },
+ "results": [
+  {
+   "id": "CK07",
+   "why": "resumo sem aspas",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_summary_full_of_shell_syntax_is_stored_literally"
+  }
+ ]
+}

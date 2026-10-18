@@ -1,0 +1,226 @@
+{
+ "corte": "2026-10-09T18:14:31.894Z",
+ "saida": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261013",
+ "vivo_sha_tree_antes": "60ebf06bd598fd95",
+ "temporal_sha_tree_antes": "6f5fc46410884fd2",
+ "parametros": {
+  "seed": 20261013,
+  "n_arquivo": 600,
+  "n_inline_por_estrato": 200,
+  "n_tmp": 100,
+  "teto": 0.03,
+  "teto_por_arquivo": 18,
+  "teto_por_sessao": 18,
+  "cotas_projeto": {
+   "touring": 72,
+   "analise": 518,
+   "simulador-urna-rs-2026": 4,
+   ".claude": 6
+  },
+  "mistura_do_vivo": {
+   "touring": 36,
+   "analise": 259,
+   "simulador-urna-rs-2026": 2,
+   ".claude": 3
+  },
+  "transcripts": "todos, sem truncar (so edicoes com ts <= corte entram)"
+ },
+ "exclusoes_tamanho": {
+  "ids": 3429,
+  "tool_use_ids": 1853,
+  "shas": 3443,
+  "comandos": 1883
+ },
+ "pool_inline": {
+  "universo_total": 12571,
+  "apos_filtros_de_id": 9678,
+  "excluidos_monta": {
+   "envelope sem \"success\": true": 220,
+   "traceback": 209,
+   "is_error": 1034,
+   "touring run sem envelope legivel": 2312,
+   "shell misturada no programa": 133,
+   "envelope sem exit_code 0": 2,
+   "heredoc: programa nao compila": 3,
+   "c: programa nao compila": 9,
+   "tmp_escrito_e_executado: programa nao compila": 1
+  },
+  "excluidos_por_chave": {
+   "tool_use_id ja no vivo/temporal": 1581,
+   "tool_use_id duplicado (pai/subagente)": 65,
+   "depois do corte": 1247,
+   "conteudo ja no vivo/temporal": 33
+  },
+  "pool_por_estrato": {
+   "c": 2324,
+   "heredoc": 2602,
+   "touring_run": 795,
+   "tmp_escrito_e_executado": 1
+  }
+ },
+ "arquivo": {
+  "universo": {
+   "vistos": 4613,
+   "candidatos": 13689,
+   "candidatos_de_toda_a_historia": 13689,
+   "candidatos_ate_o_corte": 12944,
+   "corte": "2026-10-09T18:14:31.894Z"
+  },
+  "pool_registrado": 12944,
+  "sorteados": 600,
+  "no_corpus": 600,
+  "podas": {
+   "podados": 3593,
+   "rodadas": 1
+  },
+  "selecao": {
+   "aceitos": 600,
+   "n": 600,
+   "por_projeto": {
+    "analise": 518,
+    "touring": 72,
+    "simulador-urna-rs-2026": 4,
+    ".claude": 6
+   },
+   "cotas": {
+    "touring": 72,
+    "analise": 518,
+    "simulador-urna-rs-2026": 4,
+    ".claude": 6
+   },
+   "rejeicoes": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 145,
+    "conteudo ja visto (vivo/temporal/amostra)": 26,
+    "conteudo nao reconstroi": 540,
+    "id ja no vivo/temporal": 467,
+    "estado incompleto: módulo importado não reconstrói no instante": 75,
+    "nao compila": 2,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2,
+    "cota do projeto cheia (ou projeto sem cota)": 2336
+   },
+   "max_por_arquivo": 6,
+   "arquivos_distintos": 508,
+   "candidatos_no_universo": 12944
+  }
+ },
+ "inline": {
+  "selecao": {
+   "c": {
+    "quota": 200,
+    "aceitos": 200,
+    "pool": 2324,
+    "rejeitados": {
+     "estado incompleto: submódulo importado não reconstrói no instante": 16,
+     "programa repetido na amostra": 1,
+     "estado incompleto: módulo importado não reconstrói no instante": 2,
+     "teto por sessao": 33
+    },
+    "faltou": 0
+   },
+   "heredoc": {
+    "quota": 200,
+    "aceitos": 200,
+    "pool": 2602,
+    "rejeitados": {
+     "teto por sessao": 149,
+     "estado incompleto: submódulo importado não reconstrói no instante": 4,
+     "estado incompleto: módulo importado não reconstrói no instante": 3
+    },
+    "faltou": 0
+   },
+   "touring_run": {
+    "quota": 200,
+    "aceitos": 153,
+    "pool": 795,
+    "rejeitados": {
+     "teto por sessao": 640,
+     "estado incompleto: submódulo importado não reconstrói no instante": 2
+    },
+    "faltou": 47
+   },
+   "tmp_escrito_e_executado": {
+    "quota": 100,
+    "aceitos": 0,
+    "pool": 1,
+    "rejeitados": {
+     "teto por sessao": 1
+    },
+    "faltou": 100
+   }
+  },
+  "gravados": 553,
+  "snaps_que_nao_compilam": 0
+ },
+ "estado_no_instante": {
+  "entradas": 1153,
+  "motivos": {
+   "o arquivo nasceu nesta edição (antes = vazio)": 275,
+   "ok": 325,
+   "inline: o programa inteiro é novo (sem delta)": 553
+  },
+  "overlays": 536,
+  "entradas_incompletas": 0,
+  "modulos_por_tipo": {
+   "ancestral": 189,
+   "direto": 213,
+   "submodulo": 134
+  },
+  "entradas_com_modulo_que_a_regra_antiga_nao_sobrepunha": 130,
+  "entradas_com_importacao_de_profundidade_2_nao_coberta": 91,
+  "modulos_de_profundidade_2_nao_cobertos": 717
+ },
+ "estado_completo": {
+  "exigido": true,
+  "recusados_por_estado_incompleto": {
+   "arquivo": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 145,
+    "estado incompleto: módulo importado não reconstrói no instante": 75,
+    "estado incompleto: __init__ de pacote ancestral não reconstrói no instante": 2
+   },
+   "inline": {
+    "estado incompleto: submódulo importado não reconstrói no instante": 22,
+    "estado incompleto: módulo importado não reconstrói no instante": 5
+   }
+  },
+  "entradas_incompletas_no_corpus": 0,
+  "modulos_por_tipo": {
+   "ancestral": 189,
+   "direto": 213,
+   "submodulo": 134
+  },
+  "entradas_com_modulo_que_a_regra_antiga_nao_sobrepunha": 130,
+  "profundidade_2_medida_nao_exigida": {
+   "entradas_com_lacuna": 91,
+   "modulos_nao_cobertos": 717
+  }
+ },
+ "congelados_antes_de_selar": {
+  "arquivo_do_registro": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261013/congelados.json",
+  "arquivos": {
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/adjudica_rotulo.py": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py": "e90a8514627d8daa7ec8ff2c2a06316b6fcc16300a3e27b78a01da5fa20d0503",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py": "bb1f108fb8a0169a7c42e50c9fa19f07de008bdfd156bbcccc256c69f7a36347",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py": "f04f8cdf99095138014e927b5efff3c2e85ee7e5509bbf2332368e3c60bd945e",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/exclusoes_disjunto.py": "e2c76d00c6b3c6df57d60bcc8464bff10b785b73b1fb5333517e50ffa79fe52e",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/verificar_sobreposicao.py": "972cf5ee67f3661417dd181f6c5278c53189f4323e6d9f7274f0712f324c43d3",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_adjudica_rotulo.py": "8eed8f856976dbfbb8dfd43448e80354b2f170d5ca1ffecbe8f54ea12e297093",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_estado_no_instante.py": "044b82eb646f4ac1bbe150d1fcc585396f36f30b7e276d9eace5b45971173ec9",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/test_construir_disjunto_ho13.py": "88c7964212d765452d041960ebfdf2a193068ae4bc123b1d42c4c9f2c599dbcb",
+   "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py": "fed3c847630f374677c41142b00d845433e63508e896fef55f6a16c6c854f34f"
+  }
+ },
+ "vivo_sha_tree_depois": "60ebf06bd598fd95",
+ "temporal_sha_tree_depois": "6f5fc46410884fd2",
+ "vivo_e_temporal_intocados": true,
+ "corpus_excluidos_alem_do_vivo_e_temporal": {
+  "antes": {
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053",
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011": "c495bcab66718230"
+  },
+  "depois": {
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto": "c448c37dfd7ef053",
+   "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011": "c495bcab66718230"
+  }
+ },
+ "wall_s": 197.3
+}

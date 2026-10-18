@@ -1,0 +1,17 @@
+    def test_validar_aceita_qualquer_codigo_da_lista_de_aceitos_e_so_eles():
+>       i = oc.Injecao("i", "a.rs", "nome", "nome_tipo", "E0425", 10, "TipoX", "a", "b", aceitos=("E0425", "E0412"))
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       TypeError: Injecao.__init__() got an unexpected keyword argument 'aceitos'
+
+test_oraculo_cargo_json.py:285: TypeError
+=========================== short test summary info ============================
+FAILED test_construtor_horust.py::test_plano_com_filtro_de_sitio_e_cotas_por_operador_so_pega_o_que_foi_pedido
+FAILED test_construtor_horust.py::test_planejar_sem_operadores_continua_usando_as_cotas_por_classe
+FAILED test_driver_horust.py::test_ler_registros_o_ultimo_de_cada_id_vence - ...
+FAILED test_driver_horust.py::test_rodada_2_e_de_reparo_dos_operadores_e_a_3_volta_a_ser_por_classe
+FAILED test_driver_horust.py::test_registro_guarda_o_codigo_que_o_rustc_deu_e_o_esperado
+FAILED test_operadores_rust.py::test_nome_tipo_acha_tipo_de_projeto_e_ignora_prelude
+FAILED test_operadores_rust.py::test_import_use_marca_a_posicao_do_segmento
+FAILED test_oraculo_cargo_json.py::test_validar_aceita_qualquer_codigo_da_lista_de_aceitos_e_so_eles
+8 failed, 158 passed in 1.87s
+

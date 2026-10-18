@@ -1,0 +1,128 @@
+{
+ "pronto": true,
+ "pendencias": [],
+ "exigir_limite_superior": false,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 0,
+   "n": 400,
+   "taxa": 0.0,
+   "limite_superior_95": 0.0074613555287995625,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 0
+  },
+  "inline": {
+   "falsos": 0,
+   "n": 274,
+   "taxa": 0.0,
+   "limite_superior_95": 0.01087377784900223,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": -1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.7777777777777778
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   1,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 400,
+  "inline": 274
+ },
+ "avisos_em_negativos": 49,
+ "defeito_de_corpus": [],
+ "p95_ms": 105.873441,
+ "chamadas": 738,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  }
+ ]
+}

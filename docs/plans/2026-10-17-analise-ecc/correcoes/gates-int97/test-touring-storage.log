@@ -1,0 +1,452 @@
+   Compiling serde_core v1.0.228
+   Compiling num-traits v0.2.19
+   Compiling serde_json v1.0.150
+   Compiling matrixmultiply v0.3.10
+   Compiling half v2.7.1
+   Compiling backtrace v0.3.76
+   Compiling num-integer v0.1.46
+   Compiling num-bigint v0.4.6
+   Compiling serde v1.0.228
+   Compiling bytes v1.12.0
+   Compiling http v1.4.2
+   Compiling tokio v1.52.3
+   Compiling http-body v1.0.1
+   Compiling num-rational v0.4.2
+   Compiling ahash v0.8.12
+   Compiling v_frame v0.3.9
+   Compiling av-scenechange v0.14.1
+   Compiling av1-grain v0.2.5
+   Compiling hashbrown v0.14.5
+   Compiling rav1e v0.8.1
+   Compiling ureq-proto v0.6.0
+   Compiling tokio-util v0.7.18
+   Compiling h2 v0.4.19
+   Compiling tokio-rustls v0.26.4
+   Compiling tower v0.5.3
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling num-complex v0.4.6
+   Compiling bytemuck v1.25.0
+   Compiling spm_precompiled v0.1.4
+   Compiling hyper v1.10.1
+   Compiling hyper-util v0.1.20
+   Compiling ravif v0.13.0
+   Compiling tiff v0.11.3
+   Compiling hyper-rustls v0.27.9
+   Compiling toml_edit v0.22.27
+   Compiling qoi v0.4.1
+   Compiling moxcms v0.8.1
+   Compiling compact_str v0.9.1
+   Compiling exr v1.74.0
+   Compiling monostate v0.1.18
+   Compiling png v0.18.1
+   Compiling onig v6.5.3
+   Compiling tower-http v0.6.11
+   Compiling ndarray v0.17.2
+   Compiling ureq v3.3.0
+   Compiling http-body-util v0.1.3
+   Compiling serde_urlencoded v0.7.1
+   Compiling dary_heap v0.3.9
+   Compiling uuid v1.23.4
+   Compiling hashbrown v0.16.1
+   Compiling backtrace-ext v0.2.1
+   Compiling unicode-normalization-alignments v0.1.12
+   Compiling reqwest v0.12.28
+   Compiling tokenizers v0.22.2
+   Compiling chrono v0.4.45
+   Compiling serde_yaml v0.9.34+deprecated
+   Compiling miette v7.6.0
+   Compiling moka v0.12.15
+   Compiling safetensors v0.8.0
+   Compiling ort v2.0.0-rc.12
+   Compiling hf-hub v0.5.0
+   Compiling image v0.25.10
+   Compiling toml v0.8.23
+   Compiling dashmap v6.2.1
+   Compiling hashlink v0.9.1
+   Compiling hdrhistogram v7.5.4
+   Compiling salsa v0.18.0
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling fastembed v5.17.2
+   Compiling touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-rkyv)
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 33s
+     Running unittests src/lib.rs (target/debug/deps/touring_storage-a2fc86bb775cb5b6)
+
+running 293 tests
+test embeddings::adapter::tests::test_plugin_adapter_type_name ... ok
+test embeddings::adapter::tests::test_plugin_adapter_size ... ok
+test embeddings::family::tests::test_model_family_incompatibility_different_generation ... ok
+test embeddings::family::tests::test_model_family_compatibility_same ... ok
+test embeddings::family::tests::test_model_family_incompatibility_different_name ... ok
+test embeddings::providers::fastembed::tests::arctic_m_real_model_embeds_768_and_is_semantic ... ignored, downloads ~440MB arctic-embed-m on first run; run with --ignored
+test embeddings::providers::fastembed::tests::cuda_runtime_matches_cpu_vectors ... ignored, needs an NVIDIA GPU, CUDA 13, cuDNN 9 and cached weights
+test embeddings::providers::fastembed::tests::cuda_arena_bytes_defaults_and_honours_override ... ok
+test embeddings::providers::fastembed::tests::embed_device_labels_are_the_gate_metrics_values ... ok
+test embeddings::providers::fastembed::tests::embed_device_policy_rejects_unknown_value ... ok
+test embeddings::providers::fastembed::tests::embed_device_policy_parses_documented_values ... ok
+test embeddings::providers::fastembed::tests::stub_embed_one_sync_matches_declared_width ... ok
+test embeddings::providers::fastembed::tests::stub_provider_reports_no_device ... ok
+test embeddings::providers::fastembed::tests::test_cache_dir_env_override ... ok
+test embeddings::providers::fastembed::tests::test_fastembed_model_dimensions ... ok
+test embeddings::providers::fastembed::tests::test_embed_empty_batch ... ok
+test embeddings::providers::fastembed::tests::test_embed_query_stub ... ok
+test embeddings::providers::fastembed::tests::test_embed_single_text_stub ... ok
+test embeddings::providers::fastembed::tests::test_fastembed_model_id ... ok
+test embeddings::providers::fastembed::tests::test_model_conversion ... ok
+test embeddings::providers::fastembed::tests::test_provider_creation_stub ... ok
+test embeddings::tests::test_embedding_result_empty ... ok
+test embeddings::tests::test_embedding_result_len ... ok
+test embeddings::tests::test_model_family_compatibility ... ok
+test embeddings::tests::test_provider_from_env_default ... ok
+test functional_wiring::tests::test_complementary_chain_detection ... ok
+test functional_wiring::tests::test_extract_module_purpose ... ok
+test functional_wiring::tests::test_functional_chain_signal_broken ... ok
+test functional_wiring::tests::test_normalize_type ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_default_k ... ok
+test functional_wiring::tests::test_sequential_chain_detection ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_empty ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_normalized ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_two_lists ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_fuse_with_weights ... ok
+test embeddings::tests::test_embedding_model_dimensions ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank0 ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank1 ... ok
+test hybrid_search::hybrid::fusion::tests::test_rrf_score_rank10 ... ok
+test hybrid_search::hybrid::pipeline::tests::a_query_matching_nothing_is_empty_but_not_unwired ... ok
+test hybrid_search::hybrid::pipeline::tests::a_wired_keyword_backend_produces_real_hits ... ok
+test hybrid_search::hybrid::pipeline::tests::rerank_applies_to_real_hits ... ok
+test hybrid_search::hybrid::pipeline::tests::test_fusion_weights_intent_lookup ... ok
+test hybrid_search::hybrid::pipeline::tests::test_fusion_weights_intent_understand ... ok
+test hybrid_search::hybrid::pipeline::tests::test_query_intent_weights ... ok
+test hybrid_search::hybrid::pipeline::tests::test_search_pipeline_default ... ok
+test hybrid_search::hybrid::pipeline::tests::test_upsert_documents_without_provider_or_store ... ok
+test hybrid_search::hybrid::pipeline::tests::unwired_pipeline_returns_nothing_and_says_why ... ok
+test hybrid_search::hybrid::reranker::tests::test_rerank_result_new ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_new ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_with_batch_size ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_config_with_threshold ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_default ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_no_candidates ... ok
+test hybrid_search::hybrid::tests::test_hybrid_config_defaults ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_id ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_new ... ok
+test hybrid_search::hybrid::tests::test_ranked_result_scores ... ok
+test hybrid_search::hybrid::tests::test_rrf_fusion_ordering ... ok
+test hybrid_search::intent::tests::test_confidence_low_total ... ok
+test hybrid_search::intent::tests::test_detect_debug ... ok
+test hybrid_search::intent::tests::test_detect_document ... ok
+test hybrid_search::intent::tests::test_detect_explore ... ok
+test hybrid_search::intent::tests::test_detect_refactor ... ok
+test hybrid_search::intent::tests::test_detect_implement ... ok
+test hybrid_search::intent::tests::test_detect_understand ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_debug ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_implement ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_refactor ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_no_match ... ok
+test hybrid_search::intent::tests::test_semantic_weighting_understand ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_with_threshold_filters ... ok
+test hybrid_search::hybrid::reranker::tests::test_reranker_rerank_sorts_by_rerank_score ... ok
+test knowledge::tests::recent_bash_outcomes_for_session_scopes_by_session ... ok
+test knowledge::tests::legacy_rows_are_labelled_unverified_by_the_migration ... ok
+test knowledge::tests::test_add_gotcha ... ok
+test knowledge::tests::test_append_note ... ok
+test knowledge::tests::consumer_file_filters_on_wiring_map_use_an_index ... ok
+test knowledge::tests::test_archive_low_quality ... ok
+test knowledge::tests::test_archive_low_quality_empty ... ok
+test knowledge::tests::test_archive_low_quality_none_eligible ... ok
+test knowledge::tests::test_bash_outcome_different_commands_no_collision ... ok
+test knowledge::tests::test_bash_outcome_hash_stored ... ok
+test knowledge::tests::test_bash_outcomes ... ok
+test knowledge::tests::test_cleanup_old_entries_deletes_old ... ok
+test knowledge::tests::test_cleanup_old_entries_no_recent_deleted ... ok
+test knowledge::tests::test_coedit_bidirectional ... ok
+test knowledge::tests::test_decay_coedits_deletes_expired ... ok
+test knowledge::tests::test_coedit_table_creation ... ok
+test knowledge::tests::test_decay_coedits_reduces_count ... ok
+test knowledge::tests::test_edit_history ... ok
+test knowledge::tests::test_file_access_log ... ok
+test knowledge::tests::test_file_knowledge_upsert_and_lookup ... ok
+test knowledge::tests::test_file_knowledge_lookup_missing ... ok
+test knowledge::tests::test_file_relations ... ok
+test knowledge::tests::test_file_relations_has_imported_symbols ... ok
+test knowledge::tests::test_get_coedit_neighbors_top_k_limit ... ok
+test knowledge::tests::test_get_coedit_neighbors_sorted_by_count ... ok
+test knowledge::tests::test_get_gotchas_for_file ... ok
+test knowledge::tests::test_gotcha_dedup_same_pattern_language ... ok
+test knowledge::tests::test_gotcha_dedup_different_language ... ok
+test knowledge::tests::test_gotcha_f1_all_prevented ... ok
+test knowledge::tests::test_gotcha_f1_proxy ... ok
+test knowledge::tests::test_gotcha_multiple_matches ... ok
+test knowledge::tests::test_gotcha_no_match ... ok
+test knowledge::tests::test_gotcha_language_field_stored ... ok
+test knowledge::tests::test_gotcha_stats ... ok
+test knowledge::tests::test_increment_gotcha_hit ... ok
+test knowledge::tests::test_increment_gotcha_prevented ... ok
+test knowledge::tests::test_list_gotchas ... ok
+test knowledge::tests::test_migrate_schema_directly_is_idempotent ... ok
+test knowledge::tests::test_migrate_schema_survives_a_second_pass_over_populated_wiring ... ok
+test knowledge::tests::test_migration_v7_to_v8_upgrades_schema_and_preserves_data ... ok
+test knowledge::tests::test_migration_v8_to_v9_adds_wiring_unresolved_and_preserves_data ... ok
+test knowledge::tests::test_migration_v7_to_v8_is_idempotent ... ok
+test knowledge::tests::test_module_ecosystem_table_exists ... ok
+test knowledge::tests::test_migration_v8_to_v9_is_idempotent ... ok
+test knowledge::tests::test_recent_accessed_files ... ok
+test knowledge::tests::test_record_coedit_increments_count ... ok
+test knowledge::tests::test_replace_owned_note_keeps_one_current_segment_at_the_head ... ok
+test knowledge::tests::test_replace_quality_note_still_replaces_at_the_tail ... ok
+test knowledge::tests::test_schema_version_drift_guard ... ok
+test knowledge::tests::test_replace_relations ... ok
+test knowledge::tests::test_schema_creation ... ok
+test knowledge::tests::test_stats ... ok
+test knowledge::tests::test_threadsafe_db_send_sync ... ok
+test knowledge::tests::test_threadsafe_db_multithread ... ok
+test knowledge::tests::test_threadsafe_db_basic_ops ... ok
+test knowledge::tests::test_wiring_map_table_exists ... ok
+test knowledge::tests::test_threadsafe_db_with_closure ... ok
+test knowledge_index_generation::tests::a_dead_pid_is_not_alive_and_the_current_process_is_not_a_daemon ... ok
+test knowledge::tests::unmeasured_prevented_is_reported_as_null_not_zero ... ok
+test knowledge_index_generation::tests::a_database_without_the_table_reports_none ... ok
+test knowledge_index_generation::tests::an_aborted_generation_is_partial_and_carries_its_note ... ok
+test knowledge_index_generation::tests::a_generation_left_building_by_a_dead_process_is_partial ... ok
+test knowledge_index_generation::tests::a_new_generation_supersedes_one_still_building_and_a_complete_one_heals_it ... ok
+test knowledge_index_generation::tests::open_then_close_is_building_then_complete ... ok
+test knowledge_wiring::backfill_tests::a_partial_walk_leaves_producerless_consumers_unknown_not_extern ... ok
+test knowledge_index_generation::tests::the_table_stays_bounded ... ok
+test knowledge::tests::prevented_flag_matches_the_existence_of_a_production_producer ... ok
+test knowledge_wiring::backfill_tests::backfill_marks_external_reexport_consumers_as_extern ... ok
+test knowledge_wiring::build_output_exclusion_tests::first_party_source_still_passes ... ok
+test knowledge_wiring::build_output_exclusion_tests::other_build_and_cache_trees_are_not_wiring_either ... ok
+test knowledge_wiring::build_output_exclusion_tests::rust_source_under_no_circumstances_regresses ... ok
+test knowledge_wiring::build_output_exclusion_tests::rustdoc_javascript_is_not_wiring ... ok
+test knowledge_wiring::backfill_tests::backfill_repairs_consumer_indexed_before_producer ... ok
+test knowledge_wiring::backfill_tests::record_consumer_normalizes_alias_and_glob_imports ... ok
+test knowledge_wiring::backfill_tests::record_consumer_resolves_kind_through_reexport_facade ... ok
+test knowledge_wiring::companion_key_tests::a_companion_file_never_produces_consumes_or_owes_an_import ... ok
+test knowledge_wiring::consumer_clear_split_tests::the_walk_clear_keeps_inferred_edges_and_the_post_walk_clear_takes_only_them ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::consumer_scoped_resolution_types_a_new_private_helper_consumer ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::a_failure_after_the_producers_pass_leaves_no_kind_changed ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::every_consumer_kind_is_rewritten_from_the_final_producers_and_the_pass_is_idempotent ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::definer_kinds_resolve_module_private_self_reference_and_external_reexport ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::extern_is_only_concluded_over_a_complete_walk ... ok
+test knowledge_wiring::cross_language_inference_tests::families_follow_the_wireable_extensions ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::producer_scoped_resolution_types_a_consumer_recorded_before_its_definer ... ok
+test knowledge_wiring::consumer_kind_resolution_tests::the_sealed_resolution_keeps_definer_kinds_and_brands_extern_last ... ok
+test knowledge_wiring::cross_language_inference_tests::a_python_method_is_credited_only_in_a_module_the_consumer_imports ... ok
+test knowledge_wiring::key_count_provenance_tests::a_weaker_guess_never_demotes_a_stronger_edge ... ok
+test knowledge_wiring::cross_language_inference_tests::the_by_name_inference_never_crosses_languages ... ok
+test knowledge_wiring::key_count_provenance_tests::every_delete_keys_the_path_the_way_the_insert_did ... ok
+test knowledge_wiring::key_count_provenance_tests::the_counted_register_reports_only_rows_it_wrote ... ok
+test knowledge_wiring::per_project_polyglot_tests::the_258_defence_survives_the_opt_in ... ok
+test knowledge_wiring::per_project_polyglot_tests::rust_is_wired_in_both_modes ... ok
+test knowledge_wiring::phantom_module_tests::distinct_module_files_lists_producer_and_consumer_keys ... ok
+test knowledge_wiring::per_project_polyglot_tests::the_write_gate_follows_the_projects_answer ... ok
+test knowledge_wiring::polyglot_gate_tests::default_mode_is_rust_only ... ok
+test knowledge_wiring::polyglot_gate_tests::go_file_keyed_stays_rejected_even_under_flag ... ok
+test knowledge_wiring::polyglot_gate_tests::go_package_key_admitted_under_flag_only ... ok
+test knowledge_wiring::polyglot_gate_tests::go_vendored_and_empty_packages_rejected ... ok
+test knowledge_wiring::polyglot_gate_tests::is_go_package_wireable_classifier ... ok
+test knowledge_wiring::polyglot_gate_tests::non_rust_non_wireable_classifier ... ok
+test knowledge_wiring::polyglot_gate_tests::off_policy_matches_legacy_rust_gate ... ok
+test knowledge_wiring::polyglot_gate_tests::off_sql_predicate_is_byte_identical ... ok
+test knowledge_wiring::polyglot_gate_tests::on_policy_admits_first_party_source ... ok
+test knowledge_wiring::polyglot_gate_tests::on_policy_blocks_the_258_fp_sources ... ok
+test knowledge_wiring::polyglot_gate_tests::on_policy_blocks_vendored_and_test_files ... ok
+test knowledge_wiring::polyglot_gate_tests::on_policy_defers_go ... ok
+test knowledge_wiring::polyglot_gate_tests::on_sql_predicate_includes_go_keys ... ok
+test knowledge_wiring::polyglot_gate_tests::on_sql_predicate_includes_polyglot_extensions ... ok
+test knowledge_wiring::per_project_polyglot_tests::two_databases_in_one_process_hold_different_modes ... ok
+test knowledge_wiring::phantom_module_tests::purge_is_scoped_to_the_named_module ... ok
+test knowledge_wiring::phantom_module_tests::purge_module_rows_removes_producer_and_consumer_rows ... ok
+test knowledge_wiring::provenance_tests::a_missing_table_reports_not_measured_never_zero ... ok
+test knowledge_wiring::provenance_tests::a_qualified_pair_resolves_to_the_module_that_owns_the_name ... ok
+test knowledge_wiring::provenance_tests::an_unknown_qualifier_wires_nothing ... ok
+test knowledge_wiring::provenance_tests::legacy_ast_read_rows_read_back_as_resolved_not_as_weakest ... ok
+test knowledge_wiring::provenance_tests::canonicalize_strips_a_leading_dot_slash ... ok
+test knowledge_wiring::provenance_tests::each_pair_yields_at_most_one_edge ... ok
+test knowledge_wiring::provenance_tests::origin_ordering_and_strength_agree_on_evidence ... ok
+test knowledge_wiring::provenance_tests::migration_merges_the_dot_prefixed_universe_into_the_plain_one ... ok
+test knowledge_wiring::provenance_tests::diagnostic_reports_the_two_honesty_counters_apart ... ok
+test knowledge_wiring::provenance_tests::origin_breakdown_is_ordered_strongest_first ... ok
+test knowledge_wiring::provenance_tests::record_inferred_consumers_wires_free_calls_and_type_refs ... ok
+test knowledge_wiring::provenance_tests::unresolved_import_struct_serializes_for_reporting ... ok
+test knowledge_wiring::provenance_tests::provenance_is_written_per_tier_not_as_one_constant ... ok
+test knowledge_wiring::provenance_tests::rescanning_a_consumer_drops_its_stale_unresolved_rows ... ok
+test knowledge_wiring::python_package_source_tests::a_scripts_package_is_source_and_a_tools_directory_is_not ... ok
+test knowledge_wiring::python_package_source_tests::packages_are_read_from_the_project_root ... ok
+test knowledge_wiring::python_package_source_tests::the_orphan_queries_exclude_exactly_what_the_write_gate_refuses ... ok
+test knowledge_wiring::provenance_tests::top_unresolved_modules_rank_by_call_site_count ... ok
+test knowledge_wiring::provenance_tests::unresolved_writes_are_idempotent_across_rebuilds ... ok
+test knowledge_wiring::provenance_tests::unresolved_imports_never_change_the_orphan_set ... ok
+test knowledge_wiring::s3_find_pub_symbols_by_name_tests::finds_wired_and_orphan_producers_by_exact_name_only ... ok
+test knowledge_wiring::s3_find_pub_symbols_by_name_tests::same_crate_producer_sorts_first_under_a_consumer_hint ... ok
+test knowledge_wiring::ungated_eviction_tests::a_bogus_consumer_takes_only_its_own_edge ... ok
+test knowledge_wiring::ungated_eviction_tests::a_test_file_consuming_first_party_code_keeps_its_edge ... ok
+test knowledge_wiring::ungated_eviction_tests::evicts_a_companion_consumer_and_keeps_the_producer ... ok
+test knowledge_wiring::workspace_root_derivation_tests::derives_the_project_root_from_the_canonical_db_layout ... ok
+test knowledge_wiring::workspace_root_derivation_tests::refuses_a_layout_that_is_not_dot_claude_touring ... ok
+test knowledge_wiring::workspace_root_derivation_tests::refuses_the_global_store_under_home ... ok
+test knowledge_wiring::workspace_root_derivation_tests::refuses_touring_dir_that_is_not_under_dot_claude ... ok
+test knowledge_wiring::workspace_root_derivation_tests::resolves_a_relative_db_path_against_the_current_directory ... ok
+test knowledge_wiring::ungated_eviction_tests::evicts_what_the_write_gate_would_refuse ... ok
+test salsa::db::tests::create_and_set_file ... ok
+test salsa::db::tests::symbol_kind_eq ... ok
+test salsa::ingest::tests::blast_for_real_data_is_transitive ... ok
+test salsa::ingest::tests::blast_for_unknown_file_is_none ... ok
+test salsa::ingest::tests::incremental_recompute_on_real_data ... ok
+test salsa::ingest::tests::populate_builds_all_inputs ... ok
+test salsa::ingest::tests::unresolved_use_is_skipped ... ok
+test salsa::queries::blast::tests::blast_radius_is_transitive ... ok
+test salsa::queries::blast::tests::direct_consumers_finds_b_for_a ... ok
+test salsa::queries::blast::tests::invalidation_recomputes_only_on_change ... ok
+test salsa::queries::blast::tests::leaf_file_has_empty_blast ... ok
+test salsa::queries::blast::tests::unread_field_change_does_not_invalidate ... ok
+test salsa::queries::file_knowledge::tests::extended_knowledge_default ... ok
+test salsa::queries::file_knowledge::tests::file_knowledge_extended_unknown_file ... ok
+test salsa::queries::wiring::tests::chain_tree_default_is_empty ... ok
+test salsa::queries::wiring::tests::wiring_chains_from_simple_symbol ... ok
+test salsa::tests::blast_radius_result_debug ... ok
+test salsa::tests::chain_tree_empty ... ok
+test salsa::tests::extended_knowledge_default ... ok
+test vec::backends::sqlite_vec::tests::test_cosine_similarity ... ok
+test vec::backends::sqlite_vec::tests::test_sqlite_vec_basic ... ok
+test vec::backends::sqlite_vec::tests::test_vector_blob_roundtrip ... ok
+test vec::tests::test_cosine_similarity ... ok
+test vec::tests::test_in_memory_basic ... ok
+test vfs::abs_path::tests::abs_path_accepts_absolute ... ok
+test vfs::abs_path::tests::abs_path_buf_eq ... ok
+test vfs::abs_path::tests::abs_path_buf_rejects_relative ... ok
+test vfs::abs_path::tests::abs_path_buf_try_from ... ok
+test vfs::abs_path::tests::abs_path_eq ... ok
+test vfs::abs_path::tests::abs_path_rejects_relative ... ok
+test vfs::abs_path::tests::abs_path_to_buf ... ok
+test vfs::file_id::tests::file_id_clone ... ok
+test vfs::file_id::tests::file_id_default ... ok
+test vfs::file_id::tests::file_id_display ... ok
+test vfs::file_id::tests::file_id_eq ... ok
+test vfs::file_id::tests::file_id_new_and_index ... ok
+test vfs::file_set::tests::file_set_add_path ... ok
+test vfs::file_set::tests::file_set_glob_simple ... ok
+test vfs::file_set::tests::file_set_list_dir ... ok
+test vfs::file_set::tests::file_set_new ... ok
+test vfs::file_set::tests::simple_glob_matches_double_star ... ok
+test vfs::file_set::tests::simple_glob_matches_star ... ok
+test vfs::manifest::tests::manifest_apply_move ... ok
+test vfs::manifest::tests::manifest_detect_duplicate_vs_move ... ok
+test vfs::manifest::tests::manifest_detect_move ... ok
+test vfs::manifest::tests::manifest_detect_new_file ... ok
+test vfs::manifest::tests::manifest_insert_and_hash_of ... ok
+test vfs::manifest::tests::manifest_modified_file_not_a_move ... ok
+test knowledge_wiring::ungated_eviction_tests::is_idempotent ... ok
+test vfs::manifest::tests::manifest_multiple_no_manifest ... ok
+test vfs::manifest::tests::manifest_new_is_empty ... ok
+test vfs::manifest::tests::manifest_unhashable_file_goes_to_new_files ... ok
+test vfs::overlay::tests::overlay_new_is_empty ... ok
+test vfs::overlay::tests::overlay_paths_includes_base ... ok
+test vfs::overlay::tests::overlay_remove ... ok
+test vfs::overlay::tests::overlay_set_and_read ... ok
+test vfs::overlay::tests::overlay_wins_over_base ... ok
+test vfs::overlay::tests::overlay_with_base ... ok
+test vfs::projector::tests::change_debug ... ok
+test vfs::projector::tests::noop_projector_no_changes ... ok
+test vfs::projector::tests::symbol_id_construction ... ok
+test vfs::projector::tests::symbol_id_invalid ... ok
+test vfs::tests::abs_path_buf_owned ... ok
+test vfs::tests::abs_path_from_str ... ok
+test vfs::tests::abs_path_rejects_relative ... ok
+test vfs::tests::file_id_construction ... ok
+test vfs::tests::file_id_invalid ... ok
+test vfs::vfs::tests::vfs_add_overlay ... ok
+test knowledge_wiring::ungated_eviction_tests::keeps_every_language_the_maximal_vocabulary_admits ... ok
+test vfs::vfs::tests::vfs_add_overlay_twice_same_path ... ok
+test vfs::vfs::tests::vfs_file_id_lookup ... ok
+test vfs::vfs::tests::vfs_new ... ok
+test vfs::vfs::tests::vfs_not_found ... ok
+test vfs::vfs::tests::vfs_paths ... ok
+test vfs::vfs::tests::vfs_read_overlay ... ok
+test vfs::vfs::tests::vfs_overlay_wins_over_fs ... ok
+test vfs::vfs::tests::vfs_remove ... ok
+test salsa::bench::tests::incremental_beats_full_and_meets_50ms_target ... ok
+
+test result: ok. 291 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 1.00s
+
+     Running tests/e2e_candle_bge.rs (target/debug/deps/e2e_candle_bge-f9cb7d4de13ebe6e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_embed_to_qdrant.rs (target/debug/deps/e2e_embed_to_qdrant-b2824e43143c0b85)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_qdrant.rs (target/debug/deps/e2e_qdrant-837147324efabc6e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_sqlite_vec_ann.rs (target/debug/deps/e2e_sqlite_vec_ann-2e4077ce44082581)
+
+running 1 test
+test e2e_sqlite_vec_ann_recall ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.48s
+
+     Running tests/polyglot_wiring_poc.rs (target/debug/deps/polyglot_wiring_poc-d896ab275848e9b2)
+
+running 4 tests
+test go_package_key_wires_and_file_keyed_go_stays_rejected ... ok
+test typescript_populates_wiring_graph_under_flag ... ok
+test python_populates_wiring_graph_under_flag ... ok
+test java_wires_and_go_is_deferred_under_flag ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/test_backend.rs (target/debug/deps/test_backend-4644abd3ce592b83)
+
+running 1 test
+test test_in_memory_backend_basic ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/test_provider.rs (target/debug/deps/test_provider-db40dec3ba63112f)
+
+running 4 tests
+test test_embedding_model_variants ... ok
+test test_embedding_result_construction ... ok
+test test_model_family_inequality ... ok
+test test_model_family_equality ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vfs_tests.rs (target/debug/deps/vfs_tests-a45966403160f474)
+
+running 11 tests
+test abs_path_buf_roundtrip ... ok
+test acceptance_fileset_isolation ... ok
+test abs_path_validation ... ok
+test acceptance_snapshot_correctness ... ok
+test fileset_glob_patterns ... ok
+test vfs_content_versioning ... ok
+test vfs_overlay_empty_base ... ok
+test vfs_remove_and_nonexistent ... ok
+test watcher_nop_when_disabled ... ok
+test acceptance_concurrent_reads ... ok
+test acceptance_overlay_isolation ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests touring_storage
+
+running 4 tests
+test crates/touring-storage/src/embeddings/adapter.rs - embeddings::adapter (line 19) ... ignored
+test crates/touring-storage/src/embeddings/adapter.rs - embeddings::adapter (line 29) ... ignored
+test crates/touring-storage/src/lib.rs - functional_wiring (line 55) ... ignored
+test crates/touring-storage/src/hybrid_search/hybrid.rs - hybrid_search::hybrid (line 11) ... ok
+
+test result: ok. 1 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 1.95s; merged doctests compilation took 1.95s

@@ -1,0 +1,19 @@
+fmt rc=0 4s
+check-workspace rc=0 304s
+clippy rc=0 133s
+clippy-hooks rc=0 78s
+build-bins rc=0 555s
+test-touring-foundation rc=0 57s
+test-touring-intelligence rc=0 323s
+test-touring-ceg rc=0 126s
+test-touring-hook-runtime rc=0 342s
+test-touring-quality rc=0 194s
+test-touring-analysis rc=0 201s
+test-touring-cli rc=0 157s
+test-touring-server rc=0 189s
+test-touring-storage rc=0 105s
+test-touring-dispatch rc=0 215s
+test-touring-hooks rc=0 293s
+pytest-r3 rc=0 10s
+FIM 2026-10-17T23:54:12-03:00
+hw-slot rc=0

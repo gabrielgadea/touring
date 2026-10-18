@@ -1,0 +1,672 @@
+{
+ "summary": {
+  "controles": {
+   "ck": 0,
+   "cp": 0,
+   "quota": 0,
+   "reg": 0,
+   "s49": 0,
+   "snap": 0
+  },
+  "total": 81,
+  "validos": 81,
+  "mortos": 78,
+  "sobreviventes": [
+   "CP20",
+   "CC09",
+   "CK07"
+  ],
+  "invalidos": [],
+  "segundos": 327
+ },
+ "results": [
+  {
+   "id": "CP01",
+   "why": "kill switch ignorado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_human_kill_switch_silences_the_hook"
+  },
+  {
+   "id": "CP02",
+   "why": "ask vira deny",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_verdict_is_a_pretooluse_ask_that_names_the_rule_and_the_file"
+  },
+  {
+   "id": "CP03",
+   "why": "criar config deixa de perguntar",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_overwriting_or_creating_a_config_file_asks[ruff.toml]"
+  },
+  {
+   "id": "CP04",
+   "why": "nome sensível a caixa",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_name_match_ignores_case"
+  },
+  {
+   "id": "CP05",
+   "why": ".cargo/mutants.toml sem proteção",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_an_existing_config_file_asks[.cargo/mutants.toml]"
+  },
+  {
+   "id": "CP06",
+   "why": "prefixo eslint.config. removido",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_an_existing_config_file_asks[eslint.config.js]"
+  },
+  {
+   "id": "CP07",
+   "why": "coverage fora das tabelas de lint",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_inside_a_lint_section_of_pyproject_asks[fail_under"
+  },
+  {
+   "id": "CP08",
+   "why": "pyproject nunca muda",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_inside_a_lint_section_of_pyproject_asks[select"
+  },
+  {
+   "id": "CP09",
+   "why": "sem queda para o texto em TOML inválido",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_adding_a_lint_table_to_pyproject_asks[[tool.ruff]]"
+  },
+  {
+   "id": "CP10",
+   "why": "replace_all ignorado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_replace_all_counts_every_occurrence"
+  },
+  {
+   "id": "CP11",
+   "why": "MultiEdit só aplica a 1ª edição",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_multiedit_is_judged_on_the_text_after_all_its_edits"
+  },
+  {
+   "id": "CP12",
+   "why": "#![allow] novo nunca detectado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_new_crate_level_allow_asks[lib.rs]"
+  },
+  {
+   "id": "CP13",
+   "why": "escopo Rust alargado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_same_allow_in_another_rust_file_is_out_of_scope"
+  },
+  {
+   "id": "CP14",
+   "why": "âncora de início de linha removida (menção em comentário vira allow)",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_edits_that_do_not_loosen_the_crate_attributes_stay_silent[//!"
+  },
+  {
+   "id": "CP15",
+   "why": "NotebookEdit sem notebook_path",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_notebook_edit_is_judged_by_notebook_path"
+  },
+  {
+   "id": "CP16",
+   "why": "Read de ruff.toml pergunta",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_tool_that_is_not_an_edit_is_silence"
+  },
+  {
+   "id": "CP17",
+   "why": "fail-open quebrado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_malformed_payload_is_silence_with_exit_zero[]"
+  },
+  {
+   "id": "CP18",
+   "why": "caminho relativo não resolvido contra o cwd",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_relative_path_is_resolved_against_the_payload_cwd"
+  },
+  {
+   "id": "CP19",
+   "why": "flake8 fora das seções ini de lint",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_a_lint_section_of_an_ini_config_asks[extend-ignore"
+  },
+  {
+   "id": "CP20",
+   "why": "comentário conta como mudança de régua",
+   "suite": "cp",
+   "status": "sobreviveu",
+   "rc": 0,
+   "killer": ""
+  },
+  {
+   "id": "CP21",
+   "why": "razão sem a REGRA #21",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_verdict_is_a_pretooluse_ask_that_names_the_rule_and_the_file"
+  },
+  {
+   "id": "CP22",
+   "why": "veredito não-ASCII",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_answer_is_ascii_bytes_whatever_the_locale"
+  },
+  {
+   "id": "CP23",
+   "why": ".pre-commit-config.yaml sem proteção",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_an_existing_config_file_asks[.pre-commit-config.yaml]"
+  },
+  {
+   "id": "CP24",
+   "why": ".prettierrc* sem proteção",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_an_existing_config_file_asks[.prettierrc]"
+  },
+  {
+   "id": "CP26",
+   "why": "veredito por conteúdo desligado",
+   "suite": "cp",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_editing_inside_a_lint_section_of_pyproject_asks[select"
+  },
+  {
+   "id": "L501",
+   "why": "L5 desligada",
+   "suite": "s49",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_lint_flags_a_touring_passthrough_on_the_worktree_events"
+  },
+  {
+   "id": "L502",
+   "why": "L5 só pega create",
+   "suite": "s49",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_lint_flags_a_touring_passthrough_on_the_worktree_events"
+  },
+  {
+   "id": "L503",
+   "why": "L5 só no evento create",
+   "suite": "s49",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_lint_flags_a_touring_passthrough_on_the_worktree_events"
+  },
+  {
+   "id": "L504",
+   "why": "L5 não casa o gravador",
+   "suite": "s49",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_lint_flags_a_touring_passthrough_on_the_worktree_events"
+  },
+  {
+   "id": "RG01",
+   "why": "registro aponta para outro script",
+   "suite": "reg",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_hook_is_registered_once_on_the_four_edit_tools"
+  },
+  {
+   "id": "RG02",
+   "why": "NotebookEdit fora do matcher",
+   "suite": "reg",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_hook_is_registered_once_on_the_four_edit_tools"
+  },
+  {
+   "id": "RG03",
+   "why": "timeout 30",
+   "suite": "reg",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_hook_is_registered_once_on_the_four_edit_tools"
+  },
+  {
+   "id": "RG04",
+   "why": "if no registro",
+   "suite": "reg",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_hook_is_registered_once_on_the_four_edit_tools"
+  },
+  {
+   "id": "SM01",
+   "why": "fronteira amarela 70 exclusiva",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_each_window_is_coloured_by_its_own_band[70-33]"
+  },
+  {
+   "id": "SM02",
+   "why": "fronteira vermelha 85 exclusiva",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_each_window_is_coloured_by_its_own_band[85-31]"
+  },
+  {
+   "id": "SM03",
+   "why": "limiar padrão 90",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_each_window_is_coloured_by_its_own_band[85-31]"
+  },
+  {
+   "id": "SM04",
+   "why": "amarelo a partir de 75",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_each_window_is_coloured_by_its_own_band[70-33]"
+  },
+  {
+   "id": "SM05",
+   "why": "ausente vira 0%",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_rate_limits_field_without_a_reading_shows_nothing[rate_limits0]"
+  },
+  {
+   "id": "SM06",
+   "why": "contagem arredonda para baixo",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_both_windows_render_compactly_with_the_five_hour_reset"
+  },
+  {
+   "id": "SM07",
+   "why": "reset implausível não é escondido",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_reset_too_far_for_a_five_hour_window_hides_the_countdown"
+  },
+  {
+   "id": "SM08",
+   "why": "reset no passado é mostrado",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_missing_stale_or_junk_reset_hides_only_the_countdown[1]"
+  },
+  {
+   "id": "SM09",
+   "why": "marcador só aos 95",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_crossing_the_threshold_arms_a_per_session_marker_with_percentage_and_window_key"
+  },
+  {
+   "id": "SM10",
+   "why": "leitura ausente desarma o marcador",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_absent_reading_never_disarms[without0]"
+  },
+  {
+   "id": "SM11",
+   "why": "queda abaixo do limiar não limpa",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_dropping_under_the_threshold_clears_the_marker_and_its_delivery_stamp"
+  },
+  {
+   "id": "SM12",
+   "why": "limpa o marcador mas não o selo de entrega",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_dropping_under_the_threshold_clears_the_marker_and_its_delivery_stamp"
+  },
+  {
+   "id": "SM13",
+   "why": "marcador sem a chave da janela",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_crossing_the_threshold_arms_a_per_session_marker_with_percentage_and_window_key"
+  },
+  {
+   "id": "SM14",
+   "why": "porcentagem não é truncada",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_percentage_is_floored_and_capped_at_one_hundred[59.9-59%]"
+  },
+  {
+   "id": "SM15",
+   "why": "porcentagem sem teto de 100",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_percentage_is_floored_and_capped_at_one_hundred[250-100%]"
+  },
+  {
+   "id": "SM16",
+   "why": "tipo não verificado (string vira 100%)",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_window_with_junk_instead_of_a_number_is_dropped_alone[abc]"
+  },
+  {
+   "id": "SM17",
+   "why": "7d colorido pela porcentagem de 5h",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_each_window_is_coloured_by_its_own_band[70-33]"
+  },
+  {
+   "id": "SM18",
+   "why": "COMPACT sem o segmento",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_segment_rides_every_context_tier[700000-COMPACT]"
+  },
+  {
+   "id": "SM19",
+   "why": "SALVE sem o segmento",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_segment_rides_every_context_tier[600000-SALVE]"
+  },
+  {
+   "id": "SM20",
+   "why": "contagem regressiva nunca aparece",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_both_windows_render_compactly_with_the_five_hour_reset"
+  },
+  {
+   "id": "SM21",
+   "why": "7d substitui o 5h em vez de somar",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_both_windows_render_compactly_with_the_five_hour_reset"
+  },
+  {
+   "id": "CC01",
+   "why": "entrega não é selada (repete a cada chamada)",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel"
+  },
+  {
+   "id": "CC02",
+   "why": "uma vez por sessão, não por janela",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_new_window_is_announced_again"
+  },
+  {
+   "id": "CC03",
+   "why": "janela já zerada ainda é anunciada",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_marker_whose_window_already_reset_is_not_announced"
+  },
+  {
+   "id": "CC04",
+   "why": "o alerta de cota depende do contexto falar",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel"
+  },
+  {
+   "id": "CC05",
+   "why": "mensagem combinada perde a cota",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_context_and_quota_due_together_make_one_message_and_the_context_part_is_unchanged"
+  },
+  {
+   "id": "CC06",
+   "why": "cota antes do contexto",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_context_and_quota_due_together_make_one_message_and_the_context_part_is_unchanged"
+  },
+  {
+   "id": "CC07",
+   "why": "entrega sem linha no journal",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_quota_alert_is_journalled_as_such"
+  },
+  {
+   "id": "CC08",
+   "why": "ponteiro acionável errado",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel"
+  },
+  {
+   "id": "CC09",
+   "why": "porcentagem ilegível é anunciada",
+   "suite": "quota",
+   "status": "sobreviveu",
+   "rc": 0,
+   "killer": ""
+  },
+  {
+   "id": "CC10",
+   "why": "marcador não é por sessão",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel"
+  },
+  {
+   "id": "CC11",
+   "why": "hora do reset errada",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_armed_quota_is_delivered_once_through_the_post_tool_use_channel"
+  },
+  {
+   "id": "SS01",
+   "why": "commit sem pai",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_dirty_tree_is_captured_in_a_new_safety_ref_and_nothing_else_moves"
+  },
+  {
+   "id": "SS02",
+   "why": "ref existente é sobrescrita",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_an_existing_ref_is_never_overwritten"
+  },
+  {
+   "id": "SS03",
+   "why": "arquivo acima do teto não recusa",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_file_above_the_ceiling_refuses_the_snapshot_and_names_it"
+  },
+  {
+   "id": "SS04",
+   "why": "git add -A no ÍNDICE REAL",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_dirty_tree_is_captured_in_a_new_safety_ref_and_nothing_else_moves"
+  },
+  {
+   "id": "SS05",
+   "why": "prefixo fora de safety/ aceito",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_the_prefix_must_live_under_safety"
+  },
+  {
+   "id": "SS06",
+   "why": "árvore limpa cria ref",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_clean_tree_makes_no_ref"
+  },
+  {
+   "id": "SS07",
+   "why": "dry-run grava",
+   "suite": "snap",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_dry_run_measures_without_writing"
+  },
+  {
+   "id": "CK01",
+   "why": "reward incondicional",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_outside_a_repository_only_the_memory_is_written_and_no_reward"
+  },
+  {
+   "id": "CK02",
+   "why": "falha vira exit 0",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_missing_snapshot_script_is_loud_keeps_the_memory_and_withholds_the_reward"
+  },
+  {
+   "id": "CK03",
+   "why": "heredoc sem aspas: tópico hostil executa",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_hostile_topic_is_data_never_code[$(touch"
+  },
+  {
+   "id": "CK04",
+   "why": "tier errado",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_dirty_repository_gets_a_safety_ref_and_a_semantic_memory_and_nothing_else_moves"
+  },
+  {
+   "id": "CK05",
+   "why": "slug sem saneamento",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_dirty_repository_gets_a_safety_ref_and_a_semantic_memory_and_nothing_else_moves"
+  },
+  {
+   "id": "CK06",
+   "why": "tópico vazio aceito",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_no_topic_prints_usage_and_does_nothing"
+  },
+  {
+   "id": "CK07",
+   "why": "resumo sem aspas",
+   "suite": "ck",
+   "status": "sobreviveu",
+   "rc": 0,
+   "killer": ""
+  },
+  {
+   "id": "CK08",
+   "why": "chave fixa",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_dirty_repository_gets_a_safety_ref_and_a_semantic_memory_and_nothing_else_moves"
+  },
+  {
+   "id": "CK09",
+   "why": "RECUSADO conta como snapshot feito",
+   "suite": "ck",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_refused_snapshot_is_a_failure_not_a_checkpoint"
+  }
+ ]
+}

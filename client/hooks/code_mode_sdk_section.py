@@ -69,6 +69,7 @@ def sdk_stub() -> str | None:
             capture_output=True,
             text=True,
             timeout=6,
+            check=False,
         )
     except (OSError, subprocess.SubprocessError):
         return None
@@ -202,5 +203,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:  # fail-open é invariante de hook (CEG)
+    except Exception as exc:  # noqa: BLE001 — fail-open é invariante de hook (CEG); stderr diz o que caiu
+        sys.stderr.write(f"code_mode_sdk_section: seção não injetada ({type(exc).__name__}: {exc})\n")
         sys.exit(0)

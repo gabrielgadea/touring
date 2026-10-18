@@ -1,0 +1,81 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (inline) 0.667 < 0.7 (2/3)"
+ ],
+ "exigir_limite_superior": false,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 0,
+   "n": 21,
+   "taxa": 0.0,
+   "limite_superior_95": 0.1329459110265233,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": -1
+  },
+  "inline": {
+   "falsos": 0,
+   "n": 14,
+   "taxa": 0.0,
+   "limite_superior_95": 0.19263617565013524,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": -1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 1.0,
+  "inline": 0.6666666666666666
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   2,
+   2
+  ],
+  "inline": [
+   2,
+   3
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   1,
+   2
+  ],
+  "inline": [
+   2,
+   3
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   0
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 21,
+  "inline": 14
+ },
+ "avisos_em_negativos": 3,
+ "defeito_de_corpus": [],
+ "p95_ms": 124.97348799999999,
+ "chamadas": 40,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  }
+ ]
+}

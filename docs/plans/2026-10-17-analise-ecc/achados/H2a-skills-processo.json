@@ -1,0 +1,935 @@
+{
+  "lote": "H2a-skills-processo",
+  "lidos": [
+    "skills/tdd-workflow/SKILL.md",
+    "skills/iterative-retrieval/SKILL.md",
+    "skills/verification-loop/SKILL.md",
+    "skills/eval-harness/SKILL.md",
+    "skills/continuous-learning-v2/SKILL.md",
+    "skills/continuous-learning/SKILL.md",
+    "skills/strategic-compact/SKILL.md",
+    "skills/loop-design-check/SKILL.md",
+    "skills/autonomous-loops/SKILL.md",
+    "skills/continuous-agent-loop/SKILL.md",
+    "skills/plan-orchestrate/SKILL.md",
+    "skills/ralphinho-rfc-pipeline/SKILL.md",
+    "skills/orch-pipeline/SKILL.md",
+    "skills/gateguard/SKILL.md",
+    "skills/search-first/SKILL.md",
+    "skills/skill-stocktake/SKILL.md",
+    "skills/agent-introspection-debugging/SKILL.md",
+    "skills/agent-self-evaluation/SKILL.md",
+    "skills/hookify-rules/SKILL.md",
+    "skills/ecc-recipes/SKILL.md",
+    "skills/team-agent-orchestration/SKILL.md",
+    "skills/parallel-execution-optimizer/SKILL.md",
+    "skills/click-path-audit/SKILL.md",
+    "skills/production-audit/SKILL.md",
+    "skills/mcp-dependency-review/SKILL.md",
+    "skills/canary-watch/SKILL.md",
+    "skills/benchmark-methodology/SKILL.md",
+    "skills/codebase-onboarding/SKILL.md",
+    "skills/operator-approval-loop/SKILL.md",
+    "skills/recursive-decision-ledger/SKILL.md",
+    "skills/dynamic-workflow-mode/SKILL.md",
+    "skills/gan-style-harness/SKILL.md",
+    "skills/conventional-commit-review/SKILL.md",
+    "skills/deep-research/SKILL.md",
+    "skills/brownfield-retrospective/SKILL.md",
+    "skills/agent-sort/SKILL.md",
+    "skills/skill-scout/SKILL.md",
+    "skills/e2e-testing/SKILL.md",
+    "skills/test-collaboration/SKILL.md",
+    "skills/story-lifecycle/SKILL.md",
+    "skills/plankton-code-quality/SKILL.md",
+    "skills/skill-comply/SKILL.md",
+    "skills/git-workflow/SKILL.md",
+    "skills/contract-first/SKILL.md",
+    "skills/product-capability/SKILL.md",
+    "skills/workspace-surface-audit/SKILL.md",
+    "skills/rust-testing/SKILL.md",
+    "skills/python-testing/SKILL.md",
+    "skills/orch-build-mvp/SKILL.md",
+    "skills/orch-change-feature/SKILL.md",
+    "skills/orch-fix-defect/SKILL.md",
+    "skills/orch-refine-code/SKILL.md",
+    "skills/benchmark/SKILL.md",
+    "skills/ai-regression-testing/SKILL.md",
+    "skills/coding-standards/SKILL.md",
+    "skills/rust-patterns/SKILL.md"
+  ],
+  "classificados": [
+    {
+      "caminho": "skills/accessibility/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/agent-harness-construction/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/agent-runtime-gateway-smoke-test/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/ai-first-engineering/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/android-clean-architecture/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/angular-developer/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/api-connector-builder/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/api-design/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/backend-patterns/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/blender-motion-state-inspection/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/browser-qa/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/bun-runtime/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/cisco-ios-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/claude-devfleet/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/clickhouse-io/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/competitive-platform-analysis/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/competitive-report-structure/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/compose-multiplatform-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/configure-ecc/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/cpp-coding-standards/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/csharp-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/customer-billing-ops/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/customs-trade-compliance/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/dashboard-builder/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/data-scraper-agent/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/data-throughput-accelerator/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/database-migrations/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/django-celery/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/django-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/django-tdd/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/docs-governance/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/dotnet-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/fastapi-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/flox-environments/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/frontend-a11y/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/frontend-design-direction/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/frontend-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/fsharp-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/generating-python-installer/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/golang-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/golang-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/google-workspace-ops/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/hexagonal-architecture/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/homelab-network-readiness/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/homelab-network-setup/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/i18n-sync/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/inherit-legacy-style/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/ito-baskets/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/ito-compute/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/ito-inference/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/ito-training/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/java-coding-standards/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/jira-integration/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/kotlin-coroutines-flows/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/kotlin-exposed-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/kotlin-ktor-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/kotlin-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/laravel-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/laravel-tdd/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/latency-critical-systems/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/liquid-glass-design/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/make-interfaces-feel-better/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/master-agreement-generator/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/messages-ops/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/motion-advanced/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/nestjs-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/network-bgp-diagnostics/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/perl-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/perl-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/plan-canvas/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/prediction-market-oracle-research/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/prisma-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/product-lens/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/project-flow-ops/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/python-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/quality-nonconformance/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/quarkus-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/quarkus-tdd/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/rails-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/react-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/react-performance/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/react-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/redis-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/repo-scan/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/returns-reverse-logistics/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/scientific-thinking-scholar-evaluation/SKILL.md",
+      "motivo": "dominio fora de codigo (negocio, comercio, financas, mercado, documentos ou ferramenta de terceiros)"
+    },
+    {
+      "caminho": "skills/skill-host-compat/SKILL.md",
+      "motivo": "corpo nao lido nesta rodada; triagem pela descricao e pelas secoes, sem indicio de mecanismo novo frente as linhas A-G"
+    },
+    {
+      "caminho": "skills/springboot-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/springboot-tdd/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/swift-protocol-di-testing/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/swiftui-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/terminal-ops/SKILL.md",
+      "motivo": "fluxo de execucao e CI dentro do repo: coberto pelo Bash com evidencia e pelo gate de CI; sem linha nova"
+    },
+    {
+      "caminho": "skills/tinystruct-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/ui-to-vue/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/uncloud/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/vite-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/vue-patterns/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    },
+    {
+      "caminho": "skills/windows-desktop-e2e/SKILL.md",
+      "motivo": "stack ou framework que o Touring nao usa (Rust, Python, Bash); a parte geral fica em G1:3"
+    }
+  ],
+  "linhas": [
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "TDD com gate que impede Edit de producao sem teste falhando (RED antes de GREEN)",
+      "ecc": {
+        "como": "tdd-workflow e skill de instrucao: 'Tests BEFORE Code' e checkpoints git por etapa (RED, GREEN, refactor). Nenhum hook de bloqueio no clone; o diretorio tem so o SKILL.md",
+        "evidencia": "skills/tdd-workflow/SKILL.md:43 e :72; ls skills/tdd-workflow = SKILL.md"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "tdd-enforcer e skill com 'The Iron Law' (linha 10) que se declara gate bloqueante, mas nenhum hook a registra. O unico hook pre-write registrado e 'touring-hook pre-write' (settings.json:456). pre_write_tests.rs e modulo de teste unitario (#[path] em pre_write.rs:1338), nao gate. Cobertura: ci.yml:93-99 gera lcov; fail-under nao encontrado em ci.yml:93-125 (job nao relido por inteiro)",
+        "evidencia": "grep -rln 'tdd' ~/.claude/settings.json client/claude ~/.claude/hooks client/hooks -> nenhum gate registrado; grep -rli 'tdd.enforcer|tdd_enforcer|RED.*GREEN' crates/touring-hook* -> so pre_write_tests.rs e workflow_templates.rs:251 (texto); ~/.claude/skills/tdd-enforcer/SKILL.md:10; .github/workflows/ci.yml:93-99"
+      },
+      "veredito": "equivalente",
+      "acao": "corrigir",
+      "aprofunda": "G4:8",
+      "nota": "A G4:8 dizia 'superior: BLOQUEIA Edit/Write'. A fiacao nao confirma: os dois lados sao skill sem enforcement. Corrigir: registrar o gate no PreToolUse (touring-hook pre-write) ou rebaixar a afirmacao na matriz. O piso de cobertura do ECC (c8 --check-coverage) nao tem par medido no CI do Touring: a_verificar. Medido vence declarado: hoje nenhum lado vence"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Pipeline de verificacao antes de declarar pronto (build, tipos, lint, testes, seguranca, diff)",
+      "ecc": {
+        "como": "verification-loop: seis fases em shell e um relatorio PASS/FAIL preenchido pelo proprio agente; o criterio de parada e a leitura do agente",
+        "evidencia": "skills/verification-loop/SKILL.md:23 (fase 1) e :97 (Output Format)"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "loop_converged.py avalia 8 clausulas e sai com codigo 0 ou 1; o veredito e do codigo, nao do agente. Clausula judge_intact checa o juiz de registro",
+        "evidencia": "~/.claude/skills/loop-engineering/scripts/loop_converged.py:1-20; CLAUDE.md regra 3 (touring e2e -j)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "O Touring ja faz o que o ECC descreve, com veredito medido. Ver achado sobre o 'fail-open' do loop_converged.py"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Exploracao iterativa de contexto ate convergir (busca, avaliacao, refinamento)",
+      "ecc": {
+        "como": "iterative-retrieval: DISPATCH, EVALUATE, REFINE em no maximo 3 ciclos, depois segue com o que tem",
+        "evidencia": "skills/iterative-retrieval/SKILL.md:48 (Max 3 cycles) e :52 (Phase 1: DISPATCH)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring explore faz loop-until-dry com ledger persistente, rodadas minimas sem novidade e teto de rodadas; o criterio de parada e contrato, nao contagem fixa",
+        "evidencia": "touring explore --help (flags --until-dry, --dry-rounds, --max-rounds, --ledger); ~/.claude/rules/touring-cli-index.md (TIER 1, touring explore)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "O limite de 3 ciclos do ECC e um numero fixo sem medida de convergencia. O explore do Touring para por ausencia de novidade"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Metricas de confiabilidade de agente (pass@k e pass^k) e graders",
+      "ecc": {
+        "como": "eval-harness define evals de capacidade e regressao, graders por codigo, modelo, regra e humano, e metricas pass@k e pass^k. O clone traz so o SKILL.md, sem runner",
+        "evidencia": "skills/eval-harness/SKILL.md:57 (Code-Based Grader) e :93 (Metrics); ls skills/eval-harness = SKILL.md"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "eval/swe_bench e um harness medido: resolved% e taxa de falso positivo do VGP. Nao ha pass@k nem pass^k no repositorio",
+        "evidencia": "sed -n 1,12p eval/swe_bench/README.md; grep -rniE 'pass@|pass\\^|pass_k' eval -> vazio"
+      },
+      "veredito": "touring_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Mecanismo do ECC sem runner vale menos que o harness do Touring com medida. Adotar pass^k como metrica no swe_bench (confiabilidade em k execucoes), nao o formato de prosa"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Pesquisa de prior-art antes de escrever codigo (adotar, estender, compor ou construir)",
+      "ecc": {
+        "como": "search-first: preflight dos canais, analise de necessidade, busca paralela e matriz de decisao adota, estende, compoe ou constroi",
+        "evidencia": "skills/search-first/SKILL.md:54 (Decision Matrix); secao Step 0 (preflight dos canais)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring portfolio busca prior-art por proposito com veredito obrigatorio; portfolio_prior_art e chamado pelo suggester",
+        "evidencia": "touring portfolio --help; crates/touring-cli/src/cli_suggester.rs:1520 e :1542 (touring index find portfolio_prior_art: found)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "O ECC tem a matriz; o Touring tem a consulta com veredito ligada ao suggester"
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Gate de fato que exige investigacao antes do primeiro Edit ou Write em cada arquivo",
+      "ecc": {
+        "como": "gateguard nega a primeira tentativa e exige fatos (importadores, schema, instrucao literal). Apresenta A/B de +2.25 em 'two independent A/B tests'. O proprio estudo de ablacao pre-registrado do ECC nao confirma a hipotese",
+        "evidencia": "skills/gateguard/SKILL.md:534-541 (Evidence, +2.25); docs/gateguard/question-effectiveness.md:450-454 (primary outcome passed, McNemar p = 0.210, 'not confirmed')"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "pre-edit obrigatorio (ast meta, blast, pre-edit >= 0.8) e gates de code mode: G3 edit-sem-read e par write->run com negacao no segundo par; coberto por testes",
+        "evidencia": "CLAUDE.md regra 10 (tabela, linha 151: par write->run e G3 edit-sem-read); crates/touring-cli/src/cli_suggester_tests.rs:2449 e :2487"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": "D2",
+      "nota": "Anti-licao: o ECC declara superioridade que o proprio estudo nao confirmou (p = 0.210 com a hipotese 'nao confirmada'). O gate do Touring nao pergunta fatos, mas tem teste. A parte util do ECC, listar importadores antes do Edit, o Touring ja exige via touring ast blast. G1:7 segue valendo"
+    },
+    {
+      "dominio": "memoria",
+      "funcionalidade": "Aprendizado por instincts com escopo de projeto e promocao para global",
+      "ecc": {
+        "como": "continuous-learning-v2 observa PreToolUse e PostToolUse, gera instincts atomicos com confianca e escopo de projeto, e promove para global quando o mesmo id aparece em 2+ projetos",
+        "evidencia": "skills/continuous-learning-v2/SKILL.md:26-33 (What's New v2.1, Promotion) e :305 (Same instinct ID in 2+ projects)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "aprendizado medido por bandit e replay do corpus de recompensas (touring learning replay); nao ha escopo por projeto nem promocao para global, nem TTL de instincts",
+        "evidencia": "touring learning --help (subcomandos status, reward, experiment, replay); grep de 'promot' em crates/touring-hooks-core: nao verificado nesta rodada"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G1:11",
+      "nota": "G1:11 dizia touring_melhor em aprendizado por instincts. Vale para o aprendizado medido, mas a promocao projeto para global e o TTL sao lacuna do Touring. A mecanica do ECC foi conferida pela matriz (COMPARATIVO-matriz.md:122-123), nao pelo codigo do promote"
+    },
+    {
+      "dominio": "contexto-custo",
+      "funcionalidade": "Sinal para compactar contexto em fronteira de fase, e guia de quando compactar",
+      "ecc": {
+        "como": "strategic-compact sugere /compact por contagem de chamadas (50, depois a cada 25) e por tokens de contexto (160k em 200k). Admite que a contagem e proxy fraco. Tem tabela de transicao de fase (pesquisa para plano, plano para implementacao)",
+        "evidencia": "skills/strategic-compact/SKILL.md:37 (tool-call count, proxy fraco) e :76 (Compaction Decision Guide)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "check_context.sh avisa uma vez por ciclo, antes da autocompactacao em 65%, com base na porcentagem real do contexto. pre_compact.rs grava o estado antes do /compact. Nao tem guia de transicao de fase",
+        "evidencia": "~/.claude/hooks/check_context.sh:1-12 e :138 (mensagem); crates/touring-dispatch/src/lifecycle/pre_compact.rs:1-8 (touring index find pre_compact: found, lifecycle.rs:40)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G1:12",
+      "nota": "G1:12 dava ECC melhor em orcamento de contexto. Para o aviso de compactacao, o sinal do Touring e mais preciso: usa a porcentagem real. O que o ECC ainda tem e a tabela de transicao de fase: incluir na mensagem do checkpoint"
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Plano que vira comandos por etapa, com escopo carregado e bloqueio do que nao cabe",
+      "ecc": {
+        "como": "plan-orchestrate emite um comando por etapa com marcador [Plan: path#step-n] e BLOCKED para comando que nao aceita escopo, em vez de passar o escopo truncado",
+        "evidencia": "skills/plan-orchestrate/SKILL.md:309-331 (Scope rule, BLOCKED)"
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "touring factory route e start classificam ticket para ADW por regras e pelo CILA, mas nao verifiquei se recusa ticket que o ADW nao consegue carregar",
+        "evidencia": "touring factory --help (route, start, stats)"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Regra util: etapa que o comando nao consegue carregar vira BLOCKED, nunca um comando sem escopo. Verificar antes de adotar"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Autoavaliacao do agente em cinco eixos com evidencia obrigatoria",
+      "ecc": {
+        "como": "agent-self-evaluation pede nota de 1 a 5 em precisao, completude, clareza, acionabilidade e concisao, com a regra de que nota abaixo de 5 cita a evidencia. E auto-relato",
+        "evidencia": "skills/agent-self-evaluation/SKILL.md:42 (The Evidence Rule)"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Lei L3 do CLAUDE.md: veredito por artefato em disco, nunca por narrativa. A referencia verification-before-completion exige evidencia executada antes de declarar concluido",
+        "evidencia": "~/.claude/CLAUDE.md, secao MODUS OPERANDI (Lei L3); ~/.claude/skills/Touring/references/verification-before-completion.md (existe)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "A propria skill do ECC cita o problema: agentes sao otimistas quando avaliam o proprio trabalho (gan-style-harness, Core Insight)"
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Gerador e avaliador separados em laco adversarial",
+      "ecc": {
+        "como": "gan-style-harness separa gerador e avaliador, que testa o app vivo e pontua numa rubrica",
+        "evidencia": "skills/gan-style-harness/SKILL.md (Core Insight, Architecture)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring-engineer gera, touring-auditor audita; adw cross-audit roda as 7 fases; critic-panel vota as cegas",
+        "evidencia": "~/.claude/agents/touring-auditor.md (existe); .touring/adw/cross-audit.toml:1-3"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Mesma ideia, ja no Touring"
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Paralelismo por faixas com matriz de escrita isolada",
+      "ecc": {
+        "como": "parallel-execution-optimizer: matriz de faixas (paralela, sequencial ou gated), leituras em lote, escrita isolada por arquivo ou worktree",
+        "evidencia": "skills/parallel-execution-optimizer/SKILL.md:28 (Lane Matrix)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "fan-out parallel nos ADW com max_branches verificado antes de rodar qualquer ramo; touring.parallel com pool de 10",
+        "evidencia": "CLAUDE.md, secao 'Portfolio de fluxos ADW' (regra 8) e regra 11 (touring.parallel pool 10)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "A matriz de faixas e documento; o Touring verifica o limite de ramos por codigo"
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Fila de merge com re-base e unidades com dependencias explicitas",
+      "ecc": {
+        "como": "ralphinho-rfc-pipeline: unidades com depends_on, testes de aceitacao e fila de merge com re-base e teste de integracao a cada entrada",
+        "evidencia": "skills/ralphinho-rfc-pipeline/SKILL.md:49 (Merge Queue Rules)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "decompose claim reivindica a subtarefa de forma atomica com lease; ready so le. Decisoes abertas bloqueiam a fronteira de implementacao",
+        "evidencia": "touring decompose claim --help (escrita condicional, lease); CLAUDE.md regra 9"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "A fila de merge do ECC nao tem reivindicacao atomica; a do Touring tem"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Correcao de bug que comeca por reproduzir o defeito como teste falhando",
+      "ecc": {
+        "como": "orch-fix-defect: o primeiro passo na fase 4 e reproduzir o bug como teste de regressao novo e falhando, e so depois corrigir ate ficar verde. Provar que o bug existe antes de mexer separa correcao de ajuste",
+        "evidencia": "skills/orch-fix-defect/SKILL.md, secao 'Operation settings' (First move, phase 4)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "bugfix.toml: o no fix pede 'Fix this bug' com memoria e mapa de evidencias, sem exigir teste vermelho antes do Edit. O no verify roda depois, com verify_cmd. Nao ha no que escreva e rode o teste antes do fix",
+        "evidencia": ".touring/adw/bugfix.toml:74-92 (node.fix, prompt sem etapa de teste falhante); :93 (node.verify)"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G4:3",
+      "nota": "G4:3 dizia touring_melhor para a familia orch-*. Para o passo de correcao de bug, o ECC e melhor: o Touring nao impoe o teste vermelho antes do Edit. Adaptar: um no red antes do fix, que exija o comando de teste falhar com a saida gravada. Ponto de encaixe natural, ja que o tdd-enforcer nao esta registrado em hook (ver achado 2)"
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Cartao de equipe com dono, escopo, estado Kanban e gate de merge",
+      "ecc": {
+        "como": "team-agent-orchestration define Kanban e campos acceptance, merge_gate e handoff. D4 mostrou que a mutacao de work item checa o dono e depois faz upsert, sem atomicidade",
+        "evidencia": "skills/team-agent-orchestration/SKILL.md (Operating Model, Agent Kanban) e :53-59 (acceptance, merge_gate, handoff); achado D4 (lib/control-pane/work-item-mutations.js:71-88)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "decompose claim com dono e lease e escrita condicional: exatamente uma sessao vence. O campo owner e lido por get e ready",
+        "evidencia": "touring decompose claim --help; docs/plans achado D4 (ver aprofunda)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": "D4",
+      "nota": "Confirmo D4 pela leitura do corpo: o ECC tem o campo de merge_gate, o Touring tem a reivindicacao atomica. Ponto aberto: o Touring nao tem campo acceptance/merge_gate por item como cartao. Nao verifiquei se get e ready mostram o dono"
+    },
+    {
+      "dominio": "dominios-nao-codigo",
+      "funcionalidade": "Aprovacao de mensagem externa antes do envio, com hash do rascunho e reivindicacao de entrega",
+      "ecc": {
+        "como": "operator-approval-loop: rascunho com sha256, decisao com nonce e epoca, snapshot da aprovacao e reivindicacao unica por obrigacao",
+        "evidencia": "skills/operator-approval-loop/SKILL.md:25 (Objects)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "o Touring nao envia mensagens a terceiros. approval_store (R14) guarda aprovacao durável de acao, por assinatura, e e usado por calibrate",
+        "evidencia": "crates/touring-hooks-core/src/approval_store.rs:1-3 e :67 (touring index find ApprovalStore: found, struct); crates/touring-cli/src/cli/calibrate.rs:77"
+      },
+      "veredito": "so_ecc",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Fora do dominio do Touring. A aprovacao durável por assinatura de acao ja existe e pode servir de base se algum dia houver envio"
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Regras de hook declaradas em markdown do usuario, com regex, evento e acao warn ou block",
+      "ecc": {
+        "como": "hookify-rules: arquivo .claude/hookify.<nome>.local.md com frontmatter (event, pattern, action); avaliado pelo runtime Node do ECC",
+        "evidencia": "skills/hookify-rules/SKILL.md:16-22 (Rule File Format)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "os gates do Touring sao codigo Rust. Nao encontrei carregador de regra declarada pelo usuario",
+        "evidencia": "grep -rli hookify crates ~/.claude/hooks client/hooks .touring -> vazio"
+      },
+      "veredito": "so_ecc",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Vale testar uma camada declarativa para regras locais de projeto, sem tocar os gates de codigo. Custo: mais uma superficie para manter"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Protecao dos arquivos de configuracao de lint contra o agente que os altera para passar",
+      "ecc": {
+        "como": "plankton-code-quality: formatadores e linters por edicao, com 'Config Protection (Defense Against Rule-Gaming)' bloqueando PreToolUse e detectando no Stop",
+        "evidencia": "skills/plankton-code-quality/SKILL.md:57 e :121"
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "nao encontrei protecao de clippy.toml ou rustfmt.toml nos hooks. Nao verifiquei se o post-write roda clippy ou rustfmt por edicao",
+        "evidencia": "grep -rln 'clippy.toml|rustfmt.toml' ~/.claude/hooks client/hooks -> vazio"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Risco real: o agente pode afrouxar o lint para passar. O juiz do Touring e protegido (judge_intact), mas a config de lint nao esta claro que seja"
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Protocolo de depuracao de falha do agente: captura, diagnostico por padrao, recuperacao contida, relatorio",
+      "ecc": {
+        "como": "agent-introspection-debugging: quatro fases; a captura usa um template fixo e o diagnostico casa a falha com uma tabela de padroes (ECONNREFUSED, 429, arquivo ausente)",
+        "evidencia": "skills/agent-introspection-debugging/SKILL.md:35 (Four-Phase Loop) e :61 (Phase 2)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "a regra 'erro 2+ vezes: touring gotcha match + memory recall' e os circuit breakers estao em prosa. touring gotcha add e match existem, mas a captura nao e automatica",
+        "evidencia": "touring gotcha --help (list, add, match, stats); ~/.claude/CLAUDE.md, secao CIRCUIT BREAKERS"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Ambos em grande parte prosa. Adaptar: a captura de falha como registro estruturado que alimenta touring gotcha add"
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Auditoria completa do catalogo de skills com cache de resultados e modo de varredura rapida",
+      "ecc": {
+        "como": "skill-stocktake: inventario com scan.sh, avaliacao em lotes por subagente, results.json como cache, e Quick Scan que reavalia so o que mudou",
+        "evidencia": "skills/skill-stocktake/SKILL.md:64 (Phase 1 — Inventory); secao Modes (Results cache em results.json)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "adw skill-refine faz Mine, Diagnose e Propose sobre evidencia de sessoes, por skill. sync-client-skills.py --check so compara o espelho. Nao ha pontuacao de qualidade do catalogo inteiro com cache",
+        "evidencia": ".touring/adw/skill-refine.toml:1-3; ~/.claude/skills/TACO-skilling/scripts/skill_principle_gate.py:1-12 (verificacao estatica de afirmacoes)"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "O Touring refina skill a skill e confere afirmacoes estaticas. Falta o inventario com cache e a varredura de mudados"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Medida de se o agente cumpre a skill, em tres niveis de rigor do prompt",
+      "ecc": {
+        "como": "skill-comply gera a spec de passos, cria cenarios com rigor decrescente (apoiado, neutro, concorrente), roda claude -p e classifica a sequencia de chamadas",
+        "evidencia": "skills/skill-comply/SKILL.md:13 (decreasing prompt strictness); achado D1 (scripts/grader.py:28)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "skill_principle_gate verifica afirmacoes estruturais (decompose claim, critic-panel) de forma estatica. Nao mede comportamento do agente frente a skill",
+        "evidencia": "~/.claude/skills/TACO-skilling/scripts/skill_principle_gate.py:1-12"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "D1",
+      "nota": "Confirmo D1. Relevante para o Touring: o proprio CLAUDE.md registra que nudges MUST foram ignorados na sessao que os emitiu. O skill-comply mede exatamente essa lacuna. Adaptar como ADW de medida, sem substituir a afordancia"
+    },
+    {
+      "dominio": "hooks",
+      "funcionalidade": "Mensagem de integridade de commit: formato Conventional Commits que segue o historico do repositorio",
+      "ecc": {
+        "como": "conventional-commit-review mede o historico do repo (git log --no-merges -30) antes de escolher prefixo e escopo",
+        "evidencia": "skills/conventional-commit-review/SKILL.md (Core Concepts; Match the repo's own norm)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "nao encontrei verificador de mensagem de commit no Touring. grep 'conventional' em hooks retornou so session_startup_intelligence.py",
+        "evidencia": "grep -rlniE 'conventional|feat\\(|fix\\(' ~/.claude/hooks/*.sh client/hooks/*.py -> so session_startup_intelligence.py"
+      },
+      "veredito": "so_ecc",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Baixo custo: um gate que confere o prefixo contra o historico antes do commit"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Gate de release com veredito medido por etapa e deploy atras de gate humano",
+      "ecc": {
+        "como": "production-audit lista riscos de producao (autenticacao, configuracao, dados) como checklist local",
+        "evidencia": "skills/production-audit/SKILL.md (When to Use; How It Works)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "adw release-gate: prontidao medida, nunca declarada; check, clippy, e2e e composite elite, cada um com veredito, e o deploy atras de gate humano",
+        "evidencia": ".touring/adw/release-gate.toml:1-5"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ja_coberto",
+      "aprofunda": null,
+      "nota": "Checklist do ECC vira gate medido no Touring"
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Revisao estatica de configuracao MCP com versoes mutaveis (@latest, faixas)",
+      "ecc": {
+        "como": "mcp-dependency-review classifica seletores de pacote (exato, faixa, latest) sem executar o servidor",
+        "evidencia": "skills/mcp-dependency-review/SKILL.md:34 (Static Classification Rules)"
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "nao procurei seletores @latest nos .mcp.json do workspace nesta rodada",
+        "evidencia": "motivo: sem comando executado; prioridade baixa, o Touring e servidor stdio local"
+      },
+      "veredito": "a_verificar",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Util so se o Touring passar a consumir MCP de terceiros em CI"
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Monitoramento pos-deploy de URL: HTTP, console, desempenho e alerta",
+      "ecc": {
+        "como": "canary-watch verifica HTTP, console, Core Web Vitals e SSE em loop durante a janela de lancamento",
+        "evidencia": "skills/canary-watch/SKILL.md:22-30 (What It Watches)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "o Touring nao tem alvo de URL. deploy.rs e lint de manifesto Kubernetes (canary em YAML), nao monitor em producao",
+        "evidencia": "crates/touring-analysis/src/quality/deploy.rs:1-14 (regras sobre manifestos k8s)"
+      },
+      "veredito": "so_ecc",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Fora do alvo do Touring. Se houver servico web no futuro, reaproveitar"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Teste E2E de navegador com Page Object Model e Playwright",
+      "ecc": {
+        "como": "e2e-testing: organizacao, POM, configuracao Playwright, testes instaveis e quarentena",
+        "evidencia": "skills/e2e-testing/SKILL.md (Test File Organization; Page Object Model)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "o Touring nao tem teste de navegador. 'touring e2e' e analise de codigo (index, AST, wiring, quality, learning); o nome colide com o termo do ECC",
+        "evidencia": "touring e2e --help: 'Comprehensive E2E code analysis (index + AST + wiring + quality + learning)'"
+      },
+      "veredito": "so_ecc",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Sem UI web no Touring. O nome 'touring e2e' pode levar a crer que existe teste de navegador: ver achado de vocabulario"
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Padrao TDD por linguagem (Rust com rstest, proptest e mockall; Python com pytest)",
+      "ecc": {
+        "como": "rust-testing e python-testing descrevem o ciclo RED-GREEN-REFACTOR com exemplos de rstest, proptest, mockall e pytest, mas sem executor",
+        "evidencia": "skills/rust-testing/SKILL.md (How It Works; TDD Workflow) e skills/python-testing/SKILL.md (Core Testing Philosophy)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "gates de execucao por crate: propagate-release roda testes dos crates tocados, clippy com --all-targets e features especificas (touring-hook-handlers exige pre-hooks,post-hooks)",
+        "evidencia": "CLAUDE.md, regra 2.1 (gate 1/6, itens d e e) e regra 13 (b)"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "G1:3",
+      "nota": "G1:3 dava ECC melhor em padroes por linguagem. Confirmo para o doc (rstest, proptest, mockall), mas o Touring executa os gates. O que falta: guia de proptest e mockall para o codigo Rust do Touring"
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "loop_converged.py declara 'fail-open on daemon errors' no cabecalho, mas a Lei L2 do CLAUDE.md global diz 'sinal ausente != zero (fail-closed)'. As duas regras nao batem",
+      "evidencia": "~/.claude/skills/loop-engineering/scripts/loop_converged.py:1-6; ~/.claude/CLAUDE.md, secao MODUS OPERANDI (tabela de Leis, L2)"
+    },
+    {
+      "defeito": "tdd-enforcer se declara gate BLOQUEANTE de Edit/Write, mas nenhum hook o registra em settings.json, client/claude/hooks.settings.json, ~/.claude/hooks, client/hooks ou crates/touring-hook*",
+      "evidencia": "~/.claude/skills/tdd-enforcer/SKILL.md:10; ~/.claude/settings.json:456 (unico pre-write registrado: touring-hook pre-write); grep -rli 'tdd.enforcer|tdd_enforcer' crates/touring-hook* -> vazio"
+    },
+    {
+      "defeito": "pre_edit_gate.py (docstring: 'Bundles every Reflex #1/#2/#4') nao tem chamador encontrado em hook nem em crate: touring index find pre_edit_gate retornou count 0",
+      "evidencia": "~/.claude/skills/Touring/scripts/pre_edit_gate.py:1-17; grep -rln pre_edit_gate ~/.claude/skills crates client -> so docs, scripts e harness_gate.py; a verificar se harness_gate.py o chama"
+    },
+    {
+      "defeito": "vocabulario: 'touring e2e' e analise de codigo, nao teste E2E. A regra 3 do CLAUDE.md do workspace usa esse comando como gate de pronto, o que e facil de ler como 'teste de ponta a ponta passou'",
+      "evidencia": "touring e2e --help ('Comprehensive E2E code analysis'); ~/projects/touring/CLAUDE.md regra 3"
+    }
+  ],
+  "nota_leitura": "Profundidade da leitura: 6 ate 110 linhas (5 deles citados pelo lider fora do lote); 12 ate 75 linhas; 10 ate 40 linhas; 8 ate 28 linhas (orch-*, benchmark, ai-regression-testing, coding-standards, rust-patterns); 20 ate cerca de 22 linhas nao vazias (triagem mais rasa). Lote: 50 de 148 corpos lidos, ao menos parcialmente. prp-plan, prp-implement, santa-loop e e2e-runner NAO estao em skills/ no clone 76aaa77d: estao em commands/ (santa-loop.md), agents/ (e2e-runner.md) e pi/core/commands/ (prp-plan.md, prp-implement.md). Ficaram fora do lote e nao foram usados como linha."
+}

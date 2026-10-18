@@ -1,0 +1,43 @@
+   Compiling ring v0.17.14
+   Compiling rustls v0.23.41
+    Checking rustls-webpki v0.103.13
+    Checking tokio-rustls v0.26.4
+    Checking ureq v3.3.0
+    Checking hyper-rustls v0.27.9
+    Checking reqwest v0.12.28
+    Checking hf-hub v0.5.0
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-foundation)
+    Checking touring-resilience v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-resilience)
+    Checking opentelemetry-http v0.31.0
+    Checking opentelemetry-otlp v0.31.1
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-server-reasoning)
+   Compiling ort-sys v2.0.0-rc.12
+    Checking ort v2.0.0-rc.12
+    Checking fastembed v5.17.2
+    Checking touring-storage v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-storage)
+    Checking touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-analysis)
+    Checking touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-intelligence)
+    Checking touring-quality v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-quality)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
+    Checking touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-bindings)
+    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-server-visual)
+    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-capnp-server)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
+    Checking touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-ceg)
+    Checking touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
+    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-generator)
+    Checking touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
+    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-assists)
+    Checking touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cortex)
+    Checking touring-server v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-server)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 44.60s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

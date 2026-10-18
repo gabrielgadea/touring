@@ -1,0 +1,8 @@
+### ast meta
+{"blast_radius":0,"depth":"summary","enrichment_source":"knowledge_db","fan_in_signal":null,"fan_out_signal":null,"file_path":"scripts/test_drift_coverage.py","integration_score":1.0,"language":"python","line_count":313,"notes":"generic@10-10T01:17Z: Exit 0 (OK), 71 lines output (8097 bytes); quality: CC_max=5, CC_avg=1.9, symbols=20, complex=0","pub_symbol_count":0,"pub_symbols":[],"quality_score":0.9400929808616638,"summary_source":"on_disk_fallback"}
+### ast blast
+{"blast_radius":0,"consumers":[],"file_path":"scripts/test_drift_coverage.py"}
+### index find EXPECTED_BY_CAT
+{"count":0,"definitions":[],"reference_count":0,"references":[],"symbol_name":"EXPECTED_BY_CAT"}
+### index find EXPECTED_TOTAL
+{"count":0,"definitions":[],"reference_count":0,"references":[],"symbol_name":"EXPECTED_TOTAL"}

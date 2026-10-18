@@ -1,0 +1,461 @@
+{
+ "TEMPORAL": {
+  "concentracao": {
+   "arquivo": {
+    "n": 77,
+    "arquivos_distintos": 33,
+    "maior_arquivo": 24,
+    "maior_fatia_pct": 31.17
+   },
+   "inline": {
+    "n": 189,
+    "sessoes_distintas": 6,
+    "maior_sessao": 82,
+    "maior_fatia_pct": 43.39
+   }
+  },
+  "binarios": {
+   "e935": {
+    "baldes": {
+     "arquivo": {
+      "n": 77,
+      "falsos": 0,
+      "taxa": 0.0,
+      "limite_sup_95": 0.03815851071154541,
+      "clusters_dos_falsos": 0,
+      "falsos_ids": [],
+      "construtos": {},
+      "classes_dos_achados": {}
+     },
+     "inline": {
+      "n": 189,
+      "falsos": 0,
+      "taxa": 0.0,
+      "limite_sup_95": 0.015725478239168478,
+      "clusters_dos_falsos": 0,
+      "falsos_ids": [],
+      "construtos": {},
+      "classes_dos_achados": {}
+     }
+    },
+    "recall_controle": {
+     "arquivo": [
+      11,
+      13
+     ],
+     "inline": [
+      20,
+      27
+     ]
+    },
+    "avisos_em_negativos": 1,
+    "p95_ms": 678.2,
+    "chamadas": 328,
+    "erros": 0,
+    "defeito_de_corpus": [
+     "6dce9f68d2da",
+     "c72427be59bd",
+     "9c269d2c1bf5"
+    ],
+    "pendencias": [
+     "p95 678.2 ms > 150.0 ms"
+    ]
+   },
+   "c8b5": {
+    "baldes": {
+     "arquivo": {
+      "n": 77,
+      "falsos": 11,
+      "taxa": 0.14285714285714285,
+      "limite_sup_95": 0.22536736043136907,
+      "clusters_dos_falsos": 11,
+      "falsos_ids": [
+       "188acd723905",
+       "6e59fc8b807e",
+       "49aa1113dfdc",
+       "38c95e43c4cf",
+       "32b440d25f64",
+       "7518c2a2d672",
+       "a9d7cc295edd",
+       "c790fcd133ec",
+       "8ca83fef80e7",
+       "e555722dcb68",
+       "40a40dfc08e7"
+      ],
+      "construtos": {
+       "import": 8,
+       "atribuicao+with-as": 1,
+       "except-as+for-alvo": 1,
+       "atribuicao+atribuicao-anotada/aug": 3,
+       "with-as": 5,
+       "atribuicao+walrus": 2,
+       "except-as": 5
+      },
+      "classes_dos_achados": {
+       "nome": 25
+      }
+     },
+     "inline": {
+      "n": 189,
+      "falsos": 4,
+      "taxa": 0.021164021164021163,
+      "limite_sup_95": 0.04777395989697822,
+      "clusters_dos_falsos": 2,
+      "falsos_ids": [
+       "e0ed7935c1f7",
+       "d306402602ef",
+       "e2ede553b663",
+       "ddd010c3b179"
+      ],
+      "construtos": {
+       "except-as": 3,
+       "with-as": 6
+      },
+      "classes_dos_achados": {
+       "nome": 9
+      }
+     }
+    },
+    "recall_controle": {
+     "arquivo": [
+      8,
+      13
+     ],
+     "inline": [
+      12,
+      27
+     ]
+    },
+    "avisos_em_negativos": 42,
+    "p95_ms": 677.5,
+    "chamadas": 328,
+    "erros": 0,
+    "defeito_de_corpus": [
+     "6dce9f68d2da",
+     "c72427be59bd",
+     "9c269d2c1bf5"
+    ],
+    "pendencias": [
+     "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+     "recall de símbolo (inline) 0.444 < 0.7 (12/27)",
+     "falso deny (arquivo) 14.286% > 1% (11/77)",
+     "falso deny (inline) 2.116% > 1% (4/189)",
+     "p95 677.5 ms > 150.0 ms"
+    ]
+   }
+  }
+ },
+ "DISJUNTO": {
+  "concentracao": {
+   "arquivo": {
+    "n": 600,
+    "arquivos_distintos": 516,
+    "maior_arquivo": 5,
+    "maior_fatia_pct": 0.83
+   },
+   "inline": {
+    "n": 600,
+    "sessoes_distintas": 141,
+    "maior_sessao": 18,
+    "maior_fatia_pct": 3.0
+   }
+  },
+  "binarios": {
+   "e935": {
+    "baldes": {
+     "arquivo": {
+      "n": 600,
+      "falsos": 5,
+      "taxa": 0.008333333333333333,
+      "limite_sup_95": 0.01744132539844622,
+      "clusters_dos_falsos": 5,
+      "falsos_ids": [
+       "7a4ad8f765aa",
+       "ddbb2cfb4afc",
+       "74f04a24de12",
+       "c35d78e3eb25",
+       "bd4cfc7dd1e1"
+      ],
+      "construtos": {
+       "-": 2,
+       "nao-ligado-no-arquivo": 5
+      },
+      "classes_dos_achados": {
+       "import": 1,
+       "nome": 5,
+       "atributo": 1
+      }
+     },
+     "inline": {
+      "n": 600,
+      "falsos": 2,
+      "taxa": 0.0033333333333333335,
+      "limite_sup_95": 0.010455489384196302,
+      "clusters_dos_falsos": 2,
+      "falsos_ids": [
+       "922195736c58",
+       "e33a1e2e4030"
+      ],
+      "construtos": {
+       "-": 3
+      },
+      "classes_dos_achados": {
+       "atributo": 3
+      }
+     }
+    },
+    "recall_controle": {
+     "arquivo": [
+      11,
+      13
+     ],
+     "inline": [
+      20,
+      27
+     ]
+    },
+    "avisos_em_negativos": 86,
+    "p95_ms": 138.9,
+    "chamadas": 1262,
+    "erros": 0,
+    "defeito_de_corpus": [
+     "6dce9f68d2da",
+     "c72427be59bd",
+     "9c269d2c1bf5"
+    ],
+    "pendencias": []
+   },
+   "c8b5": {
+    "baldes": {
+     "arquivo": {
+      "n": 600,
+      "falsos": 70,
+      "taxa": 0.11666666666666667,
+      "limite_sup_95": 0.14047599244668818,
+      "clusters_dos_falsos": 70,
+      "falsos_ids": [
+       "e7255aa75a8c",
+       "6f1b6c846cbb",
+       "17fb28bf43ba",
+       "31aedc219d95",
+       "625521f5c882",
+       "7a0e29a86dcb",
+       "a9f7768df724",
+       "d11496a72eaf",
+       "2f0e257f3dfa",
+       "edb28aeb300d",
+       "5b580d56570d",
+       "70d906195042",
+       "c0dfc6b4a2d4",
+       "3a8596c3ad65",
+       "c864dcf4d415",
+       "7a4ad8f765aa",
+       "34c2cee385d0",
+       "f4189f4953e3",
+       "c04326890b25",
+       "67f785d34743",
+       "06ee050667c1",
+       "9a9ecb68e563",
+       "b5fa66fc737e",
+       "090b6fe6fe49",
+       "b66b58737cdb",
+       "95c1bdba64b3",
+       "eaf152e630d3",
+       "e8b46a78ff77",
+       "4e9ddab107f8",
+       "11caf962ca53",
+       "df01a7516476",
+       "e1d24250b3e7",
+       "67afb1b2a427",
+       "f03090b5468b",
+       "6f7e0cb610ff",
+       "aae8b8426894",
+       "22aa255b5a67",
+       "41e21af1e0ac",
+       "e65989e9bff7",
+       "cb305b52d196",
+       "6d0a764a6878",
+       "ddbb2cfb4afc",
+       "d34ee10959e6",
+       "b34a2b305638",
+       "bf2259af1078",
+       "30a0414609bc",
+       "bb69126c6351",
+       "74f04a24de12",
+       "a08af4eb6d7a",
+       "c35d78e3eb25",
+       "04bac2c9809a",
+       "4072490ee778",
+       "e54b3aa6c73e",
+       "f78d676216b5",
+       "a49a312585d9",
+       "fc4a4d65016c",
+       "1e682b98370b",
+       "89547b1f5625",
+       "968f80f58eb4",
+       "1942ac408433",
+       "bd4cfc7dd1e1",
+       "249447daab1f",
+       "e7480b2a242b",
+       "8948156306b0",
+       "eba3a9f14d0c",
+       "16350fb8f4d1",
+       "7d3298be1b2a",
+       "74bc40ec09e6",
+       "33aa94490685",
+       "e4cf815f9634"
+      ],
+      "construtos": {
+       "with-as": 23,
+       "except-as": 9,
+       "import": 31,
+       "-": 48,
+       "walrus": 2,
+       "parametro": 8,
+       "atribuicao+atribuicao-anotada/aug": 5,
+       "for-alvo+walrus": 2,
+       "nao-ligado-no-arquivo": 5,
+       "compreensao-alvo+except-as": 1
+      },
+      "classes_dos_achados": {
+       "nome": 86,
+       "atributo": 44,
+       "import": 4
+      }
+     },
+     "inline": {
+      "n": 600,
+      "falsos": 86,
+      "taxa": 0.14333333333333334,
+      "limite_sup_95": 0.16900320377022993,
+      "clusters_dos_falsos": 48,
+      "falsos_ids": [
+       "4253113aca75",
+       "899464e659a4",
+       "fa3608595a34",
+       "6907fdeae29b",
+       "bc64bd3c3d3e",
+       "900d50881f16",
+       "49ed67adee04",
+       "f2e79f792da7",
+       "25a80dddf49b",
+       "83766c7d2442",
+       "15f8b61b8b43",
+       "f7c10d1c387b",
+       "04da7b374e0e",
+       "459660f32ed5",
+       "d6a4aa49117b",
+       "949a7c1b6775",
+       "c7705ea90956",
+       "ab71d1cf4726",
+       "1b77b50cde2a",
+       "01a9e01f18b9",
+       "9657f05a6afe",
+       "5ac04473cdbb",
+       "13586cc35335",
+       "60cfe99c0932",
+       "1080fd768d77",
+       "ed665ad86c6f",
+       "1ace9ba54e47",
+       "e9352e727f2c",
+       "ca4413d5adbf",
+       "14ef7e842257",
+       "785f93459227",
+       "dc533294bdce",
+       "3a2773620022",
+       "8c69a6dbc66a",
+       "0d12c679eae8",
+       "77efc0bfd974",
+       "5410a5f105c8",
+       "f4e2b97060a1",
+       "334df169a5dc",
+       "00f27dec9642",
+       "adcadcf87d65",
+       "9d0b2162d18d",
+       "74819290096f",
+       "d92fe5cc6070",
+       "d42b9256757b",
+       "922195736c58",
+       "2b634e341cb3",
+       "b799f0ca8893",
+       "57aab09236dc",
+       "e33a1e2e4030",
+       "da6e860747c3",
+       "589e72c713cb",
+       "e750d0f9fe49",
+       "447a7d9e0d91",
+       "c8c64e92546e",
+       "cb3723119806",
+       "9ada055805ab",
+       "e778ba9bd7bf",
+       "00f15cfa5c96",
+       "906a55561ff0",
+       "8394717fdde9",
+       "84687beb8f11",
+       "7a75117146cd",
+       "2edc71dbe179",
+       "398078264af4",
+       "c69238e1b5f9",
+       "dfd037975c65",
+       "d009b3e3ea6f",
+       "9c8701683318",
+       "5d2627f3a242",
+       "cd12bb9e4b25",
+       "892c4b5db459",
+       "e66991659484",
+       "926a3871ad1c",
+       "93798915a54f",
+       "c36b5918b7f1",
+       "d2646baa57a2",
+       "3a7dc7022145",
+       "35b604d5cf04",
+       "a94b8867ca8e",
+       "39e60bea6a5c",
+       "d1b3caffe7a6",
+       "5fd349d331ff",
+       "f99b9e6ece20",
+       "112fa9f81fa7",
+       "7a755153ff99"
+      ],
+      "construtos": {
+       "except-as": 54,
+       "-": 68,
+       "with-as": 26,
+       "compreensao-alvo+with-as": 2
+      },
+      "classes_dos_achados": {
+       "nome": 82,
+       "atributo": 59,
+       "import": 9
+      }
+     }
+    },
+    "recall_controle": {
+     "arquivo": [
+      8,
+      13
+     ],
+     "inline": [
+      12,
+      27
+     ]
+    },
+    "avisos_em_negativos": 383,
+    "p95_ms": 134.5,
+    "chamadas": 1262,
+    "erros": 0,
+    "defeito_de_corpus": [
+     "6dce9f68d2da",
+     "c72427be59bd",
+     "9c269d2c1bf5"
+    ],
+    "pendencias": [
+     "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+     "recall de símbolo (inline) 0.444 < 0.7 (12/27)",
+     "falso deny (arquivo) 11.667% > 1% (70/600)",
+     "falso deny (inline) 14.333% > 1% (86/600)"
+    ]
+   }
+  }
+ }
+}

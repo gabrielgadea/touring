@@ -1,0 +1,203 @@
+{
+ "area": "C-contexto-custo-roteamento",
+ "ecc_resumo": "O ECC mede o contexto com o statusline (`context_window.remaining_percentage`) e com a soma do `usage` do transcript. Limita avisos por tier com dedupe, o SessionStart a 8000 chars e um perfil «lean» a 8000 tokens estimados (bytes/4), e esse teto só vale em fixture. «Context pack» é o manifesto do inventário de skills. «Carrier» é a proposta read-only de arquivos por harness (`active:false`, `nativeSupport:\"unobserved\"`). «Capsule» não é contexto: é o journal NDJSON com hash encadeado do eval-harness. O modelo vem do frontmatter estático (71 agentes: 61 sonnet, 4 opus, 6 haiku), do `/model-route` (30 linhas, só aconselha) e de `CLAUDE_CODE_SUBAGENT_MODEL=haiku`. Os números de economia não trazem método e se contradizem entre arquivos.",
+ "findings": [
+  {
+   "id": "C1",
+   "mecanismo": "Injeção tipada na emissão (type + dedupeKey)",
+   "evidencia_ecc": "scripts/hooks/ecc-context-monitor.js:129-131,250: cada aviso leva type/dedupeKey; «Dedupe on the warning TIER (dedupeKey), not the message text.»",
+   "como_funciona": "Cada injeção nasce com família e chave. O dedupe e a medição usam o tier, não o texto, e a chave zera quando a condição se resolve (:239-243).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`touring kpi -j` .context_budget: status FAIL, injected_bytes_per_turn 12388,6 (teto 2000), duplicate 0,069 (teto 0,05), follow 0,446 (piso 0,6). A família «other» tem 1.032.445 B de 1.251.249 B injetados (82,5%) e 1891 de 2416 blocos com zero proposições. A família é inferida depois, no transcript. Amostra: 3 transcripts, 101 turnos.",
+   "licao_tipo": "complementar",
+   "proposta": "Fazer o emissor (touring-hook) carimbar `family` e `dedupe_key` em todo additionalContext, para o KPI deixar de inferir família por regex. Classificar primeiro os 82,5% de «other»: sem isso o FAIL do context_budget não tem causa localizável.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Mudar o formato da injeção pode quebrar o parser do KPI e a dedupe do S8. Exige A/B em corpus fixo.",
+   "confianca": 0.75
+  },
+  {
+   "id": "C2",
+   "mecanismo": "Aviso escalonado por tier, hoje em $ estimado",
+   "evidencia_ecc": "ecc-context-monitor.js:127-171: tiers context 35/25%, custo $5/$10/$50; docs/token-optimization.md:84-86 admite que o $ estimado pode não refletir a conta do assinante e dá o off-switch.",
+   "como_funciona": "PostToolUse lê o bridge e emite até 2 avisos. Cada tier dispara uma vez e reemite só ao escalar.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "~/.claude/touring/rate_limits.json (15:36): 5h 19%, 7d 12%. Só agent_model_gate.py, backend_provider.py, rate_limits_snapshot.py e status_monitor.sh citam rate_limits (grep em client/hooks). A leitura sai sob demanda (`--show`) ou na recusa do gate. Nenhum aviso proativo.",
+   "licao_tipo": "complementar",
+   "proposta": "Aviso do tipo `rate_limit` com dedupe por tier de janela: 7d ≥ 70/85/95% e 5h ≥ 90%. Emite uma vez por tier e por resets_at, com o remédio (parar fanout, preferir irmã). O Touring tem o sinal real, que o ECC só aproxima em $.",
+   "valor": "alto",
+   "custo": "P",
+   "risco": "Mais injeção num KPI que já falha (C1). Medir o orçamento antes e fechar o tier em ≤200 B.",
+   "confianca": 0.7
+  },
+  {
+   "id": "C3",
+   "mecanismo": "Re-lembrete por crescimento de contexto, tool count rebaixado",
+   "evidencia_ecc": "scripts/hooks/suggest-compact.js:15-23 e skills/strategic-compact/SKILL.md:36: 160k em janela 200k, 250k em 1M, repete a cada +60k. «Tool count is a weak proxy for window pressure».",
+   "como_funciona": "Lê o último `usage` do transcript (input+cache_read+cache_creation). Mantém um bucket por sessão e sugere /compact ao cruzar cada bucket.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "client/hooks/check_context.sh:1,16: «ONE checkpoint warning per compaction cycle», a (autocompact−10)%. docs/plans/2026-10-17-contexto-por-chamada/README.md:40 planeja o P2 (~100K de crescimento), ainda sem implementação verificada.",
+   "licao_tipo": "refinar",
+   "proposta": "Tratar o intervalo como parâmetro pré-registrado. ECC usa 60k, billion-context 50K, o plano 100K, e nenhum foi medido. Escolher pelo ~/.claude/touring/compactions.jsonl (702 KB): perda do resumo × intervalo. Manter o estado em disco como alvo do aviso.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Aviso frequente vira ruído (follow 0,446). Pré-registrar o critério antes de ligar.",
+   "confianca": 0.6
+  },
+  {
+   "id": "C4",
+   "mecanismo": "Sensor obsoleto vira desconhecido, não saudável",
+   "evidencia_ecc": "ecc-context-monitor.js:30,225-230: STALE_SECONDS=60; bridge velho → `context_remaining_pct: null`, mantendo custo/escopo/loop.",
+   "como_funciona": "Dado de contexto sem frescor não gera aviso nem passa por «tudo bem».",
+   "touring_estado": "parcial",
+   "touring_evidencia": "check_context.sh:38 `[[ -f $FLAG && ! -f $DELIVERED ]] || exit 0` sai calado sem flag. status_monitor.sh só escreve/remove a .pct (:175,:177); o grep por date/stale/mtime não achou nada. Dá para confundir «abaixo do checkpoint» com «statusline não renderiza» (headless/subagente). Não testei se acontece na prática.",
+   "licao_tipo": "refinar",
+   "proposta": "Gravar `ts` na flag e, no hook, registrar um `silent_reason` (abaixo|sem_sensor|obsoleto) no journal, como o skill_picker_hook já faz. KPI: fração de turnos com sensor vivo. «Sinal ausente ≠ zero» vale também aqui.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Baixo; só observabilidade.",
+   "confianca": 0.55
+  },
+  {
+   "id": "C5",
+   "mecanismo": "Teto da superfície eager com ledger por entrada",
+   "evidencia_ecc": "manifests/context-profiles/lean@1.json:8,11 (3 skills eager, 8000 tokens, blocking); scripts/lib/context-profiles.js:73-87 (`utf8-bytes-div-4@1`, ledger por entrada, `nativeTokens:null`).",
+   "como_funciona": "Estima name+description de cada skill selecionada e reprova acima do teto. Declara que é fixture, não tokenizer.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "docs/2026-06-26-touring-token-footprint-diagnosis.md:17 mediu uma vez (~223K no turno 1, estático ~113K). O grep por eager|catalog|skill_desc|static em commitments.yaml deu 0 acertos. Medi agora: 89 SKILL.md globais ≈9,6K tokens (método ECC), 6 agentes ≈0,65K, CLAUDE.md+rules+projeto ≈20,6K (bytes/4). 1º call observado em 27 transcripts de 14 dias: p10 36K, p50 78K, p90 142K (retomadas não excluídas). O README do P1 dá a mediana de 431K por chamada, então o estático é ≤18% do que cada chamada relê.",
+   "licao_tipo": "complementar",
+   "proposta": "Transformar a medição de junho em KPI report-only: estimativa por entrada (ranking dos mais pesados) mais o 1º call observado como verdade. Calibrar o estimador contra o observado antes de fixar qualquer teto. Só depois decidir o que mover para skill sob demanda (rules sem `paths:`: 16 de 17).",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Mover rules para fora pode piorar a aderência. Medir antes, porque a prosa MUST já tem follow 0,446.",
+   "confianca": 0.65
+  },
+  {
+   "id": "C6",
+   "mecanismo": "Saúde do instrumento de custo e contrato de custo autoritativo",
+   "evidencia_ecc": "scripts/hooks/cost-tracker.js:13-16: «silently produced zero-filled rows (verified: 2,340 rows captured with 0.0% non-zero token rate over 52 days)»; :26-36 prefere o custo do harness à soma do transcript.",
+   "como_funciona": "Cada linha é um snapshot cumulativo; reduz-se à última por sessão. A tabela de preços não cobre o tier >200K nem o cache 1h, e a soma dupla-conta nas retomadas.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "docs/plans/2026-10-17-contexto-por-chamada/prototipos/medir_contexto_por_chamada.py:34-36 já dedupa por `message.id` entre arquivos, o que cobre a dupla contagem. Não há ledger persistente: o grep por cost_usd/costs.jsonl em scripts e client/hooks só acha jev_smoke.py.",
+   "licao_tipo": "refinar",
+   "proposta": "No P1, emitir a taxa de linhas com tokens>0 como auto-checagem do próprio medidor. A falha do ECC passou 52 dias sem ser vista. Gravar model, cc_version e uma flag de long-context por linha, porque as tabelas mudam. Moeda é cota, não $.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Baixo.",
+   "confianca": 0.7
+  },
+  {
+   "id": "C7",
+   "mecanismo": "Escada de escalonamento e confiança no roteamento",
+   "evidencia_ecc": "commands/model-route.md:19-24 (confiança + «fallback model if first attempt fails»); the-longform-guide.md:127 (subir para Opus se a 1ª tentativa falhar ou tocar 5+ arquivos).",
+   "como_funciona": "Aconselha modelo, confiança e fallback. Não há execução nem desfecho.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "agent_model_gate.jsonl: 141 linhas (08-17/10), 138 allowed e 3 denies. why: explicit:sonnet 86, irmã 46, explicit:haiku 5, builtin:haiku 1, fit:busca-exige-haiku 1. Campos ts, session_id, agent_id, allowed, why, subagent_type, model: sem desfecho. KPI touring.routing.adherence = 0,5 (n=16, piso 0,8, advisory). A matriz (economia §1) tem escalonamento para o Fable, não haiku→sonnet após falha no juiz.",
+   "licao_tipo": "complementar",
+   "proposta": "Acrescentar à matriz a coluna «se falhar no juiz → sobe para». Juntar o gate log (agent_id) ao desfecho do subagente no transcript para gerar rótulos decisão→desfecho. Isso alimenta a Laya (~1.000 rótulos) sem classificador novo.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "O desfecho exige julgar a entrega; um proxy ruim gera rótulo ruim (cf. «laço de crédito nunca invocado»).",
+   "confianca": 0.55
+  },
+  {
+   "id": "C8",
+   "mecanismo": "Estimativa e observado separados no mesmo registro",
+   "evidencia_ecc": "docs/design/context-profiles.md:112: «Report observed native counters separately and avoid deriving savings claims from this ledger alone.»",
+   "como_funciona": "O plano carrega `estimate` (bytes/4) ao lado de `nativeTokens/wholeScopeTokens = null` até haver observação.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "O KPI context_budget mede bytes (teto `injected_bytes_per_turn_ceil` 2000,0; `tpcd_proxy_bytes_per_tool_call`), enquanto a franquia gasta tokens. Não achei calibração bytes→tokens por família (prosa PT-BR, JSON, código).",
+   "licao_tipo": "aperfeicoar",
+   "proposta": "Calibrar bytes/token por família com o delta de `usage` entre chamadas consecutivas nos transcripts e publicar o fator no KPI. Rotular cada teto como «bytes (proxy)» ou «tokens (observado)». Evita um teto de 2000 B que equivale a tokens bem diferentes por tipo.",
+   "valor": "baixo",
+   "custo": "P",
+   "risco": "Delta de usage embute cache e saída do modelo. Usar só turnos de injeção isolada.",
+   "confianca": 0.45
+  },
+  {
+   "id": "C9",
+   "mecanismo": "Roteamento de modelo por tarefa",
+   "evidencia_ecc": "docs/token-optimization.md:20,36: `CLAUDE_CODE_SUBAGENT_MODEL=haiku` global; commands/model-route.md:15-17 é heurística em prosa; agents/*.md com `model:` fixo (61 sonnet/4 opus/6 haiku).",
+   "como_funciona": "Um env global mais o frontmatter estático. Nada verifica adequação, nem mede aderência.",
+   "touring_estado": "superior",
+   "touring_evidencia": "client/hooks/agent_model_gate.py:36-53 julga o modelo da CHAMADA por tipo, exige consentimento do Fable e grava log. Há delegation_nudge.py, scripts/model_routing_adherence.py com KPI e rate_limits_snapshot.py. ~/.claude/settings.json env só tem 2 chaves, e nenhuma é SUBAGENT_MODEL.",
+   "licao_tipo": "refinar",
+   "proposta": "Não adotar nada do ECC aqui. Único cuidado: o gate trata `CLAUDE_CODE_SUBAGENT_MODEL` como «decisão tomada» (agent_model_gate.py:21,52). Se alguém o definir como o ECC recomenda, as regras `fit` somem sem aviso. Registrar `why:env` e alertar no KPI.",
+   "valor": "baixo",
+   "custo": "P",
+   "risco": "Quebrar a exceção legítima das sessões irmãs, que dependem do env.",
+   "confianca": 0.7
+  }
+ ],
+ "anti_licoes": [
+  "Números de economia sem método e inconsistentes: Haiku «~80% cheaper» (token-optimization.md:36) × «3-4x» (cost-aware-llm-pipeline/SKILL.md:42) × tabela própria 1x vs 2x (:157-161) × «3x» (rules/common/performance.md:5). Sonnet em «~80%» (token-optimization.md:34) × «90%» das tarefas (the-longform-guide.md:127).",
+  "Carrier e profile são propostas que não ativam nada: `active` const false, `nativeSupport` «unobserved» (context-carrier.schema.json:8-12). A recuperação de skills «routed» é trabalho futuro (docs/design/context-carriers.md:45). O teto lean de 8K nunca foi provado no host. Não importar a arquitetura.",
+  "Resumo por LLM no PreCompact: `claude --model haiku -p` (llm-summary.js:25,172) gasta crédito e não verifica o que o resumo perdeu. O compaction_ledger do Touring mede a cobertura por código.",
+  "contexts/{dev,research,review}.md são prompts genéricos de ~20 linhas, injetados por alias `--system-prompt` (the-longform-guide.md:56-75). O ECC não mede efeito algum.",
+  "src/llm é abstração multi-provider (resolver.py:17-24), sem roteamento por tarefa nem custo: irrelevante para a área C.",
+  "Capsule/envelope (capsule.js:3-4) é journal de eval, não compressão de contexto; fora da área C.",
+  "skill-triggers@1.json cobre 33 de 311 skills, `model: hand-seeded` (:3-12): pack mal povoado."
+ ],
+ "claims_nao_verificados": [
+  "«Sonnet ~60% cost reduction», «Haiku ~80% cheaper», «90% of Sonnet capability, 3x» (token-optimization.md:34,36; performance.md:5)",
+  "«mgrep ~50% fewer tokens» (the-longform-guide.md:136-139) e «token-optimizer 95%+», «context-mode 315KB→5.4KB», «trigger table 50%+» (strategic-compact/SKILL.md:127,149-150): benchmarks de terceiros",
+  "MCP «reduz 200k a ~70k» (README.md:1923)",
+  "Catálogo de agentes «~2-3k tokens para 27 agentes» (agent-compress.js:164): estimativa chars/4, não executada",
+  "`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` «só reduz» (token-optimization.md:43-45): relato de comunidade. O Touring usa 65, que reduz, então não é afetado; não testei."
+ ],
+ "symbol_verification": [
+  {
+   "simbolo_ou_caminho": "docs/token-optimization.md, skills/context-budget, commands/model-route.md, skills/cost-aware-llm-pipeline, docs/STATUSLINE.md, docs/capability-surface-selection.md, skills/strategic-compact",
+   "categoria": "found",
+   "evidencia": "Todos lidos no clone do ECC (dado não confiável; nada executado)."
+  },
+  {
+   "simbolo_ou_caminho": "ECC capsule-envelope.schema.json e scripts/lib/eval-harness/capsule.js",
+   "categoria": "found",
+   "evidencia": "Journal NDJSON com hash encadeado e effect_class SE0-SE4 (schema:31-34), não é contexto."
+  },
+  {
+   "simbolo_ou_caminho": "ECC src/llm",
+   "categoria": "found",
+   "evidencia": "__init__.py:4, resolver.py:17-24: abstração de providers; sem router de custo."
+  },
+  {
+   "simbolo_ou_caminho": "touring_foundation::cila::cila_budget_read",
+   "categoria": "found",
+   "evidencia": "crates/touring-foundation/src/cila.rs:75-76: 800/2000/4000; edit/write 1200/3000/6000 (:84,:92); turn_budget em touring-hooks-shared/src/turn_budget.rs."
+  },
+  {
+   "simbolo_ou_caminho": "client/hooks/check_context.sh, agent_model_gate.py, delegation_nudge.py, rate_limits_snapshot.py",
+   "categoria": "found",
+   "evidencia": "Lidos check_context.sh e o docstring do agent_model_gate; delegation_nudge só o cabeçalho (parcial)."
+  },
+  {
+   "simbolo_ou_caminho": "scripts/model_routing_adherence.py e docs/kpi/commitments.yaml (touring.routing.adherence)",
+   "categoria": "found",
+   "evidencia": "Artefato docs/kpi/external/touring.routing.adherence.json: value 0,5, n=16, desde 2026-10-08."
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/skills/loop-engineering/scripts/hooks/compaction_ledger.py",
+   "categoria": "found",
+   "evidencia": "Docstring lido (record/gaps_context); ~/.claude/touring/compactions.jsonl existe, 702 KB."
+  },
+  {
+   "simbolo_ou_caminho": "`touring kpi -j`",
+   "categoria": "found",
+   "evidencia": "Executado só para leitura: context_budget.status FAIL; summary passed 29, advisory 10, stub 7, failed 0."
+  },
+  {
+   "simbolo_ou_caminho": "KPI de superfície estática eager no Touring",
+   "categoria": "not_found",
+   "evidencia": "grep -i 'eager|catalog|skill_desc|static' docs/kpi/commitments.yaml: 0 acertos."
+  }
+ ],
+ "cobertura": {
+  "arquivos_lidos": 50,
+  "principais": [
+   "ECC: token-optimization.md, context-budget, model-route, cost-*, strategic-compact, schemas, context-profiles.md e .js, ecc-context-monitor.js, cost-tracker.js, suggest-compact.js",
+   "Touring: economia-de-creditos-e-contexto.md, plano contexto-por-chamada, check_context.sh, agent_model_gate.py, commitments.yaml, kpi -j"
+  ],
+  "nao_lidos": "DEEPSEEK-HARNESS-GUIDE.md além da linha 70 (é só bridge de hooks); session-cost-snapshot.js; ecc-statusline.js; o corpo de delegation_nudge.py e de model_routing_adherence.py (só cabeçalhos); economia-de-creditos §1 linhas 70-255 e §2-4; compaction_ledger.py além da linha 45. Medições feitas por script: footprint estático (89 skills) e 1º call (27 transcripts); sem validação cruzada com o /context do harness."
+ }
+}

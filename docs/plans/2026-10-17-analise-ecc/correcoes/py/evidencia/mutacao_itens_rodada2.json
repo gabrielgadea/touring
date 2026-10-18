@@ -1,0 +1,18 @@
+[
+ {
+  "id": "release cannot require the roots",
+  "status": "killed",
+  "detail": [
+   "FAILED scripts/test_skill_size_guard.py::test_varredura_real_pula_sem_raizes_e_reprova_quando_o_release_as_exige",
+   "1 failed, 6 passed in 0.03s"
+  ]
+ },
+ {
+  "id": "release requires roots but env var misread",
+  "status": "killed",
+  "detail": [
+   "FAILED scripts/test_skill_size_guard.py::test_varredura_real_pula_sem_raizes_e_reprova_quando_o_release_as_exige",
+   "1 failed, 6 passed in 0.03s"
+  ]
+ }
+]

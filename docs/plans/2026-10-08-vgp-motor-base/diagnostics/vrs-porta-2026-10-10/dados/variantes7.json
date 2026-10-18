@@ -1,0 +1,21 @@
+{
+ "sha_rust_rs": "525f4ac02548c1d1",
+ "variantes": [
+  {
+   "variante": "V20",
+   "desfeitas": [
+    "x"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V20/touring",
+   "sha256": "dd39075e97d5c1498a9987f58269e47e7c2da15f5bb994813cf6103488b41cbb",
+   "segundos": 42.2
+  },
+  {
+   "variante": "V21",
+   "desfeitas": [],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V21/touring",
+   "sha256": "0150c4e22540c53ffa49e167d960581ed59bfed0f3b3087b2d063e3b01be8d5d",
+   "segundos": 36.0
+  }
+ ]
+}

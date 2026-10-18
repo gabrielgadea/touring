@@ -1,0 +1,56 @@
+{
+ "registro": "diagnostics/holdout-20261013/congelados.json",
+ "copias": {
+  "adjudica_rotulo.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/adjudica_rotulo.py",
+   "sha256": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/adjudica_rotulo.py"
+  },
+  "estado_no_instante_v0d.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py",
+   "sha256": "e90a8514627d8daa7ec8ff2c2a06316b6fcc16300a3e27b78a01da5fa20d0503",
+   "copiado_de": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/hof/estado_prof1.py"
+  },
+  "test_estado_no_instante_v0d.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py",
+   "sha256": "bb1f108fb8a0169a7c42e50c9fa19f07de008bdfd156bbcccc256c69f7a36347",
+   "copiado_de": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/hof/test_prof1_original.py"
+  },
+  "construir_disjunto.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py",
+   "sha256": "f04f8cdf99095138014e927b5efff3c2e85ee7e5509bbf2332368e3c60bd945e",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py"
+  },
+  "exclusoes_disjunto.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/exclusoes_disjunto.py",
+   "sha256": "e2c76d00c6b3c6df57d60bcc8464bff10b785b73b1fb5333517e50ffa79fe52e",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/exclusoes_disjunto.py"
+  },
+  "verificar_sobreposicao.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/verificar_sobreposicao.py",
+   "sha256": "972cf5ee67f3661417dd181f6c5278c53189f4323e6d9f7274f0712f324c43d3",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/verificar_sobreposicao.py"
+  },
+  "mutantes_adjudica_rotulo.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_adjudica_rotulo.py",
+   "sha256": "8eed8f856976dbfbb8dfd43448e80354b2f170d5ca1ffecbe8f54ea12e297093",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_adjudica_rotulo.py"
+  },
+  "mutantes_estado_no_instante.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_estado_no_instante.py",
+   "sha256": "044b82eb646f4ac1bbe150d1fcc585396f36f30b7e276d9eace5b45971173ec9",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_estado_no_instante.py"
+  },
+  "test_construir_disjunto_ho13.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/test_construir_disjunto_ho13.py",
+   "sha256": "88c7964212d765452d041960ebfdf2a193068ae4bc123b1d42c4c9f2c599dbcb",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/test_construir_disjunto_ho13.py"
+  },
+  "confere_selo.py": {
+   "origem": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py",
+   "sha256": "fed3c847630f374677c41142b00d845433e63508e896fef55f6a16c6c854f34f",
+   "copiado_de": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py"
+  }
+ },
+ "sem_copia_verificada": []
+}

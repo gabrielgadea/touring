@@ -1,0 +1,3 @@
+recall de símbolo · arquivo 12/13 · inline 22/27 | forma (fora) {'arquivo': [1, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 60 | p95 939.9 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+veredito: PRONTO
+rc=0

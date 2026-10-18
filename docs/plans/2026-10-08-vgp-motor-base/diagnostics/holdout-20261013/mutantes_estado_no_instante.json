@@ -1,0 +1,159 @@
+{
+ "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py",
+ "sha_antes": "e90a8514627d8daa7ec8ff2c2a06316b6fcc16300a3e27b78a01da5fa20d0503",
+ "sha_depois": "e90a8514627d8daa7ec8ff2c2a06316b6fcc16300a3e27b78a01da5fa20d0503",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "falhas": [],
+  "resumo": "25 passed in 0.06s"
+ },
+ "mutantes_mortos": "11/11",
+ "mutantes": [
+  {
+   "mutante": "m1",
+   "descricao": "so o __init__ (sem o submodulo do from-import)",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_relativos",
+    "test_tipos_dos_modulos",
+    "test_incompleta_quando_o_submodulo_nao_reconstroi",
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto"
+   ],
+   "resumo": "10 failed, 15 passed in 0.10s",
+   "morto": true
+  },
+  {
+   "mutante": "m2",
+   "descricao": "sem os pacotes ancestrais",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_import_pontilhado_traz_os_pacotes_ancestrais",
+    "test_import_pontilhado_com_alias",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_nome_que_nao_e_modulo_nao_inventa_arquivo",
+    "test_import_estrela_so_o_pacote",
+    "test_tipos_dos_modulos",
+    "test_incompleta_quando_o_init_nao_reconstroi",
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_overlays_legado_continua_pulando_em_silencio"
+   ],
+   "resumo": "13 failed, 12 passed in 0.10s",
+   "morto": true
+  },
+  {
+   "mutante": "m3",
+   "descricao": "relativo sem o __init__ do pacote corrente",
+   "rc": 1,
+   "falhas": [
+    "test_relativos"
+   ],
+   "resumo": "1 failed, 24 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m4",
+   "descricao": "estado_completo ignora a falta",
+   "rc": 1,
+   "falhas": [
+    "test_incompleta_quando_o_submodulo_nao_reconstroi",
+    "test_incompleta_quando_o_init_nao_reconstroi"
+   ],
+   "resumo": "2 failed, 23 passed in 0.08s",
+   "morto": true
+  },
+  {
+   "mutante": "m5",
+   "descricao": "overlays_e_faltas esconde a falta",
+   "rc": 1,
+   "falhas": [
+    "test_overlays_e_faltas_nomeia_o_que_faltou"
+   ],
+   "resumo": "1 failed, 24 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m6",
+   "descricao": "sem a 2a base (dir do script)",
+   "rc": 1,
+   "falhas": [
+    "test_irmao_do_script_segue_resolvendo"
+   ],
+   "resumo": "1 failed, 24 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m7",
+   "descricao": "aceita modulo fora da raiz",
+   "rc": 1,
+   "falhas": [
+    "test_modulo_fora_da_raiz_do_projeto_nao_entra"
+   ],
+   "resumo": "1 failed, 24 passed in 0.08s",
+   "morto": true
+  },
+  {
+   "mutante": "m8",
+   "descricao": "volta a regra antiga",
+   "rc": 1,
+   "falhas": [
+    "test_from_pacote_import_submodulo_o_caso_real",
+    "test_import_pontilhado_traz_os_pacotes_ancestrais",
+    "test_import_pontilhado_com_alias",
+    "test_from_pacote_import_subpacote",
+    "test_from_pontilhado_import_submodulo",
+    "test_varios_nomes_no_mesmo_from",
+    "test_nome_que_nao_e_modulo_nao_inventa_arquivo",
+    "test_import_estrela_so_o_pacote",
+    "test_relativos",
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_overlays_e_faltas_nomeia_o_que_faltou",
+    "test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto",
+    "test_overlays_legado_continua_pulando_em_silencio"
+   ],
+   "resumo": "13 failed, 12 passed in 0.11s",
+   "morto": true
+  },
+  {
+   "mutante": "m9",
+   "descricao": "overlay grava o arquivo de HOJE",
+   "rc": 1,
+   "falhas": [
+    "test_overlay_carrega_o_instante_nao_o_hoje",
+    "test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto"
+   ],
+   "resumo": "2 failed, 23 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m10",
+   "descricao": "profundidade 2 ignora o que ja esta coberto",
+   "rc": 1,
+   "falhas": [
+    "test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto",
+    "test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada"
+   ],
+   "resumo": "2 failed, 23 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m11",
+   "descricao": "profundidade 2 conta a propria entrada como lacuna",
+   "rc": 1,
+   "falhas": [
+    "test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada"
+   ],
+   "resumo": "1 failed, 24 passed in 0.07s",
+   "morto": true
+  }
+ ]
+}

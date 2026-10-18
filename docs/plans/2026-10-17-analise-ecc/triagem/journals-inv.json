@@ -1,0 +1,15 @@
+{
+  "hooks_complement": {
+    "escritor": "crates/touring-hooks-shared/src/hooks_complement_journal.rs:50 (record_emit) abre $HOME/.claude/touring/hooks_complement.jsonl em append (linha 64). Nenhum chamador de produção: grep 'record_emit' fora desse arquivo não acha nada em crates/.",
+    "teste": "crates/touring-hooks-shared/src/hooks_complement_journal.rs:126-129 (record_emit_is_fail_open) chama record_emit(\"test_layer\", \"src/foo.rs\", 3, \"post_write\") na linha 128, sem isolamento.",
+    "causa": "O teste grava no journal REAL: journal_path() (linhas 15-18) lê HOME sem override e record_emit não aceita caminho. O comentário da linha 127 diz 'with $HOME unset', mas o teste não remove HOME. Cada cargo test -p touring-hooks-shared acrescenta uma linha. round_trip_emit_count_after_record (linha 132) usa tempdir, mas não chama record_emit. Resultado: as 1137 linhas do arquivo real são todas test_layer (grep -c test_layer = 1137 = grep -c '\"ts\"'); nenhuma linha de camada de produção.",
+    "linhas_de_teste": 1137,
+    "conserto_sugerido": "Separar record_emit em record_emit_to(path, ...) e fazer o teste apontar para tempdir (ou gatear por env TOURING_HOOKS_COMPLEMENT_JOURNAL definida pelo teste). Depois, arquivar/apagar as 1137 linhas de teste do arquivo real e adicionar teste que falha se o HOME real for escrito. Atenção: emit_count() (kpi hooks_complement.emit_count) conta essas linhas hoje."
+  },
+  "oom_slice_gate": {
+    "escritor": "~/projects/analise/.claude/hooks/oom_slice_gate.py (LOG em linha 31 = ~/.claude/touring/oom_slice_gate.jsonl; _log em linha 60). Hook PreToolUse(Bash) registrado em ~/projects/analise/.claude/hooks/hooks.json:115-117. Nenhum escritor em touring/crates, client, scripts, ~/.claude/hooks, ~/.claude/tools, ~/.claude/skills, settings.json, crontab ou systemd.",
+    "ultima_linha": "{\"ts\": \"2026-10-18T05:52:05.501567+00:00\", \"veredito\": \"deny\", \"cmd\": \"S=/tmp/claude-1000/-home-gabrielgadea-projects-analise/... cargo_teste.sh ... test --features mef,pyo3 ...\"} (UTC; 02:52 em America/Sao_Paulo)",
+    "bytes": 23433,
+    "historico": "146 linhas; primeira em 2026-10-14T03:20:31+00:00 (veredito deny, cmd 'cd packages/kazuba-sei-core && cargo test --lib'). O arquivo que hoje está no ~/.claude/touring é o log de um hook do projeto analise, não do touring. git log -S 'oom_slice' no repo touring: vazio. oom_slice_gate.py não está versionado no repo analise (git ls-files --error-unmatch falhou), então o histórico do hook não existe no git."
+  }
+}

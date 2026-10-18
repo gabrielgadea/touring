@@ -1,0 +1,10 @@
+81465396dd46362c  touring-code/src/vgp/lang/python.rs
+8e85750574a230e4  touring-code/src/vgp/lang/python/modules.rs
+02489e07b3f91475  touring-code/src/vgp/sombra.rs
+2ef704b8a53de728  touring-pyright/src/pyright.rs
+aae0559d5c22c31c  touring-pyright/src/achado.rs
+== VERDE 2026-10-10T21:28:34-03:00
+verde touring-code rc=101
+verde touring-pyright rc=0
+ABORTA: o VERDE falhou (rc 101 / 0); nenhum mutante rodou
+FIM

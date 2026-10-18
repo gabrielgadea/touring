@@ -16,8 +16,7 @@ Test cases (per team-lead spec):
 """
 from __future__ import annotations
 
-
-from helpers import CLIENT_HOOKS, run_hook_sh, HookResult
+from helpers import CLIENT_HOOKS, HookResult, run_hook_sh
 
 SCRIPT = CLIENT_HOOKS / "block_git.sh"
 

@@ -1,0 +1,17 @@
+
+[2] hooks reais (pre-write · pre-edit-prevention · pre-bash) — modo do analise: sombra
+  OK    pre-write · externo inventado — registro deny ['caminho_inventado_vgp'] · resposta sem decisão '📋 kind context: [10 definition] | 📚 related docs: [Scripts ('
+  OK    pre-write · símbolo do projeto (RED de TDD) — registro warn ['gravar_inventado_vgp'] · resposta sem decisão '📋 kind context: [10 definition] | 📚 related docs: [_scripts@'
+  OK    pre-write · limpo — registro allow [] · resposta sem decisão 'callers: [<module>] | 📋 kind context: [10 definition] | 📚 re'
+  OK    pre-edit-prevention · externo inventado no Edit — registro deny ['caminho_inventado_vgp'] · resposta sem decisão 'Pre-edit prevention for scripts/_prova_vgp_alvo_edit.py (1 s'
+  OK    pre-bash · inline `python3 -c` externo inventado — registro deny ['caminho_inventado_vgp'] · resposta sem decisão ''
+
+[4] G1 sem replay — hook cli-suggest REAL (onde vivem os gates de code mode), sessão-sonda própria
+  OK    controle: o G1 dispara numa rajada real — disparos nos índices [3]
+  OK    no 1º disparo (4ª) só o comando atual executa — executáveis ['grep -c delta AGENTS.md']
+  OK    o modelo recebe o additionalContext — '[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o últim
+  OK    a inspeção seguinte não dispara: o lote foi consumido — disparos [3]
+  OK    depois de um touring run, 2 inspeções não disparam o G1 — [['additionalContext', 'hookEventName'], ['additionalContext', 'hookEventName']]
+
+veredito: TUDO AFIRMADO
+PROVA_2_4_RC=0

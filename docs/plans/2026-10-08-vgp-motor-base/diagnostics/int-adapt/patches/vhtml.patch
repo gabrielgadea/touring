@@ -1,0 +1,3181 @@
+diff --git a/crates/touring-code/src/vgp/lang/html.rs b/crates/touring-code/src/vgp/lang/html.rs
+index 1bd0e927..089aa1b2 100644
+--- a/crates/touring-code/src/vgp/lang/html.rs
++++ b/crates/touring-code/src/vgp/lang/html.rs
+@@ -1,14 +1,46 @@
+-//! Html adapter (VHTML) — STUB: registered, answers `unknown` until its body is written.
++//! The Html adapter (VHTML) — layer-1 checks over a proposed HTML document.
+ //!
+-//! This file is the ONLY thing the VHTML phase edits: replace [`Html::verificar`] with the
+-//! real checks (build findings with [`Finding::candidato`](crate::vgp::Finding::candidato) and an
+-//! [`Alvo`](crate::vgp::politica::Alvo); never set a severity, `check` decides it) and delete the
+-//! stub test below. The registry line in `super::REGISTRO` already exists.
++//! Two classes (VL0 §4), both measured against the DISK and the document itself, never the
++//! network (a CDN URL is `cdn`'s, a stylesheet class is `classe_css`'s):
++//! - `recurso`: a local `src` / `href` that does not exist on disk (module `recurso`);
++//! - `ancora`: an id referenced by `href="#x"`, `<label for>`, `aria-labelledby` /
++//!   `aria-describedby` or an inline `getElementById` / `querySelector('#x')` that no element
++//!   carries, and an id declared twice (modules `ancora` and `script`).
+ //!
+-//! Classes `recurso` and `ancora`; the script and style bodies are `raw_text` nodes the adapter re-parses with `javascript` and `css`.
++//! The adapter MEASURES and reports the [`Alvo`](crate::vgp::politica::Alvo) of each finding;
++//! `check` decides the severity.
++//! A missing relative file, or an absent id on a page no script can touch, is `Alvo::Projeto`
++//! (the disk decides); the shapes that are uncertain for real are `Alvo::Incerto` (a root-relative
++//! URL, a page with external or dynamic scripts, a DOM lookup, a duplicate id). Neither ever
++//! denies: `recurso` and `ancora` are consultive classes of the policy
++//! (`CLASSES_CONSULTIVAS`) — a missing file or id is what the next write creates (the
++//! `index.html` goes out before the `style.css` it links), and spec §5.1 reserves the "runs now"
++//! `deny` for symbol classes. The only HTML `deny` is a confirmed CDN 404, the `cdn` class's.
++//! Whatever the adapter cannot read — a templated URL, a fragment, a syntax error in a script —
++//! goes to `nao_medido` with the reason, so a clean answer is never silence.
++//!
++//! The parse is `tree-sitter-html` through [`super::parse`]; `<script>` bodies are `raw_text`
++//! nodes re-parsed with the `javascript` grammar (module `script`); the tree is read once into a
++//! `Documento` (module `documento`).
+ 
+-use super::{Adaptador, Verificacao};
+-use crate::vgp::CheckInput;
++mod ancora;
++mod documento;
++mod recurso;
++mod script;
++#[cfg(test)]
++mod tests;
++mod texto;
++
++use std::collections::HashSet;
++
++use super::{Adaptador, Verificacao, parse};
++use crate::vgp::{CheckInput, Finding};
++use documento::Documento;
++
++/// Documents above this size are not parsed: the hook budget is p95 ≤ 150 ms and the parse costs
++/// about 0.2 s per MiB (measured on the analise tree: 4.7 MiB → 0.85 s, 42 MiB → 4.2 s). Such a file
++/// is a generated artifact (a map, a scraped dump), not something an edit proposes.
++const TETO_DO_DOCUMENTO: usize = 4 << 20;
+ 
+ /// The `html` adapter registered in `super::REGISTRO`.
+ pub struct Html;
+@@ -18,32 +50,66 @@ impl Adaptador for Html {
+         "html"
+     }
+ 
+-    fn verificar(&self, _input: &CheckInput) -> Verificacao {
+-        Verificacao::nao_implementado("html")
++    fn verificar(&self, input: &CheckInput) -> Verificacao {
++        if input.content.len() > TETO_DO_DOCUMENTO {
++            return Verificacao::nao_medido(format!(
++                "documento de {} MiB acima do limite de leitura ({} MiB)",
++                input.content.len() >> 20,
++                TETO_DO_DOCUMENTO >> 20
++            ));
++        }
++        let tree = match parse("html", &input.content) {
++            Ok(t) => t,
++            Err(motivo) => return Verificacao::nao_medido(motivo),
++        };
++        let doc = Documento::ler(&input.content, &tree);
++        let mut saida = Saida::default();
++        if doc.tem_erro {
++            saida.nao_medido("html com erro de sintaxe: parte do documento pode não ter sido lida");
++        }
++        let scripts = script::analisar(&doc);
++        for motivo in &scripts.motivos {
++            saida.nao_medido(motivo.clone());
++        }
++        recurso::verificar(input, &doc, &mut saida);
++        let presentes: HashSet<&str> = ancora::ids_presentes(&doc, &input.content, &scripts);
++        ancora::verificar(&doc, &input.content, &scripts, &presentes, &mut saida);
++        script::verificar_lookups(&scripts, &presentes, &mut saida);
++        saida.concluir()
+     }
+ }
+ 
+-#[cfg(test)]
+-mod tests {
+-    use crate::vgp::{CheckInput, check};
+-    use std::collections::HashMap;
++/// What the checks of one document produce: findings (one per class and name) and the reasons
++/// something was not measured.
++#[derive(Default)]
++struct Saida {
++    achados: Vec<Finding>,
++    motivos: Vec<String>,
++}
+ 
+-    #[test]
+-    fn stub_responde_unknown_com_motivo_nunca_allow() {
+-        let out = check(&CheckInput {
+-            path: "/tmp/a.html".into(),
+-            content: "qualquer coisa".into(),
+-            project_root: "/tmp".into(),
+-            disk: None,
+-            overlays: HashMap::new(),
+-            lang: "html".into(),
+-        });
+-        assert_eq!(out.verdict, "unknown");
+-        assert!(out.findings.is_empty());
+-        assert_eq!(out.lang, "html");
+-        assert_eq!(
+-            out.motivo.as_deref(),
+-            Some("adaptador html ainda não implementado")
+-        );
++impl Saida {
++    /// Keep the first finding of a (class, name) — the judge counts presence, not occurrences.
++    fn achado(&mut self, f: Finding) {
++        if !self
++            .achados
++            .iter()
++            .any(|a| a.classe == f.classe && a.nome == f.nome)
++        {
++            self.achados.push(f);
++        }
++    }
++
++    fn nao_medido(&mut self, motivo: impl Into<String>) {
++        let motivo = motivo.into();
++        if !self.motivos.contains(&motivo) {
++            self.motivos.push(motivo);
++        }
++    }
++
++    fn concluir(self) -> Verificacao {
++        Verificacao {
++            achados: self.achados,
++            nao_medido: (!self.motivos.is_empty()).then(|| self.motivos.join("; ")),
++        }
+     }
+ }
+diff --git a/crates/touring-code/src/vgp/lang/html/ancora.rs b/crates/touring-code/src/vgp/lang/html/ancora.rs
+new file mode 100644
+index 00000000..5f9f59d7
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/ancora.rs
+@@ -0,0 +1,303 @@
++//! Class `ancora` (VL0 §4): an id the document refers to that no element carries, and an id
++//! declared twice.
++//!
++//! The references are the ones the HTML spec resolves INSIDE the document: `<a href="#x">` /
++//! `<area>` / SVG `<use href="#x">` (fragment navigation: an element with that `id`, or an `<a
++//! name>`), `<label for="x">`, and the id lists of `aria-labelledby` / `aria-describedby`. The
++//! inline-script lookups (`getElementById`, `querySelector('#x')`) live in `script.rs`.
++//!
++//! "Missing" is a claim about the whole page, so the set of ids that exist is deliberately generous:
++//! the parse tree's ids, a lexical `id=` scan of the source (it also sees what an error region or a
++//! comment hides), `<a name>`, ids inside `<template>`, and everything a script may create. A page
++//! whose ids may live elsewhere — a template that extends or includes another, a fragment with no
++//! `<html>`/`<body>` — is not measured at all.
++
++use std::collections::{HashMap, HashSet};
++
++use super::Saida;
++use super::documento::{Documento, Elemento};
++use super::script::AnaliseScripts;
++use super::texto::{decodificar_percentual, ids_no_texto, mais_proximos, tem_template};
++use crate::vgp::Finding;
++use crate::vgp::politica::Alvo;
++
++/// Constructs that pull markup (and ids) from another file: the ids a page refers to may be
++/// declared there.
++const COMPOSICAO: &[&str] = &[
++    "{% extends",
++    "{%- extends",
++    "{% include",
++    "{%- include",
++    "{% import",
++    "{{>",
++    "{{> ",
++    "{{#extend",
++    "<!--#include",
++    "<?php",
++    "<%@",
++    "<jsp:include",
++    "<ng-include",
++    "<ui:include",
++];
++
++/// A reference to an id of the document.
++struct Referencia {
++    id: String,
++    /// 1-based line of the attribute.
++    linha: usize,
++    /// `<a href="#x">`, `<label for>`…
++    origem: String,
++}
++
++/// Why the anchors of this document cannot be judged, if they cannot.
++fn nao_mensuravel(doc: &Documento, fonte: &str) -> Option<String> {
++    if let Some(m) = COMPOSICAO.iter().find(|m| fonte.contains(**m)) {
++        return Some(format!(
++            "documento com `{m}`: os ids referenciados podem estar em outro arquivo"
++        ));
++    }
++    if doc.ids.keys().any(|id| tem_template(id)) {
++        return Some("ids gerados por template: âncoras não medidas".to_string());
++    }
++    if !doc.eh_pagina {
++        return Some(
++            "fragmento HTML (sem `<html>`, `<head>`, `<body>` nem doctype): \
++             os ids podem estar na página hospedeira"
++                .to_string(),
++        );
++    }
++    None
++}
++
++/// The ids that exist or may exist at run time.
++pub(super) fn ids_presentes<'a>(
++    doc: &'a Documento,
++    fonte: &'a str,
++    scripts: &'a AnaliseScripts,
++) -> HashSet<&'a str> {
++    let mut presentes: HashSet<&str> = HashSet::new();
++    presentes.extend(doc.ids.keys().map(String::as_str));
++    presentes.extend(doc.ids_em_template.iter().map(String::as_str));
++    presentes.extend(ids_no_texto(fonte));
++    presentes.extend(scripts.criados.iter().map(String::as_str));
++    presentes.extend(
++        doc.elementos
++            .iter()
++            .filter(|e| e.tag == "a")
++            .filter_map(|e| e.valor("name")),
++    );
++    presentes
++}
++
++/// Report the missing ids and the duplicated ones.
++pub(super) fn verificar(
++    doc: &Documento,
++    fonte: &str,
++    scripts: &AnaliseScripts,
++    presentes: &HashSet<&str>,
++    saida: &mut Saida,
++) {
++    let (referencias, dinamicas) = referencias(doc);
++    if dinamicas > 0 {
++        saida.nao_medido(format!(
++            "{dinamicas} referência(s) a id com valor de template não medida(s)"
++        ));
++    }
++    let ha_duplicados = doc.ids.values().any(|ls| ls.len() > 1);
++    if (!referencias.is_empty() || ha_duplicados)
++        && let Some(motivo) = nao_mensuravel(doc, fonte)
++    {
++        saida.nao_medido(motivo);
++        return;
++    }
++    // o disco decide: o id é do PROJETO e não existe; um script da página (externo, dinâmico ou
++    // ilegível) pode criá-lo em tempo de execução, e aí a dúvida é de verdade (`Incerto`)
++    let alvo = if scripts.dinamico || doc.tem_script_externo() {
++        Alvo::Incerto
++    } else {
++        Alvo::Projeto
++    };
++    let mut ordenados: Option<Vec<&str>> = None;
++    for (id, grupo) in agrupar(&referencias) {
++        let existe = |i: &str| presentes.contains(i);
++        if existe(id) || decodificar_percentual(id).is_some_and(|d| existe(&d)) {
++            continue;
++        }
++        let candidatos = ordenados.get_or_insert_with(|| {
++            let mut v: Vec<&str> = presentes.iter().copied().collect();
++            v.sort_unstable();
++            v
++        });
++        saida.achado(ausente(id, &grupo, alvo, candidatos));
++    }
++    duplicados(doc, saida);
++}
++
++/// A candidate reference found on an element, before it is classified.
++struct Candidato<'a> {
++    token: &'a str,
++    /// Attribute name (`href`, `for`, `aria-labelledby`…).
++    atributo: &'a str,
++    linha: usize,
++    origem: String,
++}
++
++/// `href="#x"` of `<a>`/`<area>`/`<use>`, `for="x"` of `<label>`, the ids of `aria-labelledby` and
++/// `aria-describedby` — plus how many carried a template marker (skipped).
++fn referencias(doc: &Documento) -> (Vec<Referencia>, usize) {
++    let mut out = Vec::new();
++    let mut dinamicas = 0;
++    let base_externa = tem_base_externa(doc);
++    for el in &doc.elementos {
++        for c in candidatos_do_elemento(el, base_externa) {
++            match classificar(&c) {
++                Token::Id => out.push(Referencia {
++                    id: c.token.to_string(),
++                    linha: c.linha,
++                    origem: c.origem,
++                }),
++                Token::Dinamico => dinamicas += 1,
++                Token::Ignorado => {}
++            }
++        }
++    }
++    (out, dinamicas)
++}
++
++fn candidatos_do_elemento(el: &Elemento, base_externa: bool) -> Vec<Candidato<'_>> {
++    let mut out = Vec::new();
++    if !base_externa && matches!(el.tag.as_str(), "a" | "area" | "use") {
++        for nome in ["href", "xlink:href"] {
++            let Some(a) = el.atributo(nome) else { continue };
++            let fragmento = a.valor.as_deref().and_then(|v| v.trim().strip_prefix('#'));
++            if let Some(token) = fragmento {
++                out.push(Candidato {
++                    token,
++                    atributo: nome,
++                    linha: a.linha,
++                    origem: format!("<{} {nome}=\"#…\">", el.tag),
++                });
++            }
++        }
++    }
++    if el.tag == "label"
++        && let Some(a) = el.atributo("for")
++        && let Some(v) = a.valor.as_deref()
++    {
++        out.push(Candidato {
++            token: v.trim(),
++            atributo: "for",
++            linha: a.linha,
++            origem: "<label for>".to_string(),
++        });
++    }
++    for nome in ["aria-labelledby", "aria-describedby"] {
++        let Some(a) = el.atributo(nome) else { continue };
++        for token in a.valor.as_deref().unwrap_or("").split_ascii_whitespace() {
++            out.push(Candidato {
++                token,
++                atributo: nome,
++                linha: a.linha,
++                origem: nome.to_string(),
++            });
++        }
++    }
++    out
++}
++
++/// What a fragment or id token is.
++enum Token {
++    Id,
++    Dinamico,
++    Ignorado,
++}
++
++/// `#` / `#top` / `#!/route` / `#/route` / `#:~:text=…` navigate somewhere that is not an id.
++fn classificar(c: &Candidato) -> Token {
++    if c.token.is_empty() {
++        return Token::Ignorado;
++    }
++    if tem_template(c.token) {
++        return Token::Dinamico;
++    }
++    let navegacao = c.atributo.ends_with("href");
++    let especial = c.token.eq_ignore_ascii_case("top")
++        || c.token.starts_with(['!', '/'])
++        || c.token.contains(":~:");
++    if navegacao && especial {
++        Token::Ignorado
++    } else {
++        Token::Id
++    }
++}
++
++/// With a `<base href>` that is not `#…`, `href="#x"` resolves against the base — another document.
++fn tem_base_externa(doc: &Documento) -> bool {
++    doc.elementos
++        .iter()
++        .any(|e| e.tag == "base" && e.valor("href").is_some_and(|v| !v.trim().is_empty()))
++}
++
++/// Group the references by id, in order of first appearance.
++fn agrupar(referencias: &[Referencia]) -> Vec<(&str, Vec<&Referencia>)> {
++    let mut indice: HashMap<&str, usize> = HashMap::new();
++    let mut grupos: Vec<(&str, Vec<&Referencia>)> = Vec::new();
++    for r in referencias {
++        let i = *indice.entry(r.id.as_str()).or_insert_with(|| {
++            grupos.push((r.id.as_str(), Vec::new()));
++            grupos.len() - 1
++        });
++        grupos[i].1.push(r);
++    }
++    grupos
++}
++
++/// `candidatos` is the sorted list of ids that exist (sorted so the suggestions are deterministic).
++/// `alvo` is `Projeto` when the disk decides (the id is the project's and is absent) and
++/// `Incerto` when a script of the page may create it at run time — which the suggestion says.
++/// Whether this class may ever `deny` is the POLICY's call (`CLASSES_CONSULTIVAS`), not a label.
++fn ausente(id: &str, grupo: &[&Referencia], alvo: Alvo, candidatos: &[&str]) -> Finding {
++    let primeira = grupo[0];
++    let reais = mais_proximos(id, candidatos.iter().copied(), 5);
++    let mut sugestao = format!(
++        "id `{id}` ausente no documento (referenciado por {})",
++        primeira.origem
++    );
++    if grupo.len() > 1 {
++        sugestao.push_str(&format!(" e por mais {} referência(s)", grupo.len() - 1));
++    }
++    if alvo == Alvo::Incerto {
++        sugestao.push_str(
++            "; um script da página (externo ou dinâmico) pode criá-lo em tempo de execução",
++        );
++    }
++    if let Some(proximo) = reais.first() {
++        sugestao.push_str(&format!(". Você quis dizer `{proximo}`?"));
++    }
++    Finding::candidato("ancora", id, primeira.linha, alvo, sugestao, reais)
++}
++
++/// One finding per id that two elements carry (the second occurrence's line). `Incerto`: a
++/// duplicate is a lint, never an error the motor may deny.
++fn duplicados(doc: &Documento, saida: &mut Saida) {
++    let mut repetidos: Vec<(&String, &Vec<usize>)> =
++        doc.ids.iter().filter(|(_, ls)| ls.len() > 1).collect();
++    repetidos.sort_by_key(|(id, ls)| (ls[0], id.as_str()));
++    for (id, linhas) in repetidos {
++        let onde: Vec<String> = linhas.iter().take(4).map(|l| l.to_string()).collect();
++        saida.achado(Finding::candidato(
++            "ancora",
++            id,
++            linhas[1],
++            Alvo::Incerto,
++            format!(
++                "id `{id}` duplicado: {} elementos o declaram (linhas {}{}); só o primeiro é \
++                 alvo de âncora, de `label for` e de `getElementById`",
++                linhas.len(),
++                onde.join(", "),
++                if linhas.len() > 4 { ", …" } else { "" }
++            ),
++            Vec::new(),
++        ));
++    }
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/documento.rs b/crates/touring-code/src/vgp/lang/html/documento.rs
+new file mode 100644
+index 00000000..8e716b86
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/documento.rs
+@@ -0,0 +1,232 @@
++//! What the html adapter reads out of the parse tree, once: every start tag with its attributes
++//! (names lowercased, character references decoded), the inline script bodies, and the ids.
++//!
++//! Grammar (`tree-sitter-html` 0.23.2, `src/grammar.json`): `start_tag` / `self_closing_tag` hold a
++//! `tag_name` and `attribute`s; an `attribute` is an `attribute_name` plus, optionally, an
++//! `attribute_value` or a `quoted_attribute_value` (which wraps an `attribute_value`, absent when
++//! the quotes are empty). `<script>` / `<style>` bodies are `raw_text` children of
++//! `script_element` / `style_element`. The grammar declares no fields.
++
++use std::collections::{HashMap, HashSet};
++
++use tree_sitter::{Node, Tree};
++
++use super::texto::decodificar_entidades;
++
++/// One attribute of a start tag.
++pub(super) struct Atributo {
++    /// Lowercased name (`href`, `xlink:href`, `aria-labelledby`…).
++    pub nome: String,
++    /// Value with character references decoded; `None` for a bare attribute (`<input disabled>`).
++    pub valor: Option<String>,
++    /// 1-based line of the attribute.
++    pub linha: usize,
++}
++
++/// One start tag (or self-closing tag).
++pub(super) struct Elemento {
++    /// Lowercased tag name.
++    pub tag: String,
++    pub atributos: Vec<Atributo>,
++    /// 1-based line of the tag.
++    pub linha: usize,
++}
++
++impl Elemento {
++    /// The attribute called `nome` (already lowercase), if the tag has it.
++    pub fn atributo(&self, nome: &str) -> Option<&Atributo> {
++        self.atributos.iter().find(|a| a.nome == nome)
++    }
++
++    /// The value of the attribute called `nome`, if it has one.
++    pub fn valor(&self, nome: &str) -> Option<&str> {
++        self.atributo(nome).and_then(|a| a.valor.as_deref())
++    }
++}
++
++/// The body of an inline `<script>` (one with no `src` still has its element in `elementos`).
++pub(super) struct ScriptInline {
++    /// Index of the `<script>` start tag in [`Documento::elementos`].
++    pub elemento: usize,
++    pub texto: String,
++    /// 0-based line of the first byte of the body.
++    pub linha_inicial: usize,
++}
++
++/// Everything the checks need from one parsed document.
++pub(super) struct Documento {
++    pub elementos: Vec<Elemento>,
++    pub scripts: Vec<ScriptInline>,
++    /// `id` value → lines of the elements that carry it (more than one = a duplicate).
++    pub ids: HashMap<String, Vec<usize>>,
++    /// Ids of elements inside a `<template>`: inert content, outside the duplicate check but a
++    /// valid target once instantiated.
++    pub ids_em_template: HashSet<String>,
++    /// The tree has a MISSING node or an ERROR that swallowed markup (`<`): part of the tags may
++    /// not have been read. An ERROR made of text only — a bare `>` in `a -> b`, which the grammar's
++    /// `text` token excludes — leaves every element intact and does not count (measured: 1 797 of
++    /// the 2 467 documents with a tree error in the analise tree).
++    pub tem_erro: bool,
++    /// The document has `<html>`, `<head>`, `<body>` or a doctype — it is a page, not a fragment.
++    pub eh_pagina: bool,
++}
++
++impl Documento {
++    /// Walk the tree once (iteratively — a deeply nested document must not overflow the stack).
++    pub fn ler(fonte: &str, tree: &Tree) -> Self {
++        let mut doc = Self {
++            elementos: Vec::new(),
++            scripts: Vec::new(),
++            ids: HashMap::new(),
++            ids_em_template: HashSet::new(),
++            tem_erro: false,
++            eh_pagina: false,
++        };
++        let mut cur = tree.walk();
++        loop {
++            let no = cur.node();
++            if !doc.tem_erro && erro_que_esconde_marcacao(fonte, no) {
++                doc.tem_erro = true;
++            }
++            match no.kind() {
++                "start_tag" | "self_closing_tag" if !no.is_missing() => doc.elemento(fonte, no),
++                "raw_text" => doc.script(fonte, no),
++                "doctype" => doc.eh_pagina = true,
++                _ => {}
++            }
++            if cur.goto_first_child() {
++                continue;
++            }
++            while !cur.goto_next_sibling() {
++                if !cur.goto_parent() {
++                    return doc;
++                }
++            }
++        }
++    }
++
++    fn elemento(&mut self, fonte: &str, no: Node) {
++        let mut tag = String::new();
++        let mut atributos = Vec::new();
++        let mut c = no.walk();
++        for filho in no.children(&mut c) {
++            match filho.kind() {
++                "tag_name" => tag = texto(fonte, filho).to_ascii_lowercase(),
++                "attribute" => atributos.extend(atributo(fonte, filho)),
++                _ => {}
++            }
++        }
++        if tag.is_empty() {
++            return;
++        }
++        let linha = no.start_position().row + 1;
++        if matches!(tag.as_str(), "html" | "head" | "body") {
++            self.eh_pagina = true;
++        }
++        self.registrar_id(fonte, no, &atributos);
++        self.elementos.push(Elemento {
++            tag,
++            atributos,
++            linha,
++        });
++    }
++
++    /// Record the `id` of a start tag: live ids are counted (for duplicates), those inside a
++    /// `<template>` are only remembered as valid targets.
++    fn registrar_id(&mut self, fonte: &str, no: Node, atributos: &[Atributo]) {
++        let Some(a) = atributos.iter().find(|a| a.nome == "id") else {
++            return;
++        };
++        let Some(id) = a.valor.as_deref().filter(|v| !v.is_empty()) else {
++            return;
++        };
++        if dentro_de_template(fonte, no) {
++            self.ids_em_template.insert(id.to_string());
++        } else {
++            self.ids.entry(id.to_string()).or_default().push(a.linha);
++        }
++    }
++
++    /// The body of a `<script>` (the `raw_text` right after its start tag, already pushed).
++    fn script(&mut self, fonte: &str, no: Node) {
++        if no.parent().map(|p| p.kind()) != Some("script_element") || self.elementos.is_empty() {
++            return;
++        }
++        self.scripts.push(ScriptInline {
++            elemento: self.elementos.len() - 1,
++            texto: texto(fonte, no).to_string(),
++            linha_inicial: no.start_position().row,
++        });
++    }
++
++    /// Is there any `<script src=…>` (local or remote)? Whatever it runs may create ids.
++    pub fn tem_script_externo(&self) -> bool {
++        self.elementos
++            .iter()
++            .any(|e| e.tag == "script" && e.atributo("src").is_some())
++    }
++}
++
++/// A MISSING node, or an ERROR whose text holds a `<`: tag markup the parser could not place.
++fn erro_que_esconde_marcacao(fonte: &str, no: Node) -> bool {
++    no.is_missing() || (no.is_error() && texto(fonte, no).contains('<'))
++}
++
++/// Is the start tag `no` inside a `<template>` element? (Its own element — the parent of the
++/// start tag — does not count: `<template id="row">` is a live element.)
++fn dentro_de_template(fonte: &str, no: Node) -> bool {
++    let mut atual = no.parent().and_then(|p| p.parent());
++    while let Some(pai) = atual {
++        if pai.kind() == "element" && primeira_tag(fonte, pai) == Some("template") {
++            return true;
++        }
++        atual = pai.parent();
++    }
++    false
++}
++
++/// The (case-preserved) tag name of an `element` node's own start tag.
++fn primeira_tag<'a>(fonte: &'a str, elemento: Node) -> Option<&'a str> {
++    let mut c = elemento.walk();
++    let start = elemento
++        .children(&mut c)
++        .find(|f| f.kind() == "start_tag")?;
++    let mut c2 = start.walk();
++    let nome = start.children(&mut c2).find(|f| f.kind() == "tag_name")?;
++    Some(texto(fonte, nome))
++}
++
++fn texto<'a>(fonte: &'a str, no: Node) -> &'a str {
++    &fonte[no.byte_range()]
++}
++
++/// One `attribute` node; `None` when the parser could not read it whole.
++fn atributo(fonte: &str, no: Node) -> Option<Atributo> {
++    if no.has_error() || no.is_missing() {
++        return None;
++    }
++    let mut nome = None;
++    let mut valor = None;
++    let mut c = no.walk();
++    for filho in no.children(&mut c) {
++        match filho.kind() {
++            "attribute_name" => nome = Some(texto(fonte, filho).to_ascii_lowercase()),
++            "attribute_value" => valor = Some(texto(fonte, filho)),
++            "quoted_attribute_value" => valor = Some(valor_entre_aspas(fonte, filho)),
++            _ => {}
++        }
++    }
++    Some(Atributo {
++        nome: nome?,
++        valor: valor.map(|v| decodificar_entidades(v).into_owned()),
++        linha: no.start_position().row + 1,
++    })
++}
++
++/// The inner `attribute_value` of a quoted value; empty quotes have none.
++fn valor_entre_aspas<'a>(fonte: &'a str, no: Node) -> &'a str {
++    let mut c = no.walk();
++    no.children(&mut c)
++        .find(|f| f.kind() == "attribute_value")
++        .map_or("", |f| texto(fonte, f))
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/recurso.rs b/crates/touring-code/src/vgp/lang/html/recurso.rs
+new file mode 100644
+index 00000000..b212635b
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/recurso.rs
+@@ -0,0 +1,554 @@
++//! Class `recurso` (VL0 §4): a LOCAL `src` / `href` that does not exist on disk.
++//!
++//! References are resolved the way a browser opening the file would: relative to the document's
++//! directory (or to a local `<base href>`), with the `?query` and `#fragment` dropped and `%XX`
++//! decoded. A root-relative reference (`/css/a.css`) depends on where the page is served from, which
++//! the file cannot say: it is looked for in every ancestor directory of the document up to the
++//! project root, in the usual web roots (`public/`, `static/`, `dist/`…) and as an absolute path,
++//! and a miss is `Alvo::Incerto`. A relative miss is `Alvo::Projeto`: the disk decides, the file
++//! is the project's and is absent. Whether it may ever `deny` is the POLICY's call, not this
++//! label's: `recurso` is in `CLASSES_CONSULTIVAS` (the next write creates the file — the
++//! `index.html` goes out before the `style.css` it links — and spec §5.1 reserves the "runs now"
++//! deny for symbol classes), so it is a `warn` even in `/tmp/`.
++//!
++//! Out of scope: absolute URLs (`http:`, `data:`, `mailto:`…, protocol-relative `//host`) — a CDN
++//! URL is `cdn`'s, not this class's — and templated values, which are counted as not measured.
++
++use std::collections::HashMap;
++use std::path::{Component, Path, PathBuf};
++
++use super::Saida;
++use super::documento::{Documento, Elemento};
++use super::texto::{decodificar_percentual, mais_proximos, tem_template};
++use crate::vgp::politica::Alvo;
++use crate::vgp::{CheckInput, Finding, is_inline};
++
++/// Web roots a root-relative URL commonly maps onto, tried under each ancestor of the document.
++const RAIZES_WEB: &[&str] = &[
++    "public", "static", "dist", "build", "out", "www", "wwwroot", "htdocs", "site", "_site",
++    "docs", "web",
++];
++
++/// `<a href>` / `<area href>` count only when the target looks like a FILE (a route such as
++/// `/about` or `docs/` is the server's business, not the disk's).
++const EXTENSOES_DE_ARQUIVO: &[&str] = &[
++    "html", "htm", "xhtml", "pdf", "css", "js", "mjs", "json", "xml", "txt", "md", "csv", "png",
++    "jpg", "jpeg", "gif", "svg", "webp", "avif", "ico", "bmp", "mp3", "mp4", "webm", "ogg", "wav",
++    "m4a", "woff", "woff2", "ttf", "otf", "eot", "zip", "gz", "doc", "docx", "xls", "xlsx", "ppt",
++    "pptx", "odt", "epub",
++];
++
++/// `<link rel>` values whose `href` is a file the page loads (not a page address such as
++/// `canonical`, `alternate`, `next`).
++const RELS_DE_ARQUIVO: &[&str] = &[
++    "stylesheet",
++    "icon",
++    "apple-touch-icon",
++    "apple-touch-icon-precomposed",
++    "manifest",
++    "preload",
++    "prefetch",
++    "modulepreload",
++    "mask-icon",
++];
++
++/// A local reference found in the document.
++struct Referencia {
++    /// As written, without `?query` / `#fragment`.
++    escrito: String,
++    /// 1-based line of the attribute.
++    linha: usize,
++    /// `img src`, `link href`…
++    origem: String,
++}
++
++/// What one attribute value is.
++enum Valor {
++    Local(String),
++    /// Templated or computed: cannot be resolved from the file.
++    Dinamico,
++    /// Absolute URL, fragment, empty: not this class's business.
++    Ignorado,
++}
++
++/// Report every local reference of `doc` that resolves to nothing.
++pub(super) fn verificar(input: &CheckInput, doc: &Documento, saida: &mut Saida) {
++    let (referencias, dinamicas) = colher(doc);
++    if dinamicas > 0 {
++        saida.nao_medido(format!(
++            "{dinamicas} referência(s) com valor dinâmico ou de template não resolvida(s)"
++        ));
++    }
++    if referencias.is_empty() {
++        return;
++    }
++    let Some(mut disco) = Disco::de(input, doc) else {
++        saida.nao_medido(format!(
++            "caminho `{}` sem diretório: {} referência(s) local(is) não resolvida(s)",
++            input.path,
++            referencias.len()
++        ));
++        return;
++    };
++    if let Some(motivo) = disco.motivo_de_nao_medir.take() {
++        saida.nao_medido(motivo);
++        return;
++    }
++    for (escrito, grupo) in agrupar(&referencias) {
++        if let Resolucao::Ausente { alvo, resolvido } = disco.resolver(escrito) {
++            let vizinhos = disco.vizinhos(&resolvido);
++            saida.achado(achado(escrito, &grupo, alvo, &resolvido, vizinhos));
++        }
++    }
++}
++
++/// Every local reference of the document, plus how many dynamic ones were skipped.
++fn colher(doc: &Documento) -> (Vec<Referencia>, usize) {
++    let mut referencias = Vec::new();
++    let mut dinamicas = 0;
++    for el in &doc.elementos {
++        for (atributo, valor) in valores_de_recurso(el) {
++            let linha = el.atributo(atributo).map_or(el.linha, |a| a.linha);
++            match classificar(&valor, el) {
++                Valor::Local(escrito) => referencias.push(Referencia {
++                    escrito,
++                    linha,
++                    origem: format!("{} {atributo}", el.tag),
++                }),
++                Valor::Dinamico => dinamicas += 1,
++                Valor::Ignorado => {}
++            }
++        }
++    }
++    (referencias, dinamicas)
++}
++
++/// The attributes of `el` that name a file the page loads.
++fn atributos_de_recurso(el: &Elemento) -> &'static [&'static str] {
++    match el.tag.as_str() {
++        "script" | "iframe" | "embed" | "audio" | "track" | "frame" => &["src"],
++        "img" | "source" => &["src", "srcset"],
++        "video" => &["src", "poster"],
++        "object" => &["data"],
++        "input"
++            if el
++                .valor("type")
++                .is_some_and(|t| t.eq_ignore_ascii_case("image")) =>
++        {
++            &["src"]
++        }
++        "link" if link_de_arquivo(el) => &["href"],
++        "a" | "area" => &["href"],
++        _ => &[],
++    }
++}
++
++/// The (attribute, value) pairs of `el` that name a file the page loads — one pair per URL of a
++/// `srcset`.
++fn valores_de_recurso(el: &Elemento) -> Vec<(&'static str, String)> {
++    let mut out = Vec::new();
++    for &nome in atributos_de_recurso(el) {
++        let Some(v) = el.valor(nome) else { continue };
++        if nome == "srcset" {
++            out.extend(candidatos_de_srcset(v).into_iter().map(|c| (nome, c)));
++        } else {
++            out.push((nome, v.to_string()));
++        }
++    }
++    out
++}
++
++fn link_de_arquivo(el: &Elemento) -> bool {
++    el.valor("rel").is_some_and(|rel| {
++        rel.split_ascii_whitespace()
++            .any(|t| RELS_DE_ARQUIVO.contains(&t.to_ascii_lowercase().as_str()))
++    })
++}
++
++/// The URLs of a `srcset` (`a.png 1x, b.png 2x`): each candidate's URL ends at the first blank,
++/// so a `data:` URL with a comma stays whole.
++fn candidatos_de_srcset(valor: &str) -> Vec<String> {
++    let mut out = Vec::new();
++    let mut resto = valor;
++    loop {
++        resto = resto.trim_start_matches(|c: char| c.is_ascii_whitespace() || c == ',');
++        if resto.is_empty() {
++            return out;
++        }
++        let fim = resto.find(char::is_whitespace).unwrap_or(resto.len());
++        let token = &resto[..fim];
++        out.push(token.trim_end_matches(',').to_string());
++        let depois = &resto[fim..];
++        // a URL that ends with a comma has no descriptor; otherwise the descriptor runs to the next comma
++        resto = if token.ends_with(',') {
++            depois
++        } else {
++            &depois[depois.find(',').unwrap_or(depois.len())..]
++        };
++    }
++}
++
++fn classificar(valor: &str, el: &Elemento) -> Valor {
++    let escrito: String = valor
++        .chars()
++        .filter(|c| !matches!(c, '\t' | '\n' | '\r'))
++        .collect::<String>()
++        .trim()
++        .to_string();
++    // a browser reads `\` as `/` in a URL; the name keeps what was written
++    let v = escrito.replace('\\', "/");
++    if v.is_empty() {
++        return Valor::Ignorado;
++    }
++    // `#frag` points INSIDE the document (class `ancora`, which counts its own templated ones);
++    // `#{x}` is Pug/Ruby interpolation, not a fragment
++    if v.starts_with('#') && !v.starts_with("#{") {
++        return Valor::Ignorado;
++    }
++    if tem_template(&v) {
++        return Valor::Dinamico;
++    }
++    if v.starts_with("//") || tem_esquema(&v) {
++        return Valor::Ignorado;
++    }
++    let caminho = v.split(['?', '#']).next().unwrap_or("");
++    if caminho.is_empty() {
++        return Valor::Ignorado;
++    }
++    if matches!(el.tag.as_str(), "a" | "area") && !parece_arquivo(caminho) {
++        return Valor::Ignorado;
++    }
++    let nome = escrito.split(['?', '#']).next().unwrap_or("");
++    Valor::Local(nome.to_string())
++}
++
++/// `http:`, `data:`, `mailto:`, `javascript:`, `C:`… — a scheme is a letter followed by letters,
++/// digits, `+`, `-`, `.` and a colon.
++fn tem_esquema(v: &str) -> bool {
++    let mut cs = v.chars();
++    cs.next().is_some_and(|c| c.is_ascii_alphabetic())
++        && v.split_once(':').is_some_and(|(esq, _)| {
++            esq.chars()
++                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
++        })
++}
++
++fn parece_arquivo(caminho: &str) -> bool {
++    Path::new(caminho)
++        .extension()
++        .and_then(|e| e.to_str())
++        .is_some_and(|e| EXTENSOES_DE_ARQUIVO.contains(&e.to_ascii_lowercase().as_str()))
++}
++
++/// References grouped by what is written, in order of first appearance.
++fn agrupar(referencias: &[Referencia]) -> Vec<(&str, Vec<&Referencia>)> {
++    let mut indice: HashMap<&str, usize> = HashMap::new();
++    let mut grupos: Vec<(&str, Vec<&Referencia>)> = Vec::new();
++    for r in referencias {
++        let i = *indice.entry(r.escrito.as_str()).or_insert_with(|| {
++            grupos.push((r.escrito.as_str(), Vec::new()));
++            grupos.len() - 1
++        });
++        grupos[i].1.push(r);
++    }
++    grupos
++}
++
++/// How a reference resolves.
++enum Resolucao {
++    Existe,
++    Ausente { alvo: Alvo, resolvido: PathBuf },
++}
++
++/// The file system as the document sees it.
++struct Disco<'a> {
++    /// Directory references resolve against (the document's, or a local `<base href>`'s).
++    base: PathBuf,
++    /// Directory of the document itself — where ancestors are counted from.
++    dir_doc: PathBuf,
++    raiz: &'a Path,
++    overlays: &'a HashMap<String, String>,
++    cache: HashMap<PathBuf, bool>,
++    /// Sorted names inside each directory listed for "você quis dizer" (`None`: no such directory).
++    listagens: HashMap<PathBuf, Option<Vec<String>>>,
++    /// Set when the whole class is unmeasurable for this document (remote `<base href>`).
++    motivo_de_nao_medir: Option<String>,
++}
++
++impl<'a> Disco<'a> {
++    /// `None` for a virtual path (`<string>`, `<stdin>`) or one with no parent directory.
++    fn de(input: &'a CheckInput, doc: &Documento) -> Option<Self> {
++        if is_inline(&input.path) {
++            return None;
++        }
++        let caminho = Path::new(&input.path);
++        let absoluto = if caminho.is_absolute() {
++            caminho.to_path_buf()
++        } else {
++            input.project_root.join(caminho)
++        };
++        let dir_doc = absoluto.parent()?.to_path_buf();
++        let (base, motivo) = base_do_documento(doc, &dir_doc);
++        Some(Self {
++            base,
++            dir_doc,
++            raiz: &input.project_root,
++            overlays: &input.overlays,
++            cache: HashMap::new(),
++            listagens: HashMap::new(),
++            motivo_de_nao_medir: motivo,
++        })
++    }
++
++    fn existe(&mut self, p: &Path) -> bool {
++        let p = normalizar(p);
++        if let Some(&b) = self.cache.get(&p) {
++            return b;
++        }
++        let b = p.exists() || self.overlays.contains_key(p.to_string_lossy().as_ref());
++        self.cache.insert(p, b);
++        b
++    }
++
++    fn resolver(&mut self, escrito: &str) -> Resolucao {
++        let escrito = escrito.replace('\\', "/");
++        let escrito = escrito.as_str();
++        let variantes: Vec<String> = std::iter::once(escrito.to_string())
++            .chain(decodificar_percentual(escrito))
++            .collect();
++        if let Some(rel) = escrito.strip_prefix('/') {
++            return self.resolver_da_raiz(rel, &variantes);
++        }
++        for v in &variantes {
++            if self.existe(&self.base.join(v)) {
++                return Resolucao::Existe;
++            }
++        }
++        Resolucao::Ausente {
++            alvo: Alvo::Projeto,
++            resolvido: self.base.join(escrito),
++        }
++    }
++
++    /// The names in the missing file's directory closest to it and — when that directory itself
++    /// does not exist — the directory. Each directory is listed once per document.
++    fn vizinhos(&mut self, resolvido: &Path) -> Vizinhos {
++        let (Some(dir), Some(nome)) = (
++            resolvido.parent(),
++            resolvido.file_name().and_then(|n| n.to_str()),
++        ) else {
++            return Vizinhos::default();
++        };
++        let lista = self
++            .listagens
++            .entry(dir.to_path_buf())
++            .or_insert_with(|| listar(dir));
++        match lista {
++            Some(nomes) => Vizinhos {
++                parecidos: mais_proximos(nome, nomes.iter().map(String::as_str), 5),
++                dir_inexistente: None,
++            },
++            None => Vizinhos {
++                parecidos: Vec::new(),
++                dir_inexistente: Some(dir.to_path_buf()),
++            },
++        }
++    }
++
++    /// `/x/y`: where the page is served from is unknown, so try every plausible root — the
++    /// ancestors of the document (and the usual web roots under each), then the absolute path.
++    /// A candidate root whose first segment (`/_next` of `/_next/static/a.js`) does not exist is
++    /// dropped after ONE check, shared by every reference that starts with it.
++    fn resolver_da_raiz(&mut self, rel: &str, variantes: &[String]) -> Resolucao {
++        let raizes = self.raizes_candidatas();
++        for v in variantes {
++            let v = v.trim_start_matches('/');
++            let (primeiro, resto) = v.split_once('/').unwrap_or((v, ""));
++            for raiz in &raizes {
++                if !resto.is_empty() && !self.existe(&raiz.join(primeiro)) {
++                    continue;
++                }
++                if self.existe(&raiz.join(v)) {
++                    return Resolucao::Existe;
++                }
++            }
++        }
++        Resolucao::Ausente {
++            alvo: Alvo::Incerto,
++            resolvido: self.raiz.join(rel),
++        }
++    }
++
++    /// Every directory a root-relative URL may be served from.
++    fn raizes_candidatas(&self) -> Vec<PathBuf> {
++        let mut raizes = Vec::new();
++        for a in self.ancestrais() {
++            raizes.extend(RAIZES_WEB.iter().map(|w| a.join(w)));
++            raizes.push(a);
++        }
++        raizes.push(PathBuf::from("/"));
++        raizes
++    }
++
++    /// The document's directory and each parent up to the project root (only the project root
++    /// besides, when the document lives outside it).
++    fn ancestrais(&self) -> Vec<PathBuf> {
++        if !self.dir_doc.starts_with(self.raiz) {
++            return vec![self.dir_doc.clone(), self.raiz.to_path_buf()];
++        }
++        self.dir_doc
++            .ancestors()
++            .take_while(|a| a.starts_with(self.raiz))
++            .map(Path::to_path_buf)
++            .collect()
++    }
++}
++
++/// The directory relative references resolve against: the document's, or the one a local
++/// `<base href>` names; a remote base makes the class unmeasurable.
++fn base_do_documento(doc: &Documento, dir_doc: &Path) -> (PathBuf, Option<String>) {
++    let Some(href) = doc
++        .elementos
++        .iter()
++        .filter(|e| e.tag == "base")
++        .find_map(|e| e.valor("href").map(str::trim).filter(|v| !v.is_empty()))
++    else {
++        return (dir_doc.to_path_buf(), None);
++    };
++    if href.starts_with("//") || tem_esquema(href) {
++        return (
++            dir_doc.to_path_buf(),
++            Some(format!(
++                "documento com `<base href=\"{href}\">` externo: referências relativas não resolvidas"
++            )),
++        );
++    }
++    let caminho = href.split(['?', '#']).next().unwrap_or("");
++    let diretorio = if caminho.ends_with('/') || caminho.is_empty() {
++        caminho
++    } else {
++        caminho.rsplit_once('/').map_or("", |(d, _)| d)
++    };
++    (dir_doc.join(diretorio), None)
++}
++
++/// Lexical normalization (`a/../b` → `b`), so overlay keys compare as written by the hook.
++fn normalizar(p: &Path) -> PathBuf {
++    let mut out = PathBuf::new();
++    for c in p.components() {
++        match c {
++            Component::ParentDir => {
++                if !out.pop() {
++                    out.push("..");
++                }
++            }
++            Component::CurDir => {}
++            outro => out.push(outro.as_os_str()),
++        }
++    }
++    out
++}
++
++fn achado(
++    escrito: &str,
++    grupo: &[&Referencia],
++    alvo: Alvo,
++    resolvido: &Path,
++    vizinhos: Vizinhos,
++) -> Finding {
++    let primeira = grupo[0];
++    let Vizinhos {
++        parecidos: reais,
++        dir_inexistente,
++    } = vizinhos;
++    let mut sugestao = format!(
++        "recurso local inexistente: `{escrito}` ({}) — resolvido como `{}`",
++        primeira.origem,
++        resolvido.display()
++    );
++    if grupo.len() > 1 {
++        sugestao.push_str(&format!(" (+{} outra(s) referência(s))", grupo.len() - 1));
++    }
++    match (reais.first(), dir_inexistente) {
++        (Some(proximo), _) => {
++            let prefixo = escrito.rsplit_once('/').map_or("", |(d, _)| d);
++            let sugerido = if prefixo.is_empty() {
++                proximo.clone()
++            } else {
++                format!("{prefixo}/{proximo}")
++            };
++            sugestao.push_str(&format!(". Você quis dizer `{sugerido}`?"));
++        }
++        (None, Some(dir)) => {
++            sugestao.push_str(&format!(". O diretório `{}` não existe", dir.display()))
++        }
++        (None, None) => {}
++    }
++    Finding::candidato("recurso", escrito, primeira.linha, alvo, sugestao, reais)
++}
++
++/// What the directory of a missing file offers.
++#[derive(Default)]
++struct Vizinhos {
++    /// Names in the directory closest to the missing one.
++    parecidos: Vec<String>,
++    /// Set when the directory itself does not exist.
++    dir_inexistente: Option<PathBuf>,
++}
++
++/// The sorted names inside `dir`, or `None` when it cannot be listed.
++fn listar(dir: &Path) -> Option<Vec<String>> {
++    let mut nomes: Vec<String> = std::fs::read_dir(dir)
++        .ok()?
++        .flatten()
++        .filter_map(|e| e.file_name().into_string().ok())
++        .collect();
++    nomes.sort_unstable();
++    Some(nomes)
++}
++
++#[cfg(test)]
++mod unit {
++    use super::*;
++
++    #[test]
++    fn srcset_separa_candidatos_sem_quebrar_data_url() {
++        assert_eq!(
++            candidatos_de_srcset("a.png 1x, b.png 2x"),
++            vec!["a.png", "b.png"]
++        );
++        assert_eq!(
++            candidatos_de_srcset("data:image/png;base64,AAAA 1x, c.png"),
++            vec!["data:image/png;base64,AAAA", "c.png"]
++        );
++        // a vírgula separa candidatos só depois de espaço ou no fim da URL (WHATWG, "srcset
++        // attribute"): `a.png,b.png` é UMA URL, `a.png, b.png` e `a.png,` não
++        assert_eq!(candidatos_de_srcset("a.png,b.png"), vec!["a.png,b.png"]);
++        assert_eq!(candidatos_de_srcset("a.png, b.png"), vec!["a.png", "b.png"]);
++        assert_eq!(candidatos_de_srcset("a.png,"), vec!["a.png"]);
++        assert!(candidatos_de_srcset("  ").is_empty());
++    }
++
++    #[test]
++    fn normalizar_resolve_pontos_lexicamente() {
++        assert_eq!(
++            normalizar(Path::new("/p/site/pages/../css/a.css")),
++            PathBuf::from("/p/site/css/a.css")
++        );
++        assert_eq!(normalizar(Path::new("/p/./a")), PathBuf::from("/p/a"));
++    }
++
++    #[test]
++    fn esquema_so_com_letra_inicial_e_dois_pontos() {
++        assert!(tem_esquema("https://x"));
++        assert!(tem_esquema("mailto:a@b"));
++        assert!(tem_esquema("data:image/png;base64,AA"));
++        assert!(tem_esquema("javascript:void(0)"));
++        assert!(
++            !tem_esquema("img/a:b.png"),
++            "dois-pontos depois de barra não é esquema"
++        );
++        assert!(!tem_esquema("./a.png"));
++        assert!(!tem_esquema("1http:x"));
++    }
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/script.rs b/crates/touring-code/src/vgp/lang/html/script.rs
+new file mode 100644
+index 00000000..0740d677
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/script.rs
+@@ -0,0 +1,411 @@
++//! The inline `<script>` bodies of an html document, re-parsed with the `javascript` grammar
++//! (`<script>` text is a `raw_text` node in `tree-sitter-html`; the injection query names
++//! `javascript` as its language).
++//!
++//! Two products, from one walk of each script:
++//! - the DOM lookups with a literal argument (`document.getElementById('x')`,
++//!   `document.querySelector('#x .y')`) — checked against the document's ids by
++//!   [`verificar_lookups`];
++//! - the ids a script may CREATE (a string equal to the id, an `id="x"` inside a template string,
++//!   a template `<script type="text/template">`), so that neither a lookup nor an `href="#x"` is
++//!   reported against an id the page builds at run time. Anything the walk cannot follow
++//!   (`el.id = name`, `innerHTML = html`, a script with a syntax error, an unknown `type`) sets
++//!   `dinamico`: the lookups stand down and the anchors lose their right to a `deny`.
++//!
++//! Grammar (`tree-sitter-javascript` 0.25.0, `src/node-types.json`): `call_expression` has the
++//! fields `function` and `arguments`; `member_expression` has `object` and `property`;
++//! `assignment_expression` has `left` and `right`; a `string` holds `string_fragment`s,
++//! `escape_sequence`s and `html_character_reference`s; a `template_string` also holds
++//! `template_substitution`s.
++
++use std::collections::HashSet;
++
++use tree_sitter::Node;
++
++use super::Saida;
++use super::documento::{Documento, Elemento, ScriptInline};
++use super::texto::{ids_no_texto, tem_template};
++use crate::vgp::Finding;
++use crate::vgp::lang::parse;
++use crate::vgp::politica::Alvo;
++
++/// An inline script above this size is not re-parsed (the cost of the `javascript` parse would
++/// dominate the hook): inlined data blobs and bundles are not what an edit writes by hand.
++pub(super) const TETO_DO_SCRIPT: usize = 512 << 10;
++
++/// The budget of ALL inline scripts of one document.
++const TETO_TOTAL_DE_SCRIPTS: usize = 2 << 20;
++
++/// What kind of text a `<script type=…>` holds.
++enum Tipo {
++    /// Classic or module JavaScript.
++    Js,
++    /// Data blocks (`application/json`, `importmap`…): not DOM code.
++    Dados,
++    /// Markup the page instantiates later (`text/template`, `text/html`…).
++    Template,
++    /// A type the adapter does not know: it may build anything.
++    Desconhecido,
++}
++
++fn tipo(el: &Elemento) -> Tipo {
++    let t = el.valor("type").unwrap_or("").trim().to_ascii_lowercase();
++    match t.as_str() {
++        ""
++        | "module"
++        | "text/javascript"
++        | "application/javascript"
++        | "text/ecmascript"
++        | "application/ecmascript"
++        | "application/x-javascript"
++        | "text/x-javascript"
++        | "text/jsx"
++        | "text/babel" => Tipo::Js,
++        "application/json"
++        | "application/ld+json"
++        | "importmap"
++        | "speculationrules"
++        | "text/json" => Tipo::Dados,
++        _ if t.contains("template") || t == "text/html" || t.starts_with("text/x-handlebars") => {
++            Tipo::Template
++        }
++        _ => Tipo::Desconhecido,
++    }
++}
++
++/// One `getElementById` / `querySelector*` call with a literal argument.
++pub(super) struct Lookup {
++    pub id: String,
++    /// 1-based line in the html document.
++    pub linha: usize,
++    /// Source of the call, for the teaching message (`document.getElementById('x')`).
++    pub chamada: String,
++}
++
++/// The product of walking every inline script of a document.
++#[derive(Default)]
++pub(super) struct AnaliseScripts {
++    pub lookups: Vec<Lookup>,
++    /// Ids a script may create at run time.
++    pub criados: HashSet<String>,
++    /// Some script builds ids or markup the walk cannot follow.
++    pub dinamico: bool,
++    /// Why part of the scripts was not measured.
++    pub motivos: Vec<String>,
++    /// Bytes of script already parsed (against [`TETO_TOTAL_DE_SCRIPTS`]).
++    bytes_lidos: usize,
++}
++
++/// Walk every inline script of `doc`.
++pub(super) fn analisar(doc: &Documento) -> AnaliseScripts {
++    let mut out = AnaliseScripts::default();
++    for s in &doc.scripts {
++        let el = &doc.elementos[s.elemento];
++        if el.atributo("src").is_some() {
++            continue; // a body next to a `src` is never executed
++        }
++        match tipo(el) {
++            Tipo::Js => analisar_js(s, &mut out),
++            Tipo::Dados => {}
++            Tipo::Template => registrar_ids_do_texto(&s.texto, &mut out),
++            Tipo::Desconhecido => out.dinamico = true,
++        }
++    }
++    out
++}
++
++fn registrar_ids_do_texto(texto: &str, out: &mut AnaliseScripts) {
++    for id in ids_no_texto(texto) {
++        if tem_template(id) {
++            out.dinamico = true;
++        }
++        out.criados.insert(id.to_string());
++    }
++}
++
++fn analisar_js(s: &ScriptInline, out: &mut AnaliseScripts) {
++    if s.texto.len() > TETO_DO_SCRIPT || out.bytes_lidos + s.texto.len() > TETO_TOTAL_DE_SCRIPTS {
++        out.dinamico = true;
++        out.motivos.push(format!(
++            "script inline de {} KiB acima do limite de leitura: chamadas de DOM não medidas",
++            s.texto.len() >> 10
++        ));
++        return;
++    }
++    out.bytes_lidos += s.texto.len();
++    let tree = match parse("javascript", &s.texto) {
++        Ok(t) if !t.root_node().has_error() => t,
++        Ok(_) => {
++            out.dinamico = true;
++            out.motivos.push(format!(
++                "script inline na linha {} com erro de sintaxe: chamadas de DOM não medidas",
++                s.linha_inicial + 1
++            ));
++            return;
++        }
++        Err(e) => {
++            out.dinamico = true;
++            out.motivos.push(format!("script inline não lido: {e}"));
++            return;
++        }
++    };
++    let mut ignorados: HashSet<usize> = HashSet::new();
++    let mut cur = tree.walk();
++    loop {
++        let no = cur.node();
++        match no.kind() {
++            "call_expression" => chamada(&s.texto, no, s.linha_inicial, &mut ignorados, out),
++            "assignment_expression" | "augmented_assignment_expression" => {
++                atribuicao(&s.texto, no, out)
++            }
++            "string" | "template_string" if !ignorados.contains(&no.id()) => {
++                literal_solto(&s.texto, no, out)
++            }
++            _ => {}
++        }
++        if cur.goto_first_child() {
++            continue;
++        }
++        while !cur.goto_next_sibling() {
++            if !cur.goto_parent() {
++                return;
++            }
++        }
++    }
++}
++
++fn texto<'a>(fonte: &'a str, no: Node) -> &'a str {
++    &fonte[no.byte_range()]
++}
++
++/// `document`, `window.document`, `globalThis.document`, `self.document`.
++fn eh_document(fonte: &str, obj: Node) -> bool {
++    match obj.kind() {
++        "identifier" => texto(fonte, obj) == "document",
++        "member_expression" => {
++            let prop = obj.child_by_field_name("property");
++            let base = obj.child_by_field_name("object");
++            matches!((base, prop), (Some(b), Some(p))
++                if texto(fonte, p) == "document"
++                    && matches!(texto(fonte, b), "window" | "globalThis" | "self"))
++        }
++        _ => false,
++    }
++}
++
++/// The text of a string literal with no escape and no interpolation; `None` otherwise (the
++/// adapter never guesses what an escaped or interpolated string evaluates to).
++fn literal(fonte: &str, no: Node) -> Option<String> {
++    let bruto = texto(fonte, no);
++    let miolo = match no.kind() {
++        "string" => bruto.get(1..bruto.len().checked_sub(1)?)?,
++        "template_string" => bruto.get(1..bruto.len().checked_sub(1)?)?,
++        _ => return None,
++    };
++    let com_escape_ou_interpolacao = miolo.contains('\\') || miolo.contains("${");
++    (!com_escape_ou_interpolacao).then(|| miolo.to_string())
++}
++
++fn argumentos(chamada: Node) -> Vec<Node> {
++    let Some(args) = chamada.child_by_field_name("arguments") else {
++        return Vec::new();
++    };
++    let mut c = args.walk();
++    args.named_children(&mut c).collect()
++}
++
++fn chamada(
++    fonte: &str,
++    no: Node,
++    linha_inicial: usize,
++    ignorados: &mut HashSet<usize>,
++    out: &mut AnaliseScripts,
++) {
++    let Some((obj, nome)) = receptor_e_metodo(fonte, no) else {
++        return;
++    };
++    let args = argumentos(no);
++    if matches!(
++        nome,
++        "getElementById" | "querySelector" | "querySelectorAll"
++    ) && eh_document(fonte, obj)
++    {
++        let linha = linha_inicial + no.start_position().row + 1;
++        registrar_lookup(fonte, nome, &args, linha, ignorados, out);
++    } else if cria_marcacao_dinamica(fonte, nome, obj, &args) {
++        out.dinamico = true;
++    }
++}
++
++/// `obj.nome(…)`: the receiver and the method name of a call.
++fn receptor_e_metodo<'a>(fonte: &'a str, no: Node<'a>) -> Option<(Node<'a>, &'a str)> {
++    let f = no.child_by_field_name("function")?;
++    if f.kind() != "member_expression" {
++        return None;
++    }
++    let obj = f.child_by_field_name("object")?;
++    let prop = f.child_by_field_name("property")?;
++    Some((obj, texto(fonte, prop)))
++}
++
++/// A lookup with a literal argument: remember each id it requires, and keep its string out of
++/// the "created ids" set (it names an id, it does not build one).
++fn registrar_lookup(
++    fonte: &str,
++    nome: &str,
++    args: &[Node],
++    linha: usize,
++    ignorados: &mut HashSet<usize>,
++    out: &mut AnaliseScripts,
++) {
++    let Some(arg) = args.first() else { return };
++    let Some(lit) = literal(fonte, *arg) else {
++        return;
++    };
++    ignorados.insert(arg.id());
++    let ids = if nome == "getElementById" {
++        vec![lit]
++    } else {
++        ids_do_seletor(&lit)
++    };
++    let chamada = format!("document.{nome}({})", texto(fonte, *arg));
++    out.lookups.extend(ids.into_iter().map(|id| Lookup {
++        id,
++        linha,
++        chamada: chamada.clone(),
++    }));
++}
++
++/// `setAttribute('id', x)`, `insertAdjacentHTML(pos, x)`, `document.write(x)` with a non-literal
++/// `x`: the script builds ids the walk cannot follow.
++fn cria_marcacao_dinamica(fonte: &str, nome: &str, obj: Node, args: &[Node]) -> bool {
++    let nao_literal = |i: usize| args.get(i).is_some_and(|a| literal(fonte, *a).is_none());
++    match nome {
++        "setAttribute" => {
++            args.first().and_then(|a| literal(fonte, *a)).as_deref() == Some("id") && nao_literal(1)
++        }
++        "insertAdjacentHTML" => nao_literal(1),
++        "write" | "writeln" => eh_document(fonte, obj) && (0..args.len()).any(nao_literal),
++        _ => false,
++    }
++}
++
++/// `el.id = x`, `el.innerHTML = x` (and `+=`): fine with a literal on the right, dynamic otherwise.
++fn atribuicao(fonte: &str, no: Node, out: &mut AnaliseScripts) {
++    let (Some(esq), Some(dir)) = (
++        no.child_by_field_name("left"),
++        no.child_by_field_name("right"),
++    ) else {
++        return;
++    };
++    if esq.kind() != "member_expression" {
++        return;
++    }
++    let Some(prop) = esq.child_by_field_name("property") else {
++        return;
++    };
++    let cria = matches!(texto(fonte, prop), "id" | "innerHTML" | "outerHTML");
++    if cria && literal(fonte, dir).is_none() {
++        out.dinamico = true;
++    }
++}
++
++/// A string that is not a lookup argument: it may BE an id (`el.id = 'x'`, `{ id: 'x' }`) or hold
++/// markup with ids (`'<div id="x">'`). Over-approximating what a script can create is the safe side.
++fn literal_solto(fonte: &str, no: Node, out: &mut AnaliseScripts) {
++    let bruto = texto(fonte, no);
++    let Some(miolo) = bruto.get(1..bruto.len().saturating_sub(1)) else {
++        return;
++    };
++    if !miolo.is_empty() && miolo.len() <= 200 && !miolo.contains(char::is_whitespace) {
++        out.criados.insert(miolo.to_string());
++    }
++    registrar_ids_do_texto(miolo, out);
++}
++
++/// The ids a CSS selector REQUIRES in the document: `#a` of `#a .b > c`, never those inside
++/// `:not(…)`/`:is(…)`/`[…]`, and none for a selector list (`#a, #b` matches with either) or one
++/// with escapes.
++fn ids_do_seletor(sel: &str) -> Vec<String> {
++    let cs: Vec<char> = sel.chars().collect();
++    let Some(topo) = posicoes_de_topo(&cs) else {
++        return Vec::new();
++    };
++    let mut ids = Vec::new();
++    for (i, _) in cs
++        .iter()
++        .enumerate()
++        .filter(|(i, c)| **c == '#' && topo[*i])
++    {
++        let id: String = cs[i + 1..]
++            .iter()
++            .take_while(|c| c.is_alphanumeric() || matches!(c, '-' | '_'))
++            .collect();
++        if id.chars().next().is_some_and(|c| !c.is_ascii_digit()) {
++            ids.push(id);
++        }
++    }
++    ids
++}
++
++/// For each character of a selector: is it at the top level (outside parentheses, brackets and
++/// quotes)? `None` when the selector is a list (`,` at the top level) or has escapes.
++fn posicoes_de_topo(cs: &[char]) -> Option<Vec<bool>> {
++    let (mut paren, mut colchete) = (0usize, 0usize);
++    let mut aspa: Option<char> = None;
++    let mut topo = Vec::with_capacity(cs.len());
++    for &c in cs {
++        let no_topo = paren == 0 && colchete == 0 && aspa.is_none();
++        topo.push(no_topo);
++        if let Some(q) = aspa {
++            if c == q {
++                aspa = None;
++            }
++            continue;
++        }
++        match c {
++            '"' | '\'' => aspa = Some(c),
++            '(' => paren += 1,
++            ')' => paren = paren.saturating_sub(1),
++            '[' => colchete += 1,
++            ']' => colchete = colchete.saturating_sub(1),
++            ',' if no_topo => return None,
++            '\\' => return None,
++            _ => {}
++        }
++    }
++    Some(topo)
++}
++
++/// Report every lookup whose id no element of the document carries and no script creates.
++/// A script that builds ids dynamically makes the whole class unmeasurable.
++pub(super) fn verificar_lookups(
++    scripts: &AnaliseScripts,
++    presentes: &HashSet<&str>,
++    saida: &mut Saida,
++) {
++    if scripts.dinamico {
++        if !scripts.lookups.is_empty() {
++            saida.nao_medido(
++                "script cria ids ou marcação por dados dinâmicos: chamadas de DOM não medidas",
++            );
++        }
++        return;
++    }
++    for l in &scripts.lookups {
++        if presentes.contains(l.id.as_str()) {
++            continue;
++        }
++        saida.achado(Finding::candidato(
++            "ancora",
++            &l.id,
++            l.linha,
++            Alvo::Incerto,
++            format!(
++                "`{}` procura o id `{}`, que nenhum elemento do documento tem",
++                l.chamada, l.id
++            ),
++            Vec::new(),
++        ));
++    }
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/tests/ancora.rs b/crates/touring-code/src/vgp/lang/html/tests/ancora.rs
+new file mode 100644
+index 00000000..4275e075
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/tests/ancora.rs
+@@ -0,0 +1,273 @@
++//! Class `ancora`: ids referenced and missing, ids declared twice.
++
++use super::*;
++
++#[test]
++fn ancora_href_para_id_ausente_e_achado_e_presente_nao() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina("<a href=\"#capa\">c</a>\n<h1 id=\"capitulo\">x</h1>"),
++    );
++    ve(&v, "ancora", &["capa"]);
++    assert_eq!(v.achados[0].linha, 7);
++    assert_eq!(
++        v.achados[0].alvo,
++        Alvo::Projeto,
++        "o disco decide: o id é do PROJETO e não existe (o warn vem da classe consultiva)"
++    );
++    assert_eq!(v.nao_medido, None);
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<a href=\"#capa\">c</a><h1 id=\"capa\">x</h1>"),
++    ));
++}
++
++#[test]
++fn ancora_aceita_a_name_e_conta_id_com_caixa_exata() {
++    let s = Site::novo();
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<a href=\"#velha\">v</a><a name=\"velha\"></a>"),
++    ));
++    let v = s.mede(
++        "a.html",
++        &pagina("<a href=\"#Foo\">f</a><p id=\"foo\"></p>"),
++    );
++    ve(&v, "ancora", &["Foo"]);
++    assert!(
++        v.achados[0].sugestao.contains("`foo`"),
++        "{}",
++        v.achados[0].sugestao
++    );
++}
++
++#[test]
++fn ancora_fragmento_percentual_casa_com_id_decodificado() {
++    let s = Site::novo();
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<a href=\"#caf%C3%A9\">c</a><p id=\"café\"></p>"),
++    ));
++}
++
++#[test]
++fn ancora_label_for_e_aria_checam_cada_id_da_lista() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina(
++            "<label for=\"nome\">n</label><input id=\"nome\">\
++             <label for=\"fantasma\">f</label>\
++             <div aria-labelledby=\"t1 t2\" aria-describedby=\"d1\"></div>\
++             <h2 id=\"t1\"></h2><p id=\"d1\"></p>",
++        ),
++    );
++    ve(&v, "ancora", &["fantasma", "t2"]);
++}
++
++#[test]
++fn ancora_use_do_svg_aponta_para_id() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina(
++            "<svg><use href=\"#ico\"/><use xlink:href=\"#ico2\"/></svg>\
++             <svg><symbol id=\"ico\"></symbol></svg>",
++        ),
++    );
++    ve(&v, "ancora", &["ico2"]);
++}
++
++#[test]
++fn ancora_navegacao_especial_nao_e_id() {
++    let s = Site::novo();
++    let corpo = "<a href=\"#\">a</a><a href=\"#top\">t</a><a href=\"#TOP\">t</a>\
++        <a href=\"#!/rota\">r</a><a href=\"#/rota\">r</a><a href=\"#:~:text=abc\">x</a>\
++        <a href=\"outra.html#sec\">o</a>";
++    let v = s.mede("a.html", &pagina(corpo));
++    ve(&v, "ancora", &[]);
++}
++
++#[test]
++fn ancora_id_so_em_comentario_ou_template_conta_como_existente() {
++    let s = Site::novo();
++    // conservador por desenho: o `id=` lexical em comentário evita um falso "ausente"
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<a href=\"#c\">c</a><!-- <div id=\"c\"></div> -->"),
++    ));
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<a href=\"#t\">t</a><template><p id=\"t\"></p></template>"),
++    ));
++}
++
++#[test]
++fn ancora_id_duplicado_e_incerto_e_ignora_template() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina("<p id=\"x\"></p>\n<p id=\"x\"></p>\n<p id=\"y\"></p>"),
++    );
++    ve(&v, "ancora", &["x"]);
++    assert_eq!(
++        v.achados[0].alvo,
++        Alvo::Incerto,
++        "duplicado é lint: nunca deny"
++    );
++    assert_eq!(v.achados[0].linha, 8, "a linha da segunda ocorrência");
++    assert!(v.achados[0].sugestao.contains("duplicado"));
++    // dentro de <template> o conteúdo é inerte: repetir o id lá e no documento é válido
++    limpo(&s.mede(
++        "a.html",
++        &pagina("<p id=\"x\"></p><template><p id=\"x\"></p></template>"),
++    ));
++    // `<template id>` não está DENTRO de um template
++    let v = s.mede(
++        "a.html",
++        &pagina("<template id=\"r\"></template><template id=\"r\"></template>"),
++    );
++    ve(&v, "ancora", &["r"]);
++}
++
++#[test]
++fn ancora_nunca_nega_em_html_nem_onde_o_codigo_roda_agora() {
++    // spec §5.1: o deny de «roda agora» é das classes de SÍMBOLO; em HTML a próxima escrita cria
++    // o id (o `index.html` sai antes do arquivo que o declara). Quem rebaixa é a política
++    // (`CLASSES_CONSULTIVAS`), não o rótulo do adaptador: o alvo segue `Projeto`
++    let html = pagina("<a href=\"#capa\">c</a>");
++    for caminho in [
++        "/home/u/proj/a.html",
++        "/tmp/vhtml-x/a.html",
++        "/home/u/proj/.cache/a.html",
++        "<string>",
++    ] {
++        assert_eq!(julga(caminho, &html).verdict, "warn", "{caminho}");
++    }
++    let duplicado = pagina("<p id=\"x\"></p><p id=\"x\"></p>");
++    assert_eq!(julga("/tmp/vhtml-x/a.html", &duplicado).verdict, "warn");
++}
++
++#[test]
++fn ancora_script_externo_ou_dinamico_vira_nota_na_sugestao() {
++    let s = Site::novo();
++    let sem_script = s.mede("a.html", &pagina("<a href=\"#capa\">c</a>"));
++    assert!(!sem_script.achados[0].sugestao.contains("script"));
++    assert_eq!(sem_script.achados[0].alvo, Alvo::Projeto);
++    let externo = s.mede(
++        "a.html",
++        &pagina("<script src=\"https://cdn.x/app.js\"></script><a href=\"#capa\">c</a>"),
++    );
++    assert_eq!(
++        externo.achados[0].alvo,
++        Alvo::Incerto,
++        "um script externo pode criar o id: incerteza de verdade"
++    );
++    assert!(
++        externo.achados[0].sugestao.contains("script"),
++        "um script externo pode criar o id: {}",
++        externo.achados[0].sugestao
++    );
++}
++
++#[test]
++fn ancora_pagina_que_herda_ou_inclui_nao_e_medida() {
++    let s = Site::novo();
++    for marca in [
++        "{% extends 'base.html' %}",
++        "{% include 'topo.html' %}",
++        "<?php include 'a.php'; ?>",
++        "<!--#include virtual=\"a.html\" -->",
++    ] {
++        let v = s.mede(
++            "a.html",
++            &pagina(&format!("{marca}<a href=\"#capa\">c</a>")),
++        );
++        ve(&v, "ancora", &[]);
++        assert!(v.nao_medido.is_some(), "{marca}");
++    }
++}
++
++#[test]
++fn ancora_fragmento_sem_pagina_nao_e_medido_mas_pagina_com_body_e() {
++    let s = Site::novo();
++    let v = s.mede("parcial.html", "<nav><a href=\"#secao\">s</a></nav>\n");
++    ve(&v, "ancora", &[]);
++    assert!(motivo(&v).contains("fragmento"), "{:?}", v.nao_medido);
++    let v = s.mede(
++        "p.html",
++        "<html><body><a href=\"#secao\">s</a></body></html>",
++    );
++    ve(&v, "ancora", &["secao"]);
++}
++
++#[test]
++fn ancora_ids_de_template_e_referencia_de_template_nao_sao_medidos() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina("<h2 id=\"sec-{{ n }}\">x</h2><a href=\"#sec-1\">1</a>"),
++    );
++    ve(&v, "ancora", &[]);
++    assert!(v.nao_medido.is_some());
++    let v = s.mede(
++        "a.html",
++        &pagina("<a href=\"#sec-{{ n }}\">1</a><a href=\"#falta\">f</a>"),
++    );
++    ve(&v, "ancora", &["falta"]);
++    assert!(v.nao_medido.is_some());
++}
++
++#[test]
++fn ancora_base_href_tira_o_direito_de_julgar_href_de_fragmento() {
++    let s = Site::novo();
++    let html = "<!DOCTYPE html><html><head><base href=\"/app/\"></head><body>\
++                <a href=\"#capa\">c</a><label for=\"nada\">n</label></body></html>";
++    ve(&s.mede("a.html", html), "ancora", &["nada"]);
++}
++
++#[test]
++fn ancora_sugere_o_id_parecido() {
++    let s = Site::novo();
++    let corpo =
++        "<a href=\"#conclusoa\">i</a><h1 id=\"conclusao\">x</h1><h1 id=\"introducao\">y</h1>";
++    let v = s.mede("a.html", &pagina(corpo));
++    assert!(
++        v.achados[0]
++            .sugestao
++            .contains("Você quis dizer `conclusao`"),
++        "{}",
++        v.achados[0].sugestao
++    );
++    assert!(v.achados[0].reais.contains(&"conclusao".to_string()));
++}
++
++#[test]
++fn ancora_repetida_vira_um_achado() {
++    let s = Site::novo();
++    let corpo = "<a href=\"#f\">1</a>\n<a href=\"#f\">2</a><label for=\"f\">3</label>";
++    let v = s.mede("a.html", &pagina(corpo));
++    ve(&v, "ancora", &["f"]);
++    assert!(
++        v.achados[0].sugestao.contains("mais 2"),
++        "{}",
++        v.achados[0].sugestao
++    );
++}
++
++#[test]
++fn ancora_label_for_de_template_e_nao_medido_e_o_resto_continua() {
++    // só a classe `ancora` vê o `for=`: o motivo precisa ser dela
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina("<label for=\"campo-{{ n }}\">c</label><a href=\"#falta\">f</a>"),
++    );
++    ve(&v, "ancora", &["falta"]);
++    assert!(
++        motivo(&v).contains("id com valor de template"),
++        "{:?}",
++        v.nao_medido
++    );
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/tests/mod.rs b/crates/touring-code/src/vgp/lang/html/tests/mod.rs
+new file mode 100644
+index 00000000..41913b64
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/tests/mod.rs
+@@ -0,0 +1,235 @@
++//! TDD fixtures of the html adapter — one module per class, every rule of resolution with a
++//! negative control (the thing exists, is dynamic, is out of scope → no finding, and the reason
++//! when it could not be measured). Files live in a real temp directory so `recurso` is judged
++//! against a real disk.
++
++mod ancora;
++mod recurso;
++mod script;
++
++use std::collections::HashMap;
++use std::path::Path;
++
++use tempfile::TempDir;
++
++use super::{Adaptador, Html};
++use crate::vgp::lang::Verificacao;
++use crate::vgp::politica::Alvo;
++use crate::vgp::{CheckInput, CheckOutput, check};
++
++const INICIO: &str = "<!DOCTYPE html>\n<html>\n<head>\n<title>t</title>\n</head>\n<body>\n";
++const FIM: &str = "\n</body>\n</html>\n";
++const ABRE_SCRIPT: &str = "\n<script>\n";
++const FECHA_SCRIPT: &str = "\n</script>";
++
++/// A complete page whose body starts at line 7.
++fn pagina(corpo: &str) -> String {
++    [INICIO, corpo, FIM].concat()
++}
++
++/// A page with `corpo` on line 7 and an inline script whose first line is line 9.
++fn com_script(js: &str, corpo: &str) -> String {
++    pagina(&[corpo, ABRE_SCRIPT, js, FECHA_SCRIPT].concat())
++}
++
++/// A scratch project on a real disk.
++struct Site {
++    dir: TempDir,
++}
++
++impl Site {
++    fn novo() -> Self {
++        Self {
++            dir: tempfile::tempdir().expect("tempdir"),
++        }
++    }
++
++    fn raiz(&self) -> &Path {
++        self.dir.path()
++    }
++
++    fn escreve(&self, rel: &str, conteudo: &str) {
++        let p = self.dir.path().join(rel);
++        std::fs::create_dir_all(p.parent().expect("pai")).expect("mkdir");
++        std::fs::write(p, conteudo).expect("write");
++    }
++
++    fn caminho(&self, rel: &str) -> String {
++        self.dir.path().join(rel).to_string_lossy().into_owned()
++    }
++
++    fn entrada(&self, rel: &str, html: &str) -> CheckInput {
++        CheckInput {
++            path: self.caminho(rel),
++            content: html.to_string(),
++            project_root: self.raiz().to_path_buf(),
++            disk: None,
++            overlays: HashMap::new(),
++            lang: "html".into(),
++        }
++    }
++
++    /// The adapter alone: findings with their `Alvo`, severity not decided yet.
++    fn mede(&self, rel: &str, html: &str) -> Verificacao {
++        Html.verificar(&self.entrada(rel, html))
++    }
++}
++
++/// Sorted names of the findings of one class.
++fn nomes(v: &Verificacao, classe: &str) -> Vec<String> {
++    let mut n: Vec<String> = v
++        .achados
++        .iter()
++        .filter(|f| f.classe == classe)
++        .map(|f| f.nome.clone())
++        .collect();
++    n.sort();
++    n
++}
++
++/// Nothing found and nothing left out of reach.
++fn limpo(v: &Verificacao) {
++    assert!(v.achados.is_empty(), "achados inesperados: {:?}", v.achados);
++    assert_eq!(v.nao_medido, None, "nada deveria ficar fora do alcance");
++}
++
++/// The findings of `classe` are exactly `esperados`.
++fn ve(v: &Verificacao, classe: &str, esperados: &[&str]) {
++    assert_eq!(nomes(v, classe), esperados, "{:?}", v.achados);
++}
++
++/// The reason something was not measured, or "" when everything was.
++fn motivo(v: &Verificacao) -> String {
++    v.nao_medido.clone().unwrap_or_default()
++}
++
++/// `check` on a virtual project (no disk): the policy and the verdict, not the resolution.
++fn julga(path: &str, html: &str) -> CheckOutput {
++    check(&CheckInput {
++        path: path.into(),
++        content: html.into(),
++        project_root: "/home/u/proj".into(),
++        disk: None,
++        overlays: HashMap::new(),
++        lang: "html".into(),
++    })
++}
++
++// ============================================================================ despacho
++
++#[test]
++fn html_deixa_de_responder_nao_implementado() {
++    let out = julga("/home/u/proj/site/a.html", &pagina("<p>oi</p>"));
++    assert_eq!(out.verdict, "allow");
++    assert_eq!(out.motivo, None);
++    assert_eq!(out.lang, "html");
++}
++
++#[test]
++fn documento_vazio_e_limpo() {
++    let s = Site::novo();
++    limpo(&s.mede("a.html", ""));
++}
++
++// ============================================================================ invariantes
++
++#[test]
++fn erro_de_sintaxe_do_html_e_dito_e_nao_vira_allow_calado() {
++    let s = Site::novo();
++    let v = s.mede("a.html", "<html><body><div class=\"a\" <<>> =\"x\"></body>");
++    assert!(
++        motivo(&v).contains("erro de sintaxe"),
++        "um documento que o parser não leu inteiro não pode ser `allow` limpo: {v:?}"
++    );
++}
++
++#[test]
++fn tag_nao_fechada_tambem_e_dita() {
++    let s = Site::novo();
++    let v = s.mede("a.html", "<html><body><img src=\"a.png\"");
++    assert!(motivo(&v).contains("erro de sintaxe"), "{v:?}");
++}
++
++#[test]
++fn maior_que_solto_no_texto_nao_e_erro_de_sintaxe() {
++    // `>` sem `<` no texto é HTML válido; a gramática o marca como ERROR, mas nenhuma tag se perde
++    let s = Site::novo();
++    limpo(&s.mede("a.html", &pagina("<p>a -> b, x >= 3 e 5 > 2 =></p>")));
++}
++
++#[test]
++fn documento_grande_nao_tem_custo_quadratico() {
++    let s = Site::novo();
++    let mut corpo = String::new();
++    for i in 0..30_000 {
++        corpo.push_str(&format!(
++            "<p id=\"id{i}\"><a href=\"#id{}\">x</a></p>\n",
++            i + 1
++        ));
++    }
++    for i in 0..200 {
++        corpo.push_str(&format!(
++            "<a href=\"#falta{i}\">f</a><img src=\"nada/{i}.png\">\n"
++        ));
++    }
++    let t0 = std::time::Instant::now();
++    let v = s.mede("a.html", &pagina(&corpo));
++    let dt = t0.elapsed();
++    assert_eq!(
++        nomes(&v, "ancora").len(),
++        201,
++        "200 ausentes + o último link, para id30000"
++    );
++    assert_eq!(nomes(&v, "recurso").len(), 200);
++    assert!(dt.as_secs() < 20, "{dt:?}");
++}
++
++#[test]
++fn saida_e_deterministica_entre_chamadas() {
++    let s = Site::novo();
++    let mut corpo = String::new();
++    for i in 0..3_000 {
++        corpo.push_str(&format!("<p id=\"secao{i}\"></p>"));
++    }
++    corpo.push_str("<a href=\"#secao9999\">x</a><a href=\"#sec\">y</a>");
++    let html = pagina(&corpo);
++    let a = s.mede("a.html", &html);
++    let b = s.mede("a.html", &html);
++    let ver = |v: &Verificacao| {
++        v.achados
++            .iter()
++            .map(|f| (f.nome.clone(), f.sugestao.clone(), f.reais.clone()))
++            .collect::<Vec<_>>()
++    };
++    assert_eq!(ver(&a), ver(&b), "mesma entrada, mesma saída");
++}
++
++#[test]
++fn documento_acima_do_teto_nao_e_lido_e_diz_por_que() {
++    let s = Site::novo();
++    let grande = pagina(&"<p>x</p>".repeat(700_000));
++    assert!(grande.len() > super::TETO_DO_DOCUMENTO);
++    let v = s.mede("a.html", &format!("{grande}<a href=\"#falta\">f</a>"));
++    assert!(v.achados.is_empty());
++    assert!(motivo(&v).contains("acima do limite"), "{:?}", v.nao_medido);
++}
++
++#[test]
++fn script_acima_do_teto_nao_e_relido_e_avisa_na_ancora() {
++    let s = Site::novo();
++    let js = "var x = 1;\n".repeat(60_000);
++    assert!(js.len() > super::script::TETO_DO_SCRIPT);
++    let v = s.mede("a.html", &com_script(&js, "<a href=\"#falta\">f</a>"));
++    assert!(motivo(&v).contains("script inline"), "{:?}", v.nao_medido);
++    ve(&v, "ancora", &["falta"]);
++    assert_eq!(
++        v.achados[0].alvo,
++        Alvo::Incerto,
++        "um script não lido pode criar o id"
++    );
++    assert!(
++        v.achados[0].sugestao.contains("script"),
++        "um script não lido pode criar o id: {}",
++        v.achados[0].sugestao
++    );
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/tests/recurso.rs b/crates/touring-code/src/vgp/lang/html/tests/recurso.rs
+new file mode 100644
+index 00000000..f57e0ccf
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/tests/recurso.rs
+@@ -0,0 +1,412 @@
++//! Class `recurso`: local `src` / `href` that do not exist on disk.
++
++use std::collections::HashMap;
++
++use super::*;
++
++#[test]
++fn recurso_relativo_inexistente_e_achado_com_linha_e_nunca_nega() {
++    let s = Site::novo();
++    let v = s.mede("index.html", &pagina("<img src=\"img/logo.png\">"));
++    ve(&v, "recurso", &["img/logo.png"]);
++    let f = &v.achados[0];
++    assert_eq!(f.linha, 7);
++    assert_eq!(
++        f.alvo,
++        Alvo::Projeto,
++        "o disco decide: o arquivo é do PROJETO e não existe (o warn vem da classe consultiva)"
++    );
++    assert!(f.sugestao.contains("img/logo.png"), "{}", f.sugestao);
++    assert_eq!(v.nao_medido, None);
++}
++
++#[test]
++fn recurso_existente_passa_limpo() {
++    let s = Site::novo();
++    s.escreve("img/logo.png", "x");
++    limpo(&s.mede("index.html", &pagina("<img src=\"img/logo.png\">")));
++}
++
++#[test]
++fn recurso_ignora_query_e_fragmento_mas_nao_o_arquivo() {
++    let s = Site::novo();
++    s.escreve("a.png", "x");
++    s.escreve("app.js", "x");
++    let v = s.mede(
++        "index.html",
++        &pagina("<img src=\"a.png?v=3#x\"><script src=\"app.js?t=1\"></script>"),
++    );
++    limpo(&v);
++    let v = s.mede("index.html", &pagina("<img src=\"b.png?v=3#x\">"));
++    ve(&v, "recurso", &["b.png"]);
++}
++
++#[test]
++fn recurso_decodifica_percentual_e_entidades() {
++    let s = Site::novo();
++    s.escreve("meu arquivo.png", "x");
++    s.escreve("a&b.png", "x");
++    let v = s.mede(
++        "index.html",
++        &pagina("<img src=\"meu%20arquivo.png\"><img src=\"a&amp;b.png\">"),
++    );
++    limpo(&v);
++    let v = s.mede("index.html", &pagina("<img src=\"outro%20arquivo.png\">"));
++    ve(&v, "recurso", &["outro%20arquivo.png"]);
++}
++
++#[test]
++fn recurso_resolve_relativo_ao_arquivo_e_nao_a_raiz_do_projeto() {
++    let s = Site::novo();
++    s.escreve("css/a.css", "x");
++    let html = pagina("<link rel=\"stylesheet\" href=\"../css/a.css\">");
++    limpo(&s.mede("pages/index.html", &html));
++    // a mesma referência, de um arquivo na raiz, sobe para fora do projeto: não existe lá
++    let v = s.mede("index.html", &html);
++    ve(&v, "recurso", &["../css/a.css"]);
++    // `css/a.css` só existe a partir da raiz, não a partir de `pages/`
++    let v = s.mede(
++        "pages/index.html",
++        &pagina("<link rel=\"stylesheet\" href=\"css/a.css\">"),
++    );
++    ve(&v, "recurso", &["css/a.css"]);
++}
++
++#[test]
++fn recurso_raiz_relativo_procura_ancestrais_e_raizes_web_e_erra_como_incerto() {
++    let s = Site::novo();
++    s.escreve("site/css/a.css", "x");
++    s.escreve("public/img/b.png", "x");
++    s.escreve("site/pages/deep/c.js", "x");
++    let corpo = "<link rel=\"stylesheet\" href=\"/css/a.css\"><img src=\"/img/b.png\">\
++                 <script src=\"/pages/deep/c.js\"></script>";
++    // `site/` é a raiz web do documento (um ancestral); `public/` é uma raiz web do projeto
++    limpo(&s.mede("site/pages/deep/index.html", &pagina(corpo)));
++    let v = s.mede(
++        "site/pages/deep/index.html",
++        &pagina("<img src=\"/nada/aqui.png\">"),
++    );
++    ve(&v, "recurso", &["/nada/aqui.png"]);
++    assert_eq!(
++        v.achados[0].alvo,
++        Alvo::Incerto,
++        "onde a página é servida o arquivo não diz: nunca deny"
++    );
++}
++
++#[test]
++fn recurso_absoluto_do_sistema_de_arquivos_conta() {
++    let s = Site::novo();
++    s.escreve("assets/x.png", "x");
++    let abs = s.caminho("assets/x.png");
++    limpo(&s.mede("index.html", &pagina(&format!("<img src=\"{abs}\">"))));
++}
++
++#[test]
++fn recurso_fora_de_escopo_nao_vira_achado_nem_nao_medido() {
++    let s = Site::novo();
++    let corpo = "<img src=\"http://x.org/a.png\"><script src=\"https://cdn.x/a.js\"></script>\
++        <script src=\"//cdn.x/b.js\"></script><img src=\"data:image/png;base64,AAAA\">\
++        <a href=\"mailto:a@b.c\">m</a><a href=\"tel:123\">t</a><a href=\"javascript:void(0)\">j</a>\
++        <iframe src=\"about:blank\"></iframe><img src=\"\"><img src=\"   \"><a href=\"?q=1\">q</a>\
++        <img src=\"?v=1\">";
++    limpo(&s.mede("index.html", &pagina(corpo)));
++}
++
++#[test]
++fn recurso_dinamico_ou_de_template_e_nao_medido_com_o_motivo() {
++    let s = Site::novo();
++    for ref_ in [
++        "{{ url_for('static', filename='a.png') }}",
++        "{% static 'a.png' %}",
++        "<%= asset('a.png') %>",
++        "<?php echo $x ?>",
++        "${base}/a.png",
++        "#{img}",
++    ] {
++        let v = s.mede("index.html", &pagina(&format!("<img src=\"{ref_}\">")));
++        assert!(v.achados.is_empty(), "{ref_}: {:?}", v.achados);
++        assert!(
++            motivo(&v).contains("dinâmico"),
++            "{ref_}: motivo {:?}",
++            v.nao_medido
++        );
++    }
++    // um recurso real quebrado ao lado de um dinâmico: o achado vale e o motivo viaja junto
++    let v = s.mede(
++        "index.html",
++        &pagina("<img src=\"{{ x }}\"><img src=\"falta.png\">"),
++    );
++    ve(&v, "recurso", &["falta.png"]);
++    assert!(v.nao_medido.is_some());
++}
++
++#[test]
++fn recurso_link_so_conta_para_rel_de_arquivo() {
++    let s = Site::novo();
++    let outros = "<link rel=\"canonical\" href=\"pagina\"><link rel=\"alternate\" href=\"feed.xml\">\
++        <link rel=\"dns-prefetch\" href=\"cdn\"><link rel=\"next\" href=\"p2.html\"><link href=\"x.css\">";
++    limpo(&s.mede("index.html", &pagina(outros)));
++    let arquivos = "<link rel=\"stylesheet\" href=\"a.css\"><link rel=\"icon\" href=\"f.ico\">\
++        <link rel=\"preload\" href=\"w.woff2\" as=\"font\"><link rel=\"shortcut icon\" href=\"g.ico\">\
++        <link rel=\"manifest\" href=\"m.json\"><link rel=\"modulepreload\" href=\"m.js\">";
++    let v = s.mede("index.html", &pagina(arquivos));
++    ve(
++        &v,
++        "recurso",
++        &["a.css", "f.ico", "g.ico", "m.js", "m.json", "w.woff2"],
++    );
++}
++
++#[test]
++fn recurso_cobre_as_tags_que_carregam_arquivo() {
++    let s = Site::novo();
++    let corpo = "<script src=\"s.js\"></script><iframe src=\"f.html\"></iframe>\
++        <video src=\"v.mp4\" poster=\"p.jpg\"></video><audio src=\"a.mp3\"></audio>\
++        <source src=\"so.webm\"><track src=\"t.vtt\"><embed src=\"e.swf\"><object data=\"o.pdf\"></object>\
++        <input type=\"image\" src=\"i.png\"><img src=\"m.png\" srcset=\"m1.png 1x, m2.png 2x\">";
++    let v = s.mede("index.html", &pagina(corpo));
++    ve(
++        &v,
++        "recurso",
++        &[
++            "a.mp3", "e.swf", "f.html", "i.png", "m.png", "m1.png", "m2.png", "o.pdf", "p.jpg",
++            "s.js", "so.webm", "t.vtt", "v.mp4",
++        ],
++    );
++    // `<input>` que não é imagem não carrega `src`
++    limpo(&s.mede("index.html", &pagina("<input type=\"text\" src=\"x.png\">")));
++}
++
++#[test]
++fn recurso_srcset_nao_quebra_data_url_com_virgula() {
++    let s = Site::novo();
++    s.escreve("b.png", "x");
++    let v = s.mede(
++        "index.html",
++        &pagina("<img srcset=\"data:image/png;base64,AAAA 1x, b.png 2x\">"),
++    );
++    limpo(&v);
++}
++
++#[test]
++fn recurso_link_so_conta_quando_o_alvo_parece_arquivo() {
++    let s = Site::novo();
++    let rotas = "<a href=\"/sobre\">s</a><a href=\"docs/\">d</a><a href=\"contato\">c</a>\
++        <a href=\"https://x.org/p.html\">e</a>";
++    limpo(&s.mede("index.html", &pagina(rotas)));
++    let corpo = "<a href=\"guia.html\">g</a><a href=\"rel.pdf\">r</a>";
++    ve(
++        &s.mede("index.html", &pagina(corpo)),
++        "recurso",
++        &["guia.html", "rel.pdf"],
++    );
++    s.escreve("guia.html", "x");
++    s.escreve("rel.pdf", "x");
++    limpo(&s.mede("index.html", &pagina(corpo)));
++}
++
++#[test]
++fn recurso_base_externa_nao_resolve_e_base_local_muda_o_diretorio() {
++    let s = Site::novo();
++    let com_base = |base: &str, ref_: &str| {
++        format!(
++            "<!DOCTYPE html><html><head><base href=\"{base}\"></head><body>\
++             <img src=\"{ref_}\"></body></html>"
++        )
++    };
++    let v = s.mede("index.html", &com_base("https://cdn.x/", "a.png"));
++    assert!(v.achados.is_empty());
++    assert!(motivo(&v).contains("<base"), "{:?}", v.nao_medido);
++
++    s.escreve("sub/a.png", "x");
++    limpo(&s.mede("index.html", &com_base("sub/", "a.png")));
++    ve(
++        &s.mede("index.html", &com_base("sub/", "b.png")),
++        "recurso",
++        &["b.png"],
++    );
++}
++
++#[test]
++fn recurso_ensina_o_nome_proximo_inclusive_na_caixa() {
++    let s = Site::novo();
++    s.escreve("img/Logo.PNG", "x");
++    s.escreve("img/fundo-azul.png", "x");
++    let v = s.mede(
++        "index.html",
++        &pagina("<img src=\"img/logo.png\"><img src=\"img/fundo-azu.png\">"),
++    );
++    let por_nome = |n: &str| v.achados.iter().find(|f| f.nome == n).expect(n);
++    assert!(
++        por_nome("img/logo.png")
++            .sugestao
++            .contains("Você quis dizer `img/Logo.PNG`")
++    );
++    assert!(
++        por_nome("img/fundo-azu.png")
++            .sugestao
++            .contains("`img/fundo-azul.png`")
++    );
++    assert_eq!(
++        por_nome("img/logo.png").reais.first().map(String::as_str),
++        Some("Logo.PNG")
++    );
++}
++
++#[test]
++fn recurso_diretorio_inexistente_e_dito() {
++    let s = Site::novo();
++    let v = s.mede("index.html", &pagina("<img src=\"nao/existe/a.png\">"));
++    ve(&v, "recurso", &["nao/existe/a.png"]);
++    assert!(
++        v.achados[0].sugestao.contains("não existe"),
++        "{}",
++        v.achados[0].sugestao
++    );
++}
++
++#[test]
++fn recurso_repetido_vira_um_achado_na_primeira_linha() {
++    let s = Site::novo();
++    let corpo = "<img src=\"falta.png\">\n<img src=\"falta.png\">\n<img src=\"falta.png\">";
++    let v = s.mede("index.html", &pagina(corpo));
++    ve(&v, "recurso", &["falta.png"]);
++    assert_eq!(v.achados[0].linha, 7);
++    assert!(
++        v.achados[0].sugestao.contains("+2"),
++        "{}",
++        v.achados[0].sugestao
++    );
++}
++
++#[test]
++fn recurso_barra_invertida_espacos_e_quebra_de_linha_no_valor() {
++    let s = Site::novo();
++    s.escreve("img/a.png", "x");
++    limpo(&s.mede("index.html", &pagina("<img src=\"  img\\a.png \">")));
++    limpo(&s.mede("index.html", &pagina("<img src=\"img/\na.png\">")));
++}
++
++#[test]
++fn recurso_conhece_o_overlay_do_instante() {
++    let s = Site::novo();
++    let mut input = s.entrada("index.html", &pagina("<img src=\"img/a.png\">"));
++    assert_eq!(
++        Html.verificar(&input).achados.len(),
++        1,
++        "sem overlay o arquivo falta"
++    );
++    input
++        .overlays
++        .insert(s.caminho("img/a.png"), "x".to_string());
++    limpo(&Html.verificar(&input));
++}
++
++#[test]
++fn recurso_em_caminho_virtual_e_nao_medido_mas_ancora_continua() {
++    let s = Site::novo();
++    let mut input = s.entrada(
++        "x.html",
++        &pagina("<img src=\"a.png\"><a href=\"#nada\">n</a>"),
++    );
++    input.path = "<string>".into();
++    let v = Html.verificar(&input);
++    ve(&v, "recurso", &[]);
++    ve(&v, "ancora", &["nada"]);
++    assert!(motivo(&v).contains("<string>"), "{:?}", v.nao_medido);
++}
++
++#[test]
++fn recurso_nunca_nega_em_html_nem_onde_o_codigo_roda_agora() {
++    // spec §5.1: deny exige que NENHUMA edição seguinte possa tornar o código certo; em HTML a
++    // próxima escrita cria o arquivo (o `index.html` sai antes do `style.css`)
++    let html = pagina("<img src=\"falta.png\">");
++    for caminho in [
++        "/home/u/proj/site/a.html",
++        "/tmp/vhtml-x/a.html",
++        "/home/u/proj/.cache/a.html",
++    ] {
++        assert_eq!(julga(caminho, &html).verdict, "warn", "{caminho}");
++    }
++    let raiz = pagina("<img src=\"/falta/a.png\">");
++    assert_eq!(julga("/tmp/vhtml-x/a.html", &raiz).verdict, "warn");
++}
++
++#[test]
++fn recurso_ja_ausente_no_disco_continua_warn_e_sem_prefixo_de_delta() {
++    let html = pagina("<img src=\"falta.png\">");
++    let out = check(&CheckInput {
++        path: "/tmp/vhtml-x/a.html".into(),
++        content: html.clone(),
++        project_root: "/home/u/proj".into(),
++        disk: Some(html),
++        overlays: HashMap::new(),
++        lang: "html".into(),
++    });
++    assert_eq!(out.verdict, "warn");
++    assert!(
++        !out.findings[0].sugestao.starts_with("pré-existente"),
++        "o delta só reescreve deny, e HTML não nega: {}",
++        out.findings[0].sugestao
++    );
++}
++
++#[test]
++fn recurso_ignora_a_caixa_de_tag_e_de_atributo() {
++    let s = Site::novo();
++    let v = s.mede(
++        "index.html",
++        &pagina("<IMG SRC=\"falta.png\"><Link REL=\"StyleSheet\" HREF=\"a.css\">"),
++    );
++    ve(&v, "recurso", &["a.css", "falta.png"]);
++}
++
++#[test]
++fn recurso_nome_e_o_token_como_escrito_sem_query_e_sem_fragmento() {
++    // convenção da coordenadora (10/10): o `nome` é a referência exatamente como escrita no
++    // atributo — prefixo de caminho incluído — sem `?query` e sem `#fragmento`; a existência no
++    // disco é testada sobre esse token, nunca sobre o valor inteiro
++    let s = Site::novo();
++    s.escreve("shared/foo.png", "x");
++    let html = |ref_: &str| pagina(&format!("<img src=\"{ref_}\">"));
++    // existe: a query e o fragmento não entram na existência
++    limpo(&s.mede("a/b/index.html", &html("../../shared/foo.png?v=2#x")));
++    // ausente: o nome é o token inteiro, com o prefixo, sem o sufixo
++    let v = s.mede(
++        "a/b/index.html",
++        &html("../../shared/foo.vgpAusente0c2dcab442d3.png?v=2#x"),
++    );
++    ve(
++        &v,
++        "recurso",
++        &["../../shared/foo.vgpAusente0c2dcab442d3.png"],
++    );
++    // relativo ao arquivo × raiz-relativo: o nome guarda a barra inicial e o `./`
++    let v = s.mede("a/b/index.html", &html("./nada.png"));
++    ve(&v, "recurso", &["./nada.png"]);
++    assert_eq!(v.achados[0].alvo, Alvo::Projeto);
++    let v = s.mede("a/b/index.html", &html("/shared/nada.png#x"));
++    ve(&v, "recurso", &["/shared/nada.png"]);
++    assert_eq!(v.achados[0].alvo, Alvo::Incerto);
++    // a barra invertida fica como foi escrita (só a resolução a lê como `/`)
++    let v = s.mede("index.html", &html("img\\nada.png"));
++    ve(&v, "recurso", &["img\\nada.png"]);
++}
++
++#[test]
++fn recurso_fragmento_de_template_nao_e_recurso_dinamico() {
++    // `#sec-{{ n }}` aponta para dentro do documento: é da classe `ancora`, que conta a sua
++    let s = Site::novo();
++    let v = s.mede("a.html", &pagina("<a href=\"#sec-{{ n }}\">x</a>"));
++    assert!(
++        !motivo(&v).contains("valor dinâmico ou de template"),
++        "{:?}",
++        v.nao_medido
++    );
++    assert!(
++        motivo(&v).contains("id com valor de template"),
++        "{:?}",
++        v.nao_medido
++    );
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/tests/script.rs b/crates/touring-code/src/vgp/lang/html/tests/script.rs
+new file mode 100644
+index 00000000..d813e49c
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/tests/script.rs
+@@ -0,0 +1,206 @@
++//! Class `ancora` from the inline `<script>`: `getElementById` / `querySelector('#x')`, and the
++//! ids a script creates.
++
++use super::*;
++
++#[test]
++fn script_get_element_by_id_ausente_e_incerto_e_presente_nao() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &com_script(
++            "var a = document.getElementById('painel');",
++            "<div id=\"outro\"></div>",
++        ),
++    );
++    ve(&v, "ancora", &["painel"]);
++    assert_eq!(v.achados[0].alvo, Alvo::Incerto);
++    assert!(v.achados[0].sugestao.contains("getElementById('painel')"));
++    limpo(&s.mede(
++        "a.html",
++        &com_script(
++            "document.getElementById('painel').focus();",
++            "<div id=\"painel\"></div>",
++        ),
++    ));
++}
++
++#[test]
++fn script_linha_do_lookup_e_absoluta_no_documento() {
++    let s = Site::novo();
++    // linha 7 = <div>, 8 = <script>, 9 = primeira linha do JS, 10 = a chamada
++    let v = s.mede(
++        "a.html",
++        &com_script("var ok = 1;\ndocument.getElementById('x');", "<div></div>"),
++    );
++    assert_eq!(v.achados[0].linha, 10);
++}
++
++#[test]
++fn script_query_selector_checa_so_ids_obrigatorios_do_seletor() {
++    let s = Site::novo();
++    let js = "document.querySelector('#a .classe');\
++              document.querySelectorAll('div#b > p');\
++              document.querySelector('#c, #d');\
++              document.querySelector(':not(#e)');\
++              document.querySelector('[data-x=\"#f\"]');\
++              document.querySelector('.so-classe');";
++    let v = s.mede("a.html", &com_script(js, "<p></p>"));
++    ve(&v, "ancora", &["a", "b"]);
++    limpo(&s.mede(
++        "a.html",
++        &com_script("document.querySelector('#a .k');", "<div id=\"a\"></div>"),
++    ));
++}
++
++#[test]
++fn script_so_olha_document_e_literais() {
++    let s = Site::novo();
++    let js = "el.querySelector('#nada1');\
++              shadow.getElementById('nada2');\
++              document.getElementById(nome);\
++              document.getElementById(`x${n}`);\
++              document.getElementById('a\\u0062');\
++              $('#nada3');";
++    limpo(&s.mede("a.html", &com_script(js, "<p></p>")));
++    let v = s.mede(
++        "a.html",
++        &com_script("window.document.getElementById('w');", "<p></p>"),
++    );
++    ve(&v, "ancora", &["w"]);
++}
++
++#[test]
++fn script_id_criado_pelo_proprio_script_nao_e_ausente() {
++    let s = Site::novo();
++    for js in [
++        "var d = document.createElement('div'); d.id = 'novo'; document.getElementById('novo');",
++        "d.setAttribute('id', 'novo'); document.getElementById('novo');",
++        "box.innerHTML = '<span id=\"novo\"></span>'; document.getElementById('novo');",
++        "var cfg = { id: 'novo' }; document.getElementById('novo');",
++    ] {
++        limpo(&s.mede("a.html", &com_script(js, "<p></p>")));
++    }
++    // e o href para um id criado por script também passa
++    limpo(&s.mede(
++        "a.html",
++        &com_script("d.id = 'novo';", "<a href=\"#novo\">n</a>"),
++    ));
++}
++
++#[test]
++fn script_template_html_declara_ids_e_json_nao() {
++    let s = Site::novo();
++    let tpl = pagina(
++        "<script type=\"text/template\"><div id=\"linha\"></div></script>\
++         <a href=\"#linha\">l</a>",
++    );
++    limpo(&s.mede("a.html", &tpl));
++    let json = pagina(
++        "<script type=\"application/json\">{\"id\": \"linha\", \"x\": \"document.getElementById('z')\"}</script>\
++         <a href=\"#linha\">l</a>",
++    );
++    ve(&s.mede("a.html", &json), "ancora", &["linha"]);
++}
++
++#[test]
++fn script_cria_id_por_dado_dinamico_desliga_lookups_e_avisa_na_ancora() {
++    let s = Site::novo();
++    for js in [
++        "el.id = prefixo + n; document.getElementById('x');",
++        "el.setAttribute('id', gerar()); document.getElementById('x');",
++        "box.innerHTML = montar(); document.getElementById('x');",
++        "document.write(html); document.getElementById('x');",
++        "box.insertAdjacentHTML('beforeend', montar()); document.getElementById('x');",
++    ] {
++        let v = s.mede("a.html", &com_script(js, "<p></p>"));
++        ve(&v, "ancora", &[]);
++        assert!(motivo(&v).contains("dinâmicos"), "{js}: {:?}", v.nao_medido);
++    }
++    // o href de fragmento continua julgado, como Incerto, e a sugestão avisa que o script pode
++    // criar o id
++    let v = s.mede(
++        "a.html",
++        &com_script("el.id = n;", "<a href=\"#falta\">f</a>"),
++    );
++    ve(&v, "ancora", &["falta"]);
++    assert_eq!(v.achados[0].alvo, Alvo::Incerto);
++    assert!(
++        v.achados[0].sugestao.contains("script"),
++        "{}",
++        v.achados[0].sugestao
++    );
++}
++
++#[test]
++fn script_com_erro_de_sintaxe_e_nao_medido() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &com_script(
++            "document.getElementById('x'; ((",
++            "<a href=\"#falta\">f</a>",
++        ),
++    );
++    assert!(motivo(&v).contains("erro de sintaxe"), "{:?}", v.nao_medido);
++    assert!(!v.achados.iter().any(|f| f.nome == "x"));
++    let falta = v
++        .achados
++        .iter()
++        .find(|f| f.nome == "falta")
++        .expect("o href continua medido");
++    assert_eq!(
++        falta.alvo,
++        Alvo::Incerto,
++        "um script ilegível pode criar o id"
++    );
++    assert!(
++        falta.sugestao.contains("script"),
++        "um script ilegível pode criar o id: {}",
++        falta.sugestao
++    );
++}
++
++#[test]
++fn script_com_src_ignora_o_corpo_e_tipo_desconhecido_e_dinamico() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &pagina("<script src=\"https://cdn.x/a.js\">document.getElementById('x');</script>"),
++    );
++    ve(&v, "ancora", &[]);
++    let v = s.mede(
++        "a.html",
++        &pagina("<script type=\"text/coffeescript\">$('#x')</script><a href=\"#falta\">f</a>"),
++    );
++    assert_eq!(v.achados[0].alvo, Alvo::Incerto);
++    assert!(v.achados[0].sugestao.contains("script"));
++}
++
++#[test]
++fn script_o_corpo_de_style_nao_e_javascript() {
++    let s = Site::novo();
++    // o `raw_text` de <style> é CSS: lido como JS daria erro de sintaxe, um motivo de `nao_medido`
++    // e o achado rebaixado a `Incerto` com a nota de script na sugestão
++    let v = s.mede(
++        "a.html",
++        &pagina("<style>body { color: red; }</style><a href=\"#falta\">f</a>"),
++    );
++    ve(&v, "ancora", &["falta"]);
++    assert_eq!(v.achados[0].alvo, Alvo::Projeto);
++    assert!(!v.achados[0].sugestao.contains("script"));
++    assert_eq!(v.nao_medido, None);
++}
++
++#[test]
++fn script_mesmo_id_procurado_duas_vezes_e_no_href_vira_um_achado() {
++    let s = Site::novo();
++    let v = s.mede(
++        "a.html",
++        &com_script(
++            "document.getElementById('x');\ndocument.getElementById('x');",
++            "<a href=\"#x\">x</a>",
++        ),
++    );
++    ve(&v, "ancora", &["x"]);
++}
+diff --git a/crates/touring-code/src/vgp/lang/html/texto.rs b/crates/touring-code/src/vgp/lang/html/texto.rs
+new file mode 100644
+index 00000000..5faca391
+--- /dev/null
++++ b/crates/touring-code/src/vgp/lang/html/texto.rs
+@@ -0,0 +1,294 @@
++//! Text helpers of the html adapter: character references, percent-decoding, template markers,
++//! the lexical `id=` scan and the edit distance behind "você quis dizer".
++
++use std::borrow::Cow;
++
++/// Markers of server-side or client-side templating: a value carrying one is not a literal
++/// reference, so the adapter cannot say whether it resolves (`unknown`, never a finding).
++const MARCADORES_DE_TEMPLATE: &[&str] = &[
++    "{{", "{%", "<%", "<?", "${", "{$", "#{", "%7B%7B", "%7b%7b", "%7B%25", "%7b%25",
++];
++
++/// Does `s` carry a templating marker (`{{x}}`, `{% x %}`, `<%= x %>`, `<?php`, `${x}`…)?
++pub(super) fn tem_template(s: &str) -> bool {
++    MARCADORES_DE_TEMPLATE.iter().any(|m| s.contains(m))
++}
++
++/// Decode the HTML character references an attribute value may carry (`&amp;`, `&#38;`,
++/// `&#x26;`, `&nbsp;`…). A reference the adapter does not know stays verbatim.
++pub(super) fn decodificar_entidades(s: &str) -> Cow<'_, str> {
++    if !s.contains('&') {
++        return Cow::Borrowed(s);
++    }
++    let mut out = String::with_capacity(s.len());
++    let mut resto = s;
++    while let Some(i) = resto.find('&') {
++        out.push_str(&resto[..i]);
++        let depois = &resto[i + 1..];
++        match entidade(depois) {
++            Some((ch, consumidos)) => {
++                out.push(ch);
++                resto = &depois[consumidos..];
++            }
++            None => {
++                out.push('&');
++                resto = depois;
++            }
++        }
++    }
++    out.push_str(resto);
++    Cow::Owned(out)
++}
++
++/// The character a reference names and how many bytes of `s` (the text after the `&`) it used.
++fn entidade(s: &str) -> Option<(char, usize)> {
++    let fim = s.find(';').filter(|f| (1..=32).contains(f))?;
++    let corpo = &s[..fim];
++    let ch = match corpo.strip_prefix('#') {
++        Some(num) => referencia_numerica(num)?,
++        None => referencia_nomeada(corpo)?,
++    };
++    Some((ch, fim + 1))
++}
++
++/// `&#38;` / `&#x26;` — the digits after the `#`.
++fn referencia_numerica(num: &str) -> Option<char> {
++    let cod = match num.strip_prefix(['x', 'X']) {
++        Some(hex) => u32::from_str_radix(hex, 16).ok()?,
++        None => num.parse().ok()?,
++    };
++    char::from_u32(cod)
++}
++
++/// The few named references that appear in URLs and ids.
++fn referencia_nomeada(nome: &str) -> Option<char> {
++    Some(match nome {
++        "amp" => '&',
++        "lt" => '<',
++        "gt" => '>',
++        "quot" => '"',
++        "apos" => '\'',
++        "nbsp" => '\u{a0}',
++        _ => return None,
++    })
++}
++
++/// `s` with its `%XX` escapes decoded, when it has any and the result is valid UTF-8; `None`
++/// otherwise (nothing to decode, or bytes that are not text).
++pub(super) fn decodificar_percentual(s: &str) -> Option<String> {
++    let b = s.as_bytes();
++    let mut out = Vec::with_capacity(b.len());
++    let mut mudou = false;
++    let mut i = 0;
++    while i < b.len() {
++        if b[i] == b'%'
++            && i + 2 < b.len()
++            && let (Some(h), Some(l)) = (hex(b[i + 1]), hex(b[i + 2]))
++        {
++            out.push(h * 16 + l);
++            mudou = true;
++            i += 3;
++            continue;
++        }
++        out.push(b[i]);
++        i += 1;
++    }
++    if !mudou {
++        return None;
++    }
++    String::from_utf8(out).ok()
++}
++
++fn hex(b: u8) -> Option<u8> {
++    char::from(b).to_digit(16).map(|d| d as u8)
++}
++
++/// Every value of an `id=` attribute written in `texto`, in source order — a LEXICAL scan, so it
++/// also sees what the parser dropped in an error region, inside a comment, a `<textarea>` or a
++/// template string. Over-approximating the ids that exist is the safe side for "id missing".
++pub(super) fn ids_no_texto(texto: &str) -> Vec<&str> {
++    let b = texto.as_bytes();
++    let mut out = Vec::new();
++    let mut i = 0;
++    while i + 1 < b.len() {
++        let inicio_de_palavra = i == 0 || !eh_de_nome(b[i - 1]);
++        if inicio_de_palavra
++            && b[i] | 0x20 == b'i'
++            && b[i + 1] | 0x20 == b'd'
++            && let Some((valor, fim)) = valor_do_atributo(texto, i + 2)
++        {
++            out.push(valor);
++            i = fim;
++            continue;
++        }
++        i += 1;
++    }
++    out
++}
++
++/// A character that can be part of an attribute or identifier name: `data-id`, `valid`, `x.id`
++/// are not an `id=` attribute.
++fn eh_de_nome(b: u8) -> bool {
++    b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b':' | b'.')
++}
++
++/// After `id`: optional blanks, `=`, optional blanks, then a quoted or bare value.
++fn valor_do_atributo(texto: &str, de: usize) -> Option<(&str, usize)> {
++    let b = texto.as_bytes();
++    let i = pular_brancos(b, de);
++    if b.get(i) != Some(&b'=') {
++        return None;
++    }
++    let i = pular_brancos(b, i + 1);
++    let (inicio, fim) = match b.get(i)? {
++        q @ (b'"' | b'\'') => {
++            let ini = i + 1;
++            (ini, ini + b[ini..].iter().position(|c| c == q)?)
++        }
++        _ => (i, fim_do_valor_sem_aspas(b, i)),
++    };
++    let valor = texto.get(inicio..fim)?;
++    (!valor.is_empty()).then_some((valor, fim))
++}
++
++fn pular_brancos(b: &[u8], mut i: usize) -> usize {
++    while i < b.len() && b[i].is_ascii_whitespace() {
++        i += 1;
++    }
++    i
++}
++
++/// A bare attribute value ends at the first blank or `>`.
++fn fim_do_valor_sem_aspas(b: &[u8], de: usize) -> usize {
++    b[de..]
++        .iter()
++        .position(|c| c.is_ascii_whitespace() || *c == b'>')
++        .map_or(b.len(), |p| de + p)
++}
++
++/// Edit distance over characters (insert, delete, substitute).
++pub(super) fn distancia(a: &str, b: &str) -> usize {
++    let (a, b): (Vec<char>, Vec<char>) = (a.chars().collect(), b.chars().collect());
++    let mut prev: Vec<usize> = (0..=b.len()).collect();
++    for (i, ca) in a.iter().enumerate() {
++        let mut cur = vec![i + 1];
++        for (j, cb) in b.iter().enumerate() {
++            cur.push(
++                (prev[j] + usize::from(ca != cb))
++                    .min(cur[j] + 1)
++                    .min(prev[j + 1] + 1),
++            );
++        }
++        prev = cur;
++    }
++    prev[b.len()]
++}
++
++/// How many distances "você quis dizer" computes at most (a document with a hundred thousand ids
++/// must not turn a typo into a quadratic scan).
++const TETO_DE_CANDIDATOS: usize = 2000;
++
++/// The candidates closest to `alvo` (at most `n`), nearest first: edit distance up to a quarter of
++/// the length (at least 2), or equal ignoring case. Never `alvo` itself. Candidates whose length
++/// is too far from `alvo`'s are skipped before any distance is computed.
++pub(super) fn mais_proximos<'a>(
++    alvo: &str,
++    candidatos: impl Iterator<Item = &'a str>,
++    n: usize,
++) -> Vec<String> {
++    let tamanho = alvo.chars().count();
++    let limite = (tamanho / 4).max(2);
++    let mut achados: Vec<(usize, &str)> = candidatos
++        .filter(|c| *c != alvo && c.chars().count().abs_diff(tamanho) <= limite)
++        .take(TETO_DE_CANDIDATOS)
++        .filter_map(|c| {
++            if c.eq_ignore_ascii_case(alvo) {
++                return Some((0, c));
++            }
++            let d = distancia(alvo, c);
++            (d <= limite).then_some((d, c))
++        })
++        .collect();
++    achados.sort();
++    achados
++        .into_iter()
++        .take(n)
++        .map(|(_, c)| c.to_string())
++        .collect()
++}
++
++#[cfg(test)]
++mod unit {
++    use super::*;
++
++    #[test]
++    fn entidades_numericas_nomeadas_e_desconhecidas() {
++        assert_eq!(decodificar_entidades("a&amp;b"), "a&b");
++        assert_eq!(decodificar_entidades("&#38;&#x26;&#X26;"), "&&&");
++        assert_eq!(decodificar_entidades("&lt;&gt;&quot;&apos;"), "<>\"'");
++        assert_eq!(decodificar_entidades("a&nbsp;b"), "a\u{a0}b");
++        // desconhecida, sem ponto e vírgula e fora de faixa ficam como estão
++        assert_eq!(decodificar_entidades("&foo; & &amp"), "&foo; & &amp");
++        assert_eq!(decodificar_entidades("&#99999999999;"), "&#99999999999;");
++        assert!(matches!(decodificar_entidades("sem"), Cow::Borrowed(_)));
++    }
++
++    #[test]
++    fn percentual_so_decodifica_utf8_valido() {
++        assert_eq!(decodificar_percentual("a%20b").as_deref(), Some("a b"));
++        assert_eq!(decodificar_percentual("caf%C3%A9").as_deref(), Some("café"));
++        assert_eq!(decodificar_percentual("sem-escape"), None);
++        assert_eq!(decodificar_percentual("100%"), None, "% solto não é escape");
++        assert_eq!(decodificar_percentual("a%2"), None);
++        assert_eq!(decodificar_percentual("%ZZ"), None);
++        assert_eq!(decodificar_percentual("%FF"), None, "byte que não é UTF-8");
++        assert_eq!(decodificar_percentual("%41%").as_deref(), Some("A%"));
++    }
++
++    #[test]
++    fn marcadores_de_template() {
++        for t in [
++            "{{x}}", "{% if %}", "<%= x %>", "<?php", "${x}", "{$x}", "#{x}", "%7B%7Bx",
++        ] {
++            assert!(tem_template(t), "{t}");
++        }
++        for t in ["a.png", "img/{x.png", "a#b", "a$b", "100%"] {
++            assert!(!tem_template(t), "{t}");
++        }
++    }
++
++    #[test]
++    fn ids_no_texto_le_atributo_id_e_so_ele() {
++        let t = "<div id=\"a\"> <p ID = 'b'> <i id=c> data-id=\"nao\" valid=\"nao\" x.id=\"nao\" \
++                 <span id=\"\"> <b id=\"d";
++        assert_eq!(ids_no_texto(t), vec!["a", "b", "c"]);
++        assert_eq!(ids_no_texto("el.innerHTML = '<a id=\"x\">'"), vec!["x"]);
++        assert!(ids_no_texto("id").is_empty());
++        assert!(
++            ids_no_texto("\"id\": \"x\"").is_empty(),
++            "JSON não é atributo"
++        );
++    }
++
++    #[test]
++    fn distancia_e_proximos() {
++        assert_eq!(distancia("kitten", "sitting"), 3);
++        assert_eq!(distancia("", "abc"), 3);
++        assert_eq!(distancia("abc", "abc"), 0);
++        let c = ["introducao", "conclusao", "Conclusao", "x"];
++        assert_eq!(
++            mais_proximos("conclusoa", c.iter().copied(), 5),
++            vec!["conclusao"],
++            "transposição = 2 edições; `Conclusao` seria 3"
++        );
++        assert_eq!(
++            mais_proximos("conclusao", c.iter().copied(), 1),
++            vec!["Conclusao"]
++        );
++        assert!(mais_proximos("zzzzzz", c.iter().copied(), 5).is_empty());
++        assert!(
++            mais_proximos("ab", ["ab"].iter().copied(), 5).is_empty(),
++            "nunca o próprio"
++        );
++    }
++}
+diff --git a/crates/touring-code/src/vgp/politica.rs b/crates/touring-code/src/vgp/politica.rs
+index 259826e4..25bd0b3f 100644
+--- a/crates/touring-code/src/vgp/politica.rs
++++ b/crates/touring-code/src/vgp/politica.rs
+@@ -9,7 +9,7 @@
+ //!
+ //! | rule | finding | severity |
+ //! |---|---|---|
+-//! | P4 | class in [`CLASSES_CONSULTIVAS`] (`cdn_pin`, `classe_css`) | `warn`, whatever the target |
++//! | P4 | class in [`CLASSES_CONSULTIVAS`] (`cdn_pin`, `classe_css`, and the HTML reference classes `recurso`, `ancora`) | `warn`, whatever the target |
+ //! | P1 | target [`Alvo::Externo`] (stdlib, closed builtin, installed third party, a CDN 404) | `deny`, in every bucket |
+ //! | P2 | target [`Alvo::Projeto`] where the code runs now ([`roda_agora`]) | `deny` |
+ //! | P3 | target [`Alvo::Projeto`] elsewhere, or [`Alvo::Incerto`] anywhere | `warn` |
+@@ -38,8 +38,10 @@ pub enum Alvo {
+ }
+ 
+ /// Classes that only ever advise (§5.2): a class used by JS hooks is legitimate, a floating CDN
+-/// pin is a recommendation — neither is an error the motor may deny.
+-pub const CLASSES_CONSULTIVAS: &[&str] = &["cdn_pin", "classe_css"];
++/// pin is a recommendation, and a missing HTML file or id (`recurso`, `ancora`) is what the next
++/// write creates — the `index.html` goes out before the `style.css` it links. §5.1 reserves the
++/// "runs now" `deny` for SYMBOL classes, so none of these is an error the motor may deny.
++pub const CLASSES_CONSULTIVAS: &[&str] = &["cdn_pin", "classe_css", "recurso", "ancora"];
+ 
+ /// Does the code at `path` run right now, so that nothing can fix it before it breaks?
+ /// Inline programs, `/tmp/`, and the project's `.cache/` (agent scratch scripts) do (§5.1).
+@@ -168,6 +170,31 @@ mod tests {
+         }
+     }
+ 
++    #[test]
++    fn p4_recurso_e_ancora_de_html_sao_consultivas_mesmo_onde_o_codigo_roda_agora() {
++        // spec §5.1: o `deny` de «roda agora» é das classes de SÍMBOLO; um arquivo ou id
++        // ausente em HTML é o que a próxima escrita cria (o `index.html` sai antes do
++        // `style.css`). Nomeadas aqui: o laço acima acompanha a lista e não detectaria a saída.
++        for classe in ["recurso", "ancora"] {
++            assert!(CLASSES_CONSULTIVAS.contains(&classe), "{classe}");
++            assert_eq!(sev(classe, Alvo::Projeto, true), "warn", "{classe}");
++            assert_eq!(sev(classe, Alvo::Projeto, false), "warn", "{classe}");
++        }
++        assert_eq!(
++            sev("nome", Alvo::Projeto, true),
++            "deny",
++            "a classe de símbolo segue negando onde roda agora"
++        );
++        let mut fs = vec![
++            achado("recurso", "falta.png", Alvo::Projeto),
++            achado("ancora", "capa", Alvo::Projeto),
++            achado("nome", "x", Alvo::Projeto),
++        ];
++        aplicar(&mut fs, "/tmp/a.html", Path::new("/home/u/proj"));
++        let sevs: Vec<&str> = fs.iter().map(|f| f.severidade.as_str()).collect();
++        assert_eq!(sevs, ["warn", "warn", "deny"]);
++    }
++
+     #[test]
+     fn aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu() {
+         let mut fs = vec![

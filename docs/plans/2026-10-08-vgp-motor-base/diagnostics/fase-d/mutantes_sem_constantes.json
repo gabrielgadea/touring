@@ -1,0 +1,76 @@
+{
+ "controle": "75 passed, 1 deselected in 35.41s",
+ "mortos": 10,
+ "total": 11,
+ "mutantes": [
+  {
+   "id": "A01",
+   "regra": "A/A instr: faixa frouxa [0,90; 1,10]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_instrucoes_fora_de_1pct_cai_para_a_cpu"
+  },
+  {
+   "id": "A02",
+   "regra": "A/A instr: faixa apertada [0,999; 1,001]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_instrucoes_estaveis_escolhe_instrucoes"
+  },
+  {
+   "id": "A03",
+   "regra": "A/A cpu: faixa frouxa [0,80; 1,20]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_as_duas_reguas_reprovadas_e_protocolo_inadequado"
+  },
+  {
+   "id": "A04",
+   "regra": "A/A cpu: faixa apertada [0,99; 1,01]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_instrucoes_fora_de_1pct_cai_para_a_cpu"
+  },
+  {
+   "id": "A05",
+   "regra": "A/B: teto 1,30 em vez de 1,10",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]"
+  },
+  {
+   "id": "A06",
+   "regra": "A/B: teto 1,02 em vez de 1,10",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.08-esperado2]"
+  },
+  {
+   "id": "A07",
+   "regra": "absoluto: 1500 ms em vez de 150",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_absoluto_v2_acima_de_150ms_reprova_mesmo_sem_regressao_relativa"
+  },
+  {
+   "id": "A08",
+   "regra": "absoluto: 15 ms em vez de 150",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[0.8-esperado0]"
+  },
+  {
+   "id": "A09",
+   "regra": "semente 20261017 (a do C') em vez de 20261018",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_toda_reamostragem_usa_a_semente_20261018"
+  },
+  {
+   "id": "A10",
+   "regra": "bootstrap com 200 reamostras em vez de 2000",
+   "estado": "survived",
+   "testes": [
+    "test_analisa_pareado_d.py",
+    "test_analisa_pareado.py"
+   ]
+  },
+  {
+   "id": "A11",
+   "regra": "ausencia tolerada ate 50% em vez de 1%",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ausencia_acima_de_1pct_das_chamadas_e_inconclusiva"
+  }
+ ]
+}

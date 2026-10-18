@@ -1,0 +1,791 @@
+[
+ {
+  "arquivo": "crates/touring-code/src/ast/api_cascade.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/call_graph.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/code_gen_workflow.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/complexity.rs",
+  "zona": "src",
+  "linha": 161,
+  "classe": "import",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "`ParserPool` não encontrado ao resolver `crate::ast::parser::ParserPool::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/complexity.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/doc_text.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/document.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/error.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+  "zona": "src",
+  "linha": 96,
+  "classe": "nome",
+  "nome": "DEFAULT_HALF_LIFE_SECS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+  "zona": "src",
+  "linha": 404,
+  "classe": "nome",
+  "nome": "PROP_NOW",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/format/preserve/formatter.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/format/preserve/snippet_provider.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/go_wiring.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/blast_radius.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "zona": "src",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/imports.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "zona": "src",
+  "linha": 559,
+  "classe": "nome",
+  "nome": "tree_sitter",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/mod.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/module_paths.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/python_uses.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/self_refs.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/import_resolver.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/incremental_pipeline.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/languages.rs",
+  "zona": "src",
+  "motivo": "2 caminho(s) sem resolução estática: `super` (`super` sem item depois); `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/learning_loop.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/manifest.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/markdown_text.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 70,
+  "classe": "import",
+  "nome": "tree_sitter",
+  "severidade": "warn",
+  "sugestao": "`tree_sitter` não encontrado ao resolver `tree_sitter`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/module_tree.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/node_types/mod.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "zona": "src",
+  "linha": 177,
+  "classe": "nome",
+  "nome": "THREAD_PARSERS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser_diff.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/polyglot_semantic.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/quality.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/revision.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/rust_semantic.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/scope_map.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/speculate.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/ssr/mod.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "zona": "src",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "symbol_name",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "zona": "src",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "file_path",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/surgery.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbol_detail.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "zona": "src",
+  "linha": 1339,
+  "classe": "import",
+  "nome": "tests",
+  "severidade": "warn",
+  "sugestao": "módulo `tests` declarado sem arquivo (`tests.rs` | `tests/mod.rs`)"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols.rs",
+  "zona": "src",
+  "linha": 1275,
+  "classe": "import",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "`ParserPool` não encontrado ao resolver `crate::ast::parser::ParserPool::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 14,
+  "classe": "nome",
+  "nome": "extract_symbols",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 14,
+  "classe": "nome",
+  "nome": "Lang",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "extract_symbols_with_pool",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 258,
+  "classe": "nome",
+  "nome": "SymbolKind",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 386,
+  "classe": "nome",
+  "nome": "Symbol",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 416,
+  "classe": "nome",
+  "nome": "Visibility",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 543,
+  "classe": "nome",
+  "nome": "extract_symbols_batch",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 607,
+  "classe": "nome",
+  "nome": "filter_by_kind",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 650,
+  "classe": "nome",
+  "nome": "filter_by_complexity",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "linha": 678,
+  "classe": "nome",
+  "nome": "find_by_name",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/watcher.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/wiring.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/cwe_scan.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/journal.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/languages/types.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/lib.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/lang.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/rewrite.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/scan.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/polyglot/search.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk.rs",
+  "zona": "src",
+  "linha": 66,
+  "classe": "nome",
+  "nome": "ALL",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ },
+ {
+  "arquivo": "crates/touring-code/src/sdk_signal_mirror.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/semantics/definition.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/semantics/multi_lang.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/semantics/semantics.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/semantics/source_to_def.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/types.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/modules.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/scope.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/vgp/sombra.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "zona": "tests",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "MockObserver",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 82,
+  "classe": "nome",
+  "nome": "prop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+  "zona": "tests",
+  "linha": 14,
+  "classe": "import",
+  "nome": "ParserPool",
+  "severidade": "warn",
+  "sugestao": "`ParserPool` não encontrado ao resolver `touring_code::ast::parser::ParserPool::new`"
+ },
+ {
+  "arquivo": "crates/touring-identity/src/lib.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-identity/src/registry.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-identity/src/schema.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-identity/src/types.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 62,
+  "classe": "import",
+  "nome": "MatchKind",
+  "severidade": "warn",
+  "sugestao": "`MatchKind` não encontrado ao resolver `touring_identity::MatchKind::Exact`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 134,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 69,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/client.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pool.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1265,
+  "classe": "import",
+  "nome": "Balde",
+  "severidade": "warn",
+  "sugestao": "crate `Balde` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1266,
+  "classe": "import",
+  "nome": "Escopo",
+  "severidade": "warn",
+  "sugestao": "crate `Escopo` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1267,
+  "classe": "import",
+  "nome": "Severidade",
+  "severidade": "warn",
+  "sugestao": "crate `Severidade` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Inline",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Proprio",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Deny",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1272,
+  "classe": "nome",
+  "nome": "Projeto",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1273,
+  "classe": "nome",
+  "nome": "Externo",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Forma",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Warn",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1275,
+  "classe": "nome",
+  "nome": "Dinamico",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1276,
+  "classe": "nome",
+  "nome": "Tmp",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1281,
+  "classe": "nome",
+  "nome": "Arquivo",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `super` (`super` sem item depois)",
+  "verdict": "warn"
+ }
+]

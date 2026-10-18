@@ -1,0 +1,237 @@
+{
+ "area": "B-aprendizado-memoria",
+ "ecc_resumo": "O ECC aprende por hooks que gravam 100% das chamadas de ferramenta (observe.sh, com limpeza de segredos por regex). Um observer em segundo plano (subprocesso `claude`, Haiku) lê as últimas 500 linhas e escreve 'instincts': unidades atômicas com trigger, ação, confiança 0.3-0.85, escopo e domínio. Depois, `evolve` agrupa por sobreposição de palavras do trigger, `promote` sobe de projeto para global, e import/export compartilha. Em paralelo há um cofre de memória (`memory.js`/MCP), com trust 'unreviewed', varredura de segredo e create-only, e telemetria de saúde de skills. Pontos fortes: escopo por projeto, TTL, proveniência. Ponto fraco: o decaimento e a confiança vivem no prompt do LLM, não em código.",
+ "findings": [
+  {
+   "id": "B1",
+   "mecanismo": "Instinct atômico (trigger+ação+confiança+escopo) com frontmatter fixo",
+   "evidencia_ecc": "skills/continuous-learning-v2/SKILL.md:54-60 — 'trigger: \"when writing new functions\"', 'confidence: 0.7', 'scope: project'. learn.md:58 exige descrição 'Use when <observable trigger>'.",
+   "como_funciona": "Um instinct tem um trigger e uma ação. Nasce de 3+ ocorrências, e o LLM lê a faixa de frequência (observer-loop.sh:280: 3-5=0.5, 6-10=0.7, 11+=0.85). Depois do write, o learn.md manda validar se o arquivo é descobrível.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`touring memory store --help`: flags tier/reward/outcome-context/importance/pinned/supersedes/tag. Não há campo trigger/ação. `memory stats -j`: 22133 entradas, tag_coverage 1.0.",
+   "licao_tipo": "complementar",
+   "proposta": "Lições novas levam a 1ª linha 'Use when <condição observável>' e a faceta #trigger. O `memory store` valida o formato, como o learn.md valida a descoberta. Assim o recall casa pela situação, não só por similaridade textual.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Mexe no hábito de escrita das lições; só deve valer para lições novas.",
+   "confianca": 0.7
+  },
+  {
+   "id": "B2",
+   "mecanismo": "TTL e prune de instincts pendentes",
+   "evidencia_ecc": "instinct-cli.py:133 'PENDING_TTL_DAYS = 30'; cmd_prune em :2158-2202; observer-loop.sh:516 poda antes de cada análise.",
+   "como_funciona": "O que ninguém revisa em 30 dias é apagado. O status avisa quando há 5+ pendentes ou expiração em 7 dias. O prune tem --dry-run e --quiet.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "Não há `memory prune` no help. `DELETE FROM memory_entries` só em rl/memory/codetag.rs:281 e rlm.rs:1173/1338. `memory recall` devolveu 'negative' stale (caminho congelado ~/.claude/rust e taco-forge-guard.sh). `memory stats`: 14688 bash_outcome_count.",
+   "licao_tipo": "complementar",
+   "proposta": "`memory prune --unmeasured --older-than 30d --dry-run` aposenta por tombstone (padrão `--supersedes` já existente): entradas outcome:* sem reward e nunca recuperadas. Chamar o prune no cron e no loop_phase_close.",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Aposentar lição rara mas valiosa; mitigar poupando pinned/importance>=3 e tier curado.",
+   "confianca": 0.75
+  },
+  {
+   "id": "B3",
+   "mecanismo": "Decaimento temporal de confiança",
+   "evidencia_ecc": "observer.md:136-139 — '+0.05 for each confirming', '-0.1 for each contradicting', '-0.02 per week without observation (decay)'.",
+   "como_funciona": "Só prosa para o LLM do observer. A busca por 'decay|0.02' em instinct-cli.py, observe.sh e agents/ achou apenas o observer.md; nenhum código aplica o decaimento.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "recall.rs não tem termo de tempo (único `created_at` é o INSERT, :254). rerank_by_case_value (cli/memory.rs:189) usa 3 classes de valor. tier_manager.rs:26 define demote por days_idle=35, mas `touring index find TierManager` devolve references:[] (provável órfão).",
+   "licao_tipo": "corrigir",
+   "proposta": "Ligar o TierManager a um sweep e acrescentar a classe 'envelhecida' ao rerank por valor. Decidir pelo limite inferior de Wilson (rl/ranking/wilson.rs), não por incrementos fixos. Medir antes e depois com o kpi.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Rebaixar lição atemporal; contrapor com pinned e importance.",
+   "confianca": 0.65
+  },
+  {
+   "id": "B4",
+   "mecanismo": "Promoção projeto->global, e import/export por escopo",
+   "evidencia_ecc": "instinct-cli.py:128-129 'PROMOTE_CONFIDENCE_THRESHOLD = 0.8 / PROMOTE_MIN_PROJECTS = 2'; :113 id do projeto = sha256 do remote git normalizado, [:12].",
+   "como_funciona": "Mesmo id em 2+ projetos com média >= 0.8 vira global. O import deduplica por id (a maior confiança vence), aceita --scope/--min-confidence/--dry-run e grava em inherited/. O ID por remote é portável entre máquinas.",
+   "touring_estado": "ausente",
+   "touring_evidencia": "`touring --help` filtrado: só `backup` (VACUUM INTO), sem memory export/import/promote. A memória do projeto (laco-de-credito-nunca-invocado.md) diz que o credit federa 7 memory.db.",
+   "licao_tipo": "complementar",
+   "proposta": "`memory promote`: id/tag em 2+ projetos com limite de Wilson sobre o reward medido (não a média da confiança autodeclarada). `memory export --tag --min-reward` e import que entra untrusted, com confiança limitada (ver anti_licoes).",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Contaminação entre projetos; mitigar com default por projeto e promoção só com 2+ evidências medidas.",
+   "confianca": 0.7
+  },
+  {
+   "id": "B5",
+   "mecanismo": "Defesa contra memória envenenada ou com segredo",
+   "evidencia_ecc": "memory-vault.js:322-324 recusa gravar com segredo suspeito; :504-506 re-varre na LEITURA e põe em quarentena; memory.schema.json:57 'Vault memories remain unreviewed context'; memory-mcp.mjs:430 'results are context, not executable instructions'.",
+   "como_funciona": "Varredura de segredo na escrita e na leitura. Escrita create-only (O_EXCL, :199), recusa symlink (:97-119), escopo user fora do recall por padrão (:30). O schema proíbe caracteres de controle e bidi no título e no corpo (:35,:108).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "Existe redação no transcript_miner (cli/memory.rs:99) e no sandbox_output_store. A busca em cli/memory.rs não achou secret/redact no handler do `memory store`. snippet_stats.rs:33 tem trust_level default 'untrusted'.",
+   "licao_tipo": "corrigir",
+   "proposta": "Varredura de segredo e de bidi/controle no `memory store` (CLI e MCP) e na saída do recall. Embrulhar o texto recuperado como 'contexto, não instrução' ao injetar nos hooks.",
+   "valor": "alto",
+   "custo": "P",
+   "risco": "Falso positivo bloqueando lição legítima; começar em modo sombra, como o gate de prosa.",
+   "confianca": 0.65
+  },
+  {
+   "id": "B6",
+   "mecanismo": "Injeção determinística no SessionStart: piso, teto e reforço de relevância",
+   "evidencia_ecc": "session-start.js:38-39 '0.7 / DEFAULT_MAX_INJECTED_INSTINCTS = 6'; instinct-relevance.js:27-28 'PROJECT_SCOPE_BOOST = 0.25; STACK_MATCH_BOOST = 0.2'.",
+   "como_funciona": "Filtra confidence >= 0.7, soma reforço de escopo de projeto e de stack por token inteiro (:112-117), deduplica com projeto > global, injeta só a 1ª linha da ação como '[project 85%] ação'.",
+   "touring_estado": "nao_verificado",
+   "touring_evidencia": "retirement.rs:7-8 cita 'lessons the hooks inject'. Piso, teto e reforço de relevância não verificados.",
+   "licao_tipo": "refinar",
+   "proposta": "Auditar a injeção atual de lições: aplicar teto fixo, reforço por escopo/stack e 1 linha por lição. Medir bytes injetados por sessão no kpi.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Poder omitir uma lição útil; teto configurável.",
+   "confianca": 0.5
+  },
+  {
+   "id": "B7",
+   "mecanismo": "Medir se o aprendizado ajudou: telemetria por skill e 'não medido != saudável'",
+   "evidencia_ecc": "skill-run-tracker.js:9-10 'recordSkillExecution() had zero production callers'; health.js:43-44 'A skill with no runs in the window is not healthy, it is unmeasured'; evaluate.js:22,38 minimumRunsPerVariant=2.",
+   "como_funciona": "Hook PostToolUse grava cada Skill em JSONL (cap 5000, modo 0600, versão da skill). A saúde compara 7d x 30d com tendência 'worsening' se delta <= -0.1 (health.js:118-136). Propostas de emenda têm A/B baseline x amended.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`memory credit --help` e `learning experiment` existem (laço recall->veredito, log A/B). rl/ranking tem wilson/cusum/page_hinkley. `touring kpi -j` (chaves até profundidade 2) não mostra bloco de saúde por skill. `gotcha stats`: total_hits 388834, total_prevented 0.",
+   "licao_tipo": "complementar",
+   "proposta": "Tracker de Skill com skill_version e bucket 'unmeasured' no kpi. Dar produtor ao prevented_errors dos gotchas (hoje 0 contra 388834 acertos).",
+   "valor": "alto",
+   "custo": "M",
+   "risco": "Atribuir resultado à skill errada; versão no registro ajuda.",
+   "confianca": 0.6
+  },
+  {
+   "id": "B8",
+   "mecanismo": "Evolve: agrupar instincts em skill/comando/agente",
+   "evidencia_ecc": "instinct-cli.py:1157-1159 'Jaccard is the wrong metric here: trigger keyword sets average ~7 words'; threshold 0.5 e 2 palavras em comum (:1160,:1163); evolve.md:132-135 'evolved_from'.",
+   "como_funciona": "Clustering guloso pelo coeficiente de sobreposição (compartilhado/menor conjunto). Com --generate escreve arquivos em evolved/{skills,commands,agents}, citando a origem em `evolved_from`.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`memory moc` e `memory communities` existem (propagação de rótulos sobre tags+links); `communities -j` devolveu comunidades rotuladas. Geram mapa, não rascunho de skill. rl/templates/evolving.rs poda templates.",
+   "licao_tipo": "complementar",
+   "proposta": "`memory moc --emit-skill`: comunidade com N lições de reward positivo vira rascunho de skill com `evolved_from` listando as chaves. Humano aprova, como o /learn.",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Rascunho genérico demais; exigir a faceta #trigger (B1).",
+   "confianca": 0.55
+  },
+  {
+   "id": "B9",
+   "mecanismo": "Proveniência (quem/onde/quando gerou) por unidade aprendida",
+   "evidencia_ecc": "provenance.schema.json:29 'required: source, created_at, confidence, author'; provenance.js:80-83 obrigatório para skills learned/imported; memory.schema.json exige sourceHarness/targetHarnesses.",
+   "como_funciona": "Skill aprendida ou importada exige .provenance.json. Promote grava promoted_from/seen_in_projects; import grava imported_from; a memória registra o harness de origem.",
+   "touring_estado": "parcial",
+   "touring_evidencia": "`memory store --help` não tem --source/--author. Há arestas tipadas (`memory link --rel`) e `link_provenance` em loop_phase_close.py:236-247. Há sessões irmãs Kimi/MiniMax e subagentes escrevendo memória.",
+   "licao_tipo": "complementar",
+   "proposta": "Faceta automática #source (modelo/sessão/harness) e #author em todo `memory store`, lida pelo recall. Sem isso a lição de sessão irmã é indistinguível da curada.",
+   "valor": "medio",
+   "custo": "P",
+   "risco": "Baixo.",
+   "confianca": 0.7
+  },
+  {
+   "id": "B10",
+   "mecanismo": "Detecção de padrões: captura determinística + análise por LLM com contrato de conclusão",
+   "evidencia_ecc": "observer.md:34-64 (correções, resoluções de erro, workflows repetidos, preferências de ferramenta); observer-loop.sh:458-461 'completion record missing); retaining observations for retry'; observe.sh:168 'subagent sessions are automated by definition'.",
+   "como_funciona": "O hook grava 100% dos eventos, com 5 camadas contra auto-observação. Um LLM Haiku analisa 500 linhas; o arquivamento só ocorre após o registro exato de conclusão (:441).",
+   "touring_estado": "parcial",
+   "touring_evidencia": "cli/memory.rs:103-108: o transcript_miner só persiste correções VALIDADAS ('unresolved failures are not actionable'). `evolution insights` mede 1379 bash outcomes. Detectores de correção do usuário e de workflow repetido: não encontrados.",
+   "licao_tipo": "complementar",
+   "proposta": "Adicionar detectores determinísticos (sem LLM): sequência de ferramentas repetida 3+ vezes e reversão/correção do usuário. Entram como lição untrusted, subindo por medição (B7).",
+   "valor": "medio",
+   "custo": "M",
+   "risco": "Ruído; começar em sombra e medir precisão com Wilson.",
+   "confianca": 0.55
+  }
+ ],
+ "anti_licoes": [
+  "Decaimento e confiança são prosa para o LLM (observer.md:136-139; SKILL.md:339-342), sem código que os aplique. É o D8 do Touring: o enforcement tem de morar no executor.",
+  "Import mantém a confiança da fonte (instinct-cli.py:1041) e o SessionStart injeta tudo >= 0.7 (session-start.js:493,526-530): um arquivo HTTPS remoto planta instrução com 0.95 em toda sessão. O vault trata memória como 'unreviewed', mas instincts não têm isso. Se o Touring copiar o import, ele deve entrar untrusted, com teto de confiança.",
+  "A confiança é autodeclarada pelo LLM por tabela de frequência (observer-loop.sh:280) e a promoção usa a média dela (instinct-cli.py:1672). O Touring usa reward medido e Wilson: manter.",
+  "O gate A/B promove com n=2 por variante e qualquer delta positivo (evaluate.js:22,38). Pior que a doutrina do Touring (taxa pontual aprova o que o limite reprova).",
+  "Haiku escreve instincts direto com Write, em `--print`, sem revisão (observer-loop.sh:269-273). O único freio é o TTL.",
+  "commands/checkpoint.md:18 manda criar 'git stash or commit'; stash como guarda é banido no Touring (REGRA #11).",
+  "O ranking lexical fixo do cofre (memory-vault.js:555-577) é inferior ao RRF BM25+TF-IDF+ANN com classes de valor do Touring."
+ ],
+ "claims_nao_verificados": [
+  "Se os hooks do Touring injetam lições no SessionStart com piso, teto e reforço (B6).",
+  "Se TierManager é órfão: o index mostra references:[] e o wiring mostra 2 consumidores diretos, mas não distingui blocos impl de consumidores reais.",
+  "Se o `memory store` via MCP varre segredo: só li cli/memory.rs, não todo o crate.",
+  "Nada do ECC foi executado (restrição): comportamento de runtime do observer e do instinct-cli é leitura estática.",
+  "Não li observer-loop.sh:345-440 (escolha do modelo), session-end.js completo, state-store.schema.json (só chaves) nem o corpo dos testes (só contagem de casos).",
+  "Se a causa de `touring` e `cargo` terem Wilson 0 em `evolution tools` (10 tentativas cada) é efeito real ou artefato de classificação de exit code."
+ ],
+ "symbol_verification": [
+  {
+   "simbolo_ou_caminho": "skills/continuous-learning-v2/scripts/instinct-cli.py (PENDING_TTL_DAYS, PROMOTE_*, cmd_prune)",
+   "categoria": "found",
+   "evidencia": "Lido nas linhas 126-136, 1150-1305, 1429-1490, 1604-1745, 2082-2208."
+  },
+  {
+   "simbolo_ou_caminho": "decay no código do ECC",
+   "categoria": "not_found",
+   "evidencia": "Busca por decay|0.02|per week|contradict em instinct-cli.py, observe.sh, agents/, instinct-relevance.test.js: único achado é observer.md:137-139."
+  },
+  {
+   "simbolo_ou_caminho": "scripts/lib/memory-vault.js e memory-vault-format.js",
+   "categoria": "found",
+   "evidencia": "saveMemory :319-345, scoreMemory :555-578, SECRET_PATTERNS em memory-vault-format.js:49-59."
+  },
+  {
+   "simbolo_ou_caminho": "scripts/lib/skill-evolution/{provenance,tracker,health}.js e skill-improvement/{evaluate,health}.js",
+   "categoria": "found",
+   "evidencia": "Lidos nos trechos citados nos findings B7 e B9."
+  },
+  {
+   "simbolo_ou_caminho": "touring memory credit / learning experiment / memory moc / communities",
+   "categoria": "found",
+   "evidencia": "Subcomandos listados em `touring memory --help` e `touring learning --help` (30.4.96); `communities -j` devolveu comunidades."
+  },
+  {
+   "simbolo_ou_caminho": "memory export/import/prune em touring",
+   "categoria": "not_found",
+   "evidencia": "`touring memory --help` e `touring --help` filtrado: ausentes; só `backup`."
+  },
+  {
+   "simbolo_ou_caminho": "TierManager (rl/memory/tier_manager.rs:97)",
+   "categoria": "found",
+   "evidencia": "`touring index find TierManager`: 3 definições, references:[]."
+  },
+  {
+   "simbolo_ou_caminho": "crates/touring-intelligence/src/rl/memory/retirement.rs, recall.rs",
+   "categoria": "found",
+   "evidencia": "retirement.rs:1-39 lido; recall.rs só tem created_at no INSERT (:254)."
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/projects/-home-gabrielgadea-projects-touring/memory (auto-memory)",
+   "categoria": "found_via_grep",
+   "evidencia": "237 arquivos; frontmatter só com name/description/metadata (script fora do sandbox)."
+  },
+  {
+   "simbolo_ou_caminho": "/home/gabrielgadea/projects/touring/.remember/",
+   "categoria": "found",
+   "evidencia": "recent.md tem 'Identity Candidates'; tmp/rejected-20260918-073410-4180629.md existe."
+  },
+  {
+   "simbolo_ou_caminho": "~/.claude/skills/loop-engineering/scripts/loop_phase_close.py",
+   "categoria": "found",
+   "evidencia": "store_memory :169, credit_recalls :197-227, reward :230, link_provenance :236."
+  },
+  {
+   "simbolo_ou_caminho": "docs/memory-hashtag-library.md",
+   "categoria": "found",
+   "evidencia": "Cabeçalhos: 7 facetas, auto-tagging, codetags, consulta, MOCs, KPI."
+  }
+ ],
+ "cobertura": {
+  "arquivos_lidos": 48,
+  "principais": [
+   "skills/continuous-learning-v2/{SKILL.md,agents/*,hooks/observe.sh,scripts/instinct-cli.py}",
+   "commands/{learn,learn-eval,evolve,promote,instinct-*,checkpoint}.md",
+   "scripts/{memory.js,memory-mcp.mjs,session-inspect.js}",
+   "scripts/lib/{memory-vault,instinct-relevance,skill-evolution,skill-improvement}",
+   "schemas/{memory,provenance,state-store}.schema.json",
+   "touring: rl/memory/{recall,retirement,tier_manager}.rs, cli/memory.rs, CLI runs"
+  ],
+  "nao_lidos": "observer-loop.sh:345-440, session-end.js e pre-compact.js completos, corpo dos testes, detect-project.sh, start-observer.sh, state-store.schema.json (só chaves), docs/drafts (sem relação com memória)."
+ }
+}

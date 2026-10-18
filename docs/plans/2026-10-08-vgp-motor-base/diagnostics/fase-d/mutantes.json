@@ -1,0 +1,289 @@
+{
+ "controle": "76 passed in 26.75s",
+ "mortos": 47,
+ "total": 47,
+ "mutantes": [
+  {
+   "id": "A01",
+   "regra": "A/A instr: faixa frouxa [0,90; 1,10]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A02",
+   "regra": "A/A instr: faixa apertada [0,999; 1,001]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A03",
+   "regra": "A/A cpu: faixa frouxa [0,80; 1,20]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A04",
+   "regra": "A/A cpu: faixa apertada [0,99; 1,01]",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A05",
+   "regra": "A/B: teto 1,30 em vez de 1,10",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A06",
+   "regra": "A/B: teto 1,02 em vez de 1,10",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A07",
+   "regra": "absoluto: 1500 ms em vez de 150",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A08",
+   "regra": "absoluto: 15 ms em vez de 150",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A09",
+   "regra": "semente 20261017 (a do C') em vez de 20261018",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A10",
+   "regra": "bootstrap com 200 reamostras em vez de 2000",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A11",
+   "regra": "ausencia tolerada ate 50% em vez de 1%",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_constantes_pre_registradas"
+  },
+  {
+   "id": "A12",
+   "regra": "regua re-escolhida depois do A/B (a que passa melhor)",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]"
+  },
+  {
+   "id": "A13",
+   "regra": "regua invertida no A/B",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]"
+  },
+  {
+   "id": "A14",
+   "regra": "A/B sempre nas instrucoes",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ab_na_regua_da_cpu[1.15-esperado2]"
+  },
+  {
+   "id": "A15",
+   "regra": "A/A prefere a CPU quando as duas valem",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_instrucoes_estaveis_escolhe_instrucoes"
+  },
+  {
+   "id": "A16",
+   "regra": "A/A confere so o limite superior da faixa",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_aa_com_instrucoes_3pct_mais_baixas_tambem_cai_para_a_cpu"
+  },
+  {
+   "id": "A17",
+   "regra": "A/B nao olha o R_p95",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_uma_cauda_mais_lenta_so_nas_instrucoes_e_pega_pelo_r_p95"
+  },
+  {
+   "id": "A18",
+   "regra": "A/B nao olha o R_tipico",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_o_r_tipico_sozinho_tambem_reprova"
+  },
+  {
+   "id": "A19",
+   "regra": "ausencia vira zero",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_contador_indisponivel_e_inconclusivo[aa-kw0]"
+  },
+  {
+   "id": "A20",
+   "regra": "campo ausente nao conta como chamadas esperadas",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_cli_fase_c_reproduz_o_comportamento_antigo"
+  },
+  {
+   "id": "A21",
+   "regra": "limite de ausencia em chamadas removido",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_ausencia_acima_de_1pct_das_chamadas_e_inconclusiva"
+  },
+  {
+   "id": "A22",
+   "regra": "regra do C' (parede por id) removida",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_parede_ausente_acima_de_1pct_dos_ids_e_inconclusiva_como_no_c_linha"
+  },
+  {
+   "id": "A23",
+   "regra": "id sem outra medida continua nas reguas",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_id_sem_parede_sai_de_todas_as_reguas_mesmo_abaixo_de_1pct"
+  },
+  {
+   "id": "A24",
+   "regra": "absoluto vira portao tambem no V3",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_absoluto_v3_e_so_relatado"
+  },
+  {
+   "id": "A25",
+   "regra": "absoluto nunca e portao",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_absoluto_v2_acima_de_150ms_reprova_mesmo_sem_regressao_relativa"
+  },
+  {
+   "id": "A26",
+   "regra": "absoluto pelo p95 das medianas por id, nao das chamadas",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_o_absoluto_e_o_p95_das_chamadas_de_b_nao_das_medianas"
+  },
+  {
+   "id": "A27",
+   "regra": "juiz sempre v2",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_cli_deduz_o_juiz_v3_dos_args_do_pareado"
+  },
+  {
+   "id": "A28",
+   "regra": "A/B le o A/B mesmo com A/A inadequado",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_cli_aa_inadequado_nao_le_o_ab"
+  },
+  {
+   "id": "A29",
+   "regra": "referencia do A/B pode diferir da do A/A",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_cli_ab_com_referencia_diferente_da_do_aa_e_erro_de_uso"
+  },
+  {
+   "id": "A30",
+   "regra": "A/B sem veredito do A/A e aceito",
+   "estado": "killed",
+   "por": "test_analisa_pareado_d.py::test_cli_ab_sem_aa_e_erro_de_uso"
+  },
+  {
+   "id": "L01",
+   "regra": "soma de PMUs perde uma (so a primeira)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_instrucoes_crescem_com_o_trabalho"
+  },
+  {
+   "id": "L02",
+   "regra": "instr_atom some do JSON",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_a_soma_das_pmus_nao_perde_uma"
+  },
+  {
+   "id": "L03",
+   "regra": "contador indisponivel vira 0 (e nao null)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_comando_que_nao_executa_nao_vira_zero"
+  },
+  {
+   "id": "L04",
+   "regra": "descendentes nao contados (sem inherit)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_o_neto_e_contado_nas_instrucoes_e_na_cpu"
+  },
+  {
+   "id": "L05",
+   "regra": "conta tambem o python entre o fork e o exec (sem enable_on_exec)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_o_que_o_filho_executa_antes_do_exec_nao_conta"
+  },
+  {
+   "id": "L06",
+   "regra": "conta o kernel (sem exclude_kernel)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_instrucoes_crescem_com_o_trabalho"
+  },
+  {
+   "id": "L07",
+   "regra": "rc do JSON sempre 0",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_o_codigo_de_saida_e_o_do_filho"
+  },
+  {
+   "id": "L08",
+   "regra": "codigo de saida do lancador sempre 0",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_o_codigo_de_saida_e_o_do_filho"
+  },
+  {
+   "id": "L09",
+   "regra": "cpu_ms sem o stime",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_cpu_ms_e_utime_mais_stime"
+  },
+  {
+   "id": "L10",
+   "regra": "falha de exec ignorada (le o contador que nunca ligou)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_comando_que_nao_executa_nao_vira_zero"
+  },
+  {
+   "id": "L11",
+   "regra": "o comando sobrevive ao lancador (sem PDEATHSIG)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_matar_o_lancador_mata_o_comando"
+  },
+  {
+   "id": "L12",
+   "regra": "PMU que nao abre e pulada (a soma segue sem ela)",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_contador_indisponivel_vira_null_com_o_motivo[13]"
+  },
+  {
+   "id": "L13",
+   "regra": "leitura 0 aceita como 0",
+   "estado": "killed",
+   "por": "test_conta_custo.py::test_leitura_zero_depois_de_um_exec_valido_nao_vira_zero"
+  },
+  {
+   "id": "P01",
+   "regra": "leitura ausente do lancador vira 0",
+   "estado": "killed",
+   "por": "test_tempos_pareados.py::test_leitura_ausente_e_null_nunca_zero"
+  },
+  {
+   "id": "P02",
+   "regra": "instr_A/instr_B trocados",
+   "estado": "killed",
+   "por": "test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo"
+  },
+  {
+   "id": "P03",
+   "regra": "a chamada nao passa pelo lancador",
+   "estado": "killed",
+   "por": "test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo"
+  },
+  {
+   "id": "P04",
+   "regra": "ordem AABBAABB em vez de ABBABAAB",
+   "estado": "killed",
+   "por": "test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo"
+  }
+ ]
+}

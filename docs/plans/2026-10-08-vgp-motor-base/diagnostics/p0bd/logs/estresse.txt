@@ -1,0 +1,16 @@
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.16s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.40s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.39s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.29s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.36s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.40s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.16s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.12s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.25s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.29s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.29s  rc=0
+test result: ok. 181 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.31s  rc=0
+FIM

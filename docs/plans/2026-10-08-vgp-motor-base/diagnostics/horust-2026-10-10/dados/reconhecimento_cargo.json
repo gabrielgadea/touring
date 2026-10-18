@@ -1,0 +1,51 @@
+{
+ "por_semana": {
+  "2026-W37": {
+   "reconhecido": 99,
+   "NAO reconhecido": 18
+  },
+  "2026-W38": {
+   "reconhecido": 319,
+   "NAO reconhecido": 186
+  },
+  "2026-W39": {
+   "NAO reconhecido": 103,
+   "reconhecido": 612
+  },
+  "2026-W40": {
+   "NAO reconhecido": 96,
+   "reconhecido": 102
+  },
+  "2026-W41": {
+   "NAO reconhecido": 213,
+   "reconhecido": 243
+  }
+ },
+ "nao_reconhecidos_por_prefixo (top 25)": {
+  "cd ~/projects/touring && ./scripts/hw-slot --class rust -- bash -c '": 28,
+  "/hw-slot --class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE": 13,
+  "-directory=$PWD --setenv=PATH=\"$PATH\" --setenv=HOME=\"$HOME\" bash -c \"{": 11,
+  "cd <path> && ./scripts/hw-slot --class rust --": 9,
+  "out=$(timeout N": 9,
+  "--setenv=CARGO_BUILD_JOBS=N bash -c 'D=target/audit-N-N-N/r2/canvas-d;": 9,
+  "onment=no --working-directory=<path> bash -c ' R=target/audit-N-N-N/r2": 8,
+  "cd ~/projects/touring && ./scripts/hw-slot --class rust --": 7,
+  "g && ./scripts/hw-slot --class rust -- bash -c 'S8_CORPUS_JSONL=<path>": 6,
+  "cd <path> && set -o pipefail; env -u TOURING_CODE_MODE timeout N": 6,
+  "1-47fe-b057-e2111fa79e97/scratchpad && scripts/hw-slot --class rust --": 6,
+  "-class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE bash -c '": 6,
+  "et -o pipefail; env -u TOURING_CODE_MODE -u TOURING_OSV_SCAN timeout N": 5,
+  "touring/logs; env -u TOURING_R3_SHADOW scripts/hw-slot --class rust --": 5,
+  "k-arg=-lasan -C force-frame-pointers=yes\" CARGO_BUILD_JOBS=N timeout N": 5,
+  "CARGO_BUILD_JOBS=N taskset -c N-N,N-N": 5,
+  "cd <path> && env -u TOURING_CODE_MODE timeout N": 4,
+  "0 && export CARGO_TARGET_DIR=<path> && <path> --class rust --wait N --": 4,
+  "RGO_TARGET_DIR=<path> && for i in N N N N N; do <path> --class rust --": 4,
+  "1fa79e97/scratchpad && hw-slot --class rust --label r3-eng --wait N --": 3,
+  " echo \"$name exit=$?\"; } run fmt cargo fmt --all --check run clippy_ws": 3,
+  "xport CARGO_TARGET_DIR=<path> && nohup <path> --class rust --wait N --": 3,
+  "t --all -- --check > \"$0_fmt.log\" N>&N; echo \"EXIT=$?\" >> \"$0_fmt.log\"": 3,
+  "scripts/hw-slot --class rust -- bash -c 'TOURING_CODE_GATES_DISABLED=N": 2,
+  "sabled) PREFIX=\"env TOURING_CODE_GATES_DISABLED=N\";; esac; R=$($PREFIX": 2
+ }
+}

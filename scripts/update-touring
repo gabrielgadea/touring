@@ -96,7 +96,9 @@ readonly LOG_FILE="${HOME}/.claude/touring/update.log"
 # Sprint 4.5 (2026-05-23): dedicated stderr capture for daemon — separate
 # from LOG_FILE so panics + RUST_BACKTRACE land in a clean, isolated stream
 # that survives across restarts and is easy to grep without script noise.
-readonly DAEMON_STDERR="${HOME}/.claude/touring/daemon-stderr.log"
+# Same file the Rust spawner appends to (crates/touring-hooks/src/main.rs, `daemon.stderr.log`): until
+# 18/10/2026 this said `daemon-stderr.log` and rotated a file nobody wrote (test_update_touring.py guards it).
+readonly DAEMON_STDERR="${HOME}/.claude/touring/daemon.stderr.log"
 readonly DAEMON_CRASH_LOG="${HOME}/.claude/touring/daemon-crash.jsonl"
 # Stderr rotation threshold — 10 MiB. Anything bigger gets renamed to .old
 # at the start of each daemon spawn (one generation kept).
@@ -377,7 +379,7 @@ start_daemon() {
         sz=$(stat -c%s "${DAEMON_STDERR}" 2>/dev/null || echo 0)
         if (( sz > DAEMON_STDERR_MAX_BYTES )); then
             mv -f "${DAEMON_STDERR}" "${DAEMON_STDERR}.old"
-            log "rotated daemon-stderr.log (was ${sz} bytes)"
+            log "rotated $(basename "${DAEMON_STDERR}") (was ${sz} bytes)"
         fi
     fi
 
