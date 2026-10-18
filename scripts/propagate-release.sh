@@ -33,8 +33,12 @@
 #
 # ETAPAS:
 #   1. gates      cargo check + clippy --all-targets -D warnings + espelho client/
-#                 + update-touring versionado + testes dos crates tocados (REGRA #21)
-#   2. build      update-touring  (L1 → dev: build + install dual-target + restart)
+#                 + update-touring versionado + build do release (os e2e executam
+#                 target/release/touring; sem --skip-build) + testes dos crates
+#                 tocados (REGRA #21). Todo job espera a vaga rust por
+#                 PROPAGATE_SLOT_WAIT segundos (default 7200) em vez dos 600 do hw-slot.
+#   2. build      update-touring  (L1 → dev: build + install dual-target + restart;
+#                 o build já feito no gate 1 vira no-op do cargo)
 #   3. freeze     touring toolchain install --from-source . <v> --force  (L2)
 #   4. default    touring toolchain default <v>                          (L2)
 #   5. propagate  touring update <v> --project <p>, projeto a projeto      (L4)
@@ -136,6 +140,56 @@ run() {
 # predicado não podem divergir.
 CLIPPY_GATE=(cargo clippy --workspace --all-targets -- -D warnings)
 
+# hw-slot's own default wait is 600 s (HW_SLOT_WAIT_SECS). A sibling job holding the
+# rust slot longer made gate 1/6 die «sem vaga» after two attempts with NO test run
+# (R97, 18/10/2026: a 40-min batch). The release QUEUES for the slot instead — 2 h by
+# default, PROPAGATE_SLOT_WAIT overrides; rc 75 after that is still «sem vaga».
+SLOT_WAIT="${PROPAGATE_SLOT_WAIT:-7200}"
+[[ "$SLOT_WAIT" =~ ^[0-9]+$ ]] \
+    || die "PROPAGATE_SLOT_WAIT='$SLOT_WAIT' não é um número de segundos"
+
+# The label target/release/touring declares. `--version` is MULTI-LINE (version + sha
+# + date + features) and goes to STDERR: read it whole and cut the 1st line in pure
+# bash — `| head -1` closes the pipe early and the binary dies of EPIPE/SIGABRT, and
+# `awk '{print $NF}'` on the whole output reads the last FEATURE. One reader for gate
+# 1/6 and the 2.5 guard: two copies of a predicate never meet.
+built_label() {
+    local ver
+    ver="$("$WORKSPACE/target/release/touring" --version 2>&1)"
+    awk '{print $NF}' <<< "${ver%%$'\n'*}"
+}
+
+# The release binaries the e2e suites spawn (target/release/touring{,-daemon}) are
+# built in gate 1/6, BEFORE the package tests. Until 18/10/2026 they were built only in
+# step 2/6, so the gate's e2e tests exercised the PREVIOUS release: 30.4.97 died on
+# `version_matches_crate_version` («got: touring 30.4.96»), and every e2e that passed
+# in that gate was evidence about the wrong artifact. Step 2's update-touring then
+# finds the build fresh (a cargo no-op). With --skip-build nothing is built, and the
+# label check is what refuses a stale binary.
+RELEASE_BUILD_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-build --wait "$SLOT_WAIT" -- cargo build --release --workspace)
+build_release_binaries() {
+    local rc=0 got
+    if [ "$SKIP_BUILD" -eq 1 ]; then
+        log "build do release pulado (--skip-build): os e2e usam o target/release existente"
+    else
+        echo "  ${BOLD}\$${RESET} ${RELEASE_BUILD_CMD[*]}"
+        ( cd "$WORKSPACE" && "${RELEASE_BUILD_CMD[@]}" ) || rc=$?
+        # Same rc contract as run_release_tests (75 = no slot, 70 = machine check), but
+        # any build failure aborts: there is nothing to test without the binary.
+        if [ "$rc" -eq 75 ]; then
+            die "build do release: sem vaga no hw-slot (rc 75) em ${SLOT_WAIT}s — nada foi construído; libere a máquina (scripts/hw-slot --status) ou aumente PROPAGATE_SLOT_WAIT"
+        elif [ "$rc" -eq 70 ]; then
+            die "build do release: machine check (hw-slot rc 70) — um build verde não prova nada numa máquina com falha de hardware"
+        elif [ "$rc" -ne 0 ]; then
+            die "cargo build --release --workspace falhou (rc $rc) — não se testa nem se propaga build quebrada"
+        fi
+    fi
+    got="$(built_label)"
+    [ "$got" = "$VERSION" ] \
+        || die "o target/release/touring declara '$got', alvo '$VERSION' — os e2e do gate mediriam o binário errado; faça o bump no Cargo.toml (version = \"$VERSION\") e rode sem --skip-build"
+    log "binário do release declara $VERSION — é ele que os e2e do gate medem"
+}
+
 # Features que `cargo test -p <pkg>` isolado precisa. `-p` sozinho NÃO herda a
 # unificação de features do workspace: o touring-hook-handlers nem compila sem
 # estas duas (CLAUDE.md §13b).
@@ -148,7 +202,7 @@ declare -A TEST_FEATURES=(
 TEST_CMD=()
 build_test_cmd() {
     local pkg="$1" feats="${TEST_FEATURES[$1]:-}"
-    TEST_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-tests -- cargo test -p "$pkg" --no-fail-fast)
+    TEST_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-tests --wait "$SLOT_WAIT" -- cargo test -p "$pkg" --no-fail-fast)
     if [ -n "$feats" ]; then
         TEST_CMD+=(--features "$feats")
     fi
@@ -330,7 +384,10 @@ else
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 python3 -m pytest scripts/test_skill_size_guard.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)"
-        echo "  ${YELLOW}[dry-run]${RESET} scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot, 1 re-medição)"
+        echo "  ${YELLOW}[dry-run]${RESET} scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot com --wait ${SLOT_WAIT}, 1 re-medição)"
+        if [ "$SKIP_BUILD" -eq 0 ]; then
+            echo "  ${YELLOW}[dry-run]${RESET} ${RELEASE_BUILD_CMD[*]}"
+        fi
         echo "  ${YELLOW}[dry-run]${RESET} testes dos crates tocados desde o último release: ${#release_pkgs[@]} pacote(s), 1 por vez sob o hw-slot (rc 75 = sem vaga: repete 1×)"
         for pkg in "${release_pkgs[@]}"; do
             build_test_cmd "$pkg"
@@ -408,10 +465,13 @@ else
         # achado D; decisão A do Gabriel). O benchmark é #[ignore] (sensível a
         # carga) e sem este gate nada o roda. O script faz UMA re-medição e exige
         # a prova de que o teste rodou (filtro que não casa sai 0 — gate cego).
-        ( cd "$WORKSPACE" && "$WORKSPACE/scripts/r3-s1a-gate" ) \
+        # The same slot wait as the gate's own jobs (the S1a's default runner would wait 600 s).
+        ( cd "$WORKSPACE" && S1A_RUNNER="$WORKSPACE/scripts/hw-slot --class rust --wait $SLOT_WAIT --" "$WORKSPACE/scripts/r3-s1a-gate" ) \
             || die "S1a (custo do emissor r3) reprovou — veja a saída acima; o limite é o do teste, não se afrouxa aqui"
         # Testes dos crates tocados (09/10/2026) — por último de propósito: é o gate mais
-        # pesado e o S1a acima é uma MEDIÇÃO de custo, sensível à máquina quente.
+        # pesado e o S1a acima é uma MEDIÇÃO de custo, sensível à máquina quente. O build
+        # do release vem logo antes: os e2e desses testes executam o binário construído.
+        build_release_binaries
         run_release_tests
         log "${GREEN}gates OK${RESET}"
     fi
@@ -442,8 +502,7 @@ if [ "$DRY_RUN" -eq 0 ]; then
     # cortar a 1ª linha em bash puro — um `| head -1` fecha o pipe cedo e o
     # binário morre de EPIPE/SIGABRT (a classe já documentada no passo 6), e um
     # `awk '{print $NF}'` na saída inteira lê o último campo das FEATURES.
-    ver="$("$WORKSPACE/target/release/touring" --version 2>&1)"
-    BUILT_VERSION="$(awk '{print $NF}' <<< "${ver%%$'\n'*}")"
+    BUILT_VERSION="$(built_label)"
     if [ "$BUILT_VERSION" != "$VERSION" ]; then
         die "rótulo divergente: o binário construído declara '$BUILT_VERSION', alvo '$VERSION' — faça o bump no Cargo.toml do workspace (version = \"$VERSION\") antes de propagar"
     fi
