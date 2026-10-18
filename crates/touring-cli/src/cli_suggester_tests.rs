@@ -826,6 +826,80 @@ fn classify_via_dispatch_task_returns_some() {
     assert!(out.confidence >= 0.7);
 }
 
+/// The Claude Code tool that spawns a sub-agent is named `Agent` (`Task` is the legacy name).
+/// The input below is the shape measured in the 2026-10 transcripts: `description`, `prompt`,
+/// `subagent_type` (optional), `model` (optional), `run_in_background` (optional).
+fn agent_tool_input() -> Value {
+    json!({
+        "description": "map the routing gate callers",
+        "prompt": "Find every caller of agent_model_gate and report file:line.",
+        "subagent_type": "Explore",
+        "model": "haiku",
+        "run_in_background": true
+    })
+}
+
+#[test]
+fn classify_via_dispatch_agent_returns_some() {
+    let out = classify("Agent", &agent_tool_input())
+        .expect("the nudge must fire for the `Agent` tool — `Task` is only the legacy name");
+    assert_eq!(out.cluster, "agent-delegation-Explore");
+    assert!(out.confidence >= 0.7, "must pass the 0.7 gate");
+}
+
+#[test]
+fn agent_and_legacy_task_dispatch_to_the_same_classifier() {
+    let input = agent_tool_input();
+    let agent = classify("Agent", &input).expect("Agent emits");
+    let task = classify("Task", &input).expect("legacy Task keeps emitting");
+    assert_eq!(agent.cluster, task.cluster);
+    assert_eq!(agent.confidence, task.confidence);
+    assert_eq!(agent.reason, task.reason);
+}
+
+#[test]
+fn classify_task_reads_the_fields_the_agent_tool_carries() {
+    // `description` travels into the memory-recall (density invariant, no placeholder).
+    let out = classify_task(&agent_tool_input()).expect("emits");
+    let recall = out
+        .should
+        .iter()
+        .find(|c| c.command.contains("memory recall"))
+        .expect("SHOULD carries a memory recall");
+    assert!(
+        recall.command.contains("map the routing gate callers"),
+        "description travels: {}",
+        recall.command
+    );
+
+    // No `subagent_type` (40 of 141 measured Agent calls) → the generic cluster, not a crash.
+    let bare = json!({ "description": "x", "prompt": "y", "model": "sonnet" });
+    assert_eq!(
+        classify_task(&bare).expect("emits").cluster,
+        "agent-delegation"
+    );
+
+    // No `description` → `prompt` is the fallback the recall query uses.
+    let prompt_only = json!({ "prompt": "audit the retry loop" });
+    let out = classify_task(&prompt_only).expect("emits");
+    assert!(
+        out.should
+            .iter()
+            .any(|c| c.command.contains("audit the retry loop")),
+        "prompt is the fallback query"
+    );
+}
+
+#[test]
+fn classify_confidence_is_some_for_the_agent_tool() {
+    // `classify_confidence` is the public face of the dispatch table (the Phase-1 gate reads it).
+    assert_eq!(
+        classify_confidence("Agent", &agent_tool_input()),
+        classify_confidence("Task", &agent_tool_input())
+    );
+    assert!(classify_confidence("Agent", &agent_tool_input()).is_some());
+}
+
 #[test]
 fn classify_webfetch_with_url_returns_some_web_fetch_cluster() {
     let input = json!({

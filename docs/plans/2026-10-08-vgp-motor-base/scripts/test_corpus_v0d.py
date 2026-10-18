@@ -375,6 +375,7 @@ def test_comando_replay_preserva_o_timeout_declarado():
     cmd = corpus_v0d.comando_replay(
         "touring run --timeout-ms 120000 --code 'print(1)'", "print(1)\n"
     )
+    assert cmd is not None
     assert cmd.startswith("timeout 120 python3 -c ")
 
 
@@ -383,6 +384,7 @@ def test_comando_replay_preserva_sufixo_de_pipe():
     cmd = corpus_v0d.comando_replay(
         "touring run --code 'print(1)' 2>&1 | head -3", "print(1)\n"
     )
+    assert cmd is not None
     assert "|" not in cmd and "head" not in cmd
 
 
@@ -486,6 +488,7 @@ def test_comando_replay_lang_python_segue_python_c():
     cmd = corpus_v0d.comando_replay(
         "touring run --lang python --code 'print(1)'", "print(1)\n"
     )
+    assert cmd is not None
     assert "python3 -c " in cmd and "bash" not in cmd
 
 
@@ -543,10 +546,23 @@ def test_programa_para_replay_nao_inline_extrai_o_code():
     --code/--file do comando (o wrapper bash que chama python3 /tmp/x.py). Alimentar o bash -c com o
     snapshot python foi o bug medido em 5 entradas (bash: -c: syntax error)."""
     cmd = "touring run --lang bash --timeout-ms 300000 --code 'cd /p && python3 /tmp/x.py'"
-    # inline: o snapshot É o programa
+    # inline sob `--lang python`: o snapshot É o programa (o `python3 -c` do replay recebe esse texto)
+    assert (
+        corpus_v0d._programa_para_replay(
+            "touring run --lang python --code 'raise KeyError'",
+            "inline",
+            "raise KeyError\n",
+            "s",
+            "t",
+        )
+        == "raise KeyError\n"
+    )
+    # TROCADO (09/10): inline sob `--lang bash` devolvia o snapshot, porque o extrator antigo gravava o
+    # PRÓPRIO texto bash como "programa". Agora o snapshot é o Python que o bash executou por dentro
+    # (shell_inline); o replay fiel roda o wrapper inteiro — `bash -c <--code bruto>` — e não o Python.
     assert (
         corpus_v0d._programa_para_replay(cmd, "inline", "raise KeyError\n", "s", "t")
-        == "raise KeyError\n"
+        == "cd /p && python3 /tmp/x.py\n"
     )
     # tmp/atribuido: o programa é o --code extraído do comando, NUNCA o snapshot
     got = corpus_v0d._programa_para_replay(
@@ -555,6 +571,388 @@ def test_programa_para_replay_nao_inline_extrai_o_code():
     assert (
         got == "cd /p && python3 /tmp/x.py\n"
     )  # programa_inline devolve o programa + \n final
+
+
+def test_comando_replay_sh_roda_o_codigo_no_sh():
+    """`--lang sh` é shell como `--lang bash`: o replay roda `sh -c <código>`, nunca `python3 -c`."""
+    run = "touring run --lang sh --code 'echo oi'"
+    assert corpus_v0d.comando_replay(run, "echo oi\n") == "sh -c 'echo oi\n'"
+
+
+# ------------------------------------------------- extração do programa inline via shell_inline (09/10)
+
+
+def test_programa_inline_motivo_um_candidato_devolve_o_texto():
+    assert corpus_v0d.programa_inline_motivo("python3 -c 'print(2)'") == (
+        "print(2)\n",
+        "",
+    )
+
+
+def test_programa_inline_motivo_dois_programas_e_ambiguo():
+    """`touring run … | python3 -c "parse do envelope"` tem DOIS programas Python: o traceback não diz
+    qual falhou — escolher o primeiro era escolher ao acaso."""
+    dois = "touring run --lang python --code 'print(1)' | python3 -c 'print(2)'"
+    texto, motivo = corpus_v0d.programa_inline_motivo(dois)
+    assert texto is None
+    assert motivo.startswith("ambíguo: 2 programas")
+
+
+# ----------------------------- candidato escolhido pela EVIDÊNCIA do traceback (positivos, 09/10)
+
+SEM_NOME = "import json,sys\nd = json.load(sys.stdin)\n"
+
+
+def _pipe(p: str, q: str) -> str:
+    """`touring run --code P | python3 -c Q`: o idioma que dá DOIS programas Python no mesmo comando."""
+    return f"touring run --lang python --code '{p}' | python3 -c '{q}'"
+
+
+def test_evidencia_escolhe_o_candidato_com_o_nome_na_linha_do_frame():
+    p = "import os\nx = nm_municipio\n"  # o nome na linha 2
+    got = corpus_v0d.programa_inline_motivo(
+        _pipe(p, SEM_NOME), evidencia=("nm_municipio", 2)
+    )
+    assert got == (p, "")
+
+
+def test_evidencia_o_nome_em_q_escolhe_q():
+    """O caso inverso: o frame é do `python3 -c`, não do `--code`."""
+    q = "import sys\nd = nm_municipio"  # o `-c` entrega o texto + "\n" (convenção do shell_inline)
+    got = corpus_v0d.programa_inline_motivo(
+        _pipe("import os\nx = 1\n", q), evidencia=("nm_municipio", 2)
+    )
+    assert got == (q + "\n", "")
+
+
+def test_evidencia_o_nome_nos_dois_na_linha_do_frame_continua_ambiguo():
+    run = _pipe("import os\nx = nm_municipio\n", "import sys\nd = nm_municipio\n")
+    texto, motivo = corpus_v0d.programa_inline_motivo(
+        run, evidencia=("nm_municipio", 2)
+    )
+    assert texto is None
+    assert motivo == "ambíguo: evidência casa 2 candidatos"
+
+
+def test_evidencia_a_linha_decide_nao_so_o_nome():
+    """O nome está nos DOIS textos, mas na linha do frame só em um: 'contém o nome' em qualquer linha
+    veria 2 candidatos e ficaria ambíguo — a linha é metade da evidência."""
+    p = "import os\nx = nm_municipio\n"
+    q = "nm_municipio = 0\nd = 1\n"
+    got = corpus_v0d.programa_inline_motivo(_pipe(p, q), evidencia=("nm_municipio", 2))
+    assert got == (p, "")
+
+
+def test_evidencia_a_linha_e_1_based():
+    """Linha 1 é a primeira: o nome na linha 1 de P e na 2 de Q, frame na linha 1 → P (0-based daria Q)."""
+    p = "x = nm_municipio\nimport os\n"
+    q = "import sys\nd = nm_municipio\n"
+    got = corpus_v0d.programa_inline_motivo(_pipe(p, q), evidencia=("nm_municipio", 1))
+    assert got == (p, "")
+
+
+def test_evidencia_casa_palavra_inteira():
+    """`nm_municipio` NÃO é `nm_municipio_ibge`: o substring casaria os dois."""
+    q = "import sys\nd = nm_municipio"
+    got = corpus_v0d.programa_inline_motivo(
+        _pipe("import os\nx = nm_municipio_ibge\n", q), evidencia=("nm_municipio", 2)
+    )
+    assert got == (q + "\n", "")
+
+
+def test_evidencia_quebra_de_linha_e_a_do_python_nao_a_do_splitlines():
+    """\\x0b (tab vertical) NÃO quebra linha para o Python — o frame conta só \\n, \\r\\n e \\r. O
+    `splitlines` o cortaria e deslocaria a linha do frame."""
+    p = "a = 1\x0bb = 2\nx = nm_municipio\n"  # linha 2 do Python: `x = nm_municipio`
+    got = corpus_v0d.programa_inline_motivo(
+        _pipe(p, SEM_NOME), evidencia=("nm_municipio", 2)
+    )
+    assert got == (p, "")
+
+
+def test_evidencia_linha_zero_ou_alem_do_texto_nao_casa():
+    """Linha 0 não é a última (índice -1) e a linha além do texto não existe: nenhum candidato casa."""
+    run = _pipe("import os\nx = nm_municipio", SEM_NOME)  # o nome na ÚLTIMA linha
+    for linha in (0, -1, 3, 99):
+        texto, motivo = corpus_v0d.programa_inline_motivo(
+            run, evidencia=("nm_municipio", linha)
+        )
+        assert texto is None
+        assert motivo == "ambíguo: evidência casa 0 candidatos"
+
+
+def test_linha_tem_nome_linha_zero_nao_e_a_ultima():
+    """Sem `\\n` final o índice -1 seria a linha do nome: linha 0 e negativas têm de recusar."""
+    texto = "import os\nx = nm_municipio"
+    assert corpus_v0d._linha_tem_nome(texto, "nm_municipio", 2) is True
+    assert corpus_v0d._linha_tem_nome(texto, "nm_municipio", 0) is False
+    assert corpus_v0d._linha_tem_nome(texto, "nm_municipio", -1) is False
+
+
+def test_evidencia_que_nao_casa_nenhum_continua_ambigua_e_diz_quantos():
+    run = _pipe("import os\nx = 1\n", SEM_NOME)
+    texto, motivo = corpus_v0d.programa_inline_motivo(
+        run, evidencia=("nm_municipio", 2)
+    )
+    assert texto is None
+    assert motivo == "ambíguo: evidência casa 0 candidatos"
+
+
+def test_evidencia_ausente_mantem_o_motivo_de_antes():
+    run = _pipe("import os\nx = nm_municipio\n", SEM_NOME)
+    texto, motivo = corpus_v0d.programa_inline_motivo(run)
+    assert texto is None
+    assert motivo == "ambíguo: 2 programas Python no mesmo comando"
+
+
+def test_evidencia_nao_mexe_em_um_unico_candidato():
+    """Com UM candidato a evidência é irrelevante: o texto é devolvido mesmo sem casar."""
+    got = corpus_v0d.programa_inline_motivo(
+        "python3 -c 'x = 1'", evidencia=("nm_municipio", 9)
+    )
+    assert got == ("x = 1\n", "")
+
+
+def test_evidencia_run_file_conta_pelo_texto_reconstruido(monkeypatch):
+    """O candidato `--file` não traz texto: a linha do frame vale sobre o arquivo dobrado da sessão."""
+    arquivo = "import os\nx = nm_municipio\n"
+    monkeypatch.setattr(
+        corpus_v0d, "_reconstroi_arquivo_sessao", lambda path, session, first: arquivo
+    )
+    run = (
+        "touring run --lang python --file /tmp/a.py | python3 -c 'import sys\nd = 1\n'"
+    )
+    got = corpus_v0d.programa_inline_motivo(
+        run, "sess", "t0", evidencia=("nm_municipio", 2)
+    )
+    assert got == (arquivo, "")
+
+
+def test_origem_e_base_inline_passa_a_evidencia_do_inventario():
+    """`nome_esperado` (da mensagem do erro) e a linha do frame vêm da linha V0a e escolhem o programa."""
+    row = {
+        "bucket": "inline",
+        "session": "",
+        "first": "",
+        "file": "<string>",
+        "kind": "NameError",
+        "message": "name 'nm_municipio' is not defined",
+        "line": 2,
+    }
+    p = "import os\nx = nm_municipio\n"
+    origem, texto, motivo = corpus_v0d._origem_e_base(row, [], _pipe(p, SEM_NOME))
+    assert (origem, texto, motivo) == ("inline", p, "")
+    sem_linha = {k: v for k, v in row.items() if k != "line"}
+    _, texto, motivo = corpus_v0d._origem_e_base(sem_linha, [], _pipe(p, SEM_NOME))
+    assert texto is None
+    assert "ambíguo: 2 programas" in motivo
+
+
+def test_programa_inline_motivo_sem_programa_diz_por_que():
+    texto, motivo = corpus_v0d.programa_inline_motivo("echo oi")
+    assert texto is None and motivo
+    # expansão do shell dentro de aspas duplas: o Python recebeu OUTRO texto, o literal não é o programa
+    texto, motivo = corpus_v0d.programa_inline_motivo("python3 -c \"print('$S')\"")
+    assert texto is None
+    assert "expansão" in motivo
+
+
+def test_programa_inline_e_o_texto_que_o_bash_entregou():
+    """O Python recebe o texto DEPOIS das aspas do bash: `\\"` vira `"`, `\\$` vira `$`, e `\\n` dentro de
+    aspas duplas continua sendo barra+n (o bash não o converte em quebra de linha)."""
+    prog = corpus_v0d.programa_inline
+    assert prog('python3 -c "print(\\"ok\\")"') == 'print("ok")\n'
+    assert prog('python3 -c "x = \\$5"') == "x = $5\n"
+    assert prog('python3 -c "a = 1\\nprint(a)"') == "a = 1\\nprint(a)\n"
+
+
+def test_programa_inline_shell_aninhado_devolve_o_python_de_dentro():
+    prog = corpus_v0d.programa_inline
+    assert prog("bash -c \"python3 -c 'print(1)'\"") == "print(1)\n"
+    assert (
+        prog("touring run --lang bash --code 'python3 - <<EOF\nprint(1)\nEOF'")
+        == "print(1)\n"
+    )
+
+
+def test_programa_inline_run_file_reconstroi_da_sessao(monkeypatch):
+    """`touring run --file`: o programa mora no arquivo, dobrado do transcript da sessão em `first`."""
+    visto = []
+
+    def fake(path: str, session: str, first: str) -> str | None:
+        visto.append((path, session, first))
+        return "x = 1\n"
+
+    monkeypatch.setattr(corpus_v0d, "_reconstroi_arquivo_sessao", fake)
+    run = "touring run --lang python --file /tmp/a.py --timeout-ms 5000"
+    assert corpus_v0d.programa_inline_motivo(run, "sess", "t0") == ("x = 1\n", "")
+    assert visto == [("/tmp/a.py", "sess", "t0")]
+    monkeypatch.setattr(corpus_v0d, "_reconstroi_arquivo_sessao", lambda *_: None)
+    texto, motivo = corpus_v0d.programa_inline_motivo(run, "sess", "t0")
+    assert texto is None
+    assert "não reconstruível" in motivo
+
+
+def test_origem_e_base_inline_conta_o_motivo():
+    """O motivo vai para o relatório (`incompletos_por_motivo`): ambíguo e recusa viram contagem."""
+    base = {  # toda linha V0a real traz kind e message: dali vem o `nome_esperado` da evidência
+        "bucket": "inline",
+        "session": "",
+        "first": "",
+        "file": "",
+        "kind": "NameError",
+        "message": "name 'x' is not defined",
+    }
+    ok = corpus_v0d._origem_e_base({**base, "command": "python3 -c 'print(1)'"}, [])
+    assert ok == ("inline", "print(1)\n", "")
+    dois = corpus_v0d._origem_e_base(
+        {**base, "command": "python3 -c 'print(1)'; python3 -c 'print(2)'"}, []
+    )
+    assert dois[:2] == ("inline", None)
+    assert dois[2].startswith("programa inline nao extraivel: ambíguo: 2 programas")
+
+
+# ------------------------------------------------- staging: --saida e a guarda do corpus vivo (09/10)
+
+
+def test_definir_saida_aponta_c_e_o_default_e_o_vivo(tmp_path: Path, monkeypatch):
+    monkeypatch.setattr(corpus_v0d, "C", corpus_v0d.VIVO)
+    assert corpus_v0d.definir_saida(None) == corpus_v0d.VIVO  # sem --saida nada muda
+    assert corpus_v0d.definir_saida(tmp_path) == tmp_path
+    assert corpus_v0d.C == tmp_path
+
+
+def test_reconstruir_inline_recusa_o_corpus_vivo(monkeypatch):
+    """O corpus vivo é só leitura aqui (outra sessão mede contra ele): sem `--saida` a guarda recusa."""
+    monkeypatch.setattr(corpus_v0d, "C", corpus_v0d.VIVO)
+    with pytest.raises(SystemExit) as exc:
+        corpus_v0d.reconstruir_inline(1, 1)
+    assert "--saida" in str(exc.value)
+
+
+def test_inline_reconstruidas_preserva_o_resto_e_conta_motivos(monkeypatch):
+    pid = corpus_v0d.ident("positivo", "s", "/p/a.py", "t1")
+    rows = [
+        {"session": "s", "file": "/p/a.py", "first": "t1", "bucket": "arquivo"},
+        {"session": "s", "file": "<string>", "first": "t2", "bucket": "inline"},
+        {"session": "s", "file": "<string>", "first": "t3", "bucket": "inline"},
+        {"session": "s", "file": "<string>", "first": "t4", "bucket": "inline"},
+    ]
+    monkeypatch.setattr(corpus_v0d, "candidatos", lambda: rows)
+
+    def fake(row: dict) -> tuple[dict | None, str]:
+        if row["first"] == "t4":
+            return {"id": "novo"}, ""
+        return None, "ambíguo: 2 programas Python no mesmo comando"
+
+    monkeypatch.setattr(corpus_v0d, "montar_positivo", fake)
+    positivos, novas, incompletos = corpus_v0d._inline_reconstruidas(
+        {pid: {"id": pid, "marca": "intocada"}}
+    )
+    assert positivos == [
+        {"id": pid, "marca": "intocada"},
+        {"id": "novo"},
+    ]  # não-inline: byte a byte
+    assert novas == [{"id": "novo"}]
+    assert incompletos == {"ambíguo: 2 programas Python no mesmo comando": 2}
+
+
+# ------------------------------------------------- negativos inline (V5) derivam do shell_inline (09/10)
+
+
+def test_v5_reextrair_mantem_o_par_tool_use_id_e_sessao(tmp_path: Path, monkeypatch):
+    """O mesmo `tool_use_id` mora no transcript do pai e no do subagente: refazer só o `tool_use_id`
+    trazia a cópia (377 linhas para 374 ids). O par com a sessão mantém a linha que o corpus tinha."""
+    import json  # noqa: PLC0415 — escreve o jsonl que a re-extração lê
+
+    import corpus_v5_inline_neg as v5  # noqa: PLC0415 — o builder dos negativos, só estes testes o usam
+
+    arq = tmp_path / "entradas_inline_neg.jsonl"
+    linhas = [
+        {"tool_use_id": "t1", "session": "s1"},
+        {"tool_use_id": "t2", "session": "s2"},
+    ]
+    arq.write_text("\n".join(json.dumps(x) for x in linhas) + "\n\n", encoding="utf-8")
+    monkeypatch.setattr(v5, "C", tmp_path)
+    monkeypatch.setattr(v5, "SAIDA", arq)
+    assert v5._pares_gravados() == {
+        ("t1", "s1"),
+        ("t2", "s2"),
+    }  # a linha em branco não quebra
+
+
+def test_v5_reextrair_recusa_o_corpus_vivo(monkeypatch):
+    import corpus_v5_inline_neg as v5  # noqa: PLC0415
+
+    monkeypatch.setattr(v5, "C", v5.VIVO)
+    with pytest.raises(SystemExit) as exc:
+        v5._pares_gravados()
+    assert "--saida" in str(exc.value)
+
+
+def test_v5_o_programa_e_o_que_o_bash_entregou_e_o_ambiguo_fica_fora():
+    import corpus_v5_inline_neg as v5  # noqa: PLC0415
+
+    assert v5.programa_corrigido('python3 -c "print(\\"ok\\")"') == 'print("ok")\n'
+    # `cat > x.json <<EOF` não roda Python: o programa é o `python3 -c` que vem depois
+    assert (
+        v5.extrator_de("cat > x.json <<'EOF'\n{}\nEOF\npython3 -c 'print(1)'")[0] == "c"
+    )
+    # `touring run` sem `--lang` nunca rodou (a CLI recusa): não é um negativo "que deu certo"
+    assert v5.extrator_de("touring run --code 'print(1)'")[0] is None
+    # dois programas no mesmo comando: ambíguo, fora — com o motivo nomeado
+    estrato, motivo, prog = v5.resolve("python3 -c 'print(1)'; python3 -c 'print(2)'")
+    assert estrato is None and prog is None
+    assert "ambiguo" in str(motivo)
+
+
+def _staging_sintetico(tmp_path: Path, monkeypatch) -> tuple[str, dict]:
+    """Um staging mínimo em tmp: 1 positivo de arquivo + 1 negativo; o extrator devolve 1 inline novo."""
+    import json  # noqa: PLC0415 — só estes dois testes leem/escrevem o jsonl do staging
+
+    monkeypatch.setattr(corpus_v0d, "C", tmp_path)
+    arq = {"id": "arq", "rotulo": "positivo", "origem": "atribuido"}
+    neg = {"id": "neg", "rotulo": "negativo", "origem": "atribuido"}
+    novo = {"id": "novo", "rotulo": "positivo", "origem": "inline"}
+    antes = "".join(json.dumps(e) + "\n" for e in (arq, neg))
+    (tmp_path / "entradas.jsonl").write_text(antes, encoding="utf-8")
+    monkeypatch.setattr(
+        corpus_v0d,
+        "_inline_reconstruidas",
+        lambda por_id: ([arq, novo], [novo], {"x": 3}),
+    )
+    monkeypatch.setattr(corpus_v0d, "replay_em_cache", lambda item: None)
+    return antes, novo
+
+
+def test_reconstruir_inline_estimar_nao_grava(tmp_path: Path, monkeypatch):
+    antes, _ = _staging_sintetico(tmp_path, monkeypatch)
+    rel = corpus_v0d.reconstruir_inline(1, 7, estimar=True)
+    assert rel["inline_reconstruidas"] == 1 and rel["replay_pendentes"] == 1
+    assert rel["incompletos_por_motivo"] == {"x": 3}
+    assert (
+        rel["estimativa_replay_s"] == 7
+    )  # sem registro anterior, cada pendente custa o teto `cap`
+    assert (tmp_path / "entradas.jsonl").read_text(encoding="utf-8") == antes
+
+
+def test_reconstruir_inline_grava_so_o_inline(tmp_path: Path, monkeypatch):
+    import json  # noqa: PLC0415 — lê o jsonl que o staging gravou
+
+    _staging_sintetico(tmp_path, monkeypatch)
+    prova = [{"id": "novo", "kind_in_output": True, "frame_in_output": True}]
+    monkeypatch.setattr(corpus_v0d, "_replayar", lambda entradas, jobs, cap: prova)
+    rel = corpus_v0d.reconstruir_inline(1, 7)
+    texto = (tmp_path / "entradas.jsonl").read_text(encoding="utf-8")
+    gravado = [json.loads(ln) for ln in texto.splitlines()]
+    assert [e["id"] for e in gravado] == [
+        "arq",
+        "novo",
+        "neg",
+    ]  # positivos primeiro, negativos preservados
+    assert gravado[1]["reproduz"] is True
+    assert rel["inline_reproduzem"] == 1
+    assert (tmp_path / "relatorio_inline.json").exists()
 
 
 def test_contexto_expande_vars_de_atribuicao(tmp_path: Path, monkeypatch):

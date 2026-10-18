@@ -23,7 +23,6 @@ pub mod rlm;
 pub mod snippet_bindings;
 pub mod snippet_stats;
 pub mod tags;
-pub mod tier_manager;
 pub mod working;
 
 #[cfg(feature = "hnsw-working-memory")]

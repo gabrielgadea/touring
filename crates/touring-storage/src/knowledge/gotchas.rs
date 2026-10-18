@@ -193,7 +193,46 @@ impl FileKnowledgeDB {
         );
         let _ = self.conn.execute(&sql, params![gotcha_id]);
     }
+    /// Whether `prevented_errors` is a MEASURED signal.
+    ///
+    /// C7 (2026-10-17): `false`, because [`Self::increment_gotcha_prevented`] has
+    /// no production caller — the column is written only by tests, so it reads
+    /// `0` on every real database. Reporting that `0` ("0 errors prevented in
+    /// 388.840 hits") is a lie by omission: an absent signal is not a zero
+    /// (law L2). While this is `false`, every surface that REPORTS the value
+    /// goes through [`Self::reported_prevented`] and shows `null`.
+    ///
+    /// Flip it only together with a real caller; the guard test
+    /// `prevented_flag_matches_the_existence_of_a_production_producer` fails
+    /// when the flag and the call graph disagree in either direction.
+    pub const PREVENTED_MEASURED: bool = false;
+    /// What is missing for `prevented_errors` to become measurable — shown next
+    /// to the `null` so the reader learns the fix, not just the gap.
+    pub const PREVENTED_NOTE: &'static str = "prevented_errors has no producer: \
+        increment_gotcha_prevented is never called outside tests, and hit_count counts \
+        warnings DISPLAYED, not errors avoided. Missing: a signal tying a shown warning to a \
+        later change of action (e.g. the gotcha's error pattern not recurring in the next edits \
+        of the same file).";
+    /// Whether `prevented_errors` is measured (instance form of
+    /// [`Self::PREVENTED_MEASURED`], for callers that only hold a db handle).
+    pub fn prevented_measured(&self) -> bool {
+        Self::PREVENTED_MEASURED
+    }
+    /// [`Self::PREVENTED_NOTE`] while the signal is unmeasured, `None` once a
+    /// producer exists (nothing left to explain).
+    pub fn prevented_note(&self) -> Option<&'static str> {
+        (!Self::PREVENTED_MEASURED).then_some(Self::PREVENTED_NOTE)
+    }
+    /// The `prevented` aggregate as it may be REPORTED: the raw column value
+    /// while it is measured, `None` (JSON `null`) while it is not.
+    pub fn reported_prevented(&self, raw: i64) -> Option<i64> {
+        Self::PREVENTED_MEASURED.then_some(raw)
+    }
     /// Get aggregate gotcha statistics: (total_count, total_hits, total_prevented).
+    ///
+    /// The third slot is the RAW column sum — `0` when nothing ever wrote it.
+    /// Anything that shows it to a user must pass it through
+    /// [`Self::reported_prevented`].
     pub fn gotcha_stats(&self) -> (usize, i64, i64) {
         let sql = format!(
             "SELECT COUNT(*), COALESCE(SUM(hit_count), 0), COALESCE(SUM(prevented_errors), 0)

@@ -1226,3 +1226,86 @@ fn b302_silent_on_contraction_even_with_low_confidence() {
         "B-302 must NOT fire on contraction (only expansions)"
     );
 }
+
+// ── VL0 §8.4 — the hook derives `lang` from the path and writes the shadow with it ──
+
+/// Runs the VGP shadow of the Write hook for `file_path` with the log redirected to a temp dir.
+fn linhas_da_sombra_de_write(file_path: &str) -> Vec<serde_json::Value> {
+    let (tmp, rt) = setup_runtime();
+    let log = tmp.path().join("sombra.jsonl");
+    let content = "alfa\nbeta\n";
+    let input = serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": {"file_path": file_path, "content": content}
+    });
+    touring_code::vgp::sombra::com_log_em(&log, || {
+        let _ = vgp_sombra_de_write(&rt, &input, file_path, content);
+    });
+    std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+#[test]
+fn test_vgp_write_grava_a_sombra_com_o_lang_do_caminho() {
+    for (nome, lang) in [
+        ("a.py", "python"),
+        ("src/lib.rs", "rust"),
+        ("a.ts", "typescript"),
+        ("a.tsx", "tsx"),
+        ("a.js", "javascript"),
+        ("a.html", "html"),
+        ("a.css", "css"),
+    ] {
+        let linhas = linhas_da_sombra_de_write(&format!("/tmp/vl0-write/{nome}"));
+        assert_eq!(linhas.len(), 1, "{nome}: {linhas:?}");
+        assert_eq!(linhas[0]["lang"], lang, "{nome}");
+        assert_eq!(linhas[0]["hook"], "pre-write", "{nome}");
+    }
+}
+
+#[test]
+fn test_vgp_write_extensao_desconhecida_nao_grava_sombra() {
+    for nome in ["README.md", "a.json", "Makefile"] {
+        assert!(
+            linhas_da_sombra_de_write(&format!("/tmp/vl0-write/{nome}")).is_empty(),
+            "{nome} não é linguagem do VGP"
+        );
+    }
+}
+
+#[test]
+fn test_knowledge_signals_gotcha_score_is_neutral_while_prevented_is_unmeasured() {
+    // No writer increments prevented_errors (FileKnowledgeDB::PREVENTED_MEASURED is false, C7 17/10/2026). Wilson
+    // over a numerator that is always 0 scored every gotcha already shown at 0, the bottom of the context budget;
+    // until prevention is measured a gotcha gets the neutral confidence of one without history.
+    let (_tmp, db) = setup();
+    let id = db
+        .add_gotcha(
+            "blocking_call",
+            "do not use blocking calls inside async fn",
+            "warning",
+            None,
+        )
+        .expect("add gotcha");
+    for _ in 0..20 {
+        db.increment_gotcha_hit(id);
+    }
+    let signals = knowledge_signals(
+        &db,
+        "async_handler.rs",
+        "async fn handler() { blocking_call() }",
+    );
+    let score = signals
+        .iter()
+        .find(|(_, t)| t.contains("GOTCHA"))
+        .map(|(s, _)| *s)
+        .expect("content-matched gotcha should appear in signals");
+    assert!(!FileKnowledgeDB::PREVENTED_MEASURED);
+    assert!(
+        (score - 1.5 * 0.5).abs() < 1e-6,
+        "an unmeasured prevented count must not zero a gotcha shown 20 times: score {score}"
+    );
+}

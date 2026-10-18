@@ -50,7 +50,6 @@ import json
 import re
 import sys
 from dataclasses import dataclass, field
-from typing import Any
 
 # ---------------------------------------------------------------------------
 # O REPERTÓRIO

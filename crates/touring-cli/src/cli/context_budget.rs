@@ -41,9 +41,10 @@ const MAX_TRANSCRIPTS: usize = 3;
 /// Total bytes to read across transcripts before stopping and saying so.
 const MAX_BYTES: u64 = 48 * 1024 * 1024;
 
-/// Per-family accounting. The family taxonomy lives in [`injection_family`] —
-/// ONE source, so the payload and the dedup accounting cannot disagree about
-/// which emitter a block belongs to.
+/// Per-family accounting. The family taxonomy lives in [`attributed_family`] —
+/// ONE source (the text needles of [`injection_family`] plus the emitter's own
+/// mark), so the payload and the dedup accounting cannot disagree about which
+/// emitter a block belongs to.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct FamilyStats {
     /// Bytes this emitter put into the window.
@@ -126,7 +127,7 @@ pub struct ContextBudgetAggregate {
     pub must_followed: u64,
     /// Tool calls the assistant made — the declared proxy denominator for TpCD.
     pub tool_calls: u64,
-    /// The same accounting, split by emitter (see [`injection_family`]).
+    /// The same accounting, split by emitter (see [`attributed_family`]).
     pub by_family: BTreeMap<String, FamilyStats>,
     /// Tool results split by the tool that produced them, with how much of each
     /// is observably reused (see [`ToolStats`]).
@@ -242,6 +243,69 @@ pub fn injection_family(text: &str) -> &'static str {
     "other"
 }
 
+/// How an emitter's mark claims the output it produced (C10, 2026-10-17).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Claim {
+    /// A single-purpose hook: whatever it injects belongs to ITS family, whatever the text says.
+    Owns,
+    /// A multi-purpose emitter: used only when the text names no family.
+    Fallback,
+}
+
+/// Emitter mark → family. The mark is the label Claude Code records on every `hook_success`
+/// attachment (`command`): the hook's `statusMessage` when it has one, else its command line.
+/// It is the emitter's OWN identity, so attributing by it infers nothing from the text and
+/// stamps no byte into the injection.
+///
+/// Measured 17/10/2026 over the 3 newest transcripts (13,741 `hook_success`, 23 distinct marks):
+/// text needles alone left 82.8 % of the injected bytes in `other`. The first match wins, and
+/// every needle is checked against the versioned hook registry
+/// (`the_emitter_table_has_no_stale_needle`).
+const EMITTERS: &[(&str, &str, Claim)] = &[
+    ("analyzing blast radius", "pre-edit", Claim::Owns),
+    ("speculative validation", "pre-write", Claim::Owns),
+    ("analyzing file context", "pre-read", Claim::Owns),
+    ("checking command history", "pre-bash", Claim::Owns),
+    ("syntax pre-check", "pre-edit-prevention", Claim::Owns),
+    ("verifying edit quality", "post-edit", Claim::Owns),
+    ("registering new file", "post-write", Claim::Owns),
+    ("evidence_guard.py", "evidence-guard", Claim::Owns),
+    // Hooks that ship with a plugin carry an unexpanded `${CLAUDE_PLUGIN_ROOT}` in the label.
+    ("CLAUDE_PLUGIN_ROOT", "plugin-hook", Claim::Owns),
+    ("prose_integrity_gate.py", "prose-integrity", Claim::Owns),
+    ("check_context.sh", "context-monitor", Claim::Owns),
+    ("delegation-nudge", "delegation-nudge", Claim::Owns),
+    // Multi-purpose emitters: the text decides first (a `cli-suggest` block can be a code-mode
+    // deny, a suggestion or a past lesson); the mark only rescues what the text leaves in `other`.
+    ("touring cli-suggest", "touring-suggest", Claim::Fallback),
+    ("loop_resume.py", "loop-outer", Claim::Fallback),
+    ("touring-hook post-bash", "post-tool-echo", Claim::Fallback),
+];
+
+/// The family an emitter mark claims, and how.
+fn emitter_claim(emitter: &str) -> Option<(&'static str, Claim)> {
+    EMITTERS
+        .iter()
+        .find(|(needle, _, _)| emitter.contains(needle))
+        .map(|(_, family, claim)| (*family, *claim))
+}
+
+/// [`injection_family`] with the emitter's own mark applied — the taxonomy every accounting
+/// path uses (C10). Order: a dedicated emitter owns its output; else the text needles; else the
+/// emitter's fallback; else `other`. A transcript without the mark (older Claude Code) falls
+/// straight to the text, exactly as before.
+#[must_use]
+pub fn attributed_family(text: &str, emitter: Option<&str>) -> &'static str {
+    let claimed = emitter.and_then(emitter_claim);
+    if let Some((family, Claim::Owns)) = claimed {
+        return family;
+    }
+    match injection_family(text) {
+        "other" => claimed.map_or("other", |(family, _)| family),
+        family => family,
+    }
+}
+
 /// Actionable propositions carried by a block: lines in the MUST / SHOULD / MAY
 /// shape the injection-density invariant mandates
 /// (`~/.claude/rules/touring-4-pillars.md`).
@@ -272,15 +336,26 @@ pub fn transcript_dir_for(home: &Path, project_root: &Path) -> PathBuf {
     home.join(".claude/projects").join(slug)
 }
 
+/// One text a hook injected, with the emitter mark Claude Code recorded for the hook that
+/// produced it (`None` in a transcript that does not record one).
+struct Injection {
+    emitter: Option<String>,
+    text: String,
+}
+
 /// Every text a hook injected in one transcript record, or an empty vec.
-fn hook_contexts(rec: &Value) -> Vec<String> {
+fn hook_injections(rec: &Value) -> Vec<Injection> {
     let Some(att) = rec.get("attachment") else {
         return Vec::new();
     };
     if att.get("type").and_then(Value::as_str) != Some("hook_success") {
         return Vec::new();
     }
-    let mut out = Vec::new();
+    let emitter = att
+        .get("command")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let mut texts: Vec<String> = Vec::new();
     for key in ["stdout", "content"] {
         let Some(raw) = att.get(key).and_then(Value::as_str) else {
             continue;
@@ -293,19 +368,25 @@ fn hook_contexts(rec: &Value) -> Vec<String> {
                 if let Some(hs) = parsed.get("hookSpecificOutput") {
                     for k in ["additionalContext", "systemMessage"] {
                         if let Some(s) = hs.get(k).and_then(Value::as_str) {
-                            out.push(s.to_string());
+                            texts.push(s.to_string());
                         }
                     }
                 }
                 if let Some(s) = parsed.get("systemMessage").and_then(Value::as_str) {
-                    out.push(s.to_string());
+                    texts.push(s.to_string());
                 }
             }
             // Not JSON — the hook printed plain text, which still costs the window.
-            Err(_) => out.push(raw.to_string()),
+            Err(_) => texts.push(raw.to_string()),
         }
     }
-    out
+    texts
+        .into_iter()
+        .map(|text| Injection {
+            emitter: emitter.clone(),
+            text,
+        })
+        .collect()
 }
 
 fn hash_of(s: &str) -> u64 {
@@ -575,6 +656,7 @@ pub fn aggregate_lines<'a>(
 /// repeat — in the session (`seen`) or only across sessions (`project_seen`).
 fn record_injection(
     text: &str,
+    emitter: Option<&str>,
     agg: &mut ContextBudgetAggregate,
     seen: &mut BTreeMap<u64, u64>,
     project_seen: Option<&mut BTreeMap<u64, u64>>,
@@ -585,7 +667,7 @@ fn record_injection(
     agg.injected_blocks += 1;
     let entry = agg
         .by_family
-        .entry(injection_family(text).to_string())
+        .entry(attributed_family(text, emitter).to_string())
         .or_default();
     entry.bytes += len;
     entry.blocks += 1;
@@ -637,8 +719,14 @@ pub fn aggregate_session_lines<'a>(
         };
         let kind = rec.get("type").and_then(Value::as_str).unwrap_or_default();
 
-        for text in hook_contexts(&rec) {
-            record_injection(&text, agg, seen, project_seen.as_deref_mut());
+        for Injection { emitter, text } in hook_injections(&rec) {
+            record_injection(
+                &text,
+                emitter.as_deref(),
+                agg,
+                seen,
+                project_seen.as_deref_mut(),
+            );
             if let Some(target) = must_target(&text) {
                 agg.must_emitted += 1;
                 pending_must = Some(target);
@@ -1349,6 +1437,184 @@ mod tests {
             ("[gabrielgadea]", "other"),
         ] {
             assert_eq!(injection_family(text), want, "for {text:?}");
+        }
+    }
+
+    // ── C10 (2026-10-17): attribute by the emitter's own mark ──────────────────────
+
+    /// One real `hook_success` per emitter mark seen in the newest transcripts (45 records,
+    /// 23 marks, paths anonymized). Before C10 the text needles left 54.4 % of these bytes in
+    /// `other` (82.8 % over the whole 3-transcript sample); the mark attributes all of them.
+    const EMITTER_FIXTURE: &str =
+        include_str!("../../tests/fixtures/context_budget_emitters.jsonl");
+
+    fn emitter_fixture_lines() -> Vec<String> {
+        EMITTER_FIXTURE.lines().map(str::to_string).collect()
+    }
+
+    /// The share of the injected bytes sitting in `other` — the ceiling under test.
+    fn other_share(agg: &ContextBudgetAggregate) -> f64 {
+        let other = agg.by_family.get("other").map_or(0, |f| f.bytes);
+        other as f64 / agg.injected_bytes.max(1) as f64
+    }
+
+    #[test]
+    fn the_real_emitters_leave_other_below_the_ceiling() {
+        let agg = run(&emitter_fixture_lines());
+        assert_eq!(
+            agg.injected_blocks, 45,
+            "every fixture record carries a block"
+        );
+        let share = other_share(&agg);
+        assert!(
+            share < 0.20,
+            "other holds {:.1} % of the bytes; by_family={:?}",
+            100.0 * share,
+            agg.by_family
+                .iter()
+                .map(|(k, v)| (k.as_str(), v.bytes))
+                .collect::<Vec<_>>()
+        );
+        // And the defect is real on this very fixture: text alone leaves the majority in `other`.
+        let text_only_other: usize = emitter_fixture_lines()
+            .iter()
+            .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            .flat_map(|rec| hook_injections(&rec))
+            .filter(|i| injection_family(&i.text) == "other")
+            .map(|i| i.text.len())
+            .sum();
+        assert!(
+            text_only_other as f64 / agg.injected_bytes as f64 > 0.50,
+            "the fixture must reproduce the defect (text-only other = {text_only_other} B)"
+        );
+    }
+
+    /// Each mark pinned to the family the real record lands in — the table, not a count.
+    #[test]
+    fn every_real_mark_lands_in_its_family() {
+        for (mark, want) in [
+            ("check_context.sh", "context-monitor"),
+            ("touring-hook post-bash", "post-tool-echo"),
+            ("Code Mode: contrato do SDK", "code-mode-deny"),
+            ("Scout Perpétuo", "loop-outer"),
+            ("TACO: batch RL", "post-tool-echo"),
+            ("analyzing blast radius", "pre-edit"),
+            ("analyzing file context", "pre-read"),
+            ("checking command history", "pre-bash"),
+            ("collecting session intelligence", "session-start"),
+            ("initializing cognitive engine", "session-start"),
+            ("registering new file", "post-write"),
+            ("speculative validation", "pre-write"),
+            ("syntax pre-check", "pre-edit-prevention"),
+            ("verifying edit quality", "post-edit"),
+            ("CLAUDE_PLUGIN_ROOT", "plugin-hook"),
+            ("delegation-nudge", "delegation-nudge"),
+            ("evidence_guard.py", "evidence-guard"),
+            ("prose_integrity_gate.py", "prose-integrity"),
+            ("loop_resume.py", "loop-outer"),
+            ("painel_ema", "session-start"),
+            ("touring cli-suggest", "touring-suggest"),
+        ] {
+            let mut seen = 0;
+            for rec in emitter_fixture_lines()
+                .iter()
+                .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+            {
+                for inj in hook_injections(&rec) {
+                    if inj.emitter.as_deref().is_some_and(|e| e.contains(mark)) {
+                        seen += 1;
+                        assert_eq!(
+                            attributed_family(&inj.text, inj.emitter.as_deref()),
+                            want,
+                            "mark {mark:?}"
+                        );
+                    }
+                }
+            }
+            assert!(seen > 0, "the fixture carries no record for mark {mark:?}");
+        }
+    }
+
+    /// A single-purpose hook OWNS its output. The 105 KB of `pre-edit` blocks that the old
+    /// needles filed under `post-tool-echo` (their text quotes `last fail:`) are `pre-edit`.
+    #[test]
+    fn a_dedicated_emitter_owns_its_output_even_when_the_text_quotes_another_family() {
+        let text = "pensieve: last fail: Edit on a similar path\nMUST touring ast blast x.rs";
+        assert_eq!(
+            injection_family(text),
+            "post-tool-echo",
+            "the old, text-only answer"
+        );
+        assert_eq!(
+            attributed_family(text, Some("Touring: analyzing blast radius...")),
+            "pre-edit"
+        );
+    }
+
+    /// A multi-purpose emitter does NOT own its output: the text decides, and the mark only
+    /// rescues what the text leaves in `other`.
+    #[test]
+    fn a_fallback_emitter_defers_to_the_text() {
+        let cli_suggest = Some("touring cli-suggest: classifying operation (Rust, in-daemon)...");
+        assert_eq!(
+            attributed_family("[CODE MODE · rajada] 2a inspecao", cli_suggest),
+            "code-mode-deny",
+            "a deny emitted by cli-suggest stays a deny"
+        );
+        assert_eq!(
+            attributed_family("MUST    touring ast meta x.rs", cli_suggest),
+            "touring-suggest",
+            "a block with no family text is the suggester's"
+        );
+    }
+
+    #[test]
+    fn an_unknown_mark_or_a_missing_one_never_invents_a_family() {
+        assert_eq!(
+            attributed_family("[gabrielgadea]", Some("some-new-hook.sh")),
+            "other"
+        );
+        assert_eq!(attributed_family("[gabrielgadea]", None), "other");
+        // No mark (an older Claude Code) behaves exactly like the text-only taxonomy.
+        assert_eq!(
+            attributed_family("[TOURING SUGGEST · x]", None),
+            "touring-suggest"
+        );
+    }
+
+    /// Every mark of the table must still exist in the hook registry the repo versions, or the
+    /// family silently decays back into `other` the day a `statusMessage` is reworded.
+    /// Plugin hooks live in the plugin, not in the user's settings, so they are not in the mirror.
+    #[test]
+    fn the_emitter_table_has_no_stale_needle() {
+        const MIRROR: &str = include_str!("../../../../client/claude/hooks.settings.json");
+        const PLUGIN_ONLY: &[&str] = &["CLAUDE_PLUGIN_ROOT"];
+        let registry: Value = serde_json::from_str(MIRROR).expect("the hook mirror is JSON");
+        let mut labels: Vec<String> = Vec::new();
+        for groups in registry.as_object().expect("events").values() {
+            for group in groups.as_array().into_iter().flatten() {
+                for hook in group["hooks"].as_array().into_iter().flatten() {
+                    for key in ["statusMessage", "command"] {
+                        if let Some(l) = hook.get(key).and_then(Value::as_str) {
+                            labels.push(l.to_string());
+                        }
+                    }
+                }
+            }
+        }
+        assert!(
+            labels.len() > 50,
+            "the mirror read as empty: {} labels",
+            labels.len()
+        );
+        for (needle, family, _) in EMITTERS {
+            if PLUGIN_ONLY.contains(needle) {
+                continue;
+            }
+            assert!(
+                labels.iter().any(|l| l.contains(needle)),
+                "needle {needle:?} (family {family}) matches no hook in client/claude/hooks.settings.json"
+            );
         }
     }
 

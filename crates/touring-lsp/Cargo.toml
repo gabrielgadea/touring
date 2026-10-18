@@ -28,6 +28,10 @@ tracing.workspace = true
 # QualityDiagnostics maps touring-quality's 50-dim per-dim status to
 # LSP DiagnosticSeverity for live editor feedback.
 touring-quality = { path = "../touring-quality" }
+# VGP layer 2 (client / pyright / pool) lives in its own crate so the hook crates can depend on it
+# without the cycle touring-lsp -> (optional) touring-hooks -> touring-dispatch -> touring-hook-handlers
+# -> touring-lsp. This crate re-exports it (`pub use touring_pyright::{client, pool, pyright}`).
+touring-pyright = { path = "../touring-pyright" }
 
 # --- lsp-bridge (opt-in) ---
 # The heavy tower-lsp + tokio + async-trait stack is gated behind the

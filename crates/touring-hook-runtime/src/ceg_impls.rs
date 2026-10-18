@@ -11,6 +11,7 @@
 
 use crate::embeddings::semantic_or_hash_embedding;
 use crate::hook_runtime::HookRuntime;
+use touring_foundation::text_sanitize::{Sanitized, sanitize_json_items, sanitize_memory_text};
 
 /// Injects an immediate RL reward for a tool into the runtime Q-table, clamping the value to `[-1.0, 1.0]`.
 pub fn cli_learning_reward(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
@@ -188,12 +189,49 @@ fn parse_memory_store_payload(
     })
 }
 
+/// The free-text fields of a store payload after sanitization (C6, 2026-10-17).
+///
+/// A stored value is replayed to the model as recall context, so it is cleaned
+/// BEFORE any sink sees it: the SQL row (which `RlmMemory::store_rich` also
+/// guards), the ANN mirror and its embedding. The response reports what
+/// changed instead of altering the user's text silently.
+struct CleanedTexts {
+    value: Sanitized,
+    context: Option<Sanitized>,
+}
+
+impl CleanedTexts {
+    fn of(parsed: &MemoryStorePayload<'_>) -> Self {
+        Self {
+            value: sanitize_memory_text(parsed.value),
+            context: parsed.outcome_context.map(sanitize_memory_text),
+        }
+    }
+
+    /// `{"secrets": n, "invisible": m}` summed over every cleaned field.
+    fn report(&self) -> serde_json::Value {
+        let (secrets, invisible) = std::iter::once(&self.value)
+            .chain(self.context.as_ref())
+            .fold((0, 0), |(s, i), c| (s + c.secrets, i + c.invisible));
+        serde_json::json!({ "secrets": secrets, "invisible": invisible })
+    }
+
+    /// Points the payload at the cleaned text.
+    fn apply<'s>(&'s self, parsed: &mut MemoryStorePayload<'s>) {
+        parsed.value = &self.value.text;
+        parsed.outcome_context = self.context.as_ref().map(|c| c.text.as_str());
+    }
+}
+
 /// Persists a key/value memory entry into the SQLite store and mirrors it into the ANN recall corpus.
 pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
-    let parsed = match parse_memory_store_payload(payload) {
+    let mut parsed = match parse_memory_store_payload(payload) {
         Ok(p) => p,
         Err(msg) => return serde_json::json!({ "error": msg }).to_string(),
     };
+    let cleaned = CleanedTexts::of(&parsed);
+    let sanitized = cleaned.report();
+    cleaned.apply(&mut parsed);
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     if let Some(parent) = memory_db_path.parent() {
         std::fs::create_dir_all(parent).ok();
@@ -297,6 +335,7 @@ pub fn cli_memory_store(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
             });
             serde_json::json!(
                 { "key" : key, "tier" : tier, "type" : entry_type, "status" : "stored", "ann_indexed" : ann_indexed,
+                  "sanitized" : sanitized,
                   "ignored_facets" : ignored_tags.iter().map(|t| t.to_json()).collect::<Vec<_>>(),
                   "contract" : contract }
             )
@@ -442,6 +481,12 @@ pub fn cli_memory_query(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
         } else {
             fts_search_entries(&conn, &text, tag_keys.as_deref(), limit)
         }
+    });
+    // C6 (2026-10-17): rows already in the database predate the write-side
+    // guard — clean them on the way OUT, without rewriting the store.
+    let result = result.map(|(mut hits, total)| {
+        sanitize_json_items(&mut hits);
+        (hits, total)
     });
     match result {
         // W0 S-0.3 — honest pagination: a count without the universe is
@@ -1020,6 +1065,154 @@ mod memory_store_migration_tests {
                 .collect();
             assert_eq!(keys, ["probe:new"], "{query}: {out}");
             assert_eq!(out["total"], 1, "{query}: {out}");
+        }
+    }
+}
+
+/// C6 (2026-10-17): `memory store` redacts secrets and strips invisible
+/// characters before any sink sees the text, and `memory query` cleans rows
+/// that predate the guard on the way out.
+#[cfg(test)]
+mod memory_sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use crate::hook_runtime::HookRuntime;
+    use serde_json::json;
+
+    fn fake_key() -> String {
+        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
+    }
+
+    fn stored_value(root: &std::path::Path, key: &str) -> String {
+        let db = touring_foundation::TouringConfig::memory_db_canonical(root);
+        rusqlite::Connection::open(db)
+            .unwrap()
+            .query_row(
+                "SELECT value FROM memory_entries WHERE key = ?1",
+                [key],
+                |r| r.get(0),
+            )
+            .unwrap()
+    }
+
+    #[test]
+    fn store_redacts_the_secret_and_reports_what_it_changed() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        let key = fake_key();
+        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
+            &mut rt,
+            &json!({"key": "c6-store", "value": format!("deploy {key}\u{202E}x\u{200B}y"),
+                    "entry_type": "lesson"}),
+        ))
+        .unwrap();
+        assert_eq!(out["status"], "stored", "{out}");
+        assert_eq!(out["sanitized"]["secrets"], 1, "{out}");
+        assert_eq!(out["sanitized"]["invisible"], 2, "{out}");
+        let stored = stored_value(tmp.path(), "c6-store");
+        assert!(!stored.contains(&key), "secret reached the db: {stored}");
+        // The invisibles sat BETWEEN the key and the "xy" tail: once stripped, the
+        // token is contiguous and the redaction takes the tail with it.
+        assert_eq!(stored, "deploy [REDACTED]");
+    }
+
+    #[test]
+    fn store_of_clean_text_reports_zero_and_keeps_it_byte_identical() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        let plain = "Ol\u{e1}: use `cargo test`.\n\tpr\u{f3}ximo passo";
+        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
+            &mut rt,
+            &json!({"key": "c6-plain", "value": plain, "entry_type": "lesson"}),
+        ))
+        .unwrap();
+        assert_eq!(
+            out["sanitized"],
+            json!({"secrets": 0, "invisible": 0}),
+            "{out}"
+        );
+        assert_eq!(stored_value(tmp.path(), "c6-plain"), plain);
+    }
+
+    #[test]
+    fn query_cleans_a_legacy_row_on_the_way_out_without_rewriting_it() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        // Create the schema, then plant a row the way pre-guard writers did.
+        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
+        let key = fake_key();
+        let raw = format!("c6legacyprobe token {key} \u{202E}tail");
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES ('c6-old', 'semantic', ?1, 'lesson')",
+                [&raw],
+            )
+            .unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_query(
+            &mut rt,
+            &json!({"query": "c6legacyprobe"}),
+        ))
+        .unwrap();
+        let served = out["results"][0]["value"].as_str().expect("a hit");
+        assert!(
+            !served.contains(&key),
+            "secret leaked through query: {served}"
+        );
+        assert!(!served.contains('\u{202E}'), "bidi leaked: {served:?}");
+        assert!(served.contains("[REDACTED]"));
+        assert_eq!(
+            stored_value(tmp.path(), "c6-old"),
+            raw,
+            "read must not rewrite"
+        );
+    }
+}
+
+/// C6 (2026-10-17): the ANN recall corpus is a SECOND sink of `memory store`
+/// (it keeps its own copy of the text and an embedding of it); it must receive
+/// the cleaned text, not the raw one.
+#[cfg(test)]
+mod memory_sanitize_ann_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use crate::hook_runtime::HookRuntime;
+    use serde_json::json;
+
+    #[test]
+    fn store_mirrors_the_cleaned_text_into_the_ann_corpus() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        rt.init_ann_memory();
+        let key = ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat();
+        let out: serde_json::Value = serde_json::from_str(&super::cli_memory_store(
+            &mut rt,
+            &json!({"key": "c6-ann", "value": format!("c6annprobe deploy {key}\u{202E} done"),
+                    "entry_type": "lesson"}),
+        ))
+        .unwrap();
+        assert_eq!(
+            out["ann_indexed"], true,
+            "the ANN mirror must be live: {out}"
+        );
+        let probe = crate::embeddings::semantic_or_hash_embedding("c6annprobe deploy");
+        let hits = rt
+            .ctx
+            .ann_recall
+            .borrow()
+            .as_ref()
+            .expect("ann corpus")
+            .search(&probe, 10);
+        assert!(!hits.is_empty(), "the stored entry must be in the corpus");
+        for hit in &hits {
+            assert!(
+                !hit.content.contains(&key) && !hit.content.contains('\u{202E}'),
+                "ANN corpus kept the raw text: {:?}",
+                hit.content
+            );
         }
     }
 }

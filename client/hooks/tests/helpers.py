@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 from typing import Any
-
 
 HOME = Path.home()
 REPO_ROOT = Path(__file__).resolve().parents[3]  # ~/projects/touring
@@ -68,11 +68,13 @@ if _ANALISE_CONTRACT.exists():
     try:
         spec.loader.exec_module(_contract_mod)  # type: ignore[union-attr]
         schema_violations = _contract_mod.schema_violations
-    except Exception:
+    except Exception as exc:  # noqa: BLE001 — any failure inside the other repo's module means the fallback
         del sys.modules[_mod_name]
+        warnings.warn(f"hooks contract: {_ANALISE_CONTRACT} did not load ({type(exc).__name__}: {exc}); "
+                      "the suite runs on the fallback schema", stacklevel=1)
 
 
-def run_hook(script: Path, payload: dict[str, Any], *, timeout: int = 15) -> "HookResult":
+def run_hook(script: Path, payload: dict[str, Any], *, timeout: int = 15) -> HookResult:
     """Run a hook script with the given payload dict, return HookResult."""
     payload_bytes = json.dumps(payload).encode()
     result = subprocess.run(
@@ -80,6 +82,7 @@ def run_hook(script: Path, payload: dict[str, Any], *, timeout: int = 15) -> "Ho
         input=payload_bytes,
         capture_output=True,
         timeout=timeout,
+        check=False,
     )
     return HookResult(script=script, payload=payload, proc=result)
 
@@ -92,7 +95,7 @@ def run_hook_sh(
     timeout: int = 15,
     home: Path | None = None,
     extra_env: dict[str, str] | None = None,
-) -> "HookResult":
+) -> HookResult:
     """Run a shell hook with optional extra args.
 
     `home` runs the script against a scratch HOME: the hooks derive their state files from
@@ -107,7 +110,7 @@ def run_hook_sh(
     env = None
     if home is not None or extra_env:
         env = {**os.environ, **({"HOME": str(home)} if home is not None else {}), **(extra_env or {})}
-    result = subprocess.run(cmd, input=payload_bytes, capture_output=True, timeout=timeout, env=env)
+    result = subprocess.run(cmd, input=payload_bytes, capture_output=True, timeout=timeout, env=env, check=False)
     return HookResult(script=script, payload=payload, proc=result)
 
 

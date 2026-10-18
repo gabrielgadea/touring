@@ -142,8 +142,12 @@ pub struct GotchaStats {
     /// Sum of `hit_count` across all gotchas — how often they matched.
     pub total_hits: usize,
     /// Sum of `prevented_errors` across all gotchas — matches credited with
-    /// preventing a real error.
-    pub total_prevented: usize,
+    /// preventing a real error. `None` (JSON `null`) while the signal has no
+    /// producer: an absent signal is not a zero (C7, 2026-10-17).
+    pub total_prevented: Option<usize>,
+    /// Whether `total_prevented` is measured. `false` means the `null` above
+    /// is "unknown", never "none were prevented".
+    pub prevented_measured: bool,
 }
 /// Aggregate counts over the knowledge store.
 #[derive(Serialize)]

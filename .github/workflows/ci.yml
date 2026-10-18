@@ -15,6 +15,11 @@ on:
     branches: [main, master]
   pull_request:
 
+# Least privilege (17/10/2026, ECC analysis C3): every job reads; `gates` declares its own
+# `contents: write` for the ARCHITECTURE.md auto-sync push.
+permissions:
+  contents: read
+
 # NOTE: no global `RUSTFLAGS: -D warnings`; clippy enforces -D warnings explicitly
 # in its own step. touring-generator's missing_docs debt is CLOSED (2026-06-13,
 # D.W2.P3.T6): all 340 items documented + `#![deny(missing_docs)]` enforced in-source.
@@ -28,7 +33,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: clippy, rustfmt
       - name: Install system deps (capnp + libpython — same as release.yml)
@@ -78,7 +83,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -96,7 +101,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: llvm-tools-preview
       - name: Install system deps (capnp + libpython — same as release.yml)
@@ -251,6 +256,18 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: python3 -m pytest client/hooks/tests -q -rs
+      - name: client/hooks — lint com ruff PINADO (varredura de 17/10/2026)
+        # O repo não tem config de ruff: o veredito é o default da VERSÃO instalada. A 0.16.6
+        # levou o default a 413 regras e tirou E402/PLC0415/F403 dele — 59 achados em
+        # client/hooks, 6 deles `noqa` documentados que um --fix cego teria apagado com a
+        # justificativa. Sem pin, o runner instala a última versão e o gate muda de régua
+        # sozinho; subir de versão é decisão (bumpar aqui + limpar o que ela acusar). Venv no
+        # RUNNER_TEMP e --no-cache: nada fica no checkout que os passos seguintes varrem.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ruff-venv"
+          "$RUNNER_TEMP/ruff-venv/bin/pip" install -q ruff==0.16.6
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" --version
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" check --no-cache client/hooks
       - name: mutants config — 19 minutos rendendo zero, lidos como aprovação
         # `additional_cargo_args = ["--all-targets"]` ficava sob um comentário que
         # dizia "Skip bench/doctest targets". --all-targets faz o contrário: INCLUI
@@ -371,6 +388,15 @@ jobs:
         # diretório homônimo estavam errados. Este guard fecha a classe: a
         # próxima fusão de crate não reabre o mesmo drift em silêncio.
         run: python3 -m pytest scripts/test_docs_no_phantom_crates.py -q
+      - name: skills — SKILL.md abaixo do corte de compactação (a lógica do guard; a varredura real PULA aqui)
+        # 17/10/2026: scripts/test_skill_size_guard.py existia desde 08/10 (a Touring tinha
+        # 41.661 chars e voltava pela metade depois de cada compactação) e NENHUM workflow
+        # nem o propagate-release.sh o chamava — git grep achava só docs/plans. Aqui rodam
+        # os controles positivo/negativo/fronteira/isenção, que provam que o guard MEDE. A
+        # varredura de ~/.claude/skills é da máquina do usuário: no runner ela PULA dizendo
+        # isso (-rs) em vez de passar medindo vazio; o release a exige de verdade
+        # (propagate-release.sh, SKILL_SIZE_GUARD_REQUIRE_ROOTS=1).
+        run: python3 -m pytest scripts/test_skill_size_guard.py -q -rs
       - name: drift_semantic_scan — 7 categorias de drift semântico (advisory; || true até saneamento)
         # 31/08/2026 (item #4 doc-touring, Opção A1 do plano 2026-08-31-work-outer):
         # Cobre 7 categorias (versões, paths, fused, CLI, code-fences, envvars,
@@ -457,7 +483,7 @@ jobs:
       # developers see locally, producing license/duplicate errors that cannot be
       # reproduced with `cargo deny check`. Running cargo-deny natively on the gnu
       # runner makes CI and local identical — the same binary, the same graph.
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: cargo-deny
@@ -477,7 +503,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -506,7 +532,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -548,7 +574,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@1.95
+      - uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591 # 1.95
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2

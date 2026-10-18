@@ -25,6 +25,9 @@ const PRODUCERS: &[&str] = &[
 const FRAMEWORK: &[&str] = &[
     "touring-hook-runtime/src/hook_runtime.rs",
     "touring-hook-runtime/src/hook_runtime_ext.rs",
+    // The verdict merge re-wraps a `ContextWithUpdatedInput` it RECEIVES, carrying the same
+    // `updated_input` through (`a_reescrita_mantem_o_updated_input`) — it never originates one.
+    "touring-hook-runtime/src/verdict.rs",
     "touring-hooks-core/src/hook_response.rs",
 ];
 

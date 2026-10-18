@@ -1,18 +1,14 @@
 //! Cross-audit integration tests for touring-learning memory components.
 //!
 //! Audits documented contracts for:
-//! 1. TierManager   — tier ladder, promote-over-demote priority, boundary invariants
-//! 2. RecallCache   — per-key versioning (not full-invalidation), TTL, capacity eviction
-//! 3. AsyncRlmMemory — write-through cache + background batch flush durability
+//! 1. RecallCache   — per-key versioning (not full-invalidation), TTL, capacity eviction
+//! 2. AsyncRlmMemory — write-through cache + background batch flush durability
 //!
 //! Every test here exercises a **contract**, not just "does not crash".
 
 use touring_intelligence::rl::memory::{
-    async_rlm::AsyncRlmMemory,
-    recall_cache::RecallCache,
-    recall_cache::RecallEntry,
+    async_rlm::AsyncRlmMemory, recall_cache::RecallCache, recall_cache::RecallEntry,
     rlm::MemoryTier,
-    tier_manager::{TierDecision, TierLevel, TierManager},
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -25,112 +21,6 @@ fn make_entry(key: &str) -> RecallEntry {
         value: "v".to_string(),
         score: 1.0,
     }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CONTRACT: TierManager ladder — full promotion sequence Ephemeral→Core
-// ─────────────────────────────────────────────────────────────────────────────
-
-#[test]
-fn tier_ladder_full_promotion_sequence() {
-    let mgr = TierManager::new(5, 30);
-
-    // Ephemeral → Working
-    let d1 = mgr.evaluate(TierLevel::Ephemeral, 10, 0);
-    assert_eq!(
-        d1,
-        TierDecision::Promote(TierLevel::Working),
-        "Ephemeral must promote to Working"
-    );
-
-    // Working → Reference
-    let d2 = mgr.evaluate(TierLevel::Working, 10, 0);
-    assert_eq!(
-        d2,
-        TierDecision::Promote(TierLevel::Reference),
-        "Working must promote to Reference"
-    );
-
-    // Reference → Core
-    let d3 = mgr.evaluate(TierLevel::Reference, 10, 0);
-    assert_eq!(
-        d3,
-        TierDecision::Promote(TierLevel::Core),
-        "Reference must promote to Core"
-    );
-
-    // Core → no further promotion (already at top)
-    let d4 = mgr.evaluate(TierLevel::Core, 9999, 0);
-    assert_eq!(d4, TierDecision::Keep, "Core must never promote");
-}
-
-#[test]
-fn tier_ladder_full_demotion_sequence() {
-    let mgr = TierManager::new(10, 5);
-
-    // Core → never demoted (canonical)
-    let d_core = mgr.evaluate(TierLevel::Core, 0, 100);
-    assert_eq!(d_core, TierDecision::Keep, "Core must never demote");
-
-    // Reference → Working
-    let d1 = mgr.evaluate(TierLevel::Reference, 0, 10);
-    assert_eq!(
-        d1,
-        TierDecision::Demote(TierLevel::Working),
-        "Reference must demote to Working"
-    );
-
-    // Working → Ephemeral
-    let d2 = mgr.evaluate(TierLevel::Working, 0, 10);
-    assert_eq!(
-        d2,
-        TierDecision::Demote(TierLevel::Ephemeral),
-        "Working must demote to Ephemeral"
-    );
-
-    // Ephemeral → never demoted (already at bottom)
-    let d3 = mgr.evaluate(TierLevel::Ephemeral, 0, 9999);
-    assert_eq!(d3, TierDecision::Keep, "Ephemeral must never demote");
-}
-
-#[test]
-fn tier_promote_takes_priority_over_demote_when_both_conditions_met() {
-    // Simultaneous: access_count >= threshold AND days_idle >= threshold
-    let mgr = TierManager::new(5, 5);
-
-    // Working: access_count=10 (promote), days_idle=10 (demote) → PROMOTE wins
-    let decision = mgr.evaluate(TierLevel::Working, 10, 10);
-    assert_eq!(
-        decision,
-        TierDecision::Promote(TierLevel::Reference),
-        "CONTRACT: promotion must take priority over demotion"
-    );
-}
-
-#[test]
-fn tier_boundary_below_threshold_keeps() {
-    let mgr = TierManager::new(10, 30);
-
-    // One below promotion threshold, far below demotion
-    let d = mgr.evaluate(TierLevel::Working, 9, 5);
-    assert_eq!(
-        d,
-        TierDecision::Keep,
-        "access_count=9 < 10 must not promote"
-    );
-}
-
-#[test]
-fn tier_boundary_exactly_at_thresholds_triggers() {
-    let mgr = TierManager::new(10, 30);
-
-    // Exactly at promotion threshold
-    let d_promote = mgr.evaluate(TierLevel::Working, 10, 5);
-    assert_eq!(d_promote, TierDecision::Promote(TierLevel::Reference));
-
-    // Exactly at demotion threshold (not enough access to promote)
-    let d_demote = mgr.evaluate(TierLevel::Reference, 0, 30);
-    assert_eq!(d_demote, TierDecision::Demote(TierLevel::Working));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

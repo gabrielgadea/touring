@@ -38,7 +38,10 @@ import juiz_v0d  # noqa: E402  # pyright: ignore[reportMissingImports]
 import replay  # noqa: E402  # pyright: ignore[reportMissingImports]
 import vivos  # noqa: E402  # pyright: ignore[reportMissingImports]
 
-C = replay.VGP / "corpus_v0d"
+VIVO = (
+    replay.VGP / "corpus_v0d"
+)  # o corpus vivo (o juiz mede contra ele): o default de todo builder
+C = VIVO  # onde ESTE processo grava; `definir_saida` (`--saida`) o aponta para um staging
 SEED, N_NEG, CAP = 20261008, 300, 300
 INVENTARIO = replay.VGP / "erros_inventario.jsonl"
 
@@ -186,10 +189,6 @@ def _dobra_projeto(
 # --------------------------------------------------------------------------- o programa inline
 
 
-HEREDOC_PROG = re.compile(r"<<-?\s*['\"]?(\w+)['\"]?[^\n]*\n(.*?)\n\1\s*$", re.S | re.M)
-C_PROG = re.compile(r"python3?\s+-c\s+(?:'([^']*)'|\"([^\"]*)\"|'([^']*)'\s*;)", re.S)
-
-
 def _arg_shell(command: str, flag: str) -> str | None:
     """The value of `--flag <value>` in a shell command line, parsed with shlex (quote-aware) —
     a regex over `--code '...'` breaks on the first inner quote; shlex honours the shell's rules."""
@@ -216,24 +215,89 @@ def _reconstroi_arquivo_sessao(path: str, session: str, first: str) -> str | Non
     return texto if criado and not quebrados else None
 
 
-def programa_inline(command: str, session: str = "", first: str = "") -> str | None:
-    """The program a command actually runs, as the file the traceback will name: heredoc, `-c`,
-    or `touring run --code/--file` (whose frames the engine names `<string>`, like `-c` does)."""
-    if "touring run" in command:
-        code = _arg_shell(command, "--code")
-        if code is not None:
-            return code if code.endswith("\n") else code + "\n"
-        alvo = _arg_shell(command, "--file")
-        if alvo:
-            return _reconstroi_arquivo_sessao(alvo, session, first)
-        return None
-    m = HEREDOC_PROG.search(command)
-    if m:
-        return m.group(2) + "\n"
-    m = C_PROG.search(command)
-    if m:
-        return next(g for g in m.groups() if g is not None) + "\n"
+def _programa_do_run(command: str, session: str = "", first: str = "") -> str | None:
+    """The body a `touring run` received, in ANY language: `--code` as written, `--file` rebuilt from the
+    session. For the REPLAY of a non-inline entry (a bash wrapper calling `python3 /tmp/x.py`), where the
+    thing to run is that wrapper — not for the inline snapshot, which is always a Python program."""
+    code = _arg_shell(command, "--code")
+    if code is not None:
+        return code if code.endswith("\n") else code + "\n"
+    alvo = _arg_shell(command, "--file")
+    if alvo:
+        return _reconstroi_arquivo_sessao(alvo, session, first)
     return None
+
+
+def _linha_tem_nome(texto: str | None, nome: str, linha: int) -> bool:
+    """A linha `linha` (1-based, como o frame do traceback) de `texto` contém `nome` como palavra inteira.
+    Quebra de linha é a do Python (\\n, \\r\\n, \\r) — não a do `splitlines`, que também corta em \\x0b, \\x1c…"""
+    if not texto or linha < 1:
+        return False
+    linhas = re.split(r"\r\n|\r|\n", texto)
+    if linha > len(linhas):
+        return False
+    return re.search(rf"(?<!\w){re.escape(nome)}(?!\w)", linhas[linha - 1]) is not None
+
+
+def _texto_do_candidato(c, session: str, first: str) -> str | None:
+    """O programa de um candidato: o texto que o shell entregou, ou — `touring run --file` — o arquivo
+    dobrado da sessão em `first`."""
+    if c.texto is not None:
+        return c.texto
+    return _reconstroi_arquivo_sessao(c.arquivo or "", session, first)
+
+
+def _escolhe_por_evidencia(
+    cands: list, session: str, first: str, evidencia: tuple[str, int]
+) -> tuple[str | None, str]:
+    """Entre >1 candidatos, o ÚNICO cuja linha do frame contém o nome do erro. O traceback histórico é o
+    oráculo (não depende do motor sob teste); 0 ou ≥2 que casam: continua ambíguo, e diz quantos."""
+    nome, linha = evidencia
+    casam = [
+        t
+        for t in (_texto_do_candidato(c, session, first) for c in cands)
+        if _linha_tem_nome(t, nome, linha)
+    ]
+    if len(casam) != 1:
+        return None, f"ambíguo: evidência casa {len(casam)} candidatos"
+    return casam[0], ""
+
+
+def programa_inline_motivo(
+    command: str,
+    session: str = "",
+    first: str = "",
+    evidencia: tuple[str, int] | None = None,
+) -> tuple[str | None, str]:
+    """`(program, reason)`: the Python program a command ran, as the traceback names it, decided by
+    `shell_inline.candidatos` — the lexer-based single source (heredoc, `-c`, `touring run --lang python
+    --code/--file`, nested `bash -c`, `$(…)`). ONE candidate → its text (a `--file` candidate is rebuilt
+    from the session); none → None and the reason shell_inline names; more than one → None ("ambíguo":
+    the traceback does not say which). With `evidencia=(nome_esperado, linha do frame)` — positives only —
+    more than one candidate is decided by the historical traceback: the ONE whose line `linha` holds `nome`
+    as a whole word; 0 or ≥2 matches stay ambiguous. The reason is what the report counts."""
+    import shell_inline  # noqa: PLC0415 — same directory, imported where it is used (like shlex above)
+
+    cands = shell_inline.candidatos(command)
+    if len(cands) > 1:
+        if evidencia is not None:
+            return _escolhe_por_evidencia(cands, session, first, evidencia)
+        return None, f"ambíguo: {len(cands)} programas Python no mesmo comando"
+    if not cands:
+        return None, shell_inline.analisar(command, True).motivo
+    c = cands[0]
+    if c.texto is not None:
+        return c.texto, ""
+    texto = _reconstroi_arquivo_sessao(c.arquivo or "", session, first)
+    if texto is None:
+        return None, "touring run --file: arquivo da sessão não reconstruível"
+    return texto, ""
+
+
+def programa_inline(command: str, session: str = "", first: str = "") -> str | None:
+    """The program a command actually runs, as the file the traceback will name (see
+    `programa_inline_motivo`, which also says WHY there is none)."""
+    return programa_inline_motivo(command, session, first)[0]
 
 
 def comando_replay(command: str, programa: str) -> str | None:
@@ -251,23 +315,30 @@ def comando_replay(command: str, programa: str) -> str | None:
 
     ms = _arg_shell(command, "--timeout-ms")
     prefixo = f"timeout {max(1, -(-int(ms) // 1000))} " if ms and ms.isdigit() else ""
-    interp = "bash" if _arg_shell(command, "--lang") == "bash" else "python3"
+    lang = _arg_shell(command, "--lang")
+    interp = (
+        lang if lang in ("bash", "sh") else "python3"
+    )  # shell_inline lê os dois como shell
     return f"{prefixo}{interp} -c {shlex.quote(programa)}"
 
 
 def _programa_para_replay(
     comando: str, origem: str, texto: str, session: str, first: str
 ) -> str | None:
-    """What the replay should RUN for a `touring run` command. Inline: the snapshot IS the program
-    (extracted from --code/--file). tmp/atribuido: the snapshot is the FILE's content — the program
+    """What the replay should RUN for a `touring run` command. Inline under `--lang python`: the snapshot
+    IS the program. Inline under `--lang bash|sh`: the snapshot is the Python the shell ran INSIDE, but the
+    faithful replay is the whole wrapper (`bash -c <--code>`), so it is the command's own --code/--file.
+    tmp/atribuido: the snapshot is the FILE's content — the program
     is the command's own --code/--file (a bash wrapper calling `python3 /tmp/x.py`; the overlaid
     file gives the frame its real path). Feeding the python snapshot to `bash -c` was the measured
     bug behind 5 `bash: -c: syntax error` records (build 2, 09/10)."""
     if "touring run" not in comando:
         return None
-    if origem == "inline":
+    if origem == "inline" and _arg_shell(comando, "--lang") not in ("bash", "sh"):
         return texto
-    return programa_inline(comando, session, first)
+    # inline sob `--lang bash|sh`: o snapshot é o Python ANINHADO (o que o motor julga), mas o replay fiel
+    # roda o shell inteiro (`bash -c <--code>`) — cd, env e o resto do wrapper também aconteceram
+    return _programa_do_run(comando, session, first)
 
 
 def comando_de_arquivo(command: str, path: str, texto: str) -> str | None:
@@ -354,6 +425,13 @@ def _snap_projeto(
     return ("atribuido", texto, "")
 
 
+def _evidencia_do_inventario(row: dict) -> tuple[str, int] | None:
+    """`(nome_esperado, linha do frame)` de uma linha V0a — o traceback histórico, que desempata os
+    candidatos de um comando com mais de um programa Python. None quando falta um dos dois."""
+    nome, linha = vivos.static_name(row), row.get("line")
+    return (nome, linha) if nome and isinstance(linha, int) else None
+
+
 def _origem_e_base(
     row: dict, records: list[dict], comando: str = ""
 ) -> tuple[str, str | None, str]:
@@ -363,7 +441,9 @@ def _origem_e_base(
     arq, first = row.get("file", ""), row.get("first", "")
     if row["bucket"] == "inline":
         cmd = comando or row.get("command", "")
-        prog = programa_inline(cmd, row.get("session", ""), first)
+        prog, motivo = programa_inline_motivo(
+            cmd, row.get("session", ""), first, _evidencia_do_inventario(row)
+        )
         if prog is None and re.search(r"bash\s+\S*\.sh", cmd):
             return (
                 "inline",
@@ -373,7 +453,7 @@ def _origem_e_base(
         return (
             "inline",
             prog,
-            "" if prog else "sem heredoc, -c ou touring run extraivel no comando",
+            "" if prog else f"programa inline nao extraivel: {motivo}",
         )
     if replay.session_work(arq):
         return _snap_sessao(records, arq, first)
@@ -576,26 +656,12 @@ def reproduzir(item: dict, cap: int) -> dict:
     not this function's opinion, decides: `reproduz` is read back out of what was written. A record
     is reused only when the overlay signature (paths + sha256) is unchanged — a rebuilt snapshot or
     contexto re-runs, so a rebuild never inherits the verdict of an older snapshot."""
-    laid = (
-        item.get("contexto", [])
-        if item["origem"] == "inline"
-        else [
-            {
-                "path": item["path"],
-                "snap": item["snap"],
-                "sha256": item.get("snap_sha256", ""),
-            },
-            *item.get("contexto", []),
-        ]
-    )
-    assinatura = sha(
-        item["command"] + json.dumps([[f["path"], f.get("sha256", "")] for f in laid])
-    )
+    cache = replay_em_cache(item)
+    if cache is not None:
+        return cache
+    laid = _overlay(item)
+    assinatura = _assinatura(item)
     reg = C / "replay_v0d" / f"{item['id']}.json"
-    if reg.is_file():
-        r = json.loads(reg.read_text(encoding="utf-8"))
-        if r.get("overlay_sha256") == assinatura:
-            return r
     files = {f["path"]: (C / f["snap"]).read_text(encoding="utf-8") for f in laid}
     t0 = time.monotonic()
     rc, timed_out, out = replay.run_isolated(
@@ -626,6 +692,39 @@ def reproduzir(item: dict, cap: int) -> dict:
     reg.parent.mkdir(parents=True, exist_ok=True)
     reg.write_text(json.dumps(rec, ensure_ascii=False, indent=1), encoding="utf-8")
     return rec
+
+
+def _overlay(item: dict) -> list[dict]:
+    """What the replay lays over the tree: an inline entry's program IS its command (contexto only); a
+    file entry also lays its own snapshot."""
+    if item["origem"] == "inline":
+        return item.get("contexto", [])
+    return [
+        {
+            "path": item["path"],
+            "snap": item["snap"],
+            "sha256": item.get("snap_sha256", ""),
+        },
+        *item.get("contexto", []),
+    ]
+
+
+def _assinatura(item: dict) -> str:
+    """The verdict belongs to the pair (command, overlay): either changing re-runs the replay."""
+    laid = _overlay(item)
+    return sha(
+        item["command"] + json.dumps([[f["path"], f.get("sha256", "")] for f in laid])
+    )
+
+
+def replay_em_cache(item: dict) -> dict | None:
+    """The stored replay record when its overlay signature still matches; None → it must re-run."""
+    reg = C / "replay_v0d" / f"{item['id']}.json"
+    if reg.is_file():
+        r = json.loads(reg.read_text(encoding="utf-8"))
+        if r.get("overlay_sha256") == _assinatura(item):
+            return r
+    return None
 
 
 # --------------------------------------------------------------------------- negativos
@@ -926,6 +1025,112 @@ def construir(jobs: int, cap: int) -> dict:
     return rel
 
 
+def definir_saida(saida: str | Path | None) -> Path:
+    """Point the builder at ANOTHER directory (a staging copy). Without `saida` nothing changes: the live
+    corpus stays the default. Call it BEFORE anything is built — every writer reads the module's `C`."""
+    global C
+    if saida:
+        C = Path(saida)
+    return C
+
+
+def _linhas(arq: Path) -> list[dict]:
+    return [
+        json.loads(ln)
+        for ln in arq.read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    ]
+
+
+def _inline_reconstruidas(
+    por_id: dict[str, dict],
+) -> tuple[list[dict], list[dict], dict[str, int]]:
+    """(positives in V0a order, the REBUILT inline ones, incompletos por motivo). Non-inline rows keep
+    the entry the corpus already has, byte for byte — they do not depend on the extractor."""
+    positivos: list[dict] = []
+    novas: list[dict] = []
+    incompletos: dict[str, int] = {}
+    vistos: set[str] = set()
+    for row in candidatos():
+        eid = ident(
+            "positivo",
+            row.get("session", ""),
+            row.get("file", ""),
+            row.get("first", ""),
+        )
+        if row.get("bucket") != "inline":
+            if eid in por_id and eid not in vistos:
+                vistos.add(eid)
+                positivos.append(por_id[eid])
+            continue
+        item, motivo = montar_positivo(row)
+        if item is None:
+            incompletos[motivo] = incompletos.get(motivo, 0) + 1
+        elif item["id"] not in vistos:
+            vistos.add(item["id"])
+            positivos.append(item)
+            novas.append(item)
+    return positivos, novas, incompletos
+
+
+def reconstruir_inline(jobs: int, cap: int, estimar: bool = False) -> dict:
+    """STAGING: regenerate ONLY the inline-origin positives — the one part of the corpus that depends on
+    the extractor — over a COPY of the corpus in `C` (set with `--saida`). Everything else in
+    entradas.jsonl (tmp, atribuído, the 300 negatives) is kept as it is. A replay record is reused when
+    its (command, overlay) signature is unchanged, so only entries whose replay command changed — and the
+    new ones — are re-run. `estimar` stops before any replay and reports how many are pending and the
+    estimated seconds (mean wall_s of the existing inline records), so the cost can be judged first."""
+    if C == VIVO:
+        raise SystemExit(
+            "--so-inline grava no corpus: exige --saida (o corpus vivo é só leitura aqui)"
+        )
+    vivas = _linhas(C / "entradas.jsonl")
+    por_id = {e["id"]: e for e in vivas if e["rotulo"] == "positivo"}
+    negativos = [e for e in vivas if e["rotulo"] != "positivo"]
+    positivos, novas, incompletos = _inline_reconstruidas(por_id)
+    pendentes = [e for e in novas if replay_em_cache(e) is None]
+    walls = [
+        r.get("wall_s", 0.0)
+        for e in vivas
+        if e["origem"] == "inline" and (r := _registro(e["id"]))
+    ]
+    rel = {
+        "inline_reconstruidas": len(novas),
+        "incompletos_por_motivo": incompletos,
+        "replay_pendentes": len(pendentes),
+        "wall_s_medio_inline": round(sum(walls) / len(walls), 1) if walls else None,
+        "estimativa_replay_s": round(
+            len(pendentes) * (sum(walls) / len(walls) if walls else cap)
+        ),
+    }
+    if estimar:
+        return rel
+    registros = _replayar(novas, jobs, cap)
+    proved = {
+        r["id"]
+        for r in registros
+        if r.get("kind_in_output") and r.get("frame_in_output")
+    }
+    for e in novas:
+        e["reproduz"] = e["id"] in proved
+    (C / "entradas.jsonl").write_text(
+        "".join(
+            json.dumps(e, ensure_ascii=False) + "\n" for e in positivos + negativos
+        ),
+        encoding="utf-8",
+    )
+    rel["inline_reproduzem"] = len(proved)
+    (C / "relatorio_inline.json").write_text(
+        json.dumps(rel, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+    return rel
+
+
+def _registro(eid: str) -> dict | None:
+    reg = C / "replay_v0d" / f"{eid}.json"
+    return json.loads(reg.read_text(encoding="utf-8")) if reg.is_file() else None
+
+
 def selftest() -> int:
     """Positive: a clean `.py` Write on a session-work path yields a compilable snapshot, and its id is
     the deterministic one. Negative: (a) a DENIED Edit never enters the fold — the snapshot keeps the
@@ -1061,16 +1266,68 @@ def selftest() -> int:
         ok.append(
             ("sem programa ⇒ None", programa_inline("python3 -c-file.py") is None)
         )
+        dois = programa_inline_motivo("python3 -c 'print(1)'; python3 -c 'print(2)'")
+        ok.append(
+            (
+                "dois programas ⇒ None ambíguo",
+                dois[0] is None and dois[1].startswith("ambíguo"),
+            )
+        )
+        ok.append(
+            (
+                "shell aninhado: o Python de dentro",
+                programa_inline("bash -c \"python3 -c 'print(3)'\"") == "print(3)\n",
+            )
+        )
+        ok.append(
+            (
+                "--saida aponta C e o default é o vivo",
+                definir_saida(None) == VIVO and definir_saida(d) == Path(d),
+            )
+        )
+        definir_saida(VIVO)  # o selftest não deixa o módulo apontando para o tmp
     for nome, v in ok:
         print(f"  {'ok  ' if v else 'FALHOU'} {nome}")
     return 0 if all(v for _, v in ok) else 1
 
 
 def main() -> int:
-    if "--selftest" in sys.argv:
+    import argparse  # noqa: PLC0415 — only the CLI needs it
+
+    ap = argparse.ArgumentParser(
+        description="V0d — build the replay corpus (see the module docstring)"
+    )
+    ap.add_argument("--selftest", action="store_true")
+    ap.add_argument("--jobs", type=int, default=4)
+    ap.add_argument("--timeout", type=int, default=CAP)
+    ap.add_argument(
+        "--saida",
+        help="corpus directory to write; without it, the LIVE corpus (default)",
+    )
+    ap.add_argument(
+        "--so-inline",
+        action="store_true",
+        help="rebuild only the inline positives (needs --saida)",
+    )
+    ap.add_argument(
+        "--estimar",
+        action="store_true",
+        help="with --so-inline: report the replay cost, run nothing",
+    )
+    a = ap.parse_args()
+    definir_saida(a.saida)
+    if a.selftest:
         return selftest()
-    args = dict(zip(sys.argv[1::2], sys.argv[2::2]))
-    rel = construir(int(args.get("--jobs", 4)), int(args.get("--timeout", CAP)))
+    if a.so_inline:
+        print(
+            json.dumps(
+                reconstruir_inline(a.jobs, a.timeout, a.estimar),
+                ensure_ascii=False,
+                indent=1,
+            )
+        )
+        return 0
+    rel = construir(a.jobs, a.timeout)
     print(
         json.dumps(
             {k: v for k, v in rel.items() if k != "nao_reproduzem"},

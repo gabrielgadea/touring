@@ -1,4 +1,9 @@
-//! F2.4 — Cryptographic Issues / Hardcoded Secrets verifier.
+//! F2.4 — Hardcoded Secrets verifier.
+//!
+//! Label (17/10/2026): `touring-quality list` used to call this dimension
+//! "Cryptographic Issues", but nothing here measures cryptography (algorithms, key
+//! sizes, RNG): every signal below is a *credential committed to the source*. The rule
+//! file and CLAUDE.md already say "Secrets"; the code now agrees.
 //!
 //! Detects hardcoded secrets via several signals, ordered by confidence:
 //!   1. **Known provider token markers** — GitHub (`ghp_`/…), Slack (`xoxb-`/…),
@@ -23,9 +28,11 @@
 use crate::DimId;
 use crate::verifications::Verification;
 use anyhow::Result;
+use std::borrow::Cow;
 use std::path::Path;
+use std::sync::OnceLock;
 
-/// F2.4 verifier — Cryptographic Issues / Hardcoded Secrets.
+/// F2.4 verifier — Hardcoded Secrets.
 #[allow(non_camel_case_types)]
 pub struct F2_4_Secrets;
 
@@ -798,7 +805,7 @@ fn blank_raw_string(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usi
 /// Returns `None` when the hit is not attributable to one line on its own — the
 /// caller then omits the location rather than guessing.
 fn first_offending(raw: &str) -> Option<(usize, &'static str)> {
-    scan_lines(raw).0
+    scan_lines(&mask_documented_placeholders(raw)).0
 }
 
 /// Both per-line signals, computed over ONE raw↔projection pairing.
@@ -831,6 +838,65 @@ fn scan_lines(raw: &str) -> (Option<(usize, &'static str)>, bool) {
         }
     }
     (first_strong, code.lines().any(names_secret))
+}
+
+/// Credentials the vendors publish in their own documentation as examples.
+///
+/// They are shaped exactly like real credentials (that is the point of an example) and
+/// are committed in thousands of READMEs, test fixtures and IaC snippets, so a file
+/// that merely shows the AWS docs' sample pair read F2.4 = 0.000 and BLOCKED every edit.
+/// An exact-literal list is the narrowest correct exemption: a real key is never one of
+/// these strings, and one character more or less (`…EXAMPLEX`) is no longer the sample.
+///
+/// The literals are assembled from fragments, as the hook-side redactors do: this very
+/// file is scanned by the pre-write hook (`scan_text`), which has no own-source
+/// allowlist, and a whole sample key here would block the edit that adds it.
+fn documented_placeholders() -> &'static [String] {
+    static CELL: OnceLock<Vec<String>> = OnceLock::new();
+    CELL.get_or_init(|| {
+        vec![
+            // AWS "IAM user guide / credentials" sample pair.
+            ["AKIA", "IOSFODNN7", "EXAMPLE"].concat(),
+            ["wJalrXUtnFEMI/K7MDENG/", "bPxRfiCYEXAMPLEKEY"].concat(),
+            // AWS sample pair of the older API reference pages.
+            ["AKIA", "I44QH8DHB", "EXAMPLE"].concat(),
+            ["je7MtGbClwBF/2Zp9Utk/", "h3yCo8nvbEXAMPLEKEY"].concat(),
+        ]
+    })
+}
+
+/// `text` with every documented placeholder ([`documented_placeholders`]) blanked to
+/// the same number of `x` bytes, so line numbers and the byte alignment between a raw
+/// line and its code projection survive. A literal only counts when it stands alone:
+/// neither neighbour may continue the token (`…EXAMPLEX` is another string).
+fn mask_documented_placeholders(text: &str) -> Cow<'_, str> {
+    let standalone = |s: &str, at: usize, len: usize| {
+        let before = s[..at].chars().next_back();
+        let after = s[at + len..].chars().next();
+        !before.is_some_and(|c| c.is_ascii_alphanumeric())
+            && !after.is_some_and(|c| c.is_ascii_alphanumeric())
+    };
+    let mut masked: Option<String> = None;
+    for literal in documented_placeholders() {
+        let current = masked.as_deref().unwrap_or(text);
+        let hits: Vec<usize> = current
+            .match_indices(literal.as_str())
+            .map(|(at, _)| at)
+            .filter(|&at| standalone(current, at, literal.len()))
+            .collect();
+        if hits.is_empty() {
+            continue;
+        }
+        let mut next = current.to_string();
+        for at in hits {
+            next.replace_range(at..at + literal.len(), &"x".repeat(literal.len()));
+        }
+        masked = Some(next);
+    }
+    match masked {
+        Some(owned) => Cow::Owned(owned),
+        None => Cow::Borrowed(text),
+    }
 }
 
 /// (1) A known provider marker (`ghp_`, `AKIA`, a PEM header, …) appears in `text`.
@@ -908,6 +974,9 @@ fn line_is_strong(line: &str, code: &str) -> Option<&'static str> {
 }
 
 fn scan(raw: &str) -> (bool, bool) {
+    // Documented sample credentials (the AWS docs pair) are not leaks.
+    let masked = mask_documented_placeholders(raw);
+    let raw = masked.as_ref();
     // (1)/(1b) file-wide: a marker or a structural token anywhere → strong.
     if has_strong_marker(raw) || has_structural_token(raw) {
         return (true, false);
@@ -1140,8 +1209,9 @@ fn is_detector_own_source(target: &Path) -> bool {
     // be "leaking" those patterns — they are the operational definitions. This
     // matches the `is_detector_own_source` allowlist used by the F2.4 verifier
     // for its own crate, extended to other crates that ship their own secret
-    // detectors (`touring-ceg::gateway::sandbox_executor::SECRET_TOKEN_PATTERNS`,
-    // etc.). Real user code that PREFIXES a value with `ghp_…` / `sk_live_…` etc.
+    // detectors (`touring-foundation::text_sanitize::SECRET_TOKEN_PATTERNS` — moved
+    // there from `touring-ceg::gateway::sandbox_executor` on 2026-10-17 and carrying
+    // the `touring-quality:allow-secrets` pragma — etc.). Real user code that PREFIXES a value with `ghp_…` / `sk_live_…` etc.
     // still scores 0.0 — the matcher is fine-grained enough to ignore raw regex
     // source like `r"gh[pousr]_[A-Za-z0-9_]{20,}"` which never contains a literal
     // `ghp_`/`gho_`/`ghu_`/`ghs_`/`ghr_` token.
@@ -1175,7 +1245,7 @@ impl Verification for F2_4_Secrets {
         if is_detector_own_source(target) {
             return Ok((
                 1.0,
-                "Cryptographic Issues: detector own source — markers are definitions, allowlisted (score=1.000)"
+                "Hardcoded Secrets: detector own source — markers are definitions, allowlisted (score=1.000)"
                     .to_string(),
             ));
         }
@@ -1193,7 +1263,7 @@ impl Verification for F2_4_Secrets {
         if target.is_file() && raw.contains(ALLOW_SECRETS_PRAGMA) {
             return Ok((
                 1.0,
-                "Cryptographic Issues: file carries `touring-quality:allow-secrets` \
+                "Hardcoded Secrets: file carries `touring-quality:allow-secrets` \
                  pragma (sample-secret fixture, explicitly allowlisted) — score=1.000"
                     .to_string(),
             ));
@@ -1243,10 +1313,10 @@ impl Verification for F2_4_Secrets {
         // output format ever echoes it.
         let evidence = match first_offending(&raw) {
             Some((line, rule)) if strong => format!(
-                "Cryptographic Issues: {category} at {}:{line}:{rule} — score={value:.3}",
+                "Hardcoded Secrets: {category} at {}:{line}:{rule} — score={value:.3}",
                 target.display()
             ),
-            _ => format!("Cryptographic Issues: {category} — score={value:.3}"),
+            _ => format!("Hardcoded Secrets: {category} — score={value:.3}"),
         };
         Ok((value, evidence))
     }
@@ -1399,15 +1469,20 @@ mod tests {
     /// O contrapositivo — sem ele o teste acima seria licenca para vazar.
     #[test]
     fn marcador_com_corpo_de_token_segue_bloqueando_ate_em_comentario() {
+        // A key SHAPED like a real one. It used to be the AWS documentation's sample
+        // (`…EXAMPLE`), which the detector now allowlists on purpose (17/10/2026,
+        // `the_aws_documentation_sample_pair_is_not_a_leak`); built at run time.
+        let aws = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
         for vazamento in [
-            "// deixei aqui: ghp_aBcDeF0123456789aBcDeF0123456789aBcD",
-            "let k = \"AKIAIOSFODNN7EXAMPLE\";",
+            "// deixei aqui: ghp_aBcDeF0123456789aBcDeF0123456789aBcD".to_string(),
+            format!("let k = \"{aws}\";"),
             // Split so the source never holds a scanner-shaped Slack token (GitHub push
             // protection blocked this fixture, 18/09/2026); the detector sees it joined.
             concat!(
                 "# slack: xox",
                 "b-2456789012-3456789012-aBcDeF0123456789aBcD"
-            ),
+            )
+            .to_string(),
         ] {
             let s = score(&format!("{vazamento}\n"));
             assert_eq!(s.value, 0.0, "token com corpo bloqueia: {vazamento}");
@@ -1434,8 +1509,10 @@ mod tests {
 
     #[test]
     fn test_aws_key_still_blocks() {
-        // regression: AWS detection must still work.
-        let s = score("pub const AWS: &str = \"AKIAIOSFODNN7EXAMPLE\";\n");
+        // regression: AWS detection must still work -- for a real-shaped key, not the
+        // documentation's sample (allowlisted, see the 17/10/2026 tests below).
+        let key = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
+        let s = score(&format!("pub const AWS: &str = \"{key}\";\n"));
         assert_eq!(s.value, 0.0, "AKIA key must still block");
     }
 
@@ -1564,7 +1641,7 @@ mod tests {
         // a meta tuple / call that merely names the "secrets" dimension next to
         // string literals is not an assignment — it may warn (soft) but must NOT
         // hard-block (<0.5). Regression for the lib.rs META_TABLE self-flag.
-        let s = score("    (\"F2.4\", \"secrets\", \"Cryptographic Issues\"),\n");
+        let s = score("    (\"F2.4\", \"secrets\", \"Hardcoded Secrets\"),\n");
         assert!(
             s.value >= 0.5,
             "meta tuple must not hard-block (got {})",
@@ -2447,5 +2524,138 @@ mod tests {
     #[test]
     fn opaque_token_beside_code_syntax_still_blocks() {
         assert!(scan_text("call(x); k = \"q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA\"\n").strong);
+    }
+
+    // ── 17/10/2026: documented vendor placeholders + the label ────────────────────
+    //
+    // Every literal below is assembled at run time: this file is itself scanned by
+    // the pre-write hook, which would (rightly) block a whole sample key.
+
+    fn aws_sample_pair() -> (String, String) {
+        (
+            ["AKIA", "IOSFODNN7", "EXAMPLE"].concat(),
+            ["wJalrXUtnFEMI/K7MDENG/", "bPxRfiCYEXAMPLEKEY"].concat(),
+        )
+    }
+
+    /// The documentation's pair in the layouts it is actually committed in.
+    fn aws_sample_layouts() -> Vec<String> {
+        let (id, secret) = aws_sample_pair();
+        vec![
+            format!("[default]\naws_access_key_id = {id}\naws_secret_access_key = {secret}\n"),
+            format!("AWS_ACCESS_KEY_ID=\"{id}\"\nAWS_SECRET_ACCESS_KEY=\"{secret}\"\n"),
+            format!(
+                "c = boto3.client('s3', aws_access_key_id='{id}', aws_secret_access_key='{secret}')\n"
+            ),
+            format!("export AWS_ACCESS_KEY_ID={id}\nexport AWS_SECRET_ACCESS_KEY={secret}\n"),
+            format!("# the docs show {id} / {secret}\nfn main() {{}}\n"),
+        ]
+    }
+
+    #[test]
+    fn the_aws_documentation_sample_pair_is_not_a_leak() {
+        for src in aws_sample_layouts() {
+            assert_eq!(
+                score(&src).value,
+                1.0,
+                "the gate blocks the sample: {src:?}"
+            );
+            let text = scan_text(&src);
+            assert!(
+                !text.strong,
+                "the pre-write scan blocks the sample: {src:?} {text:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_older_aws_sample_pair_is_not_a_leak_either() {
+        let id = ["AKIA", "I44QH8DHB", "EXAMPLE"].concat();
+        let secret = ["je7MtGbClwBF/2Zp9Utk/", "h3yCo8nvbEXAMPLEKEY"].concat();
+        let src = format!("aws_access_key_id = {id}\naws_secret_access_key = \"{secret}\"\n");
+        assert_eq!(score(&src).value, 1.0, "{src:?}");
+    }
+
+    #[test]
+    fn a_real_shaped_aws_key_still_blocks() {
+        let id = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
+        let secret = ["Zx9Qw3Er7Ty1Ui5Op2As", "8Df4Gh6Jk0Lm3Nb7Vc5X"].concat();
+        for src in [
+            format!("aws_access_key_id = {id}\n"),
+            format!("aws_secret_access_key = \"{secret}\"\n"),
+        ] {
+            assert_eq!(
+                score(&src).value,
+                0.0,
+                "a real-shaped credential must block: {src:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_sample_extended_by_one_character_is_another_string() {
+        let (id, _) = aws_sample_pair();
+        for src in [
+            format!("aws_access_key_id = {id}Q\n"),
+            format!("aws_access_key_id = Q{id}\n"),
+        ] {
+            assert!(
+                scan_text(&src).strong,
+                "not the documented literal: {src:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_real_key_beside_the_sample_is_still_located_at_its_own_line() {
+        let (id, _) = aws_sample_pair();
+        let real = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
+        let src = format!("aws_access_key_id = {id}\naws_access_key_id = {real}\n");
+        let found = scan_text(&src);
+        assert!(found.strong, "{found:?}");
+        assert_eq!(
+            found.first_line,
+            Some(2),
+            "the sample on line 1 is not the finding"
+        );
+    }
+
+    #[test]
+    fn masking_the_samples_keeps_the_byte_layout() {
+        let (id, secret) = aws_sample_pair();
+        let src = format!("a = \"{id}\"\nb = '{secret}'\n");
+        let masked = mask_documented_placeholders(&src);
+        assert_eq!(
+            masked.len(),
+            src.len(),
+            "line numbers and projection alignment"
+        );
+        assert_eq!(masked.lines().count(), src.lines().count());
+        assert!(!masked.contains(&id) && !masked.contains(&secret));
+        assert!(
+            matches!(
+                mask_documented_placeholders("fn main() {}\n"),
+                Cow::Borrowed(_)
+            ),
+            "text without a sample is not copied"
+        );
+    }
+
+    #[test]
+    fn evidence_names_the_dimension_by_what_it_measures() {
+        let real = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
+        let hit = score(&format!("aws_access_key_id = {real}\n"));
+        assert!(
+            hit.evidence.starts_with("Hardcoded Secrets:"),
+            "{}",
+            hit.evidence
+        );
+        assert!(!hit.evidence.contains("Cryptographic"), "{}", hit.evidence);
+        let clean = score("pub fn add(a: i32, b: i32) -> i32 { a + b }\n");
+        assert!(
+            clean.evidence.starts_with("Hardcoded Secrets:"),
+            "{}",
+            clean.evidence
+        );
     }
 }

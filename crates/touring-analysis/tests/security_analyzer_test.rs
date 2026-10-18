@@ -412,3 +412,129 @@ fn a_constant_handler_is_inline_js_but_a_tainted_one_is_a_sink() {
         );
     }
 }
+
+fn xss_findings(source: &str, lang: &str) -> usize {
+    SecurityAnalyzer::new()
+        .analyze(source, lang)
+        .vuln_matches
+        .iter()
+        .filter(|m| m.pattern_name == "XSS")
+        .count()
+}
+
+/// F2.1 false positive (09/10/2026, touring-4f): a Python `Write` whose only
+/// "XSS" was the words `javascript:` in a log message was blocked as CWE-79.
+/// `javascript:` is a URL scheme: it is a sink where a URL value begins (an
+/// attribute, a quoted URL, a call argument), never as a word in prose. The
+/// controls — the same token as a URL — must keep failing, in every language
+/// the Write gate scores.
+#[test]
+fn the_word_javascript_in_a_log_message_is_not_xss_but_a_javascript_url_is() {
+    for (source, lang) in [
+        (
+            "def f(log):\n    log(\"rota javascript: handlers desativados\")\n",
+            "python",
+        ),
+        ("print(f\"bloqueado: javascript: em {url}\")\n", "python"),
+        (
+            "console.log(\"rota javascript: handlers desativados\");\n",
+            "javascript",
+        ),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            0,
+            "prose is not a sink: {source}"
+        );
+    }
+    for (source, lang) in [
+        ("html = '<a href=\"javascript:alert(1)\">x</a>'\n", "python"),
+        ("html = f'<a href=\"javascript:{x}\">go</a>'\n", "python"),
+        ("redirect(\"javascript:alert(1)\")\n", "python"),
+        ("var x = 1;\nlocation = 'javascript:' + x;\n", "javascript"),
+        ("window.open(\"javascript:alert(1)\");\n", "javascript"),
+        ("<a href=\"javascript:alert(1)\">x</a>\n", "html"),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            1,
+            "a javascript: URL is a sink: {source}"
+        );
+    }
+}
+
+/// The scheme is case-insensitive in a browser: `JavaScript:` is the same sink.
+#[test]
+fn a_javascript_url_is_a_sink_in_any_letter_case() {
+    for (source, lang) in [
+        ("html = '<a href=\"JavaScript:alert(1)\">x</a>'\n", "python"),
+        ("redirect(\" \tJAVASCRIPT:alert(1)\")\n", "python"),
+        ("location = 'jAvAsCrIpT:' + x;\n", "javascript"),
+        ("window.open(\"Javascript:alert(1)\");\n", "javascript"),
+        ("<a href=\"JaVaScRiPt:alert(1)\">x</a>\n", "html"),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            1,
+            "cased URL is a sink: {source}"
+        );
+    }
+    for (source, lang) in [
+        ("log(\"rota JavaScript: handlers desativados\")\n", "python"),
+        ("doc = 'TypeScript / JavaScript: exports'\n", "python"),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            0,
+            "cased prose is not: {source}"
+        );
+    }
+}
+
+/// Defensive code names the scheme to refuse it; assigning it as a URL is the sink.
+#[test]
+fn a_scheme_blocklist_is_not_a_sink_but_a_url_assignment_is() {
+    for (source, lang) in [
+        (
+            "def bad(url):\n    return url.lower().startswith((\"javascript:\", \"data:\"))\n",
+            "python",
+        ),
+        (
+            "def bad(s):\n    return s != \"javascript:\" and s not in (\"data:\", \"javascript:\")\n",
+            "python",
+        ),
+        (
+            "if (u.startsWith('javascript:')) { return false; }\n",
+            "javascript",
+        ),
+        (
+            "if (scheme === 'javascript:') { return false; }\n",
+            "javascript",
+        ),
+        (
+            "for (let i=0;i<n;i++) { if (u.indexOf('javascript:') === 0) bad(); }\n",
+            "javascript",
+        ),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            0,
+            "a blocklist is not a sink: {source}"
+        );
+    }
+    for (source, lang) in [
+        ("if ok:\n    el.href = \"javascript:\" + x\n", "python"),
+        ("x == 1 and go(\"javascript:alert(1)\")\n", "python"),
+        (
+            "redirect(url if url.startswith(\"/\") else \"javascript:void(0)\")\n",
+            "python",
+        ),
+        ("if (ok) el.href = \"javascript:\" + x;\n", "javascript"),
+    ] {
+        assert_eq!(
+            xss_findings(source, lang),
+            1,
+            "a URL assignment is a sink: {source}"
+        );
+    }
+}

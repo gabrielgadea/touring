@@ -15,7 +15,6 @@ memória carrega facetas `#facet:value` consultáveis.
 | `moc` | Comunidades emergentes (label propagation determinístico) + Maps of Content em OKF markdown |
 | `recall` | SemanticRecall + fusão RRF |
 | `palace` | Memory palace paths (wing/room/closet/drawer) |
-| `tier_manager` | Política de tiers e manutenção |
 | `working` | Working memory LRU |
 | `pattern_cluster` | HNSW lazy clustering de padrões |
 | `crdt_graph` | Grafo semântico CRDT (delta sync, rkyv) |

@@ -75,7 +75,7 @@ impl VulnerabilityPattern for SqlInjectionPattern {
 // ---------------------------------------------------------------------------
 // Cross-Site Scripting — CWE-79
 // ---------------------------------------------------------------------------
-/// Detects cross-site scripting (CWE-79): `<script>` tags, `javascript:` URIs, and inline HTML event-handler attributes (lowercase DOM events).
+/// Detects cross-site scripting (CWE-79): `<script>` tags, `javascript:` URIs (the scheme, in any letter case, at the start of a URL value: not the word in prose, not a literal a scheme blocklist refuses), and inline HTML event-handler attributes (lowercase DOM events).
 #[derive(Debug, Clone, Copy)]
 pub struct XssPattern;
 
@@ -101,8 +101,14 @@ impl VulnerabilityPattern for XssPattern {
             // benign code. `(?:[^:]|$)` = next char is non-`:` OR end-of-input
             // (the `regex` crate has no lookahead; this is the linear-time
             // equivalent of `(?!:)` while still matching a bare `javascript:`).
+            // The scheme arm folds ASCII case (`(?i-u:…)`): a URL scheme is
+            // case-insensitive to the browser, so `JavaScript:` is the same sink.
+            // `<script` and the `on…=` handlers stay lowercase-only on purpose:
+            // `<Script>` is a framework component and `onClick=` a JSX prop
+            // (measured 09/10/2026 over 12.762 source files: 150 with a
+            // non-lowercase handler, almost all camelCase props).
             Regex::new(
-                r"(<script[\s>/]|javascript:(?:[^:]|$)|\bon(error|load|click|dblclick|mouseover|mouseout|mouseenter|mouseleave|mousedown|mouseup|mousemove|focus|focusin|blur|submit|reset|change|input|select|keydown|keyup|keypress|toggle|animationstart|animationend|transitionend|pointerover|pointerenter|pointerdown|wheel|scroll|drag|dragstart|drop|copy|cut|paste|contextmenu|hashchange|popstate|pageshow|pagehide|beforeunload|resize|start|playing|canplay|loadstart|loadeddata|abort|invalid|search)\s*=)",
+                r"(<script[\s>/]|(?i-u:javascript):(?:[^:]|$)|\bon(error|load|click|dblclick|mouseover|mouseout|mouseenter|mouseleave|mousedown|mouseup|mousemove|focus|focusin|blur|submit|reset|change|input|select|keydown|keyup|keypress|toggle|animationstart|animationend|transitionend|pointerover|pointerenter|pointerdown|wheel|scroll|drag|dragstart|drop|copy|cut|paste|contextmenu|hashchange|popstate|pageshow|pagehide|beforeunload|resize|start|playing|canplay|loadstart|loadeddata|abort|invalid|search)\s*=)",
             )
             .expect("valid static regex")
         });
@@ -123,6 +129,16 @@ impl VulnerabilityPattern for XssPattern {
         re.find_iter(input)
             .filter(|m| {
                 let text = m.as_str();
+                // F2.1 (09/10/2026, touring-4f): `javascript:` is a URL SCHEME, in any
+                // letter case. It is a sink only where a URL value begins
+                // (`log("rota javascript: …")` talks ABOUT it) and when it is not the
+                // literal a scheme BLOCKLIST names to refuse it. The open-tag rescue
+                // below never applies to it: `a<b` in JS opened a phantom "tag" and
+                // kept `u.startsWith('javascript:')` reported.
+                if is_javascript_scheme(text) {
+                    return starts_url_value(input, m.start())
+                        && !is_scheme_blocklist_literal(input, m.start());
+                }
                 // B3 (2026-09-02): the handler arm (`on<event>=`) is an HTML
                 // attribute — a sink only INSIDE an open tag. Bare, it is a
                 // keyword argument: `os.walk(top, onerror=…)` in a diagnostic
@@ -138,7 +154,6 @@ impl VulnerabilityPattern for XssPattern {
                 (text.starts_with("<script")
                     && !is_cli_placeholder(input, m.start(), m.end())
                     && !in_html_document_template(input, m.start()))
-                    || text.starts_with("javascript:")
                     || inside_open_tag(input, m.start())
             })
             .map(|m| VulnMatch::new("XSS".into(), (m.start(), m.end()), 8.1, 79))
@@ -300,6 +315,196 @@ fn in_symlink_listing(input: &str, match_start: usize) -> bool {
     let line = &input[line_start..match_start];
     let head = line.trim_start();
     line.ends_with("-> ") && (head.starts_with(['│', '├', '└']) || head.starts_with("lrwx"))
+}
+
+/// `at` is where a URL VALUE begins: the nearest non-blank byte before it is a
+/// quote, `=` or `(` (an attribute or query parameter, a string, a call argument,
+/// a Markdown link), or the line has nothing before it (a bare payload).
+///
+/// `javascript:` is a URL scheme and a scheme exists only at the start of the URL
+/// it names. After a word it is prose: `log("rota javascript: …")` talks ABOUT the
+/// scheme and the P0 gate (F2.1) blocked a Python file as XSS for it (touring-4f,
+/// 09/10/2026). The test is positional on purpose — every sink this arm exists for
+/// (`href="javascript:…"`, `location = 'javascript:' + x`, `window.open("javascript:…")`,
+/// a payload input) puts the scheme at a value start, so no true positive moves.
+/// A scheme BLOCKLIST literal (`url.startswith("javascript:")`) also starts a value;
+/// [`is_scheme_blocklist_literal`] judges that one.
+fn starts_url_value(input: &str, at: usize) -> bool {
+    let before = input[..at].trim_end_matches([' ', '\t']);
+    match before.bytes().next_back() {
+        None | Some(b'\n') => true,
+        Some(b) => matches!(b, b'"' | b'\'' | b'`' | b'=' | b'('),
+    }
+}
+
+/// True when a regex match opens with the `javascript:` scheme in ANY letter case.
+/// ASCII fold only: a URL scheme is case-insensitive to the browser, and ASCII.
+fn is_javascript_scheme(text: &str) -> bool {
+    text.as_bytes()
+        .get(..11)
+        .is_some_and(|head| head.eq_ignore_ascii_case(b"javascript:"))
+}
+
+/// Methods whose direct string argument is a scheme CHECK, not a URL in use.
+const SCHEME_CHECK_CALLS: [&str; 6] = [
+    "startswith",
+    "startsWith",
+    "endswith",
+    "endsWith",
+    "includes",
+    "indexOf",
+];
+/// How far a blocklist judgement reads around the literal (a literal and its
+/// neighbours are short; the bound keeps the cost per match constant).
+const BLOCKLIST_WINDOW: usize = 2048;
+/// Most members of a tuple/list walked back to its opening bracket.
+const BLOCKLIST_MEMBERS: usize = 32;
+
+/// The `javascript:` literal at `at` is DEFENSIVE code naming the scheme to refuse
+/// it, not a URL in use (F2.1, 09/10/2026): `url.startswith("javascript:")`,
+/// `u.startsWith('javascript:')`, `scheme == "javascript:"` (`===`, `!=`, `!==`, the
+/// literal on either side), `s.startswith(("javascript:", "data:"))`, `x in
+/// ("javascript:", …)`. Narrow and positional on purpose — the literal is
+///
+/// - the direct argument of [`SCHEME_CHECK_CALLS`], or a member of the tuple/list
+///   handed to one;
+/// - an operand of an equality comparison;
+/// - a member of a tuple/list/set right after `in` (a `for … in` loop is not a
+///   membership test and keeps reporting).
+///
+/// Every other position keeps reporting: `el.href = "javascript:" + x`,
+/// `go("javascript:alert(1)")` on a line that also compares something, a ternary
+/// branch. Not judged: `"javascript:" in url`, a constant list declared apart from
+/// its use, a regex literal (`/^javascript:/`, which the value-start rule already
+/// leaves alone).
+fn is_scheme_blocklist_literal(input: &str, at: usize) -> bool {
+    let b = input.as_bytes();
+    let Some(open) = prev_non_blank(b, at, false).filter(|&q| is_quote(b[q])) else {
+        return false;
+    };
+    is_equality_operand(b, open, at) || is_scheme_check_member(b, open)
+}
+
+fn is_quote(c: u8) -> bool {
+    matches!(c, b'"' | b'\'' | b'`')
+}
+
+fn is_ident(c: u8) -> bool {
+    c.is_ascii_alphanumeric() || c == b'_'
+}
+
+/// Index of the last byte before `end` that is not a blank (`newlines`: nor a line break).
+fn prev_non_blank(b: &[u8], end: usize, newlines: bool) -> Option<usize> {
+    (end.saturating_sub(BLOCKLIST_WINDOW)..end)
+        .rev()
+        .find(|&i| !(matches!(b[i], b' ' | b'\t') || (newlines && matches!(b[i], b'\n' | b'\r'))))
+}
+
+/// `scheme == "javascript:"` / `!=` / `===` / `!==` (operator before the literal that
+/// opens at `open`), or `"javascript:" == scheme` (operator after the closing quote).
+fn is_equality_operand(b: &[u8], open: usize, at: usize) -> bool {
+    if let Some(p) = prev_non_blank(b, open, false)
+        && p >= 1
+        && b[p] == b'='
+        && matches!(b[p - 1], b'=' | b'!')
+    {
+        return true;
+    }
+    let quote = b[open];
+    let tail = &b[at..b.len().min(at + BLOCKLIST_WINDOW)];
+    let Some(close) = tail.iter().position(|&c| c == quote || c == b'\n') else {
+        return false;
+    };
+    if tail[close] != quote {
+        return false;
+    }
+    let after = tail[close + 1..].trim_ascii_start();
+    after.starts_with(b"==") || after.starts_with(b"!=")
+}
+
+/// The literal that opens at `open` is a member of a tuple/list/set whose opening
+/// bracket follows `in`, or is the direct argument (or a member of the tuple/list
+/// argument) of a [`SCHEME_CHECK_CALLS`] call. Walks back over earlier string members.
+fn is_scheme_check_member(b: &[u8], open: usize) -> bool {
+    let mut pos = open;
+    for _ in 0..BLOCKLIST_MEMBERS {
+        let Some(p) = prev_non_blank(b, pos, true) else {
+            return false;
+        };
+        match b[p] {
+            b',' => {
+                let Some(end) = prev_non_blank(b, p, true).filter(|&c| is_quote(b[c])) else {
+                    return false;
+                };
+                let Some(start) = literal_start(b, end) else {
+                    return false;
+                };
+                pos = start;
+            }
+            b'(' | b'[' | b'{' => return bracket_opens_scheme_check(b, p),
+            _ => return false,
+        }
+    }
+    false
+}
+
+/// Index of the quote that opens the literal closing at `close` (same line, unescaped).
+fn literal_start(b: &[u8], close: usize) -> Option<usize> {
+    let quote = b[close];
+    (close.saturating_sub(BLOCKLIST_WINDOW)..close)
+        .rev()
+        .take_while(|&i| b[i] != b'\n')
+        .find(|&i| b[i] == quote && (i == 0 || b[i - 1] != b'\\'))
+}
+
+/// The bracket at `bracket` holds a scheme blocklist: `in (`, `in [`, `in {` (not a
+/// `for` target) or a [`SCHEME_CHECK_CALLS`] call, directly or with a tuple/list inside.
+fn bracket_opens_scheme_check(b: &[u8], bracket: usize) -> bool {
+    let Some(before) = prev_non_blank(b, bracket, true) else {
+        return false;
+    };
+    let (word, word_start) = trailing_word(b, before);
+    if word == "in" {
+        return !follows_for_target(b, word_start);
+    }
+    if b[bracket] == b'(' && SCHEME_CHECK_CALLS.contains(&word) {
+        return true;
+    }
+    b[before] == b'('
+        && prev_non_blank(b, before, true)
+            .is_some_and(|c| SCHEME_CHECK_CALLS.contains(&trailing_word(b, c).0))
+}
+
+/// The identifier that ends at `end` (inclusive) and where it starts; empty when
+/// `b[end]` is not an identifier byte. Capped so one long run costs a constant.
+fn trailing_word(b: &[u8], end: usize) -> (&str, usize) {
+    let mut start = end + 1;
+    while start > 0 && end + 1 - start < 64 && is_ident(b[start - 1]) {
+        start -= 1;
+    }
+    // Identifier bytes are ASCII, so the slice is valid UTF-8.
+    (std::str::from_utf8(&b[start..=end]).unwrap_or(""), start)
+}
+
+/// The `in` that starts at `in_start` belongs to a `for <target> in` loop or
+/// comprehension (the text from the last `for` on the line is a bare target).
+fn follows_for_target(b: &[u8], in_start: usize) -> bool {
+    let floor = in_start.saturating_sub(BLOCKLIST_WINDOW);
+    let line_start = b[floor..in_start]
+        .iter()
+        .rposition(|&c| c == b'\n')
+        .map_or(floor, |p| floor + p + 1);
+    let seg = &b[line_start..in_start];
+    let Some(f) = (0..seg.len().saturating_sub(2)).rev().find(|&i| {
+        seg[i..i + 3] == *b"for"
+            && (i == 0 || !is_ident(seg[i - 1]))
+            && seg.get(i + 3).is_none_or(|&c| !is_ident(c))
+    }) else {
+        return false;
+    };
+    seg[f + 3..]
+        .iter()
+        .all(|&c| is_ident(c) || matches!(c, b',' | b' ' | b'\t' | b'(' | b')'))
 }
 
 /// True when the `<script` at `at` belongs to an HTML document the program
@@ -777,6 +982,143 @@ mod tests {
         assert!(p.detect("let v: Vec<u8> = f(onerror=1);").is_none());
         assert_eq!(p.name(), "XSS");
         assert_eq!(p.cwe_id(), 79);
+    }
+
+    /// F2.1 false positive (09/10/2026, touring-4f): a Python file whose only
+    /// "XSS" was the words `javascript:` inside a log message was blocked by the
+    /// P0 gate. `javascript:` is a URL scheme, and a scheme exists only where a
+    /// URL VALUE begins — after a quote, `=`, `(`, or at the start of a line.
+    /// After a word it is prose. Each clause of `starts_url_value` has a case
+    /// below where it is the ONLY reason the match survives (mutation-checked).
+    #[test]
+    fn test_xss_javascript_scheme_is_a_url_not_prose() {
+        let p = XssPattern;
+        // FP — the scheme named in prose never starts a URL value.
+        assert!(
+            p.detect("log(\"rota javascript: handlers desativados\")")
+                .is_none()
+        );
+        assert!(
+            p.detect("print(f\"bloqueado: javascript: em {url}\")")
+                .is_none()
+        );
+        assert!(p.detect("# see javascript: URLs below").is_none());
+        assert!(p.detect("erro, javascript: nao permitido").is_none());
+        // The Rust path separator stays benign (existing arm).
+        assert!(p.detect("tree_sitter_javascript::LANGUAGE").is_none());
+        // TP — every position where a URL value begins keeps failing.
+        assert!(p.detect("javascript:alert(1)").is_some()); // payload input
+        assert!(p.detect("x\njavascript:alert(1)").is_some()); // line start
+        assert!(p.detect("<a href=\"javascript:alert(1)\">").is_some());
+        assert!(p.detect("<a href='javascript:alert(1)'>").is_some());
+        assert!(p.detect("<a href=javascript:alert(1)>").is_some()); // unquoted
+        assert!(p.detect("<a href = \"  javascript:alert(1)\">").is_some()); // in a tag
+        assert!(p.detect("go(\"  javascript:alert(1)\")").is_some()); // spaces skipped
+        assert!(p.detect("go(\"\tjavascript:alert(1)\")").is_some()); // tab skipped
+        assert!(
+            p.detect("url = '/login?next=javascript:alert(1)'")
+                .is_some()
+        ); // `=` alone
+        assert!(p.detect("location = 'javascript:' + x;").is_some());
+        assert!(p.detect("window.open(\"javascript:alert(1)\")").is_some());
+        assert!(p.detect("[clique](javascript:alert(1))").is_some());
+        assert!(p.detect("html = f'<a href=\"javascript:{x}\">'").is_some());
+        assert!(p.detect("el.href = `javascript:${x}`").is_some());
+    }
+
+    /// A URL scheme is case-insensitive to the browser: `JavaScript:`, `JAVASCRIPT:`
+    /// and `jAvAsCrIpT:` execute exactly like the lowercase spelling (CWE-79
+    /// bypass, 09/10/2026). Prose stays prose in any case. HTML entities
+    /// (`&#106;avascript:`) and a tab inside the word are NOT decoded here.
+    #[test]
+    fn test_xss_javascript_scheme_is_case_insensitive() {
+        let p = XssPattern;
+        for scheme in ["JavaScript:", "JAVASCRIPT:", "jAvAsCrIpT:", "Javascript:"] {
+            assert!(
+                p.detect(&format!("{scheme}alert(1)")).is_some(),
+                "{scheme} payload"
+            );
+            assert!(
+                p.detect(&format!("<a href=\"{scheme}alert(1)\">"))
+                    .is_some(),
+                "{scheme} in an attribute"
+            );
+            assert!(
+                p.detect(&format!("go(\" \t{scheme}alert(1)\")")).is_some(),
+                "{scheme} after blanks inside the value"
+            );
+            assert!(
+                p.detect(&format!("el.href = `{scheme}${{x}}`")).is_some(),
+                "{scheme} in a template literal"
+            );
+        }
+        assert!(
+            p.detect("log(\"rota JavaScript: handlers desativados\")")
+                .is_none()
+        );
+        assert!(
+            p.detect("doc = 'TypeScript / JavaScript: export marks the API'")
+                .is_none()
+        );
+        assert!(p.detect("tree_sitter_JavaScript::LANGUAGE").is_none());
+    }
+
+    /// F2.1 false positive (09/10/2026): a scheme BLOCKLIST names the scheme to refuse
+    /// it — defensive code the gate should encourage, not block. Narrow and positional:
+    /// the literal is the direct argument of `startswith(`/`startsWith(`/`endswith(`/
+    /// `endsWith(`/`includes(`/`indexOf(` (or a member of the tuple/list passed to
+    /// one), an operand of `==`/`===`/`!=`/`!==`, or a member of a tuple/list/set after
+    /// `in`. A `for … in (…)` loop and every other position still report.
+    #[test]
+    fn test_xss_scheme_blocklist_literal_is_not_a_sink() {
+        let p = XssPattern;
+        for defensive in [
+            "return url.lower().startswith(\"javascript:\")",
+            "if (u.startsWith('javascript:')) return;",
+            "if x.endswith(\"javascript:\"): pass",
+            "if (u.endsWith('javascript:')) return;",
+            "if (url.includes('javascript:')) throw e;",
+            "if (url.indexOf('javascript:') === 0) throw e;",
+            "if scheme == \"javascript:\":",
+            "if (scheme === 'javascript:') {}",
+            "if scheme != \"javascript:\":",
+            "if (scheme !== 'javascript:') {}",
+            "if \"javascript:\" == scheme:",
+            "if 'javascript:' !== scheme {}",
+            "s.lower().startswith((\"javascript:\", \"data:\"))",
+            "s.lower().startswith((\"data:\", \"javascript:\"))",
+            "if x in (\"javascript:\", \"data:\"):",
+            "if x not in [\"data:\", \"javascript:\"]:",
+            "if x in {\"javascript:\"}:",
+            "if x in (\n    \"data:\",\n    \"javascript:\",\n):",
+            "if (url.startsWith(`javascript:`)) {}",
+            "if url.lower() == \"JavaScript:\":",
+            // `a<b` opens a phantom "tag" for the old open-tag rescue; the guard must hold.
+            "for (let i=0;i<n;i++) { if (u.startsWith('javascript:')) bad(); }",
+            // Prose inside an attribute value is not a URL either.
+            "<img alt=\"rota javascript: handlers\">",
+        ] {
+            assert!(
+                p.detect(defensive).is_none(),
+                "defensive code reported: {defensive}"
+            );
+        }
+        for sink in [
+            "if ok: el.href = \"javascript:\" + x",
+            "x == 1 and go(\"javascript:alert(1)\")",
+            "redirect(url if url.startswith(\"/\") else \"javascript:void(0)\")",
+            "el.href = x || 'javascript:'",
+            "img.src = ok ? \"a\" : \"javascript:alert(1)\"",
+            "plugin(\"javascript:alert(1)\")",
+            "render([\"data:\", \"javascript:alert(1)\"])",
+            "x.includes(y) && go(\"javascript:alert(1)\")",
+            "for u in (\"javascript:alert(1)\", \"b\"): render(u)",
+            "[render(u) for u in (\"javascript:alert(1)\",)]",
+            "<a href=javascript:alert(1)>",
+            "<a href=\"JavaScript:alert(1)\">",
+        ] {
+            assert!(p.detect(sink).is_some(), "sink missed: {sink}");
+        }
     }
 
     #[test]

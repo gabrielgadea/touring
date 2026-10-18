@@ -62,8 +62,17 @@ fn analyze_f4_7_cicd_dim(target: &Path) -> Result<(f32, String)> {
     let r = analyze_cicd(&raw, lang);
     let value = score_cicd(&r);
     let top = crate::verifications::top_finding(&r.findings);
+    // Where the score ceiling comes from: a bare "(1x)" leaves the author reading the
+    // whole workflow to find the one job that holds the token.
+    let at = r
+        .primary()
+        .map(|f| match f.job.as_deref() {
+            Some(job) => format!("; at job `{job}` line {}", f.line),
+            None => format!("; at workflow level line {}", f.line),
+        })
+        .unwrap_or_default();
     let evidence = format!(
-        "FF4_7: {} CI/CD Pipeline smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_cicd: see header for detector catalog){top}",
+        "FF4_7: {} CI/CD Pipeline smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_cicd: see header for detector catalog){top}{at}",
         r.violations, r.total_lines
     );
     Ok((value, evidence))
@@ -148,5 +157,42 @@ jobs:
             "evidence should reference real engine, got: {}",
             s.evidence
         );
+    }
+
+    /// 17/10/2026: a supply-chain finding caps the score and the evidence says WHERE.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn supply_chain_finding_caps_the_score_and_names_its_job() {
+        let workflow = format!(
+            "name: ci\non:\n  pull_request_target:\npermissions:\n  contents: read\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n{}",
+            "# padding\n".repeat(600)
+        );
+        let f = write_temp_ext(&workflow, ".yml");
+        let s = F4_7_Cicd.check(f.path()).expect("check");
+        assert!(s.value <= 0.40, "critical ceiling, got {}", s.value);
+        assert!(s.evidence.contains("pull_request_target"), "{}", s.evidence);
+        assert!(
+            s.evidence.contains("at job `build` line 10"),
+            "{}",
+            s.evidence
+        );
+        // A workflow-level grant has no job: the evidence says so.
+        let oidc = write_temp_ext(
+            "name: ci\non: push\npermissions:\n  contents: read\n  id-token: write\njobs:\n  t:\n    steps:\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n",
+            ".yml",
+        );
+        let o = F4_7_Cicd.check(oidc.path()).expect("check");
+        assert!(
+            o.evidence.contains("at workflow level line 3"),
+            "{}",
+            o.evidence
+        );
+        assert!(o.value <= 0.70, "high ceiling, got {}", o.value);
+        let clean = write_temp_ext(
+            "name: ci\non: push\npermissions:\n  contents: read\njobs:\n  t:\n    steps:\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57\n",
+            ".yml",
+        );
+        let c = F4_7_Cicd.check(clean.path()).expect("check");
+        assert!(!c.evidence.contains("; at "), "{}", c.evidence);
     }
 }
