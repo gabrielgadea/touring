@@ -83,8 +83,24 @@ arquivo + 553 inline do held-out, mais os positivos do vivo só como controle de
 - O p95 do V3 (1.027 ms) passa o teto de 1 s também na referência: é o custo da camada 2 nesta máquina, não do binário
   (fase D, §2).
 
-## 5. O que falta para o R97
+## 5. R97: release 30.4.97 FEITO (18/10, ordem do Gabriel «Lançar o R97 agora», sem push)
 
-1. Resultado do J13 (§4).
-2. Ordem do Gabriel para commit e propagação (`scripts/propagate-release.sh 30.4.97`). O release reinicia o daemon,
-   que hoje roda um binário apagado (`touring daemon-ctl status`: «(deleted)»).
+- Propagação: `scripts/propagate-release.sh 30.4.97` deu rc 0 na 6ª tentativa (`diagnostics/r97/propagate.log`).
+  - Gate 1/6: 260 suítes `ok`, 0 `FAILED`, 15.950 testes.
+  - Prova 5.5: 41/41 asserções.
+  - `analise` e `konverter` ficaram em lock 30.4.97, com `touring 30.4.97`.
+  - Daemon global: `target/release/touring-daemon`, que já não aparece como «(deleted)».
+- As 5 tentativas reprovadas, cada uma com o conserto e o log:
+  1. E0425 `triad_hook::take` no teste do `pre_write.rs:1492`, API renomeada no merge; conserto em `c70fd6c3`.
+  2. Drift do `docs/reference/modules.md`; conserto em `833c468d`.
+  3. rc 75: sem vaga no hw-slot para o `touring-hooks-shared`, porque um lote paralelo ocupava a vaga rust.
+  4. `version_matches_crate_version`: o `target/release/touring` ainda era o 30.4.96, pois o rito exige o build do
+     release ANTES do gate 1.
+  5. Espelho `client/` fora de sincronia: o `judge.attest.json` foi re-atestado às 10:59, com hash igual ao do
+     `loop_converged.py` vivo; `--apply` resolveu.
+  - Durante a 5ª, a cota do `/tmp` (tmpfs com usrquota) encheu; o Gabriel limpou 32 pastas mortas do `pytest-of`.
+- Binário congelado `~/.touring/toolchains/30.4.97/bin/touring` = `target/release/touring` (sha `9f4e3e89a84c57f5`).
+- Vereditos por id contra o `5c7b3d80`, juiz v2, corpus ev `corpus_v0d` (`diagnostics/r97/vereditos-ev/`): 738
+  comparados, R1 = 0 divergências de veredito, R2 = 0 de findings inteiros. Veredito do juiz: PRONTO. Falso deny no
+  arquivo 0/400 (CP95 0,75%) e no inline 0/274; p95 67,9 ms. O binário publicado decide igual ao binário julgado no
+  J13.
