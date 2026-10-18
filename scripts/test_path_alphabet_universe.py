@@ -26,6 +26,10 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 MIRROR = REPO / "client" / "skills" / "taco-planning" / "scripts"
 sys.path.insert(0, str(MIRROR))
+# Importing from the mirror must not write __pycache__ INTO client/: that is the generated artifact
+# test_sync_client_skills.py::test_no_generated_artifact_sits_in_the_mirror forbids, and this file
+# sorts before it, so the suite failed on its own leftovers (18/10/2026).
+sys.dont_write_bytecode = True
 
 from confidence_tagger import _RE_FILE_LINE  # noqa: E402
 from gap_detector import _RE_FILE_CITATION  # noqa: E402
