@@ -1125,3 +1125,16 @@ Rodada 2: `resultados-2026-10-17b/`, mesmo pipeline (o cabeçalho agora nomeia P
   todo Write/Edit espera até 20 s e depois falha ABERTO, ou seja, o gate P0 não roda. À tarde isso cobriu cerca de 40% do
   tempo. O conserto de fundo é separar faixas: score de arquivo único (0,03 s) não toma o lock de CPU, que existe para
   scans de 250% de CPU. Alternativa barata: orçamento padrão do hook de 3 s em vez de 20.
+
+## 18/10/2026 ~15:10Z — R97 FEITO: release 30.4.97 propagado (sessão efe418c2; Gabriel: «Lançar o R97 agora (Recomendado)», sem push)
+
+- `propagate-release.sh 30.4.97` rc 0 na 6ª tentativa. Gate 1/6: 260 suítes ok, 0 FAILED. Prova 41/41. `analise` e
+  `konverter` em 30.4.97. Detalhe, as 5 tentativas reprovadas e os consertos: `RELATORIO-INT97I-FASE-D.md` §5.
+- Binário publicado = binário julgado: corpus ev, 738 ids, 0 divergências de veredito e de findings contra o `5c7b3d80`
+  (`diagnostics/r97/vereditos-ev/`).
+- Commits só locais (sem push): main `feat/2026-09-16-shell-quality-wiring-python` até o commit «release 30.4.97»; o
+  int97 está em `59eb46d3`.
+- Próximo: liberar o hw-slot para o r98-rust-eng (lote F: itens 7 TESTES-DB-RUNTIME e 8 JSONL-ATOMIC-RESTO), integrar
+  o R98 no main (no conflito em `pre_write.rs:1492` fica o `c70fd6c3`), e depois o release R98. No DAG VGP seguem
+  P0B2, JUIZ-TIMEOUT e INTADAPT; no DAG ECC `task_1792263269279844388`, CHECK-COMPILE-SLOT (alta), TMP-PYTEST-COTA e o
+  resto da lista.
