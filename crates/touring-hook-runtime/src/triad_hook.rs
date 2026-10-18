@@ -249,31 +249,136 @@ pub fn take_lookup(session_id: &str, file_path: &str) -> TriadTake {
 // is a small header plus that text — cheap enough to write on every pre-write, and it is
 // what lets a standalone pre-write arm a baseline a daemon post-write can read.
 
-/// Whether the BASE directory can be written beneath — without ever being changed.
-///
-/// Never chmod-ed: it is `/run/user/1000` or `/tmp`, not ours to re-permission. Root-owned is
-/// fine when not group/other writable, or when sticky (`/tmp`, 1777 — entries cannot be renamed
-/// out from under their owner). A non-root base must be ours and private.
+/// What the base directory is: ours to create, safe to use, or not ours to touch.
 #[cfg(unix)]
-fn base_is_usable(base: &Path) -> bool {
-    use std::os::unix::fs::MetadataExt;
-    let Ok(meta) = std::fs::symlink_metadata(base) else {
-        return false;
-    };
-    if meta.file_type().is_symlink() || !meta.is_dir() {
-        return false;
-    }
+enum BaseState {
+    /// Absent — we may create it, because a name we chose under a verified parent is ours by
+    /// construction once it exists with our uid and a private mode.
+    Missing,
+    /// A real directory we may write beneath, unmodified.
+    Usable,
+    /// Someone else's, a symlink, or writable through: never adopted, never changed.
+    Unusable(&'static str),
+}
+
+/// Resolve the base: create it when missing, adopt it when it is already exclusively ours,
+/// refuse it otherwise.
+///
+/// **The absence of the base is not a failure.** `<tmp>/touring-<uid>` normally does not exist
+/// until the first write — treating "absent" as "unusable" would leave the cross-process gate
+/// permanently dark on every host without `XDG_RUNTIME_DIR`, which is exactly the path this
+/// whole change exists to fix. Absent is conflated with attacker-owned only when the two are
+/// indistinguishable, and here they are not: the name is uid-derived, and creation is followed
+/// by the same verification an adoption goes through.
+///
+/// Its own ANCESTORS are validated too (without being modified): a base reachable only through
+/// a symlinked or world-writable parent is not a place to keep source text.
+#[cfg(unix)]
+fn resolve_base(base: &Path) -> BaseState {
+    use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+
     // SAFETY: `getuid()` is a pure syscall with no preconditions and no memory access.
     let uid = unsafe { libc::getuid() };
-    if meta.uid() == 0 {
-        return meta.mode() & 0o022 == 0 || meta.mode() & 0o1000 != 0;
+
+    match std::fs::symlink_metadata(base) {
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            // Every ancestor must already be safe, or we would be creating inside somewhere a
+            // local user controls.
+            if !ancestors_safe(base, uid) {
+                return BaseState::Unusable("an ancestor of the state dir is not private");
+            }
+            if std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(base)
+                .is_err()
+            {
+                return BaseState::Unusable("the state dir base could not be created");
+            }
+            // Re-read: the umask may have widened what we asked for.
+            match std::fs::symlink_metadata(base) {
+                Ok(meta)
+                    if !meta.file_type().is_symlink()
+                        && meta.is_dir()
+                        && meta.uid() == uid
+                        && meta.mode() & 0o077 == 0 => {}
+                _ => return BaseState::Unusable("the created base is not private"),
+            }
+            BaseState::Missing
+        }
+        Ok(meta) => {
+            if !ancestors_safe(base, uid) {
+                return BaseState::Unusable("an ancestor of the state dir is not private");
+            }
+            if meta.file_type().is_symlink() {
+                return BaseState::Unusable("the state dir base is a symlink");
+            }
+            if !meta.is_dir() {
+                return BaseState::Unusable("the state dir base is not a directory");
+            }
+            if meta.uid() == 0 {
+                // Root-owned: fine when not group/other writable, or sticky (`/tmp`, 1777 —
+                // entries cannot be renamed out from under their owner).
+                if meta.mode() & 0o022 != 0 && meta.mode() & 0o1000 == 0 {
+                    return BaseState::Unusable("the state dir base is writable by others");
+                }
+            } else if meta.uid() != uid || meta.mode() & 0o077 != 0 {
+                return BaseState::Unusable("the state dir base is not exclusively ours");
+            }
+            BaseState::Usable
+        }
+        Err(_) => BaseState::Unusable("the state dir base cannot be read"),
     }
-    meta.uid() == uid && meta.mode() & 0o077 == 0
+}
+
+/// Whether every component ABOVE `path` is a real directory nobody can write through.
+///
+/// Never chmod-ed: these are `/`, `/run`, `/run/user`, `/tmp` — not ours to re-permission. Root
+/// components are acceptable when not group/other writable or sticky; a non-root component must
+/// be ours and private.
+#[cfg(unix)]
+fn ancestors_safe(path: &Path, uid: u32) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    let mut cursor = path.parent();
+    while let Some(component) = cursor {
+        let Ok(meta) = std::fs::symlink_metadata(component) else {
+            return false;
+        };
+        if meta.file_type().is_symlink() || !meta.is_dir() {
+            return false;
+        }
+        if meta.uid() == 0 {
+            if meta.mode() & 0o022 != 0 && meta.mode() & 0o1000 == 0 {
+                return false;
+            }
+        } else if meta.uid() != uid || meta.mode() & 0o077 != 0 {
+            return false;
+        }
+        match component.parent() {
+            Some(parent) if parent != component => cursor = Some(parent),
+            _ => break,
+        }
+    }
+    true
+}
+
+/// Without unix metadata there is nothing to verify, so the base is used as-is.
+#[cfg(not(unix))]
+enum BaseState {
+    Missing,
+    Usable,
+    Unusable(&'static str),
 }
 
 #[cfg(not(unix))]
-fn base_is_usable(base: &Path) -> bool {
-    std::fs::metadata(base).map(|m| m.is_dir()).unwrap_or(false)
+fn resolve_base(base: &Path) -> BaseState {
+    if base.is_dir() {
+        BaseState::Usable
+    } else if std::fs::create_dir_all(base).is_ok() {
+        BaseState::Missing
+    } else {
+        BaseState::Unusable("the state dir base is not usable")
+    }
 }
 
 /// The store's own directory must be OURS before its mode is touched. This is the single
@@ -341,10 +446,11 @@ fn triad_state_dir() -> Option<PathBuf> {
     };
 
     if let Some(base) = base.as_deref()
-        && !base_is_usable(base)
+        && let BaseState::Unusable(why) = resolve_base(base)
     {
         tracing::warn!(
             base = %base.display(),
+            why,
             "TRIAD: state-dir base is unusable — cross-process baseline off"
         );
         return None;
@@ -422,9 +528,17 @@ fn create_private_chain(dir: &Path, base: Option<&Path>) -> bool {
                     || meta.uid() != uid
                     || meta.mode() & 0o077 != 0
                 {
-                    tracing::debug!(
+                    // `warn`, not `debug`: this is the gate going dark on a real machine.
+                    // A component that is OURS but merely group/other-READABLE is the common
+                    // case after an older release created it with `create_dir_all`, and the
+                    // store must not refuse it silently — an operator would see the gate stop
+                    // working with nothing in the logs.
+                    tracing::warn!(
                         path = %component.display(),
-                        "TRIAD: refusing a state-dir component that is not exclusively ours"
+                        mode = format!("{:o}", meta.mode() & 0o7777),
+                        uid = meta.uid(),
+                        "TRIAD: refusing a state-dir component that is not exclusively ours \
+                         — remove it (it holds only baselines) to restore the cross-process gate"
                     );
                     return false;
                 }
@@ -1941,6 +2055,67 @@ mod s28_store_security_tests {
         assert_eq!(
             mode, 0o755,
             "and its mode must be untouched — we did not create it: got {mode:o}"
+        );
+    }
+
+    /// The DEFAULT resolution works: with no `TOURING_TRIAD_DIR` and no `XDG_RUNTIME_DIR`, a
+    /// baseline lands under `<tmp>/touring-<uid>/touring/triad` and is read back.
+    ///
+    /// This is the regression guard for the dead zone the previous version introduced. The base
+    /// `<tmp>/touring-<uid>` normally does not exist until the first write, and treating
+    /// "absent" as "unusable" left the cross-process gate permanently dark on every host that
+    /// does not export `XDG_RUNTIME_DIR` — which is most hooks spawned by a daemon.
+    #[test]
+    #[serial(triad_state)]
+    fn the_default_resolution_creates_its_base_and_works() {
+        use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
+        let _state = use_state_dir("sec-default-warm");
+        let work = scratch("sec-default-warm-work");
+        // Stand in for a private, per-user temp root so the test does not depend on the
+        // machine's real TMPDIR layout.
+        let fake_tmp = work.join("tmp");
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&fake_tmp)
+            .expect("fake tmp");
+        let uid = current_uid();
+        let base = fake_tmp.join(format!("touring-{uid}"));
+        assert!(
+            !base.exists(),
+            "the base must start absent — that is the case under test"
+        );
+
+        // SAFETY: `#[serial]` guarantees exclusivity.
+        unsafe {
+            std::env::remove_var("TOURING_TRIAD_DIR");
+            std::env::remove_var("XDG_RUNTIME_DIR");
+            std::env::set_var("TMPDIR", &fake_tmp);
+        }
+
+        let dir = triad_state_dir().expect("an absent base must be created, not refused");
+        assert!(
+            dir.starts_with(&base),
+            "must live under the uid-derived base: {dir:?}"
+        );
+        assert_eq!(
+            fs::metadata(&base).expect("stat").permissions().mode() & 0o777,
+            0o700,
+            "the created base must be private"
+        );
+
+        // And it really persists and reads back.
+        let file = work.join("d.py");
+        fs::write(&file, "before\n").expect("write");
+        let key = (
+            "sess-default".to_string(),
+            canonical_path(file.to_str().expect("utf8")),
+        );
+        persist_baseline(&key, &Baseline::Content("before\n".into()));
+        assert_eq!(
+            load_baseline(&key).expect("readable"),
+            Some(Baseline::Content("before\n".into())),
+            "the default path must round-trip a baseline"
         );
     }
 
