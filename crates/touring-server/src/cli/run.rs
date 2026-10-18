@@ -27,6 +27,10 @@ use crate::tools::ctx_execute_tools::{CtxExecuteOutput, ctx_execute_impl};
 /// da string Python), o guard era um atributo mutável do cliente — um programa
 /// no sandbox reescrevia `touring.READONLY_HOOKS` e chamava o que quisesse.
 use touring_foundation::orchestrate_allowlist::READONLY_HOOKS;
+// 30.4.97 (G10ROTA, D8): the admission predicate is ONE definition, shared with the code-mode gates.
+use touring_ceg::gateway::run_admission::{
+    admission_outcome, blocking_reason, only_subprocess_denials,
+};
 
 /// S4 — one typed shortcut of the orchestrate SDK.
 ///
@@ -963,43 +967,18 @@ fn gate_run(
     allow_net_ports: &[u16],
 ) -> Result<Option<CegRunAdvisory>> {
     use touring_hooks::capability::builtins;
-    use touring_hooks::gateway::{
-        ExecutionOutcomePredictor, GatewayDeps, SandboxCapabilities, Verdict, deferred_dry_run,
-        neutral_outcome_history, run_gateway, soft_pass_symbol,
-    };
+    use touring_hooks::gateway::Verdict;
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
     let profile = if allow_forbidden {
         builtins::trusted()
     } else {
         builtins::sandboxed(&cwd)
     };
-    let predictor = ExecutionOutcomePredictor::new();
-    let _caps = SandboxCapabilities::from_profile(&profile);
-    let deps = GatewayDeps {
-        symbol_exists: &soft_pass_symbol,
-        outcome_history: &neutral_outcome_history,
-        sandbox_runner: &deferred_dry_run,
-        predictor: &predictor,
-        profile: &profile,
-        claim: None,
-        claim_context: touring_hooks::offensive_integration::ClaimContext::default(),
-        solver_backend: touring_hooks::offensive_integration::SolverBackendKind::Stub,
-    };
-    // Tool identity mirrors the sandbox adapter's mapping so the gateway's
-    // ledger names the real runtime, not a generic "Bash".
-    let tool = match lang.to_ascii_lowercase().as_str() {
-        "sh" | "bash" | "shell" => "Bash",
-        "python" | "py" => "SandboxPython",
-        "js" | "javascript" | "node" | "bun" => "SandboxJavaScript",
-        "ts" | "typescript" => "SandboxTypeScript",
-        other => match other {
-            "ruby" | "rb" => "SandboxRuby",
-            "go" | "golang" => "SandboxGo",
-            "rust" | "rs" => "SandboxRust",
-            _ => "SandboxPython",
-        },
-    };
-    match run_gateway(tool, code, None, &deps) {
+    // 30.4.97 (G10ROTA, D8): the pipeline drive — tool identity, neutral X3/X4 deps, deferred X5 —
+    // lives in `run_admission`, shared with the code-mode gates that NAME `touring run` as a route.
+    // Two copies of "would the executor admit this?" is how the G10 came to teach a command that
+    // this very function then refused.
+    match admission_outcome(lang, code, &profile) {
         Ok(outcome) => match outcome.decision.verdict {
             // SHELL denials used to downgrade WHOLESALE, on the grounds that
             // the sandbox is the real containment. Measured 2026-08-27, that
@@ -1088,28 +1067,6 @@ fn gate_run(
     }
 }
 
-/// The reason worth showing when a deny STANDS: the first one whose class is
-/// not `subprocess`, because that is the class that kept the waiver from
-/// firing — `reasons.first()` named an innocent `sed` while the determinant
-/// class was `file-write` (G-B, campo analise-a2 30/08). Falls back to the
-/// first reason (or the generic line) when nothing more specific exists.
-fn blocking_reason(decision: &touring_ceg::gateway::GateDecision) -> &str {
-    let has_non_subprocess = decision.denied_classes.iter().any(|c| c != "subprocess");
-    if has_non_subprocess
-        && let Some(r) = decision
-            .reasons
-            .iter()
-            .find(|r| !r.contains("the subprocess capability"))
-    {
-        return r;
-    }
-    decision
-        .reasons
-        .first()
-        .map(String::as_str)
-        .unwrap_or("hard block fired")
-}
-
 /// G-D (30/08, campo analise-a2): env reads are denied ON PURPOSE under
 /// `Sandboxed` — the child carries whitelisted credentials (I-12) and a
 /// workspace file write would bypass the stdout redaction — but denying
@@ -1127,23 +1084,6 @@ fn deny_class_hint(decision: &touring_ceg::gateway::GateDecision) -> &'static st
     } else {
         ""
     }
-}
-
-/// Whether every capability X6 denied is `subprocess` — the only class the
-/// run path waives (every language since 30/08/2026; shell-only before).
-///
-/// An EMPTY class list means the deny came from somewhere other than X6 (an X2
-/// destructive pattern, a composite below threshold), and those were never
-/// shell noise: it returns `false`, so the deny stands. Failing to the hard
-/// verdict is the right default — a waiver granted by accident is a hole.
-fn only_subprocess_denials(decision: &touring_ceg::gateway::GateDecision) -> bool {
-    // An X2 destructive pattern is never shell noise, even when a `subprocess`
-    // denial rides along with it — `rm -rf` denies for BOTH reasons, and keying
-    // the waiver on the capability class alone let the destructive half through
-    // on the coattails of the harmless one (observed 2026-08-27).
-    !decision.static_blocked
-        && !decision.denied_classes.is_empty()
-        && decision.denied_classes.iter().all(|c| c == "subprocess")
 }
 
 /// NET-1 (28/08) — a rede é a razão do deny, com no máximo o `subprocess` do
@@ -2820,5 +2760,63 @@ mod auto_harvest_tag_tests {
             seen >= 4,
             "expected the minted tags to be found, saw {seen}"
         );
+    }
+}
+
+/// 30.4.97 (G10ROTA, D8) — o executor (`gate_run`) e a rota que os gates nomeiam (`run_route`)
+/// são UMA pergunta: sobre cada programa, a rota que o gate nomearia é exatamente a que o executor
+/// aceita. Se um dia os dois divergirem, o deny do G10 volta a ensinar um comando que falha.
+#[cfg(test)]
+mod admission_agreement_tests {
+    use super::*;
+    use touring_ceg::gateway::run_admission::{RunRoute, run_route};
+
+    const ESCRITOR: &str = "import pathlib\np = pathlib.Path(\"RETOMADA.md\")\np.write_text(p.read_text().replace(\"a\", \"b\"), encoding=\"utf-8\")";
+    const LEITOR: &str = "import pathlib\nprint(pathlib.Path(\"RETOMADA.md\").read_text())";
+    const REDE: &str = "import socket\ns = socket.create_connection((\"example.com\", 80))";
+
+    fn casos() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("python", ESCRITOR),
+            ("python", LEITOR),
+            ("python", REDE),
+            ("bash", "sed -n 1,3p arquivo.txt"),
+            ("bash", "rm -rf /tmp/zz"),
+            ("bash", "curl https://example.com"),
+        ]
+    }
+
+    #[test]
+    fn a_rota_que_o_gate_nomeia_e_a_que_o_executor_aceita() {
+        let cwd = std::env::current_dir().expect("cwd");
+        for (lang, code) in casos() {
+            let sandboxed = gate_run(lang, code, false, &[]).is_ok();
+            let trusted = gate_run(lang, code, true, &[]).is_ok();
+            let rota = run_route(lang, code, &cwd);
+            let esperado = match (sandboxed, trusted) {
+                (true, _) => RunRoute::Sandboxed,
+                (false, true) => RunRoute::Trusted {
+                    sandbox_denial: String::new(),
+                },
+                (false, false) => RunRoute::Unrunnable {
+                    reason: String::new(),
+                },
+            };
+            assert_eq!(
+                std::mem::discriminant(&rota),
+                std::mem::discriminant(&esperado),
+                "gate e executor divergem em `{lang}`: {code}\n  gate: {rota:?}\n  executor: sandboxed ok={sandboxed}, trusted ok={trusted}"
+            );
+        }
+    }
+
+    /// O caso real: escrever só roda no Trusted — e a rede/destrutivo não rodam em perfil nenhum.
+    #[test]
+    fn o_caso_real_escreve_so_no_trusted_e_rede_nunca() {
+        assert!(gate_run("python", ESCRITOR, false, &[]).is_err());
+        assert!(gate_run("python", ESCRITOR, true, &[]).is_ok());
+        assert!(gate_run("python", LEITOR, false, &[]).is_ok());
+        assert!(gate_run("python", REDE, true, &[]).is_err());
+        assert!(gate_run("bash", "curl https://example.com", true, &[]).is_err());
     }
 }

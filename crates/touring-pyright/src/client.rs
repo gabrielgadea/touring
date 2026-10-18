@@ -63,7 +63,27 @@ pub enum ClientError {
         method: String,
         /// The server's error message.
         message: String,
+        /// The JSON-RPC error code, when the server sent one.
+        code: Option<i64>,
     },
+}
+
+/// LSP `ContentModified`: the document changed while the server was computing the answer.
+const CONTENT_MODIFIED: i64 = -32801;
+/// LSP 3.17 `ServerCancelled`: the server cannot answer *yet* (a pull-diagnostics request that
+/// arrives while the workspace is still loading); `retriggerRequest` defaults to true.
+const SERVER_CANCELLED: i64 = -32802;
+/// Pause between two attempts of a request the server asked to be repeated.
+const RETRY_PAUSE: Duration = Duration::from_millis(25);
+
+impl ClientError {
+    /// Did the server answer "not now, ask again" (`ServerCancelled` / `ContentModified`)?
+    pub fn is_retry_later(&self) -> bool {
+        matches!(
+            self,
+            Self::ServerError { code: Some(c), .. } if *c == SERVER_CANCELLED || *c == CONTENT_MODIFIED
+        )
+    }
 }
 
 impl From<io::Error> for ClientError {
@@ -231,13 +251,15 @@ pub fn answer_server_request(msg: &Value, sections: &Map<String, Value>) -> Valu
 // ── the client ─────────────────────────────────────────────────────────────
 
 /// What the reader thread forwards.
-enum Incoming {
+pub(crate) enum Incoming {
     Message(Value),
     Eof,
     Failure(String),
 }
 
-fn reader_loop(stdout: ChildStdout, tx: Sender<Incoming>) {
+/// Reads `Content-Length` frames from `stdout` until EOF/failure and forwards them (the tsserver
+/// client reuses it: its *output* is framed the same way, only its input is newline-delimited).
+pub(crate) fn reader_loop(stdout: ChildStdout, tx: Sender<Incoming>) {
     let mut reader = BufReader::new(stdout);
     loop {
         let item = match read_frame(&mut reader) {
@@ -264,6 +286,12 @@ pub struct LspClient {
     next_id: u64,
     next_version: u64,
     finished: bool,
+    /// Last `quiescent` flag of `experimental/serverStatus` (rust-analyzer), `None` = never reported.
+    quiescent: Option<bool>,
+    /// Last `health` (`ok` | `warning` | `error`) and `message` of `experimental/serverStatus`.
+    health: Option<(String, String)>,
+    /// How many `quiescent: false` reports arrived — a pull that spans one is not trustworthy.
+    quiescent_false: u64,
 }
 
 impl LspClient {
@@ -288,6 +316,9 @@ impl LspClient {
             next_id: 0,
             next_version: 0,
             finished: false,
+            quiescent: None,
+            health: None,
+            quiescent_false: 0,
         };
         let stdout =
             stdout.ok_or_else(|| ClientError::Protocol("server stdout was not piped".into()))?;
@@ -312,12 +343,27 @@ impl LspClient {
         capabilities: Value,
         deadline: Instant,
     ) -> Result<Value, ClientError> {
-        let params = json!({
+        self.initialize_with(root_uri, root_name, capabilities, Value::Null, deadline)
+    }
+
+    /// [`LspClient::initialize`] with `initializationOptions` (a null value is left out of the wire).
+    pub fn initialize_with(
+        &mut self,
+        root_uri: &str,
+        root_name: &str,
+        capabilities: Value,
+        initialization_options: Value,
+        deadline: Instant,
+    ) -> Result<Value, ClientError> {
+        let mut params = json!({
             "processId": Value::Null,
             "rootUri": root_uri,
             "workspaceFolders": [{"uri": root_uri, "name": root_name}],
             "capabilities": capabilities,
         });
+        if !initialization_options.is_null() {
+            params["initializationOptions"] = initialization_options;
+        }
         let result = self.request("initialize", params, deadline)?;
         self.notify("initialized", json!({}))?;
         Ok(result)
@@ -344,6 +390,7 @@ impl LspClient {
                     .and_then(Value::as_str)
                     .unwrap_or_default()
                     .to_string(),
+                code: err.get("code").and_then(Value::as_i64),
             }),
             _ => Ok(reply.get("result").cloned().unwrap_or(Value::Null)),
         }
@@ -395,6 +442,89 @@ impl LspClient {
         })
     }
 
+    /// `textDocument/diagnostic` (LSP 3.17 pull) for `uri`, repeated while the server answers
+    /// `ServerCancelled`/`ContentModified` ("not yet, ask again") until `deadline`. Returns the items
+    /// of the `full` report; an `unchanged` report cannot answer a request that sent no `resultId`.
+    ///
+    /// A pull has no version to match — the answer belongs to the document state the server holds
+    /// when it handles the request, which is the state our preceding `didOpen` created because a
+    /// server handles one connection's messages in order. What it does *not* guarantee is that the
+    /// server has finished loading the project: rust-analyzer answers a pull sent too early with an
+    /// EMPTY `full` report. Callers of such servers gate on [`LspClient::wait_quiescent`].
+    pub fn pull_diagnostics(
+        &mut self,
+        uri: &str,
+        deadline: Instant,
+    ) -> Result<Vec<Value>, ClientError> {
+        loop {
+            let params = json!({"textDocument": {"uri": uri}});
+            match self.request("textDocument/diagnostic", params, deadline) {
+                Ok(report) => return items_of_report(&report),
+                Err(e) if e.is_retry_later() && Instant::now() < deadline => {
+                    thread::sleep(RETRY_PAUSE);
+                }
+                Err(e) => return Err(e),
+            }
+        }
+    }
+
+    /// The last `quiescent` flag the server reported through `experimental/serverStatus`
+    /// (rust-analyzer: "the workspace is loaded and nothing is being computed"); `None` = never.
+    pub fn quiescent(&self) -> Option<bool> {
+        self.quiescent
+    }
+
+    /// The last `health` and `message` the server reported through `experimental/serverStatus`.
+    pub fn saude(&self) -> Option<(&str, &str)> {
+        self.health.as_ref().map(|(h, m)| (h.as_str(), m.as_str()))
+    }
+
+    /// How many `quiescent: false` reports have arrived so far. A pull whose request/response pair
+    /// spans an increase was answered while the server was busy reloading: not trustworthy.
+    pub fn quiescent_false_count(&self) -> u64 {
+        self.quiescent_false
+    }
+
+    /// Processes whatever the server already sent (status reports, requests for us to answer)
+    /// without waiting for more, so [`LspClient::quiescent`] reflects the present.
+    pub fn drain(&mut self) -> Result<(), ClientError> {
+        self.pump(Instant::now(), |_| None::<()>).map(|_| ())
+    }
+
+    /// Waits until the server has reported `quiescent: true` (and has not reported `false` since).
+    /// A server that never sends `experimental/serverStatus` times out here — callers use this only
+    /// for servers that were told to send it.
+    pub fn wait_quiescent(&mut self, deadline: Instant) -> Result<(), ClientError> {
+        self.drain()?;
+        if self.quiescent == Some(true) {
+            return Ok(());
+        }
+        self.pump(deadline, |m| is_quiescent_report(m).then_some(()))?
+            .ok_or_else(|| {
+                ClientError::Timeout("the workspace to finish loading (quiescent)".into())
+            })
+    }
+
+    /// Records the server-status reports the pull logic depends on.
+    fn observe(&mut self, msg: &Value) {
+        if msg.get("method").and_then(Value::as_str) != Some("experimental/serverStatus") {
+            return;
+        }
+        if let Some(flag) = msg.pointer("/params/quiescent").and_then(Value::as_bool) {
+            self.quiescent = Some(flag);
+            if !flag {
+                self.quiescent_false += 1;
+            }
+        }
+        if let Some(health) = msg.pointer("/params/health").and_then(Value::as_str) {
+            let message = msg
+                .pointer("/params/message")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            self.health = Some((health.to_string(), message.to_string()));
+        }
+    }
+
     /// Polite shutdown, then a bounded wait, then `kill`. Idempotent; also run by `Drop`.
     pub fn shutdown(&mut self) {
         if self.finished {
@@ -411,16 +541,7 @@ impl LspClient {
     }
 
     fn reap(&mut self) {
-        let give_up = Instant::now() + EXIT_GRACE;
-        loop {
-            match self.child.try_wait() {
-                Ok(Some(_)) => return,
-                Ok(None) if Instant::now() < give_up => thread::sleep(Duration::from_millis(10)),
-                _ => break,
-            }
-        }
-        let _ = self.child.kill();
-        let _ = self.child.wait();
+        reap_child(&mut self.child);
     }
 
     fn send(&mut self, msg: &Value) -> Result<(), ClientError> {
@@ -443,7 +564,10 @@ impl LspClient {
             };
             if is_server_request(&msg) {
                 self.reply_to(&msg)?;
-            } else if let Some(found) = accept(&msg) {
+                continue;
+            }
+            self.observe(&msg);
+            if let Some(found) = accept(&msg) {
                 return Ok(Some(found));
             }
         }
@@ -472,6 +596,40 @@ impl Drop for LspClient {
     }
 }
 
+/// Waits up to [`EXIT_GRACE`] for `child` to leave by itself, then kills and reaps it.
+pub(crate) fn reap_child(child: &mut Child) {
+    let give_up = Instant::now() + EXIT_GRACE;
+    loop {
+        match child.try_wait() {
+            Ok(Some(_)) => return,
+            Ok(None) if Instant::now() < give_up => thread::sleep(Duration::from_millis(10)),
+            _ => break,
+        }
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+}
+
+/// Is `m` a `quiescent: true` report of `experimental/serverStatus`?
+fn is_quiescent_report(m: &Value) -> bool {
+    m.get("method").and_then(Value::as_str) == Some("experimental/serverStatus")
+        && m.pointer("/params/quiescent").and_then(Value::as_bool) == Some(true)
+}
+
+/// The diagnostics of a `DocumentDiagnosticReport`; only a `full` report carries them.
+fn items_of_report(report: &Value) -> Result<Vec<Value>, ClientError> {
+    match report.get("kind").and_then(Value::as_str) {
+        Some("full") => Ok(report
+            .get("items")
+            .and_then(Value::as_array)
+            .cloned()
+            .unwrap_or_default()),
+        other => Err(ClientError::Protocol(format!(
+            "pull diagnostics report of kind {other:?}, expected `full`"
+        ))),
+    }
+}
+
 fn rpc_message(id: Option<u64>, method: &str, params: Value) -> Value {
     let mut msg = json!({"jsonrpc": "2.0", "method": method});
     if let Some(id) = id {
@@ -494,6 +652,7 @@ fn diagnostics_of(publish: &Value) -> Vec<Value> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::testutil::FAKE_PULL;
     use serde_json::json;
     use std::io::Cursor;
     use std::path::Path;
@@ -836,5 +995,129 @@ while True:
             !Path::new(&format!("/proc/{pid}")).exists(),
             "server {pid} must be killed and reaped"
         );
+    }
+
+    // ── pull diagnostics + quiescence (fake rust-analyzer-like server) ─────
+
+    fn fake_pull(mode: &str) -> LspClient {
+        let mut cmd = Command::new("python3");
+        cmd.arg("-c").arg(FAKE_PULL).arg(mode);
+        let mut client = LspClient::spawn(cmd, Map::new())
+            .expect("python3 must be on PATH to run the fake LSP server");
+        client
+            .initialize("file:///proj", "proj", json!({}), in_secs(10))
+            .expect("fake pull server initialize");
+        client
+    }
+
+    #[test]
+    fn wait_quiescent_returns_only_after_the_first_true_report() {
+        let mut c = fake_pull("ok");
+        let t0 = Instant::now();
+        c.wait_quiescent(in_secs(10)).unwrap();
+        assert!(
+            t0.elapsed() >= Duration::from_millis(250),
+            "returned before the server was quiet: {:?}",
+            t0.elapsed()
+        );
+        assert_eq!(c.quiescent(), Some(true));
+    }
+
+    #[test]
+    fn wait_quiescent_times_out_when_the_server_never_gets_quiet() {
+        let mut c = fake_pull("nunca");
+        let err = c
+            .wait_quiescent(Instant::now() + Duration::from_millis(400))
+            .unwrap_err();
+        assert!(matches!(err, ClientError::Timeout(_)), "{err:?}");
+        assert_eq!(c.quiescent(), Some(false), "the false report was seen");
+    }
+
+    #[test]
+    fn a_pull_before_quiescence_is_the_empty_trap_and_after_it_is_the_truth() {
+        let mut c = fake_pull("ok");
+        let uri = "file:///proj/a.rs";
+        c.open(uri, "rust", "# undef x\n").unwrap();
+        let early = c.pull_diagnostics(uri, in_secs(10)).unwrap();
+        assert!(
+            early.is_empty(),
+            "the fixture must reproduce the trap: an empty full report before the server is quiet"
+        );
+        c.wait_quiescent(in_secs(10)).unwrap();
+        let late = c.pull_diagnostics(uri, in_secs(10)).unwrap();
+        assert_eq!(late.len(), 1, "{late:?}");
+        assert_eq!(late[0]["code"], "E0425");
+    }
+
+    #[test]
+    fn pull_retries_while_the_server_cancels_and_returns_the_items() {
+        let mut c = fake_pull("cancela");
+        c.wait_quiescent(in_secs(10)).unwrap();
+        let uri = "file:///proj/a.rs";
+        c.open(uri, "rust", "# undef x\n").unwrap();
+        let items = c.pull_diagnostics(uri, in_secs(10)).unwrap();
+        assert_eq!(
+            items.len(),
+            1,
+            "3 ServerCancelled answers must be retried: {items:?}"
+        );
+    }
+
+    #[test]
+    fn pull_gives_up_at_the_deadline_when_the_server_keeps_cancelling() {
+        let mut c = fake_pull("sempre_cancela");
+        let uri = "file:///proj/a.rs";
+        c.open(uri, "rust", "x\n").unwrap();
+        let t0 = Instant::now();
+        let err = c
+            .pull_diagnostics(uri, Instant::now() + Duration::from_millis(300))
+            .unwrap_err();
+        assert!(
+            matches!(err, ClientError::Timeout(_)) || err.is_retry_later(),
+            "a deadline ends the retries: {err:?}"
+        );
+        assert!(
+            t0.elapsed() < Duration::from_millis(1500),
+            "retried past the deadline: {:?}",
+            t0.elapsed()
+        );
+    }
+
+    #[test]
+    fn an_unchanged_report_cannot_answer_a_pull_without_a_result_id() {
+        let mut c = fake_pull("unchanged");
+        let uri = "file:///proj/a.rs";
+        c.open(uri, "rust", "x\n").unwrap();
+        let err = c.pull_diagnostics(uri, in_secs(5)).unwrap_err();
+        assert!(matches!(err, ClientError::Protocol(_)), "{err:?}");
+    }
+
+    #[test]
+    fn quiescent_false_reports_are_counted_so_a_spanning_pull_can_be_rejected() {
+        let mut c = fake_pull("oscila");
+        c.wait_quiescent(in_secs(10)).unwrap();
+        // give the oscillation (false at ~400 ms, true at ~500 ms) time to play out
+        std::thread::sleep(Duration::from_millis(700));
+        c.drain().unwrap();
+        assert!(
+            c.quiescent_false_count() >= 2,
+            "the initial false and the flip must both be counted: {}",
+            c.quiescent_false_count()
+        );
+        assert_eq!(c.quiescent(), Some(true));
+    }
+
+    #[test]
+    fn retry_later_covers_exactly_server_cancelled_and_content_modified() {
+        let err = |code: Option<i64>| ClientError::ServerError {
+            method: "textDocument/diagnostic".into(),
+            message: "m".into(),
+            code,
+        };
+        assert!(err(Some(-32802)).is_retry_later());
+        assert!(err(Some(-32801)).is_retry_later());
+        assert!(!err(Some(-32603)).is_retry_later());
+        assert!(!err(None).is_retry_later());
+        assert!(!ClientError::Closed.is_retry_later());
     }
 }

@@ -43,7 +43,10 @@ pub struct HookTraceLine {
     /// Fine-grained outcome (`daemon-json`, `daemon-empty`, `standalone-ok`,
     /// `standalone-unknown`, `runtime-init-err`, `handler-diverged`, …).
     pub exit_reason: String,
-    /// `ok` | `empty` | `timeout` | `terminal` | `read-error` | `parse-error` | `unread`.
+    /// `ok` | `empty` | `timeout` | `terminal` | `read-error` | `parse-error` | `unread` |
+    /// `ok-recovered` | `too-large` (C4). Every value but `ok` is a degraded read; the
+    /// unreadable ones (`timeout`, `read-error`, `parse-error`, `too-large`) deny a guard
+    /// (`exit_reason = stdin-unreadable-deny`) and leave an advisory running on `{}`.
     pub stdin_state: String,
     /// Bytes read from stdin (0 when unread/empty/timeout).
     pub stdin_bytes: u64,

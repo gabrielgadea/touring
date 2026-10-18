@@ -249,6 +249,21 @@ pub fn stdlib_module_members(module: &str) -> Option<&'static [&'static str]> {
     }
 }
 
+/// The types of [`builtin_type_members`] whose attribute set is CLOSED at run time, as
+/// `(name in this model, importable path)`. Closed means all three hold of the type in CPython: it
+/// is not subclassable (`Py_TPFLAGS_BASETYPE` clear), its instances have no `__dict__`
+/// (`__dictoffset__ == 0`) and no class of its MRO but `object` defines `__getattr__` — so an
+/// instance cannot have an attribute the type's own set does not list. `str`/`int`/`list`/`dict`
+/// are NOT closed (a subclass instance may add attributes), nor are the types with a `__dict__`
+/// (`ast.expr`, `logging.LogRecord`, `types.FunctionType`). The path lets the conformance test ask
+/// the real interpreter, so a type enters this list by measurement, never by memory.
+pub const TIPOS_FECHADOS: &[(&str, &str)] = &[("stat_result", "os.stat_result")];
+
+/// Is `type_name` (a name of [`builtin_type_members`]) a closed type — [`TIPOS_FECHADOS`]?
+pub fn tipo_fechado(type_name: &str) -> bool {
+    TIPOS_FECHADOS.iter().any(|(nome, _)| *nome == type_name)
+}
+
 /// Members of a builtin type, for provably-typed receivers (`"lit".x`, `Path.stat().x`…). Only
 /// closed sets. `NoneType` has no attributes beyond dunders — used for proven-None receivers.
 pub fn builtin_type_members(type_name: &str) -> Option<&'static [&'static str]> {

@@ -14,9 +14,9 @@ ensina os nomes reais e o mais próximo.
 
 | peça | onde | papel |
 |---|---|---|
-| camada 1 (nativa) | `crates/touring-code/src/vgp/` | tree-sitter + tabela de símbolos do módulo extraída sob demanda (cache por sha); sem dependência externa |
-| camada 2 (verificador do projeto) | `crates/touring-lsp/src/{client,pyright,pool}.rs` | `pyright-langserver` do próprio projeto (nunca instalado pelo Touring), persistente: uma sessão por raiz |
-| CLI | `touring vgp check` | contrato puro, sem daemon: `--path --content-file --project-root [--disk-file] [--overlay o=a]… [--lang] -j` (a opção que liga a camada 2 está em integração) |
+| camada 1 (nativa) | `crates/touring-code/src/vgp/` | tree-sitter + tabela de símbolos do módulo extraída sob demanda (cache por sha); sem dependência externa. Um adaptador por linguagem em `vgp/lang/<lang>.rs` (registro único; sem adaptador a resposta é `unknown` com motivo, nunca `allow`); severidade e delta moram no `check` (`vgp/politica.rs`), não nos adaptadores |
+| camada 2 (verificador do projeto) | `crates/touring-pyright/src/` (`pool`, `servidor`, `lsp_nucleo`, `pyright`, `rust_analyzer`, `tsserver`, `deno`) | o verificador do PRÓPRIO projeto (nunca instalado pelo Touring), persistente: uma sessão por `(verificador, raiz)` — pyright para Python, rust-analyzer para Rust, tsserver ou `deno lsp` para TS/TSX/JS. **Ligada por padrão só para Python**; as outras linguagens são opt-in em `[vgp] camada2_langs` |
+| CLI | `touring vgp check` | contrato puro, sem daemon: `--path --content-file --project-root [--disk-file] [--overlay o=a]… [--lang] [--camadas 1,2] -j` (`--camadas 1,2` pede a camada 2; para uma linguagem fora de `[vgp] camada2_langs` o JSON fica na camada 1 e `camada2` diz `desligada: …`) |
 | hooks | `crates/touring-hook-handlers/src/hooks/{pre_edit_prevention,pre_write,pre_bash}.rs` | Edit, MultiEdit, Write e código inline do Bash |
 | registro de sombra | `crates/touring-code/src/vgp/sombra.rs` | uma linha JSON por checagem feita por hook |
 
@@ -52,8 +52,11 @@ verificador estático — e por isso fora do recall do juiz: a **forma do dado**
 | `[vgp] modo = "ativo"` | deny e aviso chegam ao modelo: `[VGP · deny] …` como recusa, `[VGP · aviso] …` como contexto |
 | `TOURING_VGP_MODE` | sobrescreve o modo do projeto |
 | `TOURING_VGP_DISABLED=1` | kill switch do motor (humano) |
-| `TOURING_VGP_L2_DISABLED=1` | desliga só a camada 2 |
-| `TOURING_VGP_L2_IDLE_S` (900) · `TOURING_VGP_L2_MAX` (2) | ociosidade e teto de sessões pyright vivas |
+| `[vgp] camada2_langs = ["python", "rust"]` | quais linguagens têm camada 2 no projeto; **o valor declarado substitui o padrão** (`["python"]`; `[]` desliga a camada 2). Lista de uma linha; qualquer outra forma é ignorada e o padrão vale. Nomes = o `lang` do motor (`python` · `rust` · `typescript` · `tsx` · `javascript`; `html`/`css` não têm verificador e respondem `unknown`) |
+| `TOURING_VGP_L2_DISABLED=1` | desliga a camada 2 inteira |
+| `TOURING_VGP_L2_OFF=rust-analyzer,deno` | desliga só esses verificadores |
+| `TOURING_VGP_L2_IDLE_S` (900) · `TOURING_VGP_L2_MAX` (2, por verificador) · `TOURING_VGP_L2_MAX_RA` (1) | ociosidade e teto de sessões vivas |
+| `TOURING_VGP_L2_WARMUP_S` (180) | prazo do aquecimento em segundo plano (rust-analyzer, tsserver, deno) |
 | `TOURING_VGP_SOMBRA_FILE` | caminho do registro (default `~/.claude/touring/vgp/sombra.jsonl`) |
 
 Linha do registro: `{ts, session_id, tool_use_id, hook, project_root, path, balde, camadas, modo, verdict,

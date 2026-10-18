@@ -186,9 +186,16 @@ pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
             |r| r.get(0),
         )
         .unwrap_or(0);
+    // C7 (2026-10-17): `prevented` has no production producer, so the raw
+    // column reads 0 on every real db ("0 prevented in 388.840 hits") — an
+    // absent signal is not a zero (law L2). `null` + the flag + the note that
+    // names what is missing, until a real producer exists.
+    let db = &rt.ctx.knowledge;
     serde_json::json!(
         { "total" : total, "resolved" : resolved, "unresolved" : total as i64 - resolved,
-        "total_hits" : hits, "total_prevented" : prevented }
+        "total_hits" : hits, "total_prevented" : db.reported_prevented(prevented),
+        "prevented_measured" : db.prevented_measured(),
+        "prevented_note" : db.prevented_note() }
     )
     .to_string()
 }
@@ -276,4 +283,51 @@ pub fn cli_gotcha_init(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         written, "failed" : failed, }
     )
     .to_string()
+}
+
+/// C7 (2026-10-17): `prevented` has no production producer, so every surface
+/// that reports it shows `null` (+ the flag and the missing-piece note), never
+/// the fabricated zero of an unwritten column.
+#[cfg(test)]
+mod prevented_signal_tests {
+    use super::cli_gotcha_stats;
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    fn runtime_with_hits() -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        let id = rt
+            .ctx
+            .knowledge
+            .add_gotcha("c7probe", "a pitfall", "warning", None)
+            .unwrap();
+        for _ in 0..4 {
+            rt.ctx.knowledge.increment_gotcha_hit(id);
+        }
+        (tmp, rt)
+    }
+
+    #[test]
+    fn gotcha_stats_reports_prevented_as_null_with_the_missing_piece() {
+        let (_tmp, mut rt) = runtime_with_hits();
+        let out: serde_json::Value =
+            serde_json::from_str(&cli_gotcha_stats(&mut rt, &json!({}))).unwrap();
+        assert!(out["total_hits"].as_i64().unwrap() >= 4, "{out}");
+        assert!(out["total_prevented"].is_null(), "fabricated zero: {out}");
+        assert_eq!(out["prevented_measured"], false, "{out}");
+        let note = out["prevented_note"].as_str().expect("note present");
+        assert!(note.contains("no producer"), "{note}");
+    }
+
+    #[test]
+    fn memory_stats_reports_prevented_as_null_too() {
+        let (_tmp, mut rt) = runtime_with_hits();
+        let out: serde_json::Value =
+            serde_json::from_str(&crate::cli::memory::cli_memory_stats(&mut rt, &json!({})))
+                .unwrap();
+        let stats = &out["gotcha_stats"];
+        assert!(stats["total_prevented"].is_null(), "fabricated zero: {out}");
+        assert_eq!(stats["prevented_measured"], false, "{out}");
+    }
 }

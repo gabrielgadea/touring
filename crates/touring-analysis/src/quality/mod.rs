@@ -339,7 +339,7 @@ pub mod test_pyramid;
 /// survive. Backs the F3.2 dimension.
 pub mod test_quality;
 pub use build_config::{BuildConfigReport, analyze_build_config, score_build_config};
-pub use cicd::{CicdReport, analyze_cicd, score_cicd};
+pub use cicd::{CiFinding, CiRule, CiSeverity, CicdReport, analyze_cicd, score_cicd};
 pub use deploy::{DeployReport, analyze_deploy, score_deploy};
 pub use env::{EnvReport, analyze_env, score_env};
 pub use frameworks::{FrameworksReport, analyze_frameworks, score_frameworks};

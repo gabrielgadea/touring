@@ -13,8 +13,8 @@
 //!
 //! Target latency: <50ms.
 
-use touring_code::vgp::CheckInput;
 use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+use touring_code::vgp::{CheckInput, lang_do_caminho};
 
 use super::error_predictor::ErrorPredictor;
 use super::knowledge::FileKnowledgeDB;
@@ -92,6 +92,31 @@ fn format_pii_findings_context(findings: &[super::pii::PIIFinding]) -> String {
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
+    run_returning_with(runtime, input, &vgp_sombra_de_write)
+}
+
+/// The seam of the VGP verdict (production: [`vgp_sombra_de_write`]). The VGP advisory no longer
+/// ends the chain: it is deposited in `avisos`, the rest of the pipeline runs (TRIAD arm,
+/// signals, rewards), and the most severe verdict wins with the advisory riding along
+/// ([`HookResponse::with_advisories`] — the one rule shared with `cli-suggest`).
+type VgpWriteFn = dyn Fn(&HookRuntime, &serde_json::Value, &str, &str) -> Option<HookResponse>;
+
+fn run_returning_with(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpWriteFn,
+) -> HookResponse {
+    let mut avisos: Vec<String> = Vec::new();
+    let resposta = run_chain(runtime, input, vgp, &mut avisos);
+    resposta.with_advisories(avisos)
+}
+
+fn run_chain(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpWriteFn,
+    avisos: &mut Vec<String>,
+) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // Extract /tool_input first since payload schemas model the inner object.
     let tool_input = match input.get("tool_input") {
@@ -130,8 +155,16 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     // ── VGP sombra/ativo (V2, 09/10): o motor julga o conteúdo proposto (o arquivo inteiro novo)
     // e grava UMA linha no sombra.jsonl — "sombra" (default) nunca muda a resposta; "ativo" é só
     // por [vgp] modo do projeto (V4). Fail-open de ponta a ponta.
-    if let Some(resposta_vgp) = vgp_sombra_de_write(runtime, input, file_path, content) {
-        return resposta_vgp;
+    //
+    // 30.4.97 (ordem dos gates): o `[VGP · aviso]` NÃO encerra a cadeia — antes ele retornava
+    // aqui e pulava o resto do pipeline (o `triad_hook::arm`, os sinais, os rewards): um write
+    // com aviso do VGP ficava sem snapshot TRIAD e sem os sinais próprios. O aviso é
+    // depositado; um deny do VGP (ou qualquer outra decisão) segue encerrando.
+    if let Some(resposta_vgp) = vgp(runtime, input, file_path, content) {
+        match resposta_vgp {
+            HookResponse::Context { context, .. } => avisos.push(context),
+            outra => return outra,
+        }
     }
 
     // E14: Skip expensive analysis for high-durability files (vendor, node_modules, etc.).
@@ -626,15 +659,17 @@ fn knowledge_signals_with_runtime(
             // Look up severity and hit stats from the originating gotcha.
             let source = gotchas.iter().find(|g| &g.gotcha == msg);
             let severity = source.map(|g| g.severity.as_str()).unwrap_or("warning");
-            let score = source
-                .map(|g| {
-                    wilson_adjusted_score(
-                        1.5,
-                        g.prevented_errors.max(0) as u32,
-                        g.hit_count.max(0) as u32,
-                    )
-                })
-                .unwrap_or(1.5 * 0.5);
+            // prevented_errors has no writer (FileKnowledgeDB::PREVENTED_MEASURED is false, C7 17/10/2026): Wilson over
+            // a numerator that is always 0 scored every gotcha already shown at 0, the bottom of the context budget.
+            // Until prevention is measured, a gotcha gets the neutral confidence of one without history.
+            let score = match source {
+                Some(g) if FileKnowledgeDB::PREVENTED_MEASURED => wilson_adjusted_score(
+                    1.5,
+                    g.prevented_errors.max(0) as u32,
+                    g.hit_count.max(0) as u32,
+                ),
+                _ => 1.5 * 0.5,
+            };
             signals.push((
                 score,
                 format!("\u{26a0} GOTCHA [{}]: {}", severity, short_msg),
@@ -1347,7 +1382,9 @@ fn vgp_sombra_de_write(
     content: &str,
 ) -> Option<HookResponse> {
     let mode = vgp_mode(&runtime.project_root);
-    if mode == VgpMode::Off || !file_path.ends_with(".py") {
+    // VL0 §8.4: a linguagem sai do caminho (fonte única); extensão desconhecida fica de fora
+    let lang = lang_do_caminho(file_path)?;
+    if mode == VgpMode::Off {
         return None;
     }
     let vgp_in = CheckInput {
@@ -1356,7 +1393,7 @@ fn vgp_sombra_de_write(
         project_root: runtime.project_root.clone(),
         disk: std::fs::read_to_string(file_path).ok(),
         overlays: std::collections::HashMap::new(),
-        lang: "python".into(),
+        lang: lang.to_string(),
     };
     let out = sombra_check(
         "pre-write",
@@ -1407,5 +1444,148 @@ fn vgp_sombra_de_write(
             event_name: Some("PreToolUse".to_string()),
         }),
         _ => None,
+    }
+}
+
+/// Ordem dos gates (30.4.97): o `[VGP · aviso]` não encerra a cadeia do pre-write — o resto do
+/// pipeline (a armação do TRIAD, os sinais, os rewards) roda, e o aviso vai junto na resposta.
+/// O veredito do VGP entra pela costura `run_returning_with`.
+#[cfg(test)]
+mod vgp_ordem_tests {
+    use super::*;
+
+    const AVISO: &str = "[VGP · aviso] atributo `inexistente` (a.py:1)";
+
+    fn avisa(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Context {
+            context: AVISO.to_string(),
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn nada(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        None
+    }
+
+    fn nega(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Deny {
+            reason: "[VGP · deny] import `x` inexistente".to_string(),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    /// Escreve `a.py` num projeto novo e devolve (resposta, ESTADO TRIAD armado?). A sessão é
+    /// única por chamada: o TRIAD é chaveado por (sessão, caminho) e vive no processo.
+    fn escreve(sessao: &str, vgp: &VgpWriteFn) -> (HookResponse, bool) {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let path = dir.path().join("a.py");
+        std::fs::write(&path, "x = 1\n").expect("write");
+        let file_path = path.to_str().expect("utf8").to_string();
+        let mut rt = HookRuntime::new(dir.path()).expect("runtime");
+        let input = serde_json::json!({
+            "session_id": sessao,
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path, "content": "x = 2\n"}
+        });
+        let resposta = run_returning_with(&mut rt, &input, vgp);
+        let armado = triad_hook::take(sessao, &file_path).is_some();
+        (resposta, armado)
+    }
+
+    /// O caso: um aviso do VGP. Antes, ele retornava na hora e o write ficava SEM o snapshot
+    /// TRIAD (o `post-write` não tinha com o que comparar) e sem os sinais próprios.
+    #[test]
+    fn aviso_do_vgp_nao_pula_o_resto_do_pipeline() {
+        let (resposta, armado) = escreve("g97-vgp-write-aviso", &avisa);
+        assert!(armado, "o aviso não pode pular a armação do TRIAD");
+        match resposta {
+            HookResponse::Context { context, .. } => {
+                assert!(context.contains(AVISO), "o aviso vai junto: {context}");
+            }
+            outra => panic!("só contexto, nunca deny: {outra:?}"),
+        }
+    }
+
+    /// Controle: sem aviso o pipeline arma o TRIAD do mesmo jeito.
+    #[test]
+    fn sem_aviso_o_triad_e_armado_do_mesmo_jeito() {
+        let (resposta, armado) = escreve("g97-vgp-write-nada", &nada);
+        assert!(armado, "controle: o pipeline arma o TRIAD");
+        match resposta {
+            HookResponse::Context { context, .. } => assert!(!context.contains("VGP"), "{context}"),
+            outra => panic!("{outra:?}"),
+        }
+    }
+
+    /// O deny do VGP continua encerrando a cadeia (é decisão, não aviso): nada é armado.
+    #[test]
+    fn deny_do_vgp_continua_encerrando_a_cadeia() {
+        let (resposta, armado) = escreve("g97-vgp-write-deny", &nega);
+        assert!(!armado, "o deny encerra antes da armação do TRIAD");
+        assert!(
+            matches!(resposta, HookResponse::Deny { .. }),
+            "{resposta:?}"
+        );
+    }
+}
+
+/// FRAG (10/10/2026): o fragmento `.py` em `/tmp` deixa de ser negado na ESCRITA — a edição
+/// seguinte ainda pode completá-lo (spec §5.1); o deny passa para a execução (`pre_bash`). O
+/// alvo EXTERNO inexistente (P1) segue negado já na escrita, em qualquer balde.
+#[cfg(test)]
+mod vgp_fragmento_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use touring_code::vgp::sombra::com_log_em;
+
+    const FRAGMENTO: &str = "resultado = 1\nprint(nome_do_projeto_inexistente)\n";
+    const PATHX: &str = "import unicodedata\nprint(unicodedata.combending('a'))\n";
+
+    /// O `Write` real do `vgp_sombra_de_write` de produção, em modo ativo, sobre `file_path`
+    /// novo no scratch `/tmp`. O projeto mora fora de `/tmp/` (o balde é literal).
+    fn escreve(nome: &str, content: &str) -> Option<HookResponse> {
+        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+        std::fs::write(
+            projeto.path().join(".touring/touring.toml"),
+            "[vgp]\nmodo = \"ativo\"\ncamada2_langs = []\n",
+        )
+        .expect("toml");
+        let scratch = TempDir::new_in("/tmp").expect("scratch");
+        let file_path = scratch.path().join(nome).display().to_string();
+        let rt = HookRuntime::new(projeto.path()).expect("runtime");
+        let input = serde_json::json!({
+            "session_id": "frag-write",
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path, "content": content}
+        });
+        com_log_em(&scratch.path().join("sombra.jsonl"), || {
+            vgp_sombra_de_write(&rt, &input, &file_path, content)
+        })
+    }
+
+    #[test]
+    fn o_fragmento_em_tmp_so_avisa_na_escrita() {
+        match escreve("trecho_g3.py", FRAGMENTO) {
+            Some(HookResponse::Context { context, .. }) => {
+                assert!(context.contains("[VGP · aviso]"), "{context}");
+                assert!(context.contains("nome_do_projeto_inexistente"), "{context}");
+            }
+            outra => panic!("o fragmento é consultivo na escrita, nunca deny: {outra:?}"),
+        }
+    }
+
+    #[test]
+    fn alvo_externo_inexistente_segue_negado_na_escrita_em_tmp() {
+        match escreve("x.py", PATHX) {
+            Some(HookResponse::Deny { reason, .. }) => {
+                assert!(
+                    reason.contains("[VGP · deny]") && reason.contains("combending"),
+                    "{reason}"
+                );
+            }
+            outra => panic!("P1 nega em qualquer balde: {outra:?}"),
+        }
     }
 }

@@ -67,6 +67,9 @@ pub mod outcome_learner;
 pub mod pre_exec;
 pub mod predict;
 pub mod quality_signal;
+// G10ROTA (30.4.97) — the ONE admission predicate of `touring run` (D8): the executor and the
+// code-mode gates that name `touring run` as a route both ask it.
+pub mod run_admission;
 // S-13 (2026-06-06) — the sandbox runner is gateway-owned (it uses exec_pool +
 // capability and is the CEG's actual sandbox). Moving it here collapses the
 // gateway<->sandbox_executor module cycle to intra-gateway. Re-exported at lib.rs

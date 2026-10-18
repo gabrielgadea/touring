@@ -44,6 +44,56 @@ def test_family_table_is_the_rust_one() -> None:
     )
 
 
+def test_emitter_table_is_the_rust_one() -> None:
+    """C10 (17/10/2026): `EMITTERS` do porte == `EMITTERS` de `context_budget.rs`, lida do FONTE.
+
+    A tabela existe duas vezes (o KPI Rust e este porte, que a paridade de 1% do S-3 compara com
+    o `touring kpi -j`). Uma agulha editada num lado só reprova a paridade só depois do deploy; aqui
+    reprova no CI. Linha, família e a ordem (a primeira que casa vence) têm de bater.
+    """
+    import re
+
+    rust = (Path(__file__).parent.parent / "crates/touring-cli/src/cli/context_budget.rs").read_text()
+    corpo = rust.split("const EMITTERS:", 1)[1].split("];", 1)[0]
+    do_rust = [
+        (n, f, c == "Owns")
+        for n, f, c in re.findall(r'\("([^"]+)",\s*"([^"]+)",\s*Claim::(Owns|Fallback)\)', corpo)
+    ]
+    assert do_rust, "a tabela Rust não foi lida"
+    assert list(kpi.EMITTERS) == do_rust
+
+
+def test_attributed_family_emitter_owns_or_defers_to_the_text() -> None:
+    """Dono do emissor > texto > reserva do emissor > `other` — a regra do Rust (C10)."""
+    # dono: a citação `last fail:` no texto não tira o bloco do pre-edit
+    assert kpi.attributed_family("last fail: x", "Touring: analyzing blast radius...") == "pre-edit"
+    # reserva: o texto decide primeiro (um deny emitido pelo cli-suggest continua deny)
+    cli = "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+    assert kpi.attributed_family("[CODE MODE · rajada] x", cli) == "code-mode-deny"
+    assert kpi.attributed_family("MUST    touring ast meta x", cli) == "touring-suggest"
+    # sem marca, ou marca desconhecida: só o texto, nunca inventa família
+    assert kpi.attributed_family("[gabrielgadea]", None) == kpi.OTHER
+    assert kpi.attributed_family("[gabrielgadea]", "some-new-hook.sh") == kpi.OTHER
+    assert kpi.attributed_family("[TOURING SUGGEST] x", None) == "touring-suggest"
+
+
+def test_the_real_emitter_fixture_leaves_no_other_in_the_port() -> None:
+    """A MESMA fixture real do teste Rust (45 `hook_success`, 23 marcas, caminhos anonimizados):
+    o porte, com a atribuição por emissor, não deixa nada em `other` — e o texto sozinho deixa
+    mais da metade (o defeito de C10, medido nas duas linguagens sobre os mesmos registros)."""
+    fixture = Path(__file__).parent.parent / "crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl"
+    agg = kpi.agregar([fixture])
+    assert agg["injected_blocks"] == 45
+    assert kpi.OTHER not in agg["by_family"], agg["by_family"].keys()
+    so_texto = sum(
+        len(texto.encode("utf-8"))
+        for linha in fixture.read_text(encoding="utf-8").splitlines()
+        for _, texto in kpi.hook_injections(json.loads(linha))
+        if kpi.injection_family(texto) == kpi.OTHER
+    )
+    assert so_texto / agg["injected_bytes"] > 0.5, "a fixture tem de reproduzir o defeito"
+
+
 def test_count_propositions_counts_must_should_may_lines() -> None:
     """`count_propositions` — context_budget.rs:196-203: linhas cujo trim_start
     começa por MUST/SHOULD/MAY."""

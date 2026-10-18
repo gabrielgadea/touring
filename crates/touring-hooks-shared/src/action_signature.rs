@@ -274,7 +274,8 @@ pub fn classify_tool_class(tool_name: &str) -> String {
         "Write" => "write",
         "Read" => "read",
         "Grep" | "Glob" => "search",
-        "Task" | "TodoWrite" => "task",
+        // `Agent` is the current name of the sub-agent tool (`Task` before the rename).
+        "Agent" | "Task" | "TodoWrite" => "task",
         "WebFetch" | "WebSearch" => "web",
         other if other.starts_with("mcp__") => "mcp",
         _ => "other",
@@ -526,6 +527,21 @@ mod tests {
     fn tool_class_task() {
         assert_eq!(classify_tool_class("Task"), "task");
         assert_eq!(classify_tool_class("TodoWrite"), "task");
+    }
+
+    #[test]
+    fn tool_class_agent_is_the_current_name_of_task() {
+        // Claude Code renamed the sub-agent tool `Task` → `Agent`; the hook payload carries the
+        // new name, so a table keyed on `Task` alone buckets every delegation as `other`.
+        assert_eq!(classify_tool_class("Agent"), "task");
+        assert_eq!(classify_tool_class("Agent"), classify_tool_class("Task"));
+    }
+
+    #[test]
+    fn from_post_tool_agent_lands_in_the_task_class() {
+        let sig = ActionSignature::from_post_tool("Agent", "", false);
+        assert_eq!(sig.tool_class, "task");
+        assert_eq!(sig.to_key(), "outcome:task:agent:plain");
     }
 
     #[test]

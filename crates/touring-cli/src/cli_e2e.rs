@@ -878,7 +878,9 @@ fn phase_knowledge(rt: &mut HookRuntime) -> PhaseResult {
             "bash_outcome_count": bash_count,
             "gotcha_total": gotcha_total,
             "gotcha_hit_rate_pct": format!("{:.1}", gotcha_effectiveness * 100.0),
-            "gotcha_prevented_errors": gotcha_prevented,
+            // C7 (2026-10-17): unmeasured signal -> `null`, never a fake zero.
+            "gotcha_prevented_errors": db.reported_prevented(gotcha_prevented),
+            "gotcha_prevented_measured": db.prevented_measured(),
             "memory_entries": memory_count,
             "coedit_pairs": coedit_pairs,
             "access_count": access_count,

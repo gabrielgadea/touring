@@ -1,4 +1,9 @@
-//! The five V1 checks over the proposed Python AST, plus the delta assembly.
+//! The Python adapter (VL0 §3): the five V1 checks over the proposed Python AST.
+//!
+//! The adapter MEASURES; `vgp::check` decides (severity by target × where the code runs, and the
+//! delta against the disk content — `vgp::politica`). Each finding says whom it is about
+//! ([`Alvo`]): `Externo` for a closed external target (stdlib / closed builtin table), `Projeto`
+//! for a symbol of the project, `Incerto` for a dynamic receiver or a "form" of a builtin.
 //!
 //! Deny discipline (the ≤1 % false-deny ruler): a finding is denied only when the WHOLE chain
 //! closed — the receiver's type is proven (constructor / annotation / project return annotation /
@@ -8,6 +13,7 @@
 //! closest one.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use tree_sitter::Node;
@@ -15,55 +21,46 @@ use tree_sitter::Node;
 use crate::ast::languages::Lang;
 use crate::ast::parser::parse_thread_local;
 
-use super::modules::{ModuleInfo, Resolver, Tri, extract_module_info, resolve_relative};
-use super::scope::ScopeTree;
-use super::stdlib_model::{builtin_type_members, call_result_type, stdlib_module_members};
-use super::{CheckInput, Finding};
+use self::modules::{
+    ClassInfo, ModuleInfo, Resolver, Tri, extract_module_info, implicito_de_modulo_opaco,
+    resolve_relative,
+};
+use self::scope::ScopeTree;
+use self::stdlib_model::{
+    builtin_type_members, call_result_type, stdlib_module_members, tipo_fechado,
+};
+use super::{Adaptador, Verificacao};
+use crate::vgp::politica::Alvo;
+use crate::vgp::{CheckInput, Finding};
 
-/// Parse failure of the proposed content is the one `unknown` verdict — fail-open, never deny.
-pub fn check_python(input: &CheckInput) -> (String, Vec<Finding>) {
-    let inline = super::is_inline(&input.path);
-    if parse_thread_local(&input.content, Lang::Python).is_err() {
-        return ("unknown".into(), Vec::new());
+pub mod modules;
+pub mod namespace;
+pub mod scope;
+pub mod stdlib_model;
+
+/// The `python` adapter registered in `super::REGISTRO`.
+pub struct Python;
+
+impl Adaptador for Python {
+    fn lang(&self) -> &'static str {
+        "python"
     }
-    let mut findings = run_checks(
-        &input.path,
-        &input.content,
-        &input.project_root,
-        &input.overlays,
-        inline,
-    );
 
-    if let Some(disk) = &input.disk {
-        let disco = if parse_thread_local(disk, Lang::Python).is_ok() {
-            run_checks(
-                &input.path,
-                disk,
-                &input.project_root,
-                &input.overlays,
-                inline,
-            )
-        } else {
-            Vec::new()
-        };
-        let ja: HashSet<(String, String)> = disco.into_iter().map(|f| (f.classe, f.nome)).collect();
-        // delta: o hook só nega o que a edição INTRODUZ; o pré-existente informa (warn), nunca nega
-        for f in findings.iter_mut() {
-            if f.severidade == "deny" && ja.contains(&(f.classe.clone(), f.nome.clone())) {
-                f.severidade = "warn".into();
-                f.sugestao = format!("pré-existente (já estava no disco): {}", f.sugestao);
-            }
+    /// Parse failure of the proposed content is the one thing that cannot be measured —
+    /// fail-open, never deny. The delta against the disk and the verdict are `vgp::check`'s.
+    fn verificar(&self, input: &CheckInput) -> Verificacao {
+        let inline = crate::vgp::is_inline(&input.path);
+        if parse_thread_local(&input.content, Lang::Python).is_err() {
+            return Verificacao::nao_medido("parse da gramática python falhou");
         }
+        Verificacao::medido(run_checks(
+            &input.path,
+            &input.content,
+            &input.project_root,
+            &input.overlays,
+            inline,
+        ))
     }
-
-    let verdict = if findings.iter().any(|f| f.severidade == "deny") {
-        "deny"
-    } else if findings.iter().any(|f| f.severidade == "warn") {
-        "warn"
-    } else {
-        "allow"
-    };
-    (verdict.into(), findings)
 }
 
 /// Everything computed on one module's content (proposed or disk), shareable with the delta.
@@ -83,29 +80,24 @@ fn run_checks(
 
     // (1) nome — análise de escopo
     let st = ScopeTree::build(tree.root_node(), content, inline);
-    let sev_nome = if inline || path.starts_with("/tmp/") {
-        "deny"
-    } else {
-        "warn"
-    };
     for issue in st.issues() {
         if issue.escaped {
             // dinamico (P4): import * ou exec no caminho — warn sempre, nunca deny
-            out.push(Finding::new(
+            out.push(Finding::candidato(
                 "nome",
                 &issue.nome,
                 issue.linha,
-                "warn",
+                Alvo::Incerto,
                 "nome possivelmente dinâmico (import * / exec) — não resolúvel estaticamente"
                     .into(),
                 Vec::new(),
             ));
         } else {
-            out.push(Finding::new(
+            out.push(Finding::candidato(
                 "nome",
                 &issue.nome,
                 issue.linha,
-                sev_nome,
+                Alvo::Projeto,
                 "nome usado sem definição em nenhum escopo".into(),
                 Vec::new(),
             ));
@@ -121,9 +113,6 @@ fn run_checks(
         out: &mut out,
         root: tree.root_node(),
         em_curso: std::cell::RefCell::new(HashSet::new()),
-        // P2 (medida pela coordenadora em 09/10): /tmp e inline negam; em arquivo do projeto só
-        // alvo EXTERNO nega (stdlib/builtin), alvo do projeto vira warn — recall conta os dois
-        deny_natural: inline || path.starts_with("/tmp/"),
     };
     walker.walk(tree.root_node());
     out
@@ -135,7 +124,6 @@ struct Checks<'a, 't> {
     res: &'a Resolver<'a>,
     proprio: &'a ModuleInfo,
     out: &'a mut Vec<Finding>,
-    deny_natural: bool,
     /// A árvore já parseada do módulo — a inferência anda nela, nunca re-parseia.
     root: Node<'t>,
     /// Nomes cuja inferência está EM CURSO neste momento — guarda de ciclo (`line = line.strip()`).
@@ -227,7 +215,7 @@ impl<'a, 't> Checks<'a, 't> {
                             "`from {dotted} import {nome}` — `{nome}` não é ligação de topo nem submódulo de `{dotted}`"
                         ),
                         reais,
-                        self.sev(stdlib_module_members(&dotted).is_some()),
+                        self.alvo(stdlib_module_members(&dotted).is_some()),
                     );
                 }
             }
@@ -239,15 +227,20 @@ impl<'a, 't> Checks<'a, 't> {
         if modulo.top_names.contains(nome) {
             return Tri::Yes;
         }
-        if modulo.has_getattr || modulo.has_star {
+        // P0B (a): o que o sistema de import liga em TODO módulo carregado (`__file__` só com arquivo,
+        // `__path__` só em pacote) — o `__init__.py` não precisa nem consegue declará-lo
+        if modulo.atributo_implicito(nome) {
+            return Tri::Yes;
+        }
+        // namespace não enumerável (getattr aberto, import *, ligação dinâmica aberta): abstenção
+        // IGUAL em arquivo e inline — a incerteza não depende do balde, logo nem a severidade
+        if modulo.has_getattr || modulo.has_star || modulo.has_dynamic {
             return Tri::Unknown;
         }
         // submódulo ANTES do `__all__`: `from pkg import submod` é legítimo mesmo fora do
         // __all__ (que só governa `import *`) — a ordem anterior condenava defusedxml.ElementTree
-        if self
-            .res
-            .module_exists(&format!("{dotted}.{nome}"), self.path)
-        {
+        let sub = format!("{dotted}.{nome}");
+        if self.res.module_exists(&sub, self.path) || self.res.extension_exists(&sub, self.path) {
             return Tri::Yes;
         }
         if let Some(all) = &modulo.dunder_all {
@@ -282,13 +275,14 @@ impl<'a, 't> Checks<'a, 't> {
                         linha,
                         &format!("módulo `{dotted}` não tem atributo `{nome}`"),
                         reais,
-                        self.sev(false),
+                        self.alvo(false),
                     );
                 }
             }
             Some(Tipo::Stdlib(dotted)) => {
                 if let Some(members) = stdlib_module_members(&dotted)
                     && !members.contains(&nome.as_str())
+                    && !implicito_de_modulo_opaco(&nome)
                 {
                     out_find(
                         self.out,
@@ -297,7 +291,7 @@ impl<'a, 't> Checks<'a, 't> {
                         linha,
                         &format!("módulo stdlib `{dotted}` não tem atributo `{nome}`"),
                         members.iter().map(|s| s.to_string()).collect(),
-                        "deny",
+                        Alvo::Externo,
                     );
                 }
             }
@@ -312,7 +306,7 @@ impl<'a, 't> Checks<'a, 't> {
                         linha,
                         &format!("atributo dunder `{nome}` em função — possivelmente dinâmico"),
                         Vec::new(),
-                        "warn",
+                        Alvo::Incerto,
                     );
                 } else {
                     out_find(
@@ -322,26 +316,12 @@ impl<'a, 't> Checks<'a, 't> {
                         linha,
                         &format!("valor-função não tem atributo `{nome}`"),
                         Vec::new(),
-                        self.sev(false),
+                        self.alvo(false),
                     );
                 }
             }
             Some(Tipo::Classe(cls, modulo)) => self.check_membro(&cls, &modulo, &nome, linha, obj),
-            Some(Tipo::Builtin(t)) => {
-                if let Some(members) = builtin_type_members(t)
-                    && !members.contains(&nome.as_str())
-                {
-                    out_find(
-                        self.out,
-                        "atributo",
-                        &nome,
-                        linha,
-                        &format!("`{t}` não tem atributo `{nome}`"),
-                        members.iter().map(|s| s.to_string()).collect(),
-                        "warn",
-                    );
-                }
-            }
+            Some(Tipo::Builtin(t)) => out_find_de_builtin(self.out, t, &nome, linha),
             None => {}
         }
     }
@@ -371,8 +351,8 @@ impl<'a, 't> Checks<'a, 't> {
                     nome,
                     linha,
                     &format!("`{cls}` define __slots__ — instância não tem `__dict__`"),
-                    membros.iter().take(8).cloned().collect(),
-                    "warn",
+                    reais_dos_membros(&membros),
+                    Alvo::Incerto,
                 );
             }
             return;
@@ -384,8 +364,8 @@ impl<'a, 't> Checks<'a, 't> {
                 nome,
                 linha,
                 &format!("instância de `{cls}` não tem membro `{nome}`"),
-                membros.iter().take(8).cloned().collect(),
-                self.sev(false),
+                reais_dos_membros(&membros),
+                self.alvo(false),
             );
         }
     }
@@ -452,7 +432,7 @@ impl<'a, 't> Checks<'a, 't> {
         nome: &str,
         modulo: &Rc<ModuleInfo>,
         depth: usize,
-    ) -> Option<(String, Rc<ModuleInfo>, super::modules::FuncSig)> {
+    ) -> Option<(String, Rc<ModuleInfo>, self::modules::FuncSig)> {
         if depth > 4 {
             return None;
         }
@@ -501,13 +481,148 @@ impl<'a, 't> Checks<'a, 't> {
                     linha,
                     "argumento-nome inexistente na assinatura",
                     sig.params.iter().take(10).cloned().collect(),
-                    self.sev(false),
+                    self.alvo(false),
                 );
             }
         }
     }
 
-    fn sig_de(&self, f: Node) -> Option<super::modules::FuncSig> {
+    /// The signature `C(...)` is checked against; `None` = unknowable (abstain). A class keeps its own
+    /// explicit `__init__` — a dataclass too, `dataclasses` never overwrites one. A dataclass without
+    /// one gets the GENERATED one: fields of the bases in reverse MRO, then its own (see
+    /// [`Self::parametros_do_dataclass`]). A plain class without one INHERITS: the first `__init__` in
+    /// its MRO (see [`Self::init_herdado`]).
+    fn construtor_de(&self, cls: &str, modulo: &Rc<ModuleInfo>) -> Option<self::modules::FuncSig> {
+        let ci = modulo.classes.get(cls)?;
+        if ci.methods.contains("__init__") {
+            return Some(sem_instancia(ci.init.clone()));
+        }
+        if !ci.is_dataclass {
+            return self.init_herdado(cls, modulo);
+        }
+        if ci.dc_init_false {
+            return None; // no generated `__init__`: inherited, so not known here
+        }
+        self.parametros_do_dataclass(cls, modulo)
+    }
+
+    /// The signature of a PLAIN class with no `__init__` of its own (P0B (c), the `Filha(Base)` that
+    /// `Filha(a=1)` made a false deny): CPython resolves `__init__` along the MRO, so the answer is the
+    /// FIRST class of the C3 linearization ([`Self::mro`], identity (file, name)) that defines one — a
+    /// dataclass without an explicit one defines the generated one — and `object.__init__` (no keyword
+    /// at all) when none does. `None` (abstain) when the MRO cannot be built (unresolved or opaque
+    /// base, inconsistent hierarchy) or any class of it can reroute construction
+    /// ([`opaco_para_construcao`]).
+    fn init_herdado(&self, cls: &str, modulo: &Rc<ModuleInfo>) -> Option<self::modules::FuncSig> {
+        let linear = self.mro(cls, modulo, 0)?;
+        let mut elos = Vec::with_capacity(linear.len());
+        for (_, nome, m) in &linear {
+            let ci = m.classes.get(nome)?;
+            if opaco_para_construcao(ci) {
+                return None;
+            }
+            elos.push((nome, m, ci));
+        }
+        for (nome, m, ci) in elos {
+            if ci.methods.contains("__init__") {
+                return Some(sem_instancia(ci.init.clone()));
+            }
+            if ci.is_dataclass && !ci.dc_init_false {
+                return self.parametros_do_dataclass(nome, m);
+            }
+        }
+        Some(self::modules::FuncSig::default())
+    }
+
+    /// `__init__` parameters of the dataclass `cls`, following `dataclasses`' own rule (CPython 3.13
+    /// `Doc/library/dataclasses.rst`): fields are collected walking the REVERSE MRO (bases first, the
+    /// class last); a redeclared field keeps its first position and takes the new definition; the
+    /// keyword-only ones go after the positional ones. `None` when any class of the MRO cannot be
+    /// resolved — an unseen base may declare fields, so the motor abstains rather than deny.
+    fn parametros_do_dataclass(
+        &self,
+        cls: &str,
+        modulo: &Rc<ModuleInfo>,
+    ) -> Option<self::modules::FuncSig> {
+        let linear = self.mro(cls, modulo, 0)?;
+        let mut campos: Vec<self::modules::DcField> = Vec::new();
+        for (_, nome, m) in linear.iter().rev() {
+            let Some(ci) = m.classes.get(nome).filter(|c| c.is_dataclass) else {
+                continue; // a plain class in the MRO declares no dataclass fields
+            };
+            for f in &ci.dc_fields {
+                match campos.iter_mut().find(|c| c.name == f.name) {
+                    Some(slot) => *slot = f.clone(),
+                    None => campos.push(f.clone()),
+                }
+            }
+        }
+        Some(self::modules::FuncSig {
+            params: self::modules::dc_init_params(&campos),
+            ..Default::default()
+        })
+    }
+
+    /// A base class as written → what it is. Builtin/typing bases declare no dataclass fields.
+    fn resolve_base(&self, base: &str, modulo: &Rc<ModuleInfo>, depth: usize) -> Base {
+        let nome = base.rsplit('.').next().unwrap_or(base);
+        if is_builtin_base(nome) {
+            return Base::Inofensiva;
+        }
+        if depth > 4 || base.contains('.') {
+            return Base::Desconhecida;
+        }
+        if modulo.classes.contains_key(nome) {
+            return Base::Classe(modulo.clone(), nome.to_string());
+        }
+        let Some((from, original)) = modulo.imports.get(nome) else {
+            return Base::Desconhecida;
+        };
+        let Some(m) = self.res.resolve_module(from, self.path) else {
+            return Base::Desconhecida;
+        };
+        if m.classes.contains_key(original) {
+            return Base::Classe(m, original.clone());
+        }
+        self.resolve_base(original, &m, depth + 1) // re-export: `from .m import Base` in an `__init__`
+    }
+
+    /// C3 linearization of `nome` (the MRO CPython computes), `None` if a base is unresolved or
+    /// opaque, the hierarchy is inconsistent, or it is too deep. A class is identified by
+    /// (file, name), so the same class reached through two routes is one node.
+    fn mro(&self, nome: &str, modulo: &Rc<ModuleInfo>, depth: usize) -> Option<Vec<ClasseNo>> {
+        if depth > 8 {
+            return None;
+        }
+        let ci = modulo.classes.get(nome)?;
+        if ci.bases_opaque {
+            return None;
+        }
+        let eu: ClasseNo = (
+            modulo.file.clone().unwrap_or_default(),
+            nome.to_string(),
+            modulo.clone(),
+        );
+        let mut listas: Vec<Vec<ClasseNo>> = Vec::new();
+        let mut diretas: Vec<ClasseNo> = Vec::new();
+        for base in &ci.dc_bases {
+            match self.resolve_base(base, modulo, 0) {
+                Base::Inofensiva => {}
+                Base::Desconhecida => return None,
+                Base::Classe(m, n) => {
+                    let l = self.mro(&n, &m, depth + 1)?;
+                    diretas.push(l.first()?.clone());
+                    listas.push(l);
+                }
+            }
+        }
+        listas.push(diretas);
+        let mut out = vec![eu];
+        out.extend(c3_merge(listas)?);
+        Some(out)
+    }
+
+    fn sig_de(&self, f: Node) -> Option<self::modules::FuncSig> {
         match f.kind() {
             "identifier" => {
                 let nome = text(self.content, f);
@@ -519,7 +634,7 @@ impl<'a, 't> Checks<'a, 't> {
                 if let Some((_, _, sig)) = self.resolve_funcao(original, &m, 0) {
                     return Some(sig);
                 }
-                m.classes.get(original).map(|ci| ci.init.clone())
+                self.construtor_de(original, &m)
             }
             "attribute" => {
                 let obj = f.child_by_field_name("object")?;
@@ -742,11 +857,13 @@ impl<'a, 't> Checks<'a, 't> {
     }
 
     /// P2: /tmp e inline negam tudo; em arquivo do projeto, só alvo EXTERNO nega.
-    fn sev(&self, externo: bool) -> &'static str {
-        if self.deny_natural || externo {
-            "deny"
+    /// P2 (medida pela coordenadora em 09/10), agora decidida por `vgp::politica`: este checker só
+    /// diz a QUEM o achado se refere — alvo EXTERNO (stdlib/builtin fechado) ou do PROJETO.
+    fn alvo(&self, externo: bool) -> Alvo {
+        if externo {
+            Alvo::Externo
         } else {
-            "warn"
+            Alvo::Projeto
         }
     }
 
@@ -755,16 +872,79 @@ impl<'a, 't> Checks<'a, 't> {
     }
 }
 
-/// Aggregate a verdict from findings, falling back to `base` when there are none — the base
-/// carries an earlier "unknown" (a merged layer must never turn a could-not-measure into allow).
-pub fn verdict_dos(findings: &[Finding], base: &str) -> String {
-    if findings.iter().any(|f| f.severidade == "deny") {
-        "deny".to_string()
-    } else if findings.is_empty() {
-        base.to_string()
-    } else {
-        "warn".to_string()
+/// A class in an MRO: (defining file, name, its module table).
+type ClasseNo = (PathBuf, String, Rc<ModuleInfo>);
+
+/// What a base-class expression resolves to.
+enum Base {
+    /// `object`, `ABC`, `Generic`, … — declares no dataclass fields.
+    Inofensiva,
+    /// A class of the project/venv, with the module that defines it.
+    Classe(Rc<ModuleInfo>, String),
+    /// Unresolved (external, dotted, dynamic): its fields are unknowable.
+    Desconhecida,
+}
+
+fn mesmo_no(a: &ClasseNo, b: &ClasseNo) -> bool {
+    a.0 == b.0 && a.1 == b.1
+}
+
+/// The C3 merge: repeatedly take the first head that appears in no list's tail. `None` when no head
+/// qualifies (an inconsistent hierarchy — CPython raises `TypeError` there).
+fn c3_merge(mut listas: Vec<Vec<ClasseNo>>) -> Option<Vec<ClasseNo>> {
+    let mut out = Vec::new();
+    loop {
+        listas.retain(|l| !l.is_empty());
+        if listas.is_empty() {
+            return Some(out);
+        }
+        let cand = listas
+            .iter()
+            .map(|l| &l[0])
+            .find(|c| !listas.iter().any(|l| l[1..].iter().any(|x| mesmo_no(x, c))))?
+            .clone();
+        for l in listas.iter_mut() {
+            if mesmo_no(&l[0], &cand) {
+                l.remove(0);
+            }
+        }
+        out.push(cand);
     }
+}
+
+/// The keywords `C(...)` accepts from a `def __init__`: CPython binds the FIRST parameter to the new
+/// instance, so it is no keyword (`C(self=1)` is a TypeError, "multiple values for argument") and no
+/// suggestion to show. A dataclass' generated `__init__` is built without it
+/// ([`modules::dc_init_params`]).
+fn sem_instancia(mut sig: self::modules::FuncSig) -> self::modules::FuncSig {
+    if !sig.params.is_empty() {
+        sig.params.remove(0);
+    }
+    sig
+}
+
+/// Can this class of an MRO reroute how `C(...)` is built, so that the first `__init__` is not the
+/// whole story? (P0B (c)) A custom `__new__` (it takes the arguments first), a metaclass or class
+/// keyword (`__call__` / `__init_subclass__` of the header), an `__init_subclass__` or `__signature__`
+/// of the class, an `__init__` bound by assignment instead of `def`, or a base with its OWN
+/// construction (`NamedTuple`, `TypedDict`, the enums — `is_builtin_base` minus the ones that only add
+/// `object.__init__` or `BaseException.__init__`, which take no keyword).
+fn opaco_para_construcao(ci: &ClassInfo) -> bool {
+    const DESVIADORES: [&str; 3] = ["__new__", "__init_subclass__", "__signature__"];
+    let liga = |nome: &str| ci.methods.contains(nome) || ci.fields.contains(nome);
+    let init_por_atribuicao = ci.fields.contains("__init__") && !ci.methods.contains("__init__");
+    let base_com_construtor_proprio = ci.dc_bases.iter().any(|b| {
+        let nome = b.rsplit('.').next().unwrap_or(b);
+        is_builtin_base(nome)
+            && !matches!(
+                nome,
+                "object" | "ABC" | "Generic" | "Protocol" | "Exception" | "BaseException"
+            )
+    });
+    ci.has_class_kwargs
+        || init_por_atribuicao
+        || base_com_construtor_proprio
+        || DESVIADORES.iter().any(|d| liga(d))
 }
 
 fn is_builtin_base(nome: &str) -> bool {
@@ -789,6 +969,9 @@ fn is_builtin_base(nome: &str) -> bool {
     )
 }
 
+/// Largest `reais` list a refusal carries. The cut is applied AFTER a total order, never before.
+const REAIS_MAX: usize = 8;
+
 fn reals_of_module(info: &ModuleInfo) -> Vec<String> {
     let mut v: Vec<String> = info
         .top_names
@@ -797,8 +980,22 @@ fn reals_of_module(info: &ModuleInfo) -> Vec<String> {
         .cloned()
         .collect();
     v.sort();
-    v.truncate(8);
+    v.truncate(REAIS_MAX);
     v
+}
+
+/// Member names for `reais`: a TOTAL order over the set, THEN the cut — public names first, `_`-prefixed after
+/// (alphabetical in each group): plain alphabetical puts `__init__`/`__repr__` ahead of the real members and they
+/// would fill the 8-slot cut (the refusal teaches through `reais`). A `HashSet` iterates in another order per
+/// instance, so a bare `take` gave up to 10 distinct `reais` sets in 10 calls on one input (measured 10/10/2026).
+fn reais_dos_membros(membros: &HashSet<String>) -> Vec<String> {
+    let mut v: Vec<&String> = membros.iter().collect();
+    v.sort_by(|a, b| {
+        a.starts_with('_')
+            .cmp(&b.starts_with('_'))
+            .then_with(|| a.cmp(b))
+    });
+    v.into_iter().take(REAIS_MAX).cloned().collect()
 }
 
 fn out_find(
@@ -808,7 +1005,7 @@ fn out_find(
     linha: usize,
     motivo: &str,
     reais: Vec<String>,
-    sev: &str,
+    alvo: Alvo,
 ) {
     if out.iter().any(|f| f.classe == classe && f.nome == nome) {
         return; // um achado por (classe, nome) basta — o juiz conta presença, não ocorrências
@@ -816,16 +1013,45 @@ fn out_find(
     let sugestao = sugestao_proxima(nome, &reais)
         .map(|s| format!("{motivo}. Você quis dizer `{s}`?"))
         .unwrap_or_else(|| motivo.to_string());
-    out.push(Finding::new(classe, nome, linha, sev, sugestao, reais));
+    out.push(Finding::candidato(
+        classe, nome, linha, alvo, sugestao, reais,
+    ));
+}
+
+/// `obj.nome` where `obj` is a proven builtin `tipo` and `nome` is not in its member table.
+///
+/// A [`tipo_fechado`] type has a CLOSED attribute set at run time, so the absence is certain for an
+/// instance: the finding is [`Alvo::Fechado`] and carries the receiver type. What layer 1 cannot prove
+/// (it follows no flow) is that the value reaching the attribute IS one, so it warns alone and
+/// `sombra::fundir_findings` denies it when layer 2 names the same class. Any other builtin type
+/// (`str`, `list`, `Path`…) may be a subclass or a different object than inferred: [`Alvo::Incerto`].
+fn out_find_de_builtin(out: &mut Vec<Finding>, tipo: &str, nome: &str, linha: usize) {
+    let Some(members) = builtin_type_members(tipo) else {
+        return;
+    };
+    if members.contains(&nome) {
+        return;
+    }
+    let motivo = format!("`{tipo}` não tem atributo `{nome}`");
+    let reais = members.iter().map(|s| s.to_string()).collect();
+    if !tipo_fechado(tipo) {
+        return out_find(out, "atributo", nome, linha, &motivo, reais, Alvo::Incerto);
+    }
+    let antes = out.len();
+    out_find(out, "atributo", nome, linha, &motivo, reais, Alvo::Fechado);
+    if let Some(achado) = out.get_mut(antes) {
+        achado.receptor = Some(tipo.to_string());
+    }
 }
 
 /// O nome real mais próximo (distância de edição ≤ 2), se houver — a recusa ensina o caminho.
+/// Desempate TOTAL: menor distância, depois o menor nome — a resposta não depende da ordem de `reais`.
 fn sugestao_proxima(nome: &str, reais: &[String]) -> Option<String> {
     reais
         .iter()
         .map(|r| (levenshtein(nome, r), r))
         .filter(|(d, _)| *d > 0 && *d <= 2)
-        .min_by_key(|(d, _)| *d)
+        .min_by(|(da, ra), (db, rb)| da.cmp(db).then_with(|| ra.cmp(rb)))
         .map(|(_, r)| r.clone())
 }
 

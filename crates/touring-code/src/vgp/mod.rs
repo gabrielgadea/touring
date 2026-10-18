@@ -1,44 +1,62 @@
-//! VGP motor — layer 1: deny invented API in Python BEFORE the edit, pure and daemonless.
+//! VGP motor — layer 1: deny invented API BEFORE the edit, pure and daemonless.
 //!
-//! One [`check`] call per proposed file: static scope analysis (`nome`), from-import resolution
-//! (`import`), project/venv module attributes (`atributo`), concrete-class instance members
-//! (`membro`/`atributo`) and keyword arguments (`kwarg`). Fail-open by construction: a parse
-//! error or any unresolvable link yields `unknown`/`warn`, never `deny` — the corpus ruler is
-//! falso deny ≤ 1 % over 300 clean files (V1 spec, 2026-10-08-vgp-motor-base).
+//! One [`check`] call per proposed file. The language adapters ([`lang`], one file each) MEASURE
+//! — Python today: static scope analysis (`nome`), from-import resolution (`import`), project/venv
+//! module attributes (`atributo`), concrete-class instance members (`membro`/`atributo`) and
+//! keyword arguments (`kwarg`) — and [`check`] DECIDES for every language the same way
+//! ([`politica`]): severity by target × where the code runs, and the delta against the disk
+//! content. Fail-open by construction: a parse error or any unresolvable link yields `unknown`
+//! (with the reason), never `deny` — the corpus ruler is falso deny ≤ 1 % (V1 spec,
+//! 2026-10-08-vgp-motor-base). A language with no adapter is `unknown`, never `allow`: `allow`
+//! claims a verification that did not happen (absence is not zero).
 //!
 //! Delta mode: with `disk` content, a finding is denied only when it is NOT already present in
 //! the disk content — a pre-edit hook denies what the edit INTRODUCES, never what pre-existed.
 
-pub mod checks;
-pub mod modules;
-pub mod scope;
+pub mod lang;
+pub mod politica;
 pub mod sombra;
-pub mod stdlib_model;
 
 use serde::Serialize;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Instant;
 
+pub use lang::lang_do_caminho;
+pub use politica::{Alvo, Contexto};
+
+use lang::{Adaptador, Transversal};
+
 /// One deny/warn finding — the JSON shape the judge and the hooks read.
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 pub struct Finding {
-    /// Check family: `nome` | `atributo` | `import` | `kwarg` | `membro`.
+    /// Check family (VL0 §4): `nome` | `atributo` | `import` | `kwarg` | `membro` | …
     pub classe: String,
     /// The provably-missing name.
     pub nome: String,
     /// 1-based line in the proposed content.
     pub linha: usize,
-    /// `deny` | `warn` (P2: deny only in /tmp+inline or on external targets).
+    /// `deny` | `warn` — decided by [`politica`], never by the adapter.
     pub severidade: String,
     /// The teaching refusal — why, plus the closest real name when one exists.
     pub sugestao: String,
     /// Real names that do exist (member set / module top names, capped).
     pub reais: Vec<String>,
+    /// Whom the finding is about (the input of the severity policy). In-process only: the
+    /// JSON the judge reads is unchanged.
+    #[serde(skip)]
+    pub alvo: Alvo,
+    /// The type of the receiver a member finding is about, as the layer that found it names it
+    /// (layer 1: `stat_result`; layer 2: the checker's class, possibly qualified —
+    /// `os.stat_result`). [`sombra::fundir_findings`] compares the two for an [`Alvo::Fechado`]
+    /// finding. In-process only, like `alvo`: the JSON the judge reads is unchanged.
+    #[serde(skip)]
+    pub receptor: Option<String>,
 }
 
 impl Finding {
-    /// Build a finding with owned strings (call sites stay one-liners).
+    /// A finding whose severity is ALREADY decided (layer-2 merge, CLI errors). Its target is
+    /// irrelevant: [`check`] never re-judges it. Adapters use [`Finding::candidato`].
     pub fn new(
         classe: &str,
         nome: &str,
@@ -54,6 +72,30 @@ impl Finding {
             severidade: severidade.to_string(),
             sugestao,
             reais,
+            alvo: Alvo::Projeto,
+            receptor: None,
+        }
+    }
+
+    /// This finding with the type of its receiver ([`Finding::receptor`]).
+    pub fn com_receptor(mut self, receptor: Option<String>) -> Self {
+        self.receptor = receptor;
+        self
+    }
+
+    /// An adapter's finding: what it is about ([`Alvo`]) instead of how loud it should be —
+    /// [`politica::aplicar`] fills `severidade`. Until then it reads `warn`, the safe default.
+    pub fn candidato(
+        classe: &str,
+        nome: &str,
+        linha: usize,
+        alvo: Alvo,
+        sugestao: String,
+        reais: Vec<String>,
+    ) -> Self {
+        Self {
+            alvo,
+            ..Self::new(classe, nome, linha, "warn", sugestao, reais)
         }
     }
 }
@@ -70,14 +112,15 @@ pub struct CheckInput {
     pub disk: Option<String>,
     /// Overlay path → content: module files at the entry's instant, laid over today's disk.
     pub overlays: HashMap<String, String>,
-    /// `python` (checks live) · `typescript`/`rust` (warn-only, no corpus yet).
+    /// A `lang` of VL0 §2 (`python` · `rust` · `typescript` · `tsx` · `javascript` · `html` ·
+    /// `css`); derive it with [`lang_do_caminho`]. Anything else answers `unknown`.
     pub lang: String,
 }
 
 /// The JSON the CLI prints and the judge reads — always present, even on failure.
 #[derive(Debug, Serialize)]
 pub struct CheckOutput {
-    /// `deny` | `warn` | `allow` | `unknown` (parse failure — fail-open).
+    /// `deny` | `warn` | `allow` | `unknown` (could not measure — fail-open).
     pub verdict: String,
     /// Motor layer (1 = static, pure, daemonless).
     pub layer: u8,
@@ -91,17 +134,45 @@ pub struct CheckOutput {
     /// `"unknown: <motivo>"` (the L1 findings still stand). Absent when L2 ran or was not asked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camada2: Option<String>,
+    /// Why the motor could not measure (parse failure, adapter not implemented, no adapter for
+    /// the language). Present whenever something went unmeasured, even beside findings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub motivo: Option<String>,
 }
 
 /// The one public entry. `verdict`: deny (≥1 deny finding) · warn (≥1 warn finding, no deny) ·
-/// allow · unknown (parse failure or an unresolvable precondition — fail-open, never deny).
+/// allow · unknown (nothing could be measured — fail-open, never deny).
+///
+/// Pipeline, the same for every language (VL0 §3): pick the adapter by `input.lang` →
+/// adapter (+ transversal checks) on the PROPOSED content → severity policy → delta against
+/// the disk content → verdict.
+///
+/// This is the verdict of a file being WRITTEN ([`Contexto::Escrita`]): the hooks of
+/// `Write`/`Edit`/`MultiEdit` and `touring vgp check` without `--contexto`. A file about to be
+/// EXECUTED asks [`check_em`] with [`Contexto::Execucao`].
 pub fn check(input: &CheckInput) -> CheckOutput {
+    check_em(input, Contexto::Escrita)
+}
+
+/// [`check`] at an explicit moment: the same pipeline, the severity policy asked WHEN the code
+/// is judged (FRAG, 10/10/2026 — a fragment in `/tmp` is no error until something runs it).
+pub fn check_em(input: &CheckInput, contexto: Contexto) -> CheckOutput {
     let t0 = Instant::now();
-    let (verdict, findings) = if input.lang == "python" {
-        checks::check_python(input)
-    } else {
-        // TS/Rust: warn-only territory (no corpus to measure precision — spec V1 §"O QUE NEGA")
-        ("allow".to_string(), Vec::new())
+    let (verdict, findings, motivo) = match lang::adaptador_de(&input.lang) {
+        Some(adaptador) => julgar(
+            input,
+            adaptador,
+            &lang::transversais_de(&input.lang),
+            contexto,
+        ),
+        None => (
+            "unknown".to_string(),
+            Vec::new(),
+            Some(format!(
+                "linguagem `{}` sem adaptador registrado",
+                input.lang
+            )),
+        ),
     };
     CheckOutput {
         verdict,
@@ -110,6 +181,70 @@ pub fn check(input: &CheckInput) -> CheckOutput {
         elapsed_ms: t0.elapsed().as_secs_f64() * 1000.0,
         findings,
         camada2: None,
+        motivo,
+    }
+}
+
+/// [`check`] with the adapter and the transversal checks injected — the seam that lets the
+/// policy and the delta be proven for ANY language, not only for the registered ones.
+pub(crate) fn julgar(
+    input: &CheckInput,
+    adaptador: &dyn Adaptador,
+    transversais: &[&dyn Transversal],
+    contexto: Contexto,
+) -> (String, Vec<Finding>, Option<String>) {
+    let mut medido = medir(input, adaptador, transversais);
+    politica::aplicar(
+        &mut medido.achados,
+        &input.path,
+        &input.project_root,
+        contexto,
+    );
+
+    // delta: the disk run only matters when there is a deny to downgrade
+    if let Some(disco) = &input.disk
+        && medido.achados.iter().any(|f| f.severidade == "deny")
+    {
+        let do_disco = CheckInput {
+            path: input.path.clone(),
+            content: disco.clone(),
+            project_root: input.project_root.clone(),
+            disk: None,
+            overlays: input.overlays.clone(),
+            lang: input.lang.clone(),
+        };
+        let no_disco = medir(&do_disco, adaptador, transversais);
+        politica::aplicar_delta(&mut medido.achados, &no_disco.achados);
+    }
+
+    let base = if medido.nao_medido.is_some() {
+        "unknown"
+    } else {
+        "allow"
+    };
+    let verdict = politica::verdict_dos(&medido.achados, base);
+    (verdict, medido.achados, medido.nao_medido)
+}
+
+/// What the adapter and the transversal checks found on ONE content, severities still undecided.
+struct Medido {
+    achados: Vec<Finding>,
+    nao_medido: Option<String>,
+}
+
+fn medir(
+    input: &CheckInput,
+    adaptador: &dyn Adaptador,
+    transversais: &[&dyn Transversal],
+) -> Medido {
+    let v = adaptador.verificar(input);
+    let mut achados = v.achados;
+    for t in transversais {
+        achados.extend(t.verificar(input));
+    }
+    Medido {
+        achados,
+        nao_medido: v.nao_medido,
     }
 }
 

@@ -137,16 +137,17 @@ fn invented_method_of_a_str() {
 
 #[test]
 #[ignore = "needs the real pyright-langserver of the analise project"]
-fn invented_member_of_a_stdlib_class_instance_is_project_scope_and_denies_inline() {
+fn invented_member_of_a_stdlib_class_instance_is_a_type_claim_and_only_warns() {
     // `os.stat()` returns a `stat_result`: a concrete class that is NOT a builtin value type, so it is
-    // not `forma`. The probe only knows builtins by name, so it cannot tell a stdlib class from a
-    // project one and answers the conservative `projeto`: inline still denies, a project file warns.
+    // not `forma`. P0B (b): a member of an object that is not a module is what the checker INFERRED
+    // about the receiver (`tipo`), never proof of absence — it warns inline as well as in a file;
+    // layer 1 is the one that may deny a member of a class it can read.
     check_invented(&Invented {
         code: "import os\nresultado = os.stat('.')\nresultado.campo_inventado\n",
         nome: "campo_inventado",
         classe: "membro",
-        escopo: Escopo::Projeto,
-        inline: Severidade::Deny,
+        escopo: Escopo::Tipo,
+        inline: Severidade::Warn,
         in_file: Severidade::Warn,
     });
 }

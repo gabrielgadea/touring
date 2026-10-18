@@ -98,6 +98,57 @@ pub fn pick_binary(
         .find(|candidate| exists(candidate))
 }
 
+/// Mundo fechado de um teste: a raiz do projeto e o `HOME` que o daemon E os
+/// clientes dele enxergam, no lugar do estado ambiente da máquina.
+///
+/// Isolar exige os DOIS pinos, nos DOIS lados, porque o roteamento tem duas
+/// metades que o `start_in` sozinho não cobre:
+///
+/// * o daemon escolhe o projeto pelo cwd/ambiente do CLIENTE que conecta —
+///   `TOURING_PROJECT_ROOT` no spawn do daemon é só o default (medido em
+///   25/09/2026, e de novo em 10/10/2026: um `memory store` com cwd no repo
+///   principal gravou na base VIVA dele, apesar do daemon pinado em `/tmp`);
+/// * o recall é FEDERADO: lê todo `memory.db` sob `$HOME/.claude`, então sem
+///   trocar o `HOME` um sinal «semeado» disputa o ranking com o que a máquina
+///   tiver (o seed ficou fora do top-2 do recall real numa das duas consultas).
+///
+/// Quem monta o mundo (tempdir, `create_dir_all`) é o chamador; o pino só o descreve.
+#[derive(Clone, Debug)]
+pub struct ProjectPin {
+    /// Raiz do projeto: cwd e `CLAUDE_PROJECT_DIR`/`TOURING_PROJECT_ROOT` dos clientes.
+    pub root: std::path::PathBuf,
+    /// `HOME` do daemon e dos clientes (a recall federada varre `$HOME/.claude`).
+    pub home: std::path::PathBuf,
+}
+
+/// Cache de pesos do fastembed da máquina REAL, para o daemon de `HOME` trocado.
+///
+/// Sem isto o daemon procura o modelo em `<home falso>/.claude/touring/models/` e
+/// BAIXA da rede (medido em 10/10/2026: 417 MB gravados no HOME falso, e o
+/// primeiro recall estourou o orçamento de 15 s do handler). A regra espelha
+/// `touring_storage::embeddings::providers::fastembed::fastembed_cache_dir`
+/// (`$TOURING_FASTEMBED_CACHE`, senão `~/.claude/touring/models/fastembed`); este
+/// arquivo é incluído por caminho em crates que não dependem de `touring-storage`,
+/// então a regra é repetida aqui em vez de importada. Só existente: sem o cache
+/// o daemon se comporta como sempre se comportou na máquina sem modelo.
+fn real_fastembed_cache() -> Option<std::path::PathBuf> {
+    let dir = std::env::var_os("TOURING_FASTEMBED_CACHE")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::var_os("HOME")
+                .map(|h| std::path::PathBuf::from(h).join(".claude/touring/models/fastembed"))
+        })?;
+    dir.is_dir().then_some(dir)
+}
+
+/// Aponta o ambiente de um CLIENTE para o mundo de `pin`: HOME, projeto e cwd.
+fn pin_client_env(cmd: &mut Command, pin: &ProjectPin) {
+    cmd.env("HOME", &pin.home)
+        .env("CLAUDE_PROJECT_DIR", &pin.root)
+        .env("TOURING_PROJECT_ROOT", &pin.root)
+        .current_dir(&pin.root);
+}
+
 /// Daemon `touring` próprio deste processo de teste, num socket exclusivo.
 ///
 /// O `Drop` sinaliza pelo **PID que este processo criou** — nunca por nome
@@ -105,6 +156,7 @@ pub fn pick_binary(
 pub struct PrivateDaemon {
     pid: u32,
     socket: String,
+    pin: Option<ProjectPin>,
 }
 
 impl PrivateDaemon {
@@ -120,11 +172,49 @@ impl PrivateDaemon {
     /// (`TOURING_IDLE_TIMEOUT_SECS`) para o daemon se encerrar sozinho — o que
     /// permite um daemon por PROCESSO de teste guardado num `OnceLock` (cujo
     /// `Drop` nunca roda) sem vazar processos (REGRA #19).
+    ///
+    /// ATENÇÃO: isto pina só o DEFAULT do daemon. Os clientes que o teste spawna
+    /// herdam o cwd/ambiente de quem os lança e é por eles que o daemon escolhe o
+    /// projeto — para um teste que depende do estado do projeto, use
+    /// [`Self::start_isolated`] + [`Self::client_command`].
     #[must_use]
     pub fn start_in(
         tag: &str,
         project_root: Option<&std::path::Path>,
         idle_secs: Option<u64>,
+    ) -> Option<Self> {
+        Self::spawn(tag, project_root, idle_secs, None)
+    }
+
+    /// Daemon FECHADO no mundo de `pin` (ver [`ProjectPin`]): `HOME` e projeto
+    /// próprios, embedding em CPU (não toma os 2 GiB de VRAM que cada daemon pega
+    /// numa GPU compartilhada) e o cache de modelos da máquina real, somente
+    /// leitura. Os clientes têm de nascer de [`Self::client_command`], que carrega
+    /// o mesmo pino — um `Command::new` avulso volta ao estado ambiente.
+    #[must_use]
+    pub fn start_isolated(tag: &str, pin: ProjectPin, idle_secs: Option<u64>) -> Option<Self> {
+        let root = pin.root.clone();
+        Self::spawn(tag, Some(&root), idle_secs, Some(pin))
+    }
+
+    /// Um cliente (`touring`, `touring-hook`…) já apontado para este daemon e, se
+    /// o daemon é isolado, para o mundo dele. `None` se o binário não foi compilado.
+    #[must_use]
+    pub fn client_command(&self, bin_name: &str) -> Option<Command> {
+        let mut cmd = Command::new(locate_binary(bin_name)?);
+        cmd.env("TOURING_DAEMON_SOCKET", &self.socket)
+            .env("TOURING_DAEMON_SOCK", &self.socket);
+        if let Some(pin) = &self.pin {
+            pin_client_env(&mut cmd, pin);
+        }
+        Some(cmd)
+    }
+
+    fn spawn(
+        tag: &str,
+        project_root: Option<&std::path::Path>,
+        idle_secs: Option<u64>,
+        pin: Option<ProjectPin>,
     ) -> Option<Self> {
         let bin = locate_binary("touring-daemon")?;
         let socket = format!("/tmp/touring-e2e-{tag}-{}.sock", std::process::id());
@@ -141,6 +231,17 @@ impl PrivateDaemon {
         }
         if let Some(secs) = idle_secs {
             cmd.env("TOURING_IDLE_TIMEOUT_SECS", secs.to_string());
+        }
+        if let Some(pin) = &pin {
+            // Mundo fechado: HOME próprio, projeto pinado também no `CLAUDE_PROJECT_DIR`
+            // (que a sessão do Claude Code exporta e que vence o `TOURING_PROJECT_ROOT`),
+            // embedding em CPU e os pesos do modelo lidos de onde já estão.
+            cmd.env("HOME", &pin.home)
+                .env("CLAUDE_PROJECT_DIR", &pin.root)
+                .env("TOURING_EMBED_DEVICE", "cpu");
+            if let Some(cache) = real_fastembed_cache() {
+                cmd.env("TOURING_FASTEMBED_CACHE", cache);
+            }
         }
         let child = cmd.spawn().ok()?;
         let pid = child.id();
@@ -161,8 +262,8 @@ impl PrivateDaemon {
         // ok` conta. Enquanto não vier, o daemon não está pronto — por construção,
         // não por tempo de espera arbitrário.
         for _ in 0..200 {
-            if std::path::Path::new(&socket).exists() && daemon_answers(&socket) {
-                return Some(Self { pid, socket });
+            if std::path::Path::new(&socket).exists() && daemon_answers(&socket, pin.as_ref()) {
+                return Some(Self { pid, socket, pin });
             }
             std::thread::sleep(std::time::Duration::from_millis(50));
         }
@@ -231,10 +332,19 @@ fn warm_heavy_path(socket: &str) {
     );
 }
 
-fn daemon_answers(socket: &str) -> bool {
-    let Some((stdout, _stderr, code)) =
-        run_with_stdin("touring", &["doctor", "-j"], "", Some(socket))
-    else {
+fn daemon_answers(socket: &str, pin: Option<&ProjectPin>) -> bool {
+    let probe = match pin {
+        // Daemon isolado: o probe também sai do mundo dele, senão o `doctor` do
+        // cliente (cwd/ambiente do processo de teste) tocaria o projeto errado.
+        Some(pin) => locate_binary("touring").and_then(|bin| {
+            let mut cmd = Command::new(bin);
+            cmd.env("TOURING_DAEMON_SOCKET", socket);
+            pin_client_env(&mut cmd, pin);
+            drive(cmd, &["doctor", "-j"], "")
+        }),
+        None => run_with_stdin("touring", &["doctor", "-j"], "", Some(socket)),
+    };
+    let Some((stdout, _stderr, code)) = probe else {
         return false;
     };
     if code != 0 {
@@ -267,13 +377,18 @@ pub fn run_with_stdin(
 ) -> Option<(String, String, i32)> {
     let bin = locate_binary(bin_name)?;
     let mut cmd = Command::new(&bin);
+    if let Some(sock) = socket {
+        cmd.env("TOURING_DAEMON_SOCKET", sock);
+    }
+    drive(cmd, args, stdin_payload)
+}
+
+/// Roda `cmd args…` com `stdin_payload` na entrada padrão e colhe (stdout, stderr, código).
+fn drive(mut cmd: Command, args: &[&str], stdin_payload: &str) -> Option<(String, String, i32)> {
     cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
-    if let Some(sock) = socket {
-        cmd.env("TOURING_DAEMON_SOCKET", sock);
-    }
     let mut child = cmd.spawn().ok()?;
 
     if let Some(mut sin) = child.stdin.take() {

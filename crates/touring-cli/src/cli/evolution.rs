@@ -354,7 +354,10 @@ pub fn cli_evolution_drift(rt: &mut HookRuntime, _payload: &serde_json::Value) -
             "older_bash_success_rate": older_rate,
             "total_gotchas": total_gotchas,
             "gotchas_with_hits": gotchas_with_hits,
-            "total_prevented_errors": gotchas_prevented,
+            // C7 (2026-10-17): no producer exists for `prevented_errors`, so the
+            // raw SUM is an absent signal shown as `null`, never as a zero.
+            "total_prevented_errors": db.reported_prevented(gotchas_prevented),
+            "prevented_measured": db.prevented_measured(),
         }
     }).to_string()
 }
@@ -471,7 +474,9 @@ pub fn cli_evolution_insights(rt: &mut HookRuntime, _payload: &serde_json::Value
         "gotcha_coverage": {
             "total": gotcha_total,
             "with_hits": gotcha_hits,
-            "prevented_errors": gotcha_prevented,
+            // C7 (2026-10-17): absent signal -> `null` (see `evolution drift`).
+            "prevented_errors": db.reported_prevented(gotcha_prevented),
+            "prevented_measured": db.prevented_measured(),
             "resolved": resolved_gotchas,
         }
     }).to_string()

@@ -105,13 +105,21 @@ fn main() {
         process::exit(0);
     }
 
-    // Read stdin JSON (shared across all subcommands)
-    let input: serde_json::Value = match HookRuntime::read_stdin() {
-        Ok(v) => v,
-        Err(e) => {
+    // Read stdin JSON (shared across all subcommands).
+    //
+    // C4 (2026-10-17): a GUARD (a hook that can deny) that could not read its input
+    // fails CLOSED — it denies with the cause named and the way out, because a `{}` standing
+    // in for the payload makes it "inspect" an empty command and allow. An ADVISORY keeps
+    // failing open (below). Every state other than `ok` stays visible in the hook trace
+    // (`stdin_state`, plus `exit_reason = stdin-unreadable-deny` for the deny).
+    let read = HookRuntime::read_stdin_detailed();
+    deny_if_guard_cannot_read(subcommand, &read);
+    let input: serde_json::Value = match read.error {
+        None => read.value,
+        Some(e) => {
             touring_hook_runtime::hook_trace::set_reason("stdin-error");
             eprintln!("[touring-hook] stdin error: {e}");
-            // Fail open — don't block Claude Code
+            // Advisory: fail open — don't block Claude Code
             process::exit(0);
         }
     };
@@ -134,7 +142,9 @@ fn main() {
     if touring_hooks::hook_registry::ALL_DAEMON_HOOK_NAMES.contains(&subcommand)
         && std::env::var("TOURING_NO_DAEMON").is_err()
     {
-        let project_root = HookRuntime::detect_project_root()
+        // HOOKCWD (30.4.97): o `cwd` do payload é quem está perguntando — vem antes de uma env
+        // global e da subida estrutural (ver `HookRuntime::detect_project_root_for`).
+        let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref())
             .to_string_lossy()
             .into_owned();
 
@@ -166,7 +176,7 @@ fn main() {
             // fall back to the canonical "{}" Allow shape — preserving the
             // "hooks never block CC" invariant.
             touring_hook_runtime::hook_trace::set_route("daemon");
-            forward_daemon_output(&resp.output);
+            forward_daemon_output(&resp.output, resp.success);
             process::exit(0);
         }
         // Daemon unavailable — fall through to standalone execution below.
@@ -199,8 +209,8 @@ fn main() {
         touring_hook_runtime::hook_trace::set_reason("no-daemon-env");
     }
 
-    // Detect project root
-    let project_root = HookRuntime::detect_project_root();
+    // Detect project root (HOOKCWD: o `cwd` do payload entra na cadeia, como no caminho do daemon)
+    let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref());
 
     // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
     // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
@@ -657,15 +667,25 @@ fn run_lifecycle_event(
 /// S224: for the same reason it conforms the answer to that event's contract —
 /// what the platform does not admit on stdout (the `task-completed` receipt's 14
 /// keys) goes to stderr, the diagnostics channel, instead of reaching no one.
-fn forward_daemon_output(output: &str) {
+fn forward_daemon_output(output: &str, success: bool) {
     use touring_hook_runtime::hook_response;
+    // HOOKCWD (30.4.97): a recusa do daemon (`success: false` — o pin, o orçamento estourado…) é
+    // JSON bem-formado como qualquer sucesso, e gravava `daemon-json`, IGUAL ao sucesso. Medir
+    // recusa e sucesso com o mesmo rótulo é o instrumento que mente: o trace distingue.
+    touring_hook_runtime::hook_trace::set_reason(daemon_exit_reason(output, success));
+    if !success {
+        // O stdout segue como sempre (o CC engole o JSON de erro por não ser do seu schema); o
+        // stderr é o canal de diagnóstico — aqui o erro deixa de ser calado.
+        eprintln!(
+            "[touring-hook] daemon refused the request: {}",
+            output.trim()
+        );
+    }
     if output.is_empty() {
-        touring_hook_runtime::hook_trace::set_reason("daemon-empty");
         return;
     }
     match serde_json::from_str::<serde_json::Value>(output.trim()) {
         Ok(mut value) => {
-            touring_hook_runtime::hook_trace::set_reason("daemon-json");
             let stamped = hook_response::stamp_invoking_event(&mut value);
             let removed = hook_response::split_off_invoking_event_violations(&mut value);
             if let Some(diagnostics) = &removed {
@@ -678,7 +698,6 @@ fn forward_daemon_output(output: &str) {
             }
         }
         Err(_) => {
-            touring_hook_runtime::hook_trace::set_reason("daemon-nonjson");
             eprintln!(
                 "[touring-hook] daemon returned non-JSON output ({} bytes), \
                  emitting canonical {{}} Allow instead",
@@ -687,6 +706,56 @@ fn forward_daemon_output(output: &str) {
             println!("{{}}");
         }
     }
+}
+
+/// O `exit_reason` do trace para uma resposta do daemon. `success: false` vence o formato da
+/// saída: uma recusa não é um «JSON de sucesso» só porque o erro vem em JSON.
+fn daemon_exit_reason(output: &str, success: bool) -> &'static str {
+    if !success {
+        "daemon-error"
+    } else if output.is_empty() {
+        "daemon-empty"
+    } else if serde_json::from_str::<serde_json::Value>(output.trim()).is_ok() {
+        "daemon-json"
+    } else {
+        "daemon-nonjson"
+    }
+}
+
+/// C4 (2026-10-17): a GUARD whose stdin was unreadable denies and exits; anything else
+/// returns and the caller proceeds (an advisory runs on the `{}` it got — fail-open).
+///
+/// Diverges (`emit` exits 0 after printing the deny) only when the hook is a guard
+/// ([`touring_hooks::hook_registry::is_guard_hook`]), the read is unreadable
+/// ([`touring_hook_runtime::hook_runtime_ext::StdinReadState::is_unreadable`]) and the human
+/// switch `TOURING_HOOK_STDIN_GUARD_DISABLED=1` is not set.
+fn deny_if_guard_cannot_read(
+    subcommand: &str,
+    read: &touring_hook_runtime::hook_runtime_ext::StdinRead,
+) {
+    if read.state.is_unreadable()
+        && touring_hooks::hook_registry::is_guard_hook(subcommand)
+        && !touring_hook_runtime::hook_runtime_ext::stdin_guard_disabled()
+    {
+        // Not `.emit()`: it stamps the exit reason `emit-json`, which would erase the label
+        // the fraction is measured by. Print the same wire bytes, then name the reason.
+        println!(
+            "{}",
+            HookRuntime::build_stdin_unreadable_deny(subcommand, read).to_json()
+        );
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("stdin-unreadable-deny");
+        process::exit(0);
+    }
+}
+
+/// O `cwd` que o Claude Code põe em todo payload de hook: a pasta da sessão que está perguntando.
+fn payload_cwd(input: &serde_json::Value) -> Option<std::path::PathBuf> {
+    input
+        .get("cwd")
+        .and_then(serde_json::Value::as_str)
+        .filter(|c| !c.is_empty())
+        .map(std::path::PathBuf::from)
 }
 
 /// Attempt to send a hook request to the running daemon via Unix socket.
@@ -757,7 +826,8 @@ fn run_task_completed_standalone(
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
     let table = touring_hooks::hook_registry::build_dispatch_table();
     if let Some(handler) = table.get("task-completed") {
-        forward_daemon_output(&handler(runtime, input));
+        // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
+        forward_daemon_output(&handler(runtime, input), true);
     }
     Ok(())
 }
@@ -1177,4 +1247,55 @@ PERFORMANCE:
     Startup: <1ms | Runtime init: <10ms | Hook execution: <5ms
     Compare: Python hooks ~40ms startup, Node.js hooks ~300ms"
     );
+}
+
+/// HOOKCWD (30.4.97) — a recusa do daemon tem `exit_reason` PRÓPRIO no trace; o sucesso continua
+/// `daemon-json` (controle positivo). Medido no smoke do `analise` (10/10/2026): o daemon pinado
+/// recusou em 0 ms com `{"error":"this daemon is pinned to …"}` e o trace gravou `daemon-json`.
+#[cfg(test)]
+mod hookcwd_tests {
+    use super::{daemon_exit_reason, payload_cwd};
+    use serde_json::json;
+
+    const RECUSA_REAL: &str = r#"{"error":"this daemon is pinned to /home/u/projects/analise (derived from its own socket); the request names /home/u/projects/touring, outside that tree — run it with the cwd inside the pinned root, or against the global daemon"}"#;
+
+    #[test]
+    fn a_recusa_do_daemon_pinado_tem_exit_reason_proprio() {
+        assert_eq!(daemon_exit_reason(RECUSA_REAL, false), "daemon-error");
+    }
+
+    /// Controle positivo: o MESMO formato de saída, com `success: true`, segue `daemon-json`.
+    #[test]
+    fn o_sucesso_continua_daemon_json() {
+        assert_eq!(daemon_exit_reason("{}", true), "daemon-json");
+        assert_eq!(
+            daemon_exit_reason(r#"{"hookSpecificOutput":{"additionalContext":"x"}}"#, true),
+            "daemon-json"
+        );
+        assert_ne!(
+            daemon_exit_reason(RECUSA_REAL, true),
+            daemon_exit_reason(RECUSA_REAL, false),
+            "a flag, não o formato, separa recusa de sucesso"
+        );
+    }
+
+    #[test]
+    fn os_outros_rotulos_seguem_como_antes() {
+        assert_eq!(daemon_exit_reason("", true), "daemon-empty");
+        assert_eq!(daemon_exit_reason("não é json", true), "daemon-nonjson");
+        assert_eq!(daemon_exit_reason("", false), "daemon-error");
+        assert_eq!(daemon_exit_reason("não é json", false), "daemon-error");
+    }
+
+    #[test]
+    fn o_cwd_do_payload_so_vale_quando_e_texto_nao_vazio() {
+        let cwd = |v: serde_json::Value| payload_cwd(&v);
+        assert_eq!(
+            cwd(json!({"cwd": "/home/u/projects/analise"})),
+            Some(std::path::PathBuf::from("/home/u/projects/analise"))
+        );
+        assert_eq!(cwd(json!({"cwd": ""})), None);
+        assert_eq!(cwd(json!({"cwd": 7})), None);
+        assert_eq!(cwd(json!({})), None);
+    }
 }
