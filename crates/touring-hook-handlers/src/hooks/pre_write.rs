@@ -1489,7 +1489,9 @@ mod vgp_ordem_tests {
             "tool_input": {"file_path": file_path, "content": "x = 2\n"}
         });
         let resposta = run_returning_with(&mut rt, &input, vgp);
-        let armado = triad_hook::take(sessao, &file_path).is_some();
+        // `take` became `take_lookup` (S28, 17/10): `state` is the snapshot armed by THIS process,
+        // which is what "the TRIAD was armed for this write" means here.
+        let armado = triad_hook::take_lookup(sessao, &file_path).state.is_some();
         (resposta, armado)
     }
 
