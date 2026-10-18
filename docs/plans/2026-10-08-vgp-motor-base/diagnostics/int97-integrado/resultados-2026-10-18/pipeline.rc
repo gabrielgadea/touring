@@ -1,0 +1,16 @@
+gates rc=0 2026-10-18T02:24:49-03:00
+release rc=0 2026-10-18T02:48:39-03:00
+novo=/home/gabrielgadea/.claude/touring/vgp/binarios/5c7b3d80/touring
+juizes ev rc=0 2026-10-18T03:39:12-03:00
+regua ev v2 vs INT rc=0
+regua ev v2 vs P0B rc=0
+regua ev v3 vs INT rc=0
+regua ev v3 vs P0B rc=0
+juizes bak rc=0 2026-10-18T03:54:08-03:00
+regua bak v2 vs INT rc=0
+regua bak v2 vs P0B rc=0
+regua bak v3 vs INT rc=0
+regua bak v3 vs P0B rc=0
+pareado PULADO (PAREADO=0) 2026-10-18T03:54:08-03:00
+FIM
+pipeline rc=0

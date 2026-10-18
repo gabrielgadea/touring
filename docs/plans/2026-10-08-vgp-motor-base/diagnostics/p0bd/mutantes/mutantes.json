@@ -1,0 +1,179 @@
+{
+ "RED": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho",
+   "touring-code:vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime",
+   "touring-code:vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny",
+   "touring-code:vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta",
+   "touring-hook-handlers:vgp_l2::tests::p0bd_as_duas_camadas_pelo_encaixe_real_negam_o_membro_de_tipo_fechado",
+   "touring-hook-handlers:vgp_l2::tests::p0bd_mapear_carrega_a_classe_receptora_so_de_diagnostico_de_membro",
+   "touring-pyright:pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 175 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.04s",
+   "touring-pyright: test result: FAILED. 177 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.39s",
+   "touring-hook-handlers: test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 774 filtered out; finished in 0.00s"
+  ],
+  "cauda": ""
+ },
+ "M1-FUSAO-IGNORA-A-CLASSE": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg",
+   "touring-code:vgp::sombra::tests::p0bd_classe_diferente_ou_sem_classe_ou_so_uma_camada_segue_warn"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 177 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.31s"
+  ],
+  "cauda": ""
+ },
+ "M2-STR-MARCADO-FECHADO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime",
+   "touring-code:vgp::lang::python::tests::p0bd_os_demais_builtins_seguem_incertos_e_sem_receptor",
+   "touring-code:vgp::sombra::tests::p0bd_incerto_segue_sem_ser_escalado_nem_pela_mesma_classe",
+   "touring-code:vgp::sombra::tests::p0bd_receptor_str_nao_e_fechado_e_segue_warn"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 175 passed; 4 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.05s"
+  ],
+  "cauda": ""
+ },
+ "M3a-FECHADO-NUNCA-ESCALA-NA-FUSAO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny",
+   "touring-code:vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 177 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.45s"
+  ],
+  "cauda": ""
+ },
+ "M3b-FECHADO-NASCE-INCERTO-NO-ADAPTADOR": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho",
+   "touring-code:vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny",
+   "touring-code:vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 176 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s"
+  ],
+  "cauda": ""
+ },
+ "M4-FECHADO-SOZINHO-NEGA": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::construtor_pontuado_pathlib_path_tipa",
+   "touring-code:vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho",
+   "touring-code:vgp::lang::python::tests::p4_forma_e_dinamico_sao_warn_mesmo_em_tmp",
+   "touring-code:vgp::politica::tests::p3_fechado_sozinho_so_avisa_em_todo_balde",
+   "touring-code:vgp::sombra::tests::p0bd_classe_diferente_ou_sem_classe_ou_so_uma_camada_segue_warn",
+   "touring-code:vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 173 passed; 6 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.32s"
+  ],
+  "cauda": ""
+ },
+ "M5-CRITERIO-SEM-A-CONDICAO-DE-DICT": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0bd_o_modelo_de_tipos_fechados_confere_com_o_runtime"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 178 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.28s"
+  ],
+  "cauda": ""
+ },
+ "M6-SO-O-NOME-EXATO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0b_c_o_primeiro_parametro_do_init_e_a_instancia_e_nao_um_kwarg",
+   "touring-code:vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 177 passed; 2 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.32s"
+  ],
+  "cauda": ""
+ },
+ "M7-ENDS-WITH-EM-VEZ-DE-SEGMENTO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::sombra::tests::p0bd_classe_diferente_ou_sem_classe_ou_so_uma_camada_segue_warn"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 178 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.20s"
+  ],
+  "cauda": ""
+ },
+ "M8-ADAPTADOR-SEM-RECEPTOR": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-code:vgp::lang::python::tests::p0bd_membro_ausente_de_tipo_fechado_e_alvo_fechado_com_o_receptor_e_avisa_sozinho",
+   "touring-code:vgp::sombra::tests::p0bd_fechado_e_a_mesma_classe_na_camada_2_vira_deny",
+   "touring-code:vgp::sombra::tests::p0bd_o_pyright_pode_qualificar_a_classe_so_o_ultimo_segmento_conta"
+  ],
+  "resumo": [
+   "touring-code: test result: FAILED. 176 passed; 3 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.14s"
+  ],
+  "cauda": ""
+ },
+ "M9-PROMOVE-QUALQUER-ALVO": {
+  "estado": "SOBREVIVEU",
+  "rc": 0,
+  "falhos": [],
+  "resumo": [
+   "touring-code: test result: ok. 179 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.13s"
+  ],
+  "cauda": ""
+ },
+ "M10-HOOK-SEM-RECEPTOR": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-hook-handlers:vgp_l2::tests::p0bd_as_duas_camadas_pelo_encaixe_real_negam_o_membro_de_tipo_fechado",
+   "touring-hook-handlers:vgp_l2::tests::p0bd_mapear_carrega_a_classe_receptora_so_de_diagnostico_de_membro"
+  ],
+  "resumo": [
+   "touring-hook-handlers: test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 774 filtered out; finished in 0.00s"
+  ],
+  "cauda": ""
+ },
+ "M11-CLI-SEM-RECEPTOR": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-server:cli::vgp::tests::fusao_do_cli_corrobora_o_tipo_fechado_da_camada_1_com_a_classe_da_camada_2"
+  ],
+  "resumo": [
+   "touring-server: test result: FAILED. 16 passed; 1 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.00s"
+  ],
+  "cauda": ""
+ },
+ "M12-RECEPTORA-ACEITA-UNIAO": {
+  "estado": "MORTO",
+  "rc": 101,
+  "falhos": [
+   "touring-pyright:pyright::tests::p0bd_classe_receptora_le_a_classe_do_diagnostico_de_membro"
+  ],
+  "resumo": [
+   "touring-pyright: test result: FAILED. 177 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.94s",
+   "touring-code: test result: ok. 179 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.32s"
+  ],
+  "cauda": ""
+ }
+}

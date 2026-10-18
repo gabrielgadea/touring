@@ -6,7 +6,7 @@ description: >
   intelligence", "integration scouting", "false positive detection", "verified discovery", "symbol
   index search", "feature trace cross-feature", "cargo_metadata". Deep codebase intelligence scout
   using the full Touring CLI stack. JSON-only output.
-model: sonnet
+model: haiku
 color: cyan
 tools: [Bash, Glob, Grep, Read, LS]
 ---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
@@ -16,11 +16,12 @@ tools: [Bash, Glob, Grep, Read, LS]
 ### Pre-flight obrigatório (FASE 1 SCOUT)
 
 ```bash
+OUT=$(umask 077 && mktemp -d)   # private dir for every artifact below: never a fixed, guessable /tmp path
 # Para cada simbolo a verificar (VP-Scout 7 chains automatizado):
-touring index find + ast find + wiring impact --symbol <name> --workspace <dir> --out /tmp/scout-<name>.json
+touring index find + ast find + wiring impact --symbol <name> --workspace <dir> --out "$OUT/scout-<name>.json"
 
 # Para cada componente a auditar:
-touring wiring audit + skill TACO-cross-audit --target <component_path> --depth full --out /tmp/audit-<name>.json
+touring wiring audit + skill TACO-cross-audit --target <component_path> --depth full --out "$OUT/audit-<name>.json"
 ```
 
 `scout-symbol` executa as 7 cadeias VP-Scout v1.1 (feature trace, dependency cycles, already implemented, homonimia, compilation evidence, staleness detection, wiring cache staleness) e classifica como REAL_OPPORTUNITY | FALSE_POSITIVE | UNCERTAIN. Exit code 2 = FALSE_POSITIVE detectado, NÃO reportar como oportunidade.
@@ -28,8 +29,8 @@ touring wiring audit + skill TACO-cross-audit --target <component_path> --depth 
 ### Post-execution obrigatório
 
 ```bash
-echo "$RESULT_JSON" > /tmp/scouter-output.json
-touring memory store --tier semantic --role scouter --output /tmp/scouter-output.json
+echo "$RESULT_JSON" > "$OUT/scouter-output.json"
+touring memory store --tier semantic --role scouter --output "$OUT/scouter-output.json"
 ```
 
 ### Persistência 

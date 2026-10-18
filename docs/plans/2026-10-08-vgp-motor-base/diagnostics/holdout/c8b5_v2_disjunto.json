@@ -1,0 +1,3774 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+  "recall de símbolo (inline) 0.444 < 0.7 (12/27)",
+  "falso deny (arquivo) 11.667% > 1% (70/600)",
+  "falso deny (inline) 14.333% > 1% (86/600)"
+ ],
+ "recall_simbolo": {
+  "arquivo": 0.6153846153846154,
+  "inline": 0.4444444444444444
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   8,
+   13
+  ],
+  "inline": [
+   12,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   3,
+   13
+  ],
+  "inline": [
+   12,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "e7255aa75a8c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/suspeitos_f24.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 45,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6f1b6c846cbb",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/1f1e4e03-b445-4255-b5f2-3159ee53fa23/scratchpad/diag_rodada2.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exc",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "17fb28bf43ba",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/ponto_cego.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "sob_contrato",
+     "linha": 54,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `sob_contrato`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "ENTREGAVEIS",
+     "linha": 55,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ENTREGAVEIS`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "31aedc219d95",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/f13_antes_depois.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "pasta",
+     "linha": 31,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "625521f5c882",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/medir_folhas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "pw",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "SAIDA_HTML",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `SAIDA_HTML`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_TRANSBORDOS",
+     "linha": 20,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_TRANSBORDOS`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7a0e29a86dcb",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_harmonia_regex.py",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "adw_pipeline_harmonia",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "`from scripts.process_analysis import adw_pipeline_harmonia` — `adw_pipeline_harmonia` não é ligação de topo nem submódulo de `scripts.process_analysis`",
+     "reais": [
+      "AccelerationResult",
+      "ConversionResult",
+      "CorrelationResult",
+      "DegradationLevel",
+      "EnrichmentResult",
+      "ExtractionResult",
+      "FrontmatterData",
+      "GateVerdict"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "values",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis.workflow_registry` não tem atributo `values`",
+     "reais": [
+      "ADW_DIR",
+      "DEMANDAS",
+      "DEMANDA_FLOWS",
+      "Evidence",
+      "EvidenceKind",
+      "EvidenceResult",
+      "FECHO_FORTE",
+      "FECHO_LEGADO"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "_scripts_do_registry",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis` não tem atributo `_scripts_do_registry`",
+     "reais": [
+      "AccelerationResult",
+      "ConversionResult",
+      "CorrelationResult",
+      "DegradationLevel",
+      "EnrichmentResult",
+      "ExtractionResult",
+      "FrontmatterData",
+      "GateVerdict"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "a9f7768df724",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/repro_learning_startup.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "scratch",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "scratch",
+     "linha": 38,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d11496a72eaf",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/deltas_novos.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "DECISAO_DE_REFERENCIA",
+     "linha": 21,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `DECISAO_DE_REFERENCIA`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "LIMIAR_REABERTURA_PP",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `LIMIAR_REABERTURA_PP`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "sensibilidade_do_publicado",
+     "linha": 27,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `sensibilidade_do_publicado`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "2f0e257f3dfa",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/aritmetica_do_corte.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "INTENCAO_SENADO",
+     "linha": 26,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `INTENCAO_SENADO`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "edb28aeb300d",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/registro_das_cinzas.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "dados_registrados",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `dados_registrados`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "5b580d56570d",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/foto_painel_carto.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "70d906195042",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h2/gravar_methodus_gov.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "validar_historica",
+     "linha": 151,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `validar_historica`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_share_da_pesquisa",
+     "linha": 161,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_share_da_pesquisa`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "corrida_da_pesquisa",
+     "linha": 169,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `corrida_da_pesquisa`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c0dfc6b4a2d4",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/soltos_contra_o_disco2.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "bloco",
+     "linha": 48,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 48,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "bloco",
+     "linha": 49,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "3a8596c3ad65",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/recon_bloco1b.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "dirs",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "dirs",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c864dcf4d415",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_capas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7a4ad8f765aa",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/tendencia/baixar_2010_2012.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exc",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "exc",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "exc",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "34c2cee385d0",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_trechos.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f4189f4953e3",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/forense_agentes3.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 58,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c04326890b25",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/juiz_argv.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "WORKFLOWS",
+     "linha": 157,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis` não tem atributo `WORKFLOWS`",
+     "reais": [
+      "AccelerationResult",
+      "ConversionResult",
+      "CorrelationResult",
+      "DegradationLevel",
+      "EnrichmentResult",
+      "ExtractionResult",
+      "FrontmatterData",
+      "GateVerdict"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "67f785d34743",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_escritores_cegos.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 22,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "06ee050667c1",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_decisoes_2009.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "fatos",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `fatos`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9a9ecb68e563",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/verificar_artigos.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "b5fa66fc737e",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/0c0fc94f-7bb6-423f-af39-e47892a0341d/scratchpad/otimizar_janelas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 233,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "090b6fe6fe49",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/junit_summary.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 32,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "b66b58737cdb",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/o_gate_reprova_mesmo.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "95c1bdba64b3",
+   "balde": "arquivo",
+   "path": "/tmp/verificar_7532.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exc",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "eaf152e630d3",
+   "balde": "arquivo",
+   "path": "/tmp/calcular_posicoes.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "comp",
+     "linha": 26,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "comp",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "comp",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e8b46a78ff77",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/deps/falhas_conhecidas.py",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "ElementTree",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "`from defusedxml import ElementTree` — `ElementTree` não é ligação de topo nem submódulo de `defusedxml`",
+     "reais": [
+      "DTDForbidden",
+      "EntitiesForbidden",
+      "ExternalReferenceForbidden",
+      "NotSupportedError",
+      "defuse_stdlib",
+      "warnings"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "parse",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "módulo `defusedxml` não tem atributo `parse`",
+     "reais": [
+      "DTDForbidden",
+      "EntitiesForbidden",
+      "ExternalReferenceForbidden",
+      "NotSupportedError",
+      "defuse_stdlib",
+      "warnings"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "4e9ddab107f8",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l4plugin/l4_vmsize.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "11caf962ca53",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/c10_assimetria.py",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "c01_c10",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "`from scripts.eleitoral.auditoria_cruzada import c01_c10` — `c01_c10` não é ligação de topo nem submódulo de `scripts.eleitoral.auditoria_cruzada`",
+     "reais": [
+      "Auditoria",
+      "DADOS",
+      "ENTREGA",
+      "ENTREGAVEIS_DA_CADEIA",
+      "FonteAusente",
+      "RAIZ",
+      "TOLERANCIA_FRACAO",
+      "TOLERANCIA_REESCALA"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "_marca_de_conteudo",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral.auditoria_cruzada` não tem atributo `_marca_de_conteudo`",
+     "reais": [
+      "Auditoria",
+      "DADOS",
+      "ENTREGA",
+      "ENTREGAVEIS_DA_CADEIA",
+      "FonteAusente",
+      "RAIZ",
+      "TOLERANCIA_FRACAO",
+      "TOLERANCIA_REESCALA"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "df01a7516476",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_deriva.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "try_drift_detect",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis.mef_impact` não tem atributo `try_drift_detect`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "simulate_impact",
+     "linha": 40,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis.mef_impact` não tem atributo `simulate_impact`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e1d24250b3e7",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/medir_s1_uri.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "s3",
+     "linha": 46,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "s3",
+     "linha": 52,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "67afb1b2a427",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/l10/mutacao_ausencias.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "m",
+     "linha": 37,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "m",
+     "linha": 37,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f03090b5468b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/censo_pecas_incompletas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6f7e0cb610ff",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/onde_o_gate_age.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "aae8b8426894",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/auditoria/numeros_rastreio.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 48,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 49,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "22aa255b5a67",
+   "balde": "arquivo",
+   "path": "/tmp/por_que_alvo_zero.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "medir",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `medir`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "calibrar",
+     "linha": 31,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `calibrar`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "41e21af1e0ac",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/localizar_transcricoes.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e65989e9bff7",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/achar_convert_sei.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "cb305b52d196",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/dx_dois_pontos.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "cmd",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "cmd",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6d0a764a6878",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s81_levanta.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "paths",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "paths",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ddbb2cfb4afc",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_pctx.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "ComputeProcessContext",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d34ee10959e6",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/ab_converted_dir.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "b34a2b305638",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/neokemp_antes/verificar_publicacao.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "tar",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "estado_do_fluxo",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `estado_do_fluxo`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "ler_agregados",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ler_agregados`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "bf2259af1078",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/portao_complemento.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "30a0414609bc",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/tirar_argumento_morto.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "args",
+     "linha": 21,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "args",
+     "linha": 22,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "bb69126c6351",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/a87daea8-3105-4a9e-b47c-0a0d4d23c9d0/scratchpad/controle_e2e.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "montar_site",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `montar_site`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_SemLog",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral.tests` não tem atributo `_SemLog`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "74f04a24de12",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/retrieval_bench.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "WS",
+     "linha": 131,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "a08af4eb6d7a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/0909c80d-b7b9-43e3-997b-3657c8f93cf8/scratchpad/fronteiras_votos_z1.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 31,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 32,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "candidatos_do_ano",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `candidatos_do_ano`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c35d78e3eb25",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/s24_route_patch.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "WIRING",
+     "linha": 244,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "04bac2c9809a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/block_git_candidato.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "4072490ee778",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/e7_mapa_e_site.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "Passo",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.publicacao` não tem atributo `Passo`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "publicacao_do_acervo",
+     "linha": 27,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `publicacao_do_acervo`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_plano",
+     "linha": 35,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_plano`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e54b3aa6c73e",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/le_correlacoes2.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f78d676216b5",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/regioes/miudos.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_blocos_de_texto",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis.gates` não tem atributo `_blocos_de_texto`",
+     "reais": [
+      "ANALISE_GLOB",
+      "COMPANION_RELATORIO",
+      "Mapping",
+      "Path",
+      "RelatorioResolvido",
+      "dataclass",
+      "json",
+      "registros_de"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "PISO_PT",
+     "linha": 28,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.process_analysis.gates` não tem atributo `PISO_PT`",
+     "reais": [
+      "ANALISE_GLOB",
+      "COMPANION_RELATORIO",
+      "Mapping",
+      "Path",
+      "RelatorioResolvido",
+      "dataclass",
+      "json",
+      "registros_de"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "a49a312585d9",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/medir_uniao_universo_completo.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "sob_contrato",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `sob_contrato`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "comparacoes",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `comparacoes`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "cobertura",
+     "linha": 58,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `cobertura`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "fc4a4d65016c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/h1/ensaio.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 31,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "Lido",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `Lido`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "e_pdf",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `e_pdf`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "1e682b98370b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/de0c97e0-8d67-43c6-a369-13280034772e/scratchpad/briefing/tarifas_fontes.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 38,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "89547b1f5625",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2/scratchpad/mapa_da_cobertura.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 40,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "968f80f58eb4",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/precheck_4_escritores.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "1942ac408433",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/arsenal2/patch_r2e_criticos_vb.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "bd4cfc7dd1e1",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/clk_prova_caminho.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 45,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 52,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "RUST_AVAILABLE",
+     "linha": 42,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.aco` não tem atributo `RUST_AVAILABLE`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "249447daab1f",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/gravar_f3b.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "fatos",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `fatos`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "capitulo_estrategia",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `capitulo_estrategia`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e7480b2a242b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/verificar_ancoras.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8948156306b0",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce/scratchpad/combustivel.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "FUNIL_SENADO",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `FUNIL_SENADO`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "INTENCAO_SENADO",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `INTENCAO_SENADO`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "eba3a9f14d0c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/correlacao_senado_rs.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "16350fb8f4d1",
+   "balde": "arquivo",
+   "path": "/tmp/skill_probe/compactar_resto.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 21,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7d3298be1b2a",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/juiz_frescor.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_derivados",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_derivados`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "divergencias",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `divergencias`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "74bc40ec09e6",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265/scratchpad/mutacao.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "33aa94490685",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec/scratchpad/dou_sonda.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "erro",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "erro",
+     "linha": 26,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "e4cf815f9634",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/1c5a47e9-b086-4bc3-927d-2b668cb7928a/scratchpad/p10/patch_agenda.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "4253113aca75",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "899464e659a4",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "open",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `open`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "fa3608595a34",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "z",
+     "linha": 78,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6907fdeae29b",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "silhueta_svg",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `silhueta_svg`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "bc64bd3c3d3e",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 20,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "funcoes_puras",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `funcoes_puras`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "items",
+     "linha": 32,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral.paleta_classes` não tem atributo `items`",
+     "reais": [
+      "CLASSE_LEGADO",
+      "CORES_CLASSE",
+      "CORES_NIVEL",
+      "COR_REGIME",
+      "COR_SEM_DADO",
+      "Final",
+      "GLOSSARIO_DA_CLASSE",
+      "GLOSSARIO_DA_TATICA"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "900d50881f16",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "construir",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `construir`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "carregar_ranking",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `carregar_ranking`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "rota_entre",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `rota_entre`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "49ed67adee04",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "f2e79f792da7",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "montar_zonas_rmpa",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `montar_zonas_rmpa`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "aplicar_ambito_da_enchente",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `aplicar_ambito_da_enchente`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "25a80dddf49b",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "83766c7d2442",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "b",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "15f8b61b8b43",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f7c10d1c387b",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "barra_html",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `barra_html`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "destinos",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `destinos`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "css",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `css`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "04da7b374e0e",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "slides",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "`from scripts.eleitoral.build_deck_senado import slides` — `slides` não é ligação de topo nem submódulo de `scripts.eleitoral.build_deck_senado`",
+     "reais": [
+      "ANALISE",
+      "ATONAS",
+      "AnaliseAusente",
+      "BASE_SENATORIAL",
+      "CORES_CLASSE",
+      "CORES_NIVEL",
+      "CORTE_MATRIZ",
+      "COR_REGIME"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "459660f32ed5",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d6a4aa49117b",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "949a7c1b6775",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "p",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c7705ea90956",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ab71d1cf4726",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "1b77b50cde2a",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "01a9e01f18b9",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "9657f05a6afe",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "METODO_PUBLICADO",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `METODO_PUBLICADO`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "5ac04473cdbb",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "13586cc35335",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "ESQUEMA",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ESQUEMA`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "60cfe99c0932",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "PASTA",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `PASTA`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "INDICE",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `INDICE`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "ROTULO_REGUA",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ROTULO_REGUA`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "1080fd768d77",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ed665ad86c6f",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "esquema_historico",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `esquema_historico`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "1ace9ba54e47",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "SAIDA",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `SAIDA`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "montar_mapa",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `montar_mapa`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e9352e727f2c",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "folhas",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `folhas`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "paginas_de_sumario",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `paginas_de_sumario`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ca4413d5adbf",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 14,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "COMANDO_DO_ROTULO",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `COMANDO_DO_ROTULO`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_para_rotular",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_para_rotular`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "14ef7e842257",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "gravar",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `gravar`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "785f93459227",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "registro_por_protocolo",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `registro_por_protocolo`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "ler",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ler`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "dc533294bdce",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "sob_contrato",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `sob_contrato`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "PAGINAS_INTERNAS",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `PAGINAS_INTERNAS`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "3a2773620022",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8c69a6dbc66a",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "0d12c679eae8",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 71,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "77efc0bfd974",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "5410a5f105c8",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 22,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f4e2b97060a1",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "334df169a5dc",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "00f27dec9642",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "adcadcf87d65",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9d0b2162d18d",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "zf",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "74819290096f",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 29,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d92fe5cc6070",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "check",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `check`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "d42b9256757b",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "open",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `open`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "922195736c58",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "open",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `open`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "array",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `numpy` não tem atributo `array`",
+     "reais": [
+      "os",
+      "sys",
+      "warnings"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "where",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "módulo `numpy` não tem atributo `where`",
+     "reais": [
+      "os",
+      "sys",
+      "warnings"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2b634e341cb3",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "render",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `render`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "b799f0ca8893",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "open",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `open`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "57aab09236dc",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 15,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e33a1e2e4030",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "open",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `open`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "new",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `new`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    },
+    {
+     "classe": "atributo",
+     "nome": "LANCZOS",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "módulo `PIL` não tem atributo `LANCZOS`",
+     "reais": [
+      "UnidentifiedImageError"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "da6e860747c3",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "589e72c713cb",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "sob_contrato",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `sob_contrato`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e750d0f9fe49",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "447a7d9e0d91",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "cache",
+     "linha": 13,
+     "severidade": "deny",
+     "sugestao": "`from dspy.clients import cache` — `cache` não é ligação de topo nem submódulo de `dspy.clients`. Você quis dizer `Cache`?",
+     "reais": [
+      "Any",
+      "BaseLM",
+      "Cache",
+      "DISK_CACHE_DIR",
+      "DISK_CACHE_LIMIT",
+      "DSPY_CACHE",
+      "Embedder",
+      "LM"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "c8c64e92546e",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "cb3723119806",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9ada055805ab",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "carregar_enchimento",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.local` não tem atributo `carregar_enchimento`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "gerar_b",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.local` não tem atributo `gerar_b`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "SEMENTE_B",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.lexhub.local` não tem atributo `SEMENTE_B`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e778ba9bd7bf",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "00f15cfa5c96",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "texto_da_pagina",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `texto_da_pagina`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_baixar",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_baixar`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "906a55561ff0",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "calibrar",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `calibrar`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8394717fdde9",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "84687beb8f11",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "REGISTRO_DE_ENVIOS",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `REGISTRO_DE_ENVIOS`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7a75117146cd",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "2edc71dbe179",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "baixar",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `baixar`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "398078264af4",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_camada_comparativa",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_camada_comparativa`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "divergencias",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `divergencias`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c69238e1b5f9",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "divergencias",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `divergencias`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_derivados",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_derivados`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "dfd037975c65",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d009b3e3ea6f",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9c8701683318",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "montar",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `montar`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "ROTULOS",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ROTULOS`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "_conservacao_da_corrida",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `_conservacao_da_corrida`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "5d2627f3a242",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "BRUTOS",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `BRUTOS`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "cd12bb9e4b25",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "import",
+     "nome": "requests",
+     "linha": 2,
+     "severidade": "deny",
+     "sugestao": "`from curl_cffi import requests` — `requests` não é ligação de topo nem submódulo de `curl_cffi`",
+     "reais": [
+      "AsyncWebSocket",
+      "BrowserType",
+      "BrowserTypeLiteral",
+      "CacheBackend",
+      "CookieTypes",
+      "Cookies",
+      "CurlError",
+      "CurlFollow"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "892c4b5db459",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e66991659484",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "f",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "926a3871ad1c",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "93798915a54f",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "ANOS",
+     "linha": 3,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `ANOS`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "painel",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `painel`",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "candidatos",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral` não tem atributo `candidatos`",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c36b5918b7f1",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d2646baa57a2",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 19,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "3a7dc7022145",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "35b604d5cf04",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "a94b8867ca8e",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "39e60bea6a5c",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 25,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d1b3caffe7a6",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "5fd349d331ff",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "f99b9e6ece20",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "112fa9f81fa7",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7a755153ff99",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 600
+ },
+ "avisos_em_negativos": 383,
+ "defeito_de_corpus": [
+  "6dce9f68d2da",
+  "c72427be59bd",
+  "9c269d2c1bf5"
+ ],
+ "p95_ms": 134.45457399999998,
+ "chamadas": 1262,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "9f72920a9343",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "nm_municipio",
+   "verdict": "allow"
+  },
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "9569137c7076",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "creator",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ec93649b1ac",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "scripts",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "warn"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "12f3fca9a950",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "DESBALANCEADO",
+   "verdict": "deny"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "f1e9ade97240",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "TODAS",
+   "verdict": "deny"
+  },
+  {
+   "id": "1549f702a1de",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "uf",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "d94f8090d150",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "st_m_size",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "warn"
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "verdict": "deny"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "c95d9b124cc5",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "packages",
+   "verdict": "deny"
+  },
+  {
+   "id": "8b7a3476e024",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "deny"
+  },
+  {
+   "id": "34511b9ac100",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  },
+  {
+   "id": "36a19de32b1a",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "tau_val_coverage",
+   "verdict": "allow"
+  }
+ ]
+}

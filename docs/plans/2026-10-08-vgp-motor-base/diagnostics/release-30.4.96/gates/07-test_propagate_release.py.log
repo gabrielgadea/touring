@@ -1,0 +1,53 @@
+........................FF.............................................. [ 93%]
+.....                                                                    [100%]
+=================================== FAILURES ===================================
+_________________ test_the_guard_passes_against_the_real_repo __________________
+
+    @pytest.mark.skipif(
+        not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
+        reason="needs the real workspace + a built binary")
+    @pytest.mark.post_build
+    def test_the_guard_passes_against_the_real_repo():
+        """The guard alone against the real workspace, at the CURRENT label —
+        whatever version the last propagation left built and locked."""
+        r = _guard_alone()
+        out = r.stdout + r.stderr
+>       assert r.returncode == 0, f"the real repo must pass: {out[-400:]}"
+E       AssertionError: the real repo must pass: [1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+E         [1m[propagate][0m versão    : 30.4.96
+E         [33m[propagate] WARN[0m gates pulados (--skip-gates)
+E         [33m[propagate] WARN[0m build pulado (--skip-build)
+E         [31m[propagate] ERRO[0m rótulo divergente: o binário construído declara '30.4.95', alvo '30.4.96' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar
+E         
+E       assert 1 == 0
+E        +  where 1 = CompletedProcess(args=['bash', '/home/gabrielgadea/projects/touring/scripts/propagate-release.sh', '30.4.96', '--skip-...lara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n').returncode
+
+scripts/test_propagate_release_label.py:233: AssertionError
+__________________ test_a_mutated_inheriting_lock_entry_dies ___________________
+
+    @pytest.mark.skipif(
+        not (REPO / "Cargo.lock").is_file() or not (REPO / "target" / "release" / "touring").is_file(),
+        reason="needs the real workspace + a built binary")
+    @pytest.mark.post_build
+    def test_a_mutated_inheriting_lock_entry_dies():
+        """Mutation proof: one inheriting member off-label in the real lock → the
+        guard dies; the file is restored afterwards and passes again."""
+        lock = REPO / "Cargo.lock"
+        original = lock.read_text(encoding="utf-8")
+        try:
+            mutated = re.sub(
+                r'(name = "touring-cli"\nversion = ")' + re.escape(_workspace_version()) + '(")',
+                r"\g<1>30.4.65\g<2>", original, count=1)
+            assert mutated != original, "the mutation must hit the inheriting member"
+            lock.write_text(mutated, encoding="utf-8")
+            r = _guard_alone()
+            out = r.stdout + r.stderr
+            assert r.returncode == 1, f"a mutated inheriting entry must die: {out[-300:]}"
+>           assert "Cargo.lock fora do rótulo" in out
+E           assert 'Cargo.lock fora do rótulo' in '\x1b[1m[propagate]\x1b[0m workspace : /home/gabrielgadea/projects/touring\n\x1b[1m[propagate]\x1b[0m versão    : 30.4...clara \'30.4.95\', alvo \'30.4.96\' — faça o bump no Cargo.toml do workspace (version = "30.4.96") antes de propagar\n'
+
+scripts/test_propagate_release_label.py:255: AssertionError
+=========================== short test summary info ============================
+FAILED scripts/test_propagate_release_label.py::test_the_guard_passes_against_the_real_repo
+FAILED scripts/test_propagate_release_label.py::test_a_mutated_inheriting_lock_entry_dies
+2 failed, 75 passed in 9.86s

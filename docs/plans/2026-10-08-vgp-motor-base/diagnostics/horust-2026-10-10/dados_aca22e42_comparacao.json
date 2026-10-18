@@ -1,0 +1,234 @@
+{
+ "n_positivos_gerador": 37,
+ "saem_do_corpus": {
+  "classe_A": 6,
+  "incompleta": 5
+ },
+ "positivos_no_corpus": 26,
+ "celulas": {
+  "igual_perde": 26
+ },
+ "veredito_disco_nos_37": {
+  "allow": 37
+ },
+ "detalhe": {
+  "igual_perde": [
+   {
+    "id": "08851e92f613",
+    "classe": "kwarg",
+    "nome": "evaluate",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "16398209bb21",
+    "classe": "nome",
+    "nome": "is_automated_payload",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "glob_super"
+   },
+   {
+    "id": "378ac0f7a5cf",
+    "classe": "atributo",
+    "nome": "with",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "metodo"
+   },
+   {
+    "id": "3bc784a386dc",
+    "classe": "import",
+    "nome": "burst_gate",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "455b05e16490",
+    "classe": "import",
+    "nome": "gates_limpo",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "500cda2f6836",
+    "classe": "import",
+    "nome": "Capability",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "glob_super"
+   },
+   {
+    "id": "53a9e211e5b8",
+    "classe": "nome",
+    "nome": "compose_details",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_de_outro_crate"
+   },
+   {
+    "id": "54839a2c04bb",
+    "classe": "nome",
+    "nome": "cli_decompose_finalize",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_crate_do_proprio_crate"
+   },
+   {
+    "id": "55f542b1a809",
+    "classe": "atributo",
+    "nome": "UnresolvedDependencies",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "6072f2975dca",
+    "classe": "import",
+    "nome": "Self",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "cross_crate"
+   },
+   {
+    "id": "63107c51d5ed",
+    "classe": "import",
+    "nome": "gates_limpo",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "670ac2ee6654",
+    "classe": "import",
+    "nome": "serial_test",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_de_outro_crate"
+   },
+   {
+    "id": "6c6a484e7a77",
+    "classe": "nome",
+    "nome": "is_automated_payload",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "glob_super"
+   },
+   {
+    "id": "6e79fd7a1a9c",
+    "classe": "nome",
+    "nome": "cli_decompose_ready",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_crate_do_proprio_crate"
+   },
+   {
+    "id": "72d01144b53e",
+    "classe": "nome",
+    "nome": "refresh_parent_status",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_crate_do_proprio_crate"
+   },
+   {
+    "id": "738dac5e0f53",
+    "classe": "atributo",
+    "nome": "UnresolvedDependencies",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "75709ed1e368",
+    "classe": "import",
+    "nome": "retirement",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_de_outro_crate"
+   },
+   {
+    "id": "7cf682f91c8f",
+    "classe": "nome",
+    "nome": "source_declares",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "89cf17e67da6",
+    "classe": "nome",
+    "nome": "is_automated_payload",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "glob_super"
+   },
+   {
+    "id": "a26c5f06ffef",
+    "classe": "import",
+    "nome": "retirement",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_de_outro_crate"
+   },
+   {
+    "id": "a3a8e6e2370c",
+    "classe": "import",
+    "nome": "gates_limpo",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "aa0fff97b669",
+    "classe": "nome",
+    "nome": "star_target_names",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "c1cf0f44877a",
+    "classe": "import",
+    "nome": "pending_for",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "import_com_caminho_do_proprio_crate"
+   },
+   {
+    "id": "cf87e1831c66",
+    "classe": "import",
+    "nome": "gates_limpo",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": null
+   },
+   {
+    "id": "d64661f05b97",
+    "classe": "nome",
+    "nome": "cli_index_ingest",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "glob_super"
+   },
+   {
+    "id": "e89397b12181",
+    "classe": "nome",
+    "nome": "compose_details",
+    "disco": "allow",
+    "instante": "allow",
+    "causa": "caminho_de_outro_crate"
+   }
+  ]
+ },
+ "negativos_comuns": 275,
+ "negativos": {
+  "deny_disco": 0,
+  "deny_instante": 0,
+  "com_aviso_disco": 0,
+  "com_aviso_instante": 0,
+  "erros": 0
+ }
+}

@@ -100,4 +100,3 @@ fn emit_vergen() {
         features.join(",")
     );
 }
-

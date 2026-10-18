@@ -1,0 +1,6 @@
+recall de símbolo · arquivo 2/2 · inline 2/3 | forma (fora) {'arquivo': [0, 0], 'inline': [0, 0]} | falsos deny 0 em {'arquivo': 21, 'inline': 14} | avisos em negativos 3 | p95 125.0 ms | chamadas 40 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 0/21 · taxa 0.000% · limite_superior_95 13.29% (teto 1%; o n=21 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
+  falso deny (inline): 0/14 · taxa 0.000% · limite_superior_95 19.26% (teto 1%; o n=14 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
+  PENDENTE: recall de símbolo (inline) 0.667 < 0.7 (2/3)
+veredito: NÃO PRONTO
+[pareado] 40 ids × 8 chamadas em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/fase-d/fumaca-aa-2026-10-18/pareado_aa.json (rc do juiz 1)

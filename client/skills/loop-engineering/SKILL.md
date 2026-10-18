@@ -103,8 +103,8 @@ INNER (repeat per phase until CONVERGED)
   →  next = touring decompose claim <task> --owner <session-id>   (topological, deps
        satisfied, ATOMIC — `ready` only READS, so two sessions polling it receive the
        SAME subtask and run the same phase twice; the lease returns it if one dies)
-  12 Execute phase                **tdd-enforcer gate** (red-green pre-conditional; mechanism
-                                  E + G — see "tdd-enforcer integration" below) →
+  12 Execute phase                **tdd-enforcer protocol** (red-green pre-conditional, run by
+                                  the agent — no hook enforces it; see "tdd-enforcer integration") →
                                   Edit/Write + touring-engineer / touring index+ast+wiring
   13 Cross-audit + 50-dim         --use audit-pack:audit (skill = "TACO-cross-audit")
        + --use critic-panel:panel — ORTHOGONAL: audit-pack supplies the craft,

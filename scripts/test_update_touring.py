@@ -650,3 +650,19 @@ def test_the_session_socket_env_is_scrubbed_before_any_daemon_call():
     assert body.index(scrub) < first_call, (
         "the unset must precede EVERY daemon call, including the first one"
     )
+
+
+def test_daemon_stderr_name_matches_the_rust_spawner():
+    """Both spawn sites must write the SAME stderr file, or the rotation guards a file nobody writes.
+
+    Until 18/10/2026 update-touring rotated `daemon-stderr.log` (hyphen) while the Rust spawner used by
+    `daemon-ctl` and the hooks (crates/touring-hooks/src/main.rs) appended to `daemon.stderr.log` (dot):
+    the hyphen file did not exist and the real one grew without rotation (6,5 MB measured).
+    """
+    root = Path(__file__).resolve().parent.parent
+    script = (root / "scripts" / "update-touring").read_text(encoding="utf-8")
+    rust = (root / "crates" / "touring-hooks" / "src" / "main.rs").read_text(encoding="utf-8")
+    m_sh = re.search(r'^readonly DAEMON_STDERR="\$\{HOME\}/\.claude/touring/([^"]+)"', script, flags=re.MULTILINE)
+    m_rs = re.search(r'\.open\(dir\.join\("(daemon[^"]*stderr[^"]*)"\)\)', rust)
+    assert m_sh and m_rs, "a spawn site moved: update this invariant to the new form instead of deleting it"
+    assert m_sh.group(1) == m_rs.group(1)

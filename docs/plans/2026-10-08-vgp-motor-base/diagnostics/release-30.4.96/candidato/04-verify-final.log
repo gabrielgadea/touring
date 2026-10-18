@@ -1,0 +1,5 @@
+snapshot: scan-2026-08-31.json | scan_timestamp: 2026-08-31T13:41:27.473886Z
+  OK — snapshot reproduz 561 = 36+11+279+151+84
+delta vivo (scan atual − snapshot 31/08): 87 sinais · ledger: 132 linhas
+scan atual (régua final): 401 sinais = C1=86+C3=11+C4=107+C5=167+C6=30
+VERIFY OK — snapshot 561 reproduzido; cada sinal do delta vivo tem exatamente 1 disposição válida; disposições conferem com o scan atual

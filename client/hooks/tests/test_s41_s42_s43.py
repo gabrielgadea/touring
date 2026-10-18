@@ -175,16 +175,17 @@ def _statusline(home: Path, session: str, tokens: int, extra_env: dict[str, str]
                                   "current_usage": {"input_tokens": tokens}}}
     env = {**os.environ, "HOME": str(home), **(extra_env or {})}
     proc = subprocess.run(["bash", str(CLIENT_HOOKS / "status_monitor.sh")], input=json.dumps(payload).encode(),
-                          capture_output=True, timeout=15, env=env)
+                          capture_output=True, timeout=15, env=env, check=False)
     assert proc.returncode == 0, proc.stderr
     return proc.stdout.decode()
 
 
 def test_status_monitor_arms_flag_at_checkpoint(tmp_path: Path) -> None:
-    """At 60% of the window (checkpoint 55 = 65 − 10) the session's flag holds the percentage."""
+    """At 60% of the window (checkpoint 55 = 65 − 10) the session's flag holds the percentage on line 1
+    (line 2 is the render's timestamp, 17/10/2026: see test_s42_context_sensor.py)."""
     _statusline(tmp_path, "sess-a", 600_000)
     flag = tmp_path / ".claude" / "touring" / "context_alert" / "sess-a.pct"
-    assert flag.read_text().strip() == "60"
+    assert flag.read_text().splitlines()[0] == "60"
     assert not (tmp_path / ".claude" / "context_alert").exists(), "the global flag is retired"
 
 
@@ -247,6 +248,7 @@ def test_telemetry_logger_invalid_input_produces_fallback(tmp_path: Path) -> Non
         capture_output=True,
         timeout=5,
         env={**os.environ, "HOME": str(tmp_path)},
+        check=False,
     )
     assert proc.returncode == 0
     assert "ts" in _last_telemetry_entry(tmp_path)  # fallback entry has at minimum ts/epoch

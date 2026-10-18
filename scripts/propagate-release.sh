@@ -18,7 +18,7 @@
 #   scripts/propagate-release.sh <versão>              # pipeline completo
 #   scripts/propagate-release.sh <versão> --dry-run    # mostra sem aplicar
 #   scripts/propagate-release.sh <versão> --skip-build # binário já instalado
-#   scripts/propagate-release.sh <versão> --skip-gates # pula cargo check/clippy/espelho
+#   scripts/propagate-release.sh <versão> --skip-gates # pula TODOS os gates (check/clippy/testes/espelho)
 #   scripts/propagate-release.sh <versão> --skip-freeze# toolchain já instalada
 #   scripts/propagate-release.sh <versão> --no-default # não muda canal default
 #   scripts/propagate-release.sh <versão> --allow-no-projects # aceita 0 consumidores
@@ -32,8 +32,8 @@
 #   scripts/propagate-release.sh --rollback            # reverte todos os projetos
 #
 # ETAPAS:
-#   1. gates      cargo check + clippy -D warnings + espelho client/
-#                 + update-touring versionado/escopado (REGRA #21)
+#   1. gates      cargo check + clippy --all-targets -D warnings + espelho client/
+#                 + update-touring versionado + testes dos crates tocados (REGRA #21)
 #   2. build      update-touring  (L1 → dev: build + install dual-target + restart)
 #   3. freeze     touring toolchain install --from-source . <v> --force  (L2)
 #   4. default    touring toolchain default <v>                          (L2)
@@ -124,6 +124,172 @@ run() {
     fi
 }
 
+# ─── Definições do gate 1/6 (clippy e testes dos crates tocados) ─────────────
+# 09/10/2026: o gate rodava `cargo check` e `cargo clippy` SEM --all-targets e
+# nenhuma suíte de teste — e o clippy sem --all-targets nem compila o código de
+# teste. A 30.4.95 saiu com `classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate`
+# (touring-hooks) quebrado, e dois testes de handlers/index.rs nunca compilaram
+# (E0433). O CLAUDE.md §3 já exigia "testes dos crates tocados"; o executor não
+# aplicava (D8: o enforcement mora no executor).
+#
+# Fonte única: a linha [dry-run] e a execução leem ESTE array — a mensagem e o
+# predicado não podem divergir.
+CLIPPY_GATE=(cargo clippy --workspace --all-targets -- -D warnings)
+
+# Features que `cargo test -p <pkg>` isolado precisa. `-p` sozinho NÃO herda a
+# unificação de features do workspace: o touring-hook-handlers nem compila sem
+# estas duas (CLAUDE.md §13b).
+declare -A TEST_FEATURES=(
+    [touring-hook-handlers]="pre-hooks,post-hooks"
+)
+
+# Monta em TEST_CMD o comando de teste de um pacote — sempre sob o hw-slot (1
+# job Rust por máquina; a máquina opera a 90-96 °C, CLAUDE.md §15).
+TEST_CMD=()
+build_test_cmd() {
+    local pkg="$1" feats="${TEST_FEATURES[$1]:-}"
+    TEST_CMD=("$WORKSPACE/scripts/hw-slot" --class rust --label release-tests -- cargo test -p "$pkg" --no-fail-fast)
+    if [ -n "$feats" ]; then
+        TEST_CMD+=(--features "$feats")
+    fi
+}
+
+# Imprime (stdout, um por linha) os PACOTES do workspace tocados desde o último
+# commit de release: git diff <release>..HEAD ∪ git status (árvore de trabalho,
+# inclui não-rastreados), cada arquivo mapeado ao pacote cujo `manifest_path` é o
+# MAIOR prefixo (pacotes aninhados). O diagnóstico vai para stderr.
+#   · commit de release = assunto `release 30.4.95: …` ou `release: 30.4.91 …`.
+#     `git log --grep '^release'` sozinho também casa linha de CORPO e
+#     `chore(release): …` — o assunto é filtrado aqui.
+#   · FALLBACK documentado: sem commit de release no histórico (clone raso,
+#     repositório novo) ou qualquer falha de git, devolve TODOS os pacotes —
+#     sinal ausente nunca ESTREITA o gate (Lei L2).
+#   · LIMITE conhecido: Cargo.toml/Cargo.lock da raiz não pertencem a pacote
+#     algum; são avisados, não mapeados.
+# Exit 2 = não foi possível enumerar o workspace (cargo metadata falhou).
+touched_packages() {
+    python3 - "$WORKSPACE" <<'PY'
+import json
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+ws = Path(sys.argv[1]).resolve()
+RELEASE_SUBJECT = re.compile(r"^release[: ]")
+
+
+def sh(*cmd):
+    return subprocess.run(cmd, cwd=ws, capture_output=True, text=True)
+
+
+def say(msg):
+    print(f"  {msg}", file=sys.stderr)
+
+
+meta = sh("cargo", "metadata", "--no-deps", "--format-version", "1", "--offline")
+if meta.returncode != 0:
+    say("ERRO: cargo metadata falhou: " + meta.stderr.strip()[-300:])
+    sys.exit(2)
+pkgs = {
+    p["name"]: Path(p["manifest_path"]).resolve().parent
+    for p in json.loads(meta.stdout)["packages"]
+}
+
+
+def widen(why):
+    say(f"{why} - fallback: TODOS os {len(pkgs)} pacotes do workspace (sinal ausente nunca estreita o gate)")
+    print("\n".join(sorted(pkgs)))
+    sys.exit(0)
+
+
+log = sh("git", "log", "--grep", "^release", "--format=%H%x1f%s")
+if log.returncode != 0:
+    widen("git log falhou: " + log.stderr.strip()[-120:])
+base = None
+for line in log.stdout.splitlines():
+    sha, _, subject = line.partition("\x1f")
+    if RELEASE_SUBJECT.match(subject):
+        base = sha
+        say(f"base: commit de release {sha[:8]} ({subject[:60]})")
+        break
+if base is None:
+    widen("nenhum commit de release (assunto 'release …') no histórico")
+top = sh("git", "rev-parse", "--show-toplevel")
+diff = sh("git", "diff", "--name-only", "--no-renames", "-z", f"{base}..HEAD")
+status = sh("git", "status", "--porcelain", "-z", "-uall")
+if top.returncode or diff.returncode or status.returncode:
+    widen("git diff/status falhou")
+top = Path(top.stdout.strip()).resolve()
+
+files = {f for f in diff.stdout.split("\0") if f}
+tokens = status.stdout.split("\0")
+i = 0
+while i < len(tokens):
+    tok = tokens[i]
+    i += 1
+    if len(tok) < 4:
+        continue
+    files.add(tok[3:])
+    if tok[0] in "RC" or tok[1] in "RC":  # rename/cópia: o próximo token é a origem
+        if i < len(tokens) and tokens[i]:
+            files.add(tokens[i])
+        i += 1
+
+by_depth = sorted(pkgs.items(), key=lambda kv: len(kv[1].parts), reverse=True)
+touched, unmapped = set(), []
+for rel in sorted(files):
+    path = top / rel
+    owner = next((n for n, d in by_depth if path == d or d in path.parents), None)
+    if owner:
+        touched.add(owner)
+    else:
+        unmapped.append(rel)
+say(f"{len(files)} arquivo(s) tocados desde o release (commits + árvore de trabalho); {len(unmapped)} fora de qualquer pacote")
+root_cargo = [f for f in unmapped if f in ("Cargo.toml", "Cargo.lock") or f.startswith(".cargo/")]
+if root_cargo:
+    say(f"AVISO: {', '.join(root_cargo)} mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate")
+print("\n".join(sorted(touched)))
+PY
+}
+
+# Roda `cargo test` de cada pacote de release_pkgs, um por vez, cada um sob o
+# hw-slot (1 job Rust por máquina). rc 75 do hw-slot é «sem vaga» (nada rodou),
+# não falha de teste: repete 1×, e persistindo reprova dizendo isso; rc 70 =
+# machine check durante um job verde (o verde não prova nada) e também aborta.
+# Falha de teste NÃO interrompe os demais pacotes: o operador recebe a lista
+# inteira de uma vez (REGRA #21 — 100% corrigido, não um pacote por rodada).
+run_release_tests() {
+    local pkg attempt rc
+    local failed_pkgs=()
+    if [ "${#release_pkgs[@]}" -eq 0 ]; then
+        log "testes dos crates tocados: nenhum pacote tocado desde o último release — nada a rodar"
+    fi
+    for pkg in "${release_pkgs[@]}"; do
+        build_test_cmd "$pkg"
+        attempt=1
+        while :; do
+            echo "  ${BOLD}\$${RESET} ${TEST_CMD[*]}"
+            rc=0
+            ( cd "$WORKSPACE" && "${TEST_CMD[@]}" ) || rc=$?
+            if [ "$rc" -eq 75 ] && [ "$attempt" -eq 1 ]; then
+                warn "sem vaga no hw-slot (rc 75) para $pkg — nada foi testado; repetindo 1×"
+                attempt=2
+                continue
+            fi
+            break
+        done
+        case "$rc" in
+            0)  ;;
+            75) die "sem vaga no hw-slot (rc 75) para $pkg, 2 tentativas — NENHUM teste rodou; isto não é falha de teste: libere a máquina (scripts/hw-slot --status) e repita" ;;
+            70) die "machine check durante o job de $pkg (hw-slot rc 70) — o verde não prova nada numa máquina com falha de hardware" ;;
+            *)  warn "testes de $pkg falharam (rc $rc)"; failed_pkgs+=("$pkg") ;;
+        esac
+    done
+    [ "${#failed_pkgs[@]}" -eq 0 ] \
+        || die "testes falharam em: ${failed_pkgs[*]} — corrija antes de propagar (REGRA #21)"
+}
+
 # ─── ROLLBACK ────────────────────────────────────────────────────────────────
 if [ "$ROLLBACK" -eq 1 ]; then
     step "ROLLBACK — revertendo todos os projetos ao toolchain anterior"
@@ -145,20 +311,36 @@ log "versão    : $VERSION"
 if [ "$SKIP_GATES" -eq 1 ]; then
     warn "gates pulados (--skip-gates)"
 else
-    step "1/6 GATES — cargo check + clippy + espelho client/ + referência + rito"
+    step "1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados"
+    # Derivar ANTES de qualquer gate: a falha de enumerar o workspace aborta cedo, e o
+    # dry-run LISTA o que a execução real rodaria (git e cargo metadata só leem).
+    touched="$(touched_packages)" \
+        || die "não consegui derivar os pacotes tocados (cargo metadata falhou) — o gate de testes não pode ficar cego"
+    release_pkgs=()
+    while IFS= read -r pkg; do
+        if [ -n "$pkg" ]; then
+            release_pkgs+=("$pkg")
+        fi
+    done <<< "$touched"
     if [ "$DRY_RUN" -eq 1 ]; then
-        echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && cargo clippy --workspace -- -D warnings"
+        echo "  ${YELLOW}[dry-run]${RESET} cargo check --workspace && ${CLIPPY_GATE[*]}"
         echo "  ${YELLOW}[dry-run]${RESET} python3 scripts/sync-client-skills.py --check"
         echo "  ${YELLOW}[dry-run]${RESET} python3 docs/gen_reference.py --validate"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_update_touring.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_touring_quality_score.py -q"
+        echo "  ${YELLOW}[dry-run]${RESET} SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 python3 -m pytest scripts/test_skill_size_guard.py -q"
         echo "  ${YELLOW}[dry-run]${RESET} python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)"
         echo "  ${YELLOW}[dry-run]${RESET} scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot, 1 re-medição)"
+        echo "  ${YELLOW}[dry-run]${RESET} testes dos crates tocados desde o último release: ${#release_pkgs[@]} pacote(s), 1 por vez sob o hw-slot (rc 75 = sem vaga: repete 1×)"
+        for pkg in "${release_pkgs[@]}"; do
+            build_test_cmd "$pkg"
+            echo "  ${YELLOW}[dry-run]${RESET}   ${TEST_CMD[*]}"
+        done
     else
         ( cd "$WORKSPACE" && cargo check --workspace ) \
             || die "cargo check falhou — não se propaga build quebrada"
-        ( cd "$WORKSPACE" && cargo clippy --workspace -- -D warnings ) \
-            || die "clippy falhou (-D warnings) — corrija antes de propagar"
+        ( cd "$WORKSPACE" && "${CLIPPY_GATE[@]}" ) \
+            || die "clippy falhou (${CLIPPY_GATE[*]}) — corrija antes de propagar"
         # O espelho client/ é a cópia versionada das skills que rodam em
         # ~/.claude/. Nada o mantinha em dia: nascido de uma cópia em massa em
         # 25/07/2026, divergiu por três semanas — e foi assim que a correção de
@@ -195,6 +377,13 @@ else
         # mudo fazer o juiz ler "qualidade não medida").
         ( cd "$WORKSPACE" && TOURING_QUALITY_SCORE_REQUIRE_SYMLINK=1 python3 -m pytest scripts/test_touring_quality_score.py -q ) \
             || die "touring-quality-score divergiu do repo — rode: ln -sfn $WORKSPACE/scripts/touring-quality-score ~/.local/bin/touring-quality-score"
+        # Nenhuma SKILL.md acima do corte de compactação (20.000 chars; o que passa
+        # do corte o modelo não vê depois de cada compactação). O guard existia desde
+        # 08/10 sem chamador algum (git grep, 17/10/2026). Aqui o lado vivo
+        # (~/.claude/skills) existe, então a varredura REAL é exigida:
+        # SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 faz a ausência das raízes reprovar em vez de pular.
+        ( cd "$WORKSPACE" && SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 python3 -m pytest scripts/test_skill_size_guard.py -q ) \
+            || die "alguma SKILL.md passou do corte de compactação — rode: python3 scripts/test_skill_size_guard.py --verbose"
         # O rito cresce por GLOB, não por lista (24/09/2026, touring-36): o bump
         # 30.4.67 quebrou o test_propagate_release_label (literal velho) e o
         # gate não viu, porque só rodava dois arquivos nomeados. Um teste novo
@@ -221,6 +410,9 @@ else
         # a prova de que o teste rodou (filtro que não casa sai 0 — gate cego).
         ( cd "$WORKSPACE" && "$WORKSPACE/scripts/r3-s1a-gate" ) \
             || die "S1a (custo do emissor r3) reprovou — veja a saída acima; o limite é o do teste, não se afrouxa aqui"
+        # Testes dos crates tocados (09/10/2026) — por último de propósito: é o gate mais
+        # pesado e o S1a acima é uma MEDIÇÃO de custo, sensível à máquina quente.
+        run_release_tests
         log "${GREEN}gates OK${RESET}"
     fi
 fi

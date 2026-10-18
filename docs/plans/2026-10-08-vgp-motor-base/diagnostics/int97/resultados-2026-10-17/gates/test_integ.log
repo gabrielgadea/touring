@@ -1,0 +1,403 @@
+   Compiling rustix v1.1.4
+   Compiling ring v0.17.14
+   Compiling memfd v0.6.5
+   Compiling tempfile v3.27.0
+   Compiling rustls v0.23.41
+   Compiling wasmtime v36.0.14
+   Compiling rustls-webpki v0.103.13
+   Compiling terminal_size v0.4.4
+   Compiling miette v7.6.0
+   Compiling tokio-rustls v0.26.4
+   Compiling hyper-rustls v0.27.9
+   Compiling ureq v3.3.0
+   Compiling reqwest v0.12.28
+   Compiling wasmtime-c-api-impl v36.0.12
+   Compiling ort-sys v2.0.0-rc.12
+   Compiling tree-sitter v0.26.9
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling hf-hub v0.5.0
+   Compiling ort v2.0.0-rc.12
+   Compiling safetensors v0.8.0
+   Compiling fastembed v5.17.2
+   Compiling ast-grep-core v0.42.3
+   Compiling ast-grep-language v0.42.3
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling tree-sitter-md v0.5.3 (/home/gabrielgadea/projects/touring-wt-int97/third_party/tree-sitter-md)
+   Compiling notify-debouncer-mini v0.5.0
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling gethostname v1.1.0
+   Compiling x11rb v0.13.2
+   Compiling arboard v3.6.1
+   Compiling wasmtime v46.0.3
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling mpatch v1.6.4
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling tantivy v0.22.1
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
+   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-resilience)
+   Compiling touring-identity v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-identity)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-generator)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+   Compiling touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-integration-tests)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 31s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_integration_tests-52ff2b5e13607050)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/comprehensive_system_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/comprehensive_system_e2e-cd031bcc312ac558)
+
+running 17 tests
+test cila_budget_monotonic_across_levels ... ok
+test agentic_rl_observable_and_belief_state ... ok
+test agentic_rl_policy_network_forward ... ok
+test erickson_relation_context_spatial ... ok
+test functional_wiring_signature_extraction ... ok
+test gate_metrics_record_and_snapshot ... ok
+test job_registry_no_runtime_safe_path ... ok
+test pattern_bandit_rl_updates ... ok
+test ptbr_markers_claim_detection ... ok
+test rkyv_ipc_corrupt_payload_rejected ... ok
+test rkyv_ipc_request_roundtrip ... ok
+test rkyv_ipc_response_roundtrip ... ok
+test gate_metrics_rkyv_counters_record ... ok
+test terminal_job_cache_store_lookup_forget ... ok
+test erickson_extract_with_relations_empty_text ... ok
+test erickson_extract_with_relations_population_result ... ok
+test tantivy_bm25_index_and_search ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/entity_mcp_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/entity_mcp_e2e-24429071ea4c1a5d)
+
+running 12 tests
+test test_entity_delete_not_found ... ok
+test test_entity_define_happy_path ... ok
+test test_entity_list_no_filter ... ok
+test test_entity_define_duplicate_id ... ok
+test test_entity_list_by_crate_filter ... ok
+test test_entity_delete_exists ... ok
+test test_entity_resolve_exact_only_filter ... ok
+test test_entity_relate_self_relation_allowed ... ok
+test test_entity_resolve_exact_match ... ok
+test test_entity_relate_bidirectional ... ok
+test test_entity_resolve_not_found ... ok
+test test_entity_resolve_fuzzy_match ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.44s
+
+     Running tests/integration_tests.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/integration_tests-64795edac72791ca)
+
+running 3 tests
+test test_adaptive_pool_size_enrichment ... ok
+test test_pipeline_graceful_empty_state ... ok
+test test_analysis_pipeline_symbol_index_wiring ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/pln2_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pln2_e2e-7c710f551d491951)
+
+running 27 tests
+test test_b6_heat_map_capacity_invariant ... ok
+test test_b6_lazy_loading_queue_and_count ... ok
+test test_b7_fingerprint_refresh_marks_unchanged ... ok
+test test_b7_analyze_wiring_incremental_does_not_panic ... ok
+test test_b7_fingerprint_store_new_is_empty ... ok
+test test_c9_max_recursion_depth_is_sane ... ok
+test test_c9_shard_count_is_power_of_two ... ok
+test test_e1_cross_crate_flag_in_analysis_config ... ok
+test test_e3_rename_candidate_fields ... ok
+test test_e1_blast_radius_engine_empty_strategies ... ok
+test test_e3_symbol_change_set_clone ... ok
+test test_e3_symbol_change_set_renames_field ... ok
+test test_e4_quality_trend_empty_db ... ok
+test test_f1_otel_config_disabled_by_default ... ok
+test test_f1_otel_config_disabled_constructor ... ok
+test test_f1_init_otel_subscriber_disabled_no_error ... ok
+test test_g1_detect_churn_patterns_empty_input ... ok
+test test_g1_detect_churn_patterns_normal_paths ... ok
+test test_g1_scan_dead_patterns_empty_input ... ok
+test test_g1_scan_dead_patterns_normal_symbols ... ok
+test test_g2_reward_clamped_lower_bound ... ok
+test test_g2_reward_range_is_valid ... ok
+test test_g3_analysis_insights_from_report ... ok
+test test_g3_analysis_insights_to_context_string ... ok
+test test_b6_ensure_loaded_triggers_parse ... ok
+test test_b6_prefetch_from_heat ... ok
+test test_pln2_full_pipeline_integration ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wave10_health_delta_wiring_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave10_health_delta_wiring_e2e-9ee8ed40da644db5)
+
+running 6 tests
+test axis1_compose_edit_context_records_pre_health_for_rust ... ok
+test axis5_missing_file_is_graceful ... ok
+test axis4_identity_edit_through_wiring_yields_zero_delta ... ok
+test axis3_full_pre_post_cycle_yields_delta ... ok
+test axis6_cache_is_consumed_after_compute ... ok
+test axis2_compose_edit_context_skips_non_rust ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/wave11_multilang_health_delta_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave11_multilang_health_delta_e2e-3223efe1a71c1a8c)
+
+running 8 tests
+test axis1_pre_edit_records_python_signals ... ok
+test axis2_pre_edit_records_typescript_signals ... ok
+test axis3_pre_edit_records_rust_via_dispatch ... ok
+test axis4_python_complexity_rise_yields_delta ... ok
+test axis5_typescript_identity_yields_zero_delta ... ok
+test axis6_cache_schema_uniform_across_engines ... ok
+test axis7_legacy_apis_remain_rust_only ... ok
+test axis8_pre_write_records_signals_for_overwrite ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+     Running tests/wave12_observability_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave12_observability_e2e-667dfca758147e77)
+
+running 8 tests
+test axis3_compute_signals_delta_advances_counter ... ok
+test axis2_record_pre_signals_advances_counter ... ok
+test axis5_improvement_triggers_counter ... ok
+test axis4_regression_triggers_counter ... ok
+test axis6_outstanding_reflects_record_minus_compute ... ok
+test axis1_snapshot_exposes_health_delta_fields ... ok
+test axis7_multilang_records_bump_counters ... ok
+test axis8_identity_does_not_bump_directional_counters ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/wave13_streak_tracking_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave13_streak_tracking_e2e-5893b00ae10b8ae8)
+
+running 9 tests
+test axis3_three_regressions_trigger_alert ... ok
+test axis2_threshold_constant_is_three ... ok
+test axis1_snapshot_exposes_streak_fields ... ok
+test axis4_alert_does_not_re_fire_on_each_regression ... ok
+test axis5_improvement_breaks_streak_and_records_recovery ... ok
+test axis6_neutral_delta_resets_both_streaks ... ok
+test axis7_streaks_are_path_keyed ... ok
+test axis8_first_observation_preserves_streak_state ... ok
+test axis9_reset_streak_clears_state ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/wave14_streak_hint_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave14_streak_hint_e2e-3663e928010a9a19)
+
+running 9 tests
+test axis1_warning_hint_below_threshold_is_none ... ok
+test axis2_warning_hint_at_threshold_fires ... ok
+test axis4_warning_clears_after_recovery ... ok
+test axis3_warning_hint_count_reflects_streak_size ... ok
+test axis5_improvement_hint_at_threshold ... ok
+test axis6_warning_and_improvement_are_mutually_exclusive ... ok
+test axis7_hint_format_is_parseable ... ok
+test axis8_hints_are_path_keyed ... ok
+test axis9_reset_clears_hint ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/wave15_cli_exposure_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave15_cli_exposure_e2e-cfaa97f6fc42ed7c)
+
+running 8 tests
+test axis1_pre_write_hint_helpers_reachable ... ok
+test axis4_cli_status_with_path_returns_per_path_json ... ok
+test axis2_pre_write_parity_with_pre_edit ... ok
+test axis3_cli_status_aggregate_returns_valid_json ... ok
+test axis5_cli_reset_without_path_errors ... ok
+test axis6_cli_reset_with_path_returns_success ... ok
+test axis7_cli_unknown_subcommand_fails ... ok
+test axis8_cli_status_is_default_subcommand ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.48s
+
+     Running tests/wave16_status_mcp_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave16_status_mcp_e2e-1f8b6d7a381a91c7)
+
+running 8 tests
+test axis1_status_json_aggregate_is_well_formed ... ok
+test axis4_status_json_aggregate_is_stable_shape ... ok
+test axis3_touring_status_includes_health_delta_key ... ok
+test axis2_status_json_per_path_matches_state ... ok
+test axis5_mcp_helpers_compile_and_return_string ... ok
+test axis6_single_source_of_truth_invariant ... ok
+test axis7_touring_status_parses_full_dashboard ... ok
+test axis8_regression_streak_field_reflects_state ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.43s
+
+     Running tests/wave17_query_cache_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave17_query_cache_e2e-ba3a212b2535448d)
+
+running 8 tests
+test axis2_hit_miss_counters_advance ... ok
+test axis1_get_or_compute_serves_cached_value ... ok
+test axis5_invalidate_drops_single_entry ... ok
+test axis6_keys_are_payload_specific ... ok
+test axis3_snapshot_exposes_query_cache_fields ... ok
+test axis4_hit_ratio_is_bounded ... ok
+test axis8_gate_metrics_cli_exposes_query_cache ... ok
+test axis7_subprocess_index_find_benefits_from_cache ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+
+     Running tests/wave18_cache_expansion_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave18_cache_expansion_e2e-62d1d11c5f004c65)
+
+running 8 tests
+test axis4_invalidate_zero_match_returns_zero ... ok
+test axis1_invalidate_removes_matching_entries ... ok
+test axis2_invalidate_counter_advances ... ok
+test axis3_snapshot_exposes_invalidate_counter ... ok
+test axis8_gate_metrics_cli_shows_invalidate_counter ... ok
+test axis6_subprocess_ast_blast_benefits_from_cache ... ok
+test axis5_subprocess_ast_meta_benefits_from_cache ... ok
+test axis7_cache_hit_ratio_advances ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/wave19_generator_health_delta_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave19_generator_health_delta_e2e-02b75646a89ea248)
+
+running 7 tests
+test axis2_closure_pair_yields_signed_delta ... ok
+test axis3_closure_pair_detects_improvement ... ok
+test axis1_closure_types_compile_and_match ... ok
+test axis4_with_health_delta_builder_compiles ... ok
+test axis5_unpaired_closures_are_safe_no_op ... ok
+test axis6_repeated_regressions_advance_streak ... ok
+test axis7_compute_closure_returns_pure_tuple ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/wave5_cross_crate_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave5_cross_crate_e2e-f127d169a9c3d4cb)
+
+running 13 tests
+test axis1_malformed_source_errors_without_panic ... ok
+test axis1_unsafe_source_increments_unsafe_block_counter ... ok
+test axis1_code_gen_workflow_produces_consistent_report_on_clean_source ... ok
+test axis2_wave5_hint_matches_expected_format_for_clean_source ... ok
+test axis2_wave5_reward_maps_clean_to_positive ... ok
+test axis2_wave5_reward_maps_unsafe_to_negative ... ok
+test axis2_wave5_reward_skips_trivial_and_non_rust ... ok
+test axis2_split_and_aggregate_apis_must_agree ... ok
+test axis5_representative_langs_are_reachable_cross_crate ... ok
+test axis3_reward_envelope_is_respected_across_all_bands ... ok
+test axis6_full_pipeline_composes_without_regression ... ok
+test axis7_pipeline_is_deterministic_across_repeated_calls ... ok
+test axis4_security_db_offline_never_errors ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/wave6_quality_gate_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave6_quality_gate_e2e-597c28aab4ad1f5c)
+
+running 9 tests
+test axis1_detect_language_covers_all_pipeline_languages ... ok
+test axis3_unsafe_rust_rejected_with_language_tag ... ok
+test axis5_any_cast_typescript_rejected_with_language_tag ... ok
+test axis2_clean_multilang_bundle_passes_gate ... ok
+test axis8_unsupported_extensions_skipped_silently ... ok
+test axis4_bare_except_python_rejected_with_language_tag ... ok
+test axis6_tsx_routed_to_typescript_language ... ok
+test axis9_mixed_bundle_surfaces_bad_file_with_language_tag ... ok
+test axis7_gate_is_deterministic_five_runs ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/wave7_semantic_fusion_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave7_semantic_fusion_e2e-3397cdd90e5116e8)
+
+running 10 tests
+test axis3_clean_rust_passes_fusion ... ok
+test axis1_semantic_off_is_backwards_compatible ... ok
+test axis10_semantic_threshold_independent_of_treesitter ... ok
+test axis2_semantic_gate_rejects_unsafe ... ok
+test axis5_unparseable_rust_does_not_crash_gate ... ok
+test axis6_fusion_score_blends_signals_for_rust ... ok
+test axis4_semantic_gate_skips_non_rust ... ok
+test axis8_mixed_bundle_surfaces_semantic_violation ... ok
+test axis7_fusion_score_is_pure_treesitter_for_non_rust ... ok
+test axis9_fusion_is_deterministic_across_runs ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/wave8_symmetric_fusion_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave8_symmetric_fusion_e2e-e3dcea8619f63a7e)
+
+running 8 tests
+test axis1_hint_health_matches_rust_quality_signals ... ok
+test axis4_hint_health_bounded_and_matches_gate_score ... ok
+test axis5_aggregate_advisory_includes_health ... ok
+test axis7_multilang_rust_preserves_tag_and_surfaces_health ... ok
+test axis6_reward_damper_tracks_gate_semantic_direction ... ok
+test axis8_fusion_is_deterministic_across_runs ... ok
+test axis2_clean_source_passes_both_paths ... ok
+test axis3_unsafe_source_flagged_by_both_paths ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wave9_health_delta_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave9_health_delta_e2e-1ddf206587d0dad4)
+
+running 10 tests
+test axis2_identity_edit_has_zero_delta ... ok
+test axis1_pre_edit_health_matches_wave5_hint ... ok
+test axis3_regression_edit_emits_negative_delta ... ok
+test axis6_non_rust_files_bypass_bridge ... ok
+test axis7_reward_envelope_matches_wave5_envelope ... ok
+test axis10_bridge_is_deterministic ... ok
+test axis4_improvement_edit_emits_positive_delta ... ok
+test axis5_post_without_pre_yields_no_delta ... ok
+test axis8_hint_format_is_machine_parseable ... ok
+test axis9_gate_agrees_with_delta_direction ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/wave_c_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave_c_e2e-903f999d10374fd0)
+
+running 8 tests
+test cascade_queue_push_then_drain_roundtrip ... ok
+test cascade_queue_accepts_multiple_pushes ... ok
+test cascade_queue_drain_returns_all_fresh_items ... ok
+test first_edit_populates_cache ... ok
+test non_rust_path_skips_cascade_analysis ... ok
+test api_addition_does_not_produce_high_severity ... ok
+test edit_removes_api_and_queue_receives_high_severity_proposals ... ok
+test removal_produces_diffed_plan ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/workspace_potentialization_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/workspace_potentialization_e2e-6822585c41a43aa8)
+
+running 12 tests
+test cila_should_enrich_respects_tool_filter ... ok
+test cila_budget_monotonic_non_decreasing ... ok
+test feature_activation_analysis_default_exports ... ok
+test feature_activation_learning_bandit_defaults ... ok
+test functional_chains_sequential_and_complementary_detection ... ok
+test feature_activation_ast_incremental_pipeline ... ok
+test antipatterns_multi_language_detection ... ok
+test scalability_replay_buffer_bounded_growth ... ok
+test wiring_analysis_to_learning_reward_flow ... ok
+test persistence_knowledge_db_roundtrip ... ok
+test cross_crate_gotcha_roundtrip ... ok
+test scalability_bandit_hot_path_1k_updates ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+   Doc-tests touring_integration_tests
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

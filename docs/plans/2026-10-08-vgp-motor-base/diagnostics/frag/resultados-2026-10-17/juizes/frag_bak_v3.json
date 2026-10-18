@@ -1,0 +1,120 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "p95 1006.5 ms > 1000.0 ms"
+ ],
+ "exigir_limite_superior": false,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 0,
+   "n": 400,
+   "taxa": 0.0,
+   "limite_superior_95": 0.0074613555287995625,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 0
+  },
+  "inline": {
+   "falsos": 0,
+   "n": 300,
+   "taxa": 0.0,
+   "limite_superior_95": 0.00993608194445772,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8148148148148148
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   22,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   1,
+   13
+  ],
+  "inline": [
+   22,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 400,
+  "inline": 300
+ },
+ "avisos_em_negativos": 50,
+ "defeito_de_corpus": [
+  "6dce9f68d2da",
+  "c72427be59bd",
+  "9c269d2c1bf5"
+ ],
+ "p95_ms": 1006.512807,
+ "chamadas": 762,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

@@ -1,0 +1,25 @@
+hw-slot: aguardando — temp 91C > 88C
+
+running 6 tests
+
+thread 'enter_plan_mode_prompt_is_treated_as_subject' (790087) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:123:5:
+EnterPlanMode with `prompt` must surface a hint (memory/ready/orphans)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+test file_based_tool_preserves_existing_shape ... ok
+test enter_plan_mode_prompt_is_treated_as_subject ... FAILED
+test non_task_non_file_tool_returns_empty_context ... ok
+test task_list_without_subject_returns_empty_context ... ok
+
+thread 'task_create_payload_returns_enriched_context' (791264) panicked at crates/touring-hooks/tests/wave25_task_enrichment_e2e.rs:106:5:
+TaskCreate with rich subject must surface at least one hint; got empty context
+test task_create_payload_returns_enriched_context ... FAILED
+test read_only_task_tools_suppress_wiring_hint ... ok
+
+failures:
+
+failures:
+    enter_plan_mode_prompt_is_treated_as_subject
+    task_create_payload_returns_enriched_context
+
+test result: FAILED. 4 passed; 2 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.32s
+

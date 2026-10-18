@@ -1,0 +1,3223 @@
+diff --git i/crates/touring-analysis/src/quality/cicd.rs w/crates/touring-analysis/src/quality/cicd.rs
+index 01589f30..44293c9e 100644
+--- i/crates/touring-analysis/src/quality/cicd.rs
++++ w/crates/touring-analysis/src/quality/cicd.rs
+@@ -9,9 +9,29 @@
+ //! | `no-permissions-block` | a workflow file *without* a `permissions:` block (default token = write) | `.github/workflows/*.yml` |
+ //! | `unpinned-action` | a `uses: org/action@` with a mutable tag (e.g. `@v4`, `@main`, `@latest`) instead of a SHA | `.github/workflows/*.yml` |
+ //! | `script-injection-risk` | a `run:` block interpolating `${{ github.event.* }}` (untrusted input) | `.github/workflows/*.yml` |
+-//! | `no-cache` | a workflow with `cargo build` / `cargo test` *without* `actions/cache` (slow CI) | `.github/workflows/*.yml` |
++//! | `no-cache` | a workflow with `cargo build` / `cargo test` *without* a cache step (slow CI) -- except in a job that holds an OIDC token | `.github/workflows/*.yml` |
+ //! | `no-quality-gate` | a workflow *without* an `elite_aggregate.py --check` or `touring-quality` invocation | `.github/workflows/*.yml` |
+ //!
++//! **Supply-chain rules (structural, severity-capped).** The smells above are
++//! *densities*: `weight x count / lines`. That is the wrong shape for a finding whose
++//! blast radius does not depend on how long the file is -- one `id-token: write` is as
++//! exploitable in 561 lines as in 27, yet it cost `ci.yml` ~0.03 of its score and let
++//! it read Diamond. These rules therefore also set a **ceiling** on the score
++//! ([`CiSeverity::score_ceiling`]) that no amount of surrounding clean text lifts.
++//! They read the job/step shape (`structure`), not substrings:
++//!
++//! | Rule | Signal | Severity |
++//! |------|--------|----------|
++//! | [`CiRule::PwnRequestCheckout`] | `pull_request_target` + a checkout of the pull request head | critical |
++//! | [`CiRule::OidcWorkflowScope`] | `id-token: write` in the top-level `permissions` (every job inherits it) | high |
++//! | [`CiRule::OidcWithSharedCache`] | a job holding `id-token: write` (own or inherited) that restores a shared cache | high |
++//! | [`CiRule::CheckoutPersistsCredentials`] | `actions/checkout` without `persist-credentials: false` in a job that can write | medium |
++//! | [`CiRule::MutableThirdPartyWithWrite`] | a non-`actions/`/`github/` action pinned by a mutable tag in a job that can write | medium (ceiling only) |
++//!
++//! A job-level `permissions:` REPLACES the workflow-level one (it does not merge); a
++//! job with no `permissions:` at any level is treated as write-capable, as the
++//! `no-permissions-block` finding already states ("default token = write").
++//!
+ //! **Disjoint** from F4.6 build-config (which keys on `Cargo.toml` profile
+ //! shape; F4.7 keys on workflow-file shape) and F4.5 pkg-mgmt (which keys on
+ //! `Cargo.toml` dep count; F4.7 keys on workflow gates).
+@@ -22,36 +42,200 @@
+ //! injection vector). GitHub security guidance: pin third-party actions
+ //! by SHA (immutable) -- `@v4` is mutable. `permissions:` block with the
+ //! least-privilege value (e.g. `permissions: read-all`) limits the GITHUB_TOKEN.
++//! The structural rules follow the cache-poisoning + OIDC-token-theft class of the
++//! TanStack incident and GitHub's "keeping your GitHub Actions secure" guidance
++//! (pwn requests, `persist-credentials`).
++
++use std::cmp::Reverse;
++use std::ops::Deref;
+ 
+ use memchr::memmem;
+ 
+-use super::code_regions::{non_executable_regions, offset_suppressed};
++use super::SmellReport;
++use super::code_regions::offset_suppressed;
++
++mod structure;
++use structure::{Job, Perms, Step, Workflow, parse_workflows, yaml_comment_regions};
+ 
+ const SCALE: f32 = 6.0;
+ 
+-/// CI/CD-pipeline findings for one workflow file.
+-pub type CicdReport = crate::quality::SmellReport;
++/// How bad a structural CI-security finding is; sets the score ceiling.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
++pub enum CiSeverity {
++    /// Hygiene with a real attack path (a persisted token, a mutable third-party ref).
++    Medium,
++    /// A privileged token reachable from shared state.
++    High,
++    /// Untrusted code runs with a privileged token.
++    Critical,
++}
++
++impl CiSeverity {
++    /// The highest score a workflow carrying a finding of this severity can have.
++    ///
++    /// `Medium` stops just under Diamond (0.95), `High` under Gold (0.80, a WARN),
++    /// `Critical` under the 0.50 FAIL line.
++    #[must_use]
++    pub const fn score_ceiling(self) -> f32 {
++        match self {
++            Self::Medium => 0.90,
++            Self::High => 0.70,
++            Self::Critical => 0.40,
++        }
++    }
++}
++
++/// A structural supply-chain rule of F4.7 (see the module table).
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++pub enum CiRule {
++    /// `pull_request_target` checks out the pull request head.
++    PwnRequestCheckout,
++    /// `id-token: write` at the top-level `permissions`.
++    OidcWorkflowScope,
++    /// A job with an OIDC token restores a shared cache.
++    OidcWithSharedCache,
++    /// `actions/checkout` keeps the token in `.git/config` in a write-capable job.
++    CheckoutPersistsCredentials,
++    /// A third-party action by mutable tag in a write-capable job.
++    MutableThirdPartyWithWrite,
++}
++
++/// Every rule, most severe first -- the order findings are reported in.
++const RULES: [CiRule; 5] = [
++    CiRule::PwnRequestCheckout,
++    CiRule::OidcWorkflowScope,
++    CiRule::OidcWithSharedCache,
++    CiRule::CheckoutPersistsCredentials,
++    CiRule::MutableThirdPartyWithWrite,
++];
++
++impl CiRule {
++    /// The rule's severity.
++    #[must_use]
++    pub const fn severity(self) -> CiSeverity {
++        match self {
++            Self::PwnRequestCheckout => CiSeverity::Critical,
++            Self::OidcWorkflowScope | Self::OidcWithSharedCache => CiSeverity::High,
++            Self::CheckoutPersistsCredentials | Self::MutableThirdPartyWithWrite => {
++                CiSeverity::Medium
++            }
++        }
++    }
++
++    /// The finding text (what `touring-quality check --gate F4.7` prints).
++    #[must_use]
++    pub const fn message(self) -> &'static str {
++        match self {
++            Self::PwnRequestCheckout => {
++                "`pull_request_target` checks out the pull request head (untrusted code runs with a write token and secrets -- check out the base, or use `pull_request`)"
++            }
++            Self::OidcWorkflowScope => {
++                "`id-token: write` in the workflow-level `permissions` (every job inherits an OIDC token -- grant it only to the job that mints it)"
++            }
++            Self::OidcWithSharedCache => {
++                "job holding an OIDC token (`id-token: write`) restores a shared cache (cache poisoning -> token theft -- drop the cache from this job)"
++            }
++            Self::CheckoutPersistsCredentials => {
++                "`actions/checkout` without `persist-credentials: false` in a job that can write (the token stays in .git/config for every later step)"
++            }
++            Self::MutableThirdPartyWithWrite => {
++                "third-party action pinned by a mutable tag in a job that can write (supply-chain: pin it by 40-hex SHA)"
++            }
++        }
++    }
++
++    /// Density weight. The mutable-ref rule weighs nothing: the generic
++    /// `unpinned-action` smell already counted the same `uses:` line; this rule only
++    /// adds the ceiling.
++    const fn weight(self) -> f32 {
++        match self {
++            Self::PwnRequestCheckout | Self::OidcWorkflowScope | Self::OidcWithSharedCache => 1.0,
++            Self::CheckoutPersistsCredentials => 0.6,
++            Self::MutableThirdPartyWithWrite => 0.0,
++        }
++    }
++}
++
++/// One structural finding with its location.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub struct CiFinding {
++    /// The rule that fired.
++    pub rule: CiRule,
++    /// The job it fired in (`None` for a workflow-level finding).
++    pub job: Option<String>,
++    /// 1-based line (of the step, or of the `permissions:` key).
++    pub line: usize,
++}
++
++/// CI/CD-pipeline findings for one workflow file: the density smells
++/// (`Deref` to [`SmellReport`]) plus the severity-capped structural findings.
++#[derive(Debug, Clone)]
++pub struct CicdReport {
++    smells: SmellReport,
++    /// The structural supply-chain findings, with locations.
++    pub structural: Vec<CiFinding>,
++}
++
++impl Deref for CicdReport {
++    type Target = SmellReport;
++    fn deref(&self) -> &SmellReport {
++        &self.smells
++    }
++}
++
++impl CicdReport {
++    /// The finding the evidence points at: the first occurrence of the most severe rule
++    /// that fired -- the same rule that leads `findings`, and the one the score ceiling
++    /// comes from. `None` when no structural rule fired.
++    #[must_use]
++    pub fn primary(&self) -> Option<&CiFinding> {
++        RULES
++            .iter()
++            .find_map(|rule| self.structural.iter().find(|f| f.rule == *rule))
++    }
++
++    /// The highest score the structural findings allow (1.0 when there are none).
++    #[must_use]
++    pub fn score_ceiling(&self) -> f32 {
++        self.structural
++            .iter()
++            .map(|f| f.rule.severity().score_ceiling())
++            .fold(1.0, f32::min)
++    }
++}
+ 
+ const CLIPPY: &[u8] = b"clippy";
+ const CARGO_TEST: &[u8] = b"cargo test";
+ const PERMISSIONS: &[u8] = b"permissions:";
+ const USES_LINE: &[u8] = b"uses: ";
+ const RUN_LINE: &[u8] = b"run:";
+-const ACTIONS_CACHE: &[u8] = b"actions/cache";
+ const ELITE_AGGREGATE: &[u8] = b"elite_aggregate";
+ const TOURING_QUALITY: &[u8] = b"touring-quality";
+ const GITHUB_EVENT_INJECT: &[u8] = b"github.event";
+ 
++/// Actions that restore a shared cache into the job (text needles; the `uses:` owner
++/// part is case-insensitive on GitHub, the needles are the spellings in use).
++const CACHE_NEEDLES: [&[u8]; 4] = [
++    b"actions/cache",
++    b"Swatinem/rust-cache",
++    b"swatinem/rust-cache",
++    b"sccache-action",
++];
++
++/// Owners whose actions are first-party: GitHub itself.
++const FIRST_PARTY_OWNERS: [&str; 2] = ["actions", "github"];
++
++/// `with:` values that name the untrusted pull request head.
++const PR_HEAD_MARKERS: [&str; 3] = [
++    "github.event.pull_request.head",
++    "github.head_ref",
++    "refs/pull/",
++];
++
+ fn has_in_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> bool {
+     memmem::find_iter(bytes, needle).any(|off| !offset_suppressed(off, regions))
+ }
+ 
+-fn count_in_executable(bytes: &[u8], regions: &[(usize, usize)], needle: &[u8]) -> usize {
+-    memmem::find_iter(bytes, needle)
+-        .filter(|&off| !offset_suppressed(off, regions))
+-        .count()
+-}
+-
+ fn detect_no_clippy_gate(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+     if has_in_executable(bytes, regions, CLIPPY) {
+         0
+@@ -78,48 +262,43 @@ fn detect_no_permissions_block(bytes: &[u8], regions: &[(usize, usize)]) -> usiz
+ 
+ /// Mutable-tag uses: `actions/checkout@v4`, `@v1`, `@main`, `@latest`.
+ /// Mutable tags are `@<version>`, `@<word>`. SHA pins are 40 hex chars.
++///
++/// Each `uses:` is judged on ITS OWN line: the `@` and the ref are looked up in the
++/// remainder of that line only. (The search used to run over the rest of the FILE, so
++/// a local `uses: ./action` -- no `@` on its line -- borrowed the next action's ref
++/// and was counted as a second mutable tag.)
+ fn detect_unpinned_action(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+-    let uses_count = count_in_executable(bytes, regions, USES_LINE);
+-    if uses_count == 0 {
+-        return 0;
++    memmem::find_iter(bytes, USES_LINE)
++        .filter(|&off| !offset_suppressed(off, regions))
++        .filter(|&off| {
++            let rest = &bytes[off + USES_LINE.len()..];
++            let line = &rest[..rest.iter().position(|&b| b == b'\n').unwrap_or(rest.len())];
++            let value = line
++                .split(|&b| b == b' ' || b == b'#' || b == b'"' || b == b'\'' || b == b'\r')
++                .find(|part| !part.is_empty())
++                .unwrap_or_default();
++            is_mutable_ref(value)
++        })
++        .count()
++}
++
++/// `value` is a `uses:` target pinned by a mutable ref: it has an `@`, a non-empty
++/// ref, and the ref is not a 40-hex commit SHA. Local (`./x`) and `docker://` targets
++/// have no ref to pin.
++fn is_mutable_ref(value: &[u8]) -> bool {
++    if value.starts_with(b"./") || value.starts_with(b"docker://") {
++        return false;
+     }
+-    let mut count = 0;
+-    for off in memmem::find_iter(bytes, USES_LINE) {
+-        if offset_suppressed(off, regions) {
+-            continue;
+-        }
+-        let after = off + USES_LINE.len();
+-        let rest = &bytes[after..];
+-        // Find `@` after the action name.
+-        if let Some(rel_at) = memmem::find(rest, b"@") {
+-            let after_at = rel_at + 1;
+-            let ref_str = &rest[after_at..];
+-            // SHA pin: 40 hex chars (no terminator needed since `rest` is bounded).
+-            if ref_str.len() >= 40 {
+-                let sha = &ref_str[..40];
+-                if sha.iter().all(|b| b.is_ascii_hexdigit()) {
+-                    continue;
+-                }
+-            }
+-            // Mutable: any non-SHA ref (`@v4`, `@v4.1`, `@main`, `@latest`,
+-            // `@release-v1`).
+-            let end = ref_str
+-                .iter()
+-                .position(|&b| b == b'\n' || b == b' ' || b == b'#' || b == b'"')
+-                .unwrap_or(ref_str.len());
+-            let r = &ref_str[..end];
+-            if r.is_empty() {
+-                continue;
+-            }
+-            // Local path uses: `uses: ./path` -- no `@` separator.
+-            if r.starts_with(b"./") || r.starts_with(b"docker://") {
+-                continue;
+-            }
+-            // Count as mutable.
+-            count += 1;
+-        }
+-    }
+-    count
++    let Some(at) = value.iter().rposition(|&b| b == b'@') else {
++        return false;
++    };
++    let reference = &value[at + 1..];
++    !reference.is_empty() && !is_commit_sha(reference)
++}
++
++/// 40 hex digits (a git commit SHA-1) -- the only immutable action ref.
++fn is_commit_sha(reference: &[u8]) -> bool {
++    reference.len() == 40 && reference.iter().all(u8::is_ascii_hexdigit)
+ }
+ 
+ /// `run:` line that interpolates `${{ github.event.* }}` (untrusted input
+@@ -143,19 +322,57 @@ fn detect_script_injection_risk(bytes: &[u8], regions: &[(usize, usize)]) -> usi
+     count
+ }
+ 
+-fn detect_no_cache(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+-    // `actions/cache` only matters if there's a Rust build/test step.
+-    let has_rust = has_in_executable(bytes, regions, b"cargo build")
+-        || has_in_executable(bytes, regions, CARGO_TEST)
+-        || has_in_executable(bytes, regions, b"cargo check");
+-    if !has_rust {
++/// The job's effective permissions: its own block REPLACES the workflow's.
++fn effective_perms<'a>(wf: &'a Workflow, job: &'a Job) -> Option<&'a Perms> {
++    job.permissions.as_ref().or(wf.permissions.as_ref())
++}
++
++/// The job can mint an OIDC token.
++fn job_has_oidc(wf: &Workflow, job: &Job) -> bool {
++    effective_perms(wf, job).is_some_and(Perms::id_token_write)
++}
++
++/// The job's token can write. A job with no `permissions:` anywhere is write-capable
++/// (the default token), as the `no-permissions-block` finding states.
++fn job_can_write(wf: &Workflow, job: &Job) -> bool {
++    match effective_perms(wf, job) {
++        Some(perms) => perms.any_write(),
++        None => true,
++    }
++}
++
++fn step_runs_cargo(step: &Step) -> bool {
++    [b"cargo build".as_slice(), CARGO_TEST, b"cargo check"]
++        .iter()
++        .any(|cmd| memmem::find(step.text.as_bytes(), cmd).is_some())
++}
++
++/// A Rust build/test with no cache step anywhere (slow CI).
++///
++/// A cache step is any of [`CACHE_NEEDLES`] -- `Swatinem/rust-cache` counts, it used
++/// to be reported as "no `actions/cache`". A job that holds an OIDC token is NOT
++/// asked for a cache: restoring one into it is the poisoning vector
++/// ([`CiRule::OidcWithSharedCache`]), so the absence is the safe state.
++fn detect_no_cache(bytes: &[u8], regions: &[(usize, usize)], workflows: &[Workflow]) -> usize {
++    if CACHE_NEEDLES
++        .iter()
++        .any(|needle| has_in_executable(bytes, regions, needle))
++    {
+         return 0;
+     }
+-    if has_in_executable(bytes, regions, ACTIONS_CACHE) {
+-        0
+-    } else {
+-        1
++    if workflows.iter().all(|wf| wf.jobs.is_empty()) {
++        // A bare step list (a fragment): no jobs to tell OIDC from plain ones.
++        let has_rust = has_in_executable(bytes, regions, b"cargo build")
++            || has_in_executable(bytes, regions, CARGO_TEST)
++            || has_in_executable(bytes, regions, b"cargo check");
++        return usize::from(has_rust);
+     }
++    let needs_cache = workflows.iter().any(|wf| {
++        wf.jobs
++            .iter()
++            .any(|job| !job_has_oidc(wf, job) && job.steps.iter().any(step_runs_cargo))
++    });
++    usize::from(needs_cache)
+ }
+ 
+ fn detect_no_quality_gate(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+@@ -168,56 +385,172 @@ fn detect_no_quality_gate(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+     }
+ }
+ 
++fn action_name(uses: &str) -> String {
++    uses.split('@')
++        .next()
++        .unwrap_or_default()
++        .to_ascii_lowercase()
++}
++
++fn is_checkout(uses: &str) -> bool {
++    action_name(uses) == "actions/checkout"
++}
++
++fn is_cache_action(uses: &str) -> bool {
++    let name = action_name(uses);
++    name == "actions/cache"
++        || name.starts_with("actions/cache/")
++        || name == "swatinem/rust-cache"
++        || name.ends_with("/sccache-action")
++}
++
++/// An action outside the `actions/` and `github/` owners (local and `docker://`
++/// targets are not actions anyone else publishes).
++fn is_third_party(uses: &str) -> bool {
++    if uses.starts_with("./") || uses.starts_with("docker://") {
++        return false;
++    }
++    let name = action_name(uses);
++    let owner = name.split('/').next().unwrap_or_default();
++    !FIRST_PARTY_OWNERS.contains(&owner)
++}
++
++fn pinned_by_sha(uses: &str) -> bool {
++    uses.rsplit_once('@')
++        .is_some_and(|(_, reference)| is_commit_sha(reference.as_bytes()))
++}
++
++fn persist_credentials_disabled(step: &Step) -> bool {
++    step.with
++        .iter()
++        .any(|(k, v)| k == "persist-credentials" && v.eq_ignore_ascii_case("false"))
++}
++
++fn checks_out_pr_head(step: &Step) -> bool {
++    step.with
++        .iter()
++        .any(|(_, v)| PR_HEAD_MARKERS.iter().any(|marker| v.contains(marker)))
++}
++
++/// The rules that fire on one step of a job.
++fn step_rules(wf: &Workflow, job: &Job, step: &Step, uses: &str) -> Vec<CiRule> {
++    let mut rules = Vec::new();
++    if job_has_oidc(wf, job) && is_cache_action(uses) {
++        rules.push(CiRule::OidcWithSharedCache);
++    }
++    if is_checkout(uses) {
++        if wf.pull_request_target && checks_out_pr_head(step) {
++            rules.push(CiRule::PwnRequestCheckout);
++        }
++        if job_can_write(wf, job) && !persist_credentials_disabled(step) {
++            rules.push(CiRule::CheckoutPersistsCredentials);
++        }
++    }
++    if job_can_write(wf, job) && is_third_party(uses) && !pinned_by_sha(uses) {
++        rules.push(CiRule::MutableThirdPartyWithWrite);
++    }
++    rules
++}
++
++/// The structural supply-chain findings of every workflow in the text.
++fn structural_findings(workflows: &[Workflow]) -> Vec<CiFinding> {
++    let mut out = Vec::new();
++    for wf in workflows {
++        if let Some(perms) = wf.permissions.as_ref().filter(|p| p.id_token_write()) {
++            out.push(CiFinding {
++                rule: CiRule::OidcWorkflowScope,
++                job: None,
++                line: perms.line,
++            });
++        }
++        for job in &wf.jobs {
++            for step in &job.steps {
++                let Some(uses) = step.uses.as_deref() else {
++                    continue;
++                };
++                for rule in step_rules(wf, job, step, uses) {
++                    out.push(CiFinding {
++                        rule,
++                        job: Some(job.id.clone()),
++                        line: step.line,
++                    });
++                }
++            }
++        }
++    }
++    out
++}
++
+ /// Analyze CI/CD-pipeline smells in `source` (a YAML workflow file). The lang parameter is ignored -- this engine is YAML-only.
+ pub fn analyze_cicd(source: &str, _lang: &str) -> CicdReport {
+     let bytes = source.as_bytes();
+-    let regions = non_executable_regions(source, "rust");
+-    let mut report = CicdReport {
++    let regions = yaml_comment_regions(source);
++    let workflows = parse_workflows(source);
++    let structural = structural_findings(&workflows);
++    let mut smells = SmellReport {
+         total_lines: source.lines().count().max(1),
+         ..Default::default()
+     };
+-    report.push(
++    // Structural findings first, most severe first: they are why the score is capped,
++    // so they are what the evidence ("top: ...") must name.
++    let mut ranked: Vec<&'static str> = Vec::new();
++    for rule in RULES {
++        let count = structural.iter().filter(|f| f.rule == rule).count();
++        smells.push(rule.message(), count, rule.weight());
++        if count > 0 {
++            ranked.push(rule.message());
++        }
++    }
++    smells.push(
+         "no cargo clippy in workflow (no lint gate -- warnings can ship)",
+         detect_no_clippy_gate(bytes, &regions),
+         0.9,
+     );
+-    report.push(
++    smells.push(
+         "no cargo test in workflow (no test gate -- broken tests can ship)",
+         detect_no_test_gate(bytes, &regions),
+         1.0,
+     );
+-    report.push(
++    smells.push(
+         "no `permissions:` block (default GITHUB_TOKEN is write -- least-privilege required)",
+         detect_no_permissions_block(bytes, &regions),
+         0.7,
+     );
+-    report.push(
++    smells.push(
+         "action pinned by mutable tag (use SHA for supply-chain safety -- e.g. `actions/checkout@<40-hex-sha>`)",
+         detect_unpinned_action(bytes, &regions),
+         0.8,
+     );
+-    report.push(
++    smells.push(
+         "run: block interpolates `${{ github.event.* }}` (script injection vector -- pass via env var)",
+         detect_script_injection_risk(bytes, &regions),
+         0.9,
+     );
+-    report.push(
+-        "no `actions/cache` for cargo build/test (slow CI -- cache ~/.cargo and target/)",
+-        detect_no_cache(bytes, &regions),
++    smells.push(
++        "no cache step (`actions/cache` / `Swatinem/rust-cache`) for cargo build/test (slow CI -- cache ~/.cargo and target/)",
++        detect_no_cache(bytes, &regions, &workflows),
+         0.5,
+     );
+-    report.push(
++    smells.push(
+         "no quality gate (no `elite_aggregate.py --check` or `touring-quality` invocation)",
+         detect_no_quality_gate(bytes, &regions),
+         0.7,
+     );
+-    report.findings.sort_by_key(|f| std::cmp::Reverse(f.1));
+-    report
++    smells.findings.sort_by_key(|f| {
++        (
++            ranked.iter().position(|m| *m == f.0).unwrap_or(usize::MAX),
++            Reverse(f.1),
++        )
++    });
++    CicdReport { smells, structural }
+ }
+ 
+-/// Score a [`CicdReport`] as `1 - density·SCALE`, clamped to `[0, 1]`.
++/// Score a [`CicdReport`]: `1 - density·SCALE` clamped to `[0, 1]`, then capped by
++/// the structural findings' ceiling ([`CicdReport::score_ceiling`]) -- a
++/// supply-chain hole is not diluted by the length of the file around it.
+ pub fn score_cicd(report: &CicdReport) -> f32 {
+     super::score_utils::density_score(report.weighted_total, report.total_lines, SCALE)
++        .min(report.score_ceiling())
+ }
+ 
+ #[cfg(test)]
+@@ -465,4 +798,513 @@ jobs:
+         let s = score_cicd(&r);
+         assert!(s > 0.0, "short untuned workflow must not score 0.0: {s}");
+     }
++
++    // ---- supply-chain rules (F4.7 calibration, 17/10/2026) -----------------------
++    //
++    // These tests read the report through `findings` + `score_cicd` only (the API the
++    // detector had before the structural rules), so the same file can be run against
++    // the original detector and shown red.
++
++    const GATES: &str = "      - run: cargo test\n      - run: cargo clippy -- -D warnings\n      - run: python3 docs/elite_aggregate.py --check\n";
++    const CHECKOUT: &str = "      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332\n        with:\n          persist-credentials: false\n";
++    const SHA: &str = "692973e3d937129bcbf40652eb9f2f61becf3332";
++
++    /// A one-job workflow. `on` is the indented body of `on:`; `top`/`job` are
++    /// `permissions:` blocks already indented for their level (or empty).
++    fn workflow(on: &str, top: &str, job: &str, steps: &str) -> String {
++        format!(
++            "name: CI\non:\n{on}\n{top}jobs:\n  build:\n    runs-on: ubuntu-latest\n{job}    steps:\n{steps}{GATES}"
++        )
++    }
++
++    fn has(r: &CicdReport, needle: &str) -> bool {
++        r.findings.iter().any(|(m, _)| m.contains(needle))
++    }
++
++    fn count_of(r: &CicdReport, needle: &str) -> usize {
++        r.findings
++            .iter()
++            .filter(|(m, _)| m.contains(needle))
++            .map(|(_, c)| *c)
++            .sum()
++    }
++
++    /// The same text with `n` comment lines of padding -- file length is irrelevant
++    /// to a supply-chain hole, and must stay so to the score.
++    fn padded(src: &str, n: usize) -> String {
++        format!("{}{src}", "# padding\n".repeat(n))
++    }
++
++    const READ_ONLY: &str = "permissions:\n  contents: read\n";
++    const OIDC_TOP: &str = "permissions:\n  contents: read\n  id-token: write\n";
++    const OIDC_JOB: &str = "    permissions:\n      id-token: write\n";
++    const RUST_CACHE: &str =
++        "      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32\n";
++
++    #[test]
++    fn rule_a_oidc_at_workflow_scope_is_high_and_capped() {
++        let r = rep(&workflow("  push:", OIDC_TOP, "", CHECKOUT));
++        assert!(has(&r, "workflow-level `permissions`"), "{:?}", r.findings);
++        assert!(
++            score_cicd(&r) <= 0.70,
++            "high ceiling, got {}",
++            score_cicd(&r)
++        );
++        // ...and the length of the file around it does not lift the ceiling.
++        let long = rep(&padded(&workflow("  push:", OIDC_TOP, "", CHECKOUT), 800));
++        assert!(
++            score_cicd(&long) <= 0.70,
++            "diluted to {}",
++            score_cicd(&long)
++        );
++    }
++
++    #[test]
++    fn rule_a_negative_oidc_scoped_to_one_job_is_not_workflow_scope() {
++        let r = rep(&workflow("  push:", READ_ONLY, OIDC_JOB, CHECKOUT));
++        assert!(!has(&r, "workflow-level `permissions`"), "{:?}", r.findings);
++        let flow = rep(&workflow(
++            "  push:",
++            "permissions: { contents: read }\n",
++            "",
++            CHECKOUT,
++        ));
++        assert!(
++            !has(&flow, "workflow-level `permissions`"),
++            "{:?}",
++            flow.findings
++        );
++    }
++
++    #[test]
++    fn rule_a_write_all_and_flow_style_count_as_oidc() {
++        let all = rep(&workflow(
++            "  push:",
++            "permissions: write-all\n",
++            "",
++            CHECKOUT,
++        ));
++        assert!(
++            has(&all, "workflow-level `permissions`"),
++            "{:?}",
++            all.findings
++        );
++        let flow = rep(&workflow(
++            "  push:",
++            "permissions: { contents: read, id-token: write }\n",
++            "",
++            CHECKOUT,
++        ));
++        assert!(
++            has(&flow, "workflow-level `permissions`"),
++            "{:?}",
++            flow.findings
++        );
++    }
++
++    #[test]
++    fn rule_a_b_negative_a_write_scope_other_than_id_token_is_not_oidc() {
++        let top = "permissions:\n  contents: write\n  packages: write\n";
++        let r = rep(&workflow("  push:", top, "", CHECKOUT));
++        assert!(!has(&r, "workflow-level `permissions`"), "{:?}", r.findings);
++        // ...so a cache in a job that merely writes contents is just a cache.
++        let steps = format!("{CHECKOUT}{RUST_CACHE}");
++        let write_job = "    permissions:\n      contents: write\n";
++        let c = rep(&workflow("  push:", READ_ONLY, write_job, &steps));
++        assert!(!has(&c, "restores a shared cache"), "{:?}", c.findings);
++    }
++
++    #[test]
++    fn rule_b_job_with_oidc_and_cache_is_high_for_every_cache_action() {
++        for cache in [
++            "      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32\n",
++            "      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57\n",
++            "      - uses: actions/cache/restore@1bd1e32a3bdc45362d1e726936510720a7c30a57\n",
++            "      - uses: mozilla-actions/sccache-action@7d986dd989559c6ecdb630a3fd2557667be217ad\n",
++        ] {
++            let steps = format!("{CHECKOUT}{cache}");
++            let r = rep(&workflow("  push:", READ_ONLY, OIDC_JOB, &steps));
++            assert!(
++                has(&r, "restores a shared cache"),
++                "{cache}: {:?}",
++                r.findings
++            );
++            assert!(score_cicd(&r) <= 0.70, "{cache}: {}", score_cicd(&r));
++        }
++    }
++
++    #[test]
++    fn rule_b_oidc_inherited_from_the_workflow_counts() {
++        let steps = format!("{CHECKOUT}{RUST_CACHE}");
++        let r = rep(&workflow("  push:", OIDC_TOP, "", &steps));
++        assert!(has(&r, "restores a shared cache"), "{:?}", r.findings);
++    }
++
++    #[test]
++    fn rule_b_negatives_override_no_oidc_and_no_cache() {
++        let steps = format!("{CHECKOUT}{RUST_CACHE}");
++        // The job's own `permissions:` REPLACES the workflow's: no id-token left.
++        let overridden = rep(&workflow(
++            "  push:",
++            OIDC_TOP,
++            "    permissions:\n      contents: read\n",
++            &steps,
++        ));
++        assert!(
++            !has(&overridden, "restores a shared cache"),
++            "{:?}",
++            overridden.findings
++        );
++        // A cache without a token is just a cache.
++        let plain = rep(&workflow("  push:", READ_ONLY, "", &steps));
++        assert!(
++            !has(&plain, "restores a shared cache"),
++            "{:?}",
++            plain.findings
++        );
++        // A token without a cache is rule (a)/(none), not (b).
++        let no_cache = rep(&workflow("  push:", READ_ONLY, OIDC_JOB, CHECKOUT));
++        assert!(
++            !has(&no_cache, "restores a shared cache"),
++            "{:?}",
++            no_cache.findings
++        );
++    }
++
++    #[test]
++    fn rule_c_pull_request_target_with_head_checkout_is_critical() {
++        for head in [
++            "${{ github.event.pull_request.head.sha }}",
++            "${{ github.head_ref }}",
++            "refs/pull/${{ github.event.number }}/merge",
++        ] {
++            let steps = format!(
++                "      - uses: actions/checkout@{SHA}\n        with:\n          ref: {head}\n          persist-credentials: false\n"
++            );
++            let r = rep(&workflow("  pull_request_target:", READ_ONLY, "", &steps));
++            assert!(
++                has(&r, "`pull_request_target` checks out"),
++                "{head}: {:?}",
++                r.findings
++            );
++            assert!(
++                score_cicd(&r) <= 0.40,
++                "{head}: critical ceiling, got {}",
++                score_cicd(&r)
++            );
++            assert!(
++                r.findings[0].0.contains("pull_request_target"),
++                "the cause of the cap leads the evidence: {:?}",
++                r.findings
++            );
++        }
++        let long = rep(&padded(
++            &workflow(
++                "  pull_request_target:",
++                READ_ONLY,
++                "",
++                &format!(
++                    "      - uses: actions/checkout@{SHA}\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n"
++                ),
++            ),
++            800,
++        ));
++        assert!(
++            score_cicd(&long) <= 0.40,
++            "diluted to {}",
++            score_cicd(&long)
++        );
++    }
++
++    #[test]
++    fn structural_findings_lead_the_evidence_even_when_a_smell_is_more_frequent() {
++        // Three mutable tags outnumber the one pwn request; the evidence ("top: ...")
++        // must still name the finding that capped the score.
++        let steps = format!(
++            "      - uses: actions/checkout@{SHA}\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n      - uses: a/b@v1\n      - uses: c/d@v1\n      - uses: e/f@v1\n"
++        );
++        let r = rep(&workflow("  pull_request_target:", READ_ONLY, "", &steps));
++        assert_eq!(count_of(&r, "mutable tag"), 3, "{:?}", r.findings);
++        assert!(
++            r.findings[0].0.contains("pull_request_target"),
++            "{:?}",
++            r.findings
++        );
++    }
++
++    #[test]
++    fn primary_is_the_most_severe_finding_not_the_first_in_file_order() {
++        // job `a` comes first and only persists credentials (medium); job `b` checks
++        // out the pull request head (critical). The evidence must point at `b`.
++        let src = format!(
++            "name: CI\non:\n  pull_request_target:\npermissions:\n  contents: write\njobs:\n  a:\n    steps:\n      - uses: actions/checkout@{SHA}\n  b:\n    steps:\n      - uses: actions/checkout@{SHA}\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n{GATES}"
++        );
++        let r = rep(&src);
++        let first = r.structural.first().expect("a finding");
++        assert_eq!(
++            first.rule,
++            CiRule::CheckoutPersistsCredentials,
++            "premise: file order"
++        );
++        let primary = r.primary().expect("a primary finding");
++        assert_eq!(primary.rule, CiRule::PwnRequestCheckout);
++        assert_eq!(primary.job.as_deref(), Some("b"));
++        assert_eq!(primary.line, 12, "the checkout step of job b");
++        assert!(rep("- run: cargo test\n").primary().is_none());
++    }
++
++    #[test]
++    fn rule_c_negatives_base_checkout_and_plain_pull_request() {
++        // pull_request_target checking out the BASE (no `ref`) is the safe form.
++        let base = rep(&workflow("  pull_request_target:", READ_ONLY, "", CHECKOUT));
++        assert!(
++            !has(&base, "`pull_request_target` checks out"),
++            "{:?}",
++            base.findings
++        );
++        // `pull_request` runs the head WITHOUT secrets: not a pwn request.
++        let steps = format!(
++            "      - uses: actions/checkout@{SHA}\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n"
++        );
++        let plain = rep(&workflow("  pull_request:", READ_ONLY, "", &steps));
++        assert!(
++            !has(&plain, "`pull_request_target` checks out"),
++            "{:?}",
++            plain.findings
++        );
++        // The trigger is read from `on:`, not from any other mention.
++        let named = rep(&format!(
++            "name: pull_request_target docs\n{}",
++            workflow("  push:", READ_ONLY, "", &steps)
++        ));
++        assert!(
++            !has(&named, "`pull_request_target` checks out"),
++            "{:?}",
++            named.findings
++        );
++    }
++
++    #[test]
++    fn rule_d_checkout_without_persist_credentials_in_a_write_job_is_medium() {
++        let steps = format!("      - uses: actions/checkout@{SHA}\n");
++        let write_job = "    permissions:\n      contents: write\n";
++        let r = rep(&workflow("  push:", READ_ONLY, write_job, &steps));
++        assert!(has(&r, "persist-credentials"), "{:?}", r.findings);
++        assert!(
++            score_cicd(&r) <= 0.90,
++            "medium ceiling, got {}",
++            score_cicd(&r)
++        );
++        // No `permissions:` at all is the write-capable default token.
++        let implicit = rep(&workflow("  push:", "", "", &steps));
++        assert!(
++            has(&implicit, "persist-credentials"),
++            "{:?}",
++            implicit.findings
++        );
++    }
++
++    #[test]
++    fn rule_d_negatives_disabled_read_only_and_other_actions() {
++        let write_job = "    permissions:\n      contents: write\n";
++        for flag in ["false", "'false'", "\"false\"", "False"] {
++            let steps = format!(
++                "      - uses: actions/checkout@{SHA}\n        with:\n          persist-credentials: {flag}\n"
++            );
++            let r = rep(&workflow("  push:", READ_ONLY, write_job, &steps));
++            assert!(!has(&r, "persist-credentials"), "{flag}: {:?}", r.findings);
++        }
++        let steps = format!("      - uses: actions/checkout@{SHA}\n");
++        let read_only = rep(&workflow("  push:", READ_ONLY, "", &steps));
++        assert!(
++            !has(&read_only, "persist-credentials"),
++            "{:?}",
++            read_only.findings
++        );
++        let true_flag = rep(&workflow(
++            "  push:",
++            READ_ONLY,
++            write_job,
++            &format!(
++                "      - uses: actions/checkout@{SHA}\n        with:\n          persist-credentials: true\n"
++            ),
++        ));
++        assert!(
++            has(&true_flag, "persist-credentials"),
++            "{:?}",
++            true_flag.findings
++        );
++        let other = rep(&workflow(
++            "  push:",
++            READ_ONLY,
++            write_job,
++            &format!("      - uses: actions/setup-node@{SHA}\n"),
++        ));
++        assert!(!has(&other, "persist-credentials"), "{:?}", other.findings);
++    }
++
++    #[test]
++    fn rule_e_no_cache_is_not_asked_of_a_job_holding_an_oidc_token() {
++        let steps = format!("{CHECKOUT}      - run: cargo build\n");
++        let oidc = rep(&workflow("  push:", READ_ONLY, OIDC_JOB, &steps));
++        assert!(!has(&oidc, "for cargo build/test"), "{:?}", oidc.findings);
++        let inherited = rep(&workflow("  push:", OIDC_TOP, "", &steps));
++        assert!(
++            !has(&inherited, "for cargo build/test"),
++            "{:?}",
++            inherited.findings
++        );
++        // Same job without the token: the cache is wanted.
++        let plain = rep(&workflow("  push:", READ_ONLY, "", &steps));
++        assert!(has(&plain, "for cargo build/test"), "{:?}", plain.findings);
++        assert!(
++            has(&plain, "actions/cache"),
++            "the message still names actions/cache"
++        );
++    }
++
++    #[test]
++    fn rule_e_rust_cache_counts_as_a_cache() {
++        let steps = format!("{CHECKOUT}{RUST_CACHE}      - run: cargo build\n");
++        let r = rep(&workflow("  push:", READ_ONLY, "", &steps));
++        assert!(!has(&r, "for cargo build/test"), "{:?}", r.findings);
++    }
++
++    #[test]
++    fn rule_f_mutable_third_party_action_with_write_cannot_read_diamond() {
++        let steps = format!("{CHECKOUT}      - uses: dtolnay/rust-toolchain@stable\n");
++        let write_job = "    permissions:\n      contents: write\n";
++        let r = rep(&workflow("  push:", READ_ONLY, write_job, &steps));
++        assert!(has(&r, "third-party action pinned"), "{:?}", r.findings);
++        assert!(
++            score_cicd(&r) < 0.95,
++            "Diamond is off the table, got {}",
++            score_cicd(&r)
++        );
++        // 561 lines of clean text around it change nothing (the dilution that gave
++        // `ci.yml` 0.97 for the same ref).
++        let long = rep(&padded(
++            &workflow("  push:", READ_ONLY, write_job, &steps),
++            800,
++        ));
++        assert!(score_cicd(&long) < 0.95, "diluted to {}", score_cicd(&long));
++    }
++
++    #[test]
++    fn rule_f_negatives_read_only_sha_pinned_and_first_party() {
++        let write_job = "    permissions:\n      contents: write\n";
++        let mutable = format!("{CHECKOUT}      - uses: dtolnay/rust-toolchain@stable\n");
++        let read_only = rep(&workflow("  push:", READ_ONLY, "", &mutable));
++        assert!(
++            !has(&read_only, "third-party action pinned"),
++            "{:?}",
++            read_only.findings
++        );
++        let pinned = format!("{CHECKOUT}      - uses: dtolnay/rust-toolchain@{SHA}\n");
++        let sha = rep(&workflow("  push:", READ_ONLY, write_job, &pinned));
++        assert!(
++            !has(&sha, "third-party action pinned"),
++            "{:?}",
++            sha.findings
++        );
++        let first = format!(
++            "{CHECKOUT}      - uses: actions/setup-node@v4\n      - uses: github/codeql-action/init@v3\n"
++        );
++        let fp = rep(&workflow("  push:", READ_ONLY, write_job, &first));
++        assert!(!has(&fp, "third-party action pinned"), "{:?}", fp.findings);
++        // A local action has no publisher to trust or distrust.
++        let local = format!("{CHECKOUT}      - uses: ./.github/actions/setup\n");
++        let l = rep(&workflow("  push:", READ_ONLY, write_job, &local));
++        assert!(!has(&l, "third-party action pinned"), "{:?}", l.findings);
++    }
++
++    #[test]
++    fn a_clean_hardened_workflow_keeps_its_score() {
++        let steps = format!("{CHECKOUT}      - uses: dtolnay/rust-toolchain@{SHA}\n{RUST_CACHE}");
++        let r = rep(&workflow("  push:", READ_ONLY, "", &steps));
++        assert!(r.structural.is_empty(), "{:?}", r.structural);
++        assert!(
++            score_cicd(&r) >= 0.95,
++            "{} {:?}",
++            score_cicd(&r),
++            r.findings
++        );
++    }
++
++    #[test]
++    fn local_action_does_not_borrow_the_next_actions_ref() {
++        // `uses: ./local` has no `@` on its line; it used to find the NEXT line's.
++        let r = rep("- uses: ./.github/actions/setup\n- uses: x/y@v1\n");
++        assert_eq!(count_of(&r, "mutable tag"), 1, "{:?}", r.findings);
++    }
++
++    #[test]
++    fn a_shell_glob_in_an_earlier_step_does_not_hide_later_lines() {
++        // The detectors masked the file with the RUST lexer, where `/*` opens a block
++        // comment: `client/omarchy/hooks/*/*` in one `run:` swallowed the rest of
++        // `ci.yml` -- 7 mutable `uses:` read as 3, and every gate below it unseen.
++        let src = "- run: ls client/omarchy/hooks/*/*\n- uses: foo/bar@v1\n- uses: baz/qux@v2\n- run: cargo clippy -- -D warnings\n";
++        let r = rep(src);
++        assert_eq!(count_of(&r, "mutable tag"), 2, "{:?}", r.findings);
++        assert!(
++            !has(&r, "no cargo clippy"),
++            "the clippy gate after the glob is seen: {:?}",
++            r.findings
++        );
++    }
++
++    #[test]
++    fn a_commented_out_uses_is_not_a_finding() {
++        let r = rep(
++            "# - uses: foo/bar@v1\n- uses: ok/ok@692973e3d937129bcbf40652eb9f2f61becf3332 # was @v1\n",
++        );
++        assert_eq!(count_of(&r, "mutable tag"), 0, "{:?}", r.findings);
++    }
++
++    #[test]
++    fn structural_findings_carry_the_job_and_the_line() {
++        let r = rep(&workflow("  push:", OIDC_TOP, "", ""));
++        let f = r
++            .structural
++            .iter()
++            .find(|f| f.rule == CiRule::OidcWorkflowScope)
++            .expect("rule a fires");
++        assert_eq!(f.job, None);
++        assert_eq!(f.line, 4, "the `permissions:` key");
++        let steps = format!("{CHECKOUT}{RUST_CACHE}");
++        let c = rep(&workflow("  push:", READ_ONLY, OIDC_JOB, &steps));
++        let f = c
++            .structural
++            .iter()
++            .find(|f| f.rule == CiRule::OidcWithSharedCache)
++            .expect("rule b fires");
++        assert_eq!(f.job.as_deref(), Some("build"));
++        assert_eq!(c.score_ceiling(), CiSeverity::High.score_ceiling());
++    }
++
++    #[test]
++    fn severity_ceilings_are_ordered() {
++        assert!(CiSeverity::Critical.score_ceiling() < CiSeverity::High.score_ceiling());
++        assert!(CiSeverity::High.score_ceiling() < CiSeverity::Medium.score_ceiling());
++        assert!(
++            CiSeverity::Medium.score_ceiling() < 0.95,
++            "no finding reads Diamond"
++        );
++        assert!(
++            CiSeverity::Critical.score_ceiling() < 0.5,
++            "critical is a FAIL"
++        );
++        assert!(CiSeverity::High.score_ceiling() < 0.8, "high is a WARN");
++    }
++
++    #[test]
++    fn concatenated_workflows_do_not_share_permissions() {
++        // The directory reader joins every workflow with `\n`: the OIDC grant of the
++        // first file must not leak into the cache job of the second.
++        let a = workflow("  push:", OIDC_TOP, "", CHECKOUT);
++        let b = workflow("  push:", READ_ONLY, "", &format!("{CHECKOUT}{RUST_CACHE}"));
++        let r = rep(&format!("{a}\n{b}"));
++        assert!(has(&r, "workflow-level `permissions`"), "{:?}", r.findings);
++        assert!(!has(&r, "restores a shared cache"), "{:?}", r.findings);
++    }
+ }
+diff --git i/crates/touring-analysis/src/quality/cicd/structure.rs w/crates/touring-analysis/src/quality/cicd/structure.rs
+new file mode 100644
+index 00000000..60e661da
+--- /dev/null
++++ w/crates/touring-analysis/src/quality/cicd/structure.rs
+@@ -0,0 +1,535 @@
++//! Line-oriented structure of GitHub Actions workflow text (F4.7).
++//!
++//! The substring detectors in the parent module answer "does the file mention X";
++//! the supply-chain rules need "does THIS job, with THESE permissions, do X". That
++//! needs the job/step shape, but not a full YAML parser: the directory-mode reader
++//! (`read_artifact_source`) hands F4.7 several workflow files concatenated into one
++//! text, which no single-document parser accepts, and fragments (a bare `- uses:`
++//! list) must keep scoring. So this module reads the indentation:
++//!
++//! * [`yaml_comment_regions`] — the byte spans of YAML comments, the only
++//!   non-executable text in a workflow. (The detectors used to mask the file with the
++//!   *Rust* lexer, whose string and char-literal rules swallow real `uses:` lines:
++//!   7 mutable `dtolnay/rust-toolchain` refs in the repository's `ci.yml` were read
++//!   as 3.)
++//! * [`parse_workflows`] — `permissions`, the `pull_request_target` trigger and the
++//!   jobs with their steps, one [`Workflow`] per document of the concatenation.
++//!
++//! Known limits, by design: block-style YAML only (a flow-style job body is skipped),
++//! and a document boundary is a top-level `name:`/`on:`/`run-name:` key after a
++//! `jobs:` key. Both fail toward "no structural finding", never toward a false one.
++
++/// One meaningful line: comments stripped, blank lines dropped.
++#[derive(Debug, Clone)]
++pub(super) struct Ln {
++    /// 1-based line number in the source.
++    pub(super) no: usize,
++    /// Leading spaces.
++    pub(super) indent: usize,
++    /// Trimmed text, comment removed.
++    pub(super) text: String,
++}
++
++/// The `permissions:` of a workflow or of a job.
++#[derive(Debug, Clone, Default)]
++pub(super) struct Perms {
++    /// `permissions: write-all`.
++    write_all: bool,
++    /// `(scope, level)` pairs, lowercase (`("id-token", "write")`).
++    entries: Vec<(String, String)>,
++    /// 1-based line of the `permissions:` key.
++    pub(super) line: usize,
++}
++
++impl Perms {
++    /// The token can mint an OIDC identity (`id-token: write` or `write-all`).
++    pub(super) fn id_token_write(&self) -> bool {
++        self.write_all
++            || self
++                .entries
++                .iter()
++                .any(|(scope, level)| scope == "id-token" && level == "write")
++    }
++
++    /// Any scope is writable.
++    pub(super) fn any_write(&self) -> bool {
++        self.write_all || self.entries.iter().any(|(_, level)| level == "write")
++    }
++}
++
++/// One `- uses:` / `- run:` step.
++#[derive(Debug, Clone, Default)]
++pub(super) struct Step {
++    /// 1-based line of the step's dash.
++    pub(super) line: usize,
++    /// The `uses:` value (`actions/checkout@v4`).
++    pub(super) uses: Option<String>,
++    /// The `with:` mapping, flat.
++    pub(super) with: Vec<(String, String)>,
++    /// Every cleaned line of the step, joined — what a `run:` block executes.
++    pub(super) text: String,
++}
++
++/// One job under `jobs:`.
++#[derive(Debug, Clone, Default)]
++pub(super) struct Job {
++    /// The job key.
++    pub(super) id: String,
++    /// The job's own `permissions:` (it REPLACES the workflow's, it does not merge).
++    pub(super) permissions: Option<Perms>,
++    /// The steps, in order.
++    pub(super) steps: Vec<Step>,
++}
++
++/// One workflow document.
++#[derive(Debug, Clone, Default)]
++pub(super) struct Workflow {
++    /// Top-level `permissions:` — inherited by every job without its own.
++    pub(super) permissions: Option<Perms>,
++    /// `on:` lists `pull_request_target`.
++    pub(super) pull_request_target: bool,
++    /// The jobs.
++    pub(super) jobs: Vec<Job>,
++}
++
++/// A quote only protects a `#` when it OPENS a scalar: after `:`, `-`, `,`, `[`,
++/// `{` or at the start of the line.
++fn opens_scalar(prev_sig: Option<u8>) -> bool {
++    matches!(prev_sig, None | Some(b':' | b'-' | b',' | b'[' | b'{'))
++}
++
++/// Offset just past the quoted scalar that opens at `b[open_at]`, or `None` when it
++/// never closes (the rest of the line is then inside it).
++fn skip_quoted(b: &[u8], open_at: usize) -> Option<usize> {
++    let quote = b[open_at];
++    let mut i = open_at + 1;
++    while i < b.len() {
++        match b[i] {
++            b'\\' if quote == b'"' => i += 2,
++            ch if ch == quote && quote == b'\'' && b.get(i + 1) == Some(&b'\'') => i += 2,
++            ch if ch == quote => return Some(i + 1),
++            _ => i += 1,
++        }
++    }
++    None
++}
++
++/// Byte offset where the YAML comment of `line` starts, if it has one.
++///
++/// A comment is a `#` at the start of the line or after whitespace. A quote only
++/// protects a `#` when it OPENS a scalar ([`opens_scalar`]) -- a plain scalar such
++/// as `echo "it's # x"` ends at ` #`, apostrophe or not.
++fn comment_start(line: &str) -> Option<usize> {
++    let b = line.as_bytes();
++    let mut prev_sig: Option<u8> = None;
++    let mut i = 0;
++    while i < b.len() {
++        let c = b[i];
++        if matches!(c, b'"' | b'\'') && opens_scalar(prev_sig) {
++            let next = skip_quoted(b, i)?;
++            prev_sig = Some(c);
++            i = next;
++            continue;
++        }
++        if c == b'#' && (i == 0 || b[i - 1].is_ascii_whitespace()) {
++            return Some(i);
++        }
++        if !c.is_ascii_whitespace() {
++            prev_sig = Some(c);
++        }
++        i += 1;
++    }
++    None
++}
++
++/// Byte spans (`start..end`, sorted, disjoint) of the YAML comments in `source`.
++pub(super) fn yaml_comment_regions(source: &str) -> Vec<(usize, usize)> {
++    let mut regions = Vec::new();
++    let mut offset = 0;
++    for raw in source.split_inclusive('\n') {
++        let line = raw.trim_end_matches(['\n', '\r']);
++        if let Some(at) = comment_start(line) {
++            regions.push((offset + at, offset + line.len()));
++        }
++        offset += raw.len();
++    }
++    regions
++}
++
++/// The meaningful lines of `source`.
++fn clean_lines(source: &str) -> Vec<Ln> {
++    source
++        .lines()
++        .enumerate()
++        .filter_map(|(idx, raw)| {
++            let code = match comment_start(raw) {
++                Some(at) => &raw[..at],
++                None => raw,
++            };
++            let text = code.trim();
++            if text.is_empty() {
++                return None;
++            }
++            Some(Ln {
++                no: idx + 1,
++                indent: code.len() - code.trim_start().len(),
++                text: text.to_string(),
++            })
++        })
++        .collect()
++}
++
++fn unquote(s: &str) -> String {
++    let s = s.trim();
++    for q in ['"', '\''] {
++        if s.len() >= 2 && s.starts_with(q) && s.ends_with(q) {
++            return s[1..s.len() - 1].to_string();
++        }
++    }
++    s.to_string()
++}
++
++/// `key: value` split at the first colon that ends the key (`:` then space/end).
++fn split_kv(text: &str) -> Option<(String, String)> {
++    let b = text.as_bytes();
++    let at = (0..b.len())
++        .find(|&i| b[i] == b':' && b.get(i + 1).is_none_or(|next| next.is_ascii_whitespace()))?;
++    let key = unquote(&text[..at]);
++    if key.is_empty() {
++        return None;
++    }
++    Some((key, unquote(&text[at + 1..])))
++}
++
++fn is_dash(text: &str) -> bool {
++    text == "-" || text.starts_with("- ")
++}
++
++/// Index one past the last line that belongs to the block opened at `lines[i]`:
++/// the deeper lines, plus a sequence written at the key's own indent
++/// (`steps:` followed by `- uses:` at the same column — valid YAML).
++fn block_end(lines: &[Ln], i: usize) -> usize {
++    let indent = lines[i].indent;
++    let mut j = i + 1;
++    while j < lines.len()
++        && (lines[j].indent > indent || (lines[j].indent == indent && is_dash(&lines[j].text)))
++    {
++        j += 1;
++    }
++    j
++}
++
++fn parse_perms(block: &[Ln], inline: &str) -> Perms {
++    let mut perms = Perms {
++        line: block.first().map_or(0, |l| l.no),
++        ..Perms::default()
++    };
++    let value = inline.trim();
++    let mut add = |pair: Option<(String, String)>| {
++        if let Some((scope, level)) = pair {
++            perms
++                .entries
++                .push((scope.to_ascii_lowercase(), level.to_ascii_lowercase()));
++        }
++    };
++    if value.is_empty() {
++        for child in block.iter().skip(1) {
++            add(split_kv(&child.text));
++        }
++    } else if value.starts_with('{') {
++        for part in value.trim_matches(['{', '}']).split(',') {
++            add(split_kv(part.trim()));
++        }
++    } else {
++        perms.write_all = value.eq_ignore_ascii_case("write-all");
++    }
++    perms
++}
++
++fn parse_map(lines: &[Ln]) -> Vec<(String, String)> {
++    let Some(first) = lines.first() else {
++        return Vec::new();
++    };
++    lines
++        .iter()
++        .filter(|l| l.indent == first.indent)
++        .filter_map(|l| split_kv(&l.text))
++        .collect()
++}
++
++fn parse_step(item: &[Ln]) -> Step {
++    let first = &item[0];
++    let rest = first.text.trim_start_matches('-').trim_start();
++    let mut lines: Vec<Ln> = Vec::with_capacity(item.len());
++    if !rest.is_empty() {
++        lines.push(Ln {
++            no: first.no,
++            indent: first.indent + (first.text.len() - rest.len()),
++            text: rest.to_string(),
++        });
++    }
++    lines.extend(item.iter().skip(1).cloned());
++    let mut step = Step {
++        line: first.no,
++        text: lines
++            .iter()
++            .map(|l| l.text.as_str())
++            .collect::<Vec<_>>()
++            .join("\n"),
++        ..Step::default()
++    };
++    let Some(key_indent) = lines.first().map(|l| l.indent) else {
++        return step;
++    };
++    let mut k = 0;
++    while k < lines.len() {
++        if lines[k].indent != key_indent {
++            k += 1;
++            continue;
++        }
++        let end = block_end(&lines, k);
++        if let Some((key, value)) = split_kv(&lines[k].text) {
++            match key.as_str() {
++                "uses" => step.uses = Some(value),
++                "with" => step.with = parse_map(&lines[k + 1..end]),
++                _ => {}
++            }
++        }
++        k = end;
++    }
++    step
++}
++
++fn parse_steps(lines: &[Ln]) -> Vec<Step> {
++    let Some(first) = lines.first() else {
++        return Vec::new();
++    };
++    let item_indent = first.indent;
++    let mut steps = Vec::new();
++    let mut i = 0;
++    while i < lines.len() {
++        if lines[i].indent == item_indent && is_dash(&lines[i].text) {
++            let mut j = i + 1;
++            while j < lines.len() && lines[j].indent > item_indent {
++                j += 1;
++            }
++            steps.push(parse_step(&lines[i..j]));
++            i = j;
++        } else {
++            i += 1;
++        }
++    }
++    steps
++}
++
++fn parse_jobs(lines: &[Ln]) -> Vec<Job> {
++    let Some(first) = lines.first() else {
++        return Vec::new();
++    };
++    let job_indent = first.indent;
++    let mut jobs = Vec::new();
++    let mut i = 0;
++    while i < lines.len() {
++        let end = block_end(lines, i);
++        let header = split_kv(&lines[i].text);
++        if lines[i].indent == job_indent
++            && let Some((id, value)) = header
++            && value.is_empty()
++        {
++            jobs.push(parse_job(id, &lines[i + 1..end]));
++        }
++        i = end;
++    }
++    jobs
++}
++
++fn parse_job(id: String, body: &[Ln]) -> Job {
++    let mut job = Job {
++        id,
++        ..Job::default()
++    };
++    let Some(first) = body.first() else {
++        return job;
++    };
++    let mut k = 0;
++    while k < body.len() {
++        let end = block_end(body, k);
++        if body[k].indent == first.indent
++            && let Some((key, value)) = split_kv(&body[k].text)
++        {
++            match key.as_str() {
++                "permissions" => job.permissions = Some(parse_perms(&body[k..end], &value)),
++                "steps" => job.steps = parse_steps(&body[k + 1..end]),
++                _ => {}
++            }
++        }
++        k = end;
++    }
++    job
++}
++
++/// Whether the `on:` block (inline value or children) mentions `needle`.
++fn section_mentions(block: &[Ln], inline: &str, needle: &str) -> bool {
++    inline.contains(needle) || block.iter().skip(1).any(|l| l.text.contains(needle))
++}
++
++/// The workflow documents in `source` (a file, or several concatenated).
++pub(super) fn parse_workflows(source: &str) -> Vec<Workflow> {
++    let lines = clean_lines(source);
++    let mut docs: Vec<Workflow> = Vec::new();
++    let mut current = Workflow::default();
++    let mut seen_jobs = false;
++    let mut i = 0;
++    while i < lines.len() {
++        let end = block_end(&lines, i);
++        let top = lines[i].indent == 0 && !is_dash(&lines[i].text);
++        let Some((key, value)) = top.then(|| split_kv(&lines[i].text)).flatten() else {
++            i = end;
++            continue;
++        };
++        if seen_jobs && matches!(key.as_str(), "name" | "on" | "run-name") {
++            docs.push(std::mem::take(&mut current));
++            seen_jobs = false;
++        }
++        match key.as_str() {
++            "permissions" => current.permissions = Some(parse_perms(&lines[i..end], &value)),
++            "on" => {
++                current.pull_request_target |=
++                    section_mentions(&lines[i..end], &value, "pull_request_target");
++            }
++            "jobs" => {
++                seen_jobs = true;
++                current.jobs.extend(parse_jobs(&lines[i + 1..end]));
++            }
++            _ => {}
++        }
++        i = end;
++    }
++    docs.push(current);
++    docs
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn comment_start_respects_scalar_quotes_not_shell_quotes() {
++        assert_eq!(comment_start("a: b # c"), Some(5));
++        assert_eq!(comment_start("# whole line"), Some(0));
++        assert_eq!(comment_start("a: \"x # y\" # z"), Some(11));
++        assert_eq!(comment_start("a: 'it''s # y'"), None);
++        // A plain scalar ends at ` #` even when a shell quote is open.
++        assert_eq!(comment_start("run: echo \"it's # x\""), Some(16));
++        // `#` glued to a word is content (a URL fragment), not a comment.
++        assert_eq!(comment_start("url: http://h/p#frag"), None);
++    }
++
++    #[test]
++    fn yaml_comment_regions_cover_only_the_comment() {
++        let src = "a: 1 # one\nb: 2\n# three\n";
++        let regions = yaml_comment_regions(src);
++        assert_eq!(regions, vec![(5, 10), (16, 23)]);
++        assert_eq!(&src[regions[0].0..regions[0].1], "# one");
++    }
++
++    #[test]
++    fn parses_nested_workflow_permissions_and_steps() {
++        let wf = parse_workflows(
++            r#"name: Release
++on:
++  push:
++    tags: ['v*']
++  pull_request_target:
++permissions:
++  contents: write
++  id-token: write
++jobs:
++  build:
++    runs-on: ubuntu-latest
++    permissions:
++      contents: read
++    steps:
++      - uses: actions/checkout@v4
++        with:
++          ref: ${{ github.event.pull_request.head.sha }}
++          persist-credentials: false
++      - run: cargo build
++"#,
++        );
++        assert_eq!(wf.len(), 1);
++        let w = &wf[0];
++        assert!(w.pull_request_target);
++        assert!(w.permissions.as_ref().is_some_and(Perms::id_token_write));
++        assert_eq!(w.jobs.len(), 1);
++        let job = &w.jobs[0];
++        assert_eq!(job.id, "build");
++        assert!(!job.permissions.as_ref().is_some_and(Perms::any_write));
++        assert_eq!(job.steps.len(), 2);
++        assert_eq!(job.steps[0].uses.as_deref(), Some("actions/checkout@v4"));
++        assert!(
++            job.steps[0]
++                .with
++                .contains(&("persist-credentials".into(), "false".into()))
++        );
++        assert!(job.steps[1].text.contains("cargo build"));
++    }
++
++    #[test]
++    fn a_sequence_at_the_key_indent_is_still_the_steps_block() {
++        let wf = parse_workflows(
++            "on: push\njobs:\n  b:\n    steps:\n    - uses: a/b@v1\n    - run: cargo test\n",
++        );
++        assert_eq!(wf[0].jobs[0].steps.len(), 2);
++        assert_eq!(wf[0].jobs[0].steps[0].uses.as_deref(), Some("a/b@v1"));
++    }
++
++    #[test]
++    fn flow_style_permissions_are_read() {
++        let wf = parse_workflows(
++            "permissions: { contents: read, id-token: write }\njobs:\n  b:\n    steps:\n      - run: x\n",
++        );
++        assert!(
++            wf[0]
++                .permissions
++                .as_ref()
++                .is_some_and(Perms::id_token_write)
++        );
++        let all =
++            parse_workflows("permissions: write-all\njobs:\n  b:\n    steps:\n      - run: x\n");
++        assert!(
++            all[0]
++                .permissions
++                .as_ref()
++                .is_some_and(Perms::id_token_write)
++        );
++        let ro =
++            parse_workflows("permissions: read-all\njobs:\n  b:\n    steps:\n      - run: x\n");
++        assert!(!ro[0].permissions.as_ref().is_some_and(Perms::any_write));
++    }
++
++    #[test]
++    fn concatenated_files_do_not_leak_permissions_into_the_next_document() {
++        let wf = parse_workflows(
++            "name: A\npermissions:\n  id-token: write\njobs:\n  a:\n    steps:\n      - run: x\n\nname: B\njobs:\n  b:\n    steps:\n      - run: y\n",
++        );
++        assert_eq!(wf.len(), 2);
++        assert!(wf[0].permissions.is_some());
++        assert!(wf[1].permissions.is_none(), "B declares no permissions");
++        assert_eq!(wf[1].jobs[0].id, "b");
++    }
++
++    #[test]
++    fn a_bare_step_list_has_no_jobs() {
++        let wf = parse_workflows("- uses: actions/checkout@v4\n- run: cargo build\n");
++        assert!(wf.iter().all(|w| w.jobs.is_empty()));
++    }
++
++    #[test]
++    fn a_commented_out_permissions_block_is_not_read() {
++        let wf = parse_workflows(
++            "# permissions:\n#   id-token: write\njobs:\n  b:\n    steps:\n      - run: x\n",
++        );
++        assert!(wf[0].permissions.is_none());
++    }
++}
+diff --git i/crates/touring-analysis/src/quality/mod.rs w/crates/touring-analysis/src/quality/mod.rs
+index c8d904ea..da2de0f4 100644
+--- i/crates/touring-analysis/src/quality/mod.rs
++++ w/crates/touring-analysis/src/quality/mod.rs
+@@ -339,7 +339,7 @@ pub mod test_pyramid;
+ /// survive. Backs the F3.2 dimension.
+ pub mod test_quality;
+ pub use build_config::{BuildConfigReport, analyze_build_config, score_build_config};
+-pub use cicd::{CicdReport, analyze_cicd, score_cicd};
++pub use cicd::{CiFinding, CiRule, CiSeverity, CicdReport, analyze_cicd, score_cicd};
+ pub use deploy::{DeployReport, analyze_deploy, score_deploy};
+ pub use env::{EnvReport, analyze_env, score_env};
+ pub use frameworks::{FrameworksReport, analyze_frameworks, score_frameworks};
+diff --git i/crates/touring-cli/src/cli/kpi.rs w/crates/touring-cli/src/cli/kpi.rs
+index cfd87008..afdd7f9f 100644
+--- i/crates/touring-cli/src/cli/kpi.rs
++++ w/crates/touring-cli/src/cli/kpi.rs
+@@ -909,31 +909,138 @@ fn persist_snapshot(
+         ));
+     }
+     let month = date.get(0..7).unwrap_or("0000-00");
+-    let dir = snapshot_dir(
+-        std::env::var("HOME")
+-            .ok()
+-            .as_deref()
+-            .map(std::path::Path::new),
+-        month,
+-    );
+-    std::fs::create_dir_all(&dir)?;
++    let home = std::env::var("HOME").ok();
++    let home = home.as_deref().map(std::path::Path::new);
++    persist_snapshot_at(
++        &snapshot_dir(home, month),
++        home,
++        payload,
++        date,
++        project_root,
++    )
++}
++
++/// Writes the dated snapshot into `dir`. The file lives in a PUBLIC repository, so
++/// nothing that identifies the machine's user may reach it: every string of the payload
++/// and the file NAME go through [`scrub_home`] first (17/10/2026 — 232 files under
++/// `docs/kpi/` carried `/home/<user>/…` in `project_root`, `reason` and `journal`, and
++/// in their names).
++fn persist_snapshot_at(
++    dir: &std::path::Path,
++    home: Option<&std::path::Path>,
++    payload: &Value,
++    date: &str,
++    project_root: &std::path::Path,
++) -> std::io::Result<PathBuf> {
++    std::fs::create_dir_all(dir)?;
+     // One file per project per day (investigation 2026-07-01): the daemon's F5
+     // flush snapshots EVERY warm project, and per-project sources (orphans,
+     // ema) differ wildly between projects — a shared `{date}.json` made
+     // consecutive writes silently overwrite each other and the dated series
+     // uninterpretable (observed: 368→0→0→12002 across mixed projects).
+     // Readers glob `docs/kpi/*/*.json`, so the new name stays discoverable.
+-    let file = dir.join(format!("{date}--{}.json", project_slug(project_root)));
+-    let pretty = serde_json::to_string_pretty(payload)?;
++    let file = dir.join(format!("{date}--{}.json", project_slug(project_root, home)));
++    let mut clean = payload.clone();
++    scrub_value(&mut clean, home);
++    let pretty = serde_json::to_string_pretty(&clean)?;
+     std::fs::write(&file, pretty)?;
+     Ok(file)
+ }
+ 
+-/// Deterministic filename-safe slug for a project root: the full path with
+-/// separators folded to `-` (collision-free, unlike a basename).
+-fn project_slug(project_root: &std::path::Path) -> String {
+-    let slug: String = project_root.display().to_string().replace(['/', '\\'], "-");
+-    slug.trim_matches('-').to_string()
++/// Deterministic filename-safe slug for a project root: the path relative to the
++/// user's home (`~/projects/touring`) with separators folded to `-` (collision-free,
++/// unlike a basename, and free of the user name, unlike the absolute path).
++fn project_slug(project_root: &std::path::Path, home: Option<&std::path::Path>) -> String {
++    let shown = scrub_home(&project_root.display().to_string(), home);
++    shown
++        .replace(['/', '\\'], "-")
++        .trim_matches('-')
++        .to_string()
++}
++
++/// A byte that can belong to a path component name.
++fn is_name_byte(b: u8) -> bool {
++    b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-')
++}
++
++/// `text` with every occurrence of `needle` that stands alone replaced by `with`: the
++/// byte before must not continue a name, and the byte after must end it (or be one of
++/// `also_after`, for the dash-encoded spelling where the name is followed by `-`).
++fn replace_standalone(text: &str, needle: &str, with: &str, also_after: &[u8]) -> String {
++    let bytes = text.as_bytes();
++    let mut out = String::with_capacity(text.len());
++    let mut last = 0;
++    for (at, _) in text.match_indices(needle) {
++        let end = at + needle.len();
++        let before_ok = at == 0 || !is_name_byte(bytes[at - 1]);
++        let after_ok = bytes
++            .get(end)
++            .is_none_or(|b| !is_name_byte(*b) || also_after.contains(b));
++        if at >= last && before_ok && after_ok {
++            out.push_str(&text[last..at]);
++            out.push_str(with);
++            last = end;
++        }
++    }
++    out.push_str(&text[last..]);
++    out
++}
++
++/// Rewrites every spelling of the user's home directory in `text` as `~`:
++/// `$HOME` itself, any `/home/<user>` (a path from another account, or `$HOME` unset),
++/// and the dash-encoded form Claude Code uses for its per-project directories
++/// (`-home-<user>-projects-x` → `-~-projects-x`).
++fn scrub_home(text: &str, home: Option<&std::path::Path>) -> String {
++    let mut out = text.to_string();
++    if let Some(h) = home {
++        let h = h.display().to_string();
++        let h = h.trim_end_matches('/');
++        if h.len() > 1 {
++            out = replace_standalone(&out, h, "~", &[]);
++            out = replace_standalone(&out, &h.replace('/', "-"), "-~", b"-");
++        }
++    }
++    scrub_home_dirs(&out)
++}
++
++/// `/home/<user>` → `~` for any user.
++fn scrub_home_dirs(text: &str) -> String {
++    const ROOT: &str = "/home/";
++    let bytes = text.as_bytes();
++    let mut out = String::with_capacity(text.len());
++    let mut last = 0;
++    for (at, _) in text.match_indices(ROOT) {
++        if at < last || (at > 0 && is_name_byte(bytes[at - 1])) {
++            continue;
++        }
++        let name_len = bytes[at + ROOT.len()..]
++            .iter()
++            .take_while(|b| is_name_byte(**b))
++            .count();
++        if name_len == 0 {
++            continue;
++        }
++        out.push_str(&text[last..at]);
++        out.push('~');
++        last = at + ROOT.len() + name_len;
++    }
++    out.push_str(&text[last..]);
++    out
++}
++
++/// [`scrub_home`] over every string of `value`, object keys included.
++fn scrub_value(value: &mut Value, home: Option<&std::path::Path>) {
++    match value {
++        Value::String(s) => *s = scrub_home(s, home),
++        Value::Array(items) => items.iter_mut().for_each(|v| scrub_value(v, home)),
++        Value::Object(map) => {
++            for (key, mut v) in std::mem::take(map) {
++                scrub_value(&mut v, home);
++                map.insert(scrub_home(&key, home), v);
++            }
++        }
++        _ => {}
++    }
+ }
+ 
+ // ─────────────────────────────────────────────────────────────────────────────
+@@ -1437,15 +1544,121 @@ mod tests {
+ 
+     #[test]
+     fn project_slug_is_deterministic_and_collision_free() {
+-        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"));
+-        assert_eq!(a, "home-g-.claude-rust");
++        let home = Some(std::path::Path::new("/home/g"));
++        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"), home);
++        assert_eq!(a, "~-.claude-rust");
+         // Distinct roots sharing a basename must not collide (a plain
+         // basename slug would map both to "rust").
+-        let b = project_slug(std::path::Path::new("/tmp/other/rust"));
++        let b = project_slug(std::path::Path::new("/tmp/other/rust"), home);
+         assert_ne!(a, b);
+         assert!(!a.contains('/'));
+     }
+ 
++    #[test]
++    fn scrub_home_rewrites_every_spelling_of_the_home_directory() {
++        let home = Some(std::path::Path::new("/Users/g"));
++        for (input, want) in [
++            ("/Users/g", "~"),
++            ("/Users/g/projects/touring", "~/projects/touring"),
++            ("/Users/g/", "~/"),
++            // the dash-encoded per-project directory Claude Code derives from it
++            (
++                "no transcript directory at /Users/g/.claude/projects/-Users-g-projects-x",
++                "no transcript directory at ~/.claude/projects/-~-projects-x",
++            ),
++            // another account's home, or $HOME unset: the generic /home/<user>
++            (
++                "/home/other/.claude/touring/logs/r3.jsonl",
++                "~/.claude/touring/logs/r3.jsonl",
++            ),
++            ("a=/home/a b=/home/b/c", "a=~ b=~/c"),
++            // a longer name, a longer path component, an embedded path: not the home
++            ("/Users/gabriel/x", "/Users/gabriel/x"),
++            ("/mnt/Users/g/x", "/mnt/Users/g/x"),
++            ("/homework/g/x", "/homework/g/x"),
++            ("/home/", "/home/"),
++            ("plain text", "plain text"),
++        ] {
++            assert_eq!(scrub_home(input, home), want, "input {input:?}");
++        }
++    }
++
++    #[test]
++    fn scrub_value_walks_nested_values_and_keys() {
++        let home = Some(std::path::Path::new("/home/alice"));
++        let mut v = serde_json::json!({
++            "project_root": "/home/alice/projects/touring",
++            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-analise--claude"},
++            "shadow": [{"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"}],
++            "/home/alice/key": 3,
++            "n": 7,
++            "ok": true,
++            "none": null
++        });
++        scrub_value(&mut v, home);
++        let text = v.to_string();
++        assert!(!text.contains("alice"), "{text}");
++        assert_eq!(v["project_root"], "~/projects/touring");
++        assert_eq!(
++            v["shadow"][0]["journal"],
++            "~/.claude/touring/logs/r3_shadow.jsonl"
++        );
++        assert_eq!(v["~/key"], 3);
++        assert_eq!(
++            (v["n"].clone(), v["ok"].clone()),
++            (serde_json::json!(7), serde_json::json!(true))
++        );
++    }
++
++    #[test]
++    fn project_slug_carries_no_home_path() {
++        let home = Some(std::path::Path::new("/home/alice"));
++        let slug = |p: &str| project_slug(std::path::Path::new(p), home);
++        assert_eq!(slug("/home/alice/projects/touring"), "~-projects-touring");
++        assert_eq!(slug("/home/alice"), "~");
++        assert_ne!(
++            slug("/home/alice/projects/touring"),
++            slug("/home/alice/Work")
++        );
++        for root in ["/home/alice/projects/analise", "/home/alice", "/opt/x/y"] {
++            let s = slug(root);
++            assert!(!s.contains("alice") && !s.contains("home"), "{s}");
++        }
++        // Outside the home nothing changes.
++        assert_eq!(slug("/opt/x/y"), "opt-x-y");
++    }
++
++    #[test]
++    fn a_persisted_snapshot_names_no_user_in_its_file_or_its_body() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let home = std::path::Path::new("/home/alice");
++        let root = home.join("projects/touring");
++        let payload = serde_json::json!({
++            "schema": 1,
++            "project_root": root.display().to_string(),
++            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-touring"},
++            "shadow": {"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"},
++        });
++        let file = persist_snapshot_at(dir.path(), Some(home), &payload, "2026-10-17", &root)
++            .expect("persist");
++        let name = file
++            .file_name()
++            .expect("name")
++            .to_string_lossy()
++            .to_string();
++        assert_eq!(name, "2026-10-17--~-projects-touring.json");
++        let body = std::fs::read_to_string(&file).expect("read");
++        assert!(
++            !body.contains("alice") && !name.contains("alice"),
++            "{name}\n{body}"
++        );
++        let back: Value = serde_json::from_str(&body).expect("json");
++        assert_eq!(back["project_root"], "~/projects/touring");
++        assert_eq!(back["schema"], 1, "everything else is untouched");
++        // The in-memory payload (what the command prints) keeps the real path.
++        assert_eq!(payload["project_root"], root.display().to_string());
++    }
++
+     #[test]
+     fn build_ab_block_reads_persisted_attribution() {
+         let dir = std::env::temp_dir().join(format!("kpi_ab_{}", std::process::id()));
+diff --git i/crates/touring-quality/src/lib.rs w/crates/touring-quality/src/lib.rs
+index a6edbe8c..78dca762 100644
+--- i/crates/touring-quality/src/lib.rs
++++ w/crates/touring-quality/src/lib.rs
+@@ -112,7 +112,7 @@ pub enum DimId {
+     F2_2,
+     /// F2.3 Authentication/Authorization
+     F2_3,
+-    /// F2.4 Cryptographic Issues
++    /// F2.4 Hardcoded Secrets
+     F2_4,
+     /// F2.5 Dependency CVEs
+     F2_5,
+@@ -369,7 +369,7 @@ const META_TABLE: [(&str, &str, &str); 50] = [
+     ("F2.1", "owasp", "OWASP Top 10"),
+     ("F2.2", "input-validation", "Input Validation"),
+     ("F2.3", "authz", "Authentication/Authorization"),
+-    ("F2.4", "secrets", "Cryptographic Issues"),
++    ("F2.4", "secrets", "Hardcoded Secrets"),
+     ("F2.5", "dep-cves", "Dependency CVEs"),
+     ("F2.6", "config", "Configuration Security"),
+     ("F2.7", "db-perf", "Database Performance"),
+@@ -1152,4 +1152,14 @@ mod methodology_bias_tests {
+         );
+         assert!(clean.blockers.is_empty(), "and it must not block");
+     }
++
++    /// 17/10/2026: `touring-quality list` called F2.4 "Cryptographic Issues" while the
++    /// rule file and CLAUDE.md call it "Secrets" -- and the detector measures hardcoded
++    /// credentials, not cryptography. The label follows the measurement.
++    #[test]
++    fn f2_4_is_labelled_by_what_it_measures() {
++        assert_eq!(DimId::F2_4.name(), "Hardcoded Secrets");
++        assert_eq!(DimId::F2_4.short_name(), "secrets");
++        assert!(!DimId::F2_4.name().contains("Cryptographic"));
++    }
+ }
+diff --git i/crates/touring-quality/src/verifications/f2_1_owasp.rs w/crates/touring-quality/src/verifications/f2_1_owasp.rs
+index acbd84c4..f93ac4b7 100644
+--- i/crates/touring-quality/src/verifications/f2_1_owasp.rs
++++ w/crates/touring-quality/src/verifications/f2_1_owasp.rs
+@@ -66,39 +66,165 @@ fn is_detector_own_source(target: &Path) -> bool {
+     DETECTOR_SOURCES.iter().any(|s| p.contains(s))
+ }
+ 
+-/// Real engine: delegate to the curated CWE/OWASP registry. F2.1 isolates the
+-/// *vulnerability* signal (the OWASP/CWE patterns) from generic antipatterns
+-/// (which belong to F4.1), mirroring `SecurityReport`'s own vuln-score formula.
++/// One located match of the F2.1 CWE/OWASP registry.
++#[derive(Debug, Clone, PartialEq)]
++pub struct OwaspMatch {
++    /// The pattern's name (`CMDi`, `SQLi`, ...).
++    pub pattern: String,
++    /// The CWE number (78 for command injection).
++    pub cwe_id: u32,
++    /// Severity in `[0, 10]`.
++    pub severity: f32,
++    /// Byte span of the match in the scanned text.
++    pub span: (usize, usize),
++    /// 1-based line of the match.
++    pub line: usize,
++}
++
++/// The F2.1 engine's verdict on one text: **the** CWE/OWASP registry, read by the
++/// gate (`touring-quality check --gate F2.1`) and by `touring scan`. Before this type
++/// `touring scan` ran a second, hand-kept detector (`touring_code::cwe_scan`, four
++/// Rust-hook-latency patterns) and answered "0 CWE(s), p0_block=false" for a
++/// `subprocess.run("ls " + user, shell=True)` that the gate scored 0.070.
++#[derive(Debug, Clone)]
++pub struct OwaspScan {
++    /// Language the registry ran as (`python`, `rust`, ...); `unknown` when it did not run.
++    pub lang: String,
++    /// Every match, in input order.
++    pub matches: Vec<OwaspMatch>,
++    /// The F2.1 score: `1 - sum(severity)/10`, clamped to `[0, 1]`.
++    pub score: f32,
++    /// Why the registry did NOT run on this text (allowlisted harness, detector own
++    /// source, attack-fixture pragma, engine not built) -- `None` when it ran.
++    pub not_scanned: Option<String>,
++}
++
++impl OwaspScan {
++    fn not_scanned(lang: &str, reason: impl Into<String>) -> Self {
++        Self {
++            lang: lang.to_string(),
++            matches: Vec::new(),
++            score: 1.0,
++            not_scanned: Some(reason.into()),
++        }
++    }
++
++    /// Whether the gate BLOCKS on this verdict (F2.1 is a P0 dimension).
++    #[must_use]
++    pub fn blocks(&self) -> bool {
++        crate::DimStatus::from_score(self.score) == crate::DimStatus::Fail
++    }
++
++    /// The tier one match of `severity` would put the dimension in on its own:
++    /// `P0` (fails it), `P1` (warns) or `P2` -- the gate's own thresholds.
++    #[must_use]
++    pub fn tier_of(severity: f32) -> &'static str {
++        match crate::DimStatus::from_score((1.0 - severity / 10.0).clamp(0.0, 1.0)) {
++            crate::DimStatus::Fail => "P0",
++            crate::DimStatus::Warn => "P1",
++            _ => "P2",
++        }
++    }
++}
++
++/// Run the F2.1 registry over `raw` (the text of `target`), honouring the same
++/// allowlists as the gate: non-production harness, detector own source, and the
++/// attack-fixture pragma (FILE targets only).
++#[must_use]
++pub fn owasp_scan(raw: &str, target: &Path) -> OwaspScan {
++    if is_detector_own_source(target) {
++        return OwaspScan::not_scanned(
++            "unknown",
++            "detector own source or non-production harness (tests/, benches/): its OWASP markers are detection data, allowlisted",
++        );
++    }
++    if target.is_file() && carries_attack_fixture_pragma(raw) {
++        return OwaspScan::not_scanned(
++            "unknown",
++            format!(
++                "file carries `{ALLOW_ATTACK_FIXTURE_PRAGMA}` (attack-payload fixture, explicitly allowlisted)"
++            ),
++        );
++    }
++    owasp_matches(raw, target)
++}
++
++/// 1-based line of byte `offset` in `raw`.
+ #[cfg(feature = "workspace-integration")]
+-fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
++fn line_of(raw: &str, offset: usize) -> usize {
++    let end = offset.min(raw.len());
++    raw.as_bytes()[..end]
++        .iter()
++        .filter(|&&b| b == b'\n')
++        .count()
++        + 1
++}
++
++/// The registry itself, no allowlist: language from the extension / shebang, then
++/// `SecurityAnalyzer`.
++#[cfg(feature = "workspace-integration")]
++fn owasp_matches(raw: &str, target: &Path) -> OwaspScan {
+     use touring_analysis::quality::SecurityAnalyzer;
+     let lang = crate::verifications::lang_for_source(target, raw);
+     let report = SecurityAnalyzer::new().analyze(raw, lang);
+-    let value = if report.vuln_matches.is_empty() {
++    let score = if report.vuln_matches.is_empty() {
+         1.0
+     } else {
+         let sum: f32 = report.vuln_matches.iter().map(|v| v.severity).sum();
+         (1.0 - sum / 10.0).clamp(0.0, 1.0)
+     };
++    OwaspScan {
++        lang: report.lang.clone(),
++        matches: report
++            .vuln_matches
++            .iter()
++            .map(|v| OwaspMatch {
++                pattern: v.pattern_name.clone(),
++                cwe_id: v.cwe_id,
++                severity: v.severity,
++                span: v.span,
++                line: line_of(raw, v.span.0),
++            })
++            .collect(),
++        score,
++        not_scanned: None,
++    }
++}
++
++/// Without `workspace-integration` there is no registry to run: say so.
++#[cfg(not(feature = "workspace-integration"))]
++fn owasp_matches(_raw: &str, _target: &Path) -> OwaspScan {
++    OwaspScan::not_scanned(
++        "unknown",
++        "the CWE/OWASP engine is not built into this binary (`workspace-integration` is off)",
++    )
++}
++
++/// Real engine: delegate to the curated CWE/OWASP registry. F2.1 isolates the
++/// *vulnerability* signal (the OWASP/CWE patterns) from generic antipatterns
++/// (which belong to F4.1), mirroring `SecurityReport`'s own vuln-score formula.
++#[cfg(feature = "workspace-integration")]
++fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
++    let scan = owasp_matches(raw, target);
++    let value = scan.score;
+     // Name the first match (pattern, line, source text). A bare count forces the
+     // author to bisect the file to find out what tripped a BLOCK gate — which is
+     // exactly what happened three times on 2026-08-02, all false positives.
+     // Vulnerability matches are code patterns, not credentials, so quoting the
+     // line is safe here (contrast F2.4, which must redact).
+-    let evidence = match report.vuln_matches.first() {
++    let evidence = match scan.matches.first() {
+         None => format!(
+             "OWASP/CWE (SecurityAnalyzer, {} patterns): 0 vulnerability match(es), score={value:.3}",
+-            report.lang
++            scan.lang
+         ),
+         Some(first) => {
+-            let (line, excerpt) =
+-                crate::verifications::locate_span(raw, (first.span.0, first.span.1), false);
++            let (line, excerpt) = crate::verifications::locate_span(raw, first.span, false);
+             format!(
+                 "OWASP/CWE (SecurityAnalyzer, {} patterns): {} vulnerability match(es), \
+                  score={value:.3}; first: {} (CWE-{}) at line {line} — `{excerpt}`",
+-                report.lang,
+-                report.vuln_matches.len(),
+-                first.pattern_name,
++                scan.lang,
++                scan.matches.len(),
++                first.pattern,
+                 first.cwe_id,
+             )
+         }
+@@ -455,4 +581,109 @@ mod tests {
+             "the extension wins"
+         );
+     }
++
++    // ---- 17/10/2026: `owasp_scan` is the registry the gate reads ---------------------
++
++    const CMDI_PY: &str =
++        "import subprocess, sys\nuser = sys.argv[1]\nsubprocess.run(\"ls \" + user, shell=True)\n";
++
++    fn write_py(content: &str) -> NamedTempFile {
++        let mut f = tempfile::Builder::new()
++            .suffix(".py")
++            .tempfile()
++            .expect("create temp");
++        f.write_all(content.as_bytes()).expect("write");
++        f
++    }
++
++    #[test]
++    fn owasp_scan_is_the_registry_the_gate_reads() {
++        let f = write_py(CMDI_PY);
++        let scan = owasp_scan(CMDI_PY, f.path());
++        assert!(scan.not_scanned.is_none(), "{scan:?}");
++        assert_eq!(scan.lang, "python");
++        assert!(
++            scan.matches.iter().any(|m| m.cwe_id == 78 && m.line == 3),
++            "{scan:?}"
++        );
++        assert!(scan.blocks(), "{scan:?}");
++        let gate = F2_1_Owasp.check(f.path()).expect("gate");
++        assert!(
++            (gate.value - scan.score).abs() < 1e-6,
++            "the gate scored {} and the scan {}",
++            gate.value,
++            scan.score
++        );
++        assert_eq!(gate.status == crate::DimStatus::Fail, scan.blocks());
++    }
++
++    #[test]
++    fn owasp_scan_of_clean_source_is_clean_and_does_not_block() {
++        let src = "def add(a, b):\n    return a + b\n";
++        let f = write_py(src);
++        let scan = owasp_scan(src, f.path());
++        assert!(
++            scan.not_scanned.is_none() && scan.matches.is_empty(),
++            "{scan:?}"
++        );
++        assert_eq!(scan.score, 1.0);
++        assert!(!scan.blocks());
++    }
++
++    #[test]
++    fn owasp_scan_says_when_it_did_not_run() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let harness = dir.path().join("tests/payloads.py");
++        std::fs::create_dir_all(harness.parent().expect("parent")).expect("mkdir");
++        std::fs::write(&harness, CMDI_PY).expect("write");
++        let scan = owasp_scan(CMDI_PY, &harness);
++        assert!(
++            scan.not_scanned
++                .as_deref()
++                .is_some_and(|why| why.contains("harness")),
++            "{scan:?}"
++        );
++        assert!(scan.matches.is_empty() && !scan.blocks());
++
++        let fixture = format!("# {ALLOW_ATTACK_FIXTURE_PRAGMA}\n{CMDI_PY}");
++        let f = write_py(&fixture);
++        let scan = owasp_scan(&fixture, f.path());
++        assert!(
++            scan.not_scanned
++                .as_deref()
++                .is_some_and(|why| why.contains("allow-attack-fixture")),
++            "{scan:?}"
++        );
++        // The pragma is honoured for a FILE target only, like the gate.
++        let as_dir = owasp_scan(&fixture, dir.path());
++        assert!(
++            as_dir.not_scanned.is_none(),
++            "a directory never opts out: {as_dir:?}"
++        );
++    }
++
++    #[test]
++    fn tier_of_uses_the_gates_own_thresholds() {
++        assert_eq!(
++            OwaspScan::tier_of(9.3),
++            "P0",
++            "score 0.07 fails the dimension"
++        );
++        assert_eq!(OwaspScan::tier_of(5.1), "P0", "score 0.49 fails");
++        assert_eq!(OwaspScan::tier_of(3.0), "P1", "score 0.70 only warns");
++        assert_eq!(OwaspScan::tier_of(1.0), "P2", "score 0.90 passes");
++    }
++
++    #[test]
++    fn blocks_is_the_fail_line_of_the_dimension() {
++        let at = |score: f32| OwaspScan {
++            lang: "python".into(),
++            matches: Vec::new(),
++            score,
++            not_scanned: None,
++        };
++        assert!(at(0.49).blocks());
++        assert!(!at(0.5).blocks(), "0.5 is a warning, not a failure");
++        assert!(!at(1.0).blocks());
++    }
+ }
+diff --git i/crates/touring-quality/src/verifications/f2_4_secrets.rs w/crates/touring-quality/src/verifications/f2_4_secrets.rs
+index 741e53bc..68ddb5d6 100644
+--- i/crates/touring-quality/src/verifications/f2_4_secrets.rs
++++ w/crates/touring-quality/src/verifications/f2_4_secrets.rs
+@@ -1,4 +1,9 @@
+-//! F2.4 — Cryptographic Issues / Hardcoded Secrets verifier.
++//! F2.4 — Hardcoded Secrets verifier.
++//!
++//! Label (17/10/2026): `touring-quality list` used to call this dimension
++//! "Cryptographic Issues", but nothing here measures cryptography (algorithms, key
++//! sizes, RNG): every signal below is a *credential committed to the source*. The rule
++//! file and CLAUDE.md already say "Secrets"; the code now agrees.
+ //!
+ //! Detects hardcoded secrets via several signals, ordered by confidence:
+ //!   1. **Known provider token markers** — GitHub (`ghp_`/…), Slack (`xoxb-`/…),
+@@ -23,9 +28,11 @@
+ use crate::DimId;
+ use crate::verifications::Verification;
+ use anyhow::Result;
++use std::borrow::Cow;
+ use std::path::Path;
++use std::sync::OnceLock;
+ 
+-/// F2.4 verifier — Cryptographic Issues / Hardcoded Secrets.
++/// F2.4 verifier — Hardcoded Secrets.
+ #[allow(non_camel_case_types)]
+ pub struct F2_4_Secrets;
+ 
+@@ -798,7 +805,7 @@ fn blank_raw_string(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usi
+ /// Returns `None` when the hit is not attributable to one line on its own — the
+ /// caller then omits the location rather than guessing.
+ fn first_offending(raw: &str) -> Option<(usize, &'static str)> {
+-    scan_lines(raw).0
++    scan_lines(&mask_documented_placeholders(raw)).0
+ }
+ 
+ /// Both per-line signals, computed over ONE raw↔projection pairing.
+@@ -833,6 +840,65 @@ fn scan_lines(raw: &str) -> (Option<(usize, &'static str)>, bool) {
+     (first_strong, code.lines().any(names_secret))
+ }
+ 
++/// Credentials the vendors publish in their own documentation as examples.
++///
++/// They are shaped exactly like real credentials (that is the point of an example) and
++/// are committed in thousands of READMEs, test fixtures and IaC snippets, so a file
++/// that merely shows the AWS docs' sample pair read F2.4 = 0.000 and BLOCKED every edit.
++/// An exact-literal list is the narrowest correct exemption: a real key is never one of
++/// these strings, and one character more or less (`…EXAMPLEX`) is no longer the sample.
++///
++/// The literals are assembled from fragments, as the hook-side redactors do: this very
++/// file is scanned by the pre-write hook (`scan_text`), which has no own-source
++/// allowlist, and a whole sample key here would block the edit that adds it.
++fn documented_placeholders() -> &'static [String] {
++    static CELL: OnceLock<Vec<String>> = OnceLock::new();
++    CELL.get_or_init(|| {
++        vec![
++            // AWS "IAM user guide / credentials" sample pair.
++            ["AKIA", "IOSFODNN7", "EXAMPLE"].concat(),
++            ["wJalrXUtnFEMI/K7MDENG/", "bPxRfiCYEXAMPLEKEY"].concat(),
++            // AWS sample pair of the older API reference pages.
++            ["AKIA", "I44QH8DHB", "EXAMPLE"].concat(),
++            ["je7MtGbClwBF/2Zp9Utk/", "h3yCo8nvbEXAMPLEKEY"].concat(),
++        ]
++    })
++}
++
++/// `text` with every documented placeholder ([`documented_placeholders`]) blanked to
++/// the same number of `x` bytes, so line numbers and the byte alignment between a raw
++/// line and its code projection survive. A literal only counts when it stands alone:
++/// neither neighbour may continue the token (`…EXAMPLEX` is another string).
++fn mask_documented_placeholders(text: &str) -> Cow<'_, str> {
++    let standalone = |s: &str, at: usize, len: usize| {
++        let before = s[..at].chars().next_back();
++        let after = s[at + len..].chars().next();
++        !before.is_some_and(|c| c.is_ascii_alphanumeric())
++            && !after.is_some_and(|c| c.is_ascii_alphanumeric())
++    };
++    let mut masked: Option<String> = None;
++    for literal in documented_placeholders() {
++        let current = masked.as_deref().unwrap_or(text);
++        let hits: Vec<usize> = current
++            .match_indices(literal.as_str())
++            .map(|(at, _)| at)
++            .filter(|&at| standalone(current, at, literal.len()))
++            .collect();
++        if hits.is_empty() {
++            continue;
++        }
++        let mut next = current.to_string();
++        for at in hits {
++            next.replace_range(at..at + literal.len(), &"x".repeat(literal.len()));
++        }
++        masked = Some(next);
++    }
++    match masked {
++        Some(owned) => Cow::Owned(owned),
++        None => Cow::Borrowed(text),
++    }
++}
++
+ /// (1) A known provider marker (`ghp_`, `AKIA`, a PEM header, …) appears in `text`.
+ fn has_strong_marker(text: &str) -> bool {
+     STRONG_MARKERS
+@@ -908,6 +974,9 @@ fn line_is_strong(line: &str, code: &str) -> Option<&'static str> {
+ }
+ 
+ fn scan(raw: &str) -> (bool, bool) {
++    // Documented sample credentials (the AWS docs pair) are not leaks.
++    let masked = mask_documented_placeholders(raw);
++    let raw = masked.as_ref();
+     // (1)/(1b) file-wide: a marker or a structural token anywhere → strong.
+     if has_strong_marker(raw) || has_structural_token(raw) {
+         return (true, false);
+@@ -1175,7 +1244,7 @@ impl Verification for F2_4_Secrets {
+         if is_detector_own_source(target) {
+             return Ok((
+                 1.0,
+-                "Cryptographic Issues: detector own source — markers are definitions, allowlisted (score=1.000)"
++                "Hardcoded Secrets: detector own source — markers are definitions, allowlisted (score=1.000)"
+                     .to_string(),
+             ));
+         }
+@@ -1193,7 +1262,7 @@ impl Verification for F2_4_Secrets {
+         if target.is_file() && raw.contains(ALLOW_SECRETS_PRAGMA) {
+             return Ok((
+                 1.0,
+-                "Cryptographic Issues: file carries `touring-quality:allow-secrets` \
++                "Hardcoded Secrets: file carries `touring-quality:allow-secrets` \
+                  pragma (sample-secret fixture, explicitly allowlisted) — score=1.000"
+                     .to_string(),
+             ));
+@@ -1243,10 +1312,10 @@ impl Verification for F2_4_Secrets {
+         // output format ever echoes it.
+         let evidence = match first_offending(&raw) {
+             Some((line, rule)) if strong => format!(
+-                "Cryptographic Issues: {category} at {}:{line}:{rule} — score={value:.3}",
++                "Hardcoded Secrets: {category} at {}:{line}:{rule} — score={value:.3}",
+                 target.display()
+             ),
+-            _ => format!("Cryptographic Issues: {category} — score={value:.3}"),
++            _ => format!("Hardcoded Secrets: {category} — score={value:.3}"),
+         };
+         Ok((value, evidence))
+     }
+@@ -1399,15 +1468,20 @@ mod tests {
+     /// O contrapositivo — sem ele o teste acima seria licenca para vazar.
+     #[test]
+     fn marcador_com_corpo_de_token_segue_bloqueando_ate_em_comentario() {
++        // A key SHAPED like a real one. It used to be the AWS documentation's sample
++        // (`…EXAMPLE`), which the detector now allowlists on purpose (17/10/2026,
++        // `the_aws_documentation_sample_pair_is_not_a_leak`); built at run time.
++        let aws = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
+         for vazamento in [
+-            "// deixei aqui: ghp_aBcDeF0123456789aBcDeF0123456789aBcD",
+-            "let k = \"AKIAIOSFODNN7EXAMPLE\";",
++            "// deixei aqui: ghp_aBcDeF0123456789aBcDeF0123456789aBcD".to_string(),
++            format!("let k = \"{aws}\";"),
+             // Split so the source never holds a scanner-shaped Slack token (GitHub push
+             // protection blocked this fixture, 18/09/2026); the detector sees it joined.
+             concat!(
+                 "# slack: xox",
+                 "b-2456789012-3456789012-aBcDeF0123456789aBcD"
+-            ),
++            )
++            .to_string(),
+         ] {
+             let s = score(&format!("{vazamento}\n"));
+             assert_eq!(s.value, 0.0, "token com corpo bloqueia: {vazamento}");
+@@ -1434,8 +1508,10 @@ mod tests {
+ 
+     #[test]
+     fn test_aws_key_still_blocks() {
+-        // regression: AWS detection must still work.
+-        let s = score("pub const AWS: &str = \"AKIAIOSFODNN7EXAMPLE\";\n");
++        // regression: AWS detection must still work -- for a real-shaped key, not the
++        // documentation's sample (allowlisted, see the 17/10/2026 tests below).
++        let key = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
++        let s = score(&format!("pub const AWS: &str = \"{key}\";\n"));
+         assert_eq!(s.value, 0.0, "AKIA key must still block");
+     }
+ 
+@@ -1564,7 +1640,7 @@ mod tests {
+         // a meta tuple / call that merely names the "secrets" dimension next to
+         // string literals is not an assignment — it may warn (soft) but must NOT
+         // hard-block (<0.5). Regression for the lib.rs META_TABLE self-flag.
+-        let s = score("    (\"F2.4\", \"secrets\", \"Cryptographic Issues\"),\n");
++        let s = score("    (\"F2.4\", \"secrets\", \"Hardcoded Secrets\"),\n");
+         assert!(
+             s.value >= 0.5,
+             "meta tuple must not hard-block (got {})",
+@@ -2448,4 +2524,137 @@ mod tests {
+     fn opaque_token_beside_code_syntax_still_blocks() {
+         assert!(scan_text("call(x); k = \"q7Zp3xVb9TqLm2Rw8sYd4NcF6hJk1GtA\"\n").strong);
+     }
++
++    // ── 17/10/2026: documented vendor placeholders + the label ────────────────────
++    //
++    // Every literal below is assembled at run time: this file is itself scanned by
++    // the pre-write hook, which would (rightly) block a whole sample key.
++
++    fn aws_sample_pair() -> (String, String) {
++        (
++            ["AKIA", "IOSFODNN7", "EXAMPLE"].concat(),
++            ["wJalrXUtnFEMI/K7MDENG/", "bPxRfiCYEXAMPLEKEY"].concat(),
++        )
++    }
++
++    /// The documentation's pair in the layouts it is actually committed in.
++    fn aws_sample_layouts() -> Vec<String> {
++        let (id, secret) = aws_sample_pair();
++        vec![
++            format!("[default]\naws_access_key_id = {id}\naws_secret_access_key = {secret}\n"),
++            format!("AWS_ACCESS_KEY_ID=\"{id}\"\nAWS_SECRET_ACCESS_KEY=\"{secret}\"\n"),
++            format!(
++                "c = boto3.client('s3', aws_access_key_id='{id}', aws_secret_access_key='{secret}')\n"
++            ),
++            format!("export AWS_ACCESS_KEY_ID={id}\nexport AWS_SECRET_ACCESS_KEY={secret}\n"),
++            format!("# the docs show {id} / {secret}\nfn main() {{}}\n"),
++        ]
++    }
++
++    #[test]
++    fn the_aws_documentation_sample_pair_is_not_a_leak() {
++        for src in aws_sample_layouts() {
++            assert_eq!(
++                score(&src).value,
++                1.0,
++                "the gate blocks the sample: {src:?}"
++            );
++            let text = scan_text(&src);
++            assert!(
++                !text.strong,
++                "the pre-write scan blocks the sample: {src:?} {text:?}"
++            );
++        }
++    }
++
++    #[test]
++    fn the_older_aws_sample_pair_is_not_a_leak_either() {
++        let id = ["AKIA", "I44QH8DHB", "EXAMPLE"].concat();
++        let secret = ["je7MtGbClwBF/2Zp9Utk/", "h3yCo8nvbEXAMPLEKEY"].concat();
++        let src = format!("aws_access_key_id = {id}\naws_secret_access_key = \"{secret}\"\n");
++        assert_eq!(score(&src).value, 1.0, "{src:?}");
++    }
++
++    #[test]
++    fn a_real_shaped_aws_key_still_blocks() {
++        let id = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
++        let secret = ["Zx9Qw3Er7Ty1Ui5Op2As", "8Df4Gh6Jk0Lm3Nb7Vc5X"].concat();
++        for src in [
++            format!("aws_access_key_id = {id}\n"),
++            format!("aws_secret_access_key = \"{secret}\"\n"),
++        ] {
++            assert_eq!(
++                score(&src).value,
++                0.0,
++                "a real-shaped credential must block: {src:?}"
++            );
++        }
++    }
++
++    #[test]
++    fn the_sample_extended_by_one_character_is_another_string() {
++        let (id, _) = aws_sample_pair();
++        for src in [
++            format!("aws_access_key_id = {id}Q\n"),
++            format!("aws_access_key_id = Q{id}\n"),
++        ] {
++            assert!(
++                scan_text(&src).strong,
++                "not the documented literal: {src:?}"
++            );
++        }
++    }
++
++    #[test]
++    fn a_real_key_beside_the_sample_is_still_located_at_its_own_line() {
++        let (id, _) = aws_sample_pair();
++        let real = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
++        let src = format!("aws_access_key_id = {id}\naws_access_key_id = {real}\n");
++        let found = scan_text(&src);
++        assert!(found.strong, "{found:?}");
++        assert_eq!(
++            found.first_line,
++            Some(2),
++            "the sample on line 1 is not the finding"
++        );
++    }
++
++    #[test]
++    fn masking_the_samples_keeps_the_byte_layout() {
++        let (id, secret) = aws_sample_pair();
++        let src = format!("a = \"{id}\"\nb = '{secret}'\n");
++        let masked = mask_documented_placeholders(&src);
++        assert_eq!(
++            masked.len(),
++            src.len(),
++            "line numbers and projection alignment"
++        );
++        assert_eq!(masked.lines().count(), src.lines().count());
++        assert!(!masked.contains(&id) && !masked.contains(&secret));
++        assert!(
++            matches!(
++                mask_documented_placeholders("fn main() {}\n"),
++                Cow::Borrowed(_)
++            ),
++            "text without a sample is not copied"
++        );
++    }
++
++    #[test]
++    fn evidence_names_the_dimension_by_what_it_measures() {
++        let real = ["AKIA", "Q7ZP3XVB9TQLM2RW"].concat();
++        let hit = score(&format!("aws_access_key_id = {real}\n"));
++        assert!(
++            hit.evidence.starts_with("Hardcoded Secrets:"),
++            "{}",
++            hit.evidence
++        );
++        assert!(!hit.evidence.contains("Cryptographic"), "{}", hit.evidence);
++        let clean = score("pub fn add(a: i32, b: i32) -> i32 { a + b }\n");
++        assert!(
++            clean.evidence.starts_with("Hardcoded Secrets:"),
++            "{}",
++            clean.evidence
++        );
++    }
+ }
+diff --git i/crates/touring-quality/src/verifications/f4_7_cicd.rs w/crates/touring-quality/src/verifications/f4_7_cicd.rs
+index 5ff75777..e8885389 100644
+--- i/crates/touring-quality/src/verifications/f4_7_cicd.rs
++++ w/crates/touring-quality/src/verifications/f4_7_cicd.rs
+@@ -62,8 +62,17 @@ fn analyze_f4_7_cicd_dim(target: &Path) -> Result<(f32, String)> {
+     let r = analyze_cicd(&raw, lang);
+     let value = score_cicd(&r);
+     let top = crate::verifications::top_finding(&r.findings);
++    // Where the score ceiling comes from: a bare "(1x)" leaves the author reading the
++    // whole workflow to find the one job that holds the token.
++    let at = r
++        .primary()
++        .map(|f| match f.job.as_deref() {
++            Some(job) => format!("; at job `{job}` line {}", f.line),
++            None => format!("; at workflow level line {}", f.line),
++        })
++        .unwrap_or_default();
+     let evidence = format!(
+-        "FF4_7: {} CI/CD Pipeline smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_cicd: see header for detector catalog){top}",
++        "FF4_7: {} CI/CD Pipeline smell(s) over {} lines ({lang}) -- score={value:.3}          (touring-analysis analyze_cicd: see header for detector catalog){top}{at}",
+         r.violations, r.total_lines
+     );
+     Ok((value, evidence))
+@@ -149,4 +158,41 @@ jobs:
+             s.evidence
+         );
+     }
++
++    /// 17/10/2026: a supply-chain finding caps the score and the evidence says WHERE.
++    #[cfg(feature = "workspace-integration")]
++    #[test]
++    fn supply_chain_finding_caps_the_score_and_names_its_job() {
++        let workflow = format!(
++            "name: ci\non:\n  pull_request_target:\npermissions:\n  contents: read\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332\n        with:\n          ref: ${{{{ github.event.pull_request.head.sha }}}}\n          persist-credentials: false\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n{}",
++            "# padding\n".repeat(600)
++        );
++        let f = write_temp_ext(&workflow, ".yml");
++        let s = F4_7_Cicd.check(f.path()).expect("check");
++        assert!(s.value <= 0.40, "critical ceiling, got {}", s.value);
++        assert!(s.evidence.contains("pull_request_target"), "{}", s.evidence);
++        assert!(
++            s.evidence.contains("at job `build` line 10"),
++            "{}",
++            s.evidence
++        );
++        // A workflow-level grant has no job: the evidence says so.
++        let oidc = write_temp_ext(
++            "name: ci\non: push\npermissions:\n  contents: read\n  id-token: write\njobs:\n  t:\n    steps:\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n",
++            ".yml",
++        );
++        let o = F4_7_Cicd.check(oidc.path()).expect("check");
++        assert!(
++            o.evidence.contains("at workflow level line 3"),
++            "{}",
++            o.evidence
++        );
++        assert!(o.value <= 0.70, "high ceiling, got {}", o.value);
++        let clean = write_temp_ext(
++            "name: ci\non: push\npermissions:\n  contents: read\njobs:\n  t:\n    steps:\n      - run: cargo test\n      - run: cargo clippy\n      - run: python3 docs/elite_aggregate.py --check\n      - uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57\n",
++            ".yml",
++        );
++        let c = F4_7_Cicd.check(clean.path()).expect("check");
++        assert!(!c.evidence.contains("; at "), "{}", c.evidence);
++    }
+ }
+diff --git i/crates/touring-server/src/cli/component.rs w/crates/touring-server/src/cli/component.rs
+index 6e1da06d..d1b4ac66 100644
+--- i/crates/touring-server/src/cli/component.rs
++++ w/crates/touring-server/src/cli/component.rs
+@@ -213,11 +213,23 @@ fn walk_up(start: &Path) -> Option<PathBuf> {
+     }
+ }
+ 
++/// A leftover copy kept next to a real binary, never a component: `touring.old`,
++/// `touring-quality.real.bak`, `touring-quality-score.bak-20260903`.
++///
++/// `update-touring` and manual swaps leave these in the very directories component
++/// discovery reads (`~/.local/bin` is the dev channel dir), so without the filter
++/// `component list` offered five backups as optional components. Only the listing
++/// skips them; the files are never touched.
++fn is_backup_artifact(name: &str) -> bool {
++    name.ends_with(".old") || name.ends_with(".bak") || name.contains(".bak-")
++}
++
+ /// Enumerate core + optional components with their per-project status.
+ ///
+ /// Optional discovery: every non-core binary in the active toolchain's `bin/`
+ /// plus `touring-*`-named binaries from the dev channel dir (curated by
+-/// prefix — the dev dir holds unrelated user binaries too).
++/// prefix — the dev dir holds unrelated user binaries too). Backup copies
++/// ([`is_backup_artifact`]) are not components.
+ pub(crate) fn list_components(
+     dot_touring: &Path,
+     touring_home: &Path,
+@@ -231,6 +243,7 @@ pub(crate) fn list_components(
+             for e in entries.flatten() {
+                 if let Ok(name) = e.file_name().into_string()
+                     && !PROJECT_BINARIES.contains(&name.as_str())
++                    && !is_backup_artifact(&name)
+                 {
+                     optional.push(name);
+                 }
+@@ -242,6 +255,7 @@ pub(crate) fn list_components(
+             if let Ok(name) = e.file_name().into_string()
+                 && name.starts_with("touring")
+                 && !PROJECT_BINARIES.contains(&name.as_str())
++                && !is_backup_artifact(&name)
+                 && !optional.contains(&name)
+             {
+                 optional.push(name);
+@@ -474,4 +488,71 @@ mod tests {
+         let err = remove_component(&dot, "touring-quality").expect_err("must fail");
+         assert!(format!("{err}").contains("not linked"), "{err}");
+     }
++
++    #[test]
++    fn backup_artifacts_are_not_components() {
++        // The five files the report found in ~/.local/bin, in both discovery dirs.
++        let backups = [
++            "touring-daemon.old",
++            "touring-hook.old",
++            "touring-quality-score.bak-20260903",
++            "touring-quality.real.bak",
++            "touring.old",
++        ];
++        let tmp = tempfile::tempdir().expect("tmp");
++        let th = tmp.path().join("th");
++        let tc_bin = th.join("toolchains/vA/bin");
++        let dev = tmp.path().join("dev-bin");
++        for b in PROJECT_BINARIES {
++            fake_bin(&tc_bin, b);
++        }
++        fake_bin(&tc_bin, "touring-quality");
++        fake_bin(&dev, "touring-sidecar");
++        for b in backups {
++            fake_bin(&tc_bin, b);
++            fake_bin(&dev, b);
++        }
++        let dot = make_project(&tmp.path().join("proj"), "vA");
++
++        let rows = list_components(&dot, &th, &dev);
++        let names: Vec<&str> = rows.iter().map(|r| r.name.as_str()).collect();
++        for b in backups {
++            assert!(!names.contains(&b), "{b} listed as a component: {names:?}");
++        }
++        // The real optionals of both directories are still there.
++        assert!(names.contains(&"touring-quality"), "{names:?}");
++        assert!(names.contains(&"touring-sidecar"), "{names:?}");
++        // ...and the backups were only hidden, not deleted.
++        for b in backups {
++            assert!(
++                tc_bin.join(b).exists() && dev.join(b).exists(),
++                "{b} removed"
++            );
++        }
++    }
++
++    #[test]
++    fn is_backup_artifact_matches_the_leftover_spellings_only() {
++        for yes in [
++            "touring.old",
++            "touring-daemon.old",
++            "x.bak",
++            "touring-quality.real.bak",
++            "touring-quality-score.bak-20260903",
++            "x.bak-1788131825",
++        ] {
++            assert!(is_backup_artifact(yes), "{yes}");
++        }
++        for no in [
++            "touring",
++            "touring-quality",
++            "touring-oldies",
++            "touring-bakery",
++            "touring.bak.sh",
++            "touring-old",
++            "olds",
++        ] {
++            assert!(!is_backup_artifact(no), "{no}");
++        }
++    }
+ }
+diff --git i/crates/touring-server/src/cli/scan.rs w/crates/touring-server/src/cli/scan.rs
+index 256f632e..8f0b6109 100644
+--- i/crates/touring-server/src/cli/scan.rs
++++ w/crates/touring-server/src/cli/scan.rs
+@@ -1,4 +1,4 @@
+-//! `touring scan vulnerabilities` — CWE vulnerability scan of a source file.
++//! `touring scan [vulnerabilities] <file>` — CWE vulnerability scan of a source file.
+ //!
+ //! Returns cwes array (id, severity, line) + p0_block flag.
+ //!
+@@ -6,9 +6,19 @@
+ //! subcommand to inject `touring.scan_vulnerabilities` JSON via additionalContext.
+ //!
+ //! F4 (2026-08-31): wires real CWE detection — reads the source from disk.
+-//! S8 (2026-09-02): the detector is `touring_code::cwe_scan::detect_cwes`, the
+-//! SAME one the hook layer runs (the inline copy that lived here had drifted:
+-//! it never emitted CWE-22). This module only maps findings to the CLI JSON.
++//! S8 (2026-09-02): the hook-layer detector is `touring_code::cwe_scan::detect_cwes`,
++//! the SAME one the hook layer runs (the inline copy that lived here had drifted: it
++//! never emitted CWE-22). This module only maps findings to the CLI JSON.
++//!
++//! 17/10/2026: `scan` and the F2.1 gate disagreed. `detect_cwes` is four
++//! Rust-hook-latency patterns (CWE-798/89/22/394); the F2.1 gate runs the polyglot
++//! CWE/OWASP registry (`SecurityAnalyzer`: command injection, SQLi, XSS, path
++//! traversal, deserialization, SSRF, ...). On `subprocess.run("ls " + user,
++//! shell=True)` the gate said 0.070 and `scan` said "0 CWE(s), p0_block=false" — a
++//! mute zero from a tool that never looked. `scan` now runs BOTH: the hook-layer
++//! patterns and the gate's own registry (`f2_1_owasp::owasp_scan`, one
++//! implementation), maps the registry's matches through the gate's own thresholds, and
++//! DECLARES what it did not scan (`engines`, `not_scanned`) instead of answering 0.
+ 
+ use super::common::{human_to_stderr, json_to_stdout, parse_global_flags};
+ use anyhow::Context;
+@@ -23,14 +33,38 @@ struct Cwe {
+     description: String,
+ }
+ 
++/// One detector `scan` consulted, and whether it actually ran on this file.
++#[derive(serde::Serialize)]
++struct Engine {
++    name: &'static str,
++    ran: bool,
++    covers: String,
++    #[serde(skip_serializing_if = "Option::is_none")]
++    reason: Option<String>,
++}
++
+ #[derive(serde::Serialize)]
+ struct ScanResult {
+     file_path: String,
++    lang: String,
+     cwes: Vec<Cwe>,
+     p0_block: bool,
++    /// The detectors consulted — a `ran: false` entry says why a zero is not a clean bill.
++    engines: Vec<Engine>,
++    /// Security dimensions this command never looks at (see the gate for them).
++    not_scanned: Vec<&'static str>,
+ }
+ 
+-/// Detect CWEs in source text.
++/// What no `scan` run covers: the other security dimensions of the 50-dim harness.
++const NOT_SCANNED: [&str; 5] = [
++    "F2.2 input validation (touring-quality check --gate F2.2)",
++    "F2.3 authentication/authorization (touring-quality check --gate F2.3)",
++    "F2.4 hardcoded secrets beyond CWE-798 vendor-prefix literals (touring-quality check --gate F2.4)",
++    "F2.5 dependency CVEs (touring-quality check --gate F2.5)",
++    "F2.6 configuration security (touring-quality check --gate F2.6)",
++];
++
++/// Detect CWEs in source text with the hook-layer patterns.
+ ///
+ /// S8 (2026-09-02): delegates to the ONE shared detector
+ /// (`touring_code::cwe_scan::detect_cwes`) — the inline copy that used to live
+@@ -48,10 +82,85 @@ fn detect_cwes_in_source(source: &str) -> Vec<Cwe> {
+         .collect()
+ }
+ 
+-/// CLI entry point — `touring scan vulnerabilities <file>`.
++/// Scan `source` (the text of `path`) with the hook-layer patterns AND the F2.1
++/// CWE/OWASP registry, and report which of them ran.
++fn scan_source(source: &str, path: &Path) -> ScanResult {
++    use touring_quality::verifications::f2_1_owasp::{OwaspScan, owasp_scan};
++
++    let mut cwes = detect_cwes_in_source(source);
++    let owasp = owasp_scan(source, path);
++    for m in &owasp.matches {
++        let id = format!("CWE-{}", m.cwe_id);
++        let line = u32::try_from(m.line).unwrap_or(u32::MAX);
++        let tier = OwaspScan::tier_of(m.severity);
++        // The hook-layer detector may already have reported the same rule there: keep
++        // ONE entry, at the more severe of the two tiers ("P0" < "P1" < "P2").
++        if let Some(seen) = cwes.iter_mut().find(|c| c.id == id && c.line == line) {
++            if tier < seen.severity {
++                seen.severity = tier;
++            }
++            continue;
++        }
++        cwes.push(Cwe {
++            id,
++            severity: tier,
++            line,
++            description: format!(
++                "{} (F2.1 CWE/OWASP registry, severity {:.1})",
++                m.pattern, m.severity
++            ),
++        });
++    }
++    // The gate blocks on the registry's SUM of severities (several P1s can fail F2.1
++    // together), not only on a single P0 match — use its own verdict.
++    let p0_block = owasp.blocks() || cwes.iter().any(|c| c.severity == "P0");
++
++    let engines = vec![
++        Engine {
++            name: "cwe_scan",
++            ran: true,
++            covers:
++                "hook-layer patterns (touring_code::cwe_scan): CWE-798 vendor-prefix credentials, \
++                     CWE-89 SQL via `format!`, CWE-22 `fs::read_to_string`, CWE-394 `.unwrap()` -- \
++                     Rust syntax, so a file in another language gets only CWE-798 from this engine"
++                    .to_string(),
++            reason: None,
++        },
++        Engine {
++            name: "owasp",
++            ran: owasp.not_scanned.is_none(),
++            covers: format!(
++                "F2.1 CWE/OWASP registry (touring_analysis SecurityAnalyzer, lang={}): CWE-78 command \
++                 injection, 89 SQLi, 79 XSS, 22 path traversal, 502 deserialization, 918 SSRF, \
++                 LDAP/XML injection, buffer/integer overflow",
++                owasp.lang
++            ),
++            reason: owasp.not_scanned.clone(),
++        },
++    ];
++
++    ScanResult {
++        file_path: path.display().to_string(),
++        lang: owasp.lang,
++        cwes,
++        p0_block,
++        engines,
++        not_scanned: NOT_SCANNED.to_vec(),
++    }
++}
++
++/// Read `file_path` and scan it.
++fn scan_file(file_path: &str) -> anyhow::Result<ScanResult> {
++    let source = fs::read_to_string(Path::new(file_path))
++        .map_err(|e| anyhow::anyhow!("read {} failed: {}", file_path, e))?;
++    Ok(scan_source(&source, Path::new(file_path)))
++}
++
++/// CLI entry point — `touring scan [vulnerabilities] <file>`.
+ ///
+-/// Emits JSON `{ file_path, cwes: [{ id, severity, line, description }], p0_block }`
+-/// to stdout; human-readable status to stderr. Used by complementação-hooks H6 handler.
++/// Emits JSON `{ file_path, lang, cwes: [{ id, severity, line, description }], p0_block,
++/// engines, not_scanned }` to stdout; human-readable status to stderr. Used by
++/// complementação-hooks H6 handler.
+ pub fn run(args: &[String]) -> anyhow::Result<()> {
+     let (_flags, filtered) = parse_global_flags(args);
+ 
+@@ -63,30 +172,44 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
+         .position(|a| a == "scan")
+         .map(|i| i + 1)
+         .unwrap_or(0);
+-    let positional: Vec<&str> = filtered[subcmd_skip..].iter().map(String::as_str).collect();
++    let mut positional: Vec<&str> = filtered[subcmd_skip..].iter().map(String::as_str).collect();
++    // The documented form is `touring scan vulnerabilities <file>`; that token is a
++    // subcommand name, not the file (it used to be read as the path and failed with
++    // "read vulnerabilities failed"). Skipped only when a path follows it.
++    if positional.len() > 1 && positional[0] == "vulnerabilities" {
++        positional.remove(0);
++    }
+ 
+     let file_path = positional
+         .first()
+-        .context("file path required: touring scan vulnerabilities <file>")?
++        .context("file path required: touring scan [vulnerabilities] <file>")?
+         .to_string();
+ 
+-    let source = fs::read_to_string(Path::new(&file_path))
+-        .map_err(|e| anyhow::anyhow!("read {} failed: {}", file_path, e))?;
+-    let findings = detect_cwes_in_source(&source);
+-    let p0_block = findings.iter().any(|c| c.severity == "P0");
+-
+-    let result = ScanResult {
+-        file_path: file_path.clone(),
+-        cwes: findings,
+-        p0_block,
+-    };
++    let result = scan_file(&file_path)?;
+ 
+     json_to_stdout(&serde_json::to_string(&result)?);
++    let not_run: Vec<String> = result
++        .engines
++        .iter()
++        .filter(|e| !e.ran)
++        .map(|e| {
++            format!(
++                "{} NOT run: {}",
++                e.name,
++                e.reason.as_deref().unwrap_or("unknown")
++            )
++        })
++        .collect();
+     human_to_stderr(&format!(
+-        "scan vulnerabilities for {}: {} CWE(s), p0_block={}",
++        "scan vulnerabilities for {}: {} CWE(s), p0_block={}{}",
+         file_path,
+         result.cwes.len(),
+-        p0_block
++        result.p0_block,
++        if not_run.is_empty() {
++            String::new()
++        } else {
++            format!(" ({})", not_run.join("; "))
++        }
+     ));
+     Ok(())
+ }
+@@ -159,4 +282,210 @@ mod tests {
+             .collect();
+         assert!(ids.contains(&"CWE-22".to_string()), "{ids:?}");
+     }
++
++    // ---- 17/10/2026: scan and the F2.1 gate must agree -------------------------------
++
++    use touring_quality::DimStatus;
++    use touring_quality::verifications::Verification;
++    use touring_quality::verifications::f2_1_owasp::F2_1_Owasp;
++
++    /// The probe of the report: command injection through `shell=True`.
++    const CMDI_PY: &str =
++        "import subprocess, sys\nuser = sys.argv[1]\nsubprocess.run(\"ls \" + user, shell=True)\n";
++
++    fn write(dir: &Path, name: &str, body: &str) -> std::path::PathBuf {
++        let path = dir.join(name);
++        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
++        std::fs::write(&path, body).expect("write");
++        path
++    }
++
++    fn gate_blocks(path: &Path) -> bool {
++        F2_1_Owasp.check(path).expect("gate").status == DimStatus::Fail
++    }
++
++    #[test]
++    fn command_injection_in_python_is_found_like_the_gate_finds_it() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let path = write(dir.path(), "probe_cmdi.py", CMDI_PY);
++        assert!(
++            gate_blocks(&path),
++            "premise: the F2.1 gate blocks the probe"
++        );
++        let r = scan_file(path.to_str().expect("utf8")).expect("scan");
++        assert!(
++            r.cwes
++                .iter()
++                .any(|c| c.id == "CWE-78" && c.severity == "P0" && c.line == 3),
++            "{:?}",
++            r.cwes
++                .iter()
++                .map(|c| (&c.id, c.severity, c.line))
++                .collect::<Vec<_>>()
++        );
++        assert!(r.p0_block, "the gate blocks, scan must too");
++        assert_eq!(r.lang, "python");
++    }
++
++    #[test]
++    fn scan_declares_what_it_ran_and_what_it_never_looks_at() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let path = write(dir.path(), "probe_cmdi.py", CMDI_PY);
++        let r = scan_file(path.to_str().expect("utf8")).expect("scan");
++        let owasp = r
++            .engines
++            .iter()
++            .find(|e| e.name == "owasp")
++            .expect("owasp engine");
++        assert!(owasp.ran && owasp.reason.is_none());
++        assert!(owasp.covers.contains("python"), "{}", owasp.covers);
++        assert!(r.engines.iter().any(|e| e.name == "cwe_scan" && e.ran));
++        assert!(
++            r.not_scanned
++                .iter()
++                .any(|d| d.contains("F2.5 dependency CVEs")),
++            "{:?}",
++            r.not_scanned
++        );
++    }
++
++    #[test]
++    fn a_zero_from_an_engine_that_did_not_run_says_so() {
++        // `tests/` is a non-production harness: the gate allowlists it, and scan
++        // must not answer a bare "0 CWE(s)" as if it had looked.
++        let dir = tempfile::tempdir().expect("tempdir");
++        let path = write(dir.path(), "tests/probe_cmdi.py", CMDI_PY);
++        let r = scan_file(path.to_str().expect("utf8")).expect("scan");
++        let owasp = r
++            .engines
++            .iter()
++            .find(|e| e.name == "owasp")
++            .expect("owasp engine");
++        assert!(!owasp.ran, "{:?}", owasp.reason);
++        assert!(
++            owasp
++                .reason
++                .as_deref()
++                .is_some_and(|why| why.contains("harness")),
++            "{:?}",
++            owasp.reason
++        );
++        assert!(!r.p0_block, "allowlisted harness: the gate passes it too");
++        assert!(!gate_blocks(&path));
++    }
++
++    #[test]
++    fn scan_and_the_gate_agree_on_a_small_corpus() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let corpus: [(&str, &str); 6] = [
++            ("cmdi.py", CMDI_PY),
++            ("clean.py", "def add(a, b):\n    return a + b\n"),
++            (
++                "xss.html",
++                "<html><script>alert(document.cookie)</script></html>\n",
++            ),
++            (
++                "sqli.py",
++                "q = \"SELECT * FROM t WHERE name = 'x' OR '1'='1'\"\ncur.execute(q)\n",
++            ),
++            (
++                "path.rs",
++                "fn load(p: &str) -> String {\n    std::fs::read_to_string(p).unwrap_or_default()\n}\n",
++            ),
++            ("plain.rs", "fn main() {\n    println!(\"hello\");\n}\n"),
++        ];
++        let mut blocking = 0;
++        for (name, body) in corpus {
++            let path = write(dir.path(), name, body);
++            let r = scan_file(path.to_str().expect("utf8")).expect("scan");
++            let gate = gate_blocks(&path);
++            let hook_layer_p0 = detect_cwes_in_source(body)
++                .iter()
++                .any(|c| c.severity == "P0");
++            // The gate's verdict is contained in scan's, and equals it unless the
++            // hook-layer patterns (credentials, ...) raise a P0 the gate never claimed.
++            assert!(
++                !gate || r.p0_block,
++                "{name}: the gate blocks but scan does not"
++            );
++            if !hook_layer_p0 {
++                assert_eq!(r.p0_block, gate, "{name}: scan and the gate disagree");
++            }
++            // Every CWE the registry puts in the gate's evidence is in scan's list.
++            let registry = touring_quality::verifications::f2_1_owasp::owasp_scan(body, &path);
++            for m in &registry.matches {
++                assert!(
++                    r.cwes.iter().any(|c| c.id == format!("CWE-{}", m.cwe_id)),
++                    "{name}: scan lost CWE-{}",
++                    m.cwe_id
++                );
++            }
++            blocking += usize::from(gate);
++        }
++        assert!(
++            blocking >= 1,
++            "the corpus must contain at least one blocking sample"
++        );
++    }
++
++    #[test]
++    fn the_documented_subcommand_form_reads_the_file_not_the_word() {
++        let dir = tempfile::tempdir().expect("tempdir");
++        let path = write(dir.path(), "clean.py", "x = 1\n");
++        let file = path.to_str().expect("utf8").to_string();
++        let args = vec![
++            "scan".to_string(),
++            "vulnerabilities".to_string(),
++            file.clone(),
++        ];
++        assert!(
++            run(&args).is_ok(),
++            "`scan vulnerabilities <file>` must scan <file>"
++        );
++        // The bare form keeps working.
++        assert!(run(&["scan".to_string(), file]).is_ok());
++    }
++
++    #[test]
++    fn a_hook_layer_finding_on_the_same_line_is_not_reported_twice() {
++        // Both engines know SQL injection (CWE-89) here: the hook-layer pattern
++        // (`format!` + `select`, tier P1) and the registry (`UNION SELECT`, tier P0).
++        let dir = tempfile::tempdir().expect("tempdir");
++        let body = "let q = format!(\"{} UNION SELECT password FROM users\", id);\n";
++        let path = write(dir.path(), "q.rs", body);
++        let hook = detect_cwes_in_source(body);
++        assert!(
++            hook.iter()
++                .any(|c| c.id == "CWE-89" && c.line == 1 && c.severity == "P1"),
++            "premise: the hook-layer detector reports CWE-89/P1 on line 1"
++        );
++        let registry = touring_quality::verifications::f2_1_owasp::owasp_scan(body, &path);
++        assert!(
++            registry
++                .matches
++                .iter()
++                .any(|m| m.cwe_id == 89 && m.line == 1),
++            "premise: the registry reports CWE-89 on line 1 too: {registry:?}"
++        );
++        let r = scan_file(path.to_str().expect("utf8")).expect("scan");
++        let on_line_1: Vec<_> = r
++            .cwes
++            .iter()
++            .filter(|c| c.id == "CWE-89" && c.line == 1)
++            .collect();
++        assert_eq!(
++            on_line_1.len(),
++            1,
++            "one entry, not two: {:?}",
++            r.cwes
++                .iter()
++                .map(|c| (&c.id, c.severity, c.line))
++                .collect::<Vec<_>>()
++        );
++        assert_eq!(
++            on_line_1[0].severity, "P0",
++            "the more severe tier wins (the gate blocks here)"
++        );
++        assert!(r.p0_block && gate_blocks(&path));
++    }
+ }
+diff --git i/docs/kpi/README.md w/docs/kpi/README.md
+index 797cb8e4..c6536fe3 100644
+--- i/docs/kpi/README.md
++++ w/docs/kpi/README.md
+@@ -60,6 +60,11 @@ Primeiras medições reais (2026-08-28): `touring.test.count` = 15 786 ·
+ - Snapshot por execução: `docs/kpi/<YYYY-MM>/<data>--<root-slug>.json`
+   (persistido por `persist_snapshot`; raiz derivada do workspace — desde
+   2026-08-28 aponta para `~/projects/touring`, não mais a árvore congelada).
++  O repositório é público: desde 17/10/2026 o escritor grava o caminho relativo
++  ao home (`~/projects/touring`), nunca o absoluto — o `<root-slug>` do NOME
++  (`~-projects-touring`) e todo campo string do JSON (`project_root`, `reason`,
++  `journal`, ...) passam por `scrub_home`. Os snapshots anteriores a essa data
++  foram mantidos como estavam.
+ - Tendências: `docs/kpi/trends/`.
+ - Gate de CI/entrega: `touring kpi --check` (advisory não trip a saída).
+ 

@@ -1,0 +1,10 @@
+gates rc=0 2026-10-17T13:04:21-03:00
+mutantes rc=0 2026-10-17T13:09:30-03:00
+release rc=0 2026-10-17T13:27:28-03:00
+novo=/home/gabrielgadea/.claude/touring/vgp/binarios/e59f61e2/touring
+juizes rc=0 2026-10-17T14:16:35-03:00
+compara_frag rc=0 (0 = sem DENY_NOVO e sem INESPERADO)
+frag.patch sha b38f42bd8c2c5c2e RECONSTRÓI o FRAG
+frag.patch NÃO aplica sozinho no int97
+frag.patch NÃO aplica sozinho no adapt
+FIM

@@ -1,0 +1,383 @@
+{
+ "area": "G4-workflows-planejamento-testes-ci",
+ "symbol_verification": "CLI: touring adw list|explain bugfix|explain plan-excellence|--help, touring decompose --help|templates, touring explore --help, scripts/hw-slot --status, grep/ls via touring run. ECC lido só por script Python no sandbox, nada executado.",
+ "linhas": [
+  {
+   "dominio": "planejamento",
+   "funcionalidade": "Plano com confirmação e ancoragem em padrões do código",
+   "ecc": {
+    "como": "/plan roda inline, lista riscos e ESPERA confirmação. Antes de planejar captura um exemplo por categoria (nomes, erros, log, dados, testes) com arquivo; se não existir, declara em vez de inventar.",
+    "evidencia": "commands/plan.md:12-17,51-63"
+   },
+   "touring": {
+    "como": "taco-planning tem 4 estágios (ground truth VGP, 9 dimensões, estrutura Pln2, amplificação) e o ADW plan-excellence tem 6 nós. Grep 'mirror|patterns to' em taco-planning devolve 0 linhas.",
+    "evidencia": "~/.claude/skills/taco-planning/SKILL.md:46-142; touring adw explain plan-excellence",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "adaptar",
+   "nota": "Adotar só a tabela Patterns to Mirror (categoria, exemplo arquivo:linha) como seção do Pln2. O resto já está coberto."
+  },
+  {
+   "dominio": "planejamento",
+   "funcionalidade": "Fluxo PRD, plano e PR em arquivos; ponte plano para comando",
+   "ecc": {
+    "como": "/plan-prd, /plan, tdd e /pr trocam arquivos .claude/{prds,plans,reviews}, com tabela de milestones pending→in-progress. plan-orchestrate emite um slash command colável por passo, só se o comando carregar o escopo.",
+    "evidencia": "docs/PLAN-PRD-PATTERN.md:3-23,132-137; skills/plan-orchestrate/SKILL.md:33-36"
+   },
+   "touring": {
+    "como": "Planos em docs/plans/<data>-<slug>/ (124 pastas) com RETOMADA e HANDOFF. O estado executável fica no DAG (claim, ready, frontier) e adw run ou factory route executam direto. Não há PRD problem-first.",
+    "evidencia": "ls docs/plans=124; touring decompose --help",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "A regra 'o roteador só emite o que o alvo consegue carregar' serve de invariante de teste para factory route."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Família orch-* (feature, change, fix, refine, mvp)",
+   "ecc": {
+    "como": "Motor orch-pipeline com classificador de tamanho (trivial a large escolhe fases) e dois gates humanos (após o plano, antes do commit). Primeiro movimento por operação: fix escreve teste de regressão vermelho antes de corrigir.",
+    "evidencia": "skills/orch-pipeline/SKILL.md:39-54,76-85; commands/orch-fix-defect.md:28-33"
+   },
+   "touring": {
+    "como": "ADWs bugfix, feature, chore, hotfix, polir. O bugfix tem 8 nós: recall, investigate, blast, pre_edit(gate), fix(agent), verify(gate), q50(gate), persist. O right-sizing é a CILA L0-L4. Não há nó de teste-vermelho-primeiro.",
+    "evidencia": "touring adw explain bugfix (entry recall.memory); touring adw list (23 na library)",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "adaptar",
+   "nota": "Gates por código superam gates humanos. Falta um nó repro_test no bugfix: o teste novo deve falhar antes do fix."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "GAN harness (planner, generator, evaluator)",
+   "ecc": {
+    "como": "O evaluator testa o app vivo via Playwright e pontua uma rubrica 1-10 (design 0,3, originalidade 0,2, craft 0,3, função 0,2). Passa com ≥7,0, até 15 iterações. O shell extrai o TOTAL do texto do feedback.",
+    "evidencia": "scripts/gan-harness.sh:9-22,62; agents/gan-evaluator.md:124-126,154"
+   },
+   "touring": {
+    "como": "Não há avaliador de app vivo. O equivalente mecânico é agent + gate com verdict_contract PASS|REJECT|ESCALATE (ilegível = REJECT), laço com NEW_FINDINGS contado pelo runner e polir (crítico cego contra barra nomeada).",
+    "evidencia": "touring adw --help; adw-library/polir.toml",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "ignorar",
+   "nota": "Domínio UI não é o do Touring. Nota numérica raspada de prosa de LLM é juiz fraco; o juiz do Touring é código."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "autonomous-loops (espectro de laços autônomos)",
+   "ecc": {
+    "como": "611 linhas e 6 padrões: pipeline claude -p, REPL, laço infinito, PR loop com SHARED_TASK_NOTES.md, de-sloppify em contexto separado, Ralphinho RFC-DAG com merge queue. Marcada 'mantida por uma release' desde v1.8.0.",
+    "evidencia": "skills/autonomous-loops/SKILL.md:10-13,26-37; CHANGELOG.md:329; VERSION=2.2.3"
+   },
+   "touring": {
+    "como": "loop-engineering tem 4 laços empilhados, checkpointer e gate loop_converged.py exit 0 (judge_attest primeiro). O runner ADW encerra o laço e NEW_FINDINGS ausente é 'desconhecido', nunca zero. O Stop hook exige artefato em disco.",
+    "evidencia": "~/.claude/skills/loop-engineering/SKILL.md:18-39,134-166; touring adw --help",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "anti_licao",
+   "nota": "Depreciação sem teste que a expire: a skill segue viva em 2.2.3 apesar de 'uma release'."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "multi-plan/execute/workflow/backend/frontend (Codex e Gemini)",
+   "ecc": {
+    "como": "Chama Codex e Gemini/Antigravity em background via runtime externo ccg-workflow (npx, fora da instalação base). Soberania de código: modelos externos sem escrita em disco, só o Claude escreve. SESSION_ID retoma a sessão.",
+    "evidencia": "commands/multi-plan.md:9,15-19; commands/multi-execute.md:5-45"
+   },
+   "touring": {
+    "como": "Sessões irmãs Kimi/MiniMax com brief de arquivos exclusivos, aceite escrito e notify_when_idle. A entrega é hipótese até o juiz. Roteamento por custo com o hook agent_model_gate.",
+    "evidencia": "CLAUDE.md do repo item 17 (lido no contexto); docs/economia-de-creditos-e-contexto.md existe",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "As irmãs do Touring escrevem em arquivos exclusivos; o ECC proíbe escrita externa. A dependência npx externa é risco que o Touring evita."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "epic-* (coordenação de épicos)",
+   "ecc": {
+    "como": "Sete comandos são fachada de scripts/github-coordination.js: estado no corpo da issue, labels, cache SQLite local e comentário de auditoria por claim.",
+    "evidencia": "commands/epic-claim.md:11-20; scripts/github-coordination.js (claim, sync, validate, publish, review, unblock)"
+   },
+   "touring": {
+    "como": "decompose claim é UPDATE condicional atômico com lease expirável (renew, release). ticket e frontier separam DECISÃO de IMPLEMENTAÇÃO com névoa clear|hazy|unknown, e unknown nunca vira clear. Estado local, sem espelho em issues.",
+    "evidencia": "touring decompose --help",
+    "estado": "superior"
+   },
+   "veredito": "equivalente",
+   "acao": "ignorar",
+   "nota": "Os substratos diferem: o ECC compartilha com humanos via GitHub e o Touring coordena sessões locais. Gabriel é operador único."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "TDD (tdd-guide, tdd-workflow, piso de cobertura)",
+   "ecc": {
+    "como": "Agente tdd-guide (sonnet) e skill tdd-workflow (583L) com RED, GREEN e REFACTOR. Cobertura 80% imposta por c8 --check-coverage no CI. /tdd foi aposentado em favor da skill.",
+    "evidencia": "agents/tdd-guide.md:27-48; package.json scripts.coverage; COMMANDS-QUICK-REF.md:259"
+   },
+   "touring": {
+    "como": "tdd-enforcer é gate pré-condicional que BLOQUEIA Edit/Write em código de produção até existir teste falhando e verifica vermelho→verde. cargo-llvm-cov alimenta a dimensão F3.1; piso fail-under não verificado.",
+    "evidencia": "~/.claude/skills/tdd-enforcer/SKILL.md:1-12; ci.yml job coverage",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O ECC aconselha e o Touring bloqueia. O piso numérico de cobertura do ECC não tem par comprovado no CI do Touring."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Revisão de código e laço de verificação",
+   "ecc": {
+    "como": "CRITICAL/HIGH bloqueia; decisão APPROVE|REQUEST_CHANGES|BLOCK; PR rascunho = COMMENT. verification-loop faz 6 fases e usa set -o pipefail para o tail não engolir o exit.",
+    "evidencia": "commands/code-review.md:133-199; skills/verification-loop/SKILL.md:23-66"
+   },
+   "touring": {
+    "como": "TACO-cross-audit tem 7 fases com relatório docs/audits/cross-audit-<data>.md como artefato-gate (o Stop hook recusa sem ele). O gate 1/6 do propagate-release roda check, clippy -D warnings --all-targets, espelho e testes dos crates tocados.",
+    "evidencia": "~/.claude/skills/TACO-cross-audit/SKILL.md:30-56; scripts/propagate-release.sh:1-45; ls docs/audits=49",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O ECC registrou o mesmo bug de shell (| tail engole exit) que já está na memória do Touring."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Juiz independente (loop-design-check, santa-method)",
+   "ecc": {
+    "como": "Objetivo decidível por máquina, condições anti-Goodhart e juiz independente do construtor. Santa: dois revisores com a mesma rubrica, ambos passam, laço de correção com MAX e escalonamento humano.",
+    "evidencia": "skills/loop-design-check/SKILL.md:44-53,85; skills/santa-method/SKILL.md:48-60"
+   },
+   "touring": {
+    "como": "judge_attest roda primeiro: cláusula que SUMIU bloqueia e mudança exige --attest --why. Gate verdict_contract com on_escalate obrigatório, detecção Class-D e painel de críticos cegos.",
+    "evidencia": "loop-engineering/SKILL.md:134-166; touring adw --help",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O ECC descreve o princípio; o Touring trava por código para que o juiz não seja reescrevível pelo julgado."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Organização e estilo dos testes",
+   "ecc": {
+    "como": "467 arquivos em tests/ (422 .test.js, 28 .py): lib 171, scripts 88, hooks 76, ci 40. Cerca de 3.049 test()/it() e 327 def test_. Runner próprio run-all.js. Teste de hook = spawnSync com JSON no stdin; teste de doc = a doc contém a frase.",
+    "evidencia": "tests/run-all.js:7-70; tests/hooks/auto-tmux-dev.test.js:27-37; tests/docs/antigravity-guide.test.js:29-40"
+   },
+   "touring": {
+    "como": "17.113 #[test] e 358 #[tokio::test] (94 ignore) em crates; 247 .rs em pastas tests; 68 scripts/test_*.py com 773 defs. nextest perfil ci sem retries, 11 arquivos proptest, alvos cargo-fuzz.",
+    "evidencia": "grep '#[test]' crates=17113; .config/nextest.toml:8-28; ls fuzz",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "A amplitude do ECC é de superfícies (hook, doc, instalador, 3 SO). Nenhum teste do ECC faz mutação de código."
+  },
+  {
+   "dominio": "documentacao",
+   "funcionalidade": "Auditoria de governança de docs",
+   "ecc": {
+    "como": "test_docs_governance_audit.py (905L, 67 testes) governa audit-docs.py (754L), read-only por escopo spine|context|adr|artifacts|full: link quebrado, link que escapa do projeto, symlink para fora, índice de ADR, 'superseded' exige sucessor, contrato de papéis.",
+    "evidencia": "tests/test_docs_governance_audit.py:19-43; skills/docs-governance/references/artifact-role-contract.md:9-22"
+   },
+   "touring": {
+    "como": "Gates de CI: doc não cita crate inexistente, gen_reference anti-drift, mkdocs --strict, sync_metrics, relatórios OKF. Auditoria genérica de links e symlinks em docs/plans não verificada.",
+    "evidencia": "ci.yml job gates (lista de steps)",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "O Touring checa verdade (o crate existe), o ECC checa estrutura. Reimplementar links-que-escapam e symlink-fora para docs/plans, sem executar código do ECC."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Estrutura do CI, cron e bots",
+   "ecc": {
+    "como": "12 workflows. ci.yml (435L) tem 9 jobs: test 3 SO × 3 Node × 4 gerenciadores, pack-installer, lifecycle, validate (13 validadores), python, security, coverage, lint. Cron: IOC a cada 6h, manutenção segunda, métricas mensais.",
+    "evidencia": ".github/workflows/ci.yml:28-30,153-435; supply-chain-watch.yml '17 */6 * * *'; maintenance.yml '0 9 * * 1'"
+   },
+   "touring": {
+    "como": "ci.yml tem 8 jobs só em ubuntu: check, doc test, coverage, gates (~30 steps datados), cargo-deny BINDING, integration nextest, fuzz, msrv. 4 workflows; gatilho push e pull_request, sem cron; dependabot semanal.",
+    "evidencia": "ls .github/workflows=4; grep runs-on ci.yml",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "Falta vigia agendado: advisory novo num dep parado só aparece no próximo push. Adaptar um cron semanal de cargo deny check advisories."
+  },
+  {
+   "dominio": "seguranca",
+   "funcionalidade": "Linter de segurança dos próprios workflows",
+   "ecc": {
+    "como": "validate-workflow-security.js (278L) reprova checkout de código de PR sob pull_request_target/workflow_run (head.ref/sha, refs/pull/N) e permissions write-all. Tem teste próprio e roda no job validate.",
+    "evidencia": "scripts/ci/validate-workflow-security.js:2-40; tests/ci/validate-workflow-security.test.js"
+   },
+   "touring": {
+    "como": "Não há linter: grep de pull_request_target em .github e scripts retorna vazio. O release.yml restringe id-token e attestations ao job release. Hoje nenhum workflow usa gatilho privilegiado.",
+    "evidencia": "grep pull_request_target = 0; release.yml:25,187",
+    "estado": "ausente"
+   },
+   "veredito": "so_ecc",
+   "acao": "adaptar",
+   "nota": "Barato e preventivo: um pytest que reprove pull_request_target, workflow_run com checkout de head e write-all em .github/workflows."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Pipeline de release",
+   "ecc": {
+    "como": "pack-installer empacota o tarball exato, testa a instalação em 3 SO e publica o MESMO artefato com sha256. verify-release-gates.js consulta a API: CI verde no commit, 3 categorias CodeQL, 20 tentativas × 30s.",
+    "evidencia": "ci.yml:153-210; release.yml:22-25; scripts/ci/verify-release-gates.js:6-18"
+   },
+   "touring": {
+    "como": "verify (ci venceu no commit) → build (1 alvo, checksum, SBOM CycloneDX, smoke só no arco nativo) → release (cosign keyless + atestado SLSA). propagate-release.sh tem 6 etapas e rollback.",
+    "evidencia": "release.yml:37-226; scripts/propagate-release.sh:1-45",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O ECC testa a instalação do artefato exato em 3 SO; o Touring prova comportamento (gate 5.5), mas num alvo só."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Higiene de PR e contribuição",
+   "ecc": {
+    "como": "Template com checklist de registro (package.json, manifests, catalog:sync). PR Burst Guard: mais de 5 PRs em 20 min fecha e tranca, mais de 10 bloqueia a conta. CODEOWNERS '* @affaan-m'. 5 templates de issue e 5 prompts Copilot.",
+    "evidencia": ".github/PULL_REQUEST_TEMPLATE.md:30-39; .github/PR_MODERATION.md:9-15; .github/CODEOWNERS:1"
+   },
+   "touring": {
+    "como": "O template exige evidência ('Tests pass' não é evidência; cole comando e saída), checklist de check, clippy e órfãos, e seção Blast radius. CODEOWNERS é placeholder inerte; 3 templates de issue.",
+    "evidencia": ".github/pull_request_template.md:1-30; .github/CODEOWNERS",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ignorar",
+   "nota": "O burst guard serve a repositório com PRs de estranhos; o do Touring é de operador único."
+  },
+  {
+   "dominio": "cat-commands",
+   "funcionalidade": "Curadoria da superfície de comandos",
+   "ecc": {
+    "como": "97 comandos, QUICK-REF (286L), COMMAND-AGENT-MAP (89L), 12 shims aposentados e catalog:check no CI. Política: skills/ é canônica. O MAP ainda lista /tdd, /e2e e /orchestrate como vivos.",
+    "evidencia": "AGENTS.md:175-179; docs/COMMAND-AGENT-MAP.md:9,12,25 vs COMMANDS-QUICK-REF.md:259-267"
+   },
+   "touring": {
+    "como": "25 comandos em ~/.claude/commands (11 touring.*, plan, checkpoint, TACO-task), 187 skills e 11 agents. Espelho client/ com MANIFEST.sha256, skill pins/principles/gates no CI.",
+    "evidencia": "ls ~/.claude/commands; ci.yml steps 'client mirror' e 'skill pins'",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "O registro gerado do ECC não pegou o drift entre dois docs escritos à mão."
+  },
+  {
+   "dominio": "cat-commands",
+   "funcionalidade": "hookify (regras declarativas a partir da conversa)",
+   "ecc": {
+    "como": "Cria .claude/hookify.{nome}.local.md (event bash|file|stop|prompt, action block|warn, pattern regex) por descrição ou análise da conversa (correções, reversões). O runtime embutido aplica sem plugin.",
+    "evidencia": "commands/hookify.md:13-52"
+   },
+   "touring": {
+    "como": "Sem arquivo de regra declarativo por usuário: hooks são Python/Rust escritos à mão. O aprendizado vem de error-teach, gotcha e skill-refine (minera transcritos, propõe diffs sem aplicar).",
+    "evidencia": "touring adw list; CLAUDE.md do repo item 16",
+    "estado": "parcial"
+   },
+   "veredito": "so_ecc",
+   "acao": "adaptar",
+   "nota": "Só vale se a regra compilar para o gate Rust existente (texto e predicado da mesma fonte, D8) e entrar primeiro em sombra."
+  },
+  {
+   "dominio": "cat-skills",
+   "funcionalidade": "skill-create (skill a partir de histórico)",
+   "ecc": {
+    "como": "Minera o git local (commits, co-alteração de arquivos, padrões de mensagem) e gera SKILL.md, opcionalmente instincts.",
+    "evidencia": "commands/skill-create.md:11-27"
+   },
+   "touring": {
+    "como": "skill-refine (ADW): mine_transcripts + quality_gate, agente propõe diffs sem aplicar. Gates de CI: skill pins, principles, gates.",
+    "evidencia": "adw-library/skill-refine.toml; ci.yml steps 'skill pins'",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "O sinal difere (git × transcritos). Co-alteração de arquivos do git no Touring: não verificado."
+  },
+  {
+   "dominio": "cat-agentes",
+   "funcionalidade": "Prompt Defense Baseline em cada agente",
+   "ecc": {
+    "como": "Os 9 agentes lidos abrem com o mesmo bloco de 6 bullets: não mudar papel, não vazar segredo, tratar dado externo e unicode invisível como não confiável. Modelo no frontmatter (planner opus só-leitura, doc-updater haiku).",
+    "evidencia": "agents/planner.md:8-18"
+   },
+   "touring": {
+    "como": "11 agentes touring-* com saída JSON e symbol_verification; 4 citam injection/untrusted. A defesa real está na Regra #20, nos hooks e no agent_model_gate (recusa Agent sem model).",
+    "evidencia": "grep -il 'injection|untrusted' ~/.claude/agents = 4 de 11",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "anti_licao",
+   "nota": "Prosa idêntica em cada spawn é persuasão paga por token. A medição do Touring diz que enforcement mora no executor."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Governador de hardware compartilhado",
+   "ecc": {
+    "como": "Nada equivalente: o CI usa matriz de SO e nenhum script lido governa jobs pesados locais de várias sessões.",
+    "evidencia": "scripts/ci/ (20 arquivos) sem governador de recursos"
+   },
+   "touring": {
+    "como": "hw-slot é um semáforo flock imposto pelo kernel (rust=1 vaga, heavy=2), re-entrante, exit 70 em machine check. Executado: --status devolve temp_c 96,0 e mem_avail 26 GB.",
+    "evidencia": "scripts/hw-slot --status (executado)",
+    "estado": "existe"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Resposta a CPUs offline e 6+ sessões simultâneas; o ECC não tem esse problema."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Pré-registro e mutação de testes",
+   "ecc": {
+    "como": "Sem pré-registro nem mutation testing: 0 testes citam 'mutant' ou stryker; as 28 ocorrências de 'mutation' são mutação de objeto (amostra de 3 arquivos).",
+    "evidencia": "grep em tests/**/*.test.js; ex. tests/scripts/setup.test.js"
+   },
+   "touring": {
+    "como": "Pré-registro antes de qualquer resultado (ordem ABBABAAB, A/A antes de A/B, referência fixa, bootstrap IC95 semente fixa, ids sem tempo >1% = INCONCLUSIVO exit 3) em 56 docs/plans. mutants.toml promete 'CI incremental, semanal fatiado', mas nenhum workflow roda cargo mutants.",
+    "evidencia": "docs/plans/2026-10-08-vgp-motor-base/PREREGISTRO-P95-PAREADO-2026-10-17.md:1-40; ci.yml:271-279; .cargo/mutants.toml:4",
+    "estado": "parcial"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Gap interno: mutação declarada em CI sem execução. Agendar o cargo mutants ou retirar a promessa do mutants.toml."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "Exploração até esgotar (explore --until-dry)",
+   "ecc": {
+    "como": "/harness-audit dá scorecard determinístico instantâneo, não um laço. A skill iterative-retrieval existe, mas não foi lida.",
+    "evidencia": "commands/harness-audit.md:1-6; listagem de skills/"
+   },
+   "touring": {
+    "como": "Ledger JSON persistente com lentes rotativas (rodada só conta com o catálogo completo). Perguntas abertas bloqueiam convergência, truncamento é contabilizado, eco da própria campanha é suprimido, e a profundidade é D0/D1/D2.",
+    "evidencia": "touring explore --help",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Classificação limitada: iterative-retrieval do ECC não foi lido."
+  }
+ ],
+ "licoes": [
+  "Depreciação 'por uma release' sem teste que a expire: autonomous-loops continua em v2.2.3 (SKILL.md:10-13; CHANGELOG.md:329). Toda promessa de remoção precisa de um gate com data.",
+  "Registro gerado não cobre o que fica de fora dele: COMMAND-AGENT-MAP.md:9,12,25 lista como vivos /tdd, /e2e e /orchestrate, aposentados em COMMANDS-QUICK-REF.md:259-267, apesar de catalog:check e command-registry:check.",
+  "Teste de doc que afirma a frase presente (antigravity-guide.test.js:29-40) prova o texto, não a verdade. O gate do Touring 'doc não cita crate inexistente' prova o fato.",
+  "Declarado não é executado, nos dois lados: .cargo/mutants.toml:4 promete mutação em CI e ci.yml:271-279 só testa a config. O ECC faz o mesmo ao reter autonomous-loops.",
+  "tdd-enforcer bloqueia Edit sem teste vermelho, enquanto tdd-guide e o Prompt Defense Baseline só aconselham. Reforça D8: enforcement mora no executor.",
+  "Invariante útil do ECC: o roteador só emite comando que carrega o escopo do passo (plan-orchestrate/SKILL.md:33-36). Vale como teste para o factory route do Touring."
+ ],
+ "nao_coberto": "Lidos só por cabeçalhos ou fases: tdd-workflow (583L), prp-plan (502L), prp-implement (385L), santa-loop, multi-backend/frontend/workflow, e2e-runner, refactor-cleaner, doc-updater, pr-test-analyzer. tests/lib (171 arquivos) e tests/scripts (88) só em contagem. CODE_OF_CONDUCT, SECURITY e a release 2.2 (docs) não vistos. No Touring, só 3 dos 23 specs da adw-library foram explicados (bugfix, plan-excellence, release-gate). A existência de piso fail-under no job coverage e de auditoria de links em docs/plans não foi verificada. Foi lido o conteúdo de CONTRIBUTING.md e AGENTS.md só pelos cabeçalhos e seções de workflow e testing."
+}

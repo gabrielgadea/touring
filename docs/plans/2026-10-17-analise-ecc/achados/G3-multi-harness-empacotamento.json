@@ -1,0 +1,262 @@
+{
+ "area": "G3-multi-harness-empacotamento",
+ "linhas": [
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Instalacao versionada, reversivel e por toolchain imutavel",
+   "ecc": {
+    "como": "install.sh delega a install-apply.js; instala por --profile e --target. Nao ha versao imutavel nem rollback de toolchain, so o install-state da instalacao corrente.",
+    "evidencia": "install.sh:42; scripts/install-apply.js:14-30"
+   },
+   "touring": {
+    "como": "Toolchains imutaveis por versao em ~/.touring/toolchains; touring update religa .touring/bin, grava toolchain.lock e tem --rollback.",
+    "evidencia": "`touring toolchain list` = 54 linhas, 30.4.42..30.4.96, default 30.4.96; `touring update --dry-run --project <touring>` -> re-link touring, touring-hook, touring-daemon para dev",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Versionamento por toolchain com lock e rollback e mais forte que o install-state do ECC."
+  },
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Selecao de modulos e perfis de instalacao",
+   "ecc": {
+    "como": "46 modulos em manifests/install-modules.json, filtrados por target, com kind, dependencies, defaultInstall e cost. install-plan.js inspeciona sem mutar.",
+    "evidencia": "manifests/install-modules.json (46 ids); scripts/install-plan.js:1-25"
+   },
+   "touring": {
+    "como": "Componentes opcionais sobre o core; sem catalogo de custo nem perfis.",
+    "evidencia": "`touring component --help`: list|add|remove [--project]",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Adotar o campo cost por componente e um modo de inspecao sem mutacao antes de add."
+  },
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Desinstalacao",
+   "ecc": {
+    "como": "uninstall.js remove apenas arquivos gravados no install-state, com --dry-run; detecta sobras legadas.",
+    "evidencia": "scripts/uninstall.js:15-18, :42"
+   },
+   "touring": {
+    "como": "toolchain remove <versao> e update --rollback. Nao ha remocao de hook ou .touring/ por manifesto.",
+    "evidencia": "`touring toolchain --help`: remove <version>; `touring update --help`: --rollback",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Gravar um manifesto por projeto (arquivos criados) para desinstalar sem resto."
+  },
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Atualizacao automatica",
+   "ecc": {
+    "como": "auto-update.js faz git pull e reinstala com o install-state original; exige consentimento de hook gravado. Bloqueia se o estado for legado.",
+    "evidencia": "scripts/auto-update.js:9-17, :187"
+   },
+   "touring": {
+    "como": "Sem auto-update. Propagacao manual: update-touring e propagate-release.sh com gates, por decisao de Gabriel.",
+    "evidencia": "CLAUDE.md do workspace, regras 1, 2.1 (propagate-release.sh)",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Aceitar atualizacao so com consentimento gravado e gate verde; nunca silenciosa, dado o historico de regressao do Touring."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "Empacotamento de skills para Pi (pi/core) e o que e o pi core",
+   "ecc": {
+    "como": "pi/core e um pacote curado para o harness Pi: 132 de 311 skills e 24 de 97 comandos, so skills e prompts. Build deterministico com gates: sem curl|sh, sem segredo, sem caminho de usuario, sem symlink, nome == diretorio.",
+    "evidencia": "pi/core/CURATION.md:3; scripts/build-pi-core.js:1-30"
+   },
+   "touring": {
+    "como": "Nao ha pacote publico curado para outro harness. Distribuicao e toolchain binaria.",
+    "evidencia": "`ls ~/.touring/toolchains` (binarios); sem pacote de skills",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Adotar o gate de conteudo (curl|sh, segredo, caminho absoluto) para qualquer skill distribuida."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "Mesma skill em varios harnesses: fonte unica e copias geradas",
+   "ecc": {
+    "como": "Fonte unica skills/*/SKILL.md, copiada para .agents/skills, .cursor/skills, .kiro/skills (43), .opencode via tsc. Conversor agent-convert so faz claude para pi.",
+    "evidencia": "docs/architecture/cross-harness.md:15-30; scripts/agent-convert.js:26 (SUPPORTED = { claude: ['pi'] })"
+   },
+   "touring": {
+    "como": "So Claude Code. client/{skills,rules,agents} e espelho gerado do live, com sync-client-skills.py --check e teste de CI.",
+    "evidencia": "`python3 -I scripts/sync-client-skills.py --check` -> CLEAN 377 arquivos, nenhum divergente",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "ignorar",
+   "nota": "Multi-harness so vale se Gabriel abrir Codex ou Cursor; o espelho com guarda de drift do Touring ja e o padrao certo."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "Honestidade da matriz de paridade por harness e perdas na adaptacao",
+   "ecc": {
+    "como": "Declara o que se perde: hooks reais em Claude, OpenCode e Cursor; em Codex so por instrucao; Gemini e superficie de compatibilidade. Paridade exata de hook e nao-objetivo.",
+    "evidencia": "docs/architecture/cross-harness.md:53-56, :168; scripts/lib/harness-adapter-compliance.js"
+   },
+   "touring": {
+    "como": "Sem matriz de paridade porque so existe um harness. Hooks Claude-only via touring-hook.",
+    "evidencia": "`touring cc-setup --help`: wizard so para Claude Code",
+    "estado": "nao_verificado"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Publicar matriz hook-backed x instruction-backed antes de qualquer segundo harness."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "Superficie MCP neutra de harness",
+   "ecc": {
+    "como": "ecc-memory-mcp e opt-in e fica fora do .mcp.json para nao pagar custo de schema nem abrir escrita sem pedido.",
+    "evidencia": "docs/architecture/cross-harness.md (secao Shared Memory Contract, paragrafo do MCP opt-in)"
+   },
+   "touring": {
+    "como": "touring serve e um servidor MCP stdio. 22 tools curadas, ~160 com TOURING_MCP_ALL_TOOLS=1. touring mcp-overhead mede o custo de schema.",
+    "evidencia": "`touring serve` inicia 'Touring MCP Server' (stdio); `touring mcp-overhead` listado em `touring --help`",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Medir o custo de schema e superior a politica por fe. Tambem vale aplicar o opt-in para servidores nao essenciais."
+  },
+  {
+   "dominio": "memoria",
+   "funcionalidade": "Memoria portavel cross-harness com fronteira de confianca",
+   "ecc": {
+    "como": "Vault ecc.memory.v1 em Markdown com escopos project, team e user. Escrita so de criacao, sempre unreviewed. Recall e dado, nao instrucao. Rejeita segredos (best-effort). Aceite humano promove para artefato governado.",
+    "evidencia": "docs/architecture/cross-harness.md:85-106 (Shared Memory Contract)"
+   },
+   "touring": {
+    "como": "memory.db por projeto com store, recall, reward e feromonio. Nao ha estado de revisao humana nem escopo user explicito.",
+    "evidencia": "`touring memory recall` e MCP touring_memory_recall; aprendizado via learning reward (regra 7 e reflexo 7)",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Touring ganha em aprendizado (RL); falta a fronteira unreviewed e recall-como-dado. Verificar se o recall do Touring trata saida como dado."
+  },
+  {
+   "dominio": "hooks",
+   "funcionalidade": "Pilha dupla de hooks: global mais por projeto",
+   "ecc": {
+    "como": "Migracao 1.x para 2.0 avisa: um so caminho de instalacao, porque a pilha duplica skills e execucoes de hook.",
+    "evidencia": "docs/MIGRATION-1X-TO-2.0.md:38-40 (One install path only)"
+   },
+   "touring": {
+    "como": "Hook global em ~/.claude/hooks mais shim por projeto. Lint L1-L3 cobre if com mais de uma regra, evento invalido e script de projeto registrado globalmente.",
+    "evidencia": "`python3 -I scripts/install_claude_hooks.py --check` -> OK: no drift; docstring do script com lint L1-L3",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O aviso do ECC e o que o lint L3 do Touring ja impede. Falta verificar duplicidade entre global e projeto no runtime."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "Sessoes irmas de outro modelo (Kimi/MiniMax)",
+   "ecc": {
+    "como": "Sem equivalente. O ECC trata orquestracao no nivel da instalacao, nao de sessoes vivas.",
+    "evidencia": "ausente em docs/architecture/cross-harness.md (Sessions: Alpha)"
+   },
+   "touring": {
+    "como": "Registry de sessoes com modelo, estado e pid. Mostra duas sessoes: touring-7b (MiniMax, idle) e touring-d8 (Anthropic, busy).",
+    "evidencia": "`python3 ~/.claude/tools/sessoes_irmas.py --text` (saida com 2 sessoes)",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Diferencial real do Touring. Nao ha o que copiar do ECC."
+  },
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "Verificacao de instalacao em ambiente limpo",
+   "ecc": {
+    "como": "docker/plugin-setup roda o instalador em container e em plataformas (compose, run-platform-tests.js, verify-install-plan.js, run-real-cli.sh). Ha 53 testes em tests/lib/install-targets.test.js.",
+    "evidencia": "docker/plugin-setup/ (10 arquivos); tests/lib/install-targets.test.js (53 casos)"
+   },
+   "touring": {
+    "como": "update-touring --verify-only checa o daemon; propagate-release.sh tem gates 1/6 e 5.5 (prova comportamental, 35 asserções). Nao ha instalacao limpa em container.",
+    "evidencia": "CLAUDE.md do workspace, regra 2.1 (gates) e regra 3 (e2e 0,857); `scripts/propagate-release.sh` cabecalho",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Adotar um teste de instalacao limpa para toolchain nova: rodar update-touring num HOME vazio."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "Medir o efeito de um hook com bracos A/B em sessoes reais",
+   "ecc": {
+    "como": "Harness de desenvolvimento roda sessoes reais de Claude com e sem as perguntas do GateGuard, em tarefas armadilhadas (arms.js, evidence.js). Serve para medir eficacia, nao so para custo.",
+    "evidencia": "docker/gateguard-effectiveness/README.md:1-6"
+   },
+   "touring": {
+    "como": "Pre-registro, gate 5.5 e touring kpi --check com compromissos falsificaveis. Ha shadow mode com experimento pre-registrado.",
+    "evidencia": "`touring kpi --help` (Wave R2: falsifiable commitments); CLAUDE.md do workspace, regra 16 (pre-registro)",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "ja_coberto",
+   "nota": "Mesmo metodo. O Touring ja tem pre-registro, falta so a arma A/B em sessao real para hooks novos."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "Adaptador de confianca em contraparte (pagamentos entre agentes)",
+   "ecc": {
+    "como": "integrations/aura: consulta somente-leitura GET /check, stdlib, desligado por padrao, sem chaves nem movimento de fundos.",
+    "evidencia": "integrations/aura/README.md:1-9"
+   },
+   "touring": {
+    "como": "Sem equivalente.",
+    "evidencia": "nao aplicavel",
+    "estado": "ausente"
+   },
+   "veredito": "so_ecc",
+   "acao": "ignorar",
+   "nota": "Fora do escopo do codigo. Relevante so se o Touring passar a delegar pagamento a outros agentes."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "Templates de CLAUDE.md por stack",
+   "ecc": {
+    "como": "examples/ traz CLAUDE.md por stack (rails, django, rust-api, saas-nextjs, laravel, go, harmonyos) e user-CLAUDE.md.",
+    "evidencia": "examples/rust-api-CLAUDE.md, examples/django-api-CLAUDE.md, examples/user-CLAUDE.md"
+   },
+   "touring": {
+    "como": "CLAUDE.md raiz com teto de 400 linhas (regra 16); sem templates por stack para projetos de terceiros.",
+    "evidencia": "CLAUDE.md do workspace (regra 16 e CLAUDE.md hygiene)",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Um template minimo para init-project ajudaria; sem copiar o conteudo."
+  },
+  {
+   "dominio": "documentacao",
+   "funcionalidade": "Guia de primeira instalacao e de migracao",
+   "ecc": {
+    "como": "MIGRATION-1X-TO-2.0.md (52 linhas) com TL;DR, remocao de sobras e um caminho de instalacao por vez; MANUAL-ADAPTATION-GUIDE para harness sem suporte nativo.",
+    "evidencia": "docs/MIGRATION-1X-TO-2.0.md:1-52; docs/MANUAL-ADAPTATION-GUIDE.md:1-30"
+   },
+   "touring": {
+    "como": "Guia de cinco passos (toolchain init, init-project, migrate, shim opt-in, confirmar camadas) e secao 'o que ainda exige trabalho manual'.",
+    "evidencia": "`grep -n '^#' docs/guide/getting-started.md`: Step 1..5, 'What still requires manual work (as of 2026-05-23)', 'Where to go next'",
+    "estado": "existe"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "Atualizar a secao de trabalho manual (data de 23/05) e acrescentar o aviso de caminho unico."
+  }
+ ],
+ "nao_coberto": "Raiz do clone ECC: /tmp/claude-1000/-home-gabrielgadea-projects-touring/efe418c2-95f7-4a62-8bac-57080ed455b8/scratchpad/ecc-src/repo (evidencias relativas a ela). Nao li o conteudo de .kiro/.opencode/.cursor/.agents por arquivo; so inventario por subdiretorio (ex.: .kiro 153 arquivos; .opencode 82; .cursor 69; .agents 109), e nao verifiquei se sao gerados ou escritos a mao. Nao li scripts/codex/ nem setup.js, install-guided.js, install-plan.js alem do cabecalho, nem docker/context-profiles (204 arquivos de corpus). Nao verifiquei por execucao a sessao Kimi (so MiniMax e Anthropic apareceram). Achado de processo: `touring serve --help` iniciou o servidor MCP em vez de mostrar ajuda (saida de log e 'Touring MCP Server starting'); nenhum processo deste run ficou vivo (o touring serve de PID 13987 e de 06:50 atras, anterior a esta analise, e nao foi tocado)."
+}

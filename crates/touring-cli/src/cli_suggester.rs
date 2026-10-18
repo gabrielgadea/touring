@@ -3332,10 +3332,10 @@ fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
 /// camada de reescrita em subprocess que o modelo teria de conferir. Rede e
 /// padrões destrutivos seguem hard-deny em toda lang. `--timeout-ms` viaja
 /// explícito (E4): N ferramentas reais não cabem no default de 30s.
-fn r9_exec_program(executed: &[String], pending: &str) -> String {
-    // S212 (25/09/2026): the commands of the burst that ALREADY ran travel as context
-    // comments (first line only) — re-running them repeated their effects (a memory
-    // write, a commit). Only the denied command is a step.
+/// Os comandos de uma rajada que JÁ rodaram, como linhas de comentário (1ª linha, até
+/// 120 chars). Fonte única do S212 para o G10 e o G1: repeti-los repetia o efeito
+/// (uma escrita de memória, um commit) — eles são contexto, nunca passo.
+fn comentarios_ja_executados(executed: &[String]) -> String {
     let mut corpo = String::new();
     for cmd in executed {
         let first: String = cmd.lines().next().unwrap_or("").chars().take(120).collect();
@@ -3343,6 +3343,14 @@ fn r9_exec_program(executed: &[String], pending: &str) -> String {
         corpo.push_str(&first);
         corpo.push('\n');
     }
+    corpo
+}
+
+fn r9_exec_program(executed: &[String], pending: &str) -> String {
+    // S212 (25/09/2026): the commands of the burst that ALREADY ran travel as context
+    // comments (first line only) — re-running them repeated their effects (a memory
+    // write, a commit). Only the denied command is a step.
+    let mut corpo = comentarios_ja_executados(executed);
     corpo.push_str("falhas=0\n");
     let mut ordem = 0usize;
     let cmds = [pending.to_string()];
@@ -5078,9 +5086,9 @@ fn burst_gate_with(
             .get(&key)
             .unwrap_or((0, Vec::new(), epoca_atual));
     let count = count.saturating_add(1);
-    // O comando entra INTEIRO. Quem decide o que cabe é `fuse_burst_program`,
-    // na renderização, descartando comando inteiro — nunca cortando um pela
-    // metade (ver a origem documentada lá).
+    // O comando entra INTEIRO (nunca cortado). O ledger é a memória da rajada;
+    // no programa do disparo os já executados viram comentário (S212) e só o
+    // comando que disparou roda — inclusive quando ele não coube aqui.
     if cmds.len() < 8 && cmd.chars().count() <= G1_BODY_BUDGET {
         cmds.push(cmd.to_string());
     }
@@ -5102,37 +5110,33 @@ fn burst_gate_with(
         record_gate_event(GateId::G1, GateEvent::Bypassed);
         return None;
     }
-    // O remédio é o histórico REAL da rajada como corpo do programa — nunca um
-    // template (injection-density), e nunca um comando pela metade.
-    let (corpo, omitidos) = fuse_burst_program(&cmds);
-    let wall_ms = rewrite_wall_ms(tool_input);
-    let programa = format!("touring run --lang bash --timeout-ms {wall_ms} --code '{corpo}'");
-    // A omissão é DECLARADA: um remédio silenciosamente incompleto é a mesma
-    // família de defeito que o `--brief` que reporta `truncated: false`.
-    let nota_omissao = if omitidos > 0 {
-        format!(
-            "\n  ({omitidos} comando(s) da rajada não couberam no orçamento de \
-             {G1_BODY_BUDGET} chars e ficaram DE FORA do programa — rode-os à parte.)"
-        )
-    } else {
-        String::new()
+    // Um disparo por lote (o mesmo contrato do G10: «zera para a próxima rajada — um
+    // deny por lote, nunca fadiga»): TODO disparo consome a rajada — advisory, reescrita
+    // ou deny. O que o disparo levou foi consumido e a próxima inspeção começa outra; sem
+    // isto cada inspeção seguinte refundia o ledger inteiro (até 8 comandos). `cmds`
+    // abaixo é a cópia local, então o programa do disparo não depende do ledger.
+    burst_ledger().invalidate(&key);
+    // S212 no G1 (09/10/2026, medido ao vivo no 30.4.95): o ledger termina no comando
+    // que disparou, e tudo antes dele JÁ rodou nativo. Fundir o ledger inteiro
+    // reexecutava esses comandos no sandbox a cada inspeção seguinte; e um comando
+    // acima do orçamento nem entrava no ledger, então a reescrita rodava os antigos e
+    // PERDIA o atual. O invariante é o do G10: o que já rodou viaja como comentário, e
+    // o comando que disparou é o único passo — sempre presente, nunca cortado.
+    let executados: Vec<String> = match cmds.split_last() {
+        Some((ultimo, antes)) if ultimo == cmd => antes.to_vec(),
+        _ => cmds.clone(),
     };
-    if !g1_should_deny(g1_live_precision()) {
+    let mut corpo = comentarios_ja_executados(&executados);
+    corpo.push_str(cmd);
+    let wall_ms = rewrite_wall_ms(tool_input);
+    let programa = format!(
+        "touring run --lang bash --timeout-ms {wall_ms} --code '{}'",
+        corpo.replace('\'', "'\\''")
+    );
+    if !g1_should_deny(ovr.g1_precision.unwrap_or_else(g1_live_precision)) {
         // Autodemovido por dado vivo (S-2.3): a tese continua falsificável.
         record_gate_event(GateId::G1, GateEvent::Emitted);
-        return Some(
-            serde_json::json!({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "additionalContext": format!(
-                        "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
-                         {G1_DEMOTE_FLOOR}] {count}ª inspeção `{class}` na janela. A rajada \
-                         acumulada já é o programa:\n  {programa}{nota_omissao}"
-                    ),
-                }
-            })
-            .to_string(),
-        );
+        return Some(g1_advisory_response(count, class, &programa));
     }
     // V0e1: o Denied e o pending_g1 desceram para o caminho do deny clássico
     // (abaixo do rewrite) — o rewrite não é um turno cego e não entra no
@@ -5150,8 +5154,9 @@ fn burst_gate_with(
         )
     } else {
         format!(
-            "{count}ª inspeção da classe `{class}` em {CODE_MODE_WINDOW_SECS}s — 90% \
-             das rajadas ≥{G1_DENY_AT} continuavam iguais (51 disparos/55 sessões)"
+            "{count}ª inspeção da classe `{class}` desde o último disparo (janela de \
+             {CODE_MODE_WINDOW_SECS}s) — 90% das rajadas ≥{G1_DENY_AT} continuavam \
+             iguais (51 disparos/55 sessões)"
         )
     };
     let hint = snippet_hint_for_program(&programa, project_root);
@@ -5165,31 +5170,78 @@ fn burst_gate_with(
     if !ovr.g1_rewrite_disabled {
         record_gate_event(GateId::G1, GateEvent::Emitted);
         record_gate_event(GateId::G1, GateEvent::Followed);
-        return Some(
-            serde_json::json!({
-                "hookSpecificOutput": {
-                    "hookEventName": "PreToolUse",
-                    "permissionDecision": "allow",
-                    "permissionDecisionReason": format!(
-                        "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. O acumulado \
-                         virou o programa e executa no sandbox — só o agregado volta.\
-                         {nota_omissao}{hint}"
-                    ),
-                    "updatedInput": rewritten_input(tool_input, programa.clone()),
-                }
-            })
-            .to_string(),
-        );
+        return Some(g1_rewrite_response(
+            &motivo,
+            &hint,
+            executados.len(),
+            tool_input,
+            programa,
+        ));
     }
     record_gate_event(GateId::G1, GateEvent::Denied);
     // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
     // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
     pending_g1().insert(session.to_string(), class.to_string());
     Some(deny_response(format!(
-        "[G1 rajada-de-inspeção] {motivo}. O acumulado JÁ é o programa; rode-o de uma \
-         vez:\n  {programa}{nota_omissao}{hint}\nBypass por-comando: prefixe \
-         {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
+        "[G1 rajada-de-inspeção] {motivo}. Rode-o como programa — os já executados da \
+         rajada vêm como comentário e NUNCA são repetidos:\n  {programa}{hint}\nBypass \
+         por-comando: prefixe {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
     )))
+}
+
+/// O advisory do G1 quando a precisão viva o autodemove (S-2.3): só `additionalContext`,
+/// e o comando segue NATIVO e intacto. O texto antigo («a rajada acumulada já é o
+/// programa») soava como ordem de rodar o programa — repetindo o comando que acabara de
+/// rodar. Agora o programa é declarado o FORMATO da próxima rajada, nunca um passo
+/// pendente desta.
+fn g1_advisory_response(count: u32, class: &str, programa: &str) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": format!(
+                "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
+                 {G1_DEMOTE_FLOOR}] {count}ª inspeção `{class}` desde o último disparo. \
+                 ESTE comando roda NATIVO e intacto — não o repita. O programa abaixo é \
+                 o FORMATO para a próxima rajada: junte as inspeções seguintes num só \
+                 `touring run`:\n  {programa}"
+            ),
+        }
+    })
+    .to_string()
+}
+
+/// A reescrita do G1 (V0e1). O `permissionDecisionReason` de um `allow` vai só para o
+/// log de debug (code.claude.com/docs/en/hooks, "For "allow" and "defer", written to
+/// the debug log only") — nem o modelo nem o usuário o veem. O modelo, que recebe a
+/// saída do sandbox no lugar da do seu comando, precisa do `additionalContext` (que só
+/// o `defer` ignora; teto de 10.000 chars) — sem ele a saída parecia "de outra
+/// chamada" (medido 09/10).
+fn g1_rewrite_response(
+    motivo: &str,
+    hint: &str,
+    ja_executados: usize,
+    tool_input: &Value,
+    programa: String,
+) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": format!(
+                "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. Só o comando que \
+                 disparou executa no sandbox; os {ja_executados} já executados vêm como \
+                 comentário.{hint}"
+            ),
+            "additionalContext": format!(
+                "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. Este comando rodou \
+                 como `touring run` (a saída vem no JSON do sandbox). Os {ja_executados} \
+                 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO \
+                 rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa."
+            ),
+            "updatedInput": rewritten_input(tool_input, programa),
+        }
+    })
+    .to_string()
 }
 
 /// Resposta de deny do PreToolUse (contrato Claude Code): a razão carrega o
@@ -5340,6 +5392,11 @@ pub(crate) struct GateOverrides {
     /// TOURING_CODE_GATES_DISABLED=1 → o kill switch humano desliga TODOS os
     /// gates (29 testes liam isso do ambiente — matriz da 6b, 08/10).
     pub code_gates_disabled: bool,
+    /// Precisão viva do G1 INJETADA (`(precisão, volume)`): `None` lê o contador global
+    /// (`g1_live_precision()`, o comportamento de produção; `from_env` nunca o preenche);
+    /// `Some(x)` fixa o dado — o ramo advisory do G1 só dispara com precisão abaixo do
+    /// piso, e o contador global não é controlável por um teste.
+    pub g1_precision: Option<Option<(f64, u64)>>,
 }
 
 impl GateOverrides {
@@ -5356,6 +5413,7 @@ impl GateOverrides {
                 .map(std::path::PathBuf::from),
             code_mode_env: CodeModeEnv::from_env(),
             code_gates_disabled: code_gates_disabled(),
+            g1_precision: None,
         }
     }
 }
@@ -5814,6 +5872,10 @@ fn code_mode_gates_with(
         // rajada que não existe mais.
         for class in CODE_MODE_COLLAPSED_CLASSES {
             inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, session, class));
+            // G1 — o contrato da sessão ("um `touring run` na janela zera a contagem")
+            // valia só para o S3: medido 09/10, uma rajada de 18:49 ainda era refundida
+            // às 18:55 depois de um `touring run`.
+            burst_ledger().invalidate(&burst_key(project_root, session, class));
         }
         inspect_burst_ledger().invalidate(&inspect_burst_key(
             project_root,
@@ -5876,8 +5938,10 @@ fn code_mode_gates_with(
             bump_durable_evidence(project_root, "s3", "in_burst");
         } else {
             // python-inline funde os CORPOS (o remédio 1:1 por comando já
-            // existia; a rajada junta-os na ordem); as classes shell seguem
-            // no R9 via fuse_burst_program.
+            // existia; a rajada junta-os na ordem); as classes shell do S3 seguem
+            // no R9 via fuse_burst_program. O G1 NÃO usa mais o fuse_burst_program:
+            // ele manda os já executados como comentário (S212) e só o comando que
+            // disparou como passo.
             let (programa, omitidos, lang) = if class == PY_INLINE_INSPECT_CLASS {
                 let (p, o) = python_inline_burst_program(&cmds);
                 (p, o, "python")
@@ -7127,5 +7191,281 @@ mod s24_route_tests {
             "/home/u/.local/bin/touring run --code 'ls'"
         ));
         assert!(!is_sanctioned_route("echo touring running"));
+    }
+}
+
+/// G1 sem replay (09/10/2026) — medido ao vivo no 30.4.95: a reescrita fundia o ledger
+/// INTEIRO, então os comandos que já tinham rodado nativos rodavam de novo no sandbox a
+/// cada inspeção seguinte (a mesma linha saiu `66:` e depois `70:` após um patch no meio:
+/// reexecução, não eco), e um `touring run` não zerava a janela do G1. O invariante é o
+/// do G10 (S212): o que já rodou viaja como comentário; só o comando que disparou roda.
+#[cfg(test)]
+mod g1_no_replay_tests {
+    use super::burst_gate_limpo as burst_gate;
+    use super::*;
+    use serde_json::json;
+
+    fn rewritten_code(out: &Option<String>) -> String {
+        let v: Value = serde_json::from_str(out.as_deref().expect("gate fired")).expect("json");
+        let cmd = v["hookSpecificOutput"]["updatedInput"]["command"]
+            .as_str()
+            .expect("updatedInput.command")
+            .to_string();
+        let ini = cmd.find("--code '").expect("--code") + "--code '".len();
+        cmd[ini..cmd.len() - 1].replace("'\\''", "'")
+    }
+
+    fn executable_lines(code: &str) -> Vec<String> {
+        code.lines()
+            .filter(|l| !l.trim_start().starts_with('#') && !l.trim().is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn three_inspections(root: &Path, me: &str) -> Option<String> {
+        let _ = burst_gate(root, me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, me, "grep -rn beta crates/");
+        burst_gate(root, me, "grep -l gamma docs/x.md")
+    }
+
+    #[test]
+    fn g1_rewrite_runs_only_the_triggering_command() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-only-trigger"}));
+        let out = three_inspections(dir.path(), &me);
+        let code = rewritten_code(&out);
+        assert_eq!(
+            executable_lines(&code),
+            vec!["grep -l gamma docs/x.md".to_string()],
+            "the commands that already ran must not run again:\n{code}"
+        );
+        assert!(
+            code.contains("# já executado (não repetir): grep -n alpha src/a.rs"),
+            "what already ran travels as context:\n{code}"
+        );
+    }
+
+    #[test]
+    fn g1_rewrite_tells_the_model_what_happened() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-tells-model"}));
+        let out = three_inspections(dir.path(), &me).expect("rewritten");
+        let v: Value = serde_json::from_str(&out).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap_or("");
+        assert!(
+            ctx.contains("[G1") && ctx.contains("NÃO rodaram de novo"),
+            "an allow's reason reaches only the user; the model needs the context: {out}"
+        );
+    }
+
+    #[test]
+    fn g1_rewrite_consumes_the_burst() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-consumes"}));
+        assert!(
+            three_inspections(dir.path(), &me).is_some(),
+            "control: the third fires"
+        );
+        // SAME class: the ledger is per class, so a `wc` here would pass on the old code too.
+        let next = burst_gate(dir.path(), &me, "grep -c delta README.md");
+        assert!(
+            !rewritten(&next),
+            "a fired burst is consumed — the next inspection starts a new one: {next:?}"
+        );
+    }
+
+    #[test]
+    fn touring_run_zeroes_the_g1_window() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "g1-touring-run"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let _ = code_mode_gates(
+            root,
+            &me,
+            "Bash",
+            &json!({"command": "touring run --lang bash --code 'true'"}),
+        );
+        let out = burst_gate(root, &me, "grep -l gamma docs/x.md");
+        assert!(
+            !rewritten(&out),
+            "session contract: a `touring run` in the window zeroes the count: {out:?}"
+        );
+    }
+
+    #[test]
+    fn g1_never_drops_an_oversized_triggering_command() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "g1-oversized"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let grande = format!("grep -n '{}' src/a.rs", "x".repeat(G1_BODY_BUDGET));
+        let out = burst_gate(root, &me, &grande);
+        assert!(
+            !rewritten(&out) || rewritten_code(&out).contains(&grande),
+            "the command that fired can never vanish from the rewrite"
+        );
+    }
+
+    /// Seis `grep` DISSIMILARES (Jaccard < 0,5 entre vizinhos — nenhum dispara por
+    /// similaridade): só a contagem dispara, e cada disparo consome a rajada.
+    const SEIS_GREPS: [&str; 6] = [
+        "grep -n alpha src/a.rs",
+        "grep -rn beta crates/",
+        "grep -l gamma docs/x.md",
+        "grep -c delta README.md",
+        "grep -w epsilon lib/zeta.py",
+        "grep -i omega tests/eta.toml",
+    ];
+
+    fn seis_inspecoes(root: &Path, me: &str) -> Vec<Option<String>> {
+        SEIS_GREPS
+            .iter()
+            .map(|cmd| burst_gate(root, me, cmd))
+            .collect()
+    }
+
+    /// Teste de GUARDA (já passa antes do conserto: o `invalidate` existe no caminho da
+    /// reescrita): um disparo por lote — a 3ª e a 6ª reescrevem, as demais passam, e o
+    /// programa do 2º lote carrega SÓ o 6º como passo (4º e 5º viram comentário; o 1º, de
+    /// outro lote, não reaparece).
+    #[test]
+    fn g1_fires_once_per_lot() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-once-per-lot"}));
+        let saidas = seis_inspecoes(dir.path(), &me);
+        let disparos: Vec<usize> = saidas
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| rewritten(o))
+            .map(|(i, _)| i + 1)
+            .collect();
+        assert_eq!(
+            disparos,
+            vec![3, 6],
+            "um disparo por lote: reescreve exatamente na 3ª e na 6ª: {saidas:?}"
+        );
+        let code = rewritten_code(&saidas[5]);
+        assert_eq!(
+            executable_lines(&code),
+            vec![SEIS_GREPS[5].to_string()],
+            "no 2º lote só o 6º comando é passo:\n{code}"
+        );
+        for ja in [SEIS_GREPS[3], SEIS_GREPS[4]] {
+            assert!(
+                code.contains(&format!("# já executado (não repetir): {ja}")),
+                "o {ja:?} do lote viaja como comentário:\n{code}"
+            );
+        }
+        assert!(
+            !code.contains(SEIS_GREPS[0]),
+            "o 1º comando é do lote anterior (já consumido) e não reaparece:\n{code}"
+        );
+    }
+
+    /// O advisory autodemovido deixa claro que ESTE comando roda NATIVO e intacto (nada a
+    /// repetir) e que o programa mostrado é o FORMATO da próxima rajada — o texto antigo
+    /// ("A rajada acumulada já é o programa") sugeria rodá-lo, repetindo o comando.
+    #[test]
+    fn g1_advisory_says_this_command_runs_native() {
+        let msg = g1_advisory_response(3, "grep", "touring run --lang bash --code 'x'");
+        let v: Value = serde_json::from_str(&msg).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .expect("additionalContext");
+        assert!(ctx.contains("NATIVO"), "este comando roda nativo: {ctx}");
+        assert!(
+            ctx.contains("próxima rajada"),
+            "o programa é o formato da próxima rajada: {ctx}"
+        );
+        assert!(
+            !ctx.contains("rode-o"),
+            "o advisory não manda repetir o comando: {ctx}"
+        );
+        assert!(
+            ctx.contains(&format!(
+                "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de {G1_DEMOTE_FLOOR}]"
+            )),
+            "o prefixo do advisory é preservado: {ctx}"
+        );
+        assert!(
+            ctx.contains("touring run --lang bash --code 'x'"),
+            "o programa viaja no contexto: {ctx}"
+        );
+    }
+
+    /// A razão por contagem diz «desde o último disparo»: o ledger zera a cada disparo, e
+    /// a 6ª inspeção da sessão é a 3ª do lote — a contagem parte do último disparo, não
+    /// da janela de 180s inteira.
+    #[test]
+    fn g1_count_reason_counts_since_last_fire() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-since-last-fire"}));
+        let saidas = seis_inspecoes(dir.path(), &me);
+        let v: Value =
+            serde_json::from_str(saidas[5].as_deref().expect("a 6ª dispara")).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .expect("additionalContext");
+        assert!(
+            ctx.contains("3ª inspeção da classe `grep` desde o último disparo"),
+            "a 6ª da sessão é a 3ª do lote — e o texto diz desde quando: {ctx}"
+        );
+    }
+
+    /// O ramo advisory (precisão viva abaixo do piso) também consome o lote: a 3ª
+    /// inspeção devolve só `additionalContext`, e a 4ª da mesma classe começa outra
+    /// rajada (None). Sem o `invalidate` antes do advisory, a 4ª refundia o ledger
+    /// inteiro e disparava de novo — fadiga, a regra do G10 («um aviso por lote»).
+    #[test]
+    fn g1_advisory_branch_also_consumes_the_lot() {
+        // Controle do instrumento: (0.0, 10_000) força MESMO o advisory — lido das
+        // constantes de demoção e do predicado de produção, não suposto.
+        let precisao = (0.0_f64, 10_000_u64);
+        assert!(
+            precisao.1 >= G1_DEMOTE_MIN_EVENTS && precisao.0 < G1_DEMOTE_FLOOR,
+            "a precisão injetada tem de estar abaixo do piso {G1_DEMOTE_FLOOR} com volume \
+             ≥ {G1_DEMOTE_MIN_EVENTS}"
+        );
+        assert!(
+            !g1_should_deny(Some(precisao)),
+            "o predicado de produção tem de autodemover com esse dado"
+        );
+        let ovr = GateOverrides {
+            g1_precision: Some(Some(precisao)),
+            ..Default::default()
+        };
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-advisory-consumes"}));
+        let fire =
+            |cmd: &str| burst_gate_with(dir.path(), &me, cmd, &json!({"command": cmd}), &ovr);
+        assert!(fire(SEIS_GREPS[0]).is_none(), "a 1ª passa");
+        assert!(fire(SEIS_GREPS[1]).is_none(), "a 2ª passa");
+        let terceira = fire(SEIS_GREPS[2]).expect("a 3ª dispara");
+        let v: Value = serde_json::from_str(&terceira).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap_or("");
+        assert!(
+            ctx.contains("AUTODEMOVIDO"),
+            "o disparo é o advisory autodemovido: {terceira}"
+        );
+        assert!(
+            !terceira.contains("updatedInput") && !terceira.contains("permissionDecision"),
+            "advisory não reescreve nem decide — o comando roda nativo: {terceira}"
+        );
+        let quarta = fire(SEIS_GREPS[3]);
+        assert!(
+            quarta.is_none(),
+            "o disparo consumiu o lote: a 4ª da mesma classe começa outra rajada: {quarta:?}"
+        );
+    }
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
     }
 }

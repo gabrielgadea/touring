@@ -1,0 +1,100 @@
+[
+  {
+    "id": "D01",
+    "estado": "confirmado",
+    "comando": "grep -c 'Command::new' crates/touring-hook-handlers/src/hooks/post_edit.rs crates/touring-hook-handlers/src/hooks/post_write.rs; grep -rn 'dbg!\\|println' crates/touring-hooks-shared/src; touring audit <fixture dbg.rs e dbg.py>",
+    "saida_chave": "post_edit.rs:0 / post_write.rs:0; audit de dbg.rs e dbg.py -> verdict info, findings []",
+    "nota": "Pós-edição não roda formatter (sem rustfmt/prettyplease) nem detecta dbg!/println!/print(): o detector de antipadrões não tem esses padrões. F1.6 não está na lista P0 BLOCK do elite-50. Unwrap é pego só pelo ast quality."
+  },
+  {
+    "id": "D02",
+    "estado": "confirmado",
+    "comando": "grep -rln 'run_in_background\\|fire-and-forget' client/hooks ~/.claude/hooks crates; leitura de ~/.claude/hooks/agents/subagent_stop_gate.py e loop_stop_guard.py; settings.json Stop/SubagentStop",
+    "saida_chave": "subagent_stop_gate.py: 'Pure subagents ... ALWAYS allowed to stop'; loop_stop_guard.py só checa subtasks pendentes do DAG",
+    "nota": "Confirmado por leitura de código, sem disparo real do Stop. Os matches de 'fire-and-forget' são comentários de registro no daemon, não regra de delegação. Nenhum gate barra resposta final com subagente órfão."
+  },
+  {
+    "id": "D03",
+    "estado": "confirmado",
+    "comando": "grep -rn 'Context Window\\|20%' ~/.claude/rules ~/.claude/CLAUDE.md ~/.claude/skills/Touring/references; ls ~/.claude/rules/common/performance.md",
+    "saida_chave": "CLAUDE.md:111 'o aviso único aos 55%'; ls: cannot access '/home/gabrielgadea/.claude/rules/common/performance.md'",
+    "nota": "Nenhuma regra de teto de 20% para refatoração grande no fluxo TACO. O aviso único aos 55% é o único limiar de contexto. O conteúdo do ECC performance.md não foi verificado aqui (arquivo ausente localmente)."
+  },
+  {
+    "id": "D04",
+    "estado": "parcial",
+    "comando": "sed -n 1,12p ~/.claude/skills/loop-engineering/scripts/loop_converged.py; sed -n 36,82p (exceções e run())",
+    "saida_chave": "linha 7: 'fail-open on daemon errors'; linha 119: 'DAG unverifiable (fail-closed)'",
+    "nota": "O cabeçalho contradiz a Lei L2 ('sinal ausente != zero'). Mas o fail-open do código está em import, ledger e subprocess (run() devolve rc 127); as cláusulas de DAG e wiring são fail-closed. A contradição é do docstring, não do comportamento."
+  },
+  {
+    "id": "D06",
+    "estado": "refutado",
+    "comando": "grep -rn pre_edit_gate crates client scripts ~/.claude/hooks; sed -n 30,45p crates/touring-server/src/cli/master.rs; touring guard <fixture dbg.rs>",
+    "saida_chave": "crates/touring-server/src/cli/master.rs:39: \"guard\" => Some(\"pre_edit_gate.py\"); touring guard -> PRE-EDIT GATE ... decision GO",
+    "nota": "pre_edit_gate.py tem chamador: o master CLI `touring guard` o roteia por script_for. O count 0 do index find não prova ausência, porque o índice é de símbolos Rust e a rota é por string. Funciona de ponta a ponta."
+  },
+  {
+    "id": "D07",
+    "estado": "confirmado",
+    "comando": "touring e2e --help; grep -n 'touring e2e' ~/projects/touring/CLAUDE.md",
+    "saida_chave": "help: 'Comprehensive E2E code analysis (index + AST + wiring + quality + learning)'; CLAUDE.md regra 3: 'touring e2e -j antes de declarar pronto'",
+    "nota": "O nome e2e promete teste ponta a ponta, mas o comando é análise de código. A regra 3 o usa como gate de pronto. Risco real de leitura errada; vale renomear a menção ou o help."
+  },
+  {
+    "id": "D08",
+    "estado": "confirmado",
+    "comando": "touring scan <fixture d08/probe.rs>; touring audit <fixture d08/probe.rs> (AKIA literal + unwrap)",
+    "saida_chave": "scan: {\"cwes\":[{\"id\":\"CWE-394\",\"severity\":\"P2\",\"line\":3,\"description\":\"Production unwrap() detected\"}],\"p0_block\":false}; audit: verdict block, F2.4 line 1 'hardcoded secret detected'",
+    "nota": "Reproduzido: scan não reporta o segredo AKIA literal e só lista o unwrap como P2. audit bloqueia com F2.4. Fixture em $SCR/d08/probe.rs."
+  },
+  {
+    "id": "D09",
+    "estado": "confirmado",
+    "comando": "touring scan <fixture d09n/probe2.rs>; touring audit <fixture d09n/probe2.rs> (format! SQL, sem segredo)",
+    "saida_chave": "scan: CWE-89 P1 line 2 'Potential SQL injection via format!()', p0_block=false; audit: verdict info, findings []",
+    "nota": "Reproduzidos 2 dos 3 vereditos (scan P1 sem p0_block; audit info sem finding). O advisory [0.5] do hook pre-write não foi disparado nesta rodada: não reproduzido, não confirmado."
+  },
+  {
+    "id": "D10",
+    "estado": "confirmado",
+    "comando": "touring scan <fixture d10n/probe2.rs>; touring audit <fixture d10n/probe2.rs> (Command::new(\"sh\").arg(\"-c\").arg(c))",
+    "saida_chave": "scan: {\"cwes\":[],\"p0_block\":false}; audit: verdict info",
+    "nota": "Reproduzido: shell -c com argumento vindo de parâmetro não é detectado por scan nem por audit. O fixture não tem segredo, para o veredito não ser mascarado."
+  },
+  {
+    "id": "D11",
+    "estado": "parcial",
+    "comando": "sed -n 1,10p crates/touring-hook-handlers/src/hooks/stop.rs; grep -n 'OUTER_GATE\\|outer_phase_gate' ~/.claude/skills/loop-engineering/scripts/hooks/loop_stop_guard.py; grep -n 'loop_stop_guard' ~/.claude/settings.json",
+    "saida_chave": "stop.rs: docstring sem gate; loop_stop_guard.py:38 OUTER_GATE = .../loop_outer_gate.py; settings.json:1159 Stop -> loop_stop_guard.py",
+    "nota": "stop.rs de fato não tem gate, mas a regra existe no Stop registrado: loop_stop_guard -> outer_phase_gate -> loop_outer_gate.py. O defeito real é a referência errada 'regra 17 (work-outer)' no CLAUDE.md do workspace: a regra 17 é economia de créditos."
+  },
+  {
+    "id": "D12",
+    "estado": "confirmado",
+    "comando": "sed -n 1,12p crates/touring-quality/src/verifications/f3_1_coverage.rs; grep -n -i 'pytest\\|coverage.py\\|lcov' crates/touring-quality/src/verifications/f3_1_coverage.rs",
+    "saida_chave": "f3_1_coverage.rs:4 'consumes the LCOV artifact emitted by cargo llvm-cov'; :64 'run `cargo llvm-cov --lcov`'",
+    "nota": "Confirmado por leitura, não executado: a única medição real é LCOV do cargo llvm-cov. Sem artefato cai na razão de presença de #[test] (Rust). Não há caminho para coverage.py ou pytest."
+  },
+  {
+    "id": "D13",
+    "estado": "confirmado",
+    "comando": "ls ~/.claude/hooks/plan-detector.sh; sed -n 40,55p ~/.claude/commands/plan.md; grep -n 'plan-detector' ~/.claude/commands/plan.md",
+    "saida_chave": "ls: cannot access '/home/gabrielgadea/.claude/hooks/plan-detector.sh': No such file or directory; plan.md:68 e :97 citam o hook",
+    "nota": "Confirmado: plan.md cita o E1 em plan-detector.sh, que não existe. A linha `TF_WORKSPACE=... /plan ou skill taco-planning ...` dentro do bloco bash é shell inválida, pois /plan não é executável."
+  },
+  {
+    "id": "D14",
+    "estado": "confirmado",
+    "comando": "touring audit <fixture d14/probe_silent.py>; touring audit <fixture d14c/silent_only.py>; controle: touring audit <fixture d14c/control.py>",
+    "saida_chave": "control.py: F2.1 EvalInjection (CWE-95) line 5 'return eval(user)'; silent_only.py: verdict info, findings []",
+    "nota": "Confirmado: bare except com pass não é reportado por audit. Controle positivo: no mesmo tipo de arquivo (Python) audit pega eval (F2.1), então a ferramenta funciona para Python."
+  },
+  {
+    "id": "D15",
+    "estado": "confirmado",
+    "comando": "touring audit <fixture d15n/probe_rust.rs> (unsafe sem SAFETY + unwrap, sem segredo); touring scan <fixture d15/probe_rust.rs>",
+    "saida_chave": "audit: verdict info, findings []; scan: CWE-394 P2 line 3 'Production unwrap() detected'",
+    "nota": "Confirmado: audit não reporta unwrap nem unsafe sem // SAFETY. scan pega o unwrap mas não o unsafe. Controle: o F2.4 do audit dispara no mesmo tipo de arquivo quando há segredo."
+  }
+]

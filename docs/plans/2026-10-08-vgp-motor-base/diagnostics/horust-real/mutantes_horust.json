@@ -1,0 +1,556 @@
+{
+ "total": 136,
+ "mortos": 136,
+ "itens": [
+  {
+   "mutante": "m01 sem corte em cfg(test)",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m02 macro_rules vivo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m03 atributo vivo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m04 chamada livre aceita método",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m05 nome curto vira sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m06 palavra reservada vira sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m07 definição `fn x(` vira sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m08 prelude vira tipo-sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m09 raiz do caminho vira sítio de import",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m10 `pub use` vira sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m11 std vira sítio de E0433",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m12 campo aceita chamada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m13 cadeia com ponto no início ignorada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m14 `} == x` vira padrão",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m15 definição de struct vira literal",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m15b guarda `} if` vira literal",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m16 remoção com 1 campo só",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m17 remoção com ..base",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m18 Self vira tipo do literal",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m19 mutar não confere o texto",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m20 remoção não tira a linha",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m21 distância errada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m22 proporção 70/30 vira 90/10",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m23 edição mexe no primeiro caractere",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m24 plausível ignora existentes",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m25 comentário de linha só de documentação",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m26 comentário aninhado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m27 char literal vira lifetime",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m28 escape de string",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m29 round_robin sem ordenar os itens",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m30 teto final folgado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m31 piso de linhas",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m32 ambíguo só com 3 alvos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m33 estilo 1/3",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m34 fixture VRS liberada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m35 dedupe de diagnóstico",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m36 aviso conta como erro",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m37 vários erros no arquivo passam",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m38 janela do E0063 maior",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m39 nome pedaço de palavra",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m40 erro em arquivo sem injeção tem dono",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m41 cascata de uma só não descarta",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m42 não confere o original antes de aplicar",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m43 contrato aceita qualquer saída",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m44 sem --locked",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m45 pacote com erro conta como limpo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m46 alvo faltando conta como limpo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m47 arquivo reaproveitado entre classes",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m48 E0063 nomeia o campo e não o tipo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m49 corpus sobrescreve",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m50 positivo vira reproduz=false",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m51 diags_out vazio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m53 amostra sem piso de 3",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m54 amostra de 20%",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m55 rodada seguinte retenta classe com exatamente 20",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m56 semente da rodada 2 igual à da 1",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m57 negativo tentado entra",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m58 teto dos positivos fora",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m60 integridade ignora arquivo do dev",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m61 integridade ignora worktree alterado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m62 integridade ignora snap adulterado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m63 integridade ignora base/ trocada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m64 integridade ignora código fora da classe",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m65 integridade ignora mensagem sem código",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m66 integridade ignora negativo diferente",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m67 integridade sem teto",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m68 integridade ignora id duplicado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m69 integridade ignora arquivo repetido",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m70 integridade ignora positivo=negativo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m71 integridade piso de classe 19",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m72 integridade piso de negativos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m73 selo sem o pré-registro",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m75 antecadeias ignora transitividade",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m76 antecadeias junta tudo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m77 camadas dos bins separadas",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m78 dependência de dev conta",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m79 grupo ignora camadas",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m80 comando só com o primeiro pacote",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m81 runner sem exigir pacote",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m82 plano da rodada exclui arquivos da própria rodada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m83 retomada repete o que já foi feito",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m84 pendentes olham a própria rodada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m52 dep-info sem fallback de prefixo lib",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m85 nome_tipo só aceita E0425",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m86 validar ignora os códigos aceitos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m87 reconstruir perde os códigos aceitos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m88 registro mais antigo vence",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m89 reparo vale a partir da rodada 2",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m90 filtro da rodada 2 deixa o último segmento",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m91 filtro de segmento vale na rodada 1",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m92 posição do segmento trocada",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m93 revalidar pega todo descarte de nome_tipo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m94 revalidar pega qualquer operador",
+   "estado": "morto"
+  },
+  {
+   "mutante": "m95 reparo planeja também as classes pendentes",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c01 erro do cfg sem a linha a mais",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c02 erro do cfg sempre deslocado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c03 linha do uso não desfaz o deslocamento",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c04 `test` vira atributo inofensivo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c05 comentário esconde o atributo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c06 exige só duas ocorrências ou mais",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c07 recursão vira sítio",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c08 método vira chamada livre",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c09 uso na zona de teste vale",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c10 definição na zona morta vale",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c11 nome de outro arquivo não exclui",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c12 mutar não confere o nome",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c13 cfg inserido uma linha abaixo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "c14 sem o modificador unsafe",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k01 selecao_ate sem o máximo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k02 plano ignora os excluídos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k03 palavra em 2 arquivos não exclui",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k04 plano sem limite de tentativas",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k05 registro perde a linha da definição",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k06 descarte entra na escolha",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k07 máximo do estrato maior",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k08 negativo é o texto mutado",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k09 positivos fora dos ids pedidos",
+   "estado": "morto"
+  },
+  {
+   "mutante": "k10 palavras sem mascarar",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i01 inserção aceita qualquer tamanho",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i02 inserção aceita qualquer linha",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i03 cfg acima de qualquer função",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i04 arquivo do principal passa",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i05 teto exclusivo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i06 máximo exclusivo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i07 positivo sem par passa",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i08 estrato qualquer",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i09 linha do erro qualquer",
+   "estado": "morto"
+  },
+  {
+   "mutante": "i10 par inexistente passa",
+   "estado": "morto"
+  },
+  {
+   "mutante": "r01 prefixo compara o arquivo inteiro",
+   "estado": "morto"
+  },
+  {
+   "mutante": "r02 tudo é regra original",
+   "estado": "morto"
+  },
+  {
+   "mutante": "r03 rodada 2 sem codigo_rustc seria original",
+   "estado": "morto"
+  },
+  {
+   "mutante": "r04 revalidado conta como original",
+   "estado": "morto"
+  },
+  {
+   "mutante": "v01 negativo tentado passa",
+   "estado": "morto"
+  },
+  {
+   "mutante": "v02 negativo ignora o rótulo",
+   "estado": "morto"
+  },
+  {
+   "mutante": "v03 resumo não conta as violações",
+   "estado": "morto"
+  },
+  {
+   "mutante": "r05 ids fora do corpus entram na lista",
+   "estado": "morto"
+  }
+ ],
+ "equivalentes": [
+  {
+   "mutante": "e1 antecadeias só vê uma direção",
+   "motivo": "a ordem (menor alcance primeiro) garante que m, já no grupo, nunca depende de n: a direção `n in alcance[m]` é redundante"
+  }
+ ]
+}

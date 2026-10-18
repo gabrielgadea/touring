@@ -27,7 +27,7 @@ All are **loop-scoped** (no-op unless *this project's* marker exists) and **fail
 
 ## tdd-enforcer integration (Rank #2 do plano `docs/plans/2026-09-01-skill-aprimoramento/`, added 2026-09-01)
 
-INNER step 12 (Execute phase) is now **gated** by `tdd-enforcer` (mechanism E + G — pre-conditional + procedural RED-GREEN). The loop cannot write/edit production code without a failing test first.
+INNER step 12 (Execute phase) runs the `tdd-enforcer` protocol (mechanism E + G — pre-conditional + procedural RED-GREEN). The agent runs `enforce.py --mode red` before writing production code; **no hook enforces it** (0 registrations, verified 18/10/2026), so a skipped check goes unnoticed.
 
 **Pre-conditional gate (G)** — before Edit/Write can run on production code, the agent MUST show a failing test that exercises the planned change. No failing test = no edit. This closes the universal gap (E) RED-GREEN-REFACTOR.
 
@@ -57,19 +57,19 @@ INNER step 12 (Execute phase) is now **gated** by `tdd-enforcer` (mechanism E + 
 
 ```bash
 # Pre-edit gate (before any Edit/Write on production code)
-python3 ~/.claude/skills/tdd-enforcer/scripts/check_red.py \
-  --scope <path> --phase <phase_id>
+python3 ~/.claude/skills/tdd-enforcer/scripts/enforce.py \
+  --mode red --scope <path> --phase <phase_id>
 # exit 0 = failing test exists, proceed with Edit/Write
 # exit 1 = no failing test, BLOCK until one is written
 
 # Post-edit verification (after Edit/Write)
-python3 ~/.claude/skills/tdd-enforcer/scripts/verify_green.py \
-  --scope <path> --phase <phase_id>
+python3 ~/.claude/skills/tdd-enforcer/scripts/enforce.py \
+  --mode green --scope <path> --phase <phase_id>
 # exit 0 = test now passes (red→green transition verified)
 # exit 1 = test still fails (regression or incomplete fix)
 ```
 
-The `tdd-enforcer` skill (criado como PHASE B candidato 4) owns the scripts; loop-engineering only references the contract. The skill is invoked by hook (PreToolUse for Edit/Write on production code) — see `tdd-enforcer/SKILL.md` for the full protocol.
+The `tdd-enforcer` skill (criado como PHASE B candidato 4) owns the scripts; loop-engineering only references the contract. The agent invokes it; no hook does (registering it as a PreToolUse gate, shadow first, is item T1 of the ECC plan, `docs/plans/2026-10-17-analise-ecc/`). See `tdd-enforcer/SKILL.md` for the full protocol.
 
 ---
 

@@ -1,0 +1,63 @@
+### 07-test-e2e-r1-r20 :: cargo test -p touring-hooks --test e2e_r1_to_r20
+### start 2026-10-18T03:08:54-03:00
+   Compiling clap_builder v4.6.0
+   Compiling regex-lite v0.1.9
+   Compiling similar v2.7.0
+   Compiling condtype v1.3.0
+   Compiling serial_test v3.5.0
+   Compiling insta v1.48.0
+   Compiling clap v4.6.1
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-foundation)
+   Compiling criterion v0.5.1
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-code)
+   Compiling divan v0.1.21
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hooks-shared)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hooks-rl)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-hooks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 2m 39s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running tests/e2e_r1_to_r20.rs (/home/gabrielgadea/projects/touring/target/wt-tiers/debug/deps/e2e_r1_to_r20-580be7ea08e60a2f)
+
+running 22 tests
+test i1_count_errors_utf8_multibyte_no_panic ... ok
+test r13_c1_replay_buffer_capacity_zero_no_panic ... ok
+test r12_surgery_uses_parser_pool ... ok
+test r13_replay_buffer_circular_and_sampling ... ok
+test r10_template_library_persistence_roundtrip ... ok
+test r14_session_insights_rl_convergence_field ... ok
+test r15_classify_with_details ... ok
+test r16_shared_pipeline_thread_safe ... ok
+test r17_predict_next_tools_with_history ... ok
+test r19_runtime_metrics_json_serialization ... ok
+test r19_runtime_metrics_without_optional_fields ... ok
+test r18_crdt_graph_record_relation ... ok
+test r11_qtable_fxhashmap_performance ... ok
+test r5_qlearning_metrics_convergence ... ok
+test r17_predict_next_tools_with_empty_history ... ok
+test r1_contextual_bandit_polymorphism ... ok
+test r8_symbol_path_empty_segments ... ok
+test r8_symbol_path_scope_resolution ... ok
+test r6_online_rl_engine_processes_rewards ... ok
+test r9_semantic_symbol_index_search ... ok
+test r6_hook_runtime_process_immediate_reward ... ok
+test r2_r4_hook_runtime_bandit_lifecycle ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+### end 2026-10-18T03:11:35-03:00 rc=0

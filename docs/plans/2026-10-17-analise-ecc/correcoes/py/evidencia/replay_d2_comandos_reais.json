@@ -1,0 +1,22 @@
+{
+ "resumo": {
+  "comandos": 4000,
+  "com_git": 4000,
+  "deny_old": 2,
+  "deny_new": 3,
+  "outros_old": [],
+  "outros_new": [],
+  "divergencias": 1,
+  "novos_deny": 1,
+  "deny_removidos": 0
+ },
+ "divergencias": [
+  {
+   "id": "2d095237015c",
+   "old": "allow",
+   "new": "deny",
+   "cwd": "/home/gabrielgadea/projects/analise",
+   "cmd": "git commit --no-verify -F - <<'EOF'\nelectoral: a capa da MPV 1.376/2026 passa a dizer o que o relator fez\n\nO titulo era «A divida do produtor que pagou em dia» — nomeava o PROBLEMA e\nnao a mudanca. Agora nomeia a atuacao: «Pimenta propoe melhorias para o\nprodutor rural renegociar as suas dividas», com o subtitulo dizendo as dez\nmudancas que melhoram prazos e condicoes de acesso.\n\nA edicao e no GERADOR (documento_mpv_1376.py), e o HTML e o PDF sao\nregerados: e o que a licao «renomear artefato gerado» ja provou nesta peca\n(5 pontos a abrem pelo nome).\n\nCorpo do titulo: 46 -> 38 pt, MEDIDO. A 46 "
+  }
+ ]
+}

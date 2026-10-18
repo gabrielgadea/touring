@@ -1,0 +1,121 @@
+{
+ "corte": "2026-10-09T18:14:31.894Z",
+ "ate": "2026-10-09T21:12:22.428Z",
+ "positivos": 0,
+ "n_por_balde": {
+  "arquivo": 77,
+  "inline": 189
+ },
+ "n_por_origem": {
+  "atribuido": 76,
+  "inline": 189,
+  "tmp": 1
+ },
+ "inline_por_estrato": {
+  "heredoc": 155,
+  "c": 21,
+  "touring_run": 13
+ },
+ "janela_efetiva": [
+  "2026-10-09T18:15:45.330Z",
+  "2026-10-09T21:11:00.885Z"
+ ],
+ "por_hora_utc": {
+  "2026-10-09T18": 74,
+  "2026-10-09T19": 91,
+  "2026-10-09T20": 89,
+  "2026-10-09T21": 12
+ },
+ "inline_sessoes_distintas": 6,
+ "inline_top_sessoes": [
+  [
+   "647e47b7",
+   82,
+   43.4
+  ],
+  [
+   "e7c33fba",
+   54,
+   28.6
+  ],
+  [
+   "agent-av",
+   17,
+   9.0
+  ],
+  [
+   "35c65e1a",
+   12,
+   6.3
+  ],
+  [
+   "agent-as",
+   12,
+   6.3
+  ]
+ ],
+ "atribuido_arquivos_distintos": 32,
+ "atribuido_por_projeto": {
+  "touring": 37,
+  "analise": 39
+ },
+ "atribuido_top_arquivos": [
+  [
+   "corpus_semeado.py",
+   24
+  ],
+  [
+   "shell_inline.py",
+   7
+  ],
+  [
+   "cenario_b_d.py",
+   5
+  ],
+  [
+   "probe4_html.py",
+   5
+  ],
+  [
+   "medir_programa_inline.py",
+   4
+  ]
+ ],
+ "atribuido_com_arquivo_ja_no_vivo": 0,
+ "conteudo_identico_a_snap_do_vivo": {
+  "total": 0,
+  "por_balde": {}
+ },
+ "inline_comando_identico_ao_do_vivo": 0,
+ "duplicatas_internas_de_conteudo": 5,
+ "tamanho_snap_mediano_chars": {
+  "arquivo": 5415,
+  "inline": 883
+ },
+ "poda_vivo": {
+  "podados": 3159,
+  "rodadas": 77
+ },
+ "poda_holdout": {
+  "podados": 39,
+  "rodadas": 2
+ },
+ "universo_holdout": {
+  "vistos": 80,
+  "candidatos": 115,
+  "arquivos_no_indice": 4537,
+  "arquivos_com_atividade_na_janela": 80,
+  "candidatos_de_toda_a_historia_desses_arquivos": 333,
+  "corte": "2026-10-09T18:14:31.894Z",
+  "ate": "2026-10-09T21:12:22.428Z"
+ },
+ "positivos_v0a": {
+  "inventario_bruto": 171,
+  "na_janela": 78,
+  "por_bucket": {
+   "projeto": 37,
+   "inline": 10,
+   "atribuído": 31
+  }
+ }
+}

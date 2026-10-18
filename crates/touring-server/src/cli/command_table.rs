@@ -136,6 +136,12 @@ fn standalone_commands() -> Vec<CommandDescriptor> {
             handler: |args| super::run::run(args),
         },
         CommandDescriptor {
+            name: "vgp",
+            description: "VGP layer-1 motor (pure, daemonless): `vgp check --path <virtual> --content-file <f> --project-root <r> [--disk-file <d>] [--overlay <o>=<a>]... [--lang python] [-j]` — denies invented Python API before the edit",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::vgp::run(args),
+        },
+        CommandDescriptor {
             name: "sandbox-runtimes",
             description: "Sandbox CEG runtimes: `status` (preflight presente/ausente por linguagem) | `setup-venv` (bibliotecas de agente via PYTHONPATH read-only)",
             error_policy: ErrorPolicy::ExitOnError,

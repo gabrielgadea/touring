@@ -1,0 +1,182 @@
+[
+ {
+  "id": "D01",
+  "lote": "H1",
+  "defeito": "Nenhum executor de regra de linguagem roda ao editar: pós-edição não formata nem avisa de depuração (dbg!, println!, print()); a medição de unwrap (F1.6) existe mas não bloqueia",
+  "evidencia": "grep -n 'Command::new' crates/touring-hook-handlers/src/hooks/post_edit.rs crates/touring-hook-handlers/src/hooks/post_write.rs: 0; crates/touring-quality/src/verifications/f1_6_error_handling.rs:50"
+ },
+ {
+  "id": "D02",
+  "lote": "H1",
+  "defeito": "Nenhuma regra nem detector contra delegação órfã: resposta final 'aguardando subagentes' não é barrada",
+  "evidencia": "~/.claude/skills/Touring/references/TACO-subagent-rule.md (sem regra de conclusão de delegação); grep -rln 'fire-and-forget\\|run_in_background' client/hooks: 0"
+ },
+ {
+  "id": "D03",
+  "lote": "H1",
+  "defeito": "Teto de contexto: sem regra de 20% para refatoração grande (ECC common/performance.md) no fluxo TACO; o aviso único existe aos 55%",
+  "evidencia": "~/.claude/CLAUDE.md 'Context Management' (aviso aos 55%); rules/common/performance.md §Context Window Management (ECC)"
+ },
+ {
+  "id": "D04",
+  "lote": "H2a",
+  "defeito": "loop_converged.py declara 'fail-open on daemon errors' no cabecalho, mas a Lei L2 do CLAUDE.md global diz 'sinal ausente != zero (fail-closed)'. As duas regras nao batem",
+  "evidencia": "~/.claude/skills/loop-engineering/scripts/loop_converged.py:1-6; ~/.claude/CLAUDE.md, secao MODUS OPERANDI (tabela de Leis, L2)"
+ },
+ {
+  "id": "D05",
+  "lote": "H2a",
+  "defeito": "tdd-enforcer se declara gate BLOQUEANTE de Edit/Write, mas nenhum hook o registra em settings.json, client/claude/hooks.settings.json, ~/.claude/hooks, client/hooks ou crates/touring-hook*",
+  "evidencia": "~/.claude/skills/tdd-enforcer/SKILL.md:10; ~/.claude/settings.json:456 (unico pre-write registrado: touring-hook pre-write); grep -rli 'tdd.enforcer|tdd_enforcer' crates/touring-hook* -> vazio"
+ },
+ {
+  "id": "D06",
+  "lote": "H2a",
+  "defeito": "pre_edit_gate.py (docstring: 'Bundles every Reflex #1/#2/#4') nao tem chamador encontrado em hook nem em crate: touring index find pre_edit_gate retornou count 0",
+  "evidencia": "~/.claude/skills/Touring/scripts/pre_edit_gate.py:1-17; grep -rln pre_edit_gate ~/.claude/skills crates client -> so docs, scripts e harness_gate.py; a verificar se harness_gate.py o chama"
+ },
+ {
+  "id": "D07",
+  "lote": "H2a",
+  "defeito": "vocabulario: 'touring e2e' e analise de codigo, nao teste E2E. A regra 3 do CLAUDE.md do workspace usa esse comando como gate de pronto, o que e facil de ler como 'teste de ponta a ponta passou'",
+  "evidencia": "touring e2e --help ('Comprehensive E2E code analysis'); ~/projects/touring/CLAUDE.md regra 3"
+ },
+ {
+  "id": "D08",
+  "lote": "H2b",
+  "defeito": "touring scan não reporta o segredo AKIA literal que touring audit bloqueia: scan só listou dois unwrap (P2) e p0_block=false; audit deu verdict block com kind F2.4",
+  "evidencia": "scratchpad/h2b/probe.rs:1 (AKIA literal); touring scan scratchpad/h2b/probe.rs; touring audit scratchpad/h2b/probe.rs"
+ },
+ {
+  "id": "D09",
+  "lote": "H2b",
+  "defeito": "SQLi por format! tem três vereditos: scan P1 (p0_block=false), audit 'info', hook pre-write advisory [0.5]",
+  "evidencia": "scratchpad/h2b/probe2.rs:2; touring scan e touring audit no mesmo arquivo; saída do hook pre-write nesta rodada"
+ },
+ {
+  "id": "D10",
+  "lote": "H2b",
+  "defeito": "Command::new('sh').arg('-c').arg(c) em Rust, com c vindo de parâmetro, não é detectado por scan nem por audit",
+  "evidencia": "scratchpad/h2b/probe2.rs:6; touring audit scratchpad/h2b/probe2.rs -> verdict info"
+ },
+ {
+  "id": "D11",
+  "lote": "H2b",
+  "defeito": "stop.rs documenta registro de tokens e sumário, sem gate de encerramento; a regra do CLAUDE.md sobre Stop que recusa encerrar sem manifesto não tem implementação localizada neste arquivo",
+  "evidencia": "crates/touring-hook-handlers/src/hooks/stop.rs:1-8; ~/projects/touring/CLAUDE.md, regra 17 (work-outer) e seção Referências"
+ },
+ {
+  "id": "D12",
+  "lote": "H2b",
+  "defeito": "F3.1 só lê cobertura LCOV do cargo llvm-cov: projeto Python não recebe medição de cobertura",
+  "evidencia": "crates/touring-quality/src/verifications/f3_1_coverage.rs:4-6"
+ },
+ {
+  "id": "D13",
+  "lote": "H3",
+  "defeito": "~/.claude/commands/plan.md: o caminho de saída depende de ~/.claude/hooks/plan-detector.sh, que não existe; a linha de execução é '/plan ou skill taco-planning ...' (shell inválido)",
+  "evidencia": "~/.claude/commands/plan.md:44-52; ls ~/.claude/hooks/plan-detector.sh → No such file"
+ },
+ {
+  "id": "D14",
+  "lote": "H3",
+  "defeito": "touring audit não reporta bare except com pass (silent failure): só o segredo literal foi reportado no mesmo arquivo",
+  "evidencia": "touring audit scratchpad/h3probe/probe_silent.py → único finding F2.4 (linha 8), exit 2; linhas 4-5 sem finding"
+ },
+ {
+  "id": "D15",
+  "lote": "H3",
+  "defeito": "touring audit não reporta unwrap() nem unsafe sem // SAFETY: em arquivo .rs; verdict info com zero findings",
+  "evidencia": "touring audit scratchpad/h3probe/probe_rust.rs (linhas 2-3) → {\"verdict\":\"info\",\"findings\":[]}, exit 0"
+ },
+ {
+  "id": "D16",
+  "lote": "H3",
+  "defeito": "touring-auditor, que audita, tem Edit e Write: o papel de auditoria pode alterar o que audita",
+  "evidencia": "~/.claude/agents/touring-auditor.md:11"
+ },
+ {
+  "id": "D17",
+  "lote": "H3",
+  "defeito": "touring-scouter grava saída em /tmp fixo, sem mktemp nem permissão restrita; o santa-loop do ECC usa mktemp com umask 077",
+  "evidencia": "~/.claude/agents/touring-scouter.md:31-32; ECC commands/santa-loop.md:107-108"
+ },
+ {
+  "id": "D18",
+  "lote": "H4",
+  "defeito": "O daemon global roda um binário apagado: `touring daemon-ctl status` mostra exe `…/target/release/touring-daemon (deleted)` com a nota «rebuild ran without restart» (PID 731793, 18/10 02:56). Relatado, não corrigido: reiniciar é decisão do dono do rebuild (REGRA #19) e há outras sessões e agentes ativos agora.",
+  "evidencia": "touring daemon-ctl status (18/10 02:56)"
+ },
+ {
+  "id": "D19",
+  "lote": "H4",
+  "defeito": "O registro de sessões do `touring status -j` está morto: `.sessions` lista 20 registros, 17 sem objetivo, ids numéricos de 14 a 31 e nenhum atualizado depois de 01/09 além dos fixtures wave24-test e wave24-warmup. Com 6 ou mais sessões concorrentes hoje, nenhuma aparece. É a fonte que o painel de G2:1 precisaria.",
+  "evidencia": "touring status -j → .sessions (18/10 02:53); `.resource_monitor` segue string vazia, como em G2:1"
+ },
+ {
+  "id": "D20",
+  "lote": "H4",
+  "defeito": "`prose_integrity_gate.py --criterion` sem o arquivo de rótulos termina em IndexError (traceback) em vez de mensagem de uso.",
+  "evidencia": "python3 -I ~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py --criterion → IndexError em prose_integrity_gate.py:473 (argv[2])"
+ },
+ {
+  "id": "D21",
+  "lote": "H4",
+  "defeito": "Nenhuma tabela de evidência do Touring é imutável no banco: os 14 CREATE TRIGGER de crates/scripts/client são de sincronia FTS e `RAISE(` tem 0 acertos. Log de experimentos e veredictos de juiz dependem de disciplina de escrita (a lição «juiz gravável pelo julgado» continua sem trava no banco).",
+  "evidencia": "grep 'CREATE TRIGGER|RAISE[(]' em crates scripts client (18/10): 14 e 0"
+ },
+ {
+  "id": "D22",
+  "lote": "H4",
+  "defeito": "Integração de worktrees de agentes sem ferramenta: 20 worktrees hoje, entrega por cópia de arquivos entre worktree, vivo e int97, com duas ocorrências registradas de quebra (10/10 e 17/10).",
+  "evidencia": "git worktree list | wc -l = 20; memórias copiar-worktree-de-agente-vivo.md e entrega-partida-entre-vivo-e-integracao.md"
+ },
+ {
+  "id": "D23",
+  "lote": "H5",
+  "defeito": "Estados contraditorios sobre o gate de modelo: a memoria de 17/10 diz que client/hooks/agent_model_gate.py aceita qualquer model e so confere presenca. O docstring do proprio gate descreve julgamento de ajuste por classe (_fit_decision) e o log judged/origin. Antes de corrigir, verificar qual versao esta viva.",
+  "evidencia": "client/hooks/agent_model_gate.py:45-59 (docstring com julgamento de ajuste); memoria roteamento-de-modelo-so-exige-presenca (linhas 1-14, 'aceita QUALQUER model'). Nao reproduzido nesta rodada."
+ },
+ {
+  "id": "D24",
+  "lote": "H5",
+  "defeito": "Regra 13 de higiene de skills citada como vigente, com arquivo de apoio marcado como em redacao. A regra existe no CLAUDE.md global mas nao tem corpo nem validador ligado.",
+  "evidencia": "~/.claude/CLAUDE.md, regra 13 ('skill-hygiene.md em redacao')."
+ },
+ {
+  "id": "D25",
+  "lote": "H5",
+  "defeito": "Campo com_par_na_fonte do inventario ECC (inventario-ecc.json, chave adaptadores) usa pareamento por nome-base e aceita o primeiro candidato. Gera pares falsos, como .agents/skills/*/agents/openai.yaml apontando para skills/terminal-opener/agents/openai.yaml (46 dos 108 pares de .agents). O numero de pares do inventario nao reproduz a contagem por nome-base (86/17/34/108).",
+  "evidencia": "docs/plans/2026-10-17-analise-ecc/inventario/inventario-ecc.json, chave adaptadores; contagem find .agents -name openai.yaml = 46 (executado)."
+ },
+ {
+  "id": "D26",
+  "lote": "H6",
+  "defeito": "`touring ast quality <arquivo inexistente>` (e diretório) devolve overall_score 1.0, antipatterns [], language 'rust' e exit 0, e injeta recompensa de RL 1.0 ('measured_overall_score'): read_to_string(...).unwrap_or_default() transforma erro de leitura em fonte vazia, e Lang::from_path(...).unwrap_or(Lang::Rust) classifica extensão desconhecida como Rust. O mesmo par de linhas está em cli_ast_calls, cli_ast_scope e cli_ast_imports (executado só em quality; `ast tdg` no mesmo arquivo falha corretamente com 'read failed'). É exatamente a falha silenciosa que o ECC manda caçar, dentro da ferramenta que a caça.",
+  "evidencia": "crates/touring-cli/src/cli/handlers/index.rs:1917-1926 (quality), :1953-1954, :2141-2142, :2289-2290; executado: `touring ast quality /tmp/claude-1000/inexistente_h6.rs -j` -> overall_score 1.0"
+ },
+ {
+  "id": "D27",
+  "lote": "H6",
+  "defeito": "`analyze_quality` conta o token do antipadrão por substring no arquivo inteiro, sem excluir comentário, string nem #[cfg(test)] (count_occurrences), enquanto a F1.6 e o `ast tdg` são região-cientes. Controle: arquivo com `.unwrap()`, `panic!(` e `let _ =` só em comentário e módulo de teste -> `ast quality` acusa unwrap=2, panic=1, ignored_result=1 (overall 0,93) e F1.6 acusa 0 (0,850). Em quality.rs, o mesmo arquivo dá antipattern_score 0,364 no `ast quality` e antipatterns 1,0 no `ast tdg`. O score de `ast meta` em cache-miss usa esse analisador e ainda converte arquivo ilegível em 0,0 (.unwrap_or(0.0)), indistinguível de arquivo ruim.",
+  "evidencia": "crates/touring-code/src/ast/quality.rs:792-803 (count_occurrences), :364-420 (detect_rust_safety); crates/touring-cli/src/cli/ast.rs:300-318 (on_disk_fallback com unwrap_or(0.0)); executado: scratchpad/h6_silent/test_only_unwrap.rs e `touring ast quality`/`touring ast tdg crates/touring-code/src/ast/quality.rs -j`"
+ },
+ {
+  "id": "D28",
+  "lote": "H6",
+  "defeito": "`touring memory store` não varre segredo: parse_memory_store_payload só exige chave e valor não vazios. Só o minerador de transcript redige (redact_secrets). Qualquer chamada direta, de hook ou de agente grava um token ou chave no memory.db, que depois volta pelo recall e pelas nudges.",
+  "evidencia": "crates/touring-hook-runtime/src/ceg_impls.rs:112-190,192-300; crates/touring-server/src/ingest/transcript_miner.rs:520-533 (a única redação)"
+ },
+ {
+  "id": "D29",
+  "lote": "H6",
+  "defeito": "O hook_trace.jsonl (202 MB, 904.218 linhas) não grava tool_use_id nem hash do payload, só stdin_bytes: execução duplicada de hook não se distingue de chamadas paralelas de mesmo tamanho (936 coincidências em 14 dias, 0,24%). E subagent-stop dispara 2,96 vezes mais que subagent-start com 1 registro de cada no settings, sem explicação.",
+  "evidencia": "chaves de ~/.claude/touring/hook_trace.jsonl (elapsed_ms exit_reason hook pid ppid route session_id stdin_bytes stdin_state ts_ms); scratchpad/h6_dup.py e h6_dup2.py"
+ },
+ {
+  "id": "D30",
+  "lote": "H6",
+  "defeito": "A F1.6 (tratamento de erro) mede só o ruído alto (unwrap/expect/panic) e recompensa result_ratio: um arquivo Rust com 7 padrões de falha silenciosa (let _ =, .ok();, unwrap_or*, braços Err vazios) recebe 0,850 Gold, e um arquivo TypeScript com catch vazio e .catch(() => []) também recebe 0,850.",
+  "evidencia": "crates/touring-quality/src/verifications/f1_6_error_handling.rs:55-80; `touring-quality score scratchpad/h6_silent/{rust_ctl.rs,ts_ctl.ts} --dims F1.6`"
+ }
+]

@@ -19,6 +19,11 @@ GROUP and never fired, 26/09/2026):
       hooks guide — Context7 26/09/2026)
   L3  a project's script registered globally by path: every other project pays a process
   L4  no `timeout`: Claude Code's default is 600 s
+  L5  a `touring-hook worktree-create|remove` recorder on the worktree events: a `WorktreeCreate` hook REPLACES
+      the default `git worktree add` and must print the created path (the recorder prints none, so
+      `Agent(isolation: "worktree")` fails — "hook succeeded but returned no worktree path", 17/10/2026);
+      `WorktreeRemove` runs only for worktrees such a hook created, and its exit 0 counts as "removed"
+      whether or not the directory is gone (code.claude.com/docs/en/hooks, read 18/10/2026)
 """
 
 from __future__ import annotations
@@ -43,6 +48,9 @@ IF_SUPPORTED_EVENTS = frozenset(
 IF_MULTIPATTERN = re.compile(r"\||&&")
 #: A command that runs a script living inside ONE project, by path.
 PROJECT_SCRIPT = re.compile(r"(\$HOME|~|/home/[^/\s]+)/projects/[^/\s]+/")
+#: The Touring lifecycle recorder for the worktree events — it records, and prints no path.
+WORKTREE_RECORDER = re.compile(r"touring-hook\s+worktree-(?:create|remove)\b")
+WORKTREE_EVENTS = frozenset({"WorktreeCreate", "WorktreeRemove"})
 
 
 def load_json(path: Path) -> Any:
@@ -107,6 +115,9 @@ def lint_hooks(hooks: dict[str, Any]) -> list[dict[str, str]]:
             findings.append(_finding("L3", event, group, hook, f"project script registered globally: {command!r}"))
         if hook.get("timeout") is None:
             findings.append(_finding("L4", event, group, hook, "no `timeout` (Claude Code's default is 600 s)"))
+        if event in WORKTREE_EVENTS and WORKTREE_RECORDER.search(command):
+            detail = f"recorder on {event}, which needs a worktree path or a deletion: {command!r}"
+            findings.append(_finding("L5", event, group, hook, detail))
     return findings
 
 

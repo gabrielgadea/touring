@@ -1,0 +1,300 @@
+{
+  "lote": "H1-regras",
+  "lidos": [
+    "rules/rust/coding-style.md",
+    "rules/rust/security.md",
+    "rules/rust/testing.md",
+    "rules/rust/hooks.md",
+    "rules/python/coding-style.md",
+    "rules/python/testing.md",
+    "rules/python/security.md",
+    "rules/python/hooks.md",
+    "rules/python/patterns.md",
+    "rules/common/hooks.md",
+    "rules/common/security.md",
+    "rules/common/testing.md",
+    "rules/common/coding-style.md",
+    "rules/common/performance.md",
+    "rules/common/agents.md",
+    "rules/common/code-review.md",
+    "rules/common/development-workflow.md",
+    "rules/common/git-workflow.md",
+    "rules/common/patterns.md",
+    "rules/typescript/hooks.md",
+    "rules/typescript/security.md",
+    "rules/typescript/testing.md",
+    "rules/golang/security.md",
+    "contexts/dev.md",
+    "scripts/hooks/post-edit-console-warn.js (cabeçalho e corpo, 75 linhas)",
+    "scripts/hooks/check-console-log.js (cabeçalho, 92 linhas)",
+    "scripts/hooks/config-protection.js (contagem de linhas e registro em hooks/hooks.json; corpo não lido)"
+  ],
+  "classificados": [
+    {"caminho": "rules/README.md", "motivo": "documentação de instalação do próprio ECC; sem regra executável"},
+    {"caminho": "rules/rust/patterns.md", "motivo": "não lido; padrões de design (repository com traits, newtype, builder). Não afeta a comparação de execução; anotado como lacuna"},
+    {"caminho": "rules/typescript/coding-style.md, typescript/patterns.md", "motivo": "não lidos; fora do foco pedido (Rust/Python). Classificados pelo cabeçalho do lote-H1"},
+    {"caminho": "rules/{angular,arkts,cpp,csharp,dart,fsharp,java,kotlin,nuxt,perl,php,react,react-native,ruby,swift,vue,web}/*.md", "motivo": "só cabeçalhos do lote-H1 (classe linguagem/seguranca/processo/outros). Corpo não lido por ser fora do foco pedido; as linguagens sem detalhe exigido ficam classificadas, sem veredito de conteúdo"},
+    {"caminho": "rules/golang/{coding-style,hooks,patterns,testing}.md, rules/python/fastapi.md, rules/typescript/*.md residuais", "motivo": "não lidos; fora do foco Rust/Python"},
+    {"caminho": ".cursor/rules/*.md (36 arquivos, 36,3 KB)", "motivo": "não lido nem comparado byte a byte; listagem mostra o mesmo conjunto temático de rules/ em outro formato de harness (Cursor). Não entra no veredito"},
+    {"caminho": ".kiro/steering/*.md (22 arquivos, 39,7 KB)", "motivo": "não lido; mesmo caso do .cursor (formato de outro harness). Inclui lessons-learned.md, que poderia conter regra nova: fica como lacuna para H2/H3"},
+    {"caminho": "contexts/research.md, contexts/review.md", "motivo": "não lidos; mesmo formato de contexts/dev.md (modo + prioridades + ferramentas), suficiente para o veredito de modos"}
+  ],
+  "linhas": [
+    {
+      "dominio": "cat-rules",
+      "funcionalidade": "Regras Rust: formatação e lint (rustfmt, clippy -D warnings), sem unwrap() em produção, erros tipados (thiserror/anyhow), unsafe com // SAFETY:, parse-don't-validate, cargo audit/deny, cobertura 80%",
+      "ecc": {
+        "como": "Texto puro em rules/rust/{coding-style,security,testing,hooks}.md. Nenhum executor no diretório rules/ (0 arquivos não-.md em rules/). rules/rust/hooks.md manda o usuário configurar cargo fmt, clippy e check em settings.json: é instrução, não hook instalado",
+        "evidencia": "rules/rust/coding-style.md §Error Handling e §Formatting; rules/rust/hooks.md §PostToolUse Hooks; find rules -type f ! -name '*.md' retorna 0"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "unwrap/expect/panic de produção são MEDIDOS, com região (exclui #[cfg(test)]) e penalidade no score, mas não BLOQUEIAM: F1.6 não está entre os 6 P0 BLOCK. clippy -D warnings e cargo fmt rodam no gate de release (gate 1/6), não ao editar. Dependências com CVE e licença: F2.5 é P0 BLOCK",
+        "evidencia": "crates/touring-quality/src/verifications/f1_6_error_handling.rs:49-50 (analyze_error_handling_dim com feature workspace-integration, default-on em crates/touring-quality/Cargo.toml:60); ~/.claude/rules/elite-50-quality.md:5 (lista dos 6 P0 BLOCK); CLAUDE.md:74 e :47 (gate 1/6 com clippy --all-targets); crates/touring-quality/src/builtins/stub.rs:25 (clippy/fmt 'coberto por CI'). Comando: grep -n 'Command::new' crates/touring-hook-handlers/src/hooks/post_edit.rs crates/touring-hook-handlers/src/hooks/post_write.rs retornou 0 (nenhum formatador roda ao editar)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Touring mede o que a regra ECC só declara, então venceria no critério 'medido vence declarado'. Mas a medição não bloqueia: unwrap() novo em código de produção deveria virar aviso no pre-write (F1.6 já tem o detector com região). Clippy e fmt ficam no gate de release; faltam ao editar."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Formatação automática por edição (cargo fmt / ruff / prettier) para o arquivo editado",
+      "ecc": {
+        "como": "Só recomendação textual em rules/*/hooks.md (rust, python, typescript, web, dart etc.). O hook de pós-edição para console existe em JS (ver linha de console.log) mas não há formatador executado no ECC para Rust/Python",
+        "evidencia": "rules/rust/hooks.md §PostToolUse Hooks; rules/python/hooks.md:14 ('black/ruff: Auto-format .py files after edit')"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Nenhum handler de pós-edição executa formatador. ruff e pyright só aparecem como extratores de saída de comando Bash (observação, não execução)",
+        "evidencia": "grep -n 'Command::new' post_edit.rs e post_write.rs: 0; crates/touring-hook-handlers/src/hooks/post_bash.rs:568 ('ruff:' como extrator); crates/touring-hook-handlers/src/hooks/pre_edit.rs:635 (comentário sobre ruff/pyright)"
+      },
+      "veredito": "equivalente",
+      "acao": "adotar",
+      "aprofunda": null,
+      "nota": "Nenhum dos dois executa formatação ao editar: o ECC só recomenda. Para Touring, formatador determinístico no post-edit de .rs e .py é barato e sem custo de token. Proposta para Gabriel aprovar: rodar cargo fmt --check ou ruff format --check só nos arquivos editados e devolver o diff como feedback."
+    },
+    {
+      "dominio": "cat-rules",
+      "funcionalidade": "Regras Python: PEP 8, anotações de tipo em toda assinatura, black/isort/ruff, pytest com marcadores unit/integration, bandit, aviso para print() no lugar de logging",
+      "ecc": {
+        "como": "Texto em rules/python/*.md. Detalhe exigido: type annotations em todas as assinaturas; dataclass(frozen=True) ou NamedTuple como padrão de imutabilidade; pytest --cov=src com term-missing; bandit -r src/; mypy ou pyright após edição. O aviso de print() é só texto (rules/python/hooks.md:19): não encontrei executor de print no ECC",
+        "evidencia": "rules/python/coding-style.md §Standards, §Formatting; rules/python/testing.md §Coverage; rules/python/security.md §Security Scanning; rules/python/hooks.md:17-19"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Nenhum detector de print() em código Python, nem de anotações ausentes. ruff/pyright são observados depois do Bash (extrator), não executados em edição. Bandit não aparece como gate",
+        "evidencia": "grep -rln 'print(' client/hooks/*.py: só falsos positivos de uso legítimo; grep 'bandit' crates/touring-quality/src: 0; crates/touring-hook-handlers/src/hooks/post_bash.rs:568"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "O ECC também não executa o aviso de print() (ausente no scripts/hooks). Vale como detector barato no Touring, por AST: print() e dbg!/println! de depuração em código de produção. Entra como aviso, não como bloqueio."
+    },
+    {
+      "dominio": "cat-rules",
+      "funcionalidade": "Aviso de console.log após edição e auditoria de console.log antes de encerrar a sessão (JS/TS)",
+      "ecc": {
+        "como": "Hook executável: post-edit-console-warn.js procura /console\\.log/ no arquivo editado e avisa; check-console-log.js faz a varredura do Stop. Os dois são chamados pelo dispatcher de pós-edição (scripts/hooks/posttooluse-dispatcher.js). É um dos poucos detectores de regra de linguagem que realmente executam",
+        "evidencia": "scripts/hooks/post-edit-console-warn.js:27-33 (75 linhas); scripts/hooks/check-console-log.js:4-13 (92 linhas); scripts/hooks/posttooluse-dispatcher.js (referência ao hook)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Não há detector de saída de depuração em edição. Busca por console.log em client/hooks e crates: só um teste",
+        "evidencia": "grep -rln 'console\\.log\\|console_log' client/hooks crates/touring-quality/src: só client/hooks/tests/test_s25_block_git_nested.py. grep -rln 'dbg!' client/hooks crates/touring-hook-handlers/src crates/touring-hook-runtime/src: 0"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Com dois lados evidenciados, o ECC tem executor e o Touring não. O valor é baixo porque console.log é JS e o Touring é Rust/Python. O princípio portável é um detector de saída de depuração (dbg!, println!, print(), console.log) em código de produção. Não copiar o nome do hook; copiar a varredura de Stop."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Proteção de configs de lint e format: bloquear o agente que enfraquece o linter para passar no check",
+      "ecc": {
+        "como": "config-protection.js (242 linhas) bloqueia ou avisa quando a edição mexe em config de lint/format e em listas de ignore. Registrado em hooks/hooks.json. O comentário do arquivo justifica: 'agents frequently modify these to make checks pass instead of fixing the actual code'",
+        "evidencia": "scripts/hooks/config-protection.js:5-7 (justificativa) e :1-242; hooks/hooks.json (1 ocorrência do nome do hook)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Nenhum hook protege eslintrc, ruff.toml, clippy.toml, rustfmt.toml ou prettierrc. A regra REGRA #21 (zero falhas) pode induzir justamente esse atalho: alterar a configuração em vez do código",
+        "evidencia": "grep -rln 'eslintrc\\|ruff.toml\\|clippy.toml\\|rustfmt.toml\\|prettierrc' client/hooks crates/touring-hook-handlers/src crates/touring-hook-runtime/src: 0 (rc=1); ~/.claude/CLAUDE.md regra #21"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adotar",
+      "aprofunda": "A3",
+      "nota": "Este é o achado mais forte para o Touring. Ele tem REGRA #21 (sem falha conhecida aberta) e não tem nenhuma barreira contra o atalho de enfraquecer o juiz. Proposta: o pre-edit/pre-write bloqueia edição em config de lint/format sem justificativa registrada. Mesma família do 'juiz gravável pelo julgado' já registrado na memória do projeto."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Bloquear a flag que pula hooks do git (--no-verify, core.hooksPath, SKIP, HUSKY)",
+      "ecc": {
+        "como": "block-no-verify.js bloqueia --no-verify e -c core.hooksPath=; A1/A2 apontam parser de shell com orçamento e heredoc como dado",
+        "evidencia": "scripts/hooks/block-no-verify.js:5-6 (cabeçalho com a regra)"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "block_git.sh nega --no-verify, core.hooksPath, SKIP e HUSKY quando o repositório tem hooks ativos, com token de passagem GIT_HOOKS_BYPASS_OK=1 e teste dedicado",
+        "evidencia": "client/hooks/block_git.sh:102 (comentário), :117 (deny com a mensagem); client/hooks/tests/test_s25_block_git_hooks_bypass.py (referenciado em block_git.sh:15)"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": "A2",
+      "nota": "Touring já cobre a mesma forma e tem teste. A3 do ECC é o que faltou ao Touring (linha de config-protection). Não copiar o parser de shell do ECC: block_git.sh tem o contrato de tokens por comando."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Contrato de conclusão da delegação: a resposta final de um agente é o entregável; nunca encerrar com 'aguardando agentes em segundo plano'",
+      "ecc": {
+        "como": "Regra explícita para todo agente em qualquer profundidade: quem delega possui a coleta. O motivo é uma falha observada: filhos completaram e os resultados ficaram órfãos porque o pai já havia encerrado o turno",
+        "evidencia": "rules/common/agents.md §Delegation Completion Contract (3 itens e a justificativa 'zombie tasks')"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "A regra TACO de subagente exige retorno em JSON com symbol_verification. Não há regra contra delegação órfã nem detector de 'aguardando' como resposta final. O campo notify_when_idle existe para sessões, não para subagentes",
+        "evidencia": "~/.claude/skills/Touring/references/TACO-subagent-rule.md (contrato de retorno; sem ocorrência de 'fire-and-forget' ou 'run_in_background' como regra); ~/.claude/rules/TACO-subagent.md (stub); grep -rln 'fire-and-forget\\|run_in_background' client/hooks: 0"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adotar",
+      "aprofunda": null,
+      "nota": "Sem medição nos dois lados, o ECC só tem o motivo declarado (uma observação). Ainda assim, o Touring não tem a regra e a falha é do mesmo tipo do que a memória do projeto já registra (resultado sem coleta). Proposta: uma frase em TACO-subagent-rule.md (Delegation Completion Contract) e um teste de caso de uso. Não há executor ainda."
+    },
+    {
+      "dominio": "roteamento",
+      "funcionalidade": "Escolha de modelo por papel: Haiku para trabalhadores frequentes, Sonnet para o trabalho principal, Opus para arquitetura; evitar os últimos 20% do contexto em refatoração grande",
+      "ecc": {
+        "como": "Texto em rules/common/performance.md. Não há gate de modelo no ECC; a escolha depende do agente",
+        "evidencia": "rules/common/performance.md §Model Selection Strategy e §Context Window Management"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Matriz de roteamento com custo (CLAUDE.md item 17) e executor: agent_model_gate.py recusa Agent sem campo model. Ainda assim, a matriz do Touring não cobre a janela de contexto de 20%",
+        "evidencia": "client/hooks/agent_model_gate.py (existe, ls confirmou); CLAUDE.md item 17 (economia de créditos e contexto)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O Touring tem a regra e o executor. Único ponto que o ECC acrescenta: o limiar de 20% de contexto para refatoração grande. Vale como aviso de contexto (já existe o aviso aos 55% em CLAUDE.md), não como regra nova."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Severidade de revisão (CRITICAL bloqueia, HIGH avisa, MEDIUM informa, LOW anota) e critério de aprovação",
+      "ecc": {
+        "como": "Tabela declarativa. O bloqueio é recomendação do revisor (agente code-reviewer), não código",
+        "evidencia": "rules/common/code-review.md §Review Severity Levels e §Approval Criteria"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Seis dimensões P0 BLOCK executam no PreToolUse (OWASP, segredos, CVE de dependências, config, deprecated, pkg mgmt). A saída é verdict com exit code (loop_converged.py, Lei L2)",
+        "evidencia": "~/.claude/rules/elite-50-quality.md:5 (6 P0 BLOCK); ~/.claude/CLAUDE.md regra #21 e 'Delivery checklist' (exit 0 é o veredito)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Touring tem bloqueio executado. O ECC tem a tabela. Não é preciso adotar."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Segurança comum: checklist antes de commit (segredos, validação, SQL, XSS, CSRF, autorização, rate limit, erro sem vazamento) e protocolo de resposta (parar, revisar, rotacionar)",
+      "ecc": {
+        "como": "Texto. Os itens viram verificação de agente, não código, exceto segredos: os hooks ECC cobrem commit e o guard de segredos do Touring é P0 BLOCK",
+        "evidencia": "rules/common/security.md §Mandatory Security Checks, §Security Response Protocol"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "F2.4 Secrets é P0 BLOCK com allowlist explícita por marcador (touring-quality:allow-secrets). F2.1 OWASP e F2.2 validação de entrada são dimensões medidas, não bloqueantes",
+        "evidencia": "crates/touring-quality/src/verifications/f2_4_secrets.rs:30 (struct F2_4_Secrets), :1163 (marcador de allowlist); ~/.claude/rules/elite-50-quality.md:5"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Segredo já é bloqueado por código. Sem ação. Rate limiting e CSRF não se aplicam ao escopo de CLI/daemon do Touring (não verificado)."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Princípio de confiança: as regras de um repositório recém-aberto não ativam sozinhas",
+      "ecc": {
+        "como": "Arquivos rastreados pelo git ficam desativados por padrão, porque abrir um repositório não pode ativar instruções que ele mesmo escreveu",
+        "evidencia": "README.md do ECC, linhas 179-180 (citado em achados/A-hooks.json, finding A4)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "As regras do usuário ficam em ~/.claude/rules (fora do repositório). Mas o CLAUDE.md do próprio repositório é carregado sempre, com instruções 'checked into the codebase'. Clone de repositório estranho ativaria essas instruções",
+        "evidencia": "~/projects/touring/CLAUDE.md:1-3 (cabeçalho: 'checked into the codebase' é a origem do conteúdo); ~/.claude/CLAUDE.md (regras do usuário, fora do repositório)"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": "A4",
+      "nota": "Risco real para o Touring se o repositório vier de fora, mas o CLAUDE.md do Touring é do próprio autor. Não medi se o harness pede confirmação ao carregar CLAUDE.md de um repositório novo. Fica para H2 (seguranca)."
+    },
+    {
+      "dominio": "cat-agentes",
+      "funcionalidade": "Mapa de agentes ECC por tarefa (planner, architect, tdd-guide, code-reviewer, security-reviewer, build-error-resolver, e2e-runner, refactor-cleaner, doc-updater, rust-reviewer etc.)",
+      "ecc": {
+        "como": "Tabela de 11 agentes com quando usar e a instrução 'Immediate Agent Usage' (planner para feature complexa, code-reviewer após escrever código)",
+        "evidencia": "rules/common/agents.md §Available Agents, §Immediate Agent Usage"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "Pool de agentes do Touring (scouter, architect, engineer, auditor, scriber) com fases e gate por fase (TACO Phase Protocol v6.2). O roteamento CILA decide quais fases rodam",
+        "evidencia": "~/.claude/CLAUDE.md 'TACO PHASE PROTOCOL v6.2' e 'Roteamento por nível (CILA)'; ~/.claude/agents/touring-*.md"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O ECC cataloga agentes por tipo de tarefa. O Touring tem fases e gates. Não há o que adotar, exceto o mapeamento rust-reviewer, que é de linguagem e não tem equivalente no pool do Touring."
+    },
+    {
+      "dominio": "planejamento",
+      "funcionalidade": "Pesquisa antes de implementar: GitHub search, documentação oficial (Context7), registros de pacote e só depois código novo",
+      "ecc": {
+        "como": "Passo 0 obrigatório em development-workflow.md: gh search repos e code, Context7, Exa só se insuficiente, verificar npm/PyPI/crates.io. Texto",
+        "evidencia": "rules/common/development-workflow.md §Feature Implementation Workflow item 0"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "touring portfolio <intento> faz prior-art por propósito com veredito obrigatório e lacunas. touring adw new usa o mesmo prior-art antes de criar fluxo. Medido pelo CLI, não por instrução",
+        "evidencia": "~/.claude/rules/touring-cli-index.md (cheatsheet: 'touring portfolio \"<intento>\"  prior-art por PROPÓSITO + lacunas + lente externa (veredito obrigatório)'); CLAUDE.md item 8 (touring adw new)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O Touring tem o prior-art como comando com veredito. Acrescentar apenas a checagem de registros (npm/PyPI/crates.io) se o portfolio não consultar registros: não verificado."
+    },
+    {
+      "dominio": "cat-rules",
+      "funcionalidade": "Estilo comum: imutabilidade (CRITICAL), KISS/DRY/YAGNI, arquivo de 200 a 400 linhas com teto soft de 800, funções abaixo de 50 linhas, aninhamento até 4, sem magic numbers",
+      "ecc": {
+        "como": "Texto. O teto de 800 linhas e de 50 por função aparecem como checklist ('Code Quality Checklist'), sem executor no ECC",
+        "evidencia": "rules/common/coding-style.md §File Organization, §Code Smells to Avoid, §Code Quality Checklist"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "F1.2 mede manutenibilidade por MI e, no ramo sem workspace-integration, função acima de 50 linhas. O limiar de 800 linhas por arquivo não tem gate. Imutabilidade não é medida",
+        "evidencia": "crates/touring-quality/src/verifications/f1_2_maintainability.rs:137 (fallback), :146 (current_len > 50); grep '800' crates/touring-quality/src/verifications/f1_2_maintainability.rs: sem limiar de linha"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Ambos medem ou declaram. F1.2 já cobre função longa. Não adotar o teto de 800 linhas: o próprio ECC marca como exceção geradas e testes."
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "Nenhum executor de regra de linguagem roda ao editar: pós-edição não formata nem avisa de depuração (dbg!, println!, print()); a medição de unwrap (F1.6) existe mas não bloqueia",
+      "evidencia": "grep -n 'Command::new' crates/touring-hook-handlers/src/hooks/post_edit.rs crates/touring-hook-handlers/src/hooks/post_write.rs: 0; crates/touring-quality/src/verifications/f1_6_error_handling.rs:50"
+    },
+    {
+      "defeito": "Config de lint/format sem proteção: o agente pode enfraquecer o linter para passar no check (REGRA #21 pode induzir isso)",
+      "evidencia": "grep -rln 'eslintrc\\|ruff.toml\\|clippy.toml\\|rustfmt.toml\\|prettierrc' client/hooks crates/touring-hook-handlers/src crates/touring-hook-runtime/src: 0 (rc=1)"
+    },
+    {
+      "defeito": "Nenhuma regra nem detector contra delegação órfã: resposta final 'aguardando subagentes' não é barrada",
+      "evidencia": "~/.claude/skills/Touring/references/TACO-subagent-rule.md (sem regra de conclusão de delegação); grep -rln 'fire-and-forget\\|run_in_background' client/hooks: 0"
+    },
+    {
+      "defeito": "Teto de contexto: sem regra de 20% para refatoração grande (ECC common/performance.md) no fluxo TACO; o aviso único existe aos 55%",
+      "evidencia": "~/.claude/CLAUDE.md 'Context Management' (aviso aos 55%); rules/common/performance.md §Context Window Management (ECC)"
+    }
+  ]
+}

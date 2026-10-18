@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from helpers import HookResult, _fallback_schema_violations  # noqa: E402
+from helpers import HookResult, _fallback_schema_violations
 
 
 def _result(stdout: str) -> HookResult:

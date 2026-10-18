@@ -20,6 +20,13 @@
 
 ## Resolução em runtime
 
+- **Fronteira de confiança do shim (17/10/2026, análise ECC C2)**: o binário por projeto só
+  é usado se o `realpath` cair DENTRO de `~/.touring/toolchains/` (o que `touring update
+  --project` cria), pertencer ao usuário e não for gravável por grupo/outros. Um executável
+  trazido pelo repositório é ignorado (registrado uma vez em
+  `~/.claude/touring/logs/hook-shim-rejected.log`) e a resolução segue. Antes, qualquer
+  `.touring/bin/touring-hook` executável rodava como o usuário. Guarda:
+  `scripts/test_touring_hook_shim.py`.
 - **Binários/hooks**: dentro de projeto com `.touring/bin/` populado, o shim usa o binário
   DO PROJETO — a versão local pode diferir da global. `<proj>/.touring/bin/touring --version`
   é a verdade local.

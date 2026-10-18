@@ -1,0 +1,39 @@
+   Compiling inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/inferlets)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-bindings)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-capnp-server)
+   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-generator)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-hooks-core)
+   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-assists)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-cortex)
+   Compiling touring-server v30.4.96 (/home/gabrielgadea/projects/touring-wt-p0bd/crates/touring-server)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 34.63s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0bd/debug/deps/touring_server-8774a97e50ecdbaf)
+
+running 17 tests
+test cli::vgp::tests::camada2_desconhecida_anota_e_preserva_a_camada1 ... ok
+test cli::vgp::tests::camada2_deny_escala_o_veredito_e_ensina_a_mensagem ... ok
+test cli::vgp::tests::a_camada_2_do_cli_segue_o_momento_pedido ... ok
+test cli::vgp::tests::content_file_ilegivel_e_unknown_nunca_crasha ... ok
+test cli::vgp::tests::conteudo_nao_utf8_e_unknown_com_motivo_e_a_lang_do_pedido ... ok
+test cli::vgp::tests::disk_file_chega_ao_check_para_qualquer_lang ... ok
+test cli::vgp::tests::camada2_so_roda_na_lang_declarada_e_o_cli_diz_quando_nao_roda ... ok
+test cli::vgp::tests::chamada_minima_devolve_json_com_verdict ... ok
+test cli::vgp::tests::fusao_por_nome_e_linha_vence_a_severidade_mais_forte ... ok
+test cli::vgp::tests::lang_efetiva_flag_vence_o_caminho_e_o_default_e_python ... ok
+test cli::vgp::tests::disk_file_e_overlay_nao_utf8_tambem_sao_unknown_sem_achado ... ok
+test cli::vgp::tests::linguagem_sem_adaptador_sai_unknown_com_motivo_no_json_do_cli ... ok
+test cli::vgp::tests::contexto_execucao_nega_o_fragmento_em_tmp_e_contexto_invalido_e_recusado ... ok
+test cli::vgp::tests::parse_camadas_default_e_lista ... ok
+test cli::vgp::tests::recusa_de_argumento_leva_a_lang_do_pedido_e_mantem_o_achado_erro ... ok
+test cli::vgp::tests::overlay_alimenta_a_resolucao_de_modulos ... ok
+test cli::vgp::tests::fusao_do_cli_corrobora_o_tipo_fechado_da_camada_1_com_a_classe_da_camada_2 ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.00s
+

@@ -1,0 +1,155 @@
+{
+ "amostra": [
+  {
+   "id": "5b365d164475",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "d031e2c945b8",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "71de48da22bf",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "55a573eecef5",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "5ee3a27824b4",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "37a31f079416",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "9ffd8142101f",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "86697eaeba20",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "d0b439f85a88",
+   "classe": "nome",
+   "sozinha": "ok"
+  },
+  {
+   "id": "2f704ae9ecb0",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "f4fb93062684",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "941d7d16e6a8",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "9495f2bba9a1",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "636c10e22b99",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "4e320334e4a6",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "c5165c2904f3",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "347ff7986752",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "b3b5a77219cd",
+   "classe": "import",
+   "sozinha": "ok"
+  },
+  {
+   "id": "35ff5ac3cd0d",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "e2ed538471ea",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "af7062dc868a",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "031400f26862",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "9fe47829142b",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "09c0d0d674fd",
+   "classe": "atributo",
+   "sozinha": "ok"
+  },
+  {
+   "id": "25b4376d031f",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  },
+  {
+   "id": "f8313b04bcad",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  },
+  {
+   "id": "8fe23cf74eab",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  },
+  {
+   "id": "75336bad0985",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  },
+  {
+   "id": "c7c41a4ff5ac",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  },
+  {
+   "id": "6dd9d0fae1f8",
+   "classe": "kwarg",
+   "sozinha": "ok"
+  }
+ ],
+ "discordancias": []
+}

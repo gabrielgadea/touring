@@ -1,0 +1,976 @@
+{
+  "lote": "H3-agents-commands",
+  "lidos": [
+    "agents/rust-reviewer.md",
+    "agents/rust-build-resolver.md",
+    "agents/python-reviewer.md",
+    "agents/pytorch-build-resolver.md",
+    "agents/silent-failure-hunter.md",
+    "agents/type-design-analyzer.md",
+    "agents/code-reviewer.md",
+    "agents/loop-operator.md",
+    "agents/planner.md",
+    "agents/tdd-guide.md",
+    "agents/security-reviewer.md",
+    "agents/build-error-resolver.md",
+    "agents/go-reviewer.md",
+    "agents/pr-test-analyzer.md",
+    "agents/code-simplifier.md",
+    "agents/database-reviewer.md",
+    "agents/refactor-cleaner.md",
+    "agents/comment-analyzer.md",
+    "agents/agent-evaluator.md",
+    "agents/docs-lookup.md",
+    "agents/performance-optimizer.md",
+    "agents/conversation-analyzer.md",
+    "agents/harness-optimizer.md",
+    "agents/opensource-sanitizer.md",
+    "agents/spec-miner.md",
+    "agents/mle-reviewer.md",
+    "agents/typescript-reviewer.md",
+    "agents/commit-reviewer.md",
+    "agents/healthcare-reviewer.md",
+    "agents/code-explorer.md",
+    "commands/code-review.md",
+    "commands/plan.md",
+    "commands/rust-test.md",
+    "commands/santa-loop.md",
+    "commands/prp-implement.md",
+    "commands/cost-report.md",
+    "commands/pr.md",
+    "commands/orch-review.md",
+    "commands/loop-start.md",
+    "commands/harness-audit.md",
+    "commands/model-route.md",
+    "commands/checkpoint.md",
+    "commands/rust-review.md",
+    "commands/multi-workflow.md",
+    "commands/prp-plan.md"
+  ],
+  "classificados": [
+    {
+      "caminho": "agents/a11y-architect.md",
+      "motivo": "acessibilidade de UI; Touring sem frontend próprio"
+    },
+    {
+      "caminho": "agents/architect.md",
+      "motivo": "arquitetura genérica; papel sobreposto a touring-architect (existe, sonnet) — corpo não lido"
+    },
+    {
+      "caminho": "agents/code-architect.md",
+      "motivo": "desenho de feature por padrões do repo; sobreposição com touring-architect e feature-dev"
+    },
+    {
+      "caminho": "agents/cpp-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/cpp-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/csharp-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/dart-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/django-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/doc-updater.md",
+      "motivo": "codemaps e READMEs; sobreposição com touring-scriber — corpo não lido"
+    },
+    {
+      "caminho": "agents/fastapi-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/flutter-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/fsharp-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/gan-evaluator.md",
+      "motivo": "padrão GAN gerador/avaliador para design; testa app via Playwright; sem uso no Touring"
+    },
+    {
+      "caminho": "agents/gan-generator.md",
+      "motivo": "padrão GAN gerador/avaliador para design; sem uso no Touring"
+    },
+    {
+      "caminho": "agents/gan-planner.md",
+      "motivo": "padrão GAN gerador/avaliador para design; sem uso no Touring"
+    },
+    {
+      "caminho": "agents/go-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/harmonyos-app-resolver.md",
+      "motivo": "classe processo: sem sobreposição com ativo Touring identificado pela descrição do lote; corpo não lido"
+    },
+    {
+      "caminho": "agents/homelab-architect.md",
+      "motivo": "rede doméstica; fora do domínio Touring"
+    },
+    {
+      "caminho": "agents/java-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/java-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/kotlin-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/kotlin-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/network-architect.md",
+      "motivo": "rede empresarial; fora do domínio Touring"
+    },
+    {
+      "caminho": "agents/network-config-reviewer.md",
+      "motivo": "revisão de config de roteador/switch; fora do domínio Touring"
+    },
+    {
+      "caminho": "agents/network-troubleshooter.md",
+      "motivo": "diagnóstico de rede por camada OSI; fora do domínio Touring"
+    },
+    {
+      "caminho": "agents/opensource-forker.md",
+      "motivo": "fork para open source; coberto em parte pela linha de opensource-sanitizer"
+    },
+    {
+      "caminho": "agents/opensource-packager.md",
+      "motivo": "pacote open source (CLAUDE.md, setup.sh); Touring tem CLAUDE.md próprio — ver linha do sanitizer"
+    },
+    {
+      "caminho": "agents/php-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/rag-pipeline-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/react-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/react-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/ruby-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/swift-build-resolver.md",
+      "motivo": "resolvedor de build de stack fora do workspace; mesmo molde do rust-build-resolver lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/swift-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "agents/vue-reviewer.md",
+      "motivo": "revisor de stack fora do workspace Touring (Rust e Python); mesmo molde read-only do rust-reviewer lido; corpo não lido"
+    },
+    {
+      "caminho": "commands/astra-review.md",
+      "motivo": "classe processo: sem sobreposição com ativo Touring identificado pela descrição do lote; corpo não lido"
+    },
+    {
+      "caminho": "commands/auto-update.md",
+      "motivo": "atualiza instalação ECC; Touring tem touring update e update-touring"
+    },
+    {
+      "caminho": "commands/build-fix.md",
+      "motivo": "build incremental; mesmo fluxo do build-error-resolver lido"
+    },
+    {
+      "caminho": "commands/cpp-build.md",
+      "motivo": "build C++; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/cpp-review.md",
+      "motivo": "revisão C++; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/cpp-test.md",
+      "motivo": "TDD C++; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/ecc-guide.md",
+      "motivo": "navegação do catálogo ECC; não se aplica ao workspace Touring"
+    },
+    {
+      "caminho": "commands/epic-claim.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-decompose.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-publish.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-review.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-sync.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-unblock.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/epic-validate.md",
+      "motivo": "coordenação de épicos por issues do GitHub; Touring não usa épicos"
+    },
+    {
+      "caminho": "commands/evolve.md",
+      "motivo": "analisa instincts e sugere estruturas; Touring tem touring evolution"
+    },
+    {
+      "caminho": "commands/fastapi-review.md",
+      "motivo": "revisão FastAPI; Python sim, mas sem API web no Touring"
+    },
+    {
+      "caminho": "commands/feature-dev.md",
+      "motivo": "fluxo guiado de feature (Discovery→Architecture); sobreposição com taco-planning e TACO-task"
+    },
+    {
+      "caminho": "commands/flutter-build.md",
+      "motivo": "build Flutter; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/flutter-review.md",
+      "motivo": "revisão Flutter; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/flutter-test.md",
+      "motivo": "testes Flutter; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/gan-build.md",
+      "motivo": "orquestra o padrão GAN gerador/avaliador (gan-*); sem uso no Touring"
+    },
+    {
+      "caminho": "commands/gan-design.md",
+      "motivo": "orquestra o padrão GAN para design frontend; sem uso no Touring"
+    },
+    {
+      "caminho": "commands/go-build.md",
+      "motivo": "build Go; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/go-review.md",
+      "motivo": "revisão Go; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/go-test.md",
+      "motivo": "TDD Go; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/gradle-build.md",
+      "motivo": "build Gradle; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/hookify-configure.md",
+      "motivo": "liga/desliga regras hookify; Touring tem hooks próprios"
+    },
+    {
+      "caminho": "commands/hookify-help.md",
+      "motivo": "ajuda do hookify; Touring tem hooks próprios"
+    },
+    {
+      "caminho": "commands/hookify-list.md",
+      "motivo": "lista regras hookify; Touring tem hooks próprios"
+    },
+    {
+      "caminho": "commands/hookify.md",
+      "motivo": "gera regra de hook a partir de conversa; Touring tem hooks próprios e cli-suggest"
+    },
+    {
+      "caminho": "commands/instinct-export.md",
+      "motivo": "instincts do continuous-learning-v2 do ECC; sobreposição com memória Touring"
+    },
+    {
+      "caminho": "commands/instinct-import.md",
+      "motivo": "instincts do continuous-learning-v2 do ECC; sobreposição com memória Touring"
+    },
+    {
+      "caminho": "commands/instinct-status.md",
+      "motivo": "instincts do continuous-learning-v2 do ECC; sobreposição com memória Touring"
+    },
+    {
+      "caminho": "commands/jira.md",
+      "motivo": "integração Jira; Touring não usa Jira"
+    },
+    {
+      "caminho": "commands/kotlin-build.md",
+      "motivo": "build Kotlin; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/kotlin-review.md",
+      "motivo": "revisão Kotlin; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/kotlin-test.md",
+      "motivo": "TDD Kotlin; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/learn-eval.md",
+      "motivo": "auto-avaliação de padrões antes de salvar; sobreposição com TACO-skilling"
+    },
+    {
+      "caminho": "commands/learn.md",
+      "motivo": "extrai padrões da sessão como skills candidatas; sobreposição com TACO-skilling"
+    },
+    {
+      "caminho": "commands/loop-status.md",
+      "motivo": "estado de loops ECC; Touring tem o Stop hook e o runner adw"
+    },
+    {
+      "caminho": "commands/multi-backend.md",
+      "motivo": "fluxo multi-modelo (Codex) — exige runtime externo ccg-workflow (pré-requisito em multi-workflow.md:9)"
+    },
+    {
+      "caminho": "commands/multi-execute.md",
+      "motivo": "executa plano multi-modelo — exige runtime externo ccg-workflow"
+    },
+    {
+      "caminho": "commands/multi-frontend.md",
+      "motivo": "fluxo multi-modelo (Antigravity) — exige runtime externo ccg-workflow"
+    },
+    {
+      "caminho": "commands/multi-plan.md",
+      "motivo": "plano multi-modelo — exige runtime externo ccg-workflow"
+    },
+    {
+      "caminho": "commands/orch-build-mvp.md",
+      "motivo": "wrapper fino sobre skill orch-*; representante lido é orch-review"
+    },
+    {
+      "caminho": "commands/orch-change-feature.md",
+      "motivo": "wrapper fino sobre skill orch-*; representante lido é orch-review"
+    },
+    {
+      "caminho": "commands/orch-fix-defect.md",
+      "motivo": "wrapper fino sobre skill orch-*; representante lido é orch-review"
+    },
+    {
+      "caminho": "commands/orch-refine-code.md",
+      "motivo": "wrapper fino sobre skill orch-*; representante lido é orch-review"
+    },
+    {
+      "caminho": "commands/plan-canvas.md",
+      "motivo": "abre plano em navegador para aprovar; Touring não tem canvas"
+    },
+    {
+      "caminho": "commands/plan-prd.md",
+      "motivo": "PRD que entrega ao /plan; mesmo fluxo do prp-prd (família prp)"
+    },
+    {
+      "caminho": "commands/pm2.md",
+      "motivo": "gerência de serviços Node via PM2; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/project-init.md",
+      "motivo": "onboarding ECC por manifesto de stack; fora do modelo rustup-like do Touring"
+    },
+    {
+      "caminho": "commands/projects.md",
+      "motivo": "lista projetos e estatísticas de instincts ECC; Touring tem touring projects"
+    },
+    {
+      "caminho": "commands/promote.md",
+      "motivo": "promove instincts ECC para escopo global; sobreposição com memória Touring"
+    },
+    {
+      "caminho": "commands/prp-commit.md",
+      "motivo": "commit por linguagem natural; família prp, representante lido é prp-implement"
+    },
+    {
+      "caminho": "commands/prp-pr.md",
+      "motivo": "alias de /pr na série prp; representante lido é pr"
+    },
+    {
+      "caminho": "commands/prp-prd.md",
+      "motivo": "entrevista de PRD problem-first; família prp"
+    },
+    {
+      "caminho": "commands/prune.md",
+      "motivo": "apaga instincts pendentes com mais de 30 dias; sobreposição com memória Touring"
+    },
+    {
+      "caminho": "commands/python-review.md",
+      "motivo": "revisão Python; mesmo molde do python-reviewer lido"
+    },
+    {
+      "caminho": "commands/quality-gate.md",
+      "motivo": "formatter de um arquivo; Touring usa cargo fmt/clippy nos gates"
+    },
+    {
+      "caminho": "commands/react-build.md",
+      "motivo": "build React; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/react-review.md",
+      "motivo": "revisão React; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/react-test.md",
+      "motivo": "TDD React; fora do stack Touring"
+    },
+    {
+      "caminho": "commands/refactor-clean.md",
+      "motivo": "mesmo fluxo do refactor-cleaner lido (detectar, verificar, remover em lotes)"
+    },
+    {
+      "caminho": "commands/review-pr.md",
+      "motivo": "revisão multiagente de PR (code-reviewer, comment-analyzer, etc.); sobreposição com code-review lido"
+    },
+    {
+      "caminho": "commands/rust-build.md",
+      "motivo": "build Rust; mesmo molde do rust-build-resolver lido"
+    },
+    {
+      "caminho": "commands/security-scan.md",
+      "motivo": "AgentShield (ferramenta externa); touring audit cobre por arquivo — ver linha de seguranca"
+    },
+    {
+      "caminho": "commands/sessions.md",
+      "motivo": "gerencia histórico de sessões ECC; Touring usa memory store/recall e session"
+    },
+    {
+      "caminho": "commands/setup-pm.md",
+      "motivo": "config de gerenciador de pacotes JS; fora do stack Rust/Python"
+    },
+    {
+      "caminho": "commands/skill-create.md",
+      "motivo": "gera SKILL.md a partir do git log; sobreposição com TACO-skilling"
+    },
+    {
+      "caminho": "commands/skill-host-compat.md",
+      "motivo": "lint de frontmatter para Codex/Cursor; Touring não é multi-harness — ver G3"
+    },
+    {
+      "caminho": "commands/test-coverage.md",
+      "motivo": "gera testes até limiar de cobertura; Touring não tem gate de cobertura (grep sem hit em .github)"
+    },
+    {
+      "caminho": "commands/token-card.md",
+      "motivo": "cartão de tokens em commit; relatório de custo já coberto pela linha de cost-report"
+    },
+    {
+      "caminho": "commands/update-codemaps.md",
+      "motivo": "codemap por varredura; Touring já indexa (touring ast overview / map)"
+    },
+    {
+      "caminho": "commands/update-docs.md",
+      "motivo": "sincroniza docs a partir de fontes; sobreposição com touring-scriber e drift rule (CLAUDE.md regra 2)"
+    },
+    {
+      "caminho": "commands/vue-review.md",
+      "motivo": "revisão Vue; fora do stack Touring"
+    }
+  ],
+  "linhas": [
+    {
+      "dominio": "cat-agentes",
+      "funcionalidade": "revisão especializada por linguagem: checklist de conteúdo Rust e Python",
+      "ecc": {
+        "como": "rust-reviewer (sonnet, read-only) tem checklist de conteúdo: unwrap()/expect() em produção, unsafe sem `// SAFETY:`, Mutex sem tratar PoisonError, canal ilimitado, Send/Sync. python-reviewer: f-string em SQL, bare except, mutable default, subprocess com shell. Pre-report gate de 4 perguntas e HIGH/CRITICAL com prova (trecho + cenário + por que o guard não pega).",
+        "evidencia": "agents/rust-reviewer.md:4, 30-31, 58; agents/python-reviewer.md:27-35; agents/code-reviewer.md:39-74"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Nenhum agent de revisão por linguagem em ~/.claude/agents (5 touring-*: architect, auditor, engineer, scouter, scriber). Verificação executada existe (VP-Scout, cargo check), mas sem checklist de Rust ou Python. Probe: touring audit em .rs com unwrap() e unsafe sem SAFETY deu verdict info e zero findings.",
+        "evidencia": "ls ~/.claude/agents; touring audit scratchpad/h3probe/probe_rust.rs → {\"verdict\":\"info\",\"findings\":[]}, exit 0"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "G1:1",
+      "nota": "Mudança vs G1:1: o lado Touring estava 'parcial' por contar agents que não são revisores; corrigido para 'ausente'. Importar só o checklist de conteúdo (Rust e Python), ligado ao gate cargo check + clippy -D warnings (projects/touring/CLAUDE.md:74). Não importar o pre-report gate como prosa: o VP-Scout (9 cadeias com evidência executada, ~/.claude/skills/Touring/references/VP-Scout-rule.md) já faz melhor."
+    },
+    {
+      "dominio": "cat-agentes",
+      "funcionalidade": "privilégio mínimo do revisor: ferramentas só de leitura",
+      "ecc": {
+        "como": "Revisores declaram tools sem Write nem Edit (Read, Grep, Glob, Bash). Resolvedores têm Write e Edit por necessidade. A allowlist do frontmatter torna a revisão só-leitura por construção, não por instrução.",
+        "evidencia": "agents/rust-reviewer.md:4; agents/rust-build-resolver.md:4; agents/python-reviewer.md:4"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "touring-scouter é só-leitura (Bash, Glob, Grep, Read, LS). Mas touring-auditor, que audita, tem Edit e Write, e touring-engineer e touring-scriber também. Não há revisor só-leitura de código.",
+        "evidencia": "grep -n '^tools' ~/.claude/agents/touring-*.md → touring-auditor.md:11 [..., Edit, Write, ...]; touring-scouter.md:11 [Bash, Glob, Grep, Read, LS]"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Um auditor que pode editar o que audita perde independência. Criar um revisor só-leitura, ou separar auditor de executor, sem trocar o touring-auditor existente."
+    },
+    {
+      "dominio": "cat-agentes",
+      "funcionalidade": "resolução de erro de build com diff mínimo e regra de parada",
+      "ecc": {
+        "como": "rust-build-resolver: diagnóstico (cargo check, clippy -D warnings, fmt --check, cargo tree -d, cargo audit), tabela de 14 padrões de erro para correção, parada após 3 tentativas, proibido allow(unused), unsafe para contornar borrow e unwrap para silenciar tipo.",
+        "evidencia": "agents/rust-build-resolver.md:33-39, 54-69, 128-144"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Sem agent dedicado. A regra de 3 tentativas com troca de estratégia já existe (A14). O gate cargo check + clippy -D warnings + testes é obrigatório antes de declarar pronto. Falha de compilação vira reprovação do gate, não um agent com tabela de erros.",
+        "evidencia": "~/.claude/rules/code-elaboration-directives.md:41 (A14); projects/touring/CLAUDE.md:74 (REGRA #21)"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "G1:2",
+      "nota": "Mudança vs G1:2: a ausência de agent não é lacuna de capacidade. A lacuna real é a tabela de padrões de erro Rust. Adaptar a tabela como referência do touring-engineer, não como agent novo. Não medi nesta rodada se o touring-engineer acerta mais com ou sem a tabela."
+    },
+    {
+      "dominio": "cat-commands",
+      "funcionalidade": "revisão de código: local (checklist genérico) e de linguagem (rust-review)",
+      "ecc": {
+        "como": "code-review (modo local): checklist genérico (funções >50 linhas, arquivos >800, console.log, TODO, emoji, JSDoc ausente). rust-review: categorias CRITICAL/HIGH/MEDIUM com unwrap, unsafe, clones e blocking em async. Nenhuma medição de falso positivo.",
+        "evidencia": "commands/code-review.md:48-71; commands/rust-review.md:29-43"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring audit <arquivo>: camada vuln (CWE/OWASP) e 6 gates P0, veredito determinístico por exit code (Info=0, Warn=1, Block=2). Probe: arquivo Python com segredo literal → verdict block, exit 2.",
+        "evidencia": "touring audit --help (layers vuln, quality; exit codes); touring audit scratchpad/h3probe/probe_silent.py → block F2.4, exit 2"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G1:5",
+      "nota": "Mudança vs G1:5: na camada de segurança o veredito do Touring é executável e o do ECC é checklist de prosa. O ECC segue melhor em silent failure e em checklist de Rust (linhas seguintes). Não há equivalente Touring ao pr-review, ver linha de pr."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "detecção de falha silenciosa: catch vazio, fallback perigoso, perda de erro",
+      "ecc": {
+        "como": "silent-failure-hunter: 5 alvos (catch vazio ou erro virado null; log sem contexto ou severidade errada; fallback que esconde falha, como .catch(() => []); perda de stack e rethrow genérico; sem timeout e sem rollback em rede, arquivo e banco). Saída: local, severidade, impacto, correção.",
+        "evidencia": "agents/silent-failure-hunter.md:21-49, 51-59"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Não há agent nem regra no audit para except vazio. Probe: bare except com pass não gera finding. Só o segredo literal do mesmo arquivo foi reportado.",
+        "evidencia": "touring audit scratchpad/h3probe/probe_silent.py → único finding F2.4 (linha 8); linhas 4-5 (except: pass) sem finding"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Medido do lado Touring (probe), declarado do lado ECC (prompt sem teste): o ECC cobre o que o Touring não cobre. Adaptar como detector determinístico na camada quality do audit (ExceptHandler com corpo pass ou continue sem log), não como agent de prosa. A regra 'Falhe loud' (~/.claude/CLAUDE.md:88) não tem enforcement hoje."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "revisão de segurança por OWASP e padrões de código",
+      "ecc": {
+        "como": "security-reviewer: OWASP Top 10 em lista de perguntas, padrões com severidade (innerHTML com entrada do usuário, fetch de URL do usuário, SQL concatenado, login com comparação em texto puro). Ferramentas de análise: npm audit e eslint-plugin-security, ou seja, JS.",
+        "evidencia": "agents/security-reviewer.md:30-35, 43-66"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring audit cobre injeção, XSS, path traversal, SSRF, deserialização e overflow (camada vuln), mais 6 gates P0 (segredos, CVEs, config, APIs depreciadas, gerenciador de pacotes), com exit code. Segredo literal foi reportado no probe.",
+        "evidencia": "touring audit --help; touring audit scratchpad/h3probe/probe_silent.py:8 → block, exit 2"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "A lista do ECC é JS-centrada (npm audit). O Touring tem o equivalente executável por arquivo. Não verifiquei nesta rodada se o gate de CVE cobre Cargo.lock."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "avaliação de saída de agente por nota LLM em 5 eixos",
+      "ecc": {
+        "como": "agent-evaluator: nota 1-5 em precisão, completude, clareza, acionabilidade e concisão, dada por LLM. Nota 5 exige evidência, nota abaixo de 5 cita a falha. Bash somente leitura.",
+        "evidencia": "agents/agent-evaluator.md:21, 29-34, 68-76"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "Veredito por artefato: a Lei L3 proíbe veredito narrativo. O gate de convergência é código: loop_converged.py, e saída 0 é o único 'pronto'.",
+        "evidencia": "~/.claude/CLAUDE.md (Lei L3, seção MODUS OPERANDI); ~/.claude/skills/loop-engineering/scripts/loop_converged.py"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Sobrevive só a regra 'nota abaixo de 5 cita evidência' (anti_licoes de D-orquestracao). A nota LLM como medida de qualidade é anti-lição; o Touring já a recusa pela Lei L3."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "revisão dupla por dois modelos independentes com convergência (santa-loop)",
+      "ecc": {
+        "como": "Dois revisores em paralelo, sem contexto compartilhado; ambos PASS para NICE, até 3 rodadas. Revisor B usa Codex, Gemini ou Antigravity via codeagent-wrapper; sem nenhum deles cai para Claude (CLAUDE_FALLBACK). Prompt temporário com mktemp e umask 077, removido por trap.",
+        "evidencia": "commands/santa-loop.md:11, 50-63, 73-95, 107-110"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Existe o primitivo: sessões irmãs (Kimi, MiniMax) como segundo leitor, roteadas por código, com brief e aceite escritos antes. Não há gate de convergência de dois revisores sobre código. TACO-cross-audit usa o mesmo modelo.",
+        "evidencia": "projects/touring/CLAUDE.md:237 (regra 17, sessoes_irmas.py); ~/.claude/tools/sessoes_irmas.py existe; grep -rli 'santa|codeagent|dual.review' em skills/TACO-cross-audit, skills/Touring e client → 0 hits"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Com o fallback ativo, 'dois modelos' vira um modelo, e o ECC não mede quantas rodadas caem no fallback. Antes de adotar: medir a taxa de fallback e a taxa de NAUGHTY que o segundo revisor pega sozinho (ablação). O Touring já tem o juiz de código (loop_converged); falta o segundo leitor no gate."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "orquestração de revisão: fan-out por dimensão, dedup e verificador adversarial por achado",
+      "ecc": {
+        "como": "Um revisor por dimensão, em paralelo; dedup pelo trecho de evidência normalizado; verificador adversarial em cada achado CRITICAL ou HIGH; incerteza não rebaixa bloqueador (fail-closed). Descrito na própria definição do comando, sem medição no arquivo.",
+        "evidencia": "commands/orch-review.md:26-35, 76-78; achado D9 (workflows/orch-review.workflow.js:260-263, citado em D-orquestracao)"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "TACO-cross-audit compara saídas de subagents do mesmo modelo, sem verificador adversarial por achado. touring audit é determinístico, mas sem fan-out por dimensão nem dedup de achados.",
+        "evidencia": "grep -rli 'adversarial' ~/.claude/skills/TACO-cross-audit ~/.claude/skills/Touring/SKILL.md → 0 hits"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": "D9",
+      "nota": "Aprofunda D9: o desenho fail-closed é do ECC e a medição é só do próprio workflow, sem ablação. Adaptar a regra 'verificador refuta só com confiança' ao gate de achados do cross-audit, medindo falso positivo antes e depois."
+    },
+    {
+      "dominio": "contexto-custo-memoria",
+      "funcionalidade": "relatório de custo por dia, modelo e sessão a partir de ledger",
+      "ecc": {
+        "como": "cost-report lê ~/.claude/metrics/costs.jsonl. Cada linha é um snapshot cumulativo por sessão; usa a última linha por session_id para não contar duas vezes; resume por hoje, ontem, total, modelo e 7 dias; exporta CSV.",
+        "evidencia": "commands/cost-report.md:13-16, 21-27, 32-58"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Não há ledger de custo por sessão. rate_limits_snapshot.py registra cota (janela de 5 h e semanal), não gasto por sessão e modelo.",
+        "evidencia": "grep -rln 'costs.jsonl|estimated_cost' ~/projects/touring/client/hooks ~/.claude/hooks ~/.claude/skills/Touring → 0 hits; ~/projects/touring/client/hooks/rate_limits_snapshot.py existe"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "O Touring cobra economia de créditos (CLAUDE.md regra 17) sem medir gasto por sessão. O ECC mostra o desenho: ledger de uma linha cumulativa por sessão, deduplicado por session_id. Adaptar com o mesmo desenho."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "criação de PR com validações, template e título pelo tipo dominante",
+      "ecc": {
+        "como": "pr: valida branch diferente da base, commits à frente, sem PR aberto e working tree limpo; acha template em 4 caminhos; título em Conventional Commits pelo tipo dominante; categoriza arquivos (fonte, teste, doc, config, migração).",
+        "evidencia": "commands/pr.md:17-32, 40-49, 51-70"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Não há comando de PR no Touring. O Git Safety Protocol permite push e commit por classe; a abertura de PR é manual. Nenhum template de PR encontrado.",
+        "evidencia": "grep -rln PULL_REQUEST_TEMPLATE ~/projects/touring/client ~/projects/touring/scripts ~/.claude/skills ~/.claude/commands → 0 hits"
+      },
+      "veredito": "so_ecc",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Adaptar as 4 validações (base, commits à frente, PR duplicado, árvore limpa) como passo de gate antes de gh pr create. O ECC não mede o ganho."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "mensagem de commit pela norma medida do próprio repositório",
+      "ecc": {
+        "como": "commit-reviewer mede a norma no git log --no-merges (últimos 30), nunca assume tamanho fixo; marca diff que mistura assuntos; se a mudança quebra contrato público, exige '!' e rodapé BREAKING CHANGE.",
+        "evidencia": "agents/commit-reviewer.md:33-56"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O histórico do Touring já segue Conventional Commits com escopo.",
+        "evidencia": "git -C ~/projects/touring log --format='%h %s' -3 → 255b8830 fix(build): ..., a97c4c9d fix(s28): ..., 7ab06844 fix(s28): ..."
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Sem lacuna prática: o Touring já escreve no padrão. O ganho do ECC seria só o aviso de diff misto, que pode ser feito pelo commit-reviewer se for chamado."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "checkpoint de trabalho por git stash ou commit",
+      "ecc": {
+        "como": "checkpoint: roda verify quick, cria git stash ou commit com o nome, registra em .claude/checkpoints.log, compara arquivos, testes e cobertura depois.",
+        "evidencia": "commands/checkpoint.md:17-22"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "~/.claude/commands/checkpoint.md aponta para ~/.claude/tools/Touring-native tooling/workflows/checkpoint.sh, que não existe. A regra #11 proíbe stash como guarda de trabalho e manda commit WIP em branch safety/.",
+        "evidencia": "ls '~/.claude/tools/Touring-native tooling/workflows/checkpoint.sh' → No such file; ~/.claude/CLAUDE.md regra #11"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "O ECC manda 'git stash' como checkpoint. Anti-lição já registrada no Touring: stash destruiu 162 módulos em 06/04/2026 (CLAUDE.md, regra #11). Não importar o stash. O comando do Touring está quebrado (ver achados_touring)."
+    },
+    {
+      "dominio": "planejamento",
+      "funcionalidade": "plano que para e espera confirmação antes de tocar código",
+      "ecc": {
+        "como": "plan: restata requisitos, avalia riscos, faz plano por fases e para até a confirmação explícita do usuário. Roda inline, sem subagent.",
+        "evidencia": "commands/plan.md:12-17, 36-38"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "~/.claude/commands/plan.md existe, mas a linha de execução é '/plan ou skill taco-planning ...' (shell inválido) e o caminho de saída depende de ~/.claude/hooks/plan-detector.sh, que não existe. O comando não tem etapa de confirmação.",
+        "evidencia": "~/.claude/commands/plan.md:44-52; ls ~/.claude/hooks/plan-detector.sh → No such file"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "corrigir",
+      "aprofunda": null,
+      "nota": "O Touring tem planejamento mais forte (taco-planning, DAG, VGP), mas o comando de entrada não roda. Corrigir o comando antes de comparar conteúdo, e adotar a pausa para confirmação."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "arranque de loop com pré-condições e escalonamento",
+      "ecc": {
+        "como": "loop-start verifica testes antes da primeira iteração, hook profile ligado e condição de parada explícita, e imprime os comandos para lançar. loop-operator escalona sem progresso em 2 checkpoints, falhas com stack idêntica e desvio de custo fora da janela.",
+        "evidencia": "commands/loop-start.md:26-30; agents/loop-operator.md:32-46"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O modo loop é o padrão: prompt de trabalho arma o flow work-outer e o Stop hook recusa encerrar o turno sem manifesto em disco. Circuit breaker de loop: mesmo erro 3 vezes. O runner adw encerra por código.",
+        "evidencia": "~/.claude/CLAUDE.md (seção MODUS OPERANDI = LOOP; Circuit breakers, 'loop detection (mesmo erro 3+)')"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O ECC checa pré-condições e imprime comandos; o Touring arma e impõe. Lacuna pequena: escalonamento por desvio de custo (loop-operator.md:44) não aparece na lista de circuit breakers do CLAUDE.md."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "scorecard de saúde do harness por contagem",
+      "ecc": {
+        "como": "harness-audit: scorecard de 12 categorias de 0 a 10, por script determinístico. Um dos checks é contagem: 'At least 10 agent definitions exist'.",
+        "evidencia": "commands/harness-audit.md:17-29, 58-60; scripts/harness-audit.js:429"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring doctor -j e touring e2e -j medem comportamento: score por componente, com mediana de n=5 registrada no CLAUDE.md. Regra de componente: se cair, é regressão.",
+        "evidencia": "projects/touring/CLAUDE.md:74-80 (gate 3, baseline mediana n=5)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Goodhart de presença (achado D-orquestracao: harness-audit.js:429-440 passa por contagem). Não copiar o scorecard por contagem."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "validação de mudança de harness com repetição (pass@k e pass^k) e rollback",
+      "ecc": {
+        "como": "harness-optimizer: avalia cada mudança de harness com 3 tentativas independentes (pass@3 para capacidade, pass^3 para regressão de hook de segurança); restaura o snapshot se algo falha; mudança de segurança fica BLOCKED sem aprovação humana.",
+        "evidencia": "agents/harness-optimizer.md:33-47"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O Touring mede por gate de código e tem kpi falsificável (touring kpi --check), mas não repete cada check em 3 tentativas para medir variância de hook.",
+        "evidencia": "touring --help: 'kpi  Wave R2: falsifiable commitments dashboard (--check, --snapshot)'"
+      },
+      "veredito": "a_verificar",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "pass^3 para hook de segurança é a parte aproveitável. Medir a variância de block_git.sh e evidence_guard.py antes de declarar 'passa'. Não medi nesta rodada."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "snapshot antes de editar configuração do harness",
+      "ecc": {
+        "como": "harness-optimizer manda fazer snapshot por 'git diff / git stash create' antes de editar.",
+        "evidencia": "agents/harness-optimizer.md:35"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "REGRA #11: stash proibido como guarda; snapshot é commit WIP em branch safety/ (ritual MEDIR→SNAPSHOT→CONFIRMAR).",
+        "evidencia": "~/.claude/CLAUDE.md regra #11; ~/.claude/rules/git-safety-protocol.md"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Contradição com a regra #11, já apontada no achado D-orquestracao. Não importar."
+    },
+    {
+      "dominio": "planejamento",
+      "funcionalidade": "plano técnico com fases, arquivos e riscos",
+      "ecc": {
+        "como": "planner (opus, read-only): requisitos, revisão de arquitetura, passos por fase com arquivo, dependência e risco; formato fixo de plano.",
+        "evidencia": "agents/planner.md:19-76"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring-architect (sonnet) e taco-planning produzem plano com verificação de símbolo (VGP) e DAG nativo.",
+        "evidencia": "agents/touring-architect.md:9 (model: sonnet); ~/.claude/CLAUDE.md (Reflexo 4, DAG Decompose)"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Modelo declarado difere (opus no ECC, sonnet no Touring). Não medi a qualidade dos planos dos dois lados."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "avaliação de desenho de tipo: encapsulamento e invariantes",
+      "ecc": {
+        "como": "type-design-analyzer: rubrica de 4 eixos (encapsulamento, expressão de invariantes, utilidade, enforcement), saída por tipo.",
+        "evidencia": "agents/type-design-analyzer.md:21-40"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O princípio está no código: o pipeline do gateway é typestate de 10 estágios, Execution<S> impede pular estágio, X3 e X5 são inskipáveis.",
+        "evidencia": "~/.claude/skills/Touring/references/code-execution-gateway.md:12-14"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O Touring aplica o princípio no tipo; o agent do ECC é rubrica de prosa."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "cobertura comportamental dos testes do PR",
+      "ecc": {
+        "como": "pr-test-analyzer: mapeia código alterado, verifica cobertura de comportamento, caminhos de erro e integrações; qualidade dos asserts; lacunas por impacto.",
+        "evidencia": "agents/pr-test-analyzer.md:19-55"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "touring audit não mede cobertura de teste. O VP-Scout exige ler o corpo do teste antes de afirmar lacuna (cadeia 3b), mas não existe análise de cobertura comportamental por diff.",
+        "evidencia": "touring audit --help (layers vuln, quality); ~/.claude/rules/VP-Scout.md (cadeia 3b)"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Pede um passo de revisão de cobertura por diff antes do cross-audit. Não medi se o ECC acerta; a vantagem aqui é de cobertura de função, não de medição."
+    },
+    {
+      "dominio": "inteligencia-codigo",
+      "funcionalidade": "exploração de feature por trilha de execução e camadas",
+      "ecc": {
+        "como": "code-explorer: ponto de entrada, trilha da chamada até o fim, mapeia camadas, padrões e dependências. Saída em prosa.",
+        "evidencia": "agents/code-explorer.md:19-46"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring scout, map e investigate respondem símbolo, estrutura do workspace e tópico em um comando, com saída JSON.",
+        "evidencia": "touring --help (scout, map, investigate)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Master CLI é a mesma capacidade com execução determinística (projects/touring/CLAUDE.md, regra 10 e touring-4-pillars)."
+    },
+    {
+      "dominio": "inteligencia-codigo",
+      "funcionalidade": "profiling de performance",
+      "ecc": {
+        "como": "performance-optimizer: bundle-analyzer, lighthouse, node --prof, React Profiler. Ferramentas de JS e Node.",
+        "evidencia": "agents/performance-optimizer.md:30-52"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "touring profile heap-dump e flamegraph, profiling de heap ao vivo para o stack Rust.",
+        "evidencia": "touring --help (profile: Live heap profiling)"
+      },
+      "veredito": "so_touring",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "As ferramentas do ECC não se aplicam ao stack Touring. Sem ganho a importar."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "pipeline de implementação com validação a cada passo",
+      "ecc": {
+        "como": "prp-implement: valida após cada mudança ('nunca acumular estado quebrado'); para com branch sujo no main e pede stash ou commit do usuário.",
+        "evidencia": "commands/prp-implement.md:10-14, 82-86"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "TACO Phase Protocol v6.2: 9 fases sequenciais, com FASE 0 HEALTH GATE que bloqueia, cross-audit e DAG nativo.",
+        "evidencia": "~/.claude/CLAUDE.md (seção TACO PHASE PROTOCOL v6.2)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "A ideia de validar a cada passo já está no Touring, em escala maior. Não importar a ordem de comandos do ECC."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "fluxo multi-modelo que depende de runtime externo",
+      "ecc": {
+        "como": "multi-workflow declara pré-requisito: o runtime ccg-workflow, que não faz parte da instalação base. Sem ele, 'o comando não vai rodar corretamente'.",
+        "evidencia": "commands/multi-workflow.md:9"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "Pré-voo de dependências do Touring: touring doctor -j, 1 vez por sessão, com saúde do daemon 5/5.",
+        "evidencia": "~/.claude/CLAUDE.md (seção Tools no PATH: 'Pre-flight 1×/sessão: touring doctor -j')"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Anti-lição: comando que depende de runtime externo não provisionado falha sem aviso claro. O Touring checa o pré-requisito antes de agir."
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "~/.claude/commands/plan.md: o caminho de saída depende de ~/.claude/hooks/plan-detector.sh, que não existe; a linha de execução é '/plan ou skill taco-planning ...' (shell inválido)",
+      "evidencia": "~/.claude/commands/plan.md:44-52; ls ~/.claude/hooks/plan-detector.sh → No such file"
+    },
+    {
+      "defeito": "~/.claude/commands/checkpoint.md aponta para ~/.claude/tools/Touring-native tooling/workflows/checkpoint.sh, inexistente",
+      "evidencia": "~/.claude/commands/checkpoint.md:35; ls '~/.claude/tools/Touring-native tooling/workflows/checkpoint.sh' → No such file"
+    },
+    {
+      "defeito": "~/.claude/agents/_shared-touring-base.md manda rodar ~/.claude/lib/plan_generator/checkpoint_validator.py, inexistente",
+      "evidencia": "~/.claude/agents/_shared-touring-base.md:191; ls ~/.claude/lib/plan_generator/checkpoint_validator.py → No such file"
+    },
+    {
+      "defeito": "touring audit não reporta bare except com pass (silent failure): só o segredo literal foi reportado no mesmo arquivo",
+      "evidencia": "touring audit scratchpad/h3probe/probe_silent.py → único finding F2.4 (linha 8), exit 2; linhas 4-5 sem finding"
+    },
+    {
+      "defeito": "touring audit não reporta unwrap() nem unsafe sem // SAFETY: em arquivo .rs; verdict info com zero findings",
+      "evidencia": "touring audit scratchpad/h3probe/probe_rust.rs (linhas 2-3) → {\"verdict\":\"info\",\"findings\":[]}, exit 0"
+    },
+    {
+      "defeito": "touring-auditor, que audita, tem Edit e Write: o papel de auditoria pode alterar o que audita",
+      "evidencia": "~/.claude/agents/touring-auditor.md:11"
+    },
+    {
+      "defeito": "touring-scouter grava saída em /tmp fixo, sem mktemp nem permissão restrita; o santa-loop do ECC usa mktemp com umask 077",
+      "evidencia": "~/.claude/agents/touring-scouter.md:31-32; ECC commands/santa-loop.md:107-108"
+    }
+  ],
+  "notas_lote": {
+    "clone_entradas": {
+      "agents": 71,
+      "commands": 97,
+      "total": 168
+    },
+    "lote_entradas": 156,
+    "fora_do_lote": [
+      "agents/bengali-reviewer.md",
+      "agents/chief-of-staff.md",
+      "agents/django-build-resolver.md",
+      "agents/e2e-runner.md",
+      "agents/marketing-agent.md",
+      "agents/seo-specialist.md",
+      "commands/aside.md",
+      "commands/marketing-campaign.md",
+      "commands/orch-add-feature.md",
+      "commands/resume-session.md",
+      "commands/save-session.md",
+      "commands/skill-health.md"
+    ],
+    "observacao": "O clone tem entradas que o lote não lista. Nesta rodada, lidas só as do lote; as de fora estão listadas, sem leitura de corpo."
+  }
+}

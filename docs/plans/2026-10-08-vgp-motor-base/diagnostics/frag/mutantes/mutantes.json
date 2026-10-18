@@ -1,0 +1,970 @@
+{
+ "baseline": {
+  "pyright": {
+   "cmd": "pyright",
+   "rc": 0,
+   "s": 3.6,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 173 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.36s"
+   ]
+  },
+  "code": {
+   "cmd": "code",
+   "rc": 0,
+   "s": 0.5,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 159 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.04s"
+   ]
+  },
+  "server": {
+   "cmd": "server",
+   "rc": 0,
+   "s": 0.7,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.03s"
+   ]
+  },
+  "handlers": {
+   "cmd": "handlers",
+   "rc": 0,
+   "s": 10.8,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.48s"
+   ]
+  }
+ },
+ "mutantes": [
+  {
+   "id": "M01",
+   "desc": "o ramo de execução não checa (a ordem do pedido: «exec não checa»)",
+   "arquivo": "touring-hook-handlers/src/hooks/pre_bash.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.2,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::alvo_externo_inexistente_nega_na_execucao_p1",
+      "pre_bash::vgp_execucao_tests::caminho_relativo_resolve_pelo_cd_da_linha",
+      "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina",
+      "pre_bash::vgp_execucao_tests::fragmento_limpo_executa_sem_deny",
+      "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+      "pre_bash::vgp_execucao_tests::so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline",
+      "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede",
+      "pre_bash::vgp_execucao_tests::uv_run_python_executa_o_arquivo_tambem"
+     ],
+     "resumo": [
+      "test result: FAILED. 38 passed; 8 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.48s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::alvo_externo_inexistente_nega_na_execucao_p1",
+     "pre_bash::vgp_execucao_tests::caminho_relativo_resolve_pelo_cd_da_linha",
+     "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina",
+     "pre_bash::vgp_execucao_tests::fragmento_limpo_executa_sem_deny",
+     "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+     "pre_bash::vgp_execucao_tests::so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline"
+    ]
+   }
+  },
+  {
+   "id": "M02",
+   "desc": "/tmp e .cache ainda rodam agora na ESCRITA (o comportamento de antes; «/tmp ainda roda agora»)",
+   "arquivo": "touring-code/src/vgp/politica.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 5.6,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa",
+      "vgp::lang::tests::regra_de_politica_vale_para_adaptador_de_qualquer_lang",
+      "vgp::politica::tests::aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu",
+      "vgp::politica::tests::na_escrita_so_o_inline_roda_agora",
+      "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+     ],
+     "resumo": [
+      "test result: FAILED. 154 passed; 5 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa",
+     "vgp::lang::tests::regra_de_politica_vale_para_adaptador_de_qualquer_lang",
+     "vgp::politica::tests::aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu",
+     "vgp::politica::tests::na_escrita_so_o_inline_roda_agora",
+     "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+    ]
+   }
+  },
+  {
+   "id": "M03",
+   "desc": "só o /tmp ainda roda agora na escrita (o .cache já não)",
+   "arquivo": "touring-code/src/vgp/politica.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 5.1,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa",
+      "vgp::lang::tests::regra_de_politica_vale_para_adaptador_de_qualquer_lang",
+      "vgp::politica::tests::aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu",
+      "vgp::politica::tests::na_escrita_so_o_inline_roda_agora",
+      "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+     ],
+     "resumo": [
+      "test result: FAILED. 154 passed; 5 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.10s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa",
+     "vgp::lang::tests::regra_de_politica_vale_para_adaptador_de_qualquer_lang",
+     "vgp::politica::tests::aplicar_sobrescreve_a_severidade_que_o_adaptador_escreveu",
+     "vgp::politica::tests::na_escrita_so_o_inline_roda_agora",
+     "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+    ]
+   }
+  },
+  {
+   "id": "M04",
+   "desc": "o predicado aceita `python3 -m` (o -m deixa de encerrar a busca)",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 14.3,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::python_m_nao_executa_arquivo",
+      "vgp_execucao::tests::modulo_codigo_inline_stdin_e_outros_interpretadores_ficam_fora"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.54s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::python_m_nao_executa_arquivo",
+     "vgp_execucao::tests::modulo_codigo_inline_stdin_e_outros_interpretadores_ficam_fora"
+    ]
+   }
+  },
+  {
+   "id": "M05",
+   "desc": "check_em ignora o contexto (sempre Escrita)",
+   "arquivo": "touring-code/src/vgp/mod.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 5.5,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::lang::python::tests::atributo_de_modulo_do_projeto_nega",
+      "vgp::lang::python::tests::atributo_em_funcao_importada_nega",
+      "vgp::lang::python::tests::atributo_em_submodulo_importado_nega_com_o_nome_do_submodulo",
+      "vgp::lang::python::tests::construtor_com_alias_tipa_a_instancia_pelo_nome_original",
+      "vgp::lang::python::tests::delta_so_nega_o_que_a_edicao_introduz",
+      "vgp::lang::python::tests::from_import_de_nome_inventado_nega_e_real_nao",
+      "vgp::lang::python::tests::from_import_lista_mista_nega_so_o_inventado",
+      "vgp::lang::python::tests::from_import_parenteses_multilinha_nega_so_o_inventado",
+      "vgp::lang::python::tests::from_import_relativo_com_irmao_nega_o_inventado",
+      "vgp::lang::python::tests::from_import_sem_alias_nega_o_nome_inventado",
+      "vgp::lang::python::tests::from_import_submodulo_fora_do_dunder_all_nao_nega",
+      "vgp::lang::python::tests::kwarg_atraves_de_reexport_usa_a_assinatura_real",
+      "vgp::lang::python::tests::kwarg_inexistente_nega_e_kwargs_absorve",
+      "vgp::lang::python::tests::membro_de_instancia_via_retorno_anotado_nega_total",
+      "vgp::lang::python::tests::membro_via_construtor_direto_e_self_attrs",
+      "vgp::lang::python::tests::nome_ausente_nega_com_linha",
+      "vgp::lang::python::tests::p0_controle_numpy_typo_continua_negando_em_tmp_e_inline",
+      "vgp::lang::python::tests::p0_numpy_from_import_do_composto_e_do_getattr_nao_nega_e_do_typo_nega",
+      "vgp::lang::python::tests::p0_rust_bridge_nome_ligado_em_try_except_existe",
+      "vgp::lang::python::tests::p0_submodulo_compilado_existe_e_a_ausencia_do_py_nao_o_nega",
+      "vgp::lang::python::tests::reexport_segue_o_salto_e_nega_o_membro_inventado",
+      "vgp::lang::python::tests::splat_tipado_kwargs_absorve_os_nomeados",
+      "vgp::lang::tests::na_execucao_o_scratch_roda_agora_e_o_python_nega_o_simbolo_do_projeto_ali",
+      "vgp::sombra::tests::sombra_check_em_execucao_grava_o_hook_de_execucao_e_nega_o_scratch"
+     ],
+     "resumo": [
+      "test result: FAILED. 135 passed; 24 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.08s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::lang::python::tests::atributo_de_modulo_do_projeto_nega",
+     "vgp::lang::python::tests::atributo_em_funcao_importada_nega",
+     "vgp::lang::python::tests::atributo_em_submodulo_importado_nega_com_o_nome_do_submodulo",
+     "vgp::lang::python::tests::construtor_com_alias_tipa_a_instancia_pelo_nome_original",
+     "vgp::lang::python::tests::delta_so_nega_o_que_a_edicao_introduz",
+     "vgp::lang::python::tests::from_import_de_nome_inventado_nega_e_real_nao"
+    ]
+   }
+  },
+  {
+   "id": "M06",
+   "desc": "check (a escrita) vira execução",
+   "arquivo": "touring-code/src/vgp/mod.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 5.0,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa"
+     ],
+     "resumo": [
+      "test result: FAILED. 158 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.05s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::lang::tests::na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa"
+    ]
+   }
+  },
+  {
+   "id": "M07",
+   "desc": "sombra_check (a escrita) vira execução",
+   "arquivo": "touring-code/src/vgp/sombra.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 4.7,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+     ],
+     "resumo": [
+      "test result: FAILED. 158 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.10s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::sombra::tests::sombra_check_grava_a_linha_e_nao_toca_a_resposta"
+    ]
+   }
+  },
+  {
+   "id": "M08",
+   "desc": "camada 2: a condição do rebaixamento invertida",
+   "arquivo": "touring-pyright/src/achado.rs",
+   "rodadas": [
+    {
+     "cmd": "pyright",
+     "rc": 101,
+     "s": 4.6,
+     "compila_mal": false,
+     "falhas": [
+      "pyright::tests::rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto"
+     ],
+     "resumo": [
+      "test result: FAILED. 172 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.54s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "pyright",
+    "testes": [
+     "pyright::tests::rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto"
+    ]
+   }
+  },
+  {
+   "id": "M09",
+   "desc": "camada 2: o rebaixamento leva o alvo EXTERNO junto",
+   "arquivo": "touring-pyright/src/achado.rs",
+   "rodadas": [
+    {
+     "cmd": "pyright",
+     "rc": 101,
+     "s": 4.5,
+     "compila_mal": false,
+     "falhas": [
+      "pyright::tests::rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto"
+     ],
+     "resumo": [
+      "test result: FAILED. 172 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.52s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "pyright",
+    "testes": [
+     "pyright::tests::rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto"
+    ]
+   }
+  },
+  {
+   "id": "M10",
+   "desc": "o corpo do heredoc vira comando da linha",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 13.0,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::so_o_comando_simples_conta_nunca_o_texto_da_linha",
+      "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.50s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::so_o_comando_simples_conta_nunca_o_texto_da_linha",
+     "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+    ]
+   }
+  },
+  {
+   "id": "M11",
+   "desc": "o marcador `<<-` deixa de aceitar o recuo",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.1,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.60s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+    ]
+   }
+  },
+  {
+   "id": "M12",
+   "desc": "o marcador entre aspas deixa de ser reconhecido",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.7,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::heredoc_sem_corpo_e_herestring_e_marcador_entre_aspas",
+      "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.62s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::heredoc_sem_corpo_e_herestring_e_marcador_entre_aspas",
+     "vgp_execucao::tests::so_o_comando_simples_conta_nunca_o_texto_da_linha"
+    ]
+   }
+  },
+  {
+   "id": "M13",
+   "desc": "combina: o aviso vence o deny",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.4,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::combina_deny_vence_aviso_avisos_se_juntam"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.68s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::combina_deny_vence_aviso_avisos_se_juntam"
+    ]
+   }
+  },
+  {
+   "id": "M14",
+   "desc": "o `cd` da linha é ignorado",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.3,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::caminho_relativo_resolve_pelo_cd_da_linha",
+      "vgp_execucao::tests::caminho_relativo_resolve_pelo_ultimo_cd_da_linha_senao_pelo_cwd"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.55s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::caminho_relativo_resolve_pelo_cd_da_linha",
+     "vgp_execucao::tests::caminho_relativo_resolve_pelo_ultimo_cd_da_linha_senao_pelo_cwd"
+    ]
+   }
+  },
+  {
+   "id": "M15",
+   "desc": "o filtro de scratch some (script do repo passa a ser julgado)",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.5,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.69s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline"
+    ]
+   }
+  },
+  {
+   "id": "M16",
+   "desc": "o log da execução sai com o nome do hook de escrita",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.4,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina",
+      "pre_bash::vgp_execucao_tests::fragmento_limpo_executa_sem_deny",
+      "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+      "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+     ],
+     "resumo": [
+      "test result: FAILED. 42 passed; 4 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.67s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina",
+     "pre_bash::vgp_execucao_tests::fragmento_limpo_executa_sem_deny",
+     "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+     "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+    ]
+   }
+  },
+  {
+   "id": "M17",
+   "desc": "o CLI ignora --contexto",
+   "arquivo": "touring-server/src/cli/vgp.rs",
+   "rodadas": [
+    {
+     "cmd": "server",
+     "rc": 101,
+     "s": 25.7,
+     "compila_mal": false,
+     "falhas": [
+      "cli::vgp::tests::contexto_execucao_nega_o_fragmento_em_tmp_e_contexto_invalido_e_recusado"
+     ],
+     "resumo": [
+      "test result: FAILED. 15 passed; 1 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.00s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "server",
+    "testes": [
+     "cli::vgp::tests::contexto_execucao_nega_o_fragmento_em_tmp_e_contexto_invalido_e_recusado"
+    ]
+   }
+  },
+  {
+   "id": "M18",
+   "desc": "o CLI: camada 2 com o momento invertido",
+   "arquivo": "touring-server/src/cli/vgp.rs",
+   "rodadas": [
+    {
+     "cmd": "server",
+     "rc": 101,
+     "s": 13.5,
+     "compila_mal": false,
+     "falhas": [
+      "cli::vgp::tests::a_camada_2_do_cli_segue_o_momento_pedido"
+     ],
+     "resumo": [
+      "test result: FAILED. 15 passed; 1 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.00s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "server",
+    "testes": [
+     "cli::vgp::tests::a_camada_2_do_cli_segue_o_momento_pedido"
+    ]
+   }
+  },
+  {
+   "id": "M19",
+   "desc": "o hook: camada 2 com o momento invertido",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_l2.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 10.5,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_l2::tests::a_camada_2_segue_o_momento_na_escrita_o_fragmento_em_tmp_so_avisa_na_execucao_nega"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.49s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_l2::tests::a_camada_2_segue_o_momento_na_escrita_o_fragmento_em_tmp_so_avisa_na_execucao_nega"
+    ]
+   }
+  },
+  {
+   "id": "M20",
+   "desc": "o deny da execução não diz por quê",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 8.8,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.75s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::executar_o_fragmento_em_tmp_nega_e_ensina"
+    ]
+   }
+  },
+  {
+   "id": "M21",
+   "desc": "-W/-X deixam de consumir o valor da palavra seguinte",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 6.9,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::python_e_uv_run_python_executam_o_arquivo"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.50s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::python_e_uv_run_python_executam_o_arquivo"
+    ]
+   }
+  },
+  {
+   "id": "M22",
+   "desc": "node -r deixa de consumir o valor",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 6.8,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+      "vgp_execucao::tests::node_executa_js_mjs_cjs"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.48s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny",
+     "vgp_execucao::tests::node_executa_js_mjs_cjs"
+    ]
+   }
+  },
+  {
+   "id": "M23",
+   "desc": "uv run --with deixa de consumir o valor",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 6.9,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::uv_run_python_executa_o_arquivo_tambem",
+      "vgp_execucao::tests::python_e_uv_run_python_executam_o_arquivo"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.50s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::uv_run_python_executa_o_arquivo_tambem",
+     "vgp_execucao::tests::python_e_uv_run_python_executam_o_arquivo"
+    ]
+   }
+  },
+  {
+   "id": "M24",
+   "desc": "o teto de scripts por linha sobe para 5",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 6.9,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.50s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+    ]
+   }
+  },
+  {
+   "id": "M25",
+   "desc": "o teto é ultrapassável (== vira >)",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 6.7,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.49s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+    ]
+   }
+  },
+  {
+   "id": "M26",
+   "desc": "o mesmo script na linha é julgado duas vezes",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.2,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.51s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::varios_scripts_na_linha_sem_repeticao_e_com_teto"
+    ]
+   }
+  },
+  {
+   "id": "M27",
+   "desc": "arquivo inexistente também conta",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.4,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::caminho_relativo_resolve_pelo_ultimo_cd_da_linha_senao_pelo_cwd",
+      "vgp_execucao::tests::modulo_codigo_inline_stdin_e_outros_interpretadores_ficam_fora"
+     ],
+     "resumo": [
+      "test result: FAILED. 44 passed; 2 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.52s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::caminho_relativo_resolve_pelo_ultimo_cd_da_linha_senao_pelo_cwd",
+     "vgp_execucao::tests::modulo_codigo_inline_stdin_e_outros_interpretadores_ficam_fora"
+    ]
+   }
+  },
+  {
+   "id": "M28",
+   "desc": "o teto de leitura de 1 MiB some (2x)",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 8.0,
+     "compila_mal": false,
+     "falhas": [
+      "vgp_execucao::tests::arquivo_acima_do_teto_ou_nao_utf8_fica_de_fora"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.66s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "vgp_execucao::tests::arquivo_acima_do_teto_ou_nao_utf8_fica_de_fora"
+    ]
+   }
+  },
+  {
+   "id": "M29",
+   "desc": "em sombra a resposta passa a seguir o motor",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.5,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.55s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+    ]
+   }
+  },
+  {
+   "id": "M30",
+   "desc": "modo off ainda mede e grava",
+   "arquivo": "touring-hook-handlers/src/hooks/vgp_execucao.rs",
+   "rodadas": [
+    {
+     "cmd": "handlers",
+     "rc": 101,
+     "s": 7.0,
+     "compila_mal": false,
+     "falhas": [
+      "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+     ],
+     "resumo": [
+      "test result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.43s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "handlers",
+    "testes": [
+     "pre_bash::vgp_execucao_tests::sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede"
+    ]
+   }
+  },
+  {
+   "id": "M31",
+   "desc": "Contexto::parse troca execucao por escrita",
+   "arquivo": "touring-code/src/vgp/politica.rs",
+   "rodadas": [
+    {
+     "cmd": "code",
+     "rc": 101,
+     "s": 4.3,
+     "compila_mal": false,
+     "falhas": [
+      "vgp::politica::tests::o_contexto_padrao_e_a_escrita_e_o_cli_o_le_pelo_nome"
+     ],
+     "resumo": [
+      "test result: FAILED. 158 passed; 1 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.03s"
+     ]
+    }
+   ],
+   "status": "MORTO",
+   "morto_por": {
+    "cmd": "code",
+    "testes": [
+     "vgp::politica::tests::o_contexto_padrao_e_a_escrita_e_o_cli_o_le_pelo_nome"
+    ]
+   }
+  }
+ ],
+ "pos_restauro": {
+  "pyright": {
+   "cmd": "pyright",
+   "rc": 0,
+   "s": 4.4,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 173 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.34s"
+   ]
+  },
+  "code": {
+   "cmd": "code",
+   "rc": 0,
+   "s": 4.2,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 159 passed; 0 failed; 1 ignored; 0 measured; 790 filtered out; finished in 0.02s"
+   ]
+  },
+  "server": {
+   "cmd": "server",
+   "rc": 0,
+   "s": 23.8,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 1647 filtered out; finished in 0.00s"
+   ]
+  },
+  "handlers": {
+   "cmd": "handlers",
+   "rc": 0,
+   "s": 15.4,
+   "compila_mal": false,
+   "falhas": [],
+   "resumo": [
+    "test result: ok. 46 passed; 0 failed; 0 ignored; 0 measured; 732 filtered out; finished in 0.80s"
+   ]
+  }
+ }
+}

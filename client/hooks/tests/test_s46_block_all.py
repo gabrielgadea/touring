@@ -6,15 +6,18 @@ Tests:
   test_block_all_honors_pragma_allowlist
   test_block_all_cache_hits_on_same_content
   test_block_all_lock_wait_below_timeout
+  test_block_all_gives_up_on_a_held_lock_within_its_budget
 
 Note on secret generation: all secret-like strings are assembled at runtime from fragments
 so that static analysis of this source file itself does not trigger F2.4.
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import secrets
+import shutil
 import string
 import subprocess
 import tempfile
@@ -37,16 +40,28 @@ TQ_AVAILABLE = any(
 )
 
 
-def _run_block_all(payload: dict, *, env: dict | None = None) -> subprocess.CompletedProcess:
+# Every run gets a PRIVATE scorer lock. The PATH `touring-quality` is the singleton-lock wrapper
+# (scripts/touring-quality-score), and the machine-wide lock is held for minutes by directory scores
+# of other sessions (165-184s for ~/projects/analise on 17/10/2026): five of these tests timed out at
+# 35s under that contention while measuring nothing about the hook.
+_PRIVATE_LOCK = Path(tempfile.gettempdir()) / f"s46-tq-{os.getpid()}.lock"
+
+
+def _run_block_all(payload: dict, *, env: dict | None = None, timeout: int = 35) -> subprocess.CompletedProcess:
     e = os.environ.copy()
+    e["TOURING_QUALITY_LOCK"] = str(_PRIVATE_LOCK)
+    # Hermetic: a wait inherited from the developer's shell would reach the wrapper directly.
+    e.pop("TOURING_QUALITY_LOCK_WAIT_SECS", None)
+    e.pop("TOURING_BLOCK_ALL_LOCK_WAIT_SECS", None)
     if env:
         e.update(env)
     return subprocess.run(
         ["bash", str(SCRIPT)],
         input=json.dumps(payload).encode(),
         capture_output=True,
-        timeout=35,
+        timeout=timeout,
         env=e,
+        check=False,
     )
 
 
@@ -54,7 +69,7 @@ def _is_deny(proc: subprocess.CompletedProcess) -> bool:
     try:
         out = json.loads(proc.stdout.decode())
         return out.get("hookSpecificOutput", {}).get("permissionDecision") in ("deny", "block")
-    except Exception:
+    except (ValueError, AttributeError):  # not JSON / not an object: not a deny
         return False
 
 
@@ -68,13 +83,13 @@ def _content_with_existing_violation(val: str) -> str:
     """Build file content that already has a violation (assembled, not literal)."""
     # Use a name pattern that touring-quality recognizes as suspicious.
     # "api" + "_" + "key" assembled at runtime avoids static detection here.
-    var_name = "".join(["a", "p", "i", "_", "k", "e", "y"])
+    var_name = "".join(["a", "p", "i", "_", "k", "e", "y"])  # noqa: FLY002 — assembled so no secret scanner matches this file
     return f'{var_name} = "{val}"\nx = 1\n'
 
 
 def _content_with_pragma(val: str) -> str:
     """Build file content with pragma annotation (assembled at runtime)."""
-    var_name = "".join(["a", "p", "i", "_", "k", "e", "y"])
+    var_name = "".join(["a", "p", "i", "_", "k", "e", "y"])  # noqa: FLY002 — assembled so no secret scanner matches this file
     pragma = "# pragma: allowlist secret"
     return f'{var_name} = "{val}"  {pragma}\nprint("ok")\n'
 
@@ -206,11 +221,54 @@ def test_block_all_cache_hits_on_same_content() -> None:
 
 
 def test_block_all_lock_wait_below_timeout() -> None:
-    """S46 static check: LOCK_WAIT capped at 25 (< hook timeout of 30s)."""
+    """S46 static check: LOCK_WAIT capped at 25 (< hook timeout of 30s). Static only: that the
+    value REACHES the scorer is proved by test_block_all_gives_up_on_a_held_lock_within_its_budget."""
     content = SCRIPT.read_text()
     assert "LOCK_WAIT" in content, "Expected LOCK_WAIT variable in script"
     assert "25" in content, "Expected lock wait cap 25 (< timeout 30)"
 
+
+
+def _scorer_is_the_lock_wrapper() -> bool:
+    """The PATH `touring-quality` is the singleton-lock wrapper (it honours TOURING_QUALITY_LOCK)."""
+    found = shutil.which("touring-quality")
+    if not found:
+        return False
+    try:
+        return "TOURING_QUALITY_LOCK" in Path(found).resolve().read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+
+
+def test_block_all_gives_up_on_a_held_lock_within_its_budget(tmp_path: Path) -> None:
+    """17/10/2026: the hook computed LOCK_WAIT (at most 25s, under its 30s timeout) and never passed it,
+    so the wrapper waited its own default of 900s whenever another score held the lock — every
+    Write/Edit of every session sat in this hook until Claude Code killed it. With the lock held, the
+    hook must give up after LOCK_WAIT seconds and fail OPEN (exit 0, no deny).
+    """
+    if not _scorer_is_the_lock_wrapper():
+        pytest.skip("the PATH touring-quality is not the lock wrapper: there is no lock to wait on")
+    lock = tmp_path / "held.lock"
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Write",
+        "session_id": "hooks-contract-s46",
+        "tool_input": {"file_path": str(tmp_path / "busy.py"), "content": "x = 1\n"},
+    }
+    with lock.open("w") as held:
+        fcntl.flock(held, fcntl.LOCK_EX)  # another score "running": this open file holds the lock
+        t0 = time.monotonic()
+        proc = _run_block_all(
+            payload,
+            # The HOOK's knob, never the wrapper's: TOURING_QUALITY_LOCK_WAIT_SECS in the env would
+            # reach the wrapper by inheritance and pass this test with the hook still broken.
+            env={"TOURING_QUALITY_LOCK": str(lock), "TOURING_BLOCK_ALL_LOCK_WAIT_SECS": "2"},
+            timeout=25,
+        )
+        elapsed = time.monotonic() - t0
+    assert proc.returncode == 0
+    assert not _is_deny(proc), f"a busy lock measured nothing and must not deny: {proc.stdout.decode()!r}"
+    assert elapsed < 15, f"the hook waited {elapsed:.1f}s on a held lock with a 2s budget"
 
 def test_block_all_edit_in_test_file_with_fixture_vulns_is_not_a_regression(tmp_path: Path) -> None:
     """S46b (25/09/2026): the delta compared the ORIGINAL path (a tests/ file — fixtures with

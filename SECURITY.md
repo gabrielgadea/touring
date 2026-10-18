@@ -8,7 +8,8 @@ Execution Gateway (CEG, stages X0–X9) sandboxes every code-bearing action behi
 ## Reporting a Vulnerability
 
 If you discover a security issue, please **do not open a public issue**. Instead,
-report it privately to the maintainer (see `SUPPORT.md` for contact). Include:
+report it privately through GitHub's private vulnerability reporting:
+<https://github.com/gabrielgadea/touring/security/advisories/new>. Include:
 
 - a description of the issue and its impact;
 - steps to reproduce (a minimal `touring`/CEG invocation if applicable);

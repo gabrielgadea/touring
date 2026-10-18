@@ -1,0 +1,55 @@
+{
+ "ids_int97": 738,
+ "ids_integrado": 738,
+ "divergencias": 5,
+ "por_causa": {
+  "P0B": 1,
+  "FRAG": 4
+ },
+ "previstos_observados": {
+  "d94f8090d150": false
+ },
+ "sem_causa": [],
+ "todas": [
+  {
+   "id": "2a78ac89aad8",
+   "int97": "warn",
+   "integrado": "warn",
+   "achados_int97": 3,
+   "achados_integrado": 2,
+   "causa": "P0B"
+  },
+  {
+   "id": "34511b9ac100",
+   "int97": "deny",
+   "integrado": "warn",
+   "achados_int97": 1,
+   "achados_integrado": 1,
+   "causa": "FRAG"
+  },
+  {
+   "id": "6fb90b5d7502",
+   "int97": "deny",
+   "integrado": "warn",
+   "achados_int97": 1,
+   "achados_integrado": 1,
+   "causa": "FRAG"
+  },
+  {
+   "id": "8b7a3476e024",
+   "int97": "deny",
+   "integrado": "warn",
+   "achados_int97": 1,
+   "achados_integrado": 1,
+   "causa": "FRAG"
+  },
+  {
+   "id": "fbd4d99c3ec2",
+   "int97": "deny",
+   "integrado": "warn",
+   "achados_int97": 1,
+   "achados_integrado": 1,
+   "causa": "FRAG"
+  }
+ ]
+}

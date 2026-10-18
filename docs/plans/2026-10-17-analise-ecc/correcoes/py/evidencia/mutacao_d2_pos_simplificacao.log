@@ -1,0 +1,5 @@
+cwd argument dropped killed ['FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]', '1 failed in 0.25s']
+cwd read from the wrong field killed ['FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]', '1 failed in 0.32s']
+hooks dir fixed to .git/hooks killed ['FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_a_repo_without_active_hooks_is_left_alone[pathed_empty-commit --no-verify]', '1 failed, 177 passed in 30
+resolver sees no notes from stdin killed ['FAILED client/hooks/tests/test_s25_block_git_hooks_bypass.py::test_the_bypass_is_denied_where_the_repo_has_active_hooks[commit --no-verify]', '1 failed in 0.26s']
+RESULT 4/4 killed; survivors: []

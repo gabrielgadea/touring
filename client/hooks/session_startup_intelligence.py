@@ -114,7 +114,7 @@ def parse_json_safe(s: str | None) -> Any:
         return None
     try:
         return json.loads(s)
-    except Exception:
+    except (ValueError, TypeError, RecursionError):
         return None
 
 
@@ -216,7 +216,7 @@ def _fmt_age(ts: float | None) -> str:
         if delta < 86400:
             return "hoje"
         return f"há {int(delta // 86400)}d"
-    except Exception:
+    except (TypeError, ValueError, OverflowError):
         return "?"
 
 
@@ -251,7 +251,7 @@ def collect_path(cwd: str) -> dict[str, Any]:
             name = futures[f]
             try:
                 results[name] = parse_json_safe(f.result())
-            except Exception:
+            except Exception:  # noqa: BLE001 — a collector failure is a missing source, not a crash
                 results[name] = None
     return results
 
@@ -354,14 +354,24 @@ def _next_actions(project_type: str) -> list[str]:
     if project_type in ("rust", "touring-workspace"):
         out.append("- `touring ast meta <file> --depth summary -j` antes de edits (file-metadata-first)")
         out.append("- `cargo check --workspace` + `touring e2e -j` para validar baseline")
-    elif project_type == "python":
-        out.append("- `touring ast meta <file>` antes de edits · `touring index find` (VGP)")
-    elif project_type == "node":
+    elif project_type in ("python", "node"):
         out.append("- `touring ast meta <file>` antes de edits · `touring index find` (VGP)")
     else:
         out.append("- `touring index find <symbol>` antes de criar/usar (VGP)")
         out.append('- `touring memory recall "<topic>"` antes de pesquisar do zero')
     return out
+
+
+def prevented_text(gotcha: dict[str, Any]) -> str:
+    """`prevented_errors` only when the producer declares it measured; otherwise "não medido", never a made-up 0.
+
+    No writer increments gotchas.prevented_errors (17/10/2026: 13 gotchas, 388.840 hits, 0 prevented): hit_count counts
+    warnings shown.  The binary before the C7 fix sends 0 with no flag, the one after sends null + prevented_measured=false.
+    """
+    value = gotcha.get("prevented_errors")
+    if gotcha.get("prevented_measured") is True and value is not None:
+        return f"**{value}**"
+    return "não medido"
 
 
 def fmt_global(g: dict[str, Any], slim: bool = False) -> str:
@@ -371,7 +381,6 @@ def fmt_global(g: dict[str, Any], slim: bool = False) -> str:
     out.append("# 🧠 TOURING — Estado Global de Inteligência")
     out.append("")
 
-    status = g.get("status") or {}
     composite = _composite(g)
     if composite is not None:
         out.append(f"## Saúde do Sistema (composite_health_score = **{composite:.2f}**)")
@@ -489,7 +498,7 @@ def fmt_global(g: dict[str, Any], slim: bool = False) -> str:
                 )
             top_edited = insights.get("top_edited_files") or []
             if top_edited:
-                out.append(f"- Top arquivos editados (últimos 30d):")
+                out.append("- Top arquivos editados (últimos 30d):")
                 for entry in top_edited[:3]:
                     if isinstance(entry, list) and len(entry) >= 2:
                         path = entry[0][:80]
@@ -499,7 +508,7 @@ def fmt_global(g: dict[str, Any], slim: bool = False) -> str:
             if gotcha:
                 out.append(
                     f"- Gotcha coverage: resolved=**{gotcha.get('resolved', 0)}**, "
-                    f"prevented_errors=**{gotcha.get('prevented_errors', 0)}**, "
+                    f"prevented_errors={prevented_text(gotcha)}, "
                     f"total=**{gotcha.get('total', 0)}**"
                 )
 
@@ -666,7 +675,7 @@ def _rerank_with_jev(query: str, entries: list) -> list:
     """
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # repo/scripts via the symlink
-        import jev_client  # noqa: PLC0415 — import tardio por desenho (hook quente)
+        import jev_client  # import tardio por desenho (hook quente)
 
         questions = {}
         for i, e in enumerate(entries):
@@ -686,7 +695,7 @@ def _rerank_with_jev(query: str, entries: list) -> list:
         ]
         scored.sort(key=lambda t: t[0], reverse=True)
         return [e for _, _, e in scored]
-    except Exception:
+    except Exception:  # noqa: BLE001 — the rerank calls out to Jev; any failure keeps the original order
         return entries  # fail-open: ordem original
 
 
@@ -700,7 +709,7 @@ def _score_gate_with_jev(query: str, entries: list) -> list:
     """
     try:
         sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))  # repo/scripts via the symlink
-        import jev_client  # noqa: PLC0415 — import tardio por desenho (hook quente)
+        import jev_client  # import tardio por desenho (hook quente)
 
         questions = {}
         for i, e in enumerate(entries):
@@ -716,7 +725,7 @@ def _score_gate_with_jev(query: str, entries: list) -> list:
         if answers is None:
             return entries
         return [e for i, e in enumerate(entries) if float(answers.get(f"c{i}", {}).get("score", 0.0)) >= 1.0]
-    except Exception:
+    except Exception:  # noqa: BLE001 — the score gate calls out to Jev; any failure keeps every entry
         return entries  # fail-open: todas (nunca injeta menos por erro)
 
 
@@ -774,15 +783,16 @@ def _journal_recall_injection(results: dict, context: str, cwd: str) -> None:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as fh:
             fh.write(json.dumps(rec, ensure_ascii=False) + "\n")
-    except Exception:
-        pass  # fail-open: telemetria nunca derruba o hook
+    except Exception as exc:  # noqa: BLE001 — telemetry never takes the hook down; stderr keeps the miss visible
+        sys.stderr.write(f"session_startup_intelligence: recall_journal não gravado ({type(exc).__name__}: {exc})\n")
 
 
 def main() -> int:
-    t0 = time.monotonic()
     try:
         data = json.load(sys.stdin)
-    except Exception:
+    except (ValueError, OSError):
+        data = {}
+    if not isinstance(data, dict):  # a payload we cannot read is absent, not a crash
         data = {}
     cwd = data.get("cwd") or os.getcwd()
     session_id = data.get("session_id", "unknown")
@@ -790,21 +800,20 @@ def main() -> int:
     slim = slim_enabled()
     try:
         global_intel = collect_global(slim)
-    except Exception:
+    except Exception:  # noqa: BLE001 — a failed collection leaves every source absent, which the panel prints
         global_intel = {}
     try:
         path_intel = _rerank_recall_if_enabled(collect_path(cwd))
-    except Exception:
+    except Exception:  # noqa: BLE001 — a failed collection leaves every source absent, which the panel prints
         path_intel = {}
     try:
         section_global = fmt_global(global_intel, slim)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — the error is printed in the degraded section
         section_global = f"# 🧠 TOURING — degraded\n(collection error: {e})"
     try:
         section_path = fmt_path(path_intel, cwd, project_type, slim)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — the error is printed in the degraded section
         section_path = f"# 📁 PATH — degraded\n(collection error: {e})"
-    elapsed_ms = int((time.monotonic() - t0) * 1000)
     additional = (
         section_global
         + "\n"
@@ -813,10 +822,7 @@ def main() -> int:
         + f" | session_id={str(session_id)[:8]} | path-aware"
         + " | hook=session_startup_intelligence.py_"
     )
-    try:
-        _journal_recall_injection(path_intel, additional, cwd)
-    except Exception:
-        pass  # telemetria nunca derruba o hook (S-3.4)
+    _journal_recall_injection(path_intel, additional, cwd)  # fail-open inside, stderr on a miss (S-3.4)
     out = {
         "hookSpecificOutput": {
             "hookEventName": HOOK_NAME,
@@ -830,7 +836,7 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except Exception:
+    except Exception:  # noqa: BLE001 — last line: the hook never takes the session down; the note says it degraded
         print(
             json.dumps(
                 {

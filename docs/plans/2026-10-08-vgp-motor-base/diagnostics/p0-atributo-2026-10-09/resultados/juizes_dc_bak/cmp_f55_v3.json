@@ -1,0 +1,41 @@
+{
+ "f55": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados/juizes_f55_bak/novo_v3.porid.json",
+ "novo": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/resultados/juizes_dc_bak/novo_v3.porid.json",
+ "comparados": 762,
+ "diferencas_de_veredito": 2,
+ "explicadas_por_timeout_da_camada2": [
+  {
+   "id": "158cbb7178bb",
+   "f55": "allow",
+   "novo": "warn",
+   "f55_achados": [],
+   "novo_achados": [
+    [
+     "membro",
+     "get",
+     43,
+     "warn"
+    ]
+   ],
+   "camada2_f55": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///tmp/claude-1000/-home-gabrielgadea-projects-analise/bd0afa92-5a07-48e9-b6be-0cba10c95200/scratchpad/forense_agentes2.py (version 2)",
+   "camada2_novo": null
+  },
+  {
+   "id": "76d4d4a88939",
+   "f55": "allow",
+   "novo": "warn",
+   "f55_achados": [],
+   "novo_achados": [
+    [
+     "membro",
+     "get",
+     68,
+     "warn"
+    ]
+   ],
+   "camada2_f55": "unknown: prazo de 1000 ms estourado esperando publishDiagnostics for file:///tmp/claude-1000/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39/scratchpad/pt5_probe.py (version 1)",
+   "camada2_novo": null
+  }
+ ],
+ "reais": []
+}

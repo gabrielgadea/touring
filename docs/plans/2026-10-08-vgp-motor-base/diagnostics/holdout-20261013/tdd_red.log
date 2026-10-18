@@ -1,0 +1,318 @@
+FFFFFFFFF....FFFFFFFFFFF.                                                [100%]
+=================================== FAILURES ===================================
+________________ test_from_pacote_import_submodulo_o_caso_real _________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_from_pacote_import_submod0/proj')
+
+    def test_from_pacote_import_submodulo_o_caso_real(raiz):
+        """`from scripts.eleitoral import publicar_mapa as pm`: o submodulo entra, nao so o __init__."""
+        achados = modulos(raiz, inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\nprint(pm._publicar)\n")
+>       assert achados == INITS | {"scripts/eleitoral/publicar_mapa.py"}
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i...icar_mapa.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/publicar_mapa.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:76: AssertionError
+______________ test_import_pontilhado_traz_os_pacotes_ancestrais _______________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_import_pontilhado_traz_os0/proj')
+
+    def test_import_pontilhado_traz_os_pacotes_ancestrais(raiz):
+        achados = modulos(raiz, inline(raiz), "import scripts.eleitoral.publicar_mapa\n")
+>       assert achados == INITS | {"scripts/eleitoral/publicar_mapa.py"}
+E       AssertionError: assert {'scripts/ele...icar_mapa.py'} == {'scripts/__i...icar_mapa.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/__init__.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:81: AssertionError
+_______________________ test_import_pontilhado_com_alias _______________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_import_pontilhado_com_ali0/proj')
+
+    def test_import_pontilhado_com_alias(raiz):
+        achados = modulos(raiz, inline(raiz), "import scripts.eleitoral.publicar_mapa as pm\n")
+>       assert achados == INITS | {"scripts/eleitoral/publicar_mapa.py"}
+E       AssertionError: assert {'scripts/ele...icar_mapa.py'} == {'scripts/__i...icar_mapa.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/__init__.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:86: AssertionError
+______________________ test_from_pacote_import_subpacote _______________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_from_pacote_import_subpac0/proj')
+
+    def test_from_pacote_import_subpacote(raiz):
+        achados = modulos(raiz, inline(raiz), "from scripts.eleitoral import outro\n")
+>       assert achados == INITS | {"scripts/eleitoral/outro/__init__.py"}
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i.../__init__.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/outro/__init__.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:91: AssertionError
+____________________ test_from_pontilhado_import_submodulo _____________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_from_pontilhado_import_su0/proj')
+
+    def test_from_pontilhado_import_submodulo(raiz):
+        achados = modulos(raiz, inline(raiz), "from scripts.eleitoral.outro import folha\n")
+>       assert achados == INITS | {"scripts/eleitoral/outro/__init__.py", "scripts/eleitoral/outro/folha.py"}
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i...tro/folha.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/__init__.py'
+E         'scripts/eleitoral/outro/folha.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:96: AssertionError
+_______________________ test_varios_nomes_no_mesmo_from ________________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_varios_nomes_no_mesmo_fro0/proj')
+
+    def test_varios_nomes_no_mesmo_from(raiz):
+        achados = modulos(raiz, inline(raiz), "from scripts.eleitoral import publicar_mapa, outro, _inexistente\n")
+>       assert achados == INITS | {"scripts/eleitoral/publicar_mapa.py", "scripts/eleitoral/outro/__init__.py"}
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i...icar_mapa.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/publicar_mapa.py'
+E         'scripts/eleitoral/outro/__init__.py'
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:101: AssertionError
+________________ test_nome_que_nao_e_modulo_nao_inventa_arquivo ________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_nome_que_nao_e_modulo_nao0/proj')
+
+    def test_nome_que_nao_e_modulo_nao_inventa_arquivo(raiz):
+        """`publicar` e uma funcao, nao um arquivo: so os __init__ entram."""
+        achados = modulos(raiz, inline(raiz), "from scripts.eleitoral import publicar\n")
+>       assert achados == INITS
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i.../__init__.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:107: AssertionError
+_______________________ test_import_estrela_so_o_pacote ________________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_import_estrela_so_o_pacot0/proj')
+
+    def test_import_estrela_so_o_pacote(raiz):
+>       assert modulos(raiz, inline(raiz), "from scripts.eleitoral import *\n") == INITS
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/__i.../__init__.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/__init__.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:111: AssertionError
+________________________________ test_relativos ________________________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_relativos0/proj')
+
+    def test_relativos(raiz):
+        e = de_arquivo(raiz, "scripts/eleitoral/vizinho.py")
+        texto = ARQUIVOS["scripts/eleitoral/vizinho.py"]
+>       assert modulos(raiz, e, texto) == {
+            "scripts/eleitoral/__init__.py",  # o pacote corrente roda o próprio __init__
+            "scripts/eleitoral/publicar_mapa.py",
+            "scripts/eleitoral/outro/__init__.py",
+            "scripts/eleitoral/outro/folha.py",
+        }
+E       AssertionError: assert {'scripts/ele.../__init__.py'} == {'scripts/ele...icar_mapa.py'}
+E         
+E         Extra items in the right set:
+E         'scripts/eleitoral/publicar_mapa.py'
+E         'scripts/eleitoral/outro/folha.py'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:117: AssertionError
+___________ test_a_regra_antiga_so_via_o_init_o_defeito_documentado ____________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_a_regra_antiga_so_via_o_i0/proj')
+
+    def test_a_regra_antiga_so_via_o_init_o_defeito_documentado(raiz):
+        """O legado devolve SO o __init__ no caso real — e o defeito que o teste 1 fecha."""
+>       achados = rels(raiz, eni.modulos_do_projeto_legado(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n"))
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'modulos_do_projeto_legado'. Did you mean: 'modulos_do_projeto'?
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:152: AttributeError
+____________________________ test_tipos_dos_modulos ____________________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_tipos_dos_modulos0/proj')
+
+    def test_tipos_dos_modulos(raiz):
+>       tipos = {str(Path(p).resolve().relative_to(raiz.resolve())): t for p, t in eni.modulos_tipados(inline(raiz), "from scripts.eleitoral import publicar_mapa\n").items()}
+                                                                                   ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'modulos_tipados'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:157: AttributeError
+_________________ test_estado_completo_quando_tudo_reconstroi __________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_estado_completo_quando_tu0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84d7d220>
+
+    def test_estado_completo_quando_tudo_reconstroi(raiz, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de())
+>       assert eni.estado_completo(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n", {}) == (True, "ok")
+               ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'estado_completo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:175: AttributeError
+______________ test_incompleta_quando_o_submodulo_nao_reconstroi _______________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_incompleta_quando_o_submo0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84d7d5b0>
+
+    def test_incompleta_quando_o_submodulo_nao_reconstroi(raiz, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de({"publicar_mapa.py"}))
+>       ok, motivo = eni.estado_completo(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n", {})
+                     ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'estado_completo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:180: AttributeError
+_________________ test_incompleta_quando_o_init_nao_reconstroi _________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_incompleta_quando_o_init_0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84e63890>
+
+    def test_incompleta_quando_o_init_nao_reconstroi(raiz, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de({"__init__.py"}))
+>       ok, motivo = eni.estado_completo(inline(raiz), "import scripts.eleitoral.publicar_mapa\n", {})
+                     ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'estado_completo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:186: AttributeError
+____________________ test_sem_imports_do_projeto_e_completa ____________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_sem_imports_do_projeto_e_0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84e9ecf0>
+
+    def test_sem_imports_do_projeto_e_completa(raiz, monkeypatch):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de({"publicar_mapa.py"}))
+>       assert eni.estado_completo(inline(raiz), "import os\nprint(1)\n", {}) == (True, "ok")
+               ^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'estado_completo'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:192: AttributeError
+__________________ test_overlay_carrega_o_instante_nao_o_hoje __________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlay_carrega_o_instant0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84e9ef10>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlay_carrega_o_instant0')
+
+    def test_overlay_carrega_o_instante_nao_o_hoje(raiz, monkeypatch, tmp_path):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de())
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+>       over, faltas = eni.overlays_e_faltas(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)
+                       ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'overlays_e_faltas'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:199: AttributeError
+__________________ test_overlays_e_faltas_nomeia_o_que_faltou __________________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_e_faltas_nomeia_0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84e38e50>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_e_faltas_nomeia_0')
+
+    def test_overlays_e_faltas_nomeia_o_que_faltou(raiz, monkeypatch, tmp_path):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de({"publicar_mapa.py"}))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+>       over, faltas = eni.overlays_e_faltas(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)
+                       ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'overlays_e_faltas'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:212: AttributeError
+_ test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto _
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_profundidade_2_mede_o_que0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84d7b950>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_profundidade_2_mede_o_que0')
+
+    def test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto(raiz, monkeypatch, tmp_path):
+        """Medida, não exigida: `publicar_mapa.py` (do INSTANTE) importa `util` e `.outro.folha` — fora do manifesto."""
+        instante = "import util\nfrom .outro import folha\nfrom . import publicar_mapa\n"
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", lambda arq, ts, indice: instante if Path(arq).name == "publicar_mapa.py" else "")
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        e = inline(raiz)
+>       over, _ = eni.overlays_e_faltas(e, "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)
+                  ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'overlays_e_faltas'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:223: AttributeError
+__ test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada ___
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_profundidade_2_nao_conta_0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84d62c60>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_profundidade_2_nao_conta_0')
+
+    def test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada(raiz, monkeypatch, tmp_path):
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", lambda arq, ts, indice: "from . import vizinho\n")
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+        e = de_arquivo(raiz, "scripts/eleitoral/vizinho.py")
+>       over, _ = eni.overlays_e_faltas(e, ARQUIVOS["scripts/eleitoral/vizinho.py"], {}, destino)
+                  ^^^^^^^^^^^^^^^^^^^^^
+E       AttributeError: module 'estado_sob_teste' has no attribute 'overlays_e_faltas'
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:233: AttributeError
+______________ test_overlays_legado_continua_pulando_em_silencio _______________
+
+raiz = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7b8f84d61c70>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0')
+
+    def test_overlays_legado_continua_pulando_em_silencio(raiz, monkeypatch, tmp_path):
+        """`overlays()` mantem a assinatura e o comportamento (quem nao exige completude nao muda)."""
+        monkeypatch.setattr(corpus_v0d, "_conteudo_depois", conteudo_de({"publicar_mapa.py"}))
+        destino = tmp_path / "corpus" / "estado_no_instante"
+        destino.mkdir(parents=True)
+>       assert len(eni.overlays(inline(raiz), "from scripts.eleitoral import publicar_mapa as pm\n", {}, destino)) == 2
+E       AssertionError: assert 1 == 2
+E        +  where 1 = len([{'path': '/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj/scripts/eleitoral/__init__.py',...: 'estado_no_instante/modulos/inl/0.py', 'sha256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}])
+E        +    where [{'path': '/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj/scripts/eleitoral/__init__.py',...: 'estado_no_instante/modulos/inl/0.py', 'sha256': 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'}] = <function overlays at 0x7b8f84eccbf0>({'project_root': '/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj', 'path': '<stdin>', 'ts': '2026-10-01T10:00:00.000Z', 'id': 'inl'}, 'from scripts.eleitoral import publicar_mapa as pm\n', {}, PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/corpus/estado_no_instante'))
+E        +      where <function overlays at 0x7b8f84eccbf0> = eni.overlays
+E        +      and   {'project_root': '/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj', 'path': '<stdin>', 'ts': '2026-10-01T10:00:00.000Z', 'id': 'inl'} = inline(PosixPath('/tmp/pytest-of-gabrielgadea/pytest-414/test_overlays_legado_continua_0/proj'))
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py:243: AssertionError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_from_pacote_import_submodulo_o_caso_real
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_import_pontilhado_traz_os_pacotes_ancestrais
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_import_pontilhado_com_alias
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_from_pacote_import_subpacote
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_from_pontilhado_import_submodulo
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_varios_nomes_no_mesmo_from
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_nome_que_nao_e_modulo_nao_inventa_arquivo
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_import_estrela_so_o_pacote
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_relativos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_a_regra_antiga_so_via_o_init_o_defeito_documentado
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_tipos_dos_modulos
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_estado_completo_quando_tudo_reconstroi
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_incompleta_quando_o_submodulo_nao_reconstroi
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_incompleta_quando_o_init_nao_reconstroi
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_sem_imports_do_projeto_e_completa
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_overlay_carrega_o_instante_nao_o_hoje
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_overlays_e_faltas_nomeia_o_que_faltou
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_profundidade_2_mede_o_que_o_modulo_sobreposto_importa_e_nao_esta_coberto
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_profundidade_2_nao_conta_o_que_ja_esta_coberto_nem_a_propria_entrada
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py::test_overlays_legado_continua_pulando_em_silencio
+20 failed, 5 passed in 0.11s

@@ -1,0 +1,25 @@
+{
+ "temp_c": 96.0,
+ "mem_avail_gb": 40.04424285888672,
+ "vram": {
+  "used_mb": 1708,
+  "total_mb": 8188
+ },
+ "slots": [
+  {
+   "slot": "rust-1",
+   "held": false,
+   "holder": null
+  },
+  {
+   "slot": "heavy-1",
+   "held": false,
+   "holder": null
+  },
+  {
+   "slot": "heavy-2",
+   "held": false,
+   "holder": null
+  }
+ ]
+}

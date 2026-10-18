@@ -1,0 +1,45 @@
+
+== vivo_v2 (frag): pronto base/frag=[True, True] erros=[0, 0] p95=[96.55090299999999, 105.873441]
+   chaves do juiz que divergem: ['recall_deny_informativo']
+     recall_deny_informativo: base={"arquivo": [5, 13], "inline": [21, 27]} | frag={"arquivo": [1, 13], "inline": [21, 27]}
+   ids que mudam: 4 {'esperado_rebaixa': 4}
+     [esperado_rebaixa] 34511b9ac100 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py: deny->warn
+     [esperado_rebaixa] 6fb90b5d7502 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py: deny->warn
+     [esperado_rebaixa] 8b7a3476e024 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py: deny->warn
+     [esperado_rebaixa] fbd4d99c3ec2 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py: deny->warn
+
+== vivo_v3 (frag): pronto base/frag=[False, False] erros=[0, 0] p95=[1024.079046, 1051.637821]
+   chaves do juiz que divergem: ['avisos_em_negativos', 'recall_deny_informativo']
+     avisos_em_negativos: base=51 | frag=52
+     recall_deny_informativo: base={"arquivo": [6, 13], "inline": [23, 27]} | frag={"arquivo": [1, 13], "inline": [23, 27]}
+   ids que mudam: 6 {'outra': 1, 'esperado_rebaixa': 5}
+     [outra] 0893b1f5187f (tmp, negativo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/tse_zip.py: allow->warn achados [] -> [(('membro', 'items'), 'warn'), (('membro', 'setdefault'), 'warn'), (('membro', 'values'), 'warn')]
+     [esperado_rebaixa] 34511b9ac100 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py: deny->warn
+     [esperado_rebaixa] 6fb90b5d7502 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py: deny->warn
+     [esperado_rebaixa] 8b7a3476e024 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py: deny->warn
+     [esperado_rebaixa] d94f8090d150 (tmp, positivo) /tmp/eleitoral_probe/causa_raiz.py: deny->warn
+     [esperado_rebaixa] fbd4d99c3ec2 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py: deny->warn
+
+== bak_v2 (frag): pronto base/frag=[True, False] erros=[0, 0] p95=[91.698478, 150.022345]
+   chaves do juiz que divergem: ['pronto', 'recall_deny_informativo']
+     pronto: base=true | frag=false
+     recall_deny_informativo: base={"arquivo": [5, 13], "inline": [20, 27]} | frag={"arquivo": [1, 13], "inline": [20, 27]}
+   ids que mudam: 4 {'esperado_rebaixa': 4}
+     [esperado_rebaixa] 34511b9ac100 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py: deny->warn
+     [esperado_rebaixa] 6fb90b5d7502 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py: deny->warn
+     [esperado_rebaixa] 8b7a3476e024 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py: deny->warn
+     [esperado_rebaixa] fbd4d99c3ec2 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py: deny->warn
+
+== bak_v3 (frag): pronto base/frag=[False, False] erros=[0, 0] p95=[1047.831484, 1006.512807]
+   chaves do juiz que divergem: ['avisos_em_negativos', 'recall_deny_informativo']
+     avisos_em_negativos: base=51 | frag=50
+     recall_deny_informativo: base={"arquivo": [6, 13], "inline": [22, 27]} | frag={"arquivo": [1, 13], "inline": [22, 27]}
+   ids que mudam: 6 {'outra': 1, 'esperado_rebaixa': 5}
+     [outra] 0893b1f5187f (tmp, negativo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/tse_zip.py: warn->allow achados [(('membro', 'items'), 'warn'), (('membro', 'setdefault'), 'warn'), (('membro', 'values'), 'warn')] -> []
+     [esperado_rebaixa] 34511b9ac100 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/auditoria/A3/licao.py: deny->warn
+     [esperado_rebaixa] 6fb90b5d7502 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f/scratchpad/coord/por_que_vencido.py: deny->warn
+     [esperado_rebaixa] 8b7a3476e024 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/gravar_licoes_o6.py: deny->warn
+     [esperado_rebaixa] d94f8090d150 (tmp, positivo) /tmp/eleitoral_probe/causa_raiz.py: deny->warn
+     [esperado_rebaixa] fbd4d99c3ec2 (tmp, positivo) /tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/investigar_7.py: deny->warn
+
+DENY_NOVO + INESPERADO = 0

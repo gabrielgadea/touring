@@ -2,6 +2,11 @@
 # Docs: https://mutants.rs/config.html
 #
 # Strategy: incremental (--in-diff) in CI, sharded full scans weekly.
+#   * .github/workflows/ci.yml        job `mutants-diff`  — the lines of the last commit, ADVISORY
+#                                     (continue-on-error) until a measured false-red rate promotes it;
+#   * .github/workflows/scheduled.yml job `mutants-full`  — 16 shards, shuffled, 4 h budget each: the
+#                                     workspace has ~65k mutants, so the weekly scan SAMPLES it.
+# (Until 18/10/2026 this line promised both and no workflow ran cargo-mutants.)
 # Exclusions: generated templates, examples, benches, build scripts.
 
 # Exclude globs — mutants are NOT generated for these files.

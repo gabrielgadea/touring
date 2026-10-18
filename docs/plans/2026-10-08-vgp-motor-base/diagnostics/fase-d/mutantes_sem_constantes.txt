@@ -1,0 +1,14 @@
+hw-slot: aguardando — slot — heavy ocupado: rust-1=bash /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/scripts/gates_int97i.sh /home/gabrielgadea/projects/to (pid 1387670), heavy-1=bash /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/int97-integrado/scripts/gates_int97i.sh /home/gabrielgadea/projects/to (pid 1387670), heavy-2=python3 -m pytest . -q -p no:cacheprovider (pid 2438140)
+CONTROLE (sem mutacao): rc=0 75 passed, 1 deselected in 35.41s
+  A01 killed   A/A instr: faixa frouxa [0,90; 1,10]  test_analisa_pareado_d.py::test_aa_com_instrucoes_fora_de_1pct_cai_para_a_cpu
+  A02 killed   A/A instr: faixa apertada [0,999; 1,001]  test_analisa_pareado_d.py::test_aa_com_instrucoes_estaveis_escolhe_instrucoes
+  A03 killed   A/A cpu: faixa frouxa [0,80; 1,20]  test_analisa_pareado_d.py::test_aa_com_as_duas_reguas_reprovadas_e_protocolo_inadequado
+  A04 killed   A/A cpu: faixa apertada [0,99; 1,01]  test_analisa_pareado_d.py::test_aa_com_instrucoes_fora_de_1pct_cai_para_a_cpu
+  A05 killed   A/B: teto 1,30 em vez de 1,10  test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]
+  A06 killed   A/B: teto 1,02 em vez de 1,10  test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.08-esperado2]
+  A07 killed   absoluto: 1500 ms em vez de 150  test_analisa_pareado_d.py::test_absoluto_v2_acima_de_150ms_reprova_mesmo_sem_regressao_relativa
+  A08 killed   absoluto: 15 ms em vez de 150  test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[0.8-esperado0]
+  A09 killed   semente 20261017 (a do C') em vez de 20261018  test_analisa_pareado_d.py::test_toda_reamostragem_usa_a_semente_20261018
+  A10 survived bootstrap com 200 reamostras em vez de 2000  
+  A11 killed   ausencia tolerada ate 50% em vez de 1%  test_analisa_pareado_d.py::test_ausencia_acima_de_1pct_das_chamadas_e_inconclusiva
+MUTANTES: 10/11 mortos

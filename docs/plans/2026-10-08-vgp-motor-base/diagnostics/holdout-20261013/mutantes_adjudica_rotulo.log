@@ -1,0 +1,3 @@
+controle sem mutacao: passou (selftest: 84/84 casos + lote) | sha do original igual antes/depois: True
+49/49 mutantes mortos
+rc=0

@@ -1,0 +1,36 @@
+{
+ "arquivo": {
+  "n": 600,
+  "com_fecho_nao_vazio": 94,
+  "pct_com_fecho_nao_vazio": 15.7,
+  "com_profundidade_max_ge_2": 29,
+  "tamanho": {
+   "n": 600,
+   "soma": 715,
+   "min": 0,
+   "mediana": 0,
+   "media": 1.19,
+   "p90": 2,
+   "p99": 42,
+   "max": 51
+  },
+  "overlays_total": 715
+ },
+ "inline": {
+  "n": 553,
+  "com_fecho_nao_vazio": 11,
+  "pct_com_fecho_nao_vazio": 2.0,
+  "com_profundidade_max_ge_2": 1,
+  "tamanho": {
+   "n": 553,
+   "soma": 52,
+   "min": 0,
+   "mediana": 0,
+   "media": 0.09,
+   "p90": 0,
+   "p99": 2,
+   "max": 28
+  },
+  "overlays_total": 52
+ }
+}

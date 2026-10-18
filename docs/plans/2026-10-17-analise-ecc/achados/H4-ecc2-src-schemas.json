@@ -1,0 +1,455 @@
+{
+  "lote": "H4-ecc2-src-schemas",
+  "lidos": [
+    "ecc2/README.md (inteiro)",
+    "ecc2/Cargo.toml (inteiro)",
+    "ecc2/src/session/mod.rs:1-260 (HarnessKind, SessionHarnessInfo)",
+    "ecc2/src/session/store.rs:1-545 (todo o esquema SQLite, 21 tabelas, 8 triggers), 1780-2150 (ingestão de custo e de atividade), 2312-2342, 2481-2591 (board), 2980-3030 (decision_log), 3960-4000, 4200-4260, 4351-4455 (incidentes de conflito), 4547-4710, 4820-4900, 5540-5622 (promoção atômica), testes 5990-6125 e 7827-8360 (por grep e leitura parcial)",
+    "ecc2/src/session/manager.rs:787-1000, 1150-1560 (heartbeat, orçamento, conflito, retomada), 1738-2310 (worktree, fila de merge, prune), 2385-2540, 2650-2700, 2774-3030, 3071-3190, 3279-3306, 3573-3640, testes 5815-5996 e 6097-6232; nomes de todos os testes",
+    "ecc2/src/session/daemon.rs:1-260, 360-497",
+    "ecc2/src/session/runtime.rs:60-230",
+    "ecc2/src/worktree/mod.rs:1-260, 715-985",
+    "ecc2/src/config/mod.rs:215-360 (defaults) e grep de campos",
+    "ecc2/src/observability/mod.rs:1-298",
+    "ecc2/src/comms/mod.rs (inteiro)",
+    "ecc2/src/harness_eval.rs:1-140, 180-580",
+    "ecc2/src/main.rs:2885-2970, 3386-3440, 3629-3719, 3976-4140, 4190-4260 (+ enum Commands por script)",
+    "ecc2/src/tui/dashboard.rs:2640-2700, 4040-4110, 4700-4760, 9203-9330 (só onde decide estado)",
+    "ecc2/src/notifications.rs:340-430",
+    "src/llm/tools/executor.py, src/llm/core/interface.py, src/llm/providers/{resolver,reasoning,model_config}.py, src/llm/providers/claude.py:1-60, src/llm/cli/selector.py:1-80",
+    "schemas/memory.schema.json, schemas/capsule-envelope.schema.json (inteiros); schemas/state-store.schema.json (todas as definições, por parser); demais schemas só estrutura (título, required, propriedades)",
+    "manifests/install-modules.json, install-profiles.json, install-components.json, context-packs/skill-triggers@1.json, skill-registry@1.json, pi-core.json (estrutura e contagens, por parser) e medição dos bytes dos paths de cada módulo",
+    "integrations/aura/adapter.py (inteiro), THREAT_MODEL.md (parcial), nomes dos testes",
+    "hooks/hermes/config-protection.py (inteiro), hooks/memory-persistence/hooks.json (inteiro), hooks/hooks.json (estrutura: 27 ações, 8 eventos), codex-hooks.json e qoder-hooks.json (cabeçalho)",
+    "plugins/ecc/.codex-plugin/plugin.json (cabeçalho)",
+    "arquivos fora do lote lidos para provar uma afirmação: scripts/hooks/cost-tracker.js:1-140,200-300; scripts/lib/session-cost-snapshot.js:100-270; scripts/hooks/session-activity-tracker.js:100-140,513-640; scripts/lib/state-store/file-lock.js:1-140; scripts/observability-readiness.js (grep); scripts/ci/validate-install-manifests.js e validate-context-profiles.js (grep); .github/workflows/*.yml (grep)"
+  ],
+  "classificados": [
+    {
+      "caminho": "ecc2/Cargo.lock",
+      "motivo": "arquivo gerado de dependências; sem lógica."
+    },
+    {
+      "caminho": "ecc2/src/tui/dashboard.rs (restante das 15.461 linhas)",
+      "motivo": "camada de apresentação (painéis, teclas, cores). Li só os trechos que decidem estado (enforcement no refresh, ConflictProtocol, WorktreeDiff); 143 testes contados por regex, não lidos um a um."
+    },
+    {
+      "caminho": "ecc2/src/tui/{app,widgets,mod}.rs",
+      "motivo": "laço de eventos e widgets; só inspecionei nomes de funções e o chamador de merge/prune (app.rs:125,136)."
+    },
+    {
+      "caminho": "ecc2/src/session/output.rs",
+      "motivo": "buffer circular de 1.000 linhas (OUTPUT_BUFFER_LIMIT); o corte no banco está em store.rs:3960-3996, que li."
+    },
+    {
+      "caminho": "ecc2/src/notifications.rs (linhas 1-340)",
+      "motivo": "configuração de desktop/webhook/horário silencioso, já coberta por G2:8; li só a execução de comando e o webhook (:340-430): argv sem shell, timeouts de 5 s."
+    },
+    {
+      "caminho": "src/llm/providers/{ollama,openai,openai_compat,astraflow,atlas}.py, src/llm/prompt/*, src/llm/core/types.py",
+      "motivo": "adaptadores de API e montagem de prompt com o mesmo padrão do claude.py já lido; a rodada C classificou src/llm como sem roteamento nem custo (C, anti-lição 5), e confirmei no executor e no resolvedor."
+    },
+    {
+      "caminho": "schemas/{agent,context-carrier,context-pack-registry,context-profile,ecc-install-config,hooks,hooks-metadata,install-components,install-modules,install-profiles,install-state,package-manager,plugin,provenance}.schema.json",
+      "motivo": "contratos de formato dos manifestos e hooks; li a estrutura por parser. O conteúdo operativo está nos validadores (E5, C5) e em A-hooks."
+    },
+    {
+      "caminho": "manifests/install-assets/*.json, manifests/context-profiles/{lean,full}@1.json",
+      "motivo": "3 a 12 linhas cada; lean@1 já lido em C5."
+    },
+    {
+      "caminho": "hooks/hooks.json, hooks/hooks.metadata.json, hooks/README.md, hooks/hermes/check-console-log.py",
+      "motivo": "hooks.json foi lido por A-hooks.json; reconto aqui só a estrutura (27 ações command em 8 eventos, 16 com timeout de 5 a 300 s). check-console-log é lint de console.log."
+    },
+    {
+      "caminho": "hooks/hermes/config-protection.py",
+      "motivo": "porta Python do config-protection.js, já coberto por A-hooks:35 e H1; lido inteiro, sem informação nova (lista de 35 nomes, comparação em minúsculas, lstat para symlink pendente, fail-open com diagnóstico em stderr)."
+    },
+    {
+      "caminho": "plugins/README.md, plugins/ecc/README.md, integrations/aura/README.md, integrations/aura/tests/{fixtures,__init__}.py",
+      "motivo": "documentação e fixtures; o adaptador e a lista de testes foram lidos."
+    }
+  ],
+  "linhas": [
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Teto de orçamento agregado entre sessões, imposto pelo próprio orquestrador",
+      "ecc": {
+        "como": "enforce_budget_hard_limits soma tokens_used e cost_usd de TODAS as linhas de sessions (list_sessions não tem WHERE, só ORDER BY) e compara com token_budget=500.000 e cost_budget_usd=US$ 10 (defaults). Estourou, toda sessão Pending/Running/Idle leva SIGTERM, 1,2 s de espera e SIGKILL (stop_session_recorded). Há também teto por perfil (token_budget) e repasse de --max-budget-usd ao claude. O teste fixa a semântica vitalícia: uma sessão Completed de 120 tokens contra teto 100 marca token_budget_exceeded=true. Quem chama: sessions/status/graph sync/export-otel via sync_runtime_session_metrics e o refresh do TUI. O laço do daemon só aplica heartbeat, então sem TUI nem CLI de leitura aberta nada corta.",
+        "evidencia": "ecc2/src/session/manager.rs:1177-1245,3582-3606,3122-3126,5880-5927; ecc2/src/session/store.rs:2312-2317; ecc2/src/config/mod.rs:311-312; ecc2/src/main.rs:2921-2930; ecc2/src/tui/dashboard.rs:4067; ecc2/src/session/daemon.rs:20-55,95-98"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O agregado real do Touring é a franquia Anthropic (5 h e semanal, comum a todas as sessões e subagentes), lida e não imposta: `rate_limits_snapshot.py --show` devolveu «5 h 80% (zera 18/10 00:20) · 7 d 55% (zera 23/10 03:00)». O agent_model_gate cita a linha de cota só na mensagem de recusa. Não há corte por limiar.",
+        "evidencia": "python3 -I client/hooks/rate_limits_snapshot.py --show (18/10 02:55); grep em client/hooks/agent_model_gate.py: linhas 401, 418, 419 (quota_line só na recusa)"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "D8",
+      "nota": "Corrige D8: o ECC não «para as ativas ao estourar» num daemon; depende de TUI ou CLI abertos. Nenhum dos dois fecha o laço: o ECC impõe, mas sobre estimativa própria somada para sempre (sem janela, e ver a linha de dupla contagem); o Touring lê o número autoritativo e só informa (G2:7 já os dá como equivalentes no alerta por sessão). Adaptar: o corte entra no executor do spawn (agent_model_gate recusa Agent acima de haiku com a franquia semanal acima de limiar pré-registrado, nomeando a rota de volta), com a janela da própria franquia, nunca soma vitalícia, e sem matar sessões em curso."
+    },
+    {
+      "dominio": "contexto-custo",
+      "funcionalidade": "Ingestão de custo por sessão a partir do costs.jsonl dos hooks",
+      "ecc": {
+        "como": "O hook cost-tracker grava a cada Stop uma linha CUMULATIVA da sessão (soma de todo o transcript) e o lado JS escolhe a linha mais nova por sessão (chooseNewerCumulativeRow). O ecc2 lê o MESMO arquivo (db_path/../metrics/costs.jsonl) mas SOMA todas as linhas por session_id (saturating_add de tokens, cost_usd += estimated_cost_usd), e o teste codifica a soma (100+40 tokens = 140). Numa sessão com N respostas o total sai cerca de (N+1)/2 vezes o real, e é esse total que alimenta o teto agregado.",
+        "evidencia": "ecc2/src/session/store.rs:1927-1930,6023-6037; ecc2/src/config/mod.rs:342-348; scripts/hooks/cost-tracker.js:21-24,271-281; scripts/lib/session-cost-snapshot.js:132-151"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "Sem ledger persistente de custo. A medição pontual deduplica por message.id, isto é, cada chamada é contada uma vez.",
+        "evidencia": "grep 'message.id|dedup' em docs/plans/2026-10-17-contexto-por-chamada/prototipos: 3 acertos (medir_relevancia.py:2,38,42)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": "C6",
+      "nota": "Acrescenta à linha C6 (que só leu o produtor) o defeito no consumidor. A magnitude (N+1)/2 é aritmética sobre a premissa cumulativa; não executei o ecc2 (cargo proibido nesta rodada), a divergência de semântica está nas duas pontas do código. Lição para o Touring: quando um componente lê o arquivo de outro, o teste de integração usa uma saída REAL do produtor, não linhas escritas à mão; o teste do ecc2 passa porque as linhas foram escritas para a soma."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Elo entre o id da sessão do orquestrador e o session_id que os hooks gravam",
+      "ecc": {
+        "como": "O ecc2 cria o id como 8 hex de um uuid v4 e lança o claude com `--print --name ecc-<id>`, sem --session-id; só exporta ECC_SESSION_ID e CLAUDE_SESSION_ID no ambiente. Os dois produtores de dados preferem o session_id do payload do hook, que o próprio ECC diz ser o único disponível («Claude Code does not set CLAUDE_SESSION_ID… the session id is only available in the hook's own stdin JSON»). O consumidor faz `UPDATE sessions … WHERE id=?` (0 linhas quando o id não casa) e `INSERT OR IGNORE INTO tool_log` com FK session_id→sessions(id) e foreign_keys=ON. Os testes só usam ids já inseridos em sessions. Reproduzi só a semântica do SQLite com o mesmo formato de tabela: INSERT OR IGNORE com pai inexistente dá `FOREIGN KEY constraint failed` e o UPDATE afeta 0 linhas.",
+        "evidencia": "ecc2/src/session/manager.rs:2661,3097-3101,3287-3291; ecc2/src/session/store.rs:211,247-250,1933-1950,2083-2113,6001-6025,6048-6088; scripts/hooks/session-activity-tracker.js:576-586; scripts/hooks/cost-tracker.js:237-241"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "O Touring não cria um segundo id: usa o id da sessão do próprio Claude Code (nome do transcript em ~/.claude/projects/<dir>/<sid>.jsonl) como chave para mapear sessões concorrentes.",
+        "evidencia": "memória coordenacao-multi-sessao.md («Mapear por transcript, não por pergunta»), lida em 18/10"
+      },
+      "veredito": "a_verificar",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "nao_verificado no ecc2: não executei o binário (cargo e claude proibidos), então o efeito (custo sempre zero e/ou sync abortado por FK, que em main.rs:2927 propaga com `?` e derrubaria `ecc sessions`) fica por provar; a premissa «id do ecc2 ≠ session_id do payload» está nas duas pontas do código e o comportamento do SQLite está provado. Teste mínimo para quem puder rodar: uma linha de tool-usage.jsonl com session_id fora de sessions. Anti-lição: id gerado pelo orquestrador só casa com a telemetria se for passado ao harness ou lido do ambiente pelo produtor, e um teste com produtor real tem de provar o elo."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Fila de merge dos branches de sessões em worktree, com ordem e predição de conflito",
+      "ecc": {
+        "como": "Cada sessão ganha `git worktree add -b ecc/<id> <root>/<id> HEAD`. build_merge_queue ordena por (ativa?, projeto, task_group, updated_at, id) e admite uma sessão só se o worktree está limpo e se `git merge-tree --write-tree` contra CADA sessão já admitida não conflita; quem conflita fica «merge after <id>». process_merge_queue funde as prontas em ordem, reconstrói a fila e, se nada fundiu, faz `git rebase` uma vez por (sessão, cabeça da base) nas bloqueadas só por conflito com a base, abortando se falhar. «Pronta» = processo saiu com código 0 + merge-tree limpo + worktree sem mudanças: não há gate de teste. merge_into_base exige a base checked out na raiz e a raiz LIMPA. Cinco testes com repositórios git reais (merge, bulk, rebase-e-funde, rebase falho, ordem com bloqueio).",
+        "evidencia": "ecc2/src/session/manager.rs:1866-1946,2110-2273,6233-6670; ecc2/src/worktree/mod.rs:101-149,753-833,858-965; ecc2/src/session/runtime.rs:210-214"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "A integração de worktrees é manual: `git worktree list` tem 20 entradas (das 12 primeiras, 9 em detached HEAD) e as memórias entrega-partida-entre-vivo-e-integracao (17/10) e copiar-worktree-de-agente-vivo (10/10) registram quebra e perda por cópia de arquivos entre worktree, vivo e int97. Nenhum uso de `merge-tree` em crates/, scripts/ ou client/. O planejador de ordem que existe é `touring conflict-check`, por write-set DECLARADO, não por diff real.",
+        "evidencia": "git worktree list | wc -l = 20; grep 'merge-tree' em crates scripts client = 0 acertos; `touring conflict-check src/a.rs:A src/b.rs:B src/a.rs:C` → 2 ondas; touring index find run_conflict_check = found (crates/touring-server/src/cli/exec.rs:1033), conflicts_with = found (crates/touring-ceg/src/gateway/txn.rs:77)"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Resolve um problema que o Touring tem hoje (19 worktrees de agentes, integração manual). Adaptar só o núcleo, como `scripts/worktree-queue` de LEITURA: lista os branches/worktrees a integrar, ordena por `git merge-tree --write-tree` par a par e imprime «funde A, depois B; C conflita com A». O merge fica com o orquestrador e com o gate dos pacotes tocados (CLAUDE.md, regra 2.1(e)), porque no ecc2 «pronta» é só exit 0. Não copiar a exigência de raiz limpa: o checkout do Touring vive sujo e em branch de feature; o alvo é o worktree de integração (int97)."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Deconflito de sessões que mexem no mesmo arquivo (detector em execução e roteiro humano)",
+      "ecc": {
+        "como": "enforce_conflict_resolution lê o último evento de arquivo de cada sessão ativa (tool_log, 64 por sessão), agrupa por CAMINHO EXATO e, com 2+ não-leituras no mesmo caminho, abre um conflict_incident (chave path::sessãoA::sessãoB), «pausa» uma sessão conforme a estratégia (escalate: a mais nova; last_write_wins: a mais antiga; merge: a mais nova) com SIGTERM e SIGKILL, envia uma mensagem Conflict, grava uma linha em decision_log e avisa o lead. «Retomar» é reenfileirar a MESMA tarefa. O ConflictProtocol do TUI é um roteiro de 6 passos para o humano resolver no worktree. Três limites lidos: (1) o único chamador é o refresh do TUI, nem daemon nem CLI; (2) o caminho vem cru do hook, então sessões em worktrees distintos nunca casam e o detector só vale com checkout compartilhado (entre worktrees quem protege é a fila de merge); (3) resolve_conflict_incidents_not_in só é chamado por um teste e resolved_incidents é sempre 0, então um incidente nunca fecha e has_open_conflict_incident silencia para sempre aquele par naquele arquivo.",
+        "evidencia": "ecc2/src/session/manager.rs:1255-1463,1503-1545; ecc2/src/tui/dashboard.rs:4075,9222-9262; scripts/hooks/session-activity-tracker.js:111-131; ecc2/src/session/store.rs:4351-4455,6340; ecc2/src/session/manager.rs:1262,8081"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "`touring conflict-check src/a.rs:A src/b.rs:B src/a.rs:C` devolveu 2 ondas (A e B juntas, C serializada atrás de A): planejamento por write-set declarado ANTES do trabalho, no CEG. Entre sessões reais a coordenação é por dono de caminho e por transcript (memória coordenacao-multi-sessao), sem detector automático de sobreposição.",
+        "evidencia": "touring conflict-check src/a.rs:A src/b.rs:B src/a.rs:C (18/10 02:57); touring index find run_conflict_check = found (crates/touring-server/src/cli/exec.rs:1033)"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "G2:10",
+      "nota": "Refina G2:10 («touring_melhor»): o ECC tem a detecção automática que o Touring não tem, mas com os três limites acima, então é um empate de ideias, não de implementação. Adaptar a ideia certa: detector pós-fato por git (diff por worktree ou working set por sessão), chave do par, fechamento do incidente quando o par deixa de se sobrepor e right-of-way determinístico, em modo sombra como propõe D5. Não copiar «pausa = matar»: SIGKILL numa sessão de agente perde o raciocínio em curso."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Limpeza automática de worktrees de sessões encerradas",
+      "ecc": {
+        "como": "O daemon chama maybe_auto_prune_inactive_worktrees em TODO ciclo de 30 s, sem flag que a desligue; retention default 0. prune_inactive_worktrees poupa só Pending/Running/Idle (Stale NÃO é poupada, ao contrário dos caminhos de merge, que a incluem) e chama worktree::remove: `git worktree remove --force` e `git branch -D <branch>`, sem checar mudanças não commitadas nem commits não fundidos. auto_merge_ready_worktrees nasce false e, mesmo ligado, os worktrees «conflicted» e «dirty» que a fila deliberadamente NÃO funde são os mesmos que o prune apaga no mesmo ciclo. O teste cobre uma sessão parada sem commits; nenhum teste nem a palavra «unmerged» aparece no manager.rs.",
+        "evidencia": "ecc2/src/session/daemon.rs:46,431-473; ecc2/src/config/mod.rs:293,307; ecc2/src/session/manager.rs:1738-1753,1964-1970,1975-2005,2034-2074,6097-6172; ecc2/src/worktree/mod.rs:197-223"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "REGRA #11 v2: `branch -D` e `checkout --` são classe DESTRUTIVA e exigem ritual (medir, snapshot WIP em branch safety/, confirmar) mais o token GIT_DESTRUCTIVE_OK=1 por comando, imposto pelo hook block_git.sh.",
+        "evidencia": "grep 'branch -D' em ~/.claude/rules/git-safety-protocol.md:13 e skills/Touring/references/git-safety-protocol.md:38; client/hooks/block_git.sh:64,124"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Leitura de código, nada executado. Se o Touring automatizar worktrees (ver fila de merge), remoção e `branch -D` passam pelo ritual e pelo token, e a limpeza só toca o que o git prova fundido (`git branch --merged`), nunca o que o estado do processo sugere. O desenho do ECC é autocontraditório: a fila preserva o que o prune apaga."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Encerramento de processos de sessão pelo PID guardado no banco",
+      "ecc": {
+        "como": "stop_session_recorded manda SIGTERM, dorme 1,2 s com std::thread::sleep (bloqueia o runtime async) e manda SIGKILL ao pid lido de sessions.pid, sem conferir /proc/<pid>/comm nem o tempo de início. O daemon marca «crashed» pelo mesmo pid com kill(pid, 0) e trata EPERM como vivo. Com pid reaproveitado, o SIGKILL cai em processo alheio.",
+        "evidencia": "ecc2/src/session/manager.rs:3582-3606,3623-3634; ecc2/src/session/daemon.rs:58-93,476-491"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "`touring daemon-ctl status` classifica os processos por tipo (mcp_bridges=2, hook_handlers=7, cli_clients=4) e o daemon lê /proc/<pid>/comm para identificar clientes; o hook touring-process-guard.sh nega pkill/killall e `$(pgrep …)` sobre processo touring. A checagem de identidade antes de matar é regra de operação (REGRA #19), não código de um kill.",
+        "evidencia": "touring daemon-ctl status (18/10); crates/touring-dispatch/src/daemon.rs:741-748; ~/.claude/hooks/touring-process-guard.sh:35-45"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Se o Touring um dia matar por PID gravado (sessoes_irmas.py grava pid), conferir comm e o starttime (campo 22 de /proc/<pid>/stat) antes do sinal. Leitura de código; nada executado."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Servidor HTTP de despacho remoto (ecc remote serve)",
+      "ecc": {
+        "como": "std::net::TcpListener sequencial: um `for stream in listener.incoming()` atende uma conexão por vez, sem set_read_timeout. read_http_request limita os cabeçalhos a 64 KiB, mas lê o corpo até Content-Length SEM teto, e o faz ANTES de conferir o token. O token vem na linha de comando (`--token <token>`), a comparação é `auth != expected` (não constante) e /health responde sem autenticação. Basta uma conexão parada ou um Content-Length enorme para travar o servidor. Nenhum teste de limite.",
+        "evidencia": "ecc2/src/main.rs:652-655,3976-4037,4190-4251,7360"
+      },
+      "touring": {
+        "estado": "nao_verificado",
+        "como": "Há listeners TCP no Touring (servidor web em touring-bindings/src/web/server/mod.rs:1467; telemetria em 127.0.0.1:6669) e o daemon fala por socket Unix; não li o corpo do servidor web para comparar limites e autenticação.",
+        "evidencia": "grep 'TcpListener' em crates: touring-bindings/src/web/server/mod.rs:1467, touring-server/src/telemetry_init.rs:121; `touring daemon-ctl status` → socket /tmp/touring-daemon-1000.sock"
+      },
+      "veredito": "a_verificar",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Checklist para qualquer porta que o Touring exponha: timeout de leitura, teto de corpo antes da autenticação, comparação em tempo constante, segredo fora do argv. Auditar touring-bindings/src/web/server/mod.rs contra a lista é o próximo passo (fora desta rodada). Leitura de código; nada executado."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "Registro imutável de candidatos, avaliações e promoções de configuração (harness-eval)",
+      "ecc": {
+        "como": "Candidato = sha256 da configuração canônica mais trace_refs e evidence_refs. Quatro tabelas têm triggers BEFORE UPDATE/DELETE que abortam. A política é pareada por semente única, com min_samples, delta médio e win-rate, todos obrigatórios. A promoção é UMA transação com compare-and-swap do ponteiro ativo, health-check e rollback também por CAS, tudo auditado. Testes: promoção com rollback e auditoria imutável, adulteração do health evidence, gate reprovado, erro no callback, mais 7 em harness_eval.rs. O README admite os limites: avaliador `recorded-v1` com scores informados pelo operador, nada roda, «Arithmetic gates do not establish statistical significance».",
+        "evidencia": "ecc2/src/harness_eval.rs:192-250,488-578; ecc2/src/session/store.rs:504-511,5540-5621,7827,7902-7906,7978,8245,8300,8350; ecc2/README.md (Bounded Harness Evaluation)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "O Touring tem a regra pré-registrada com intervalo (n ≥ 30 e limite superior de Wilson-95 ≤ 0,20), `touring learning experiment record|list` e judge_attest.py, mas zero trigger de imutabilidade em SQLite (os 14 CREATE TRIGGER achados em crates/scripts/client são de sincronia FTS; `RAISE(` = 0 acertos) e nenhuma promoção por compare-and-swap com rollback registrado.",
+        "evidencia": "~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py:440-456; touring learning experiment --help (record, list); grep 'CREATE TRIGGER|RAISE[(]' em crates scripts client: 14 de FTS (memory_fts_*, chunks_*), RAISE = 0"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": null,
+      "nota": "Dois lados: a estatística do Touring (Wilson sobre taxa pré-registrada) é mais forte que delta médio e win-rate; o ledger do ECC é mais forte em integridade (imutabilidade no banco, promoção atômica). Adaptar só o ledger: triggers BEFORE UPDATE/DELETE no log de experimentos e nos veredictos de juiz (lição «juiz gravável pelo julgado») e promoção de limiar ou gate por CAS com linha de auditoria. Não copiar o avaliador `recorded-v1`: aceita scores do operador como se fossem medida."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Quadro de sessões do TUI: lanes, progresso e sinais de conflito",
+      "ecc": {
+        "como": "Lanes por estado (Pending→Inbox, Running→In Progress, Idle→Review, Stale e Failed→Blocked, Completed→Done). O progress_percent é uma tabela por estado: Pending 10; Running 25, 45 ou 60 conforme worktree, tool_calls e files_changed; Idle 85; Stale 55; Failed 65; Completed 100. O conflict_signal vem de igualdade de texto: mesmo branch, mesmo texto de tarefa em minúsculas ou mesmo «escopo» extraído pelos prefixos project:/feature:/issue: do texto da tarefa. Além disso, get_session(id) carrega TODAS as sessões e casa por prefixo, devolvendo a mais recente: `stop` ou `delete` com prefixo ambíguo atingem a sessão errada sem aviso. 143 testes de TUI no dashboard.rs.",
+        "evidencia": "ecc2/src/session/store.rs:2481-2568,2570-2575,4547-4563,4686-4704,4820-4898; contagem por regex de testes em ecc2/src/tui/dashboard.rs: 143"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Sem painel de sessões vivas: `touring status -j` traz `.sessions` com 20 registros, 17 sem objetivo, nenhum atualizado depois de 01/09 além dos fixtures wave24-*. No lugar de «progresso» o Touring tem veredito por código: loop_converged.py com 8 cláusulas (judge_intact … cross_audit).",
+        "evidencia": "touring status -j → sessions (18/10 02:53); ~/.claude/skills/loop-engineering/scripts/loop_converged.py:10-17"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": "G2:4",
+      "nota": "O veredito vale para o INDICADOR, não para o painel (o painel segue ausente no Touring: G2:1 e G2:4 continuam válidas para lanes por estado). O painel de texto `ops` deve usar só fatos (estado, pid vivo, idade do heartbeat, hw-slot, cota), nunca percentual por tabela: 60% para «qualquer Running com arquivo alterado» é o oposto da Lei L3. O prefixo ambíguo do get_session é defeito a evitar em qualquer CLI de sessões: id curto exige unicidade."
+    },
+    {
+      "dominio": "observabilidade",
+      "funcionalidade": "Detecção de sessão travada pelo heartbeat do runner",
+      "ecc": {
+        "como": "O heartbeat é gravado por um ticker do PRÓPRIO runner enquanto `child.wait()` espera o agente; enforce_session_heartbeats marca Stale só quando last_heartbeat_at passa de session_timeout_secs (3.600). Um agente travado com o runner vivo continua com heartbeat fresco: Stale detecta a morte do runner, não o travamento do agente. O detector de travamento de verdade é o script JS fora de banda (loop-status.js, linha D6).",
+        "evidencia": "ecc2/src/session/runtime.rs:177-187,204-216; ecc2/src/session/manager.rs:787-831; ecc2/src/config/mod.rs:294"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "`sessoes_irmas.py --text` lista backend, modelo, estado e pid (2 sessões em 18/10), sem idade de atividade; ~/.claude/tools tem sessoes_irmas.py e utilitários de CPU/disco, nenhum detector de tool_use sem tool_result.",
+        "evidencia": "python3 -I ~/.claude/tools/sessoes_irmas.py --text; ls ~/.claude/tools; grep 'tool_result|ScheduleWakeup' em ~/.claude/tools e client/hooks: 1 acerto, em teste"
+      },
+      "veredito": "ecc_melhor",
+      "acao": "adaptar",
+      "aprofunda": "D6",
+      "nota": "Reforça D6: o heartbeat dentro do orquestrador não substitui o detector por transcript (tool_use sem tool_result, wakeup vencido). O ECC mesmo precisou do script separado. Para o Touring, o detector é um subcomando de sessoes_irmas.py com limiar por classe de comando (hw-slot e rebuild são longos de propósito)."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Delegação por inbox tipado, com prioridade e backpressure",
+      "ecc": {
+        "como": "Mensagens em SQLite (messages, read 0/1) com envelope MessageType {TaskHandoff{task, context, priority}, Query, Response, Completed, Conflict}. drain_inbox roteia handoffs por prioridade para um delegado ocioso, cria um, ou adia por saturação, e só DEPOIS marca a mensagem como lida. O daemon mantém estado de pressão (chronic_saturation_streak, cooloff com deferred ≥ 2 ou streak ≥ 3, escalonamento ao operador com streak ≥ 5 e rebalance 0) e alterna dispatch, rebalance e recovery. Não há reivindicação atômica: as únicas 4 transações do store são do harness-eval; sem BEGIN IMMEDIATE, flock ou pidfile; build_session_record confere o teto de worktrees por contagem e cria depois.",
+        "evidencia": "ecc2/src/comms/mod.rs:29-50; ecc2/src/session/manager.rs:903-948,2664-2667; ecc2/src/session/daemon.rs:186-246; ecc2/src/session/store.rs:124-206,960,5450,5477,5551"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "decompose claim faz UPDATE condicional (status='pending' OU lease vencida) com dono obrigatório, lease, renew e release só pelo dono. Hoje o Touring não tem backpressure equivalente para ADW e sessões irmãs: o mais próximo é o exit 75 «sem vaga» do hw-slot.",
+        "evidencia": "crates/touring-cli/src/cli/handlers/decompose/wayfinder.rs:135-153 (ADR docs/adr/0005-decompose-atomic-subtask-claim.md); touring index find cli_decompose_claim = found (wayfinder.rs:72, 38 referências); touring decompose --help (claim, renew, release); scripts/hw-slot:39,60,379"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G2:11",
+      "nota": "Confirma G2:11 com a prova de que o ECC não tem claim atômico. Uma ideia sobrevive: backpressure explícito (saturação crônica → cooloff → escalonar ao humano) para fan-out de ADW e sessões irmãs. Medir antes de construir: não há dado de saturação de ADW; sem ele, é solução à procura de problema."
+    },
+    {
+      "dominio": "orquestracao",
+      "funcionalidade": "Exclusão mútua entre processos que escrevem no mesmo estado",
+      "ecc": {
+        "como": "ecc2: daemon, runners, TUI e CLI abrem o mesmo SQLite com busy_timeout de 5 s e nenhum pragma de journal (rollback journal padrão); o daemon não escreve pidfile nem toma flock; cada linha de saída são 3 comandos autocommit (INSERT, DELETE do excedente, UPDATE do heartbeat). O store JS do mesmo produto usa um lockfile O_EXCL com {pid, hostname} que nunca é lido para expirar: «Locks are not expired or stolen»; após crash o lock exige remoção manual.",
+        "evidencia": "ecc2/src/session/store.rs:209-216,3960-3996; ecc2/src/session/daemon.rs:20-55; scripts/lib/state-store/file-lock.js:79-125"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "hw-slot usa fcntl.flock LOCK_EX|LOCK_NB, liberado pelo kernel na morte do processo (`--status` mostra rust-1, heavy-1, heavy-2 livres); o daemon é singleton por socket e PID file.",
+        "evidencia": "scripts/hw-slot:198,227; scripts/hw-slot --status (18/10 02:56); touring daemon-ctl status → socket /tmp/touring-daemon-1000.sock, PID 731793"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Lock por existência de arquivo sem prova de vida é o modo de falha que o flock evita. Regra para qualquer lock novo no Touring: flock/fcntl, nunca O_EXCL com limpeza manual."
+    },
+    {
+      "dominio": "seguranca",
+      "funcionalidade": "Pontuação de risco por chamada de ferramenta",
+      "ecc": {
+        "como": "compute_risk soma um peso por ferramenta (bash 0,20; write 0,15; edit 0,10), pesos por substrings em minúsculas do input_summary (segredos como «auth», «token», «.key» = +0,25; infra como Cargo.toml e Dockerfile = +0,15; estado compartilhado como push --force e rm -rf = +0,35; há ainda termos de escopo amplo e de irreversibilidade) e vira Allow, Review, RequireConfirmation ou Block por limiares 0,35, 0,60 e 0,85. `SuggestedAction` não tem NENHUM consumidor fora do próprio arquivo e dos testes: «Block» é um rótulo. O score é calculado na ingestão, depois da execução, e só é gravado e exportado em OTel. 5 testes.",
+        "evidencia": "ecc2/src/observability/mod.rs:60-133; ecc2/src/config/mod.rs:326-330; ecc2/src/session/store.rs:2074-2079; ecc2/src/main.rs:8380; grep 'SuggestedAction|compute_risk' em ecc2/src: só observability/mod.rs e store.rs:2074"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "CEG pré-execução: `touring exec conflict-check …` passou pelo gateway e devolveu `verdict: Allow, composite: 0.93, profile: Trusted`; run_gateway decide antes de rodar. block_git.sh nega o comando antes de ele existir.",
+        "evidencia": "touring exec conflict-check src/a.rs:A src/b.rs:B src/a.rs:C (18/10); touring index find run_gateway = found (crates/touring-ceg/src/gateway/pre_exec.rs:208, 34 referências)"
+      },
+      "veredito": "touring_melhor",
+      "acao": "ignorar",
+      "aprofunda": "G2:9",
+      "nota": "Confirma G2:9 e acrescenta a prova de que o «Block» do ECC não bloqueia nada. Única lição: substring em resumo truncado dá falso positivo («author» casa «auth»); o CEG classifica o programa inteiro, não o resumo."
+    },
+    {
+      "dominio": "instalacao",
+      "funcionalidade": "Campo `cost` por módulo de instalação (light, medium, heavy)",
+      "ecc": {
+        "como": "46 módulos: cost light 14, medium 17, heavy 15; stability stable 33, beta 12, experimental 1; defaultInstall true em 7; 27 com dependências; 16 targets, com `claude` e `claude-project` em 45 dos 46 módulos cada e gemini em 5. O campo é rótulo manual: o esquema só confere o enum e validate-install-manifests.js não cita `cost`. Medi os bytes reais dos paths: light vai de 2,9 KB a 911 KB (agents-core) e inclui platform-configs (530 KB) e rules-core (288 KB); heavy inclui docs-vi-vn (7 KB) e docs-pl (11 KB). 11 dos 14 light excedem o menor heavy. Também 13 módulos docs-* não estão em nenhum perfil (o perfil full lista 33 dos 46).",
+        "evidencia": "manifests/install-modules.json; manifests/install-profiles.json; schemas/install-modules.schema.json:89-93; grep 'cost' em scripts/ci/validate-install-manifests.js = 0; medição por script sobre os paths de cada módulo (bytes via os.walk)"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "`touring component list --project .` lista 10 componentes (3 core e 7 optional, dos quais 5 são .old ou .bak), sem campo de custo.",
+        "evidencia": "touring component list --project . (18/10 02:57)"
+      },
+      "veredito": "equivalente",
+      "acao": "adaptar",
+      "aprofunda": "G3:2",
+      "nota": "Corrige G3:2: adotar o campo `cost` seria adotar ruído. Se o Touring publicar perfis, o custo tem de ser MEDIDO (bytes/4, declarado como estimativa, como o ledger de context-profiles lido em C5) e o validador deve reprovar rótulo que contradiz a medida. O modo «inspecionar sem mutar» de G3:2 continua válido."
+    },
+    {
+      "dominio": "cat-skills",
+      "funcionalidade": "Registro de gatilhos de skill fora do frontmatter, preso ao registro por digest",
+      "ecc": {
+        "como": "manifests/context-packs/skill-triggers@1.json cobre 33 de 311 skills (coverage.withTriggers = 33, 10,6%), com `model.id: hand-seeded`, registryDigest e triggersDigest. O CI reprova a edição do manifesto sem atualizar o digest e grava `nativeCertification: 'unobserved'`: o próprio ECC admite que não sabe se o harness ativa skills por esses gatilhos.",
+        "evidencia": "manifests/context-packs/skill-triggers@1.json (coverage, model); scripts/ci/validate-context-profiles.js:14-18,35"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "A ativação no Claude Code depende da description (a lista injetada traz nome e descrição). A memória triggers-inertes-no-frontmatter registra que o «75%» original era artefato do detector e que os inertes reais eram 6, removidos em 20/08. Há skill_picker_hook.py com teste.",
+        "evidencia": "memória triggers-inertes-no-frontmatter.md (lida em 18/10); ls client/hooks/skill_picker_hook.py e client/hooks/tests/test_skill_picker_hook.py"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "O ganho do ECC é só o digest (edição silenciosa vira erro de CI), e só vale quando a lista é consumida por algo que o próprio projeto controla. Com 10,6% de cobertura feita à mão e ativação «unobserved», é declaração sem resultado; medido vence declarado."
+    },
+    {
+      "dominio": "verificacao-qualidade",
+      "funcionalidade": "O que o CI executa do runtime Rust e das integrações",
+      "ecc": {
+        "como": "Os 13 workflows não têm nenhum passo cargo: o grep por «cargo» em .github/workflows só devolve linhas de pytest e a palavra «trusted»; a única menção a ecc2 é o dependabot (ecossistema cargo, /ecc2). Os 495 testes do ecc2 (54,7 mil linhas, 9,1 por mil linhas, 49 ocorrências de init_git_repo( em testes com git real) e os 19 de integrations/aura/tests ficam fora: o pytest do CI usa `tests/test_*.py`. O CI roda ruff, mypy e pytest para src/llm. scripts/observability-readiness.js declara prontidão por presença de substring nos fontes do ecc2.",
+        "evidencia": ".github/workflows/ci.yml:335-348; .github/dependabot.yml:86-87; grep 'cargo' em .github/workflows/*.yml (só pytest e «trusted»); scripts/observability-readiness.js:103,122-124; contagem por regex de #[test] e #[tokio::test] em ecc2/src: 495"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "ci.yml roda `cargo check --workspace --tests`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace --doc`, com cobertura e nextest mencionados em :131 e :514; 17.659 testes em 1.824 arquivos .rs (22,9 por mil linhas), contra 495 no ecc2.",
+        "evidencia": ".github/workflows/ci.yml:45,53,91,514 do Touring; contagem por regex em crates/ (mesmo regex usado no ecc2): 17.659 testes, 769.612 linhas"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Os defeitos que achei no ecc2 (soma de snapshot cumulativo, prune sem guarda, incidente que não fecha, elo de id) são do tipo que `cargo test` no CI mais um teste com a saída real do produtor pegaria. Suíte fora do CI é documentação, não gate. A densidade de testes não mede qualidade: o manager.rs tem 4.000 linhas de teste e nenhuma cobre dirty ou unmerged no prune."
+    },
+    {
+      "dominio": "governanca-repo",
+      "funcionalidade": "Integração comercial patrocinada (Itô) dentro do produto e do critério de auditoria",
+      "ecc": {
+        "como": "Três skills ito-* (módulo ito-compute, beta, presente só no perfil full), scripts/ito.js com `ecc ito find`, que «submits a live authenticated RFQ» a um marketplace de GPU, um aviso de patrocinador impresso pelo seletor de provedor quando o provedor é ollama, e a auditoria de plataforma exige a URL do roadmap do patrocinador (linear.app/itomarkets…, ITO-44, ITO-59) para passar.",
+        "evidencia": "manifests/install-modules.json (id ito-compute); src/llm/cli/selector.py:34-49; scripts/lib/compute-sponsor.js:3-12; scripts/ito.js:34,50; scripts/platform-audit.js:454"
+      },
+      "touring": {
+        "estado": "ausente",
+        "como": "Sem integração patrocinada: o grep por sponsor|affiliate|referral em client, scripts e crates só acha texto de plano de mercado arquivado.",
+        "evidencia": "grep 'sponsor|affiliate|referral' em client scripts crates: 2 acertos, ambos em scripts/_archive/generate_w0_premium_artifacts.py:730,753"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "Padrão a evitar: critério de aprovação do repositório que depende de artefato de terceiro comercial, e texto de patrocínio na saída de CLI. É governança, não técnica, mas explica por que parte do catálogo (3 skills, 1 script, 1 lib) não tem relação com o objetivo do produto."
+    },
+    {
+      "dominio": "roteamento",
+      "funcionalidade": "Camada de provedores LLM em Python (src/llm)",
+      "ecc": {
+        "como": "Abstração LLMProvider (generate, list_models, validate_config) com 6 módulos de provedor (claude, openai, openai_compat, ollama, astraflow, atlas), ToolRegistry, ToolExecutor e ReActAgent de 10 iterações; resolução de provedor por env antes do valor salvo. Duas decisões de desenho: falha de ferramenta devolve ao modelo só «Error executing X: tool failed» e o detalhe vai ao log; e o catálogo de modelos é fixo no código (default claude-sonnet-4-6; lista opus-4-8, sonnet-4-6, haiku-4-5), enquanto cost-tracker.js do mesmo repositório já tem tarifas de Opus 5.5, Sonnet 5.5 e Haiku 5.5. Sem roteamento por tarefa nem custo.",
+        "evidencia": "src/llm/tools/executor.py:23-34,90-92,123-181; src/llm/providers/resolver.py:94-119; src/llm/providers/claude.py:18,37-60; scripts/hooks/cost-tracker.js:84-96; .github/workflows/ci.yml:335-343 (ruff, mypy, pytest)"
+      },
+      "touring": {
+        "estado": "superior",
+        "como": "O agent_model_gate julga o modelo da CHAMADA por tipo (busca exige haiku; Fable exige consentimento vigente) em vez de manter catálogo no código; a regra 17 do CLAUDE.md manda consultar a doc oficial antes de rotear modelo novo.",
+        "evidencia": "client/hooks/agent_model_gate.py:50-54,63; CLAUDE.md do workspace, regra 17"
+      },
+      "veredito": "touring_melhor",
+      "acao": "anti_licao",
+      "aprofunda": null,
+      "nota": "O catálogo duplicado em dois arquivos do mesmo repositório já divergiu (4.x num, 5.5 no outro). Verificar se a matriz de modelos do Touring tem uma única fonte é tarefa em aberto (não verifiquei). O erro opaco ao modelo protege segredo mas apaga o canal de autocorreção, o oposto da diretriz A5; manter A5 com redação de segredo (A11)."
+    },
+    {
+      "dominio": "multi-harness",
+      "funcionalidade": "Orquestrador que lança outros harnesses (Claude, Codex, OpenCode, Gemini) e projeta no prompt as flags que o runner não tem",
+      "ecc": {
+        "como": "HarnessKind com 10 harnesses e supports_direct_execution só para 4. build_agent_command traduz o perfil para as flags de cada CLI (claude --allowed-tools, --model, --max-budget-usd; codex exec --sandbox workspace-write; opencode run; gemini -p) e, quando o runner não tem a flag, PROJETA a restrição como texto no prompt da tarefa. harness_runners configuráveis por marcador de projeto (.codex, .opencode, …). Testes por harness.",
+        "evidencia": "ecc2/src/session/mod.rs:12-100; ecc2/src/session/manager.rs:3071-3188,3446-3540,4307-4745"
+      },
+      "touring": {
+        "estado": "parcial",
+        "como": "`sessoes_irmas.py --text` lista touring-7b (minimax, MiniMax-M3.1-Flash-Preview, shell) e esta sessão (anthropic); são sessões do MESMO harness (Claude Code) com backend de outro modelo, não outro harness.",
+        "evidencia": "python3 -I ~/.claude/tools/sessoes_irmas.py --text (18/10)"
+      },
+      "veredito": "so_ecc",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "A projeção «instruction-backed» (restrição que o runner não aplica vira texto no prompt) é honesta, mas texto não é enforcement (D8). Só interessa se Gabriel abrir Codex ou Gemini; sem ação agora."
+    },
+    {
+      "dominio": "memoria",
+      "funcionalidade": "Registro de decisões por sessão e grafo de contexto (decision_log, entidades, observações, conectores)",
+      "ecc": {
+        "como": "decision_log(session_id FK CASCADE, decision, alternatives_json, reasoning, timestamp), gravado pelo comando `log-decision` e automaticamente na pausa por conflito; cada insert faz upsert de uma entidade no grafo, com retenção de 12 observações por entidade. Não tem supersedes nem status, enquanto o store JS do mesmo produto tem `decision` com supersedes e status em OUTRO banco (~/.claude/ecc/state.db contra ~/.claude/ecc2.db). Conectores jsonl, markdown e dotenv alimentam o grafo com checkpoint por assinatura da fonte; o dotenv redige por nome de chave e só inclui valor de chave não-secreta com include_safe_values. A escolha de delegado reaproveitado casa termos da tarefa (≥ 3 caracteres) por substring contra 48 entidades do grafo.",
+        "evidencia": "ecc2/src/session/store.rs:80,316-323,2980-3013; ecc2/src/main.rs:2121-2129,3386-3440,3629-3693; ecc2/src/session/manager.rs:1377-1385,2850-2898; schemas/state-store.schema.json ($defs.decision); scripts/lib/control-pane/state.js:10,17"
+      },
+      "touring": {
+        "estado": "existe",
+        "como": "`touring memory link --rel` aceita relates-to, supersedes, extends, exemplifies e generated-by, com id de aresta determinístico; decisões de projeto vão para docs/adr (6 ADRs) e para memórias com facetas; as raízes-companheiras indexam ~/.claude/{rules,skills,memory} por chave estável.",
+        "evidencia": "touring memory link --help (18/10); ls docs/adr | wc -l = 6; crates/touring-cli/.claude/CLAUDE.md (Companion roots)"
+      },
+      "veredito": "equivalente",
+      "acao": "ignorar",
+      "aprofunda": null,
+      "nota": "Dois bancos de decisão com formas diferentes no ECC é a mesma classe de risco da memória «Dois knowledge.db» do Touring; nada a copiar. A redação do dotenv por nome de chave é razoável (default seguro), mas vive só no conector, não no store. O casamento por substring de termos curtos («src», «mod») pode pontuar termos genéricos; é heurística, não recuperação."
+    }
+  ],
+  "achados_touring": [
+    {
+      "defeito": "O daemon global roda um binário apagado: `touring daemon-ctl status` mostra exe `…/target/release/touring-daemon (deleted)` com a nota «rebuild ran without restart» (PID 731793, 18/10 02:56). Relatado, não corrigido: reiniciar é decisão do dono do rebuild (REGRA #19) e há outras sessões e agentes ativos agora.",
+      "evidencia": "touring daemon-ctl status (18/10 02:56)"
+    },
+    {
+      "defeito": "O registro de sessões do `touring status -j` está morto: `.sessions` lista 20 registros, 17 sem objetivo, ids numéricos de 14 a 31 e nenhum atualizado depois de 01/09 além dos fixtures wave24-test e wave24-warmup. Com 6 ou mais sessões concorrentes hoje, nenhuma aparece. É a fonte que o painel de G2:1 precisaria.",
+      "evidencia": "touring status -j → .sessions (18/10 02:53); `.resource_monitor` segue string vazia, como em G2:1"
+    },
+    {
+      "defeito": "`prose_integrity_gate.py --criterion` sem o arquivo de rótulos termina em IndexError (traceback) em vez de mensagem de uso.",
+      "evidencia": "python3 -I ~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py --criterion → IndexError em prose_integrity_gate.py:473 (argv[2])"
+    },
+    {
+      "defeito": "Nenhuma tabela de evidência do Touring é imutável no banco: os 14 CREATE TRIGGER de crates/scripts/client são de sincronia FTS e `RAISE(` tem 0 acertos. Log de experimentos e veredictos de juiz dependem de disciplina de escrita (a lição «juiz gravável pelo julgado» continua sem trava no banco).",
+      "evidencia": "grep 'CREATE TRIGGER|RAISE[(]' em crates scripts client (18/10): 14 e 0"
+    },
+    {
+      "defeito": "Integração de worktrees de agentes sem ferramenta: 20 worktrees hoje, entrega por cópia de arquivos entre worktree, vivo e int97, com duas ocorrências registradas de quebra (10/10 e 17/10).",
+      "evidencia": "git worktree list | wc -l = 20; memórias copiar-worktree-de-agente-vivo.md e entrega-partida-entre-vivo-e-integracao.md"
+    }
+  ],
+  "nota_processo": "Um único deslize de método: um `python3 -` foi executado com cwd dentro do clone do ECC (leitura de schemas/state-store.schema.json). Conferi depois que a raiz do clone não tem json.py, os.py nem sys.py, e a chamada passou pelo sandbox do CEG; nenhum script do clone foi executado. Daí em diante todo código rodou de scripts no scratchpad do H4, via `touring run`."
+}

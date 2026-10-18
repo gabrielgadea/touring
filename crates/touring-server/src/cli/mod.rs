@@ -138,6 +138,7 @@ pub mod tantivy;
 pub mod tasksfile;
 pub mod toolchain;
 pub mod update; // F3 — per-project update propagation (W12.3)
+pub mod vgp; // V1 — motor VGP camada 1: nega API inventada em Python antes da edição (puro, sem daemon)
 pub mod viz;
 pub mod wiring;
 pub mod workflow; // W7 — shell completions + man page (clap_complete / clap_mangen)

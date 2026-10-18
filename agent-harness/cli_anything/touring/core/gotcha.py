@@ -1,7 +1,15 @@
 """Gotcha database operations — Tier 1 (SQLite direct, <10ms)."""
 from __future__ import annotations
 
+import sqlite3
+
 from .db import KNOWLEDGE_DB, connect
+
+#: No writer increments gotchas.prevented_errors (the Rust FileKnowledgeDB::PREVENTED_MEASURED is false, 17/10/2026):
+#: hit_count counts warnings shown and nothing records an error that did not happen.  The column's default 0 is not a
+#: count, so the harness serves null plus this reason.
+PREVENTED_MEASURED = False
+PREVENTED_NOTE = "não medido: nenhum produtor grava prevented_errors (hit_count conta avisos exibidos)"
 
 
 def add(pattern: str, gotcha_text: str, severity: str = "warning", symbol_name: str | None = None) -> dict:
@@ -37,8 +45,12 @@ def list_all(limit: int = 50) -> list[dict]:
                 "FROM gotchas ORDER BY hit_count DESC, severity DESC LIMIT ?",
                 (limit,),
             ).fetchall()
-            return [dict(r) for r in rows]
-        except Exception:
+            out = [dict(r) for r in rows]
+            if not PREVENTED_MEASURED:
+                for r in out:
+                    r["prevented_errors"] = None
+            return out
+        except sqlite3.Error:  # no gotchas table yet: an empty answer, not a crash
             return []
 
 
@@ -53,7 +65,7 @@ def match_file(file_path: str) -> list[dict]:
                 (file_path,),
             ).fetchall()
             return [dict(r) for r in rows]
-        except Exception:
+        except sqlite3.Error:  # no gotchas table yet: an empty answer, not a crash
             return []
 
 
@@ -63,7 +75,8 @@ def stats() -> dict:
         try:
             total = conn.execute("SELECT COUNT(*) FROM gotchas").fetchone()[0]
             total_hits = conn.execute("SELECT COALESCE(SUM(hit_count), 0) FROM gotchas").fetchone()[0]
-            total_prevented = conn.execute("SELECT COALESCE(SUM(prevented_errors), 0) FROM gotchas").fetchone()[0]
+            total_prevented = (conn.execute("SELECT COALESCE(SUM(prevented_errors), 0) FROM gotchas").fetchone()[0]
+                               if PREVENTED_MEASURED else None)
             by_severity: dict[str, int] = {}
             for row in conn.execute("SELECT severity, COUNT(*) FROM gotchas GROUP BY severity").fetchall():
                 by_severity[row[0]] = row[1]
@@ -71,7 +84,10 @@ def stats() -> dict:
                 "total": total,
                 "total_hits": total_hits,
                 "total_prevented": total_prevented,
+                "prevented_measured": PREVENTED_MEASURED,
+                "prevented_note": None if PREVENTED_MEASURED else PREVENTED_NOTE,
                 "by_severity": by_severity,
             }
-        except Exception:
-            return {"total": 0, "total_hits": 0, "total_prevented": 0, "by_severity": {}}
+        except sqlite3.Error:  # no gotchas table yet: an empty answer, not a crash
+            return {"total": 0, "total_hits": 0, "total_prevented": None, "prevented_measured": PREVENTED_MEASURED,
+                    "prevented_note": None if PREVENTED_MEASURED else PREVENTED_NOTE, "by_severity": {}}

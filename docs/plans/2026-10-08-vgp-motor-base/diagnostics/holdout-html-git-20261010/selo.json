@@ -1,0 +1,29 @@
+{
+ "estrato": "holdout_html_git",
+ "corte": "2026-10-10T00:00:00Z",
+ "regra_c": "classe so e medida com n>=20 E denominador independente do gerador",
+ "n_entradas": 248,
+ "por_rotulo": {
+  "negativo": 236,
+  "positivo": 12
+ },
+ "por_classe": {
+  "cdn_pin": 12
+ },
+ "repos": [
+  "date-fns",
+  "dom-examples",
+  "excalidraw",
+  "express",
+  "html5-boilerplate",
+  "lodash",
+  "zod"
+ ],
+ "entradas_jsonl_sha256": "7f6bb4192f2feaa2cdf3ae4fef69d483f1723c4b04c9c6f2dd3c4cec11fa30a6",
+ "orcamento": "oraculo por instancia no git: INSTANTE=C, BASE=C^, `git ls-tree -r C`",
+ "cdn_pin": "classe de FORMA: URL de CDN (host na lista) com versao ausente, `latest` ou nao exata X.Y.Z. O criterio e scripts/cdn_pin.py, com 21 casos em test_cdn_pin.py.",
+ "disjuncao": "medido: 0 paths do corpus_semeado/html dentro do oss/, 0 colisao de sha256 contra os blobs do HEAD; exclusao de 0 entradas",
+ "sha_tree": "b6966be51d13e5ee",
+ "arquivos": 249,
+ "bytes": 1834680
+}

@@ -1,0 +1,57 @@
+M  CLAUDE.md
+M  Cargo.lock
+M  Cargo.toml
+M  client/MANIFEST.sha256
+M  client/skills/Touring/SKILL.md
+ M crates/touring-analysis/tests/security_analyzer_test.rs
+ M crates/touring-ceg/src/gateway/mod.rs
+ M crates/touring-ceg/src/gateway/sandbox_executor.rs
+M  crates/touring-cli/src/cli/handlers/index.rs
+MM crates/touring-cli/src/cli_suggester.rs
+M  crates/touring-code/src/lib.rs
+M  crates/touring-hook-handlers/Cargo.toml
+MM crates/touring-hook-handlers/src/hooks/pre_bash.rs
+MM crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs
+MM crates/touring-hook-handlers/src/hooks/pre_write.rs
+ M crates/touring-hook-handlers/src/hooks/pre_write_tests.rs
+M  crates/touring-hook-handlers/src/lib.rs
+ M crates/touring-hook-runtime/src/hook_runtime_ext.rs
+ M crates/touring-hook-runtime/src/lib.rs
+M  crates/touring-hooks/Cargo.toml
+M  crates/touring-hooks/src/daemon_main.rs
+ M crates/touring-hooks/src/main.rs
+M  crates/touring-hooks/tests/cli_suggester_e2e.rs
+M  crates/touring-lsp/Cargo.toml
+M  crates/touring-lsp/src/lib.rs
+ M crates/touring-offensive/src/vuln/cwe_patterns.rs
+ M crates/touring-quality/src/verifications/f2_1_owasp.rs
+M  crates/touring-server/Cargo.toml
+M  crates/touring-server/src/cli/command_table.rs
+M  crates/touring-server/src/cli/mod.rs
+ M crates/touring-server/src/cli/run.rs
+M  docs/kpi/2026-10/2026-10-09--home-gabrielgadea-Work.json
+M  docs/kpi/2026-10/2026-10-09--home-gabrielgadea-projects-analise.json
+M  docs/kpi/2026-10/2026-10-09--home-gabrielgadea-projects-touring.json
+M  docs/kpi/2026-10/2026-10-09--home-gabrielgadea.json
+M  docs/plans/2026-10-08-drift-reconciliacao/ledger.jsonl
+M  docs/plans/2026-10-08-vgp-motor-base/RETOMAR-AQUI-2026-10-09.md
+M  docs/plans/2026-10-08-vgp-motor-base/proposta.md
+M  docs/plans/2026-10-08-vgp-motor-base/scripts/corpus_v0d.py
+M  docs/plans/2026-10-08-vgp-motor-base/scripts/test_corpus_v0d.py
+M  docs/plans/2026-10-08-vgp-motor-base/scripts/v0e_negacoes.py
+M  docs/reference/modules.md
+M  scripts/propagate-release.sh
+M  scripts/test_drift_coverage.py
+?? crates/touring-ceg/src/gateway/run_admission.rs
+?? crates/touring-cli/src/cli_suggester/g10_route.rs
+?? crates/touring-cli/src/cli_suggester/gates97_tests.rs
+?? crates/touring-code/src/vgp/
+?? crates/touring-hook-handlers/src/hooks/vgp_l2.rs
+?? crates/touring-hook-runtime/src/verdict.rs
+?? crates/touring-hooks/tests/hook_root_payload_cwd_e2e.rs
+?? crates/touring-hooks/tests/vgp_ativo_ordem_e2e.rs
+?? crates/touring-pyright/
+?? crates/touring-server/src/cli/vgp.rs
+?? crates/touring-server/tests/g10_trusted_route_e2e.rs
+?? docs/vgp-motor.md
+?? scripts/test_propagate_release.py

@@ -1,0 +1,6 @@
+5c7b3d80663ffcab675b8ffc7d349d9d1696f3e15b1668136d5aa741fa3a665b  /home/gabrielgadea/.claude/touring/vgp/binarios/5c7b3d80/touring
+8fd0efb0e62e64a882380d109e922ea4635daca7ff24321b1232b9382d4c96d7  /home/gabrielgadea/.claude/touring/vgp/binarios/8fd0efb0/touring
+6c8a31b02075da1ea5e617669c40ad6b2effc4a255dbe6f3b40fc26ac6acf61f  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py
+e2b0d948d11d263212b53abe7cb8193784e584598c93e4b1e81a131db7298366  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/rodar_juiz_instrumentado.py
+2d5615fd0f9e4be6bc2fb4ed091ac01f492f24f95e3c551231c96a36a2b60e7a  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/montar_ctl_generico.py
+554adfbe564d979ee964c7f453b596367dbad4f8a92a84c9c5eeb0aea2d10552  /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py

@@ -6,7 +6,8 @@
 #   • ABSOLUTE mode for new files (Write on non-existent path): current behavior.
 #   • Pragma: "# pragma: allowlist secret" on same line suppresses F2.4 for that finding.
 #   • Cache key: SHA256 of content hash, not mktemp path (fixes: cache never hit).
-#   • TOURING_QUALITY_LOCK_WAIT_SECS env: lock wait cap < timeout (30s max).
+#   • Lock budget: TOURING_BLOCK_ALL_LOCK_WAIT_SECS (else TOURING_QUALITY_LOCK_WAIT_SECS, else 20),
+#     capped at 25s (< the 30s hook timeout) and handed to the scorer's lock wrapper.
 #
 # Fail-OPEN: any failure path logs WARN and exits 0 (never blocks session).
 # BLOCK mechanism: print JSON {"hookSpecificOutput":{"permissionDecision":"deny",...}} + exit 0.
@@ -89,9 +90,17 @@ fi
 
 if [ -z "$SCORE_JSON" ]; then
     # Write proposed content to a named temp file for scoring.
-    LOCK_WAIT="${TOURING_QUALITY_LOCK_WAIT_SECS:-20}"
+    LOCK_WAIT="${TOURING_BLOCK_ALL_LOCK_WAIT_SECS:-${TOURING_QUALITY_LOCK_WAIT_SECS:-20}}"
+    case "$LOCK_WAIT" in ''|*[!0-9]*) LOCK_WAIT=20 ;; esac
     # Cap lock wait at 25s (< timeout of 30s).
     [ "$LOCK_WAIT" -gt 25 ] && LOCK_WAIT=25
+    # The budget reaches the scorer through the wrapper's own variable: the PATH `touring-quality`
+    # is the singleton-lock wrapper (scripts/touring-quality-score), whose default wait is 900s, a
+    # patience meant for the judge. Until 17/10/2026 this value was computed and never passed, so a
+    # directory score holding the lock (165-184s for ~/projects/analise) parked every Write/Edit
+    # here until the 30s hook timeout. The hook's knob has its own name for the same reason: one
+    # name for two quantities (hook budget < 30s, judge patience 900s) hid the bug from its test.
+    export TOURING_QUALITY_LOCK_WAIT_SECS="$LOCK_WAIT"
 
     # S46b: score the candidate at a path that MIRRORS the original — the classification
     # (a tests/ file, a scripts/ program, the extension) depends on the path, and the delta
@@ -101,17 +110,24 @@ if [ -z "$SCORE_JSON" ]; then
     mkdir -p "$(dirname "$TMPFILE")"
     printf '%s' "$NEW_CONTENT" > "$TMPFILE"
 
+    TQ_RC=0
     if [ -n "$NEW_CONTENT" ]; then
-        SCORE_JSON=$("$TQ_BIN" score "$TMPFILE" --format json 2>/dev/null || true)
+        SCORE_JSON=$("$TQ_BIN" score "$TMPFILE" --format json 2>/dev/null) || TQ_RC=$?
     elif [ -f "$FILE_PATH" ]; then
-        SCORE_JSON=$("$TQ_BIN" score "$FILE_PATH" --format json 2>/dev/null || true)
+        SCORE_JSON=$("$TQ_BIN" score "$FILE_PATH" --format json 2>/dev/null) || TQ_RC=$?
     fi
     rm -f "$TMPFILE"
     # empty mirror directories only (non-recursive: stops at the first non-empty parent)
     rmdir -p --ignore-fail-on-non-empty "$(dirname "$TMPFILE")" 2>/dev/null || true
 
     if [ -z "$SCORE_JSON" ]; then
-        log "WARN fail-open: empty score JSON for $FILE_PATH"; exit 0
+        # 75 is the wrapper's "busy": another score held the lock past LOCK_WAIT, nothing measured.
+        if [ "$TQ_RC" -eq 75 ]; then
+            log "WARN fail-open: quality lock busy for more than ${LOCK_WAIT}s, $FILE_PATH not scored"
+        else
+            log "WARN fail-open: empty score JSON for $FILE_PATH (rc=$TQ_RC)"
+        fi
+        exit 0
     fi
     printf '%s' "$SCORE_JSON" > "$CACHE_FILE"
 fi

@@ -1,0 +1,241 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (arquivo) 0.324 < 0.7 (12/37)",
+  "p95 152.9 ms > 150.0 ms"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 0,
+   "n": 307,
+   "taxa": 0.0,
+   "limite_superior_95": 0.00971062994864813,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.32432432432432434,
+  "inline": 0.0
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   37
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   0,
+   37
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   0
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 307,
+  "inline": 0
+ },
+ "avisos_em_negativos": 20,
+ "defeito_de_corpus": [],
+ "p95_ms": 152.88857000000002,
+ "chamadas": 344,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "500cda2f6836",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "Capability",
+   "verdict": "unknown"
+  },
+  {
+   "id": "a26c5f06ffef",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "retirement",
+   "verdict": "allow"
+  },
+  {
+   "id": "75709ed1e368",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "retirement",
+   "verdict": "allow"
+  },
+  {
+   "id": "72d01144b53e",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "refresh_parent_status",
+   "verdict": "unknown"
+  },
+  {
+   "id": "54839a2c04bb",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "cli_decompose_finalize",
+   "verdict": "unknown"
+  },
+  {
+   "id": "6e79fd7a1a9c",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "cli_decompose_ready",
+   "verdict": "unknown"
+  },
+  {
+   "id": "ee02a5b247c4",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "refresh_parent_status",
+   "verdict": "allow"
+  },
+  {
+   "id": "78efc1183d3a",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "default_commitments_path",
+   "verdict": "allow"
+  },
+  {
+   "id": "fcd3c4e64945",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "load_commitments",
+   "verdict": "allow"
+  },
+  {
+   "id": "f837803e6411",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "today_iso",
+   "verdict": "allow"
+  },
+  {
+   "id": "143891eb1b1b",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "code_mode_adherence",
+   "verdict": "allow"
+  },
+  {
+   "id": "4d46547b4659",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "code_mode_signal_use",
+   "verdict": "allow"
+  },
+  {
+   "id": "16398209bb21",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "is_automated_payload",
+   "verdict": "allow"
+  },
+  {
+   "id": "6c6a484e7a77",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "is_automated_payload",
+   "verdict": "allow"
+  },
+  {
+   "id": "89cf17e67da6",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "is_automated_payload",
+   "verdict": "allow"
+  },
+  {
+   "id": "6072f2975dca",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "Self",
+   "verdict": "allow"
+  },
+  {
+   "id": "378ac0f7a5cf",
+   "origem": "atribuido",
+   "classe": "atributo",
+   "esperado": "with",
+   "verdict": "unknown"
+  },
+  {
+   "id": "e89397b12181",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "compose_details",
+   "verdict": "allow"
+  },
+  {
+   "id": "53a9e211e5b8",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "compose_details",
+   "verdict": "allow"
+  },
+  {
+   "id": "a3a8e6e2370c",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "gates_limpo",
+   "verdict": "warn"
+  },
+  {
+   "id": "63107c51d5ed",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "gates_limpo",
+   "verdict": "warn"
+  },
+  {
+   "id": "670ac2ee6654",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "serial_test",
+   "verdict": "warn"
+  },
+  {
+   "id": "cf87e1831c66",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "gates_limpo",
+   "verdict": "warn"
+  },
+  {
+   "id": "455b05e16490",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "gates_limpo",
+   "verdict": "warn"
+  },
+  {
+   "id": "c1cf0f44877a",
+   "origem": "atribuido",
+   "classe": "import",
+   "esperado": "pending_for",
+   "verdict": "warn"
+  }
+ ]
+}

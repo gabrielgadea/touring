@@ -1,11 +1,12 @@
 """conftest.py — pytest fixtures for client/hooks tests."""
 from __future__ import annotations
+
 import sys
 from pathlib import Path
 
-# Add the tests directory to sys.path so helpers.py is importable.
+# Add the tests directory to sys.path so helpers.py is importable. A bare insert, not one under an `if`:
+# the linter exempts an import that follows it (E402), so no suppression is needed for the order.
 _TESTS_DIR = Path(__file__).resolve().parent
-if str(_TESTS_DIR) not in sys.path:
-    sys.path.insert(0, str(_TESTS_DIR))
+sys.path.insert(0, str(_TESTS_DIR))
 
-from helpers import *  # noqa: E402, F401, F403  re-export for pytest collection (after the sys.path insert)
+from helpers import *  # re-export for pytest collection

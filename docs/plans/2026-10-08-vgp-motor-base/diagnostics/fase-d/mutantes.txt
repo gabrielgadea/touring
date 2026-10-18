@@ -1,0 +1,49 @@
+CONTROLE (sem mutacao): rc=0 76 passed in 26.75s
+  A01 killed   A/A instr: faixa frouxa [0,90; 1,10]  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A02 killed   A/A instr: faixa apertada [0,999; 1,001]  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A03 killed   A/A cpu: faixa frouxa [0,80; 1,20]  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A04 killed   A/A cpu: faixa apertada [0,99; 1,01]  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A05 killed   A/B: teto 1,30 em vez de 1,10  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A06 killed   A/B: teto 1,02 em vez de 1,10  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A07 killed   absoluto: 1500 ms em vez de 150  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A08 killed   absoluto: 15 ms em vez de 150  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A09 killed   semente 20261017 (a do C') em vez de 20261018  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A10 killed   bootstrap com 200 reamostras em vez de 2000  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A11 killed   ausencia tolerada ate 50% em vez de 1%  test_analisa_pareado_d.py::test_constantes_pre_registradas
+  A12 killed   regua re-escolhida depois do A/B (a que passa melhor)  test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]
+  A13 killed   regua invertida no A/B  test_analisa_pareado_d.py::test_ab_na_regua_das_instrucoes[1.15-esperado3]
+  A14 killed   A/B sempre nas instrucoes  test_analisa_pareado_d.py::test_ab_na_regua_da_cpu[1.15-esperado2]
+  A15 killed   A/A prefere a CPU quando as duas valem  test_analisa_pareado_d.py::test_aa_com_instrucoes_estaveis_escolhe_instrucoes
+  A16 killed   A/A confere so o limite superior da faixa  test_analisa_pareado_d.py::test_aa_com_instrucoes_3pct_mais_baixas_tambem_cai_para_a_cpu
+  A17 killed   A/B nao olha o R_p95  test_analisa_pareado_d.py::test_uma_cauda_mais_lenta_so_nas_instrucoes_e_pega_pelo_r_p95
+  A18 killed   A/B nao olha o R_tipico  test_analisa_pareado_d.py::test_o_r_tipico_sozinho_tambem_reprova
+  A19 killed   ausencia vira zero  test_analisa_pareado_d.py::test_contador_indisponivel_e_inconclusivo[aa-kw0]
+  A20 killed   campo ausente nao conta como chamadas esperadas  test_analisa_pareado_d.py::test_cli_fase_c_reproduz_o_comportamento_antigo
+  A21 killed   limite de ausencia em chamadas removido  test_analisa_pareado_d.py::test_ausencia_acima_de_1pct_das_chamadas_e_inconclusiva
+  A22 killed   regra do C' (parede por id) removida  test_analisa_pareado_d.py::test_parede_ausente_acima_de_1pct_dos_ids_e_inconclusiva_como_no_c_linha
+  A23 killed   id sem outra medida continua nas reguas  test_analisa_pareado_d.py::test_id_sem_parede_sai_de_todas_as_reguas_mesmo_abaixo_de_1pct
+  A24 killed   absoluto vira portao tambem no V3  test_analisa_pareado_d.py::test_absoluto_v3_e_so_relatado
+  A25 killed   absoluto nunca e portao  test_analisa_pareado_d.py::test_absoluto_v2_acima_de_150ms_reprova_mesmo_sem_regressao_relativa
+  A26 killed   absoluto pelo p95 das medianas por id, nao das chamadas  test_analisa_pareado_d.py::test_o_absoluto_e_o_p95_das_chamadas_de_b_nao_das_medianas
+  A27 killed   juiz sempre v2  test_analisa_pareado_d.py::test_cli_deduz_o_juiz_v3_dos_args_do_pareado
+  A28 killed   A/B le o A/B mesmo com A/A inadequado  test_analisa_pareado_d.py::test_cli_aa_inadequado_nao_le_o_ab
+  A29 killed   referencia do A/B pode diferir da do A/A  test_analisa_pareado_d.py::test_cli_ab_com_referencia_diferente_da_do_aa_e_erro_de_uso
+  A30 killed   A/B sem veredito do A/A e aceito  test_analisa_pareado_d.py::test_cli_ab_sem_aa_e_erro_de_uso
+  L01 killed   soma de PMUs perde uma (so a primeira)  test_conta_custo.py::test_instrucoes_crescem_com_o_trabalho
+  L02 killed   instr_atom some do JSON  test_conta_custo.py::test_a_soma_das_pmus_nao_perde_uma
+  L03 killed   contador indisponivel vira 0 (e nao null)  test_conta_custo.py::test_comando_que_nao_executa_nao_vira_zero
+  L04 killed   descendentes nao contados (sem inherit)  test_conta_custo.py::test_o_neto_e_contado_nas_instrucoes_e_na_cpu
+  L05 killed   conta tambem o python entre o fork e o exec (sem enable_on_exec)  test_conta_custo.py::test_o_que_o_filho_executa_antes_do_exec_nao_conta
+  L06 killed   conta o kernel (sem exclude_kernel)  test_conta_custo.py::test_instrucoes_crescem_com_o_trabalho
+  L07 killed   rc do JSON sempre 0  test_conta_custo.py::test_o_codigo_de_saida_e_o_do_filho
+  L08 killed   codigo de saida do lancador sempre 0  test_conta_custo.py::test_o_codigo_de_saida_e_o_do_filho
+  L09 killed   cpu_ms sem o stime  test_conta_custo.py::test_cpu_ms_e_utime_mais_stime
+  L10 killed   falha de exec ignorada (le o contador que nunca ligou)  test_conta_custo.py::test_comando_que_nao_executa_nao_vira_zero
+  L11 killed   o comando sobrevive ao lancador (sem PDEATHSIG)  test_conta_custo.py::test_matar_o_lancador_mata_o_comando
+  L12 killed   PMU que nao abre e pulada (a soma segue sem ela)  test_conta_custo.py::test_contador_indisponivel_vira_null_com_o_motivo[13]
+  L13 killed   leitura 0 aceita como 0  test_conta_custo.py::test_leitura_zero_depois_de_um_exec_valido_nao_vira_zero
+  P01 killed   leitura ausente do lancador vira 0  test_tempos_pareados.py::test_leitura_ausente_e_null_nunca_zero
+  P02 killed   instr_A/instr_B trocados  test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo
+  P03 killed   a chamada nao passa pelo lancador  test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo
+  P04 killed   ordem AABBAABB em vez de ABBABAAB  test_tempos_pareados.py::test_cada_chamada_passa_pelo_lancador_e_a_leitura_vai_para_o_lado_certo
+MUTANTES: 47/47 mortos

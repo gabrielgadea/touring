@@ -1,0 +1,69 @@
+   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 10.47s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/vgp-test/debug/deps/touring_code-0b4d13284784e7a9)
+
+running 6 tests
+test vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo ... FAILED
+test vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde ... FAILED
+test vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao ... FAILED
+test vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem ... FAILED
+test vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so ... FAILED
+test vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais ... FAILED
+
+failures:
+
+---- vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo stdout ----
+
+thread 'vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo' (656236) panicked at crates/touring-code/src/vgp/checks/tests.rs:1497:5:
+assertion `left == right` failed: ClassVar (nu e `typing.`), `field(init=False)` e atributo sem anotação NÃO são parâmetros; `InitVar` é
+  left: []
+ right: ["n", "m", "oculto", "sem_anotacao"]
+
+---- vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde stdout ----
+
+thread 'vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde' (656235) panicked at crates/touring-code/src/vgp/checks/tests.rs:1542:9:
+assertion `left == right` failed: balde tmp
+  left: [("q1", ["e"]), ("q2", ["f"])]
+ right: []
+
+---- vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao stdout ----
+
+thread 'vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao' (656238) panicked at crates/touring-code/src/vgp/checks/tests.rs:1461:5:
+assertion `left == right` failed
+  left: [("errado", ["z", "x"])]
+ right: [("errado", ["x", "y", "z"])]
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem stdout ----
+
+thread 'vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem' (656237) panicked at crates/touring-code/src/vgp/checks/tests.rs:1563:5:
+assertion `left == right` failed
+  left: ["h1", "x", "g1", "extra", "i1", "j1"]
+ right: ["h1", "g1", "i1"]
+
+---- vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so stdout ----
+
+thread 'vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so' (656239) panicked at crates/touring-code/src/vgp/checks/tests.rs:1513:5:
+assertion `left == right` failed
+  left: [("errado", ["d"])]
+ right: [("errado", ["a", "c", "b", "d"])]
+
+---- vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais stdout ----
+
+thread 'vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais' (656240) panicked at crates/touring-code/src/vgp/checks/tests.rs:1479:5:
+assertion `left == right` failed
+  left: [("err1", ["z", "t"]), ("err2", ["a", "b", "c"])]
+ right: [("err1", ["x", "z", "y", "w", "t"]), ("err2", ["b", "a", "c"])]
+
+
+failures:
+    vgp::checks::tests::dc_base_irresolvida_ou_opaca_abstem_em_todo_balde
+    vgp::checks::tests::dc_classvar_fora_initvar_dentro_init_false_fora_e_sem_anotacao_nao_e_campo
+    vgp::checks::tests::dc_generic_e_inofensivo_base_subscrita_resolve_init_explicito_vale_e_init_false_abstem
+    vgp::checks::tests::dc_heranca_bases_primeiro_e_campo_redeclarado_mantem_a_posicao
+    vgp::checks::tests::dc_heranca_multipla_segue_o_c3_e_a_mesma_base_por_duas_rotas_e_um_no_so
+    vgp::checks::tests::dc_kw_only_vai_depois_dos_posicionais
+
+test result: FAILED. 0 passed; 6 failed; 0 ignored; 0 measured; 904 filtered out; finished in 0.00s
+
+error: test failed, to rerun pass `-p touring-code --lib`

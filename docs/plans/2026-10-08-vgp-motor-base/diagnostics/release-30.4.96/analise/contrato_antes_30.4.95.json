@@ -1,0 +1,37 @@
+{
+ "projeto": "/home/gabrielgadea/projects/analise",
+ "versao": "touring 30.4.95",
+ "contratos": [
+  {
+   "contrato": "memory recall -j → entries (lista)",
+   "ok": true,
+   "evidencia": "rc 0, chaves ['ann_results', 'cases', 'count', 'diagnostics', 'entries', 'query', 'shown', 'symbol_context', 'tag_filter', 'total', 'truncated', 'unknown_facets']"
+  },
+  {
+   "contrato": "memory query -j → count/shown/total/truncated",
+   "ok": true,
+   "evidencia": "rc 0, presentes ['count', 'shown', 'total', 'truncated']"
+  },
+  {
+   "contrato": "run → stdout/exit_code/success (controle: o marcador volta no stdout)",
+   "ok": true,
+   "evidencia": "rc 0, chaves ['duration_ms', 'executed', 'exit_code', 'forbidden_calls', 'run_id', 'stderr', 'stderr_truncated', 'stdout', 'stdout_truncated', 'success']"
+  },
+  {
+   "contrato": "run → stdout_truncated presente (o leitor decide quando buscar stored_path)",
+   "ok": true,
+   "evidencia": "chaves ['duration_ms', 'executed', 'exit_code', 'forbidden_calls', 'run_id', 'stderr', 'stderr_truncated', 'stdout', 'stdout_truncated', 'success']"
+  },
+  {
+   "contrato": "TOURING_TRUSTED_OK=1 run --allow-forbidden escreve no projeto (controle: conteúdo lido de volta)",
+   "ok": true,
+   "evidencia": "rc 0, arquivo com o marcador; stderr do programa ''"
+  },
+  {
+   "contrato": "a sonda não deixa resíduo no projeto",
+   "ok": true,
+   "evidencia": "/home/gabrielgadea/projects/analise/.touring/contrato-probe-contrato-5cc2380d.txt"
+  }
+ ],
+ "falhas": []
+}

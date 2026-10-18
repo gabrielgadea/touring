@@ -1,0 +1,83 @@
+== pid do daemon global: 751583
+== /proc/751583/comm: touring-daemon  exe: /home/gabrielgadea/projects/touring/target/release/touring-daemon  start_ticks: 1056008
+== symlinks (readlink -f):
+  ~/.local/bin/touring -> /home/gabrielgadea/projects/touring/target/release/touring
+  ~/.local/bin/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
+  ~/.local/bin/touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook
+  ~/.local/bin/update-touring -> /home/gabrielgadea/projects/touring/scripts/update-touring
+  ~/.claude/hooks/touring -> /home/gabrielgadea/projects/touring/target/release/touring
+  ~/.claude/hooks/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
+  ~/.claude/hooks/touring-hook -> /home/gabrielgadea/.claude/hooks/touring-hook
+== sha256 do shim e dos binarios de target/release:
+d2bf9550b3925d3cd5345f4eb5bc07c00c10406698d41275be3bcda1e19eb2f0  /home/gabrielgadea/.claude/hooks/touring-hook
+a33c60007f386f39ddcb3c253c74405501d223538197a963e4adc907a9c0bf1a  /home/gabrielgadea/projects/touring/target/release/touring
+de97f6c0f8118ec592c014477cc477a34b0000adc2367fb11772da16e5ffdebe  /home/gabrielgadea/projects/touring/target/release/touring-daemon
+8db69590231fa74569e517069bff7a6061ad22c200b3fad16c84196a7c1007c7  /home/gabrielgadea/projects/touring/target/release/touring-hook
+== ~/.touring/toolchains/ (nome mtime):
+  30.4.42 2026-09-13T22:30:57
+  30.4.43 2026-09-13T23:38:28
+  30.4.44 2026-09-14T07:51:19
+  30.4.45 2026-09-14T09:35:09
+  30.4.46 2026-09-14T13:12:30
+  30.4.47 2026-09-14T17:18:05
+  30.4.48 2026-09-14T23:08:54
+  30.4.49 2026-09-15T14:10:57
+  30.4.50 2026-09-15T15:04:18
+  30.4.51 2026-09-15T15:19:51
+  30.4.52 2026-09-15T23:35:29
+  30.4.53 2026-09-16T07:52:58
+  30.4.54 2026-09-16T21:33:28
+  30.4.55 2026-09-18T11:50:49
+  30.4.56 2026-09-18T12:18:53
+  30.4.57 2026-09-18T12:42:41
+  30.4.58 2026-09-18T19:00:27
+  30.4.59 2026-09-18T22:10:31
+  30.4.60 2026-09-19T15:27:09
+  30.4.61 2026-09-19T17:08:00
+  30.4.62 2026-09-19T18:32:44
+  30.4.64 2026-09-22T21:42:39
+  30.4.65 2026-09-22T22:22:18
+  30.4.66 2026-09-24T01:47:01
+  30.4.67 2026-09-24T19:06:08
+  30.4.68 2026-09-24T22:42:48
+  30.4.69 2026-09-25T13:03:05
+  30.4.70 2026-09-25T20:11:23
+  30.4.71 2026-09-25T21:50:54
+  30.4.72 2026-09-26T00:54:46
+  30.4.73 2026-09-26T01:17:40
+  30.4.74 2026-09-26T08:16:30
+  30.4.75 2026-09-26T08:45:43
+  30.4.76 2026-09-26T19:34:00
+  30.4.77 2026-09-26T20:25:20
+  30.4.78 2026-09-26T21:47:07
+  30.4.79 2026-09-26T22:16:15
+  30.4.80 2026-09-26T22:31:10
+  30.4.81 2026-09-26T22:49:56
+  30.4.82 2026-09-26T23:29:48
+  30.4.83 2026-09-27T00:05:57
+  30.4.84 2026-09-27T00:42:49
+  30.4.85 2026-09-27T02:07:12
+  30.4.86 2026-09-27T15:06:16
+  30.4.87 2026-09-27T15:28:32
+  30.4.88 2026-10-01T09:19:40
+  30.4.89 2026-10-01T10:03:13
+  30.4.90 2026-10-02T12:18:43
+  30.4.91 2026-10-02T15:09:24
+  30.4.92 2026-10-05T12:26:18
+  30.4.93 2026-10-08T22:00:40
+  30.4.94 2026-10-09T11:11:04
+  30.4.95 2026-10-09T13:31:36
+== ~/.touring/default: 30.4.95
+== touring toolchain list (canal default marcado pelo proprio comando):
+30.4.92
+30.4.93
+30.4.94
+30.4.95 (default)
+== Cargo.toml version / Cargo.lock sha256:
+version = "30.4.96"
+3a776f0d87e541b1ff0bb8be2bb8176eb42ef9309faa922712d6f7f36c6a6640  /home/gabrielgadea/projects/touring/Cargo.lock
+== projects.json sha256:
+51c9c44863f9b23386436d9d5ad32feb0ba942053c2cd68cb5fd494094fcff44  /home/gabrielgadea/.claude/touring/projects.json
+== consumidores (.touring/toolchain.lock sha256 + binarios):
+  /home/gabrielgadea/projects/analise | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f touring-quality:56e579c17233
+  /home/gabrielgadea/projects/konverter | lock=281fbf17b013cf18 | active = "30.4.95" | bins=libonnxruntime_providers_cuda.so:1ed2f69fcb95 libonnxruntime_providers_shared.so:1b028afc0796 touring:a33c60007f38 touring-daemon:de97f6c0f811 touring-hook:8db69590231f

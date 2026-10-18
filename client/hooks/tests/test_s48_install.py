@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -34,7 +35,7 @@ def _get_registered_global_shell_scripts() -> list[str]:
     with open(SETTINGS_PATH) as f:
         settings = json.load(f)
     scripts = []
-    for event, entries in settings.get("hooks", {}).items():
+    for entries in settings.get("hooks", {}).values():
         for entry in entries:
             for h in entry.get("hooks", []):
                 cmd = h.get("command", "")
@@ -44,6 +45,33 @@ def _get_registered_global_shell_scripts() -> list[str]:
                     if str(GLOBAL_HOOKS) in str(p) and p.suffix in (".sh", ".py", ".cjs", ""):
                         scripts.append(str(p))
     return list(set(scripts))
+
+
+def _checkout_hook_dirs() -> list[Path]:
+    """`client/hooks` of every checkout of this repository (this one, the main one, the worktrees).
+
+    The live symlinks point into the MAIN checkout. Run from a worktree, `CLIENT_HOOKS` is the worktree's own
+    directory, so comparing against it alone reported 13 correct symlinks as "wrong" (17/10/2026).
+    """
+    dirs = [CLIENT_HOOKS]
+    try:
+        listing = subprocess.run(["git", "-C", str(REPO_ROOT), "worktree", "list", "--porcelain"],
+                                 capture_output=True, text=True, timeout=10, check=False).stdout
+    except (OSError, subprocess.SubprocessError):
+        return dirs
+    return dirs + [Path(line.removeprefix("worktree ")) / "client" / "hooks"
+                   for line in listing.splitlines() if line.startswith("worktree ")]
+
+
+def _points_into_a_checkout(resolved: Path, hook_dirs: list[Path]) -> bool:
+    return any(directory in resolved.parents for directory in hook_dirs)
+
+
+def test_a_symlink_is_into_the_repo_only_when_it_lands_in_a_checkouts_client_hooks(tmp_path: Path) -> None:
+    main, elsewhere = tmp_path / "main" / "client" / "hooks", tmp_path / "frozen" / "rust" / "hooks"
+    assert _points_into_a_checkout(main / "block_git.sh", [CLIENT_HOOKS, main])
+    assert not _points_into_a_checkout(elsewhere / "block_git.sh", [CLIENT_HOOKS, main])
+    assert _points_into_a_checkout(CLIENT_HOOKS / "block_git.sh", _checkout_hook_dirs())
 
 
 def test_required_scripts_exist_in_client_hooks() -> None:
@@ -76,6 +104,7 @@ def test_every_registered_global_script_is_a_symlink_into_repo() -> None:
 
     not_symlinks = []
     wrong_target = []
+    hook_dirs = _checkout_hook_dirs()
     for script_path in sh_scripts:
         p = Path(script_path)
         if not p.exists():
@@ -84,7 +113,7 @@ def test_every_registered_global_script_is_a_symlink_into_repo() -> None:
             not_symlinks.append(str(p))
         else:
             resolved = p.resolve()
-            if str(CLIENT_HOOKS) not in str(resolved):
+            if not _points_into_a_checkout(resolved, hook_dirs):
                 wrong_target.append(f"{p} → {resolved}")
 
     errors = []

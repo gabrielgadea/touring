@@ -16,7 +16,7 @@ okf_version: 1
 > **Lei que governa**: *a janela é o recurso mais precioso; não se trata de usá-la
 > menos, e sim de fazer cada token atingir o máximo de utilidade e convergência
 > com o objetivo da tarefa.*
-> **Fonte teórica**: `agent-harness/Engenharia de Contexto e Harness.md` (696 L,
+> **Fonte teórica**: `agent-harness/engenharia-de-contexto-e-harness.md` (696 L,
 > 4 eixos). **Fonte empírica**: 10 transcripts, 406 turnos, 965 avaliações do Stop
 > hook, censo F2.4 sobre 592 arquivos — tudo medido nesta sessão.
 > **Nível operacional**: DAG `task_1788534325883539352` (2ª rodada — S-5.1b e

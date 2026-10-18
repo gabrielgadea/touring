@@ -1,0 +1,129 @@
+{
+ "juiz": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py",
+ "sha_antes": "89a976164c291d9d7b3ae561f9f83004235ce1c6bfd6bbda80f0a0d6a9513a35",
+ "sha_depois": "89a976164c291d9d7b3ae561f9f83004235ce1c6bfd6bbda80f0a0d6a9513a35",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "passou": true
+ },
+ "mutantes_mortos": "8/8",
+ "mutantes": [
+  {
+   "mutante": "m1",
+   "descricao": "taxa pontual no lugar do limite",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "FALHA limite superior 95% de 0/600",
+   "primeiras_falhas": [
+    "FALHA limite superior 95% de 0/600 = 0.0000% ≠ 0.5% (±0.01 pp)",
+    "FALHA limite superior 95% de 1/600 = 0.1667% ≠ 0.79% (±0.01 pp)",
+    "FALHA limite superior 95% de 3/1200 = 0.2500% ≠ 0.64% (±0.01 pp)"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m2",
+   "descricao": "bilateral (alfa/2)",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "FALHA limite superior 95% de",
+   "primeiras_falhas": [
+    "FALHA limite superior 95% de 0/600 = 0.6129% ≠ 0.5% (±0.01 pp)",
+    "FALHA limite superior 95% de 1/600 = 0.9251% ≠ 0.79% (±0.01 pp)",
+    "FALHA limite superior 95% de 3/1200 = 0.7289% ≠ 0.64% (±0.01 pp)"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m3",
+   "descricao": "a flag nao gera pendencia",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "5/600 e 2/600 com a flag",
+   "primeiras_falhas": [
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: pronto = True ≠ False — sem pendências",
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600» nas pendências —",
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «com n=600 o teto admite no máximo 1 falso(s)» nas pendências —"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m4",
+   "descricao": "main ignora a flag",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "FALHA CLI com a flag",
+   "primeiras_falhas": [
+    "FALHA CLI com a flag: rc 0 ≠ 1",
+    "FALHA CLI com a flag: a pendência do limite faltou"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m5",
+   "descricao": "a flag vale sempre",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "sem a flag",
+   "primeiras_falhas": [
+    "FALHA cenário «5/600 e 2/600 sem a flag: a taxa pontual passa»: pronto = False ≠ True — falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s) | falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)",
+    "FALHA cenário «5/600 e 2/600 sem a flag: a taxa pontual passa»: sobrou «limite superior» nas pendências — falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s) | falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)",
+    "FALHA cenário «n pequeno (120 e 10), 0 falsos, sem a flag»: pronto = False ≠ True — falso deny (arquivo) limite superior 95% 2.47% > 1% (0/120, taxa 0.000%) — n=120 não prova ≤ 1% nem com 0 falsos; exige n ≥ 299 | falso deny (inline) limite superior 95% 25.89% > 1% (0/10, taxa 0.000%) — n=10 não prova ≤ 1% nem com 0 falsos; exige n ≥ 299"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m6",
+   "descricao": "pendencia sem o n permitido",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "falta «com n=600 o teto admite no máximo 1 falso(s)»",
+   "primeiras_falhas": [
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «com n=600 o teto admite no máximo 1 falso(s)» nas pendências — falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) | falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%)"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m7",
+   "descricao": "bissecao curta",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "FALHA limite superior 95% de",
+   "primeiras_falhas": [
+    "FALHA limite superior 95% de 1/600 = 12.6458% ≠ 0.79% (±0.01 pp)",
+    "FALHA limite superior 95% de 3/1200 = 12.7187% ≠ 0.64% (±0.01 pp)",
+    "FALHA limite superior 95% de 5/600 = 13.2292% ≠ 1.74% (±0.01 pp)"
+   ],
+   "morto": true,
+   "stderr": ""
+  },
+  {
+   "mutante": "m8",
+   "descricao": "teto frouxo",
+   "rc": 1,
+   "reprovou_no_selftest": true,
+   "saida_traz_o_fragmento_esperado": true,
+   "fragmento": "5/600 e 2/600 com a flag",
+   "primeiras_falhas": [
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: pronto = True ≠ False — sem pendências",
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600» nas pendências —",
+    "FALHA cenário «5/600 e 2/600 com a flag: o limite reprova»: falta «com n=600 o teto admite no máximo 1 falso(s)» nas pendências —"
+   ],
+   "morto": true,
+   "stderr": ""
+  }
+ ]
+}

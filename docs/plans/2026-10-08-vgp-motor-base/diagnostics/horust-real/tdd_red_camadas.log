@@ -1,0 +1,15 @@
+E       AttributeError: module 'selecao_horust' has no attribute 'antecadeias'
+
+test_selecao_horust.py:165: AttributeError
+=========================== short test summary info ============================
+FAILED test_construtor_horust.py::test_ponta_a_ponta_base_plano_rodada_e_restauracao
+FAILED test_construtor_horust.py::test_mapa_camadas_separa_dependentes_e_junta_independentes_e_bins_ficam_juntos
+FAILED test_construtor_horust.py::test_grupos_de_rodada_com_camadas_juntam_pacotes_independentes
+FAILED test_oraculo_cargo_json.py::test_comando_com_varios_pacotes_leva_um_p_por_pacote
+FAILED test_oraculo_cargo_json.py::test_injecao_leva_o_pacote - TypeError: In...
+FAILED test_selecao_horust.py::test_antecadeias_cobrem_todos_os_nos_sem_par_relacionado
+FAILED test_selecao_horust.py::test_antecadeias_dependencia_transitiva_por_no_que_nao_esta_na_lista_separa
+FAILED test_selecao_horust.py::test_antecadeias_sem_dependencias_e_um_grupo_so_e_e_deterministico
+FAILED test_selecao_horust.py::test_antecadeias_cadeia_linear_vira_um_grupo_por_no
+9 failed, 144 passed in 0.96s
+

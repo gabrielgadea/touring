@@ -470,7 +470,12 @@ def main(argv: list[str]) -> int:
         print(json.dumps(replay(root), ensure_ascii=False))
         return 0
     if argv[1:2] == ["--criterion"]:
-        labels = [json.loads(l)["label"] for l in Path(argv[2]).read_text(encoding="utf-8").splitlines()
+        try:
+            text = Path(argv[2]).read_text(encoding="utf-8")
+        except (IndexError, OSError) as exc:
+            print(f"uso: prose_integrity_gate.py --criterion <labels.jsonl> ({exc})", file=sys.stderr)
+            return 2
+        labels = [json.loads(l)["label"] for l in text.splitlines()
                   if l.strip() and json.loads(l).get("tool") == "SendMessage"]
         print(json.dumps(criterion(labels)))
         return 0

@@ -22,6 +22,8 @@ from inventario_erros import ROOTS, SINCE, _text  # noqa: E402
 # (gate id, pattern on the denial text, pattern the NEXT call must match to count as "rota seguida")
 # Each route is the one the gate's OWN denial text names (read from real denials on 08/10/2026), never a guess.
 GATES = [
+    # S3 (2ª inspeção da rajada, CODE MODE): NEGAVA até a 30.4.95 e era contado como G1 pelo `RAJADA` abaixo.
+    ("S3 rajada (CODE MODE, 2ª inspeção)", r"\[CODE MODE · rajada\]", r"touring run"),
     ("G1 rajada-de-inspeção", r"rajada-de-inspe|inspection burst|RAJADA", r"touring run"),
     ("G7 re-inspeção (3ª leitura)", r"re-inspeção|re-inspe", r"touring run"),
     ("exec-burst (python-inline seriado)", r"exec-burst|chamada seriada do executor", r"touring run"),
@@ -54,10 +56,18 @@ COMPILED = [(g, re.compile(p, re.I), re.compile(r, re.I)) for g, p, r in GATES]
 WINDOW_S = 300  # a re-trip of the same gate within this window counts as reincidence
 
 
+# The gate's own announcement: `[G10 exec-burst]`, `[G1 rajada-de-inspeção]`, `[CODE MODE · rajada]`.
+TAG = re.compile(r"\[(?:G\d+[a-z]?|CODE MODE)\b[^\]]*\]")
+
+
 def gate_of(text: str) -> tuple[str, re.Pattern | None]:
-    for gate, pat, route in COMPILED:
-        if pat.search(text):
-            return gate, route
+    """By the TAG first (the source announces itself), then by free text — a free-text word of one gate inside
+    another gate's message ("a rajada desenrolada" in the exec-burst) never steals the denial."""
+    tag = TAG.search(text)
+    for alvo in ([tag.group(0)] if tag else []) + [text]:
+        for gate, pat, route in COMPILED:
+            if pat.search(alvo):
+                return gate, route
     return "gate não identificado", None
 
 
@@ -146,5 +156,29 @@ def main() -> int:
     return 0
 
 
+# Real denial texts (09/10/2026), one per gate that a free-text pattern used to steal: the classification is by the
+# gate's OWN announcement (its tag) first. Before, "[G10 exec-burst] … a rajada desenrolada" matched G1's `RAJADA`
+# (re.I, first in GATES) — measured by the sister session analise-25: 87 exec-burst denials credited to G1.
+SELFTEST = [
+    ("PreToolUse:Bash hook error: [G10 exec-burst] 5ª chamada seriada do executor `python-inline` (0 `touring run` "
+     "na janela de 600s) — a rajada desenrolada JÁ é o programa", "exec-burst (python-inline seriado)"),
+    ("PreToolUse:Bash hook error: [G10 write→run] 2º script escrito-e-executado na janela de 600s",
+     "write→run (script escrito-e-executado)"),
+    ("PreToolUse:Bash hook error: [G1 rajada-de-inspeção] 3ª inspeção `grep` em 300s", "G1 rajada-de-inspeção"),
+    ("PreToolUse:Bash hook error: [CODE MODE · rajada] 2ª inspeção `grep` em 300s — rode o lote",
+     "S3 rajada (CODE MODE, 2ª inspeção)"),
+    ("PreToolUse:Bash hook error: [G11 orçamento de bypass] dois bypasses seguidos", "G11 orçamento de bypass"),
+    ("Force without confirmation is not allowed", "rm guard"),
+]
+
+
+def selftest() -> int:
+    falhas = [(t[:60], esperado, gate_of(t)[0]) for t, esperado in SELFTEST if gate_of(t)[0] != esperado]
+    for t, esperado, obtido in falhas:
+        print(f"  FALHA  {t!r}: esperado {esperado!r}, obtido {obtido!r}")
+    print(f"selftest: {len(SELFTEST) - len(falhas)}/{len(SELFTEST)}")
+    return 1 if falhas else 0
+
+
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(selftest() if "--selftest" in sys.argv else main())

@@ -1,0 +1,17 @@
+    Checking touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code)
+   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-bindings)
+    Checking inferlets v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/inferlets)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-analysis)
+    Checking touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-intelligence)
+    Checking touring-quality v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-quality)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-shared)
+    Checking touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-rl)
+    Checking touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hooks-core)
+    Checking touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-hook-handlers)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 23.62s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`

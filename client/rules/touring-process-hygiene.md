@@ -1,6 +1,8 @@
----
 # REGRA #19 — Touring Process Hygiene
-# (sem `paths:` de proposito: regra de alcance global, sempre carregada)
+
+<!-- Sem frontmatter e sem `paths:` de propósito: regra de alcance global, sempre carregada. O `---` de abertura sem
+     fechamento cortava o início desta regra no carregamento (L4-004 da análise crítica, 18/10/2026). -->
+
 
 **JAMAIS** `pkill`/`kill` em processo cujo cmdline contenha "touring". Os quatro tipos:
 

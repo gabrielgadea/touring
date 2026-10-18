@@ -1,0 +1,15 @@
+{
+ "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261013",
+ "sha_tree": "8ce465ddeb03f500",
+ "arquivos": 2294,
+ "bytes": 16471738,
+ "holdout_meta_sha256": "48c16cc2313430f685d3b3bd68ef617145f00f1e9a9e6bcbc3e63e875119388e",
+ "entradas_jsonl_sha256": "b2c0e41e0b4a14421ddb28ae4bc1d5d6988b366f9b3eb57684b1f5e4c73679f3",
+ "entradas_inline_neg_jsonl_sha256": "86c4389c4db561771747200e44f4414e69676b234b82ab875190d05d81fcd396",
+ "selado": "o motor e o juiz NAO rodaram neste corpus; abrir so depois do P0 e conferir o sha_tree antes (scripts/confere_selo.py)",
+ "adjudicador_sha256": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+ "estado_no_instante_sha256": "e90a8514627d8daa7ec8ff2c2a06316b6fcc16300a3e27b78a01da5fa20d0503",
+ "congelados_json_sha256": "0dfe31cd61a5e4dbfb85ae05cb1a20baab697650806c2b83e3e0c674714b8704",
+ "seed": "20261013",
+ "construtor_sha256": "f04f8cdf99095138014e927b5efff3c2e85ee7e5509bbf2332368e3c60bd945e"
+}

@@ -1,0 +1,34 @@
+{
+ "entradas.jsonl_igual": true,
+ "entradas_inline_neg.jsonl_igual": true,
+ "snap": {
+  "arquivos_gravado": 600,
+  "arquivos_reconstruido": 600,
+  "so_no_gravado": 0,
+  "so_no_reconstruido": 0,
+  "conteudo_diferente": []
+ },
+ "snap_inline_neg": {
+  "arquivos_gravado": 600,
+  "arquivos_reconstruido": 600,
+  "so_no_gravado": 0,
+  "so_no_reconstruido": 0,
+  "conteudo_diferente": []
+ },
+ "meta": {
+  "corte": true,
+  "parametros": true,
+  "exclusoes_tamanho": true,
+  "pool_inline (fora do que e posterior ao corte)": true,
+  "crescimento_so_posterior_ao_corte": true,
+  "arquivo.selecao": true,
+  "inline.selecao": true
+ },
+ "universo_inline_cresceu": {
+  "total": 54,
+  "depois_do_corte": 54,
+  "todo_o_crescimento_e_posterior_ao_corte": true
+ },
+ "meta_chaves_so_de_um_lado": [],
+ "IDENTICO": true
+}

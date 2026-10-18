@@ -1,0 +1,2 @@
+{"entradas": 315, "recall_arquivo": [8, 15], "recall_inline": [20, 41], "falso_deny": [29, 259], "regras_falsas": {"reportUndefinedVariable": 13, "reportAttributeAccessIssue": 85, "reportCallIssue": 2}, "p50_ms": 19.401870000365307, "p95_ms": 110.88376400039124}
+rc=0

@@ -1,0 +1,15 @@
+gates rc=0 2026-10-17T15:43:03-03:00
+release rc=0 2026-10-17T15:56:29-03:00
+novo=/home/gabrielgadea/.claude/touring/vgp/binarios/a770654e/touring
+juizes ev rc=0 2026-10-17T16:10:38-03:00
+regua ev v2 vs INT rc=0
+regua ev v2 vs P0B rc=0
+regua ev v3 vs INT rc=0
+regua ev v3 vs P0B rc=0
+juizes bak rc=0 2026-10-17T16:23:04-03:00
+regua bak v2 vs INT rc=0
+regua bak v2 vs P0B rc=0
+regua bak v3 vs INT rc=0
+regua bak v3 vs P0B rc=0
+pareado ev rc=2 2026-10-17T16:31:26-03:00
+pareado bak CANCELADO 2026-10-17T17:26:10-03:00: o A/A do ev deu PROTOCOLO_INADEQUADO (R_p95 IC95 [0,7142; 1,0807] fora de [0,95; 1,05]); pelo PREREGISTRO-P95-PAREADO-2026-10-17.md §'O que falsifica' isso basta para ir à fase D, então o bak não decide nada e a vaga rust fica para os engenheiros ecc-mem/ecc-hk

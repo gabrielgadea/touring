@@ -1,0 +1,5 @@
+recall de símbolo · arquivo 11/13 · inline 20/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 400, 'inline': 300} | avisos em negativos 49 | p95 133.4 ms | chamadas 762 | não classificados 0 | defeito de corpus (snap não compila) 3
+  falso deny (arquivo): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
+  falso deny (inline): 0/300 · taxa 0.000% · limite_superior_95 0.99% (teto 1%; o n=300 admite até 0 falso(s))
+veredito: PRONTO
+[tempos] 762 chamadas cronometradas em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0b/resultados-2026-10-17/tempos/p0b_3.json

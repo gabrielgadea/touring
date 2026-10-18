@@ -1,0 +1,42 @@
+{
+ "vivo": {
+  "agora": "b06b89113c869097",
+  "esperado": "b06b89113c869097",
+  "intocado": true
+ },
+ "temporal": {
+  "agora": "6f5fc46410884fd2",
+  "esperado": "6f5fc46410884fd2",
+  "intocado": true
+ },
+ "disjunto_20261010": {
+  "agora": "c448c37dfd7ef053",
+  "esperado": "c448c37dfd7ef053",
+  "intocado": true
+ },
+ "held_out_20261011_selado": {
+  "agora": "c495bcab66718230",
+  "esperado": "c495bcab66718230",
+  "intocado": true
+ },
+ "juiz_sha256_agora": "89a976164c291d9d7b3ae561f9f83004235ce1c6bfd6bbda80f0a0d6a9513a35",
+ "juiz_original_sha256": "b7f7fd9b4ccddf62f90f0417d84f4a8483a1188a0e1b8c371ff3e8b323c73f1f",
+ "bundle_sha16_agora": {
+  "corpus_v0d.py": "98fb0941e8fb14e9",
+  "corpus_v5_inline_neg.py": "f676b1f439ebd87c",
+  "test_corpus_v0d.py": "15addc6203a40869",
+  "shell_inline.py": "b6acd415c6b23d90"
+ },
+ "bundle_sha16_relatorio_holdout_18h55": {
+  "corpus_v0d.py": "98fb0941e8fb14e9",
+  "corpus_v5_inline_neg.py": "f676b1f439ebd87c",
+  "test_corpus_v0d.py": "15addc6203a40869",
+  "shell_inline.py": "b6acd415c6b23d90"
+ },
+ "binario_e935_sha256": "e935aaf17d9a09d0",
+ "pycache_existentes": [
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261011/__pycache__",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/__pycache__"
+ ],
+ "bundle_igual_ao_do_relatorio_do_holdout": true
+}

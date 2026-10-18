@@ -1,0 +1,17 @@
+hw-slot: aguardando — temp 91C > 88C
+19:29:47 corte: 2026-10-09T18:14:31.894Z | vivo sha_tree: b06b89113c869097 | exclusoes: {'ids': 1057, 'tool_use_ids': 681, 'shas': 1070, 'comandos': 712}
+19:29:47 cotas de projeto (mistura do vivo escalada): {'touring': 72, 'analise': 518, 'simulador-urna-rs-2026': 4, '.claude': 6} | teto por arquivo: 18 | teto por sessao: 18
+<snap>:17: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+<snap>:48: SyntaxWarning: "\." is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\."? A raw string is also an option.
+<snap>:15: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:28: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:18: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+<snap>:19: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+19:30:10 pool inline/tmp: {'c': 2787, 'heredoc': 3032, 'touring_run': 1196, 'tmp_escrito_e_executado': 1} | cabe sob o teto de sessao: {'c': 1186, 'heredoc': 1165, 'touring_run': 513, 'tmp_escrito_e_executado': 1} | excluidos por chave: {'tool_use_id ja no vivo/temporal': 410, 'tool_use_id duplicado (pai/subagente)': 72, 'depois do corte': 309, 'conteudo ja no vivo/temporal': 3}
+19:31:33 ARQUIVO ok: {"aceitos": 600, "n": 600, "por_projeto": {"touring": 72, "analise": 518, ".claude": 6, "simulador-urna-rs-2026": 4}, "cotas": {"touring": 72, "analise": 518, "simulador-urna-rs-2026": 4, ".claude": 6}, "rejeicoes": {"conteudo nao reconstroi": 310, "conteudo ja visto (vivo/temporal/amostra)": 10, "id ja no vivo/temporal": 82, "nao compila": 1, "cota do projeto cheia (ou projeto sem cota)": 3024}, "max_por_arquivo": 5, "arquivos_distintos": 516, "candidatos_no_universo": 13266}
+-> /tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/repro_20261010/entradas_inline_neg.jsonl (600 linhas) · snaps em /tmp/claude-1000/-home-gabrielgadea-projects-touring/751b3a8c-4a8b-49b3-885e-3956e002b458/scratchpad/repro_20261010/snap_inline_neg
+   snaps que NAO compilam: 0 []
+19:31:33 INLINE ok: {'c': (200, 200), 'heredoc': (200, 200), 'touring_run': (200, 200), 'tmp_escrito_e_executado': (0, 100)}
+19:32:45 estado_no_instante ok: {'entradas': 1200, 'motivos': {'ok': 352, 'o arquivo nasceu nesta edição (antes = vazio)': 248, 'inline: o programa inteiro é novo (sem delta)': 600}, 'overlays': 344}
+19:32:45 FIM | vivo e temporal intocados: True | wall_s: 178.9
+rc=0

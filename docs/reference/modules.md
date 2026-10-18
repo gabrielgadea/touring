@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 380**
+**Count: 384**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -68,6 +68,7 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-code::sdk_signal_mirror`
 - `touring-code::semantics`
 - `touring-code::types`
+- `touring-code::vgp`
 - `touring-cortex::cache_strategy`
 - `touring-cortex::call_graph`
 - `touring-cortex::circuit_breaker`
@@ -319,6 +320,9 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-orchestration::devrc`
 - `touring-orchestration::flow`
 - `touring-orchestration::tasks`
+- `touring-pyright::client`
+- `touring-pyright::pool`
+- `touring-pyright::pyright`
 - `touring-quality::aggregate`
 - `touring-quality::builtins`
 - `touring-quality::change`

@@ -1,0 +1,7 @@
+hw-slot: aguardando — temp 94C > 88C
+recall de símbolo · arquivo 11/13 · inline 21/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 13]} | falsos deny 4 em {'arquivo': 600, 'inline': 600} | avisos em negativos 73 | p95 132.8 ms | chamadas 1264 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 2/600 · taxa 0.333% · limite_superior_95 1.05% (teto 1%; o n=600 admite até 1 falso(s)) · LIMITE ACIMA DO TETO
+  falso deny (inline): 2/600 · taxa 0.333% · limite_superior_95 1.05% (teto 1%; o n=600 admite até 1 falso(s)) · LIMITE ACIMA DO TETO
+  PENDENTE: falso deny (arquivo) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)
+  PENDENTE: falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)
+veredito: NÃO PRONTO

@@ -1,0 +1,25 @@
+=== agregado do classificar_falsos_vgp.py (CORPUS = holdout)
+   5  ('arquivo', 'nome', 'nao-ligado-no-arquivo')
+        ddbb2cfb4afc:4 `Path` | def test_contexto_vazio_nao_tem_fonte_e_tem_confianca_baixa(tmp_path: Path) -> None:
+        ddbb2cfb4afc:12 `Path` | def test_contexto_pronto_declara_os_arquivos_que_leu(tmp_path: Path) -> None:
+        ddbb2cfb4afc:7 `ComputeProcessContext` | result = ComputeProcessContext().run(str(proc))
+   3  ('inline', 'atributo', '-')
+        922195736c58:7 `array` | a=np.array(im)
+        922195736c58:11 `where` | rows=np.where(ink.any(axis=1))[0]
+        e33a1e2e4030:8 `LANCZOS` | out.thumbnail((1900,1900),Image.LANCZOS)
+   1  ('arquivo', 'import', '-')
+        7a4ad8f765aa:30 `TSEClient` | from scripts.external_apis.tse import TSEClient
+   1  ('arquivo', 'atributo', '-')
+        bd4cfc7dd1e1:42 `RUST_AVAILABLE` | print("aco: RUST_AVAILABLE =", aco.RUST_AVAILABLE, "· _ESAA_RUST_AVAILABLE =", aco._ESAA_RUST_AVAILA
+
+=== CADA falso deny: 7
+7a4ad8f765aa arquivo atribuido baixar_2010_2012.py | import TSEClient L30 | construto: - | from scripts.external_apis.tse import TSEClient
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome Path L4 | construto: nao-ligado-no-arquivo | def test_contexto_vazio_nao_tem_fonte_e_tem_confianca_baixa(tmp_path: Path) -> N
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome Path L12 | construto: nao-ligado-no-arquivo | def test_contexto_pronto_declara_os_arquivos_que_leu(tmp_path: Path) -> None:
+ddbb2cfb4afc arquivo atribuido trecho_pctx.py | nome ComputeProcessContext L7 | construto: nao-ligado-no-arquivo | result = ComputeProcessContext().run(str(proc))
+74f04a24de12 arquivo atribuido retrieval_bench.py | nome WS L131 | construto: nao-ligado-no-arquivo | out = subprocess.run(["touring", "search", "fuzzy", q, "--limit", "10"], capture
+c35d78e3eb25 arquivo atribuido s24_route_patch.py | nome WIRING L244 | construto: nao-ligado-no-arquivo | for old, new, label in WIRING:
+bd4cfc7dd1e1 arquivo atribuido clk_prova_caminho.py | atributo RUST_AVAILABLE L42 | construto: - | print("aco: RUST_AVAILABLE =", aco.RUST_AVAILABLE, "· _ESAA_RUST_AVAILABLE =", a
+922195736c58 inline inline <string> | atributo array L7 | construto: - | a=np.array(im)
+922195736c58 inline inline <string> | atributo where L11 | construto: - | rows=np.where(ink.any(axis=1))[0]
+e33a1e2e4030 inline inline <string> | atributo LANCZOS L8 | construto: - | out.thumbnail((1900,1900),Image.LANCZOS)

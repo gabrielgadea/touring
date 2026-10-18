@@ -122,7 +122,10 @@ See [migration.md](migration.md) for the full migration walkthrough.
 By default `~/.claude/hooks/touring-hook` is a symlink to the global release
 binary. To activate the walk-up shim (which looks for `.touring/bin/touring-hook`
 in the project tree first, then `~/.touring/toolchains/<default>/bin/`, then
-falls back to the global binary):
+falls back to the global binary). A per-project binary is trusted only when it
+resolves into `~/.touring/toolchains/` (what `touring update --project` links to),
+is owned by you and is not group/other-writable; an executable that a repository
+carries is ignored and logged in `~/.claude/touring/logs/hook-shim-rejected.log`:
 
 ```bash
 ln -sfn ~/.claude/rust/scripts/hooks/touring-hook-shim.sh \

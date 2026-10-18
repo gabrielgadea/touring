@@ -1,0 +1,12 @@
+n 344 | A p50 35 p95 160 max 246 | B p50 36 p95 171 max 432
+acima de 150 ms: A 27  B 31
+bea91387b214 hook_registry.rs 120 -> 432
+61fa0941efb5 daemon.rs 81 -> 388
+e87083f5fac7 integration_e2e.rs 42 -> 219
+e293a00bae6b dag_lifecycle_closure_e2e.rs 9 -> 128
+cf2ceb3d1017 cli_handlers_e2e.rs 97 -> 215
+c352075387bd knowledge_wiring.rs 67 -> 184
+db212acd6614 wiring.rs 103 -> 205
+e89397b12181 integration_e2e.rs 35 -> 136
+ff57c9b45a99 integration_e2e.rs 48 -> 144
+53a9e211e5b8 integration_e2e.rs 32 -> 128

@@ -1,0 +1,164 @@
+[
+ {
+  "arquivo": "crates/touring-code/src/ast/languages.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "zona": "src",
+  "linha": 177,
+  "classe": "nome",
+  "nome": "THREAD_PARSERS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "zona": "tests",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "MockObserver",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 82,
+  "classe": "nome",
+  "nome": "prop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1265,
+  "classe": "import",
+  "nome": "Balde",
+  "severidade": "warn",
+  "sugestao": "crate `Balde` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1266,
+  "classe": "import",
+  "nome": "Escopo",
+  "severidade": "warn",
+  "sugestao": "crate `Escopo` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1267,
+  "classe": "import",
+  "nome": "Severidade",
+  "severidade": "warn",
+  "sugestao": "crate `Severidade` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Inline",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Proprio",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Deny",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1272,
+  "classe": "nome",
+  "nome": "Projeto",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1273,
+  "classe": "nome",
+  "nome": "Externo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Forma",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Warn",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1275,
+  "classe": "nome",
+  "nome": "Dinamico",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1276,
+  "classe": "nome",
+  "nome": "Tmp",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1281,
+  "classe": "nome",
+  "nome": "Arquivo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ }
+]

@@ -1,0 +1,3624 @@
+{
+ "ids": {
+  "01ed98b5cb50": {
+   "classe": null,
+   "elapsed_ms": 13.606221999999999,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `PyModule` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "01f168db1c6b": {
+   "classe": null,
+   "elapsed_ms": 207.808989,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2444,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "`write_run_pair_gate` não encontrado ao resolver `super::super::write_run_pair_gate`"
+    },
+    {
+     "classe": "import",
+     "linha": 3388,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 3388,
+     "nome": "code_mode_presentation",
+     "severidade": "warn",
+     "sugestao": "`code_mode_presentation` não encontrado ao resolver `super::super::code_mode_presentation`"
+    },
+    {
+     "classe": "import",
+     "linha": 4070,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    },
+    {
+     "classe": "nome",
+     "linha": 2450,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "0222c2b39770": {
+   "classe": null,
+   "elapsed_ms": 28.780094,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0252cd495603": {
+   "classe": null,
+   "elapsed_ms": 18.58712,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0459656943ef": {
+   "classe": null,
+   "elapsed_ms": 22.866580000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "045d18d1f53d": {
+   "classe": null,
+   "elapsed_ms": 56.25967300000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0526504cf527": {
+   "classe": null,
+   "elapsed_ms": 64.285807,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "06207704ef6f": {
+   "classe": null,
+   "elapsed_ms": 26.325038,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "06261579b5dd": {
+   "classe": null,
+   "elapsed_ms": 8.393153,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "062ae4fe5f92": {
+   "classe": null,
+   "elapsed_ms": 67.58379500000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0663d50ac9d8": {
+   "classe": null,
+   "elapsed_ms": 48.921589000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "07397dcc0c8f": {
+   "classe": null,
+   "elapsed_ms": 18.2272,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "076befdb5cc8": {
+   "classe": null,
+   "elapsed_ms": 7.865795,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "07f01065494c": {
+   "classe": null,
+   "elapsed_ms": 7.51497,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "08851e92f613": {
+   "classe": "kwarg",
+   "elapsed_ms": 112.904425,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 229,
+     "nome": "evaluate",
+     "severidade": "warn",
+     "sugestao": "`evaluate` aceita 3 argumento(s), mas 2 foram fornecidos"
+    }
+   ],
+   "motivo": "2 caminho(s) sem resolução estática: `CallToolResult` (nome possivelmente dinâmico (macro em nível de item / `use *` externo)); `diff_violations` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": "evaluate",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "0987e4364335": {
+   "classe": null,
+   "elapsed_ms": 5.3843700000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "09e20e7d76c6": {
+   "classe": null,
+   "elapsed_ms": 7.938439000000001,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `LAST_ERROR` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "0a4a64a427f6": {
+   "classe": null,
+   "elapsed_ms": 174.793701,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0c6e5e1bf2c2": {
+   "classe": null,
+   "elapsed_ms": 22.393717,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ca2d090aed5": {
+   "classe": null,
+   "elapsed_ms": 79.363592,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0cb05d618bf6": {
+   "classe": null,
+   "elapsed_ms": 17.436216,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ce7ea92a799": {
+   "classe": null,
+   "elapsed_ms": 5.361341,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0d61a66d24ec": {
+   "classe": null,
+   "elapsed_ms": 108.30215799999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "0ffd879d1914": {
+   "classe": null,
+   "elapsed_ms": 191.91084999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "108d89b5d3fa": {
+   "classe": null,
+   "elapsed_ms": 26.809037,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "114cb7c531d9": {
+   "classe": null,
+   "elapsed_ms": 4.941974,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1205dbc73512": {
+   "classe": null,
+   "elapsed_ms": 75.031057,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "136bdfe9fb89": {
+   "classe": null,
+   "elapsed_ms": 115.188665,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "13b8185bf85b": {
+   "classe": null,
+   "elapsed_ms": 58.009889,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "13d6122089ad": {
+   "classe": null,
+   "elapsed_ms": 36.658370000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "143891eb1b1b": {
+   "classe": "nome",
+   "elapsed_ms": 288.749254,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "code_mode_adherence",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "149948d49d3e": {
+   "classe": null,
+   "elapsed_ms": 130.58030000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "15599982552c": {
+   "classe": null,
+   "elapsed_ms": 5.802848999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "16398209bb21": {
+   "classe": "nome",
+   "elapsed_ms": 23.484011,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "173a9908c550": {
+   "classe": null,
+   "elapsed_ms": 10.171414,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 30,
+     "nome": "client",
+     "severidade": "warn",
+     "sugestao": "módulo `client` declarado sem arquivo (`client.rs` | `client/mod.rs`)"
+    },
+    {
+     "classe": "import",
+     "linha": 33,
+     "nome": "pool",
+     "severidade": "warn",
+     "sugestao": "módulo `pool` declarado sem arquivo (`pool.rs` | `pool/mod.rs`)"
+    },
+    {
+     "classe": "import",
+     "linha": 34,
+     "nome": "pyright",
+     "severidade": "warn",
+     "sugestao": "módulo `pyright` declarado sem arquivo (`pyright.rs` | `pyright/mod.rs`)"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "17ce84a8e549": {
+   "classe": null,
+   "elapsed_ms": 63.75647299999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1812738fe4d2": {
+   "classe": null,
+   "elapsed_ms": 181.446255,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "18a1556cf509": {
+   "classe": null,
+   "elapsed_ms": 28.542247,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "19a5ae0b4f0c": {
+   "classe": null,
+   "elapsed_ms": 192.18266400000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1c0fc168822b": {
+   "classe": null,
+   "elapsed_ms": 119.814753,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1caef2e28777": {
+   "classe": null,
+   "elapsed_ms": 13.08132,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1d51d7509ed8": {
+   "classe": null,
+   "elapsed_ms": 3.3050509999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1d781a002db6": {
+   "classe": null,
+   "elapsed_ms": 1.2587139999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1da173cbfb50": {
+   "classe": null,
+   "elapsed_ms": 34.620841,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1db872c23c43": {
+   "classe": null,
+   "elapsed_ms": 47.540652,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1dccd0a514a5": {
+   "classe": null,
+   "elapsed_ms": 21.327624999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1e791307270b": {
+   "classe": null,
+   "elapsed_ms": 31.467378999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1ef9d641b749": {
+   "classe": null,
+   "elapsed_ms": 10.585969,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1f496f2ea65f": {
+   "classe": null,
+   "elapsed_ms": 45.504934,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "1fe62336ab0e": {
+   "classe": null,
+   "elapsed_ms": 0.996034,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2038e5b9c46e": {
+   "classe": null,
+   "elapsed_ms": 34.645823,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "20f98adb6688": {
+   "classe": null,
+   "elapsed_ms": 52.651754000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "210f9c4028d6": {
+   "classe": null,
+   "elapsed_ms": 62.482333000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "213f0dadc274": {
+   "classe": null,
+   "elapsed_ms": 115.54437100000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "2222e4b50103": {
+   "classe": null,
+   "elapsed_ms": 103.884842,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2268002d3f81": {
+   "classe": null,
+   "elapsed_ms": 43.145709,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "22b1dd3e1a9c": {
+   "classe": null,
+   "elapsed_ms": 203.77245399999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "22fc988e2ba0": {
+   "classe": null,
+   "elapsed_ms": 26.307714999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "233326bdee2f": {
+   "classe": null,
+   "elapsed_ms": 123.429973,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "23f4832be1f2": {
+   "classe": null,
+   "elapsed_ms": 47.884136,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `crate::cli_handlers_decompose::parse_priority_token` (`pub use alvo::*` com alvo irresolúvel pode trazer o nome)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "24547b8d493d": {
+   "classe": null,
+   "elapsed_ms": 28.269078999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "24b4feb12aa0": {
+   "classe": null,
+   "elapsed_ms": 105.783533,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "253f9711ec94": {
+   "classe": null,
+   "elapsed_ms": 42.627546,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "254252b3f2cf": {
+   "classe": null,
+   "elapsed_ms": 9.064188000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2681f4f36022": {
+   "classe": null,
+   "elapsed_ms": 129.34444100000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "27e381897ffc": {
+   "classe": null,
+   "elapsed_ms": 88.79060299999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "29327db33955": {
+   "classe": null,
+   "elapsed_ms": 15.049000999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "297d1ede3252": {
+   "classe": null,
+   "elapsed_ms": 1.790304,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "299b401681e3": {
+   "classe": null,
+   "elapsed_ms": 14.831267,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2a4cdcc56083": {
+   "classe": null,
+   "elapsed_ms": 263.04440800000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2b665ba86f02": {
+   "classe": null,
+   "elapsed_ms": 26.994983,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2bf62902d126": {
+   "classe": null,
+   "elapsed_ms": 158.473639,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2c380344e148": {
+   "classe": null,
+   "elapsed_ms": 99.750467,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2d222e86d976": {
+   "classe": null,
+   "elapsed_ms": 27.173479,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2d3e04b04579": {
+   "classe": null,
+   "elapsed_ms": 32.303668,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "2d86264097de": {
+   "classe": null,
+   "elapsed_ms": 6.936638,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "300ca1d776f5": {
+   "classe": null,
+   "elapsed_ms": 131.48167999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "314d6b248fa9": {
+   "classe": null,
+   "elapsed_ms": 10.812496,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "31f6a780d766": {
+   "classe": null,
+   "elapsed_ms": 22.29456,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "33c82b876628": {
+   "classe": null,
+   "elapsed_ms": 41.333973,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "358f627d263d": {
+   "classe": null,
+   "elapsed_ms": 282.77324799999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3689ec576513": {
+   "classe": null,
+   "elapsed_ms": 80.272112,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "378ac0f7a5cf": {
+   "classe": "atributo",
+   "elapsed_ms": 180.664564,
+   "findings": [],
+   "motivo": "7 caminho(s) sem resolução estática: `super::error_predictor::ErrorPredictor` (módulo pai ilegível ou fora da árvore declarada); `super::runtime::HookResponse` (módulo pai ilegível ou fora da árvore declarada); `super::runtime::HookRuntime` (módulo pai ilegível ou fora da árvore declarada) (+4)",
+   "nome_esperado": "with",
+   "rotulo": "positivo",
+   "verdict": "unknown"
+  },
+  "3b501fcbb880": {
+   "classe": null,
+   "elapsed_ms": 22.310377,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3b671a29c237": {
+   "classe": null,
+   "elapsed_ms": 168.73901999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3bc784a386dc": {
+   "classe": "import",
+   "elapsed_ms": 154.55507,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "burst_gate",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "3bdcd7a6cb97": {
+   "classe": null,
+   "elapsed_ms": 58.249884,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "3d6fd5af0e2b": {
+   "classe": null,
+   "elapsed_ms": 30.067617000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "413878eef45a": {
+   "classe": null,
+   "elapsed_ms": 2.9536279999999997,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 28,
+     "nome": "client",
+     "severidade": "warn",
+     "sugestao": "módulo `client` declarado sem arquivo (`client.rs` | `client/mod.rs`)"
+    },
+    {
+     "classe": "import",
+     "linha": 31,
+     "nome": "pyright",
+     "severidade": "warn",
+     "sugestao": "módulo `pyright` declarado sem arquivo (`pyright.rs` | `pyright/mod.rs`)"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "41897187ec14": {
+   "classe": null,
+   "elapsed_ms": 51.982263,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4193b5d65eec": {
+   "classe": null,
+   "elapsed_ms": 7.563968,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "41c2318be7e7": {
+   "classe": null,
+   "elapsed_ms": 165.878463,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5632,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "41edb90a12f3": {
+   "classe": null,
+   "elapsed_ms": 115.120291,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "43351b6a9001": {
+   "classe": null,
+   "elapsed_ms": 123.876504,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4465b852bd0c": {
+   "classe": null,
+   "elapsed_ms": 171.027467,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "44d3e360bfba": {
+   "classe": null,
+   "elapsed_ms": 57.722291,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "455b05e16490": {
+   "classe": "import",
+   "elapsed_ms": 167.094919,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "48440c6da31b": {
+   "classe": null,
+   "elapsed_ms": 8.975733,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "48a5e49362da": {
+   "classe": "nome",
+   "elapsed_ms": 8.812911999999999,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 73,
+     "nome": "check",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "check",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "494623f04362": {
+   "classe": null,
+   "elapsed_ms": 31.268026,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "497f2d4e3ffb": {
+   "classe": null,
+   "elapsed_ms": 25.741162000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4ac19113062d": {
+   "classe": null,
+   "elapsed_ms": 6.266631,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4c10503f5181": {
+   "classe": null,
+   "elapsed_ms": 7.099187,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4c956c8dbf4b": {
+   "classe": null,
+   "elapsed_ms": 7.361543,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4d23f99e034c": {
+   "classe": null,
+   "elapsed_ms": 82.791469,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4d46547b4659": {
+   "classe": "nome",
+   "elapsed_ms": 170.878817,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "code_mode_signal_use",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "4da0968e5c51": {
+   "classe": null,
+   "elapsed_ms": 129.538572,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4de733e87408": {
+   "classe": null,
+   "elapsed_ms": 65.61170700000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4e7e0aa48a7b": {
+   "classe": null,
+   "elapsed_ms": 6.9030640000000005,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `LAST_ERROR` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "4f0df34bc27a": {
+   "classe": null,
+   "elapsed_ms": 44.438398,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4f274e38ece0": {
+   "classe": null,
+   "elapsed_ms": 135.37701299999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "4fc3ce1c71d0": {
+   "classe": null,
+   "elapsed_ms": 80.893484,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "4fc41b545702": {
+   "classe": null,
+   "elapsed_ms": 118.159839,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "500cda2f6836": {
+   "classe": "import",
+   "elapsed_ms": 124.117198,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 32,
+     "nome": "Decided",
+     "severidade": "warn",
+     "sugestao": "`Decided` não encontrado ao resolver `super::typestate::Decided`"
+    },
+    {
+     "classe": "import",
+     "linha": 32,
+     "nome": "Gated",
+     "severidade": "warn",
+     "sugestao": "`Gated` não encontrado ao resolver `super::typestate::Gated`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "Capability",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "51d90089ed47": {
+   "classe": null,
+   "elapsed_ms": 7.742019,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `LAST_ERROR` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "531c319ae3a1": {
+   "classe": null,
+   "elapsed_ms": 113.49066400000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "536c02cf3748": {
+   "classe": null,
+   "elapsed_ms": 41.212824000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "53a9e211e5b8": {
+   "classe": "nome",
+   "elapsed_ms": 118.274593,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "compose_details",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "54839a2c04bb": {
+   "classe": "nome",
+   "elapsed_ms": 133.610898,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `crate::cli_handlers_decompose::parse_priority_token` (`pub use alvo::*` com alvo irresolúvel pode trazer o nome)",
+   "nome_esperado": "cli_decompose_finalize",
+   "rotulo": "positivo",
+   "verdict": "unknown"
+  },
+  "54b9523d806e": {
+   "classe": null,
+   "elapsed_ms": 13.806553,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "55db3bfae2a5": {
+   "classe": null,
+   "elapsed_ms": 101.48693,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "55f542b1a809": {
+   "classe": "atributo",
+   "elapsed_ms": 16.084063999999998,
+   "findings": [
+    {
+     "classe": "atributo",
+     "linha": 890,
+     "nome": "UnresolvedDependencies",
+     "severidade": "warn",
+     "sugestao": "o enum não tem variante `UnresolvedDependencies`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "UnresolvedDependencies",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "57968fa1583c": {
+   "classe": null,
+   "elapsed_ms": 9.055862,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5858bed87447": {
+   "classe": null,
+   "elapsed_ms": 52.228192,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5898a881ed8c": {
+   "classe": null,
+   "elapsed_ms": 34.91302,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "599f576a8e24": {
+   "classe": null,
+   "elapsed_ms": 39.980709000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5aa4b4bc11f5": {
+   "classe": null,
+   "elapsed_ms": 212.810749,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5b79117af3f0": {
+   "classe": null,
+   "elapsed_ms": 44.466114000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5b8572940f94": {
+   "classe": null,
+   "elapsed_ms": 49.347647,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5c695cf9e98b": {
+   "classe": null,
+   "elapsed_ms": 170.706843,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5ca22774bb58": {
+   "classe": null,
+   "elapsed_ms": 44.523317999999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5d7c62fa71d3": {
+   "classe": null,
+   "elapsed_ms": 14.362352,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5dac067cf512": {
+   "classe": null,
+   "elapsed_ms": 40.462446,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5e8130636858": {
+   "classe": null,
+   "elapsed_ms": 152.115197,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5e9f6b1fa55d": {
+   "classe": null,
+   "elapsed_ms": 273.162057,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5702,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "5eab3c848973": {
+   "classe": null,
+   "elapsed_ms": 290.26867899999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "5f90e21f4e92": {
+   "classe": null,
+   "elapsed_ms": 5.2082109999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6043285a330d": {
+   "classe": null,
+   "elapsed_ms": 75.066525,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6072f2975dca": {
+   "classe": "import",
+   "elapsed_ms": 40.107993,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "Self",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "61e6abdc1803": {
+   "classe": null,
+   "elapsed_ms": 21.227628,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "61fa0941efb5": {
+   "classe": null,
+   "elapsed_ms": 133.573141,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 2486,
+     "nome": "flock",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "62bc25c4452c": {
+   "classe": null,
+   "elapsed_ms": 14.844382999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "62c50f05ae9e": {
+   "classe": null,
+   "elapsed_ms": 175.622558,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "62e14a98b45f": {
+   "classe": null,
+   "elapsed_ms": 151.235328,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3445,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "63107c51d5ed": {
+   "classe": "import",
+   "elapsed_ms": 117.72671799999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "63ae88b79b1e": {
+   "classe": null,
+   "elapsed_ms": 30.39012,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6441124f3160": {
+   "classe": null,
+   "elapsed_ms": 46.921785,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6611c274cd26": {
+   "classe": null,
+   "elapsed_ms": 214.00071400000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "670ac2ee6654": {
+   "classe": "import",
+   "elapsed_ms": 122.03929500000001,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "serial_test",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "671a757eb635": {
+   "classe": null,
+   "elapsed_ms": 124.387459,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "674724a4e443": {
+   "classe": null,
+   "elapsed_ms": 209.65759,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3502,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "6784a5d7bf97": {
+   "classe": null,
+   "elapsed_ms": 8.764092,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6878159c49d2": {
+   "classe": null,
+   "elapsed_ms": 1.941723,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6a36964936e2": {
+   "classe": null,
+   "elapsed_ms": 19.007453,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `LAST_ERROR` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "6c6a484e7a77": {
+   "classe": "nome",
+   "elapsed_ms": 23.746196,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "6d059458c575": {
+   "classe": null,
+   "elapsed_ms": 113.851817,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6d8b49820fb4": {
+   "classe": null,
+   "elapsed_ms": 33.613683,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6e3d4f98ab20": {
+   "classe": null,
+   "elapsed_ms": 11.88378,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "6e79fd7a1a9c": {
+   "classe": "nome",
+   "elapsed_ms": 104.039986,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `crate::cli_handlers_decompose::parse_priority_token` (`pub use alvo::*` com alvo irresolúvel pode trazer o nome)",
+   "nome_esperado": "cli_decompose_ready",
+   "rotulo": "positivo",
+   "verdict": "unknown"
+  },
+  "716fa41b1a3b": {
+   "classe": null,
+   "elapsed_ms": 10.187259000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "727843b8043a": {
+   "classe": null,
+   "elapsed_ms": 101.596303,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "72d01144b53e": {
+   "classe": "nome",
+   "elapsed_ms": 145.210648,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `crate::cli_handlers_decompose::parse_priority_token` (`pub use alvo::*` com alvo irresolúvel pode trazer o nome)",
+   "nome_esperado": "refresh_parent_status",
+   "rotulo": "positivo",
+   "verdict": "unknown"
+  },
+  "73299fe3e3c9": {
+   "classe": null,
+   "elapsed_ms": 84.556305,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "733a73c2c2f7": {
+   "classe": null,
+   "elapsed_ms": 40.560134,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "738dac5e0f53": {
+   "classe": "atributo",
+   "elapsed_ms": 16.52692,
+   "findings": [
+    {
+     "classe": "atributo",
+     "linha": 890,
+     "nome": "UnresolvedDependencies",
+     "severidade": "warn",
+     "sugestao": "o enum não tem variante `UnresolvedDependencies`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "UnresolvedDependencies",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "74a9ad408dd0": {
+   "classe": null,
+   "elapsed_ms": 38.110617,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "74cdfbefe7e3": {
+   "classe": null,
+   "elapsed_ms": 3.363413,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "75709ed1e368": {
+   "classe": "import",
+   "elapsed_ms": 74.499043,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "retirement",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "764e3f5bcca9": {
+   "classe": null,
+   "elapsed_ms": 15.885519,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "78efc1183d3a": {
+   "classe": "nome",
+   "elapsed_ms": 188.96267699999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "default_commitments_path",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "793ada534137": {
+   "classe": null,
+   "elapsed_ms": 114.580136,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2435,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "`write_run_pair_gate` não encontrado ao resolver `super::super::write_run_pair_gate`"
+    },
+    {
+     "classe": "import",
+     "linha": 3364,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 3364,
+     "nome": "code_mode_presentation",
+     "severidade": "warn",
+     "sugestao": "`code_mode_presentation` não encontrado ao resolver `super::super::code_mode_presentation`"
+    },
+    {
+     "classe": "import",
+     "linha": 4046,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    },
+    {
+     "classe": "nome",
+     "linha": 2441,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "794ac3ac1adb": {
+   "classe": null,
+   "elapsed_ms": 80.755864,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "79885f78b235": {
+   "classe": null,
+   "elapsed_ms": 153.507684,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "79e903be82ea": {
+   "classe": null,
+   "elapsed_ms": 35.674061,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "79edc827a6ac": {
+   "classe": null,
+   "elapsed_ms": 17.430772,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ada95b6b021": {
+   "classe": null,
+   "elapsed_ms": 97.262479,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7b2e9b5f308b": {
+   "classe": null,
+   "elapsed_ms": 117.172128,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3511,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "7be9ac4c53a1": {
+   "classe": null,
+   "elapsed_ms": 163.44394200000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7bf4da1eb23e": {
+   "classe": null,
+   "elapsed_ms": 145.997659,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7bfec10bbd06": {
+   "classe": null,
+   "elapsed_ms": 5.031309,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7cf682f91c8f": {
+   "classe": "nome",
+   "elapsed_ms": 39.896171,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 1453,
+     "nome": "source_declares",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "source_declares",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "7e2d81fa2161": {
+   "classe": null,
+   "elapsed_ms": 34.261009,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ee6192b78e9": {
+   "classe": null,
+   "elapsed_ms": 43.445974,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "7ee984f122fa": {
+   "classe": null,
+   "elapsed_ms": 46.737357,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "806eabc7b0a0": {
+   "classe": null,
+   "elapsed_ms": 68.79130699999999,
+   "findings": [],
+   "motivo": "20 caminho(s) sem resolução estática: `super` (módulo pai ilegível ou fora da árvore declarada); `compose_high_signal_context` (nome possivelmente dinâmico (macro em nível de item / `use *` externo)); `compose_high_signal_context_budgeted` (nome possivelmente dinâmico (macro em nível de item / `use *` externo)) (+17)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "85ee5cb9268a": {
+   "classe": null,
+   "elapsed_ms": 96.421025,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "874b6c7badc3": {
+   "classe": null,
+   "elapsed_ms": 4.312397,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "890fad2a4b18": {
+   "classe": null,
+   "elapsed_ms": 24.158888,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "89a6aa72bd26": {
+   "classe": null,
+   "elapsed_ms": 31.365812,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "89cf17e67da6": {
+   "classe": "nome",
+   "elapsed_ms": 23.213355,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "is_automated_payload",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "8a11c381614d": {
+   "classe": null,
+   "elapsed_ms": 202.178216,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3511,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "8a632b246d58": {
+   "classe": null,
+   "elapsed_ms": 354.415651,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2388,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "`write_run_pair_gate` não encontrado ao resolver `super::super::write_run_pair_gate`"
+    },
+    {
+     "classe": "import",
+     "linha": 3187,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 3187,
+     "nome": "code_mode_presentation",
+     "severidade": "warn",
+     "sugestao": "`code_mode_presentation` não encontrado ao resolver `super::super::code_mode_presentation`"
+    },
+    {
+     "classe": "import",
+     "linha": 3869,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    },
+    {
+     "classe": "nome",
+     "linha": 2394,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "8ae38daa07d0": {
+   "classe": null,
+   "elapsed_ms": 27.67884,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8b235490f04c": {
+   "classe": null,
+   "elapsed_ms": 27.464424,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8b7ca449bb15": {
+   "classe": null,
+   "elapsed_ms": 11.101689,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8cccb6bdc648": {
+   "classe": null,
+   "elapsed_ms": 143.065044,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "8fc41de4684d": {
+   "classe": null,
+   "elapsed_ms": 34.487674000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90944d320c36": {
+   "classe": null,
+   "elapsed_ms": 44.759795,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "90c40afb6acc": {
+   "classe": null,
+   "elapsed_ms": 284.83581000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "91f667c3a0d4": {
+   "classe": null,
+   "elapsed_ms": 34.995994,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "92634b78d0e1": {
+   "classe": null,
+   "elapsed_ms": 53.126151,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "92896d21ab77": {
+   "classe": null,
+   "elapsed_ms": 20.465629999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "928b016646f4": {
+   "classe": null,
+   "elapsed_ms": 23.587296000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "92a3b2ddd60a": {
+   "classe": null,
+   "elapsed_ms": 166.861806,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5672,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "93e34b297370": {
+   "classe": null,
+   "elapsed_ms": 38.016593,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "94cb99f99d9d": {
+   "classe": null,
+   "elapsed_ms": 243.583075,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "96c5fab87a0c": {
+   "classe": null,
+   "elapsed_ms": 131.126499,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 2459,
+     "nome": "flock",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "96ea2ed44c18": {
+   "classe": null,
+   "elapsed_ms": 22.758685,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "974b0eb25d02": {
+   "classe": null,
+   "elapsed_ms": 18.027316000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "977ed69aa06a": {
+   "classe": null,
+   "elapsed_ms": 47.610260000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "992a4f800f52": {
+   "classe": null,
+   "elapsed_ms": 11.217013,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "995b79d41337": {
+   "classe": null,
+   "elapsed_ms": 9.601294999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "99686f2fe982": {
+   "classe": null,
+   "elapsed_ms": 36.085325000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9a1fa66297ad": {
+   "classe": null,
+   "elapsed_ms": 124.016645,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9a25456361d2": {
+   "classe": null,
+   "elapsed_ms": 35.026050000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9aa4c0700042": {
+   "classe": null,
+   "elapsed_ms": 33.571559,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b3b1f1d4350": {
+   "classe": null,
+   "elapsed_ms": 24.886141000000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b69fee4a1a2": {
+   "classe": null,
+   "elapsed_ms": 49.290971000000006,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9b7c0d0ac4ec": {
+   "classe": null,
+   "elapsed_ms": 234.215268,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9ca78f82682a": {
+   "classe": null,
+   "elapsed_ms": 10.799026999999999,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "9df35da2ca37": {
+   "classe": null,
+   "elapsed_ms": 78.345925,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9e254cda16a2": {
+   "classe": null,
+   "elapsed_ms": 63.555156000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "9e4a4267e6b2": {
+   "classe": null,
+   "elapsed_ms": 30.199220999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a147caa9f3a7": {
+   "classe": null,
+   "elapsed_ms": 4.592335,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a26c5f06ffef": {
+   "classe": "import",
+   "elapsed_ms": 72.57676000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "retirement",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "a3923cbedf1e": {
+   "classe": null,
+   "elapsed_ms": 47.074484,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a3a8e6e2370c": {
+   "classe": "import",
+   "elapsed_ms": 123.208378,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "a5b879dbcbe9": {
+   "classe": null,
+   "elapsed_ms": 37.587424,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a91f63f35f34": {
+   "classe": null,
+   "elapsed_ms": 6.4253670000000005,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "a971b1d47dd7": {
+   "classe": null,
+   "elapsed_ms": 3.810859,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "aa0fff97b669": {
+   "classe": "nome",
+   "elapsed_ms": 44.222208,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 1553,
+     "nome": "star_target_names",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "star_target_names",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "aa3948207750": {
+   "classe": "import",
+   "elapsed_ms": 30.206585,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 173,
+     "nome": "out_find",
+     "severidade": "warn",
+     "sugestao": "`out_find` aceita 7 argumento(s), mas 6 foram fornecidos"
+    },
+    {
+     "classe": "nome",
+     "linha": 189,
+     "nome": "Tri",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "Tri",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "aacd04b3dfb1": {
+   "classe": null,
+   "elapsed_ms": 49.433809000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ac3791d22f3d": {
+   "classe": null,
+   "elapsed_ms": 28.853103,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ad19d72a3f2f": {
+   "classe": null,
+   "elapsed_ms": 125.766075,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ad7106a888b6": {
+   "classe": null,
+   "elapsed_ms": 285.963279,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b1384529c3b9": {
+   "classe": null,
+   "elapsed_ms": 4.916048,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b236949f5dcb": {
+   "classe": null,
+   "elapsed_ms": 7.663773,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b255d987fb6e": {
+   "classe": null,
+   "elapsed_ms": 129.009072,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b3c7456d8681": {
+   "classe": null,
+   "elapsed_ms": 20.378688,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b3e48d334c14": {
+   "classe": null,
+   "elapsed_ms": 19.315583,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b615d23932b7": {
+   "classe": null,
+   "elapsed_ms": 45.418257,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b6c46f435a3f": {
+   "classe": null,
+   "elapsed_ms": 4.727905,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b6e395d9815c": {
+   "classe": null,
+   "elapsed_ms": 41.047661999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b819e04a73ce": {
+   "classe": null,
+   "elapsed_ms": 35.076201000000005,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 1041,
+     "nome": "extract_reexport_pairs",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    },
+    {
+     "classe": "nome",
+     "linha": 1096,
+     "nome": "record_reexport_consumer",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "b8be4ea22e6a": {
+   "classe": null,
+   "elapsed_ms": 83.306253,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b96080f2f793": {
+   "classe": null,
+   "elapsed_ms": 80.468582,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "b97906e8b83b": {
+   "classe": null,
+   "elapsed_ms": 28.755419,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bac21b1a8b2b": {
+   "classe": null,
+   "elapsed_ms": 26.430460999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bb4f07031afd": {
+   "classe": null,
+   "elapsed_ms": 0.5656180000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bb9abb7c1257": {
+   "classe": null,
+   "elapsed_ms": 124.834018,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bccc570e5e9c": {
+   "classe": null,
+   "elapsed_ms": 34.158918,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bdaecbfe4e50": {
+   "classe": null,
+   "elapsed_ms": 12.407469,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "be54816f15f2": {
+   "classe": null,
+   "elapsed_ms": 31.437663999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "be7d12f4fee6": {
+   "classe": null,
+   "elapsed_ms": 22.840649000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "bea91387b214": {
+   "classe": null,
+   "elapsed_ms": 562.9748089999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c1783d218f09": {
+   "classe": null,
+   "elapsed_ms": 29.410449000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c1cf0f44877a": {
+   "classe": "import",
+   "elapsed_ms": 115.700633,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "pending_for",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "c21bc9b0a325": {
+   "classe": null,
+   "elapsed_ms": 61.329178999999996,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `INPUT` (nome possivelmente dinâmico (macro em nível de item / `use *` externo))",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "c226f6b8a39a": {
+   "classe": null,
+   "elapsed_ms": 50.151337,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c25b67b29d60": {
+   "classe": "nome",
+   "elapsed_ms": 30.77067,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 173,
+     "nome": "out_find",
+     "severidade": "warn",
+     "sugestao": "`out_find` aceita 7 argumento(s), mas 6 foram fornecidos"
+    },
+    {
+     "classe": "nome",
+     "linha": 189,
+     "nome": "Tri",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "Tri",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "c271936deb30": {
+   "classe": null,
+   "elapsed_ms": 145.323872,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c2aae59d6dec": {
+   "classe": null,
+   "elapsed_ms": 30.502728,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c352075387bd": {
+   "classe": null,
+   "elapsed_ms": 40.092014,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c3e811a1415c": {
+   "classe": null,
+   "elapsed_ms": 29.60412,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c62fc8dfcb18": {
+   "classe": "import",
+   "elapsed_ms": 30.12747,
+   "findings": [
+    {
+     "classe": "kwarg",
+     "linha": 173,
+     "nome": "out_find",
+     "severidade": "warn",
+     "sugestao": "`out_find` aceita 7 argumento(s), mas 6 foram fornecidos"
+    },
+    {
+     "classe": "nome",
+     "linha": 189,
+     "nome": "Tri",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "Tri",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "c67ddaa9afd9": {
+   "classe": null,
+   "elapsed_ms": 251.698861,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5762,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "c68f49efc864": {
+   "classe": null,
+   "elapsed_ms": 25.581818,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c753e2e741a2": {
+   "classe": null,
+   "elapsed_ms": 154.10449400000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c867ade96887": {
+   "classe": null,
+   "elapsed_ms": 27.658289999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c902d387a878": {
+   "classe": null,
+   "elapsed_ms": 43.785906,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "c9eb801de249": {
+   "classe": null,
+   "elapsed_ms": 55.929117,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ca5d3b0dcc47": {
+   "classe": null,
+   "elapsed_ms": 17.480216,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cb2f529a95a6": {
+   "classe": null,
+   "elapsed_ms": 29.029102,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cb74b63399f3": {
+   "classe": null,
+   "elapsed_ms": 38.068003000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cc0d0da5e79a": {
+   "classe": null,
+   "elapsed_ms": 17.589132,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cf2ceb3d1017": {
+   "classe": null,
+   "elapsed_ms": 169.561612,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "cf87e1831c66": {
+   "classe": "import",
+   "elapsed_ms": 209.56471,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 3429,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 4179,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "gates_limpo",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "d1c70750236b": {
+   "classe": null,
+   "elapsed_ms": 5.1027119999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d3be38220b7b": {
+   "classe": null,
+   "elapsed_ms": 0.915201,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d3fc8a3462b3": {
+   "classe": null,
+   "elapsed_ms": 11.420786,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d4396acb68a6": {
+   "classe": null,
+   "elapsed_ms": 5.218630999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d4c351a37bf5": {
+   "classe": null,
+   "elapsed_ms": 3.419727,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d5248b88cd04": {
+   "classe": null,
+   "elapsed_ms": 128.073953,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d5424dd02817": {
+   "classe": null,
+   "elapsed_ms": 110.78141,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d6345f971d7e": {
+   "classe": null,
+   "elapsed_ms": 36.299348,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d64661f05b97": {
+   "classe": "nome",
+   "elapsed_ms": 266.27878799999996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "cli_index_ingest",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "d66f1ad330b3": {
+   "classe": null,
+   "elapsed_ms": 63.27793199999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d6dddc212f0a": {
+   "classe": null,
+   "elapsed_ms": 7.4843399999999995,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d7269c3247d7": {
+   "classe": null,
+   "elapsed_ms": 1.240532,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d78fcf6f6345": {
+   "classe": null,
+   "elapsed_ms": 7.359996,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "d9b8129db834": {
+   "classe": null,
+   "elapsed_ms": 113.855804,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "da644c10bd19": {
+   "classe": null,
+   "elapsed_ms": 1.3697570000000001,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "db212acd6614": {
+   "classe": null,
+   "elapsed_ms": 188.278792,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dd48c44f8a72": {
+   "classe": null,
+   "elapsed_ms": 19.663404999999997,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dd914ae99583": {
+   "classe": null,
+   "elapsed_ms": 14.434223,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ddda7b9a4cf1": {
+   "classe": null,
+   "elapsed_ms": 12.905391999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dfa74028efa4": {
+   "classe": null,
+   "elapsed_ms": 28.210206000000003,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "dfebd6217c77": {
+   "classe": null,
+   "elapsed_ms": 17.893144,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e0e979afd6f0": {
+   "classe": null,
+   "elapsed_ms": 59.769152,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e14bf32a2d05": {
+   "classe": null,
+   "elapsed_ms": 22.437177,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e293a00bae6b": {
+   "classe": null,
+   "elapsed_ms": 162.13585,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e5b1c566524a": {
+   "classe": null,
+   "elapsed_ms": 38.080588,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e619ec1b1088": {
+   "classe": null,
+   "elapsed_ms": 40.733883,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e65ff51d4744": {
+   "classe": null,
+   "elapsed_ms": 54.715385999999995,
+   "findings": [],
+   "motivo": "1 caminho(s) sem resolução estática: `crate::cli_handlers_decompose::parse_priority_token` (`pub use alvo::*` com alvo irresolúvel pode trazer o nome)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "e7b97433ae40": {
+   "classe": null,
+   "elapsed_ms": 11.622237,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e7c2a3712413": {
+   "classe": null,
+   "elapsed_ms": 31.002583,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e7fecc1131ea": {
+   "classe": null,
+   "elapsed_ms": 26.882235,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e87083f5fac7": {
+   "classe": null,
+   "elapsed_ms": 151.97983100000002,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "e89397b12181": {
+   "classe": "nome",
+   "elapsed_ms": 121.241889,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "compose_details",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "e97286704e79": {
+   "classe": null,
+   "elapsed_ms": 19.363267999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ea7d4e16fa2e": {
+   "classe": "nome",
+   "elapsed_ms": 29.154027999999997,
+   "findings": [
+    {
+     "classe": "nome",
+     "linha": 73,
+     "nome": "check",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": "check",
+   "rotulo": "positivo",
+   "verdict": "warn"
+  },
+  "ea93cbf30c73": {
+   "classe": null,
+   "elapsed_ms": 166.838287,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5798,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "ea9dac34891a": {
+   "classe": null,
+   "elapsed_ms": 9.143378,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "eb2238188f2d": {
+   "classe": null,
+   "elapsed_ms": 46.952220000000004,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ebb065a1e6ab": {
+   "classe": null,
+   "elapsed_ms": 176.697095,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ebd1e9d6c318": {
+   "classe": null,
+   "elapsed_ms": 294.32121,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ed89f323b081": {
+   "classe": null,
+   "elapsed_ms": 31.445596,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ee02a5b247c4": {
+   "classe": "nome",
+   "elapsed_ms": 67.968453,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "refresh_parent_status",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "eff434067cac": {
+   "classe": null,
+   "elapsed_ms": 18.316729,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f04a880cb4e6": {
+   "classe": null,
+   "elapsed_ms": 147.801727,
+   "findings": [],
+   "motivo": "9 caminho(s) sem resolução estática: `super` (módulo pai ilegível ou fora da árvore declarada); `compose_edit_context` (nome possivelmente dinâmico (macro em nível de item / `use *` externo)); `HookRuntime` (nome possivelmente dinâmico (macro em nível de item / `use *` externo)) (+6)",
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "unknown"
+  },
+  "f1de498b4fc5": {
+   "classe": null,
+   "elapsed_ms": 26.705941,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f24e99c9513b": {
+   "classe": null,
+   "elapsed_ms": 48.043879,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f2ce6a369697": {
+   "classe": null,
+   "elapsed_ms": 12.530009,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f353870930b2": {
+   "classe": null,
+   "elapsed_ms": 30.102826999999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f3b20d798fcf": {
+   "classe": null,
+   "elapsed_ms": 30.693879,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f4568a708fd2": {
+   "classe": null,
+   "elapsed_ms": 102.91052,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f5a1ef9eed75": {
+   "classe": null,
+   "elapsed_ms": 32.938342000000006,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f5c03f1b4e30": {
+   "classe": null,
+   "elapsed_ms": 128.90306700000002,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 5560,
+     "nome": "record_g1_inspect_burst_denied",
+     "severidade": "warn",
+     "sugestao": "`record_g1_inspect_burst_denied` não encontrado ao resolver `crate::shared::gate_metrics::record_g1_inspect_burst_denied`"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f6fdcb0d820b": {
+   "classe": null,
+   "elapsed_ms": 26.824185,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f70f764d5484": {
+   "classe": null,
+   "elapsed_ms": 4.320827,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f72b5af06fac": {
+   "classe": null,
+   "elapsed_ms": 113.49434099999999,
+   "findings": [
+    {
+     "classe": "import",
+     "linha": 2444,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "`write_run_pair_gate` não encontrado ao resolver `super::super::write_run_pair_gate`"
+    },
+    {
+     "classe": "import",
+     "linha": 3379,
+     "nome": "INSPECT_BURST_DENY_AT",
+     "severidade": "warn",
+     "sugestao": "`INSPECT_BURST_DENY_AT` não encontrado ao resolver `super::super::INSPECT_BURST_DENY_AT`"
+    },
+    {
+     "classe": "import",
+     "linha": 3379,
+     "nome": "code_mode_presentation",
+     "severidade": "warn",
+     "sugestao": "`code_mode_presentation` não encontrado ao resolver `super::super::code_mode_presentation`"
+    },
+    {
+     "classe": "import",
+     "linha": 4061,
+     "nome": "burst_gate",
+     "severidade": "warn",
+     "sugestao": "`burst_gate` não encontrado ao resolver `super::super::burst_gate`"
+    },
+    {
+     "classe": "nome",
+     "linha": 2450,
+     "nome": "write_run_pair_gate",
+     "severidade": "warn",
+     "sugestao": "nome usado sem definição em nenhum escopo"
+    }
+   ],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "warn"
+  },
+  "f837803e6411": {
+   "classe": "nome",
+   "elapsed_ms": 150.458156,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "today_iso",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "f86c4957b850": {
+   "classe": null,
+   "elapsed_ms": 44.515811,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f8cb51d02f45": {
+   "classe": null,
+   "elapsed_ms": 16.488098,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f8f947717a70": {
+   "classe": null,
+   "elapsed_ms": 46.866074,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "f9eae7025408": {
+   "classe": null,
+   "elapsed_ms": 15.11892,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fc9114a3a57f": {
+   "classe": null,
+   "elapsed_ms": 108.397329,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fcd3c4e64945": {
+   "classe": "nome",
+   "elapsed_ms": 186.022518,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": "load_commitments",
+   "rotulo": "positivo",
+   "verdict": "allow"
+  },
+  "fd068f36d525": {
+   "classe": null,
+   "elapsed_ms": 84.51932199999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fe0e48c00b5d": {
+   "classe": null,
+   "elapsed_ms": 70.892746,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "fef5d54c398e": {
+   "classe": null,
+   "elapsed_ms": 96.03179,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ff57c9b45a99": {
+   "classe": null,
+   "elapsed_ms": 185.50570399999998,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  },
+  "ffd593460f6f": {
+   "classe": null,
+   "elapsed_ms": 14.673188999999999,
+   "findings": [],
+   "motivo": null,
+   "nome_esperado": null,
+   "rotulo": "negativo",
+   "verdict": "allow"
+  }
+ },
+ "juiz_sha16": "6c8a31b02075da1e",
+ "n": 344,
+ "touring": "/home/gabrielgadea/.claude/touring/vgp/binarios/46460c35/touring"
+}

@@ -23,7 +23,7 @@ def _run(tmp_path: Path, cwd: Path, **env: str) -> dict[str, str]:
     base = {k: v for k, v in os.environ.items()
             if k not in ("TOURING_DAEMON_SOCKET", "TOURING_DAEMON_SOCK", "TOURING_PROJECT_ROOT", "CLAUDE_PROJECT_DIR")}
     p = subprocess.run(["bash", str(SCRIPT)], input='{"session_id": "s-d3"}', capture_output=True, text=True,
-                       cwd=cwd, env={**base, "CLAUDE_ENV_FILE": str(env_file), **env}, timeout=20)
+                       cwd=cwd, env={**base, "CLAUDE_ENV_FILE": str(env_file), **env}, timeout=20, check=False)
     assert p.returncode == 0, p.stderr
     out = {}
     for line in env_file.read_text(encoding="utf-8").splitlines():

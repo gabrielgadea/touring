@@ -1,0 +1,6 @@
+E   ModuleNotFoundError: No module named 'operadores_rust'
+=========================== short test summary info ============================
+ERROR test_operadores_rust.py
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+1 error in 0.10s

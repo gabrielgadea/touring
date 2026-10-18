@@ -1,0 +1,96 @@
+{
+ "sha_rust_rs": "f7b38a72c6cb57f4",
+ "variantes": [
+  {
+   "variante": "V5",
+   "desfeitas": [
+    "f",
+    "g",
+    "h",
+    "i",
+    "j",
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V5/touring",
+   "sha256": "06a605db9a8b9a975690e022c6d12927df56700b92cf12b7d5400dfb72b56b00",
+   "segundos": 44.7
+  },
+  {
+   "variante": "V6",
+   "desfeitas": [
+    "g",
+    "h",
+    "i",
+    "j",
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V6/touring",
+   "sha256": "e47dc3c1b666d1c33e3404aaf93f833c4396377850eda507066b63f147673307",
+   "segundos": 25.1
+  },
+  {
+   "variante": "V7",
+   "desfeitas": [
+    "h",
+    "i",
+    "j",
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V7/touring",
+   "sha256": "a1292a55469b49866a00745013e92a2b92040e4caa1860985fb5039d756b7512",
+   "segundos": 25.4
+  },
+  {
+   "variante": "V8",
+   "desfeitas": [
+    "i",
+    "j",
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V8/touring",
+   "sha256": "ab09fa947cbf8ce470a2c82243202e709f8d6fb0a312d151cec123cfcab7d750",
+   "segundos": 27.5
+  },
+  {
+   "variante": "V9",
+   "desfeitas": [
+    "j",
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V9/touring",
+   "sha256": "5f5a67e698540b5ca392e5a9e22eff71e051ce08a4b07e3732a987b73e6c80a8",
+   "segundos": 24.2
+  },
+  {
+   "variante": "V10",
+   "desfeitas": [
+    "l",
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V10/touring",
+   "sha256": "f53fa2fd4b6b7a7f2c77c876111dc39f3300cc73a7913ee3913fd9054d437257",
+   "segundos": 25.8
+  },
+  {
+   "variante": "V11",
+   "desfeitas": [
+    "m"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V11/touring",
+   "sha256": "77abf212df514e739883db7f328af19adfd8d2a3c078254618d7991fd6133677",
+   "segundos": 25.2
+  },
+  {
+   "variante": "V12",
+   "desfeitas": [],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V12/touring",
+   "sha256": "80e3df1c3ce980b7322c3aa4cd0dbfe5db9a50eba171805949249735cb7a58c9",
+   "segundos": 34.7
+  }
+ ]
+}
