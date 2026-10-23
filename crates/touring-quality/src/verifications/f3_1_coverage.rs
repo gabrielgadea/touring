@@ -122,6 +122,20 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
                 .collect();
             paired_note = format!(", paired with {}", names.join(" + "));
         }
+        // Second criterion, additive to the proximity pairing above: test files
+        // anywhere under the repository root that IMPORT this module (23/10/2026 —
+        // `tests/hooks_contract/test_x.py` for `scripts/diagnostics/x.py` read
+        // `test fns=0` beside a full suite). A file already paired is not recounted.
+        let importers: Vec<_> = super::f3_1_py_imports::importing_tests(target)
+            .into_iter()
+            .filter(|t| !paired.contains(&t.path))
+            .collect();
+        for t in &importers {
+            py_test += t.test_fns;
+        }
+        if !importers.is_empty() {
+            paired_note.push_str(&importers_note(&importers));
+        }
         (py_test, py_pub)
     } else {
         let t = raw.matches(concat!("#[", "test]")).count()
@@ -144,9 +158,26 @@ fn presence_proxy(target: &Path) -> Result<(f32, String)> {
     Ok((value, evidence))
 }
 
+/// ", imported by a.py + b.py (+N more)" — at most three names, so the evidence line
+/// stays one line however many test files import the module.
+fn importers_note(importers: &[super::f3_1_py_imports::ImportingTest]) -> String {
+    let names: Vec<String> = importers
+        .iter()
+        .take(3)
+        .filter_map(|t| t.path.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .collect();
+    let more = importers.len().saturating_sub(3);
+    let tail = if more > 0 {
+        format!(" (+{more} more)")
+    } else {
+        String::new()
+    };
+    format!(", imported by {}{tail}", names.join(" + "))
+}
+
 /// `def test_…` / `async def test_…` at any indent — pytest's collection rule for
 /// functions and methods.
-fn count_python_tests(src: &str) -> usize {
+pub(super) fn count_python_tests(src: &str) -> usize {
     src.lines()
         .filter(|l| {
             let t = l.trim_start();
@@ -328,5 +359,226 @@ mod tests {
             "control: nothing pairs — {}",
             lonely.evidence
         );
+    }
+
+    // ── import-based test discovery (23/10/2026) ─────────────────────────────
+
+    const TWO_PUBLIC: &str = "def a():\n    return 1\n\n\ndef b():\n    return 2\n";
+    const TWO_TESTS: &str = "def test_a():\n    assert True\n\n\ndef test_b():\n    assert True\n";
+
+    /// A throwaway repository (with a `.git` marker) holding `files`. Every fixture
+    /// is written BEFORE the first `check`, because the import index is cached per
+    /// repository root.
+    fn repo_with(files: &[(&str, &str)]) -> tempfile::TempDir {
+        let repo = tempfile::tempdir().expect("tmpdir");
+        std::fs::create_dir_all(repo.path().join(".git")).expect(".git");
+        std::fs::write(repo.path().join(".git/HEAD"), "ref: refs/heads/main\n").expect("HEAD");
+        for (rel, body) in files {
+            let p = repo.path().join(rel);
+            std::fs::create_dir_all(p.parent().expect("parent")).expect("mkdir");
+            std::fs::write(&p, body).expect("write fixture");
+        }
+        repo
+    }
+
+    fn score(repo: &tempfile::TempDir, rel: &str) -> crate::DimScore {
+        F3_1_Coverage.check(&repo.path().join(rel)).expect("check")
+    }
+
+    /// Positive control: a test in the repository-root `tests/` tree, named so the
+    /// proximity rule cannot pair it, covers the module it imports by full path.
+    #[test]
+    fn import_of_the_package_path_counts_for_the_module() {
+        let repo = repo_with(&[
+            ("pkg/mod.py", TWO_PUBLIC),
+            (
+                "tests/contract/test_pkg_contract.py",
+                &format!("import pkg.mod\n\n{TWO_TESTS}"),
+            ),
+            ("pkg/untested.py", TWO_PUBLIC),
+        ]);
+        let s = score(&repo, "pkg/mod.py");
+        assert_eq!(s.value, 1.0, "{}", s.evidence);
+        assert!(
+            s.evidence.contains("imported by test_pkg_contract.py"),
+            "{}",
+            s.evidence
+        );
+        // control: nothing imports it and no test sits near it
+        let none = score(&repo, "pkg/untested.py");
+        assert_eq!(none.value, 0.0, "{}", none.evidence);
+    }
+
+    /// Negative control: homonymous modules in different packages do not cover each
+    /// other — the match is by full module path, never by basename.
+    #[test]
+    fn homonymous_module_in_another_package_is_not_covered() {
+        let repo = repo_with(&[
+            ("pkg/mod.py", TWO_PUBLIC),
+            ("other/mod.py", TWO_PUBLIC),
+            (
+                "tests/test_only_other.py",
+                &format!("from other.mod import a\n\n{TWO_TESTS}"),
+            ),
+        ]);
+        let other = score(&repo, "other/mod.py");
+        assert_eq!(other.value, 1.0, "{}", other.evidence);
+        let pkg = score(&repo, "pkg/mod.py");
+        assert_eq!(
+            pkg.value, 0.0,
+            "homonym must not be covered — {}",
+            pkg.evidence
+        );
+    }
+
+    /// Negative control: the module's name in a comment, a string or a docstring is
+    /// not an import.
+    #[test]
+    fn citing_the_module_in_a_string_or_comment_is_not_an_import() {
+        let body = format!(
+            "\"\"\"\nfrom pkg.cited import a\n\"\"\"\n# import pkg.cited\n\
+             NAME = \"import pkg.cited\"\nOTHER = 'from pkg import cited'\n\n{TWO_TESTS}"
+        );
+        let repo = repo_with(&[
+            ("pkg/cited.py", TWO_PUBLIC),
+            ("tests/test_mentions.py", &body),
+        ]);
+        let s = score(&repo, "pkg/cited.py");
+        assert_eq!(s.value, 0.0, "{}", s.evidence);
+        assert!(!s.evidence.contains("imported by"), "{}", s.evidence);
+    }
+
+    /// Non-regression: the proximity pairing still counts, and the import criterion
+    /// ADDS to it instead of replacing it.
+    #[test]
+    fn proximity_pairing_still_counts_and_import_adds_to_it() {
+        let repo = repo_with(&[
+            ("pkg/combo.py", TWO_PUBLIC),
+            (
+                "pkg/tests/test_combo.py",
+                "def test_a():\n    assert True\n",
+            ),
+            ("pkg/near.py", TWO_PUBLIC),
+            ("pkg/tests/test_near.py", TWO_TESTS),
+            (
+                "tests/test_combo_contract.py",
+                "from pkg import combo\n\ndef test_c():\n    assert True\n",
+            ),
+        ]);
+        let combo = score(&repo, "pkg/combo.py");
+        assert_eq!(
+            combo.value, 1.0,
+            "1 paired + 1 imported = 2/2 — {}",
+            combo.evidence
+        );
+        assert!(
+            combo.evidence.contains("paired with test_combo.py"),
+            "{}",
+            combo.evidence
+        );
+        assert!(
+            combo
+                .evidence
+                .contains("imported by test_combo_contract.py"),
+            "{}",
+            combo.evidence
+        );
+        let near = score(&repo, "pkg/near.py");
+        assert_eq!(near.value, 1.0, "proximity alone — {}", near.evidence);
+        assert!(!near.evidence.contains("imported by"), "{}", near.evidence);
+    }
+
+    /// `from pkg import mod` imports the submodule `pkg/mod.py`.
+    #[test]
+    fn from_package_import_module_counts() {
+        let repo = repo_with(&[
+            ("pkg/mod.py", TWO_PUBLIC),
+            ("pkg/__init__.py", ""),
+            (
+                "tests/test_from_pkg.py",
+                &format!("from pkg import mod as m\n\n{TWO_TESTS}"),
+            ),
+        ]);
+        let s = score(&repo, "pkg/mod.py");
+        assert_eq!(s.value, 1.0, "{}", s.evidence);
+    }
+
+    /// Relative imports resolve against the test file's own directory; a `src`
+    /// layout resolves `import pkg.mod` for `src/pkg/mod.py` only while a single
+    /// file answers to the name.
+    #[test]
+    fn relative_and_src_layout_imports_resolve() {
+        let repo = repo_with(&[
+            ("core/rel.py", TWO_PUBLIC),
+            (
+                "core/suite/test_rel_contract.py",
+                &format!("from .. import rel\n\n{TWO_TESTS}"),
+            ),
+            ("src/lib/inner.py", TWO_PUBLIC),
+            (
+                "tests/test_inner_contract.py",
+                &format!("import lib.inner\n\n{TWO_TESTS}"),
+            ),
+            // two src roots answer to `twin.shared`: ambiguous, so nothing is credited
+            ("a/src/twin/shared.py", TWO_PUBLIC),
+            ("b/src/twin/shared.py", TWO_PUBLIC),
+            (
+                "tests/test_twin_contract.py",
+                &format!("import twin.shared\n\n{TWO_TESTS}"),
+            ),
+        ]);
+        assert_eq!(score(&repo, "core/rel.py").value, 1.0);
+        assert_eq!(score(&repo, "src/lib/inner.py").value, 1.0);
+        let twin = score(&repo, "a/src/twin/shared.py");
+        assert_eq!(
+            twin.value, 0.0,
+            "ambiguous name must not credit — {}",
+            twin.evidence
+        );
+    }
+
+    /// A bare `import mod` resolves only when the test edits `sys.path` and exactly
+    /// one file answers to the name; a name shared by two files credits neither.
+    #[test]
+    fn bare_import_needs_sys_path_and_a_unique_name() {
+        let repo = repo_with(&[
+            ("tools/solo.py", TWO_PUBLIC),
+            (
+                "tests/test_solo_contract.py",
+                &format!("import sys\nsys.path.insert(0, 'tools')\nimport solo\n\n{TWO_TESTS}"),
+            ),
+            ("tools/nopath.py", TWO_PUBLIC),
+            (
+                "tests/test_nopath_contract.py",
+                &format!("import nopath\n\n{TWO_TESTS}"),
+            ),
+            ("one/config.py", TWO_PUBLIC),
+            ("two/config.py", TWO_PUBLIC),
+            (
+                "tests/test_config_contract.py",
+                &format!("import sys\nsys.path.insert(0, 'one')\nimport config\n\n{TWO_TESTS}"),
+            ),
+        ]);
+        assert_eq!(score(&repo, "tools/solo.py").value, 1.0);
+        assert_eq!(score(&repo, "tools/nopath.py").value, 0.0, "no sys.path");
+        assert_eq!(score(&repo, "one/config.py").value, 0.0, "shared name");
+        assert_eq!(score(&repo, "two/config.py").value, 0.0, "shared name");
+    }
+
+    /// An importlib load by a literal file path credits that exact file, not a
+    /// homonym at another path.
+    #[test]
+    fn importlib_load_by_literal_path_credits_that_file_only() {
+        let body = format!(
+            "import importlib.util\n\
+             spec = importlib.util.spec_from_file_location('m', 'scripts/a/loaded.py')\n\n{TWO_TESTS}"
+        );
+        let repo = repo_with(&[
+            ("scripts/a/loaded.py", TWO_PUBLIC),
+            ("scripts/b/loaded.py", TWO_PUBLIC),
+            ("tests/test_loader_contract.py", &body),
+        ]);
+        assert_eq!(score(&repo, "scripts/a/loaded.py").value, 1.0);
+        assert_eq!(score(&repo, "scripts/b/loaded.py").value, 0.0);
     }
 }

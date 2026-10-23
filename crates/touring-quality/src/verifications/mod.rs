@@ -38,6 +38,7 @@ pub mod f3_11_readme;
 pub mod f3_12_doc_accuracy;
 pub mod f3_13_changelog;
 pub mod f3_1_coverage;
+mod f3_1_py_imports;
 pub mod f3_2_test_quality;
 pub mod f3_3_test_pyramid;
 pub mod f3_4_edge_cases;
