@@ -126,11 +126,13 @@ EXEMPTIONS = (
     ("fork", "fork"),
     ("frontmatter", "agente com `model:` adequado no frontmatter (inclusive `inherit` escrito)"),
     ("claude-code-guide", "built-in com default próprio (claude-code-guide, statusline-setup)"),
-    ("CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL definido"),
+    ("CLAUDE_CODE_SUBAGENT_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL definido (Explore/Plan só com _FORCE=1)"),
 )
 #: Built-ins whose default is not the session model (code.claude.com/docs/en/sub-agents, 08/10/2026).
 #: general-purpose, Explore and Plan inherit it, so they are judged like any undecided call.
 BUILTIN_DEFAULTS = {"claude-code-guide": "haiku", "statusline-setup": "sonnet"}
+#: Built-ins that CLAUDE_CODE_SUBAGENT_MODEL reaches only with CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1.
+ENV_BLIND_TYPES = frozenset({"Explore", "Plan"})
 FRONTMATTER = re.compile(r"\A\ufeff?---\r?\n(.*?)\r?\n---", re.DOTALL)
 INLINE_COMMENT = re.compile(r"\s+#.*$")
 SESSION_MODEL = re.compile(rb'"model":"(claude-[^"]+)"')
@@ -300,6 +302,10 @@ def _omitted_model_verdict(subagent_type: str, project_dirs: Sequence[Path], hom
     if pinned and (fit := _fit_decision(subagent_type, pinned, home, now, "definição")):
         return fit
     env_model = env.get("CLAUDE_CODE_SUBAGENT_MODEL", "").strip()
+    # Without _FORCE the variable does not reach Explore or Plan (code.claude.com/docs/en/sub-agents, 24/10/2026):
+    # they would run on the session model, so the env must not exempt them.
+    if subagent_type in ENV_BLIND_TYPES and env.get("CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "").strip() != "1":
+        env_model = ""
     why = _definition_decision(subagent_type, pinned) or (f"{WHY_ENV_PREFIX}{env_model}" if env_model else None)
     return Verdict(True, why) if why else Verdict(False, "deny")
 
