@@ -29,8 +29,8 @@ from helpers import CLIENT_HOOKS, REPO_ROOT, HookResult, schema_violations
 HOOK = CLIENT_HOOKS / "agent_model_gate.py"
 CANONICAL_DOC = REPO_ROOT / "docs" / "economia-de-creditos-e-contexto.md"
 SESSOES_IRMAS = Path.home() / ".claude" / "tools" / "sessoes_irmas.py"
-SESSION_ENV = ("ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL", "AGENT_MODEL_GATE_DISABLED",
-               "PYTHONIOENCODING")
+SESSION_ENV = ("ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL",
+               "CLAUDE_CODE_SUBAGENT_MODEL_FORCE", "AGENT_MODEL_GATE_DISABLED", "PYTHONIOENCODING")
 CALL = {"description": "Achar callers de foo", "prompt": "SEGREDO-DO-PROMPT", "subagent_type": "general-purpose"}
 Run = tuple[subprocess.CompletedProcess[str], dict[str, Any]]
 
@@ -178,6 +178,20 @@ def test_a_call_decided_by_the_env_is_named_in_the_log_with_its_value(tmp_path: 
     Kimi/MiniMax sessions rely on it) but the log now says WHICH variable decided it and to what."""
     _assert_allowed(tmp_path, _run(tmp_path, CALL, env_extra={"CLAUDE_CODE_SUBAGENT_MODEL": value}),
                     f"env:CLAUDE_CODE_SUBAGENT_MODEL={value}")
+
+
+@pytest.mark.parametrize("subagent_type", ["Explore", "Plan"])
+def test_env_without_force_does_not_exempt_explore_or_plan(tmp_path: Path, subagent_type: str) -> None:
+    """Without CLAUDE_CODE_SUBAGENT_MODEL_FORCE=1 the variable does not reach Explore or Plan
+    (code.claude.com/docs/en/sub-agents, read 24/10/2026): they would run on the session model."""
+    call = {**CALL, "subagent_type": subagent_type}
+    _assert_denied(tmp_path, _run(tmp_path, call, env_extra={"CLAUDE_CODE_SUBAGENT_MODEL": "haiku"}))
+
+
+def test_env_with_force_exempts_explore(tmp_path: Path) -> None:
+    env = {"CLAUDE_CODE_SUBAGENT_MODEL": "haiku", "CLAUDE_CODE_SUBAGENT_MODEL_FORCE": "1"}
+    _assert_allowed(tmp_path, _run(tmp_path, {**CALL, "subagent_type": "Explore"}, env_extra=env),
+                    "env:CLAUDE_CODE_SUBAGENT_MODEL=haiku")
 
 
 def test_env_decision_is_not_logged_when_something_else_decided(tmp_path: Path) -> None:
@@ -444,9 +458,11 @@ def test_fork_runs_in_the_session_model_so_no_rule_applies_to_it(tmp_path: Path)
 
 def test_the_global_subagent_env_still_passes_an_omitted_model_but_never_shields_an_explicit_one(
         tmp_path: Path) -> None:
-    """Claude Code resolves call > definition > env: an explicit `model` overrides the env, so it is judged."""
+    """Claude Code resolves call > definition > env: an explicit `model` overrides the env, so it is judged.
+
+    The omitted-model half uses general-purpose: without _FORCE the env does not reach Explore (24/10/2026)."""
     env = {"CLAUDE_CODE_SUBAGENT_MODEL": "haiku"}
-    _assert_allowed(tmp_path, _run(tmp_path, {**CALL, "subagent_type": "Explore"}, env_extra=env),
+    _assert_allowed(tmp_path, _run(tmp_path, {**CALL, "subagent_type": "general-purpose"}, env_extra=env),
                     "env:CLAUDE_CODE_SUBAGENT_MODEL=haiku")
     _assert_denied_why(tmp_path, _run(tmp_path, {**CALL, "subagent_type": "Explore", "model": "opus"}, env_extra=env),
                        "fit:busca-exige-haiku")
