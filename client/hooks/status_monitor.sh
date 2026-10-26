@@ -60,6 +60,22 @@ fi
 MODEL=$(echo "$input" | jq -r '.model.display_name // "claude"' 2>/dev/null)
 MODEL_ID=$(echo "$input" | jq -r '.model.id // ""' 2>/dev/null)
 
+# Rótulo amigável na barra (26/10/2026). Medido: o `display_name` da statusline vem da
+# configuração LOCAL, não da resposta da API — num id que o Claude Code não reconhece
+# sai o id cru ("MiniMax-M3.1-Flash-Preview"). As env vars de rótulo do Claude Code
+# (`ANTHROPIC_CUSTOM_MODEL_OPTION_NAME`, `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME`) NÃO chegam
+# à statusline (medido: o display_name continuou cru) — elas rotulam a LINHA do /model.
+# E `modelOverrides` rotularia como "Opus 5.5", o que seria MENTIRA (o backend é MiniMax).
+# Logo o mapeamento é AQUI: mostra o nome comercial do modelo sem inventar família. O id
+# cru continua em MODEL_ID (e no /status).
+case "$MODEL" in
+  MiniMax-M3.1-Flash*) MODEL="MiniMax M3.1 Flash" ;;
+  MiniMax-M3*)          MODEL="MiniMax M3" ;;
+  MiniMax-M2.7*)        MODEL="MiniMax M2.7" ;;
+  MiniMax-M2.5*)        MODEL="MiniMax M2.5" ;;
+  MiniMax-M2.1*)        MODEL="MiniMax M2.1" ;;
+esac
+
 # Model-driven window detection (PRIORIDADE sobre JSON value — Claude Code
 # às vezes envia context_window_size=200000 mesmo para opus[1m]).
 # Janela real:
