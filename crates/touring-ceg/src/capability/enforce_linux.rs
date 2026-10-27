@@ -415,6 +415,28 @@ pub fn build_landlock_ruleset_with_net_and_scope(
     connect_tcp_ports: &[u16],
     enable_ipc_scope: bool,
 ) -> io::Result<LandlockRuleset> {
+    build_landlock_ruleset_with_listing(
+        read_roots,
+        &[],
+        write_roots,
+        bind_tcp_ports,
+        connect_tcp_ports,
+        enable_ipc_scope,
+    )
+}
+
+/// [`build_landlock_ruleset_with_net_and_scope`] plus LIST-ONLY roots: `ReadDir` beneath
+/// each, never `ReadFile`. A directory whose children are granted one by one (all but a
+/// credential file) stays listable this way without its credential becoming readable —
+/// landlock cannot deny a child of a granted directory, so the grant is per child.
+pub fn build_landlock_ruleset_with_listing(
+    read_roots: &[std::path::PathBuf],
+    list_roots: &[std::path::PathBuf],
+    write_roots: &[std::path::PathBuf],
+    bind_tcp_ports: &[u16],
+    connect_tcp_ports: &[u16],
+    enable_ipc_scope: bool,
+) -> io::Result<LandlockRuleset> {
     use landlock::{
         ABI, Access, AccessFs, AccessNet, CompatLevel, Compatible, NetPort, Ruleset, RulesetAttr,
         RulesetCreatedAttr, Scope, path_beneath_rules,
@@ -422,6 +444,7 @@ pub fn build_landlock_ruleset_with_net_and_scope(
 
     let abi = ABI::V6;
     let read_access = AccessFs::from_read(abi);
+    let list_access = AccessFs::ReadDir;
     let write_access = AccessFs::from_all(abi);
 
     // Filesystem handle is always declared (V1+).
@@ -450,6 +473,8 @@ pub fn build_landlock_ruleset_with_net_and_scope(
         .map_err(|e| io::Error::other(format!("landlock create: {e}")))?
         .add_rules(path_beneath_rules(read_roots, read_access))
         .map_err(|e| io::Error::other(format!("landlock read rules: {e}")))?
+        .add_rules(path_beneath_rules(list_roots, list_access))
+        .map_err(|e| io::Error::other(format!("landlock list rules: {e}")))?
         .add_rules(path_beneath_rules(write_roots, write_access))
         .map_err(|e| io::Error::other(format!("landlock write rules: {e}")))?;
 
@@ -669,5 +694,69 @@ mod tests {
         assert_eq!(capped, "48");
         // none() applied no cap — the child inherits the parent default.
         assert_ne!(uncapped, "48");
+    }
+
+    /// SEG-4, in the kernel: a LIST-ONLY root lets the child list the directory and read
+    /// the child that is granted on its own, but not open the sibling left out — the shape
+    /// that keeps `~/.claude/.credentials.json` closed while `~/.claude` is walkable.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn e2e_list_only_root_lists_but_does_not_open_ungranted_children() {
+        use std::os::unix::process::CommandExt;
+        use std::process::{Command, Stdio};
+
+        let dir = tempfile::tempdir().expect("tempdir");
+        let base = std::fs::canonicalize(dir.path()).expect("canon");
+        std::fs::write(base.join("public.txt"), b"PUBLIC-OK").expect("write");
+        std::fs::write(base.join("secret.txt"), b"SECRET-LEAK").expect("write");
+        let mut read_roots: Vec<std::path::PathBuf> = ["/usr", "/lib", "/lib64", "/bin", "/etc"]
+            .iter()
+            .map(std::path::PathBuf::from)
+            .filter(|p| p.exists())
+            .collect();
+        read_roots.push(base.join("public.txt"));
+        let rs = build_landlock_ruleset_with_listing(
+            &read_roots,
+            std::slice::from_ref(&base),
+            &[],
+            &[],
+            &[],
+            false,
+        )
+        .expect("ruleset");
+        let script = format!(
+            "ls {d}; cat {d}/public.txt; echo; cat {d}/secret.txt",
+            d = base.display()
+        );
+        let mut cmd = Command::new("sh");
+        cmd.arg("-c")
+            .arg(script)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null());
+        let mut once = Some(rs);
+        // SAFETY: post-fork, pre-exec; `restrict_current_thread` is the prctl +
+        // landlock_restrict_self pair — no allocation (the ruleset was built above).
+        unsafe {
+            cmd.pre_exec(move || {
+                if let Some(rs) = once.take() {
+                    rs.restrict_current_thread()?;
+                }
+                Ok(())
+            });
+        }
+        let out = cmd.output().expect("spawn sh");
+        let stdout = String::from_utf8_lossy(&out.stdout);
+        assert!(
+            stdout.contains("public.txt") && stdout.contains("secret.txt"),
+            "the list-only root must let `ls` see every name: {stdout:?}"
+        );
+        assert!(
+            stdout.contains("PUBLIC-OK"),
+            "the granted child is readable: {stdout:?}"
+        );
+        assert!(
+            !stdout.contains("SECRET-LEAK"),
+            "ReadDir must not grant ReadFile on an ungranted child: {stdout:?}"
+        );
     }
 }

@@ -150,11 +150,25 @@ def prova_instrucao():
            "~/.claude/rules é legível no sandbox",
            f"exit={r and r.get('exit_code')}")
 
+    # SEG-4 (27/10, ordem de Gabriel): ~/.claude entra inteiro, menos as credenciais.
     settings = home / ".claude/settings.json"
     if settings.exists():
-        r = sandbox(f"cat {settings}")
+        r = sandbox(f"head -c 1 {settings}")
+        afirma(r is not None and r.get("exit_code") == 0 and (r.get("stdout") or "") != "",
+               "settings.json é LEGÍVEL no sandbox (SEG-4)",
+               f"exit={r and r.get('exit_code')} stdout_len={len((r or {}).get('stdout', ''))}")
+
+    r = sandbox(f"ls -A {home / '.claude'}")
+    afirma(r is not None and r.get("exit_code") == 0 and "settings.json" in (r.get("stdout") or ""),
+           "~/.claude é LISTÁVEL no sandbox (raiz só de listagem, SEG-4)",
+           f"exit={r and r.get('exit_code')}")
+
+    token = home / ".claude/.credentials.json"
+    if token.exists():
+        # Never print what came back: only its length is evidence.
+        r = sandbox(f"cat {token}")
         afirma(r is not None and r.get("exit_code") != 0 and (r.get("stdout") or "") == "",
-               "settings.json (env com chaves) CONTINUA inalcançável",
+               ".credentials.json (token OAuth) CONTINUA inalcançável",
                f"exit={r and r.get('exit_code')} stdout_len={len((r or {}).get('stdout', ''))}")
 
     # Predicado POSITIVO, no idioma que enganou (sonda da sessão analise-94,
