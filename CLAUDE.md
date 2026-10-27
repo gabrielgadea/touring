@@ -157,7 +157,11 @@ timestamp: 2026-08-20T11:15:00-03:00
     | par write→run · G3 edit-sem-read | 2º | 600s |
     | G11 orçamento de bypass | 2º seguido · 3º sem a rota | 600s |
 
-    Um `touring run` zera a janela. Precedência: prefixo `TOURING_CODE_MODE=<v>` no
+    **Depois de um deny, mude a chamada; nunca a reemita igual** (27/10: o G6 viu 87,5%
+    de cópias idênticas após o deny). G6 → use o resultado que já está no contexto, mude
+    o recorte, ou, se o estado mudou fora do Edit/Write (build, processo, log, rede),
+    `TOURING_GATE_OK=1 <o mesmo comando>`. G3 → `Read` do arquivo antes do Edit (janela
+    `offset`/`limit` vale). Um `touring run` zera a janela. Precedência: prefixo `TOURING_CODE_MODE=<v>` no
     PRÓPRIO comando (exportar no shell não chega ao hook) → `touring.toml` → default
     `both`. Kill switch humano: `TOURING_CODE_GATES_DISABLED=1`. Um escopo que declara
     `code` também estreita o **anúncio** MCP para a fachada search+execute; todo tool

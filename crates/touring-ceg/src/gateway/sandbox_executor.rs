@@ -818,15 +818,37 @@ fn claude_home_read_roots(claude: &Path) -> Vec<PathBuf> {
 /// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox: the
 /// OAuth token file, every copy of `settings.json` (old copies are outside the content
 /// check of [`settings_env_carries_secret`]; today they hold only a `REDACTED-…` marker),
-/// and any name that says credential/secret/token or is a key file —
-/// so a credential file created tomorrow stays out without editing this list.
+/// and any name that says credential/secret/token/oauth/password/apikey or is a key or
+/// certificate store — so a credential file created tomorrow stays out without editing
+/// this list. Bare `key` and `auth` are NOT families: `keybindings.json`,
+/// `daemon-auth-status.json` and `mcp-needs-auth-cache.json` are not credentials.
 fn is_claude_credential(name: &str) -> bool {
+    const FAMILIES: [&str; 9] = [
+        "credential",
+        "secret",
+        "token",
+        "oauth",
+        "passw",
+        "apikey",
+        "api_key",
+        "api-key",
+        "private",
+    ];
+    const KEY_FILES: [&str; 9] = [
+        ".env",
+        ".pem",
+        ".key",
+        ".p12",
+        ".pfx",
+        ".crt",
+        ".cert",
+        ".keystore",
+        ".kdbx",
+    ];
     let lower = name.to_ascii_lowercase();
     lower.starts_with("settings.json.")
-        || ["credential", "secret", "token"]
-            .iter()
-            .any(|w| lower.contains(w))
-        || [".env", ".pem", ".key"].iter().any(|s| lower.ends_with(s))
+        || FAMILIES.iter().any(|w| lower.contains(w))
+        || KEY_FILES.iter().any(|s| lower.ends_with(s))
 }
 
 /// SEG-4 hardening — a symlink whose resolved target is outside `home` (canonical
@@ -3516,6 +3538,10 @@ mod s24_reach_tests {
             "mcp-oauth-token.json",
             "deploy.pem",
             ".env",
+            "certs.p12",
+            "github-apikey.txt",
+            "keybindings.json",
+            "daemon-auth-status.json",
         ] {
             std::fs::write(dir.path().join(f), b"{}").expect("write");
         }
@@ -3531,7 +3557,9 @@ mod s24_reach_tests {
         assert_eq!(
             nomes,
             [
+                "daemon-auth-status.json",
                 "history.jsonl",
+                "keybindings.json",
                 "link-dentro",
                 "nasceu-amanha.json",
                 "projects",
