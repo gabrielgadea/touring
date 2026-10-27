@@ -558,3 +558,9 @@ Dentro do `touring run` o audit acusava o S-8 falsamente, porque o sandbox escon
 o `~/.claude` da guarda e da suíte; o rc 2 da guarda agora é nomeado como
 "não medido". Próximo: acumular dados com o binário novo para a régua pós-deploy
 (D2) e o pré-registro do A3 (S-12).
+
+**Rastreio do binário (27/10, depois do R1)**: a `touring-a1` reimplantou com
+`update-touring` o P2-v2 (`adbeea9a`, gate de recriação por semelhança), mantendo o
+rótulo 30.4.98. Desde esse deploy, o 30.4.98 em produção é o `adbeea9a`, não o
+`685d78ad`. O próximo `propagate-release.sh` sobe para 30.4.99. Registro espelhado em
+`docs/plans/2026-10-27-portfolio-scripts/p2-redesign-gate-semelhanca.md` §6.
