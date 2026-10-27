@@ -59,7 +59,7 @@ executor **mais barato que ainda passa no juiz**. O que é determinístico vira 
 | Problema ambíguo e longo em que o Opus 5.5 em effort alto já falhou: causa-raiz de horas, decisão arquitetural L4+, pesquisa profunda multietapa | **Fable 5.1** (`fable`) — interativo, com consentimento; em headless só com o sim do Gabriel | *"For demanding reasoning and long-horizon agentic work"* [P/models] · *"Hand it ambiguous problems: root-cause investigations, outage debugging, and architecture decisions"* [C/model-config] · custa 2,5× o Opus 5.5 por token |
 | Implementar com spec clara, testes, refactor delimitado, revisão de código, pesquisa web com julgamento, teammates de agent team | **subagente `model: sonnet`** (Sonnet 5.5) | *"Sonnet handles most coding tasks well and costs less than Opus"* · *"Use Sonnet for teammates"* [C/costs] |
 | Buscar, extrair, classificar, rotear, recuperar documentação (Context7), varredura mecânica | **subagente `model: haiku`** (Haiku 5.5), com effort `medium` na varredura de vários passos | *"classification, routing, extraction, and subagent tasks"* [P/haiku-5-5] · *"For simple subagent tasks, specify `model: haiku`"* [C/costs] · **limites (24/10/2026)**: em `low`, nos prompts longos de agente, o Haiku *"is more likely to skip a search, stop early, or skip a check"* (https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-haiku-5-5); Terminal-Bench 4.0 de 39,2% (esforço não informado) contra 70,6% do Sonnet 5.5, e Chartography de 46,4% contra 61,6% (https://www.anthropic.com/claude-haiku-5-5 e https://www.anthropic.com/claude-sonnet-5-5) — **nunca implementação agêntica de vários passos nem leitura de gráfico denso** |
-| Corpus longo, lote mecânico extenso, segundo leitor independente, trabalho que pode esperar | **sessão irmã** Kimi K3 1M ou MiniMax M3.1-Flash-Preview 1M | cota fora da Anthropic; contexto de 1M; herdam o harness (§3.1) |
+| Corpus longo, lote mecânico extenso, segundo leitor independente, trabalho que pode esperar | **sessão irmã** Kimi K3.1 Pro 1M ou MiniMax M3.1-Flash 1M | cota fora da Anthropic; contexto de 1M; herdam o harness (§3.1) |
 
 **Quando NÃO delegar (fato oficial, 24/10/2026).** A matriz diz para onde uma subtarefa desce *quando* se delega; não diz *se* se delega. A Anthropic mediu, com workers Sonnet 5 (uma geração anterior), que *"Delegation saved money in only two situations"*: trabalho rotineiro com cauda longa de custo e trabalho maior que uma janela de contexto. Fora deles, *"When the work is one dependent chain, or fits in a single context without a long cost tail, the orchestrator's model alone at lower effort came out ahead in every case measured"*. A mesma página manda ajustar um modelo antes de somar um segundo (*"Tune one model before you add a second: sweep effort on your current model first"*) e, sobre o Haiku 5.5 como worker, medir no próprio trabalho (*"before you use it as a worker, measure it on your own workload"*); a medição publicada não cobre o Haiku 5.5 como worker (https://platform.claude.com/docs/en/about-claude/models/optimizing-for-cost-and-intelligence). No Claude Code, a doc manda ficar na conversa principal quando a tarefa pede vaivém frequente (*"the task needs frequent back-and-forth"*) ou quando a latência importa (*"A subagent that isn't a fork starts fresh and may need time to gather context"*) (https://code.claude.com/docs/en/sub-agents). A ordem das alavancas fica: código determinístico, effort do orquestrador, delegar só o que paga, modelo menor. A regra de bolso acima vale **depois** de decidir delegar.
 
@@ -161,11 +161,11 @@ mesmo `provider_of`) e o subagente (`agent_id` do JSON de entrada [C/hooks]; de 
 log por aviso em `delegation_nudge.jsonl`. Registro pendente de deploy (matchers abaixo em §7).
 Testes: `client/hooks/tests/test_delegation_nudge.py` (66; 27 mutantes mortos). O guard do consentimento tem `client/hooks/tests/test_fable_consent_guard.py` (61; 17 mutantes do script e 5 do registro no template, todos mortos); o ajuste por definição, 8 mutantes mortos.
 
-**Kimi ou MiniMax?** O Kimi K3 serve a engenharia longa e autônoma, com raciocínio por corpus
+**Kimi ou MiniMax?** O Kimi K3.1 Pro serve a engenharia longa e autônoma, com raciocínio por corpus
 grande (*"sustain long engineering sessions"* [K/blog]; thinking em `max` por default). O
-MiniMax M3.1-Flash-Preview serve lotes rápidos e numerosos, entrada multimodal (texto, imagem,
+MiniMax M3.1-Flash serve lotes rápidos e numerosos, entrada multimodal (texto, imagem,
 vídeo) e leitura em volume (*"approximately 150 tokens per second"*; *"frequent coding,
-financial research, multimodal understanding and frontend work"* [M/agent]). É preview, sem
+financial research, multimodal understanding and frontend work"* [M/agent]). Já não é preview (o id `-Preview` foi aposentado em 26/10/2026), mas segue sem
 SLA e com rate limit dinâmico no pico, então não confie a ele o caminho crítico com prazo.
 
 ## 2. Modelos Anthropic (verificados em 08/10/2026)
@@ -251,9 +251,9 @@ São **sessões Claude Code** com o backend trocado pelas funções do `~/.bashr
 
 | Função | `ANTHROPIC_BASE_URL` | Modelo | Janela |
 |---|---|---|---|
-| `kimi-cc` | `https://api.kimi.com/coding/` | `k3` | 262k |
-| `kimi1m` | `https://api.kimi.com/coding/` | `k3[1m]` | 1M |
-| `minimax` | `https://api.minimax.io/anthropic` | `MiniMax-M3.1-Flash-Preview` | 1M |
+| `kimi-cc` | `https://api.kimi.com/coding/` | `kimi-k3.1-pro` | 262k |
+| `kimi1m` | `https://api.kimi.com/coding/` | `kimi-k3.1-pro` | 1M |
+| `minimax` | `https://api.minimax.io/anthropic` | `MiniMax-M3.1-Flash` | 1M |
 
 `claude_reset` restaura a Anthropic.
 
@@ -274,23 +274,28 @@ whitelistadas, então segredo não sai. Testes: `~/.claude/tools/test_sessoes_ir
 controle positivo ao vivo de 08/10 bateu com a verdade medida: `analise-a0` é o kimi
 `k3[1m]`, `analise-a9` é o minimax e `analise-6b` é o anthropic.
 
-### 3.2 Kimi K3 (fonte: Moonshot, lida em 08/10/2026)
+### 3.2 Kimi K3.1 Pro (fonte: Moonshot, lida em 08/10/2026; re-lida em 27/10/2026)
 
-- **Modelo.** Id de API `kimi-k3`, com contexto de 1.048.576 tokens. A saída tem default de 131.072 [K/quickstart].
-- **Thinking e sampling.** O thinking fica sempre ligado; `reasoning_effort` aceita `low`, `high` ou `max`, com default `max`. A temperatura é fixa em 1.0 [K/quickstart]. As funções locais desligam o thinking adaptativo porque o endpoint o rejeita.
-- **Preço da API.** US$ 3 de entrada, 15 de saída e 0,30 de cache por MTok [K/pricing]. Aqui o uso é pela **assinatura** (endpoint `coding/`), cobrado por cota, não por token.
+- **Modelo (27/10/2026).** Id `kimi-k3.1-pro` (variante rápida: `kimi-k3.1-pro-highspeed`), com contexto de 1M **nativo** — a notação `k3[1m]` morreu com o K3. `max_completion_tokens`: default 131.072, até 1.048.576 [K/k31-quickstart]. **Validado ao vivo em 27/10/2026**: o endpoint `api.kimi.com/coding/` aceita o id (HTTP 200, a resposta ecoa `"model":"kimi-k3.1-pro"`); os docs da plataforma descrevem o endpoint pay-as-you-go `api.moonshot.ai/anthropic` com `ANTHROPIC_AUTH_TOKEN`, mas o id serve nos dois. O `~/.bashrc` migrou `k3`/`k3[1m]` → `kimi-k3.1-pro` nas funções `kimi-cc`/`kimi1m` (override pontual: `KIMI_MODEL=k3 kimi-cc`).
+- **Thinking e sampling (fatos do K3, não revalidados para o K3.1 Pro).** O thinking fica sempre ligado; `reasoning_effort` aceita `low`, `high` ou `max`, com default `max`. A temperatura é fixa em 1.0 [K/quickstart]. As funções locais desligam o thinking adaptativo porque o endpoint o rejeita.
+- **Preço da API (tabela do K3, não re-lida para o K3.1 Pro).** US$ 3 de entrada, 15 de saída e 0,30 de cache por MTok [K/pricing]. Aqui o uso é pela **assinatura** (endpoint `coding/`), cobrado por cota, não por token.
 - **Cota.** A janela é de 5 h. Os planos legados (Andante, Moderato, **Allegretto**, Allegro) somam **um limite de 7 dias**; o `kimi1m` local se anuncia "Allegretto+". O help center estima *"about 300–1,200 requests every 5 hours"* [K/membership]. Já medimos um 403 semanal no meio de um trabalho (19/09/2026).
 - **Saldo.** Pelo `/usage` dentro da sessão Kimi, ou em `kimi.com/code/console`.
-- **Pontos fortes e limites declarados.** Engenharia longa (*"strong long-horizon coding performance"*). O próprio anúncio diz que ele *"trails"* o Claude Fable 5 [K/blog].
+- **Pontos fortes e limites declarados.** Engenharia longa (*"strong long-horizon coding performance"*). O próprio anúncio do K3 dizia que ele *"trails"* o Claude Fable 5 [K/blog].
 
-### 3.3 MiniMax M3.1-Flash-Preview (fonte: MiniMax, lida em 08/10/2026)
+### 3.3 MiniMax M3.1-Flash (fonte: MiniMax, lida em 08/10/2026; re-lida em 26/10/2026)
 
-- **Modelo.** Id `MiniMax-M3.1-Flash-Preview`, com contexto de 1M. O máximo de saída não é publicado [M/anthropic-api].
+- **Modelo.** Id `MiniMax-M3.1-Flash`, com contexto de 1M. O máximo de saída não é publicado [M/anthropic-api].
+- **Aposento do id `-Preview` (medido em 26/10/2026).** `MiniMax-M3.1-Flash-Preview` foi aposentado: o endpoint **ainda o aceita** (HTTP 200), mas o serve pelo `MiniMax-M3.1-Flash` — a resposta traz `"model":"MiniMax-M3.1-Flash"`, e o `GET /anthropic/v1/models` não lista mais o id `-Preview` (lista `MiniMax-M3.1-Flash`, `MiniMax-M3`, `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed`, `MiniMax-M2.1`, `MiniMax-M2.1-highspeed`, `MiniMax-M2`). Fonte: https://platform.minimax.io/docs/api-reference/text-anthropic-api
+- **O nome no status vem da configuração local, não da resposta (medido em 26/10/2026).** Captura ao vivo do payload da statusline: `"model":{"id":"MiniMax-M3.1-Flash-Preview","display_name":"MiniMax-M3.1-Flash-Preview"}`, enquanto a mesma chamada devolve `"model":"MiniMax-M3.1-Flash"`. O id exibido é o **configurado**, não o servido. Logo, corrigir o `~/.bashrc` **não** corrige o rótulo de uma sessão viva: o shell pai tinha a função `minimax` **antiga em memória** (o bash faz parse das funções no arranque; o shell foi aberto em 23/10, o `~/.bashrc` editado em 26/10).
+- **Precedência do modelo no Claude Code** (doc oficial + binário v2.1.310, 26/10/2026): `--model` > `ANTHROPIC_MODEL` > `model` em `settings.json` > `ANTHROPIC_DEFAULT_MODEL`. O `"model": "opus"` do `~/.claude/settings.json` é **inerte** com o `ANTHROPIC_MODEL` exportado, e `ANTHROPIC_DEFAULT_*_MODEL` **não são seletores** (resolvem um *alias*). O que pode fixar um id velho: o **shell que lançou o `claude`** e um **transcript retomado** (`--resume`) — mas `ANTHROPIC_MODEL`/`--model` passam por cima do restaurado (desde v2.1.195). **Não** é o `~/.claude.json`: o `clientDataCacheSlots` não é seletor (a chave do slot *inclui* o modelo → modelo novo = fetch novo) e é só **registo**.
+- **Fonte única do id (26/10/2026).** O id passou para `~/.config/minimax/model`, lido pela função `minimax` **no momento do uso** — assim a troca vale para todos os shells, abertos ou futuros, sem `source`. A função consulta `GET /anthropic/v1/models` no arranque e avisa em stderr se o id configurado não estiver na lista servida (medido com controlo positivo: id bogus dispara o aviso, id válido fica em silêncio).
+- **Superfície persistente (13 pontos, varridos em 26/10/2026).** O id velho sobrevivia fora do bashrc: `~/.claude.json` (`clientDataCacheSlots` × 3 · `projects.*.lastModelUsage` × 1), `~/.claude/teams/session-*/config.json` (3 sessões, 40 membros com `model` fixo), `~/.claude/jobs/*/state.json` (`providerEnv` **e** `respawnFlags` com `--model`), `~/.claude/tools/test_sessoes_irmas.py` (fixture). **O achado que mais importa é `respawnFlags`** — é o que devolve o id velho ao reanudar um job; o `providerEnv` sozinho não chega. Ao varrer um ficheiro por um id, procure-o também nos **argumentos de respawn**, não só no env.
 - **Disponibilidade.** Só pelo M Plan ou MiniMax Code. Não há preço público por token.
 - **Desempenho e arquitetura.** Cerca de 150 tokens/s. É um MoE de 428B parâmetros com 23B ativos. A entrada aceita texto, imagem e vídeo [M/agent].
-- **Thinking.** O thinking **não desliga**, e o effort tem default `max` [M/text-generation]. Para lotes simples, lance com `CLAUDE_CODE_EFFORT_LEVEL=medium minimax`: o default `max` gasta a cota mais rápido.
+- **Thinking.** O thinking **não desliga**, e o effort tem default `max` [M/text-generation]. No endpoint Anthropic o esforço vai em `output_config.effort` (`low` | `medium` | `high` | `xhigh` | `max`; omissão = `max`) e `"none"` dá 400: *"model \"MiniMax-M3.1-Flash\" requires adaptive thinking; reasoning effort none is not allowed (2013)"*. Para lotes simples, lance com `CLAUDE_CODE_EFFORT_LEVEL=medium minimax`: o default `max` gasta a cota mais rápido.
 - **Cota do M Plan.** Janelas de 5 h e semanal, independentes, que começam no 1º uso. *"Usage from all tools counts toward the same M Plan usage limits"* [M/usage-rules]. O saldo fica em `platform.minimax.io/console/usage`.
-- **Ressalvas de Preview.** Sem promessa de uso gratuito, preço não fixado [M/agent], e *"may implement dynamic rate limiting"* no pico [M/faq].
+- **Ressalvas de disponibilidade.** Sem promessa de uso gratuito, preço não fixado [M/agent], e *"may implement dynamic rate limiting"* no pico [M/faq]. O rótulo *Preview* saiu do id, mas o serviço continua sem SLA.
 
 ## 4. Protocolo de delegação a uma sessão irmã
 
@@ -331,7 +336,7 @@ controle positivo ao vivo de 08/10 bateu com a verdade medida: `analise-a0` é o
 | Provedor | Fontes |
 |---|---|
 | Anthropic | `platform.claude.com/docs/en/about-claude/models/overview` · `…/models/choosing-a-model` · `…/about-claude/pricing` · `code.claude.com/docs/en/{model-config,sub-agents,costs}` · `support.claude.com` (planos, Fable) · `anthropic.com/news` |
-| Moonshot / Kimi | `platform.kimi.ai/docs` (`pricing/chat`, `guide/kimi-k3-quickstart`, `guide/claude-code-kimi`) · `kimi.com/code/docs` · `moonshotai.github.io/kimi-code` · `huggingface.co/moonshotai` |
+| Moonshot / Kimi | `platform.kimi.ai/docs` (`pricing/chat`, `guide/kimi-k3-quickstart`, `guide/kimi-k3-1-pro-quickstart`, `guide/claude-code-kimi`) · `kimi.com/code/docs` · `moonshotai.github.io/kimi-code` · `huggingface.co/moonshotai` |
 | MiniMax | `platform.minimax.io/docs` (`guides/text-generation`, `api-reference/text-anthropic-api`, `m-plan/*`) · `minimax.io/blog` · `agent.minimax.io/tools` |
 | Boas práticas do Claude Code | Context7 `/websites/code_claude`. O MCP do plugin exige OAuth; sem ele, use a REST `https://context7.com/api/v2/context?libraryId=/websites/code_claude&query=<tema>`. O servidor `context7` que não é do plugin (`mcp__context7__query-docs`) respondeu sem OAuth em 24/10/2026 e devolveu texto literal que corroborou a resolução do modelo do subagente, o par `CLAUDE_CODE_SUBAGENT_MODEL`/`_FORCE` e a seção de custo |
 
@@ -356,7 +361,7 @@ A pesquisa de 08/10 custou 4 subagentes (3 sonnet e 1 haiku) e 3 conferências d
 - **O modelo agora enxerga a própria franquia (implementado em 08/10, ordem do Gabriel).** O payload da status line traz `rate_limits.five_hour` e `rate_limits.seven_day`, cada um com `used_percentage` (0–100) e `resets_at` (epoch), só para Pro/Max e só depois da 1ª resposta da sessão; cada janela pode faltar sozinha [C/statusline]. O `status_monitor.sh` (versionado em `client/hooks/` desde então; `~/.claude/hooks/` tem o symlink) passa o payload, em background, a `client/hooks/rate_limits_snapshot.py`, que grava `~/.claude/touring/rate_limits.json` com **uma leitura por provedor** (`backend_provider.provider_of`, a mesma fonte do gate: uma irmã nunca sobrescreve a cota da Anthropic). Ausência nunca vira zero: payload sem leitura não cria nem apaga nada. Consultar antes de um fanout: `python3 ~/.claude/hooks/rate_limits_snapshot.py --show` (exit 3 sem leitura; `--json` para código). O `agent_model_gate` cita a mesma linha na recusa. 1ª leitura real: *"5 h 5% (zera 16:30) · 7 d 96% (zera 09/10 03:00)"*. Testes: `client/hooks/tests/test_rate_limits_snapshot.py` (18).
 - **A cota agora também está na barra de status (18/10/2026).** O `status_monitor.sh` mostra `5h 60% ↻1h04 · 7d 50%` ao fim da linha, cada janela colorida pela própria faixa (verde < 70, amarelo < 85, vermelho ≥ 85; `QUOTA_WARN_PCT`/`QUOTA_ALERT_PCT` ajustam), o `↻` só na janela de 5 h e só enquanto o reset está no futuro. **Ausência nunca vira zero**: payload sem `rate_limits` (outro backend, versão antiga), janela sem número ou com lixo não desenha nada daquela janela. Aos 85% da janela de 5 h o monitor arma `~/.claude/touring/context_alert/<sessão>.quota` (porcentagem + `resets=<epoch>`, a identidade da janela) e o `check_context.sh` (PostToolUse, o MESMO canal do aviso de contexto) o entrega **uma vez por janela** — junto do aviso de contexto, quando os dois vencem na mesma chamada, em uma só mensagem. Sai quando a leitura cai abaixo do limiar; render sem leitura não desarma. Testes: `client/hooks/tests/test_status_monitor_quota.py`.
 - **Kimi.** Não se sabe a unidade da cota (requisição ou token). Os domínios divergem: `api.kimi.com/coding` (o local, que funciona) contra `api.kimi.ai/coding` (página de terceiros-tools). A data exata de lançamento do K3 também falta.
-- **MiniMax.** Não se sabe o máximo de saída, o preço nem os benchmarks do M3.1-Flash-Preview. A doc oficial recomenda `CLAUDE_CODE_AUTO_COMPACT_WINDOW=524288`; a função local usa `1000000` (decisão do Gabriel).
+- **MiniMax.** Não se sabe o máximo de saída, o preço nem os benchmarks do M3.1-Flash. A doc oficial recomenda `CLAUDE_CODE_AUTO_COMPACT_WINDOW=524288`; a função local usa `1000000` (decisão do Gabriel).
 - **Anthropic.** A janela exata das mensagens "Opus limit" não foi encontrada. **Fechado em 24/10/2026**: o effort default do Sonnet 5.5 é `high` na API (https://platform.claude.com/docs/en/models/overview) e `medium` no Claude Code, que também usa `medium` para o Opus 5.5 e o Haiku 5.5 (*"Opus 5.5, Sonnet 5.5, and Haiku 5.5 default to `medium`"*; https://code.claude.com/docs/en/model-config). Exceção do Claude Code: um nível padrão definido pela organização vence o do modelo.
 - **Aderência medida (08/10/2026, transcripts de 14 dias de analise e touring).** O método foi varrer as chamadas `Agent/Task` e cruzar com o modelo de cada sessão.
   - Das 171 chamadas de subagente feitas em sessões Opus 5.5, **92 (54%) eram `general-purpose` sem `model`** e herdaram o Opus por omissão.
@@ -380,6 +385,7 @@ A pesquisa de 08/10 custou 4 subagentes (3 sonnet e 1 haiku) e 3 conferências d
   - **S** = `https://support.claude.com/en/articles/15424964-claude-fable-models-on-your-plan`.
 - **Kimi.**
   - **K/quickstart** = `https://platform.kimi.ai/docs/guide/kimi-k3-quickstart`.
+  - **K/k31-quickstart** = `https://platform.kimi.ai/docs/guide/kimi-k3-1-pro-quickstart`.
   - **K/pricing** = `https://platform.kimi.ai/docs/pricing/chat`.
   - **K/blog** = `https://www.kimi.ai/blog/kimi-k3`.
   - **K/membership** = `https://www.kimi.com/en/help/kimi-code/membership-guide`.
