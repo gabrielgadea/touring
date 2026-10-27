@@ -29,6 +29,10 @@ const FRAMEWORK: &[&str] = &[
     // `updated_input` through (`a_reescrita_mantem_o_updated_input`) — it never originates one.
     "touring-hook-runtime/src/verdict.rs",
     "touring-hooks-core/src/hook_response.rs",
+    // The context-injection policy (R1 30.4.98) filters `additionalContext`/`systemMessage`
+    // and KEEPS every decision field; its `"updatedInput":` lines are in-module test fixtures
+    // proving the field survives the filter — it never originates one.
+    "touring-foundation/src/injection_policy.rs",
 ];
 
 fn rs_files(dir: &Path, out: &mut Vec<PathBuf>) {
