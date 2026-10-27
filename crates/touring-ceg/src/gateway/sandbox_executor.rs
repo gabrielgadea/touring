@@ -721,9 +721,16 @@ fn scan_dir(path: &std::path::Path, cap: Option<u64>) -> TmpScan {
 /// kernel** (Landlock V4 TCP + seccomp UDP): dado local lido não sai da máquina,
 /// e o stdout volta ao modelo — que já lê os mesmos arquivos via Bash (paridade
 /// de confiança, A11: contenção ≠ boundary).
-/// O que **continua negado** de `~/.claude`: `settings.json` (env com chaves),
-/// `.credentials.json`, `history.jsonl` — nenhum root cobre `~/.claude`
-/// inteiro, cada subcaminho é um grant explícito.
+/// SEG-4 (27/10, ordem de Gabriel: "o sandbox precisa pegar o ~/.claude de forma
+/// obrigatória, não escondê-lo") — `~/.claude` entra INTEIRO, entrada por entrada
+/// ([`claude_home_read_roots`], enumerado a cada run, então o que nascer amanhã
+/// entra sem editar esta lista), e o próprio diretório é listável (raiz só de
+/// listagem). Ficam fora só os arquivos de credencial ([`is_claude_credential`]):
+/// `.credentials.json` (o token OAuth) e as cópias `settings.json.*` (medido
+/// 27/10: os backups carregam uma `GEMINI_API_KEY`; o `settings.json` vivo, zero).
+/// `history.jsonl` entra: é a mesma classe dos transcripts do SEG-3, coberta pela
+/// rede negada no kernel. O landlock não nega um filho de diretório concedido —
+/// por isso o grant é por filho, e não `~/.claude` como raiz de leitura.
 ///
 /// Fail-safe humano: `TOURING_SANDBOX_READ_WIDE=1` volta ao `/` de antes — use
 /// se uma ferramenta legítima quebrar por um root não enumerado (e reporte o
@@ -771,15 +778,6 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
             ".local/share/uv",
             ".nvm",
             ".pyenv",
-            ".claude/touring",
-            ".claude/skills",
-            ".claude/rules",
-            ".claude/agents",
-            ".claude/commands",
-            ".claude/CLAUDE.md",
-            // SEG-3 (27/10): transcripts (mineração de sessões) e hooks (código).
-            ".claude/projects",
-            ".claude/hooks",
             "projects",
         ] {
             let p = home.join(sub);
@@ -787,8 +785,46 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
                 roots.push(p);
             }
         }
+        // SEG-4 (27/10): every entry of ~/.claude but the credential files.
+        roots.extend(claude_home_read_roots(&home.join(".claude")));
     }
     roots
+}
+
+/// SEG-4 — the read roots `~/.claude` contributes: each entry except the credential
+/// files, sorted (a stable ruleset). Missing directory → none.
+fn claude_home_read_roots(claude: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(claude) else {
+        return Vec::new();
+    };
+    let mut roots: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|e| !is_claude_credential(&e.file_name().to_string_lossy()))
+        .map(|e| e.path())
+        .collect();
+    roots.sort();
+    roots
+}
+
+/// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox:
+/// the OAuth token file and every copy of `settings.json` (its backups carried an API
+/// key, measured 27/10). `settings.json` itself and `settings.local.json` are not copies.
+fn is_claude_credential(name: &str) -> bool {
+    name == ".credentials.json" || name.starts_with("settings.json.")
+}
+
+/// SEG-4 — directories the sandbox may LIST without reading what is beneath them: the
+/// `~/.claude` whose children [`claude_home_read_roots`] grants one by one, so a walk of
+/// `~/.claude` sees every name and still cannot open `.credentials.json`.
+fn sandbox_list_roots() -> Vec<PathBuf> {
+    if std::env::var_os("TOURING_SANDBOX_READ_WIDE").is_some() {
+        return Vec::new();
+    }
+    std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join(".claude"))
+        .filter(|p| p.is_dir())
+        .into_iter()
+        .collect()
 }
 
 /// S24 (plan 2026-09-25) — the ONE answer to "can a sandboxed program reach `path`?",
@@ -925,8 +961,9 @@ fn apply_landlock_to(
     // do --orchestrate — NÃO são afetados (o escopo cobre só os ABSTRACT).
     // NET-1 (28/08): as portas de `connect_tcp_ports` viram regras NetPort;
     // vazio = deny-all (o default de sempre).
-    let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_net_and_scope(
+    let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_listing(
         &leitura,
+        &sandbox_list_roots(),
         &escrita,
         &[],
         connect_tcp_ports,
@@ -3053,43 +3090,55 @@ mod tests {
     /// skills, negado por Landlock na sessão do projeto analise) — e o grant é
     /// por subcaminho explícito, nunca `~/.claude` inteiro.
     /// SEG-3 (27/10/2026): `projects/` (transcripts, insumo da mineração de
-    /// sessões) e `hooks/` (código) também entram; settings.json,
-    /// .credentials.json e history.jsonl ficam fora de TODA raiz.
+    /// sessões) e `hooks/` (código) também entram.
+    /// SEG-4 (27/10/2026, ordem de Gabriel): `~/.claude` entra inteiro, entrada por
+    /// entrada; só `.credentials.json` e as cópias `settings.json.*` ficam fora, e o
+    /// diretório em si é raiz só de LISTAGEM, nunca de leitura.
     #[test]
-    fn the_instruction_surface_is_readable_but_claude_secrets_stay_out() {
+    fn the_whole_claude_home_is_readable_but_its_credentials_stay_out() {
         let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
             return; // sem HOME não há o que asseverar
         };
+        let claude = home.join(".claude");
         let raizes = super::sandbox_read_roots();
+        if let Ok(entries) = std::fs::read_dir(&claude) {
+            for e in entries.flatten() {
+                let nome = e.file_name().to_string_lossy().into_owned();
+                let dentro = raizes.contains(&e.path());
+                assert_eq!(
+                    dentro,
+                    !super::is_claude_credential(&nome),
+                    "`{nome}`: credencial fora, todo o resto dentro: {raizes:?}"
+                );
+            }
+        }
         for sub in [
-            ".claude/skills",
-            ".claude/rules",
-            ".claude/agents",
-            ".claude/commands",
+            ".claude/settings.json",
+            ".claude/history.jsonl",
             ".claude/projects",
-            ".claude/hooks",
         ] {
             let p = home.join(sub);
             if p.exists() {
                 assert!(
                     raizes.contains(&p),
-                    "`{}` existe e não entrou nas raízes de leitura: {raizes:?}",
+                    "`{}` não entrou: {raizes:?}",
                     p.display()
                 );
             }
         }
         assert!(
-            !raizes.contains(&home.join(".claude")),
-            "~/.claude INTEIRO virou raiz de leitura — credenciais reabrem"
+            !raizes.contains(&claude),
+            "~/.claude virou raiz de LEITURA — o `.credentials.json` abaixo dele reabre"
         );
+        if claude.is_dir() {
+            assert_eq!(super::sandbox_list_roots(), vec![claude.clone()]);
+        }
         assert!(
             !raizes.contains(&home),
             "o home inteiro virou raiz de leitura"
         );
         for segredo in [
-            ".claude/settings.json",
             ".claude/.credentials.json",
-            ".claude/history.jsonl",
             ".ssh",
             ".aws",
             ".netrc",
@@ -3381,16 +3430,57 @@ mod s24_reach_tests {
         );
     }
 
+    /// SEG-4: a fabricated ~/.claude — every entry granted but the credential files, and
+    /// an entry created after the list was written still enters (enumeration, not a list).
     #[test]
-    fn sandbox_cannot_reach_claude_settings_but_reaches_projects() {
+    fn claude_home_roots_take_every_entry_but_the_credentials() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for f in [
+            ".credentials.json",
+            "settings.json",
+            "settings.json.bak-1",
+            "settings.local.json",
+            "history.jsonl",
+            "nasceu-amanha.json",
+        ] {
+            std::fs::write(dir.path().join(f), b"{}").expect("write");
+        }
+        std::fs::create_dir(dir.path().join("projects")).expect("mkdir");
+        let nomes: Vec<String> = claude_home_read_roots(dir.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            nomes,
+            [
+                "history.jsonl",
+                "nasceu-amanha.json",
+                "projects",
+                "settings.json",
+                "settings.local.json"
+            ]
+        );
+        assert!(claude_home_read_roots(&dir.path().join("ausente")).is_empty());
+    }
+
+    /// SEG-4: the reach answer follows the grant — settings.json in, the OAuth token out.
+    #[test]
+    fn sandbox_reaches_claude_settings_but_not_the_credentials() {
         let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
             return;
         };
         let settings = home.join(".claude").join("settings.json");
         if settings.exists() {
             assert!(
-                !sandbox_can_reach(&settings),
-                "settings.json holds env with keys — never granted"
+                sandbox_can_reach(&settings),
+                "SEG-4: settings.json is granted"
+            );
+        }
+        let token = home.join(".claude").join(".credentials.json");
+        if token.exists() {
+            assert!(
+                !sandbox_can_reach(&token),
+                "the OAuth token is never granted"
             );
         }
         let projects = home.join("projects");
