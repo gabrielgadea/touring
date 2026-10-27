@@ -38,7 +38,14 @@ has "fn test_post_bash_log_has_no_raw_command" crates/touring-hook-handlers && o
 f21="$(timeout 120 touring-quality check --gate F2.1 --target crates/touring-server/build.rs --format json 2>/dev/null)"
 echo "$f21" | grep -q '"status": *"Pass"' && ok "S-7 F2.1 do build.rs Pass" || falta "S-7 F2.1 do build.rs não passa"
 timeout 600 python3 -m pytest client/hooks/tests -q -p no:cacheprovider >/dev/null 2>&1 && ok "S-8 client/hooks verde" || falta "S-8 client/hooks/tests vermelho"
-python3 scripts/guard_injection_policy.py >/dev/null 2>&1 && ok "S-8 guarda da política 0 lacunas" || falta "S-8 guard_injection_policy com lacuna"
+# rc 2 = the guard read no hooks (inside `touring run` the sandbox hides ~/.claude):
+# still a FALTA (absent signal is not zero), but named as unmeasured, not as a gap.
+python3 scripts/guard_injection_policy.py >/dev/null 2>&1 && _g=0 || _g=$?
+case "$_g" in
+  0) ok "S-8 guarda da política 0 lacunas" ;;
+  2) falta "S-8 guarda não leu settings.json (sandbox? rode este script fora do touring run)" ;;
+  *) falta "S-8 guard_injection_policy com lacuna" ;;
+esac
 python3 scripts/test_injection_policy.py 2>&1 | grep -q " 0 FAIL\|FAIL: 0\|0 failed" && ok "suíte da política sem FAIL" \
   || { python3 scripts/test_injection_policy.py >/dev/null 2>&1 && ok "suíte da política (rc 0)" || falta "scripts/test_injection_policy.py vermelho"; }
 ok "S-9 este script existe"
