@@ -4,7 +4,7 @@
 
 Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*/src` (closes Master Plan D.W2.P1.T4's 4th reference subcommand).
 
-**Count: 394**
+**Count: 399**
 
 - `inferlets::always_success`
 - `inferlets::classifier`
@@ -121,6 +121,9 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-foundation::hash`
 - `touring-foundation::health`
 - `touring-foundation::health_events`
+- `touring-foundation::injection_family`
+- `touring-foundation::injection_journal`
+- `touring-foundation::injection_policy`
 - `touring-foundation::insights`
 - `touring-foundation::knowledge_source`
 - `touring-foundation::memory_stats_probe`
@@ -295,6 +298,8 @@ Top-level module surface per crate (`<crate>::<module>`), scanned from `crates/*
 - `touring-hooks-shared::task_features`
 - `touring-hooks-shared::terminal_job_cache`
 - `touring-hooks-shared::thread_pool`
+- `touring-hooks-shared::tool_trio`
+- `touring-hooks-shared::tool_trio_tests`
 - `touring-hooks-shared::touring_error`
 - `touring-hooks-shared::turn_budget`
 - `touring-hooks-shared::user_filters`
