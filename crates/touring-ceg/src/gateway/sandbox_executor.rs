@@ -726,8 +726,9 @@ fn scan_dir(path: &std::path::Path, cap: Option<u64>) -> TmpScan {
 /// ([`claude_home_read_roots`], enumerado a cada run, então o que nascer amanhã
 /// entra sem editar esta lista), e o próprio diretório é listável (raiz só de
 /// listagem). Ficam fora só os arquivos de credencial ([`is_claude_credential`]):
-/// `.credentials.json` (o token OAuth) e as cópias `settings.json.*` (medido
-/// 27/10: os backups carregam uma `GEMINI_API_KEY`; o `settings.json` vivo, zero).
+/// `.credentials.json` (o token OAuth) e as cópias `settings.json.*` (precaução:
+/// cópias antigas escapam da checagem por conteúdo; medido 27/10, os backups atuais
+/// guardam só um marcador `REDACTED-…` e o `settings.json` vivo, zero segredos).
 /// `history.jsonl` entra: é a mesma classe dos transcripts do SEG-3, coberta pela
 /// rede negada no kernel. O landlock não nega um filho de diretório concedido —
 /// por isso o grant é por filho, e não `~/.claude` como raiz de leitura.
@@ -815,8 +816,9 @@ fn claude_home_read_roots(claude: &Path) -> Vec<PathBuf> {
 }
 
 /// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox: the
-/// OAuth token file, every copy of `settings.json` (its backups carried an API key,
-/// measured 27/10), and any name that says credential/secret/token or is a key file —
+/// OAuth token file, every copy of `settings.json` (old copies are outside the content
+/// check of [`settings_env_carries_secret`]; today they hold only a `REDACTED-…` marker),
+/// and any name that says credential/secret/token or is a key file —
 /// so a credential file created tomorrow stays out without editing this list.
 fn is_claude_credential(name: &str) -> bool {
     let lower = name.to_ascii_lowercase();
