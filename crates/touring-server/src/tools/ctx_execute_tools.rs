@@ -364,6 +364,11 @@ fn run_forbidden_scan(lang: SandboxLanguage, code: &str) -> Vec<String> {
 /// `prior_same_hash` (how many times this exact body ran before, tail-scan of
 /// the journal): recurrence is the harvest signal the static hint cannot see
 /// (medido 27/10: `--harvest` 0× como comando real em 2.420 transcripts).
+///
+/// P2-v2 (mesmo dia, ordem do Gabriel): v4 adds `code_simhash` (SimHash-64,
+/// hex) — a identidade EXATA provou-se rara demais (duplicata exata = 1% dos
+/// eventos de criação); a recriação real é por SEMELHANça, e é ela que o gate
+/// de repetição lê na cauda do journal.
 #[allow(clippy::too_many_arguments)]
 fn journal_record(
     run_id: &str,
@@ -376,6 +381,7 @@ fn journal_record(
     meta: &JournalMeta,
     code_hash: &str,
     prior_same_hash: u32,
+    code_simhash: u64,
 ) -> serde_json::Value {
     serde_json::json!({
         "ts": std::time::SystemTime::now()
@@ -386,6 +392,7 @@ fn journal_record(
         "language": language,
         "code_hash_stdout_bytes": stdout_full.len(),
         "code_hash": code_hash,
+        "code_simhash": format!("{code_simhash:016x}"),
         "prior_same_hash": prior_same_hash,
         "exit_code": exit_code,
         "duration_ms": duration_ms,
@@ -449,6 +456,7 @@ fn journal_run(
     bytes_elided: u64,
     meta: &JournalMeta,
     code_hash: &str,
+    code_simhash: u64,
 ) -> u32 {
     let Some(home) = std::env::var_os("HOME") else {
         return 0;
@@ -471,6 +479,7 @@ fn journal_run(
         meta,
         code_hash,
         prior,
+        code_simhash,
     );
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
@@ -481,6 +490,122 @@ fn journal_run(
         let _ = writeln!(f, "{record}");
     }
     prior
+}
+
+/// P2-v2 (27/10/2026, ordem do Gabriel: "é preciso um critério por semelhança") —
+/// SimHash-64 do corpo NORMALIZADO (tokens, sem comentários/linhas vazias) sobre
+/// shingles de 3 tokens, FNV-1a 64 como hash base (determinístico entre processos,
+/// ao contrário do `hash()` do protótipo Python). Dois corpos que diferem só por
+/// ruído de edição (renomear var, reordenar, cortar comentário) caem a poucos bits
+/// de distância — medido em `calibrate_simhash.py` sobre os 14 campeões reais de
+/// recriação: positivos máx 8, negativos mín 20, **τ=10** com margem larga.
+pub(crate) fn code_simhash(code: &str) -> u64 {
+    let tokens: Vec<&str> = code
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("//"))
+        .flat_map(|l| {
+            l.split_inclusive(|c: char| !(c.is_alphanumeric() || c == '_'))
+                .collect::<Vec<_>>()
+        })
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .collect();
+    if tokens.len() < 3 {
+        // corpos mínimos: hash dos tokens crus (sem shingle) — identidade, não semelhança
+        let mut h = 0xcbf29ce484222325u64;
+        for t in &tokens {
+            for b in t.as_bytes() {
+                h = (h ^ u64::from(*b)).wrapping_mul(0x100000001b3);
+            }
+        }
+        return h;
+    }
+    let mut v = [0i32; 64];
+    for w in tokens.windows(3) {
+        let mut h = 0xcbf29ce484222325u64;
+        for t in w {
+            for byte in t.as_bytes() {
+                h = (h ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
+            }
+        }
+        for (bit, cell) in v.iter_mut().enumerate() {
+            *cell += if (h >> bit) & 1 == 1 { 1 } else { -1 };
+        }
+    }
+    v.iter().enumerate().fold(
+        0u64,
+        |acc, (bit, &c)| if c > 0 { acc | (1 << bit) } else { acc },
+    )
+}
+
+/// P2-v2 — um prior semelhante: quem, a que distância, e se foi harvestado.
+#[derive(Debug, Clone)]
+pub(crate) struct PriorSimilar {
+    /// run_id da execução anterior (o endereço para investigar).
+    pub run_id: String,
+    /// Distância de Hamming ao corpo atual (≤ τ por construção).
+    pub dist: u32,
+    /// slug do --harvest daquela run, quando houve (a rota pronta para reuso).
+    pub harvest: Option<String>,
+}
+
+/// P2-v2 — os priors com distância ≤ `tau` na cauda do journal (512 KiB, o
+/// mesmo recorte de recência do `count_prior_same_hash`). Filtra por substring
+/// `"code_simhash"` antes de parsear a linha (a cauda tem centenas de linhas,
+/// o parse só roda nas que têm o campo — v4 em diante). Fail-open: [].
+pub(crate) fn find_prior_similar(
+    journal: &std::path::Path,
+    simhash: u64,
+    tau: u32,
+) -> Vec<PriorSimilar> {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(journal) else {
+        return Vec::new();
+    };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024)))
+        .is_err()
+    {
+        return Vec::new();
+    }
+    let mut buf = Vec::new();
+    if f.read_to_end(&mut buf).is_err() {
+        return Vec::new();
+    }
+    let Ok(text) = String::from_utf8(buf) else {
+        return Vec::new(); // cauda cortou um char no meio — a próxima run reconta
+    };
+    let mut out = Vec::new();
+    for line in text.lines().filter(|l| l.contains("\"code_simhash\"")) {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let Some(h) = v
+            .get("code_simhash")
+            .and_then(|x| x.as_str())
+            .and_then(|x| u64::from_str_radix(x, 16).ok())
+        else {
+            continue;
+        };
+        let dist = (h ^ simhash).count_ones();
+        if dist <= tau {
+            out.push(PriorSimilar {
+                run_id: v
+                    .get("run_id")
+                    .and_then(|x| x.as_str())
+                    .unwrap_or("?")
+                    .to_string(),
+                dist,
+                harvest: v
+                    .get("harvest")
+                    .and_then(|x| x.as_str())
+                    .map(str::to_string),
+            });
+        }
+    }
+    out.sort_by_key(|p| p.dist);
+    out
 }
 
 /// P2 (27/10/2026) — stable identity of the program body for the recurrence
@@ -545,7 +670,9 @@ mod journal_v2_tests {
             tmp_bytes: 4096,
             hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
         };
-        let rec = journal_record("run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0);
+        let rec = journal_record(
+            "run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0, 0,
+        );
         assert_eq!(rec["run_id"], "run-1");
         assert_eq!(rec["source"], "file");
         assert_eq!(rec["file"], "/tmp/claude-1000/s/scratchpad/probe.py");
@@ -557,7 +684,7 @@ mod journal_v2_tests {
         assert_eq!(rec["hint"]["sim"], 0.87);
         let meta_sem = JournalMeta::default();
         let rec_sem = journal_record(
-            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1,
+            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1, 0,
         );
         assert!(
             rec_sem["hint"].is_null(),
@@ -580,6 +707,7 @@ mod journal_v2_tests {
             &JournalMeta::default(),
             "hash-b",
             2,
+            0,
         );
         assert!(rec["source"].is_null());
         assert!(rec["file"].is_null());
@@ -606,6 +734,7 @@ mod journal_v2_tests {
             &JournalMeta::default(),
             "0123456789abcdef",
             2,
+            0,
         );
         assert_eq!(rec["code_hash"], "0123456789abcdef");
         assert_eq!(rec["prior_same_hash"], 2);
@@ -644,6 +773,67 @@ mod journal_v2_tests {
             count_prior_same_hash(&dir.join("nao-existe.jsonl"), &hash),
             0,
             "journal ausente lê zero, não erro"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// P2-v2 — o SimHash é estável, insensível a ruído de comentário/blank, e
+    /// SENSÍVEL a outro programa: é o critério por semelhança que a identidade
+    /// exata não dava (ordem do Gabriel, 27/10). Corpos de teste têm ≥8 linhas
+    /// porque o gate tem piso de 5 (medido: com 3 linhas há shingles demais por
+    /// token — uma troca de 1 char move 11 bits; o τ=10 foi calibrado sobre
+    /// programas REAIS de 2-37 KB, não sobre minis).
+    #[test]
+    fn code_simhash_ignores_comment_noise_and_separates_programs() {
+        let base = "import json\nimport sys\nfrom pathlib import Path\n\ndef main():\n    dados = json.loads(Path(sys.argv[1]).read_text())\n    total = sum(d['v'] for d in dados)\n    print(json.dumps({'total': total, 'n': len(dados)}))\n";
+        let a = code_simhash(base);
+        // comentário e linha em branco a mais NÃO mudam o hash (são normalizados)
+        let b = code_simhash(&format!("# relatório semanal\n{base}\n"));
+        assert_eq!(a, b, "ruído de comentário/blank é normalizado fora");
+        // edição mínima num corpo real: troca de um campo
+        let c = code_simhash(&base.replace("'total'", "'soma'"));
+        let dist = (a ^ c).count_ones();
+        assert!(dist <= 10, "edição mínima fica dentro do τ: dist={dist}");
+        let outro = code_simhash(
+            "use std::fs;\nuse std::path::PathBuf;\n\nfn main() {\n    let raiz = PathBuf::from(\"/tmp\");\n    let mut n = 0u32;\n    for e in fs::read_dir(raiz).unwrap() { n += e.is_ok() as u32; }\n    println!(\"{n}\");\n}\n",
+        );
+        let dist_longe = (a ^ outro).count_ones();
+        assert!(
+            dist_longe > 10,
+            "programa distinto fica fora do τ: dist={dist_longe}"
+        );
+    }
+
+    /// P2-v2 — a busca casa ≤τ, rejeita >τ, devolve run_id/harvest do prior e
+    /// lê só a cauda; journal sem o campo (linhas v3-) não casa nada.
+    #[test]
+    fn find_prior_similar_respects_tau_and_reads_metadata() {
+        let dir = std::env::temp_dir().join(format!("touring-p2v2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let base = "import json\nimport sys\nfrom pathlib import Path\n\ndef main():\n    dados = json.loads(Path(sys.argv[1]).read_text())\n    total = sum(d['v'] for d in dados)\n    print(json.dumps({'total': total, 'n': len(dados)}))\n";
+        let h = code_simhash(base);
+        let perto = code_simhash(&base.replace("'total'", "'soma'"));
+        let longe = code_simhash(
+            "use std::fs;\nuse std::path::PathBuf;\n\nfn main() {\n    let raiz = PathBuf::from(\"/tmp\");\n    let mut n = 0u32;\n    for e in fs::read_dir(raiz).unwrap() { n += e.is_ok() as u32; }\n    println!(\"{n}\");\n}\n",
+        );
+        let mut s = String::new();
+        s.push_str("{\"run_id\":\"run-v3\",\"code_hash\":\"abc\"}\n"); // v3: sem simhash
+        s.push_str(&format!(
+            "{{\"run_id\":\"run-perto\",\"code_simhash\":\"{perto:016x}\",\"harvest\":\"meu-snippet\"}}\n"
+        ));
+        s.push_str(&format!(
+            "{{\"run_id\":\"run-longe\",\"code_simhash\":\"{longe:016x}\",\"harvest\":null}}\n"
+        ));
+        std::fs::write(&journal, s).expect("write");
+        let achados = find_prior_similar(&journal, h, 10);
+        assert_eq!(achados.len(), 1, "só o similar casa: {achados:?}");
+        assert_eq!(achados[0].run_id, "run-perto");
+        assert_eq!(achados[0].harvest.as_deref(), Some("meu-snippet"));
+        assert!(achados[0].dist <= 10);
+        assert!(
+            find_prior_similar(&dir.join("nao-existe.jsonl"), h, 10).is_empty(),
+            "fail-open: journal ausente = sem priors"
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -837,8 +1027,10 @@ pub async fn ctx_execute_impl(
     // `final_code` below; one sub-ms read on the ladder, journaled either way.
     let snippet_hint = snippet_hint_for(&code, _cwd.as_deref());
     // P2 (27/10/2026) — the program's stable identity, also computed BEFORE the
-    // move: the journal's recurrence count joins on it.
+    // move: the journal's recurrence count joins on it. P2-v2: e o SimHash para
+    // o gate de semelhança (a identidade exata provou-se rara demais).
     let code_hash = code_hash_of(&code);
+    let code_simhash = code_simhash(&code);
 
     let final_code = if let Some(ref a) = args {
         inject_args(&code, a, lang)
@@ -966,6 +1158,7 @@ pub async fn ctx_execute_impl(
         bytes_elided,
         &journal_meta,
         &code_hash,
+        code_simhash,
     );
     // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
     // disk, hand the model the locator + how to read it (P19).
