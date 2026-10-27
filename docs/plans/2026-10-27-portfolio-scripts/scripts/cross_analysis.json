@@ -1,0 +1,83 @@
+{
+ "scripts_analisados": 6,
+ "usam_touring": 3,
+ "com_oportunidade": 1,
+ "cli": {
+  "help_linhas": 0,
+  "masters": [
+   "scout",
+   "read",
+   "map",
+   "blast",
+   "investigate",
+   "guard",
+   "audit",
+   "explore",
+   "portfolio",
+   "adw",
+   "factory",
+   "run",
+   "exec"
+  ]
+ },
+ "detalhe": [
+  {
+   "arquivo": "~/.claude/scripts-portfolio/fetch_proveniencia.py",
+   "linhas": 94,
+   "proposito": "fetch_proveniencia.py — fetch cego com proveniência: salva a resposta crua + sha256 + headers. Canônico do portfólio para a família fetch.py",
+   "subprocessos": [],
+   "usa_touring": false,
+   "reimplementa": [],
+   "oportunidades": []
+  },
+  {
+   "arquivo": "~/.claude/scripts-portfolio/recomputa_verifica.py",
+   "linhas": 104,
+   "proposito": "recomputa_verifica.py — recomputo independente de afirmações e confronto com o publicado. Canônico do portfólio para a família verifica.py/r",
+   "subprocessos": [],
+   "usa_touring": false,
+   "reimplementa": [],
+   "oportunidades": []
+  },
+  {
+   "arquivo": "~/.claude/scripts-portfolio/sonda_evidencia.py",
+   "linhas": 107,
+   "proposito": "sonda_evidencia.py — sonda de evidência: extrai linhas file:line que provam um padrão. Canônico do portfólio para a família probe.py/probe2.",
+   "subprocessos": [
+    "rg"
+   ],
+   "usa_touring": true,
+   "reimplementa": [],
+   "oportunidades": [
+    "rg → touring tantivy search"
+   ]
+  },
+  {
+   "arquivo": "~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py",
+   "linhas": 518,
+   "proposito": "prose_integrity_gate.py — PreToolUse: foreign-script characters in outgoing text. Shadow first. Origin: the `analise-ef` session measured CJ",
+   "subprocessos": [],
+   "usa_touring": true,
+   "reimplementa": [],
+   "oportunidades": []
+  },
+  {
+   "arquivo": "~/.claude/skills/Touring/scripts/hooks/scout_perpetuo_reminder.py",
+   "linhas": 157,
+   "proposito": "scout_perpetuo_reminder.py — SessionStart hook: arm the Scout Perpétuo reflex. Origin (2026-07-25, Gabriel): the perpetual scout (F1.7) had ",
+   "subprocessos": [],
+   "usa_touring": false,
+   "reimplementa": [],
+   "oportunidades": []
+  },
+  {
+   "arquivo": "~/.claude/skills/Touring/scripts/hooks/script_portfolio_gate.py",
+   "linhas": 212,
+   "proposito": "script_portfolio_gate.py — PreToolUse (Write): consulta-antes-de-criar para scripts. SOMBRA. Origem: diagnóstico 27/10/2026 (docs/plans/2026",
+   "subprocessos": [],
+   "usa_touring": true,
+   "reimplementa": [],
+   "oportunidades": []
+  }
+ ]
+}

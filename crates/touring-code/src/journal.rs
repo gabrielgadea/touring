@@ -16,6 +16,8 @@
 //!   "failure_kind": null | "exception" | "timeout" | "abort" | "proc-exit" | "invalid-output" | "output-limit",
 //!   "duration_ms": 35,
 //!   "code_hash_stdout_bytes": 102400,
+//!   "code_hash": "0123456789abcdef",   // P2 (27/10): sha256[:16] do corpo do programa
+//!   "prior_same_hash": 2,              // P2: execuções anteriores do MESMO corpo (cauda do journal)
 //!   "bytes_elided": 94178
 //! }
 //! ```

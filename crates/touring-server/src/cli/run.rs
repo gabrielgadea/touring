@@ -901,7 +901,10 @@ pub fn run(args: &[String]) -> Result<()> {
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
     // Discovery comes FIRST: when the library already holds this work, saying so
     // matters more than offering to store yet another copy of it.
+    // P2 (27/10/2026) — recurrence comes SECOND: "this EXACT program ran N×"
+    // (journal code_hash) is a stronger signal than the static shape hint.
     let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code)
+        .or_else(|| recurrence_hint(out.prior_same_program, out.exit_code, cli.harvest.is_some()))
         .or_else(|| harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some()));
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
@@ -1663,6 +1666,26 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool)
     ))
 }
 
+/// P2 (27/10/2026, portfólio de scripts — pedido do Gabriel): o gatilho que
+/// faltava é RECORRÊNCIA, não forma. O `harvest_hint` estático pergunta "este
+/// corpo PARECE reutilizável?"; este responde "este MESMO programa já rodou
+/// ≥3×?" — medido 27/10 sobre 2.420 transcripts: `--harvest` 0× como comando
+/// real enquanto basenames genéricos eram reescritos 10–18× entre sessões.
+/// `prior_runs` vem do journal (campo `code_hash`, mesma wave): 2 anteriores
+/// = esta é a 3ª execução idêntica. O aviso ensina o par `--harvest` + `--file`.
+fn recurrence_hint(prior_runs: u64, exit_code: i32, already_harvested: bool) -> Option<String> {
+    if exit_code != 0 || already_harvested || prior_runs < 2 {
+        return None;
+    }
+    Some(format!(
+        "this EXACT program has now run {}x (same code_hash in the run journal): \
+         persist it once with --harvest <slug> (enrols the measured trust ladder) and \
+         re-run with --file instead of re-sending the body — recurrence is the \
+         harvest signal the static shape hint cannot see",
+        prior_runs + 1
+    ))
+}
+
 /// Cheap absolute-ISO-date detector (`20XX-`) without a regex dependency —
 /// an embedded absolute date marks a one-off, not a reusable pattern.
 fn regex_lite_date(code: &str) -> bool {
@@ -1826,6 +1849,27 @@ mod tests {
         let plain = RunCli::try_parse_from(["run", "--lang", "python", "--code", "print(1)"])
             .expect("parse");
         assert_eq!(plain.harvest, None);
+    }
+
+    /// P2 — a recorrência medida pelo journal dispara na 3ª execução idêntica
+    /// (2 anteriores) e se cala em falha, em programa já colhido e abaixo do
+    /// limiar — senão o aviso vira ruído e o nudge certo perde a credibilidade.
+    #[test]
+    fn recurrence_hint_fires_on_the_third_identical_run_only() {
+        // 1ª e 2ª execuções: silêncio (0 e 1 anteriores)
+        assert!(super::recurrence_hint(0, 0, false).is_none());
+        assert!(super::recurrence_hint(1, 0, false).is_none());
+        // 3ª (2 anteriores): dispara e nomeia a contagem real
+        let h = super::recurrence_hint(2, 0, false).expect("3rd run must fire");
+        assert!(h.contains("3x"), "a contagem exibida inclui esta run: {h}");
+        assert!(h.contains("--harvest <slug>"), "ensina o comando: {h}");
+        // falha de execução: nunca (programa quebrado não é padrão reutilizável)
+        assert!(super::recurrence_hint(5, 1, false).is_none());
+        // já colhido: redundante
+        assert!(super::recurrence_hint(5, 0, true).is_none());
+        // contagem alta segue disparando e reflete o número
+        let h10 = super::recurrence_hint(9, 0, false).expect("10th run");
+        assert!(h10.contains("10x"), "{h10}");
     }
 
     #[test]

@@ -185,6 +185,12 @@ pub struct CtxExecuteOutput {
     /// (`<run_id>:code:<n>`) in the daemon's `run_subcalls.jsonl` — one id
     /// correlates CLI, sandbox, and daemon.
     pub run_id: String,
+    /// P2 (27/10/2026) — how many times this EXACT program body (same
+    /// `code_hash`) appears in the journal tail before this run. The CLI turns
+    /// `>= 2` into the recurrence harvest nudge (the 3rd identical run is the
+    /// signal the static shape hint cannot see).
+    #[serde(skip_serializing_if = "is_zero", default)]
+    pub prior_same_program: u64,
 }
 
 fn parse_language(lang: &str) -> Result<SandboxLanguage> {
@@ -351,6 +357,13 @@ fn run_forbidden_scan(lang: SandboxLanguage, code: &str) -> Vec<String> {
 /// counted 6.435 runs and could not say how many came from a file, how many
 /// were harvested or how much tmp they left — `harvest_flagged: 0` was a gap
 /// in the instrument, not a fact about the runs.
+///
+/// P2 (27/10/2026, portfólio de scripts — pedido do Gabriel): v3 adds
+/// `code_hash` (a REAL hash of the program body — the legacy
+/// `code_hash_stdout_bytes` carries stdout length, never a hash) and
+/// `prior_same_hash` (how many times this exact body ran before, tail-scan of
+/// the journal): recurrence is the harvest signal the static hint cannot see
+/// (medido 27/10: `--harvest` 0× como comando real em 2.420 transcripts).
 #[allow(clippy::too_many_arguments)]
 fn journal_record(
     run_id: &str,
@@ -361,6 +374,8 @@ fn journal_record(
     failure_kind: Option<RunFailureKind>,
     bytes_elided: u64,
     meta: &JournalMeta,
+    code_hash: &str,
+    prior_same_hash: u32,
 ) -> serde_json::Value {
     serde_json::json!({
         "ts": std::time::SystemTime::now()
@@ -370,6 +385,8 @@ fn journal_record(
         "run_id": run_id,
         "language": language,
         "code_hash_stdout_bytes": stdout_full.len(),
+        "code_hash": code_hash,
+        "prior_same_hash": prior_same_hash,
         "exit_code": exit_code,
         "duration_ms": duration_ms,
         "failure_kind": failure_kind.map(|k| serde_json::to_value(k).ok()),
@@ -418,6 +435,9 @@ fn snippet_hint_for(code: &str, cwd: Option<&str>) -> Option<(String, f64)> {
 /// (`~/.claude/touring/run_journal.jsonl`). The journal is the durable trace
 /// the counterfactual KPI reads from; sub-call identity joins it in W5.
 /// Fail-open: any I/O error is swallowed — observability never blocks a run.
+///
+/// P2 (27/10/2026) — returns how many times this exact `code_hash` appeared in
+/// the journal BEFORE this record (the recurrence the harvest nudge reads).
 #[allow(clippy::too_many_arguments)]
 fn journal_run(
     run_id: &str,
@@ -428,14 +448,18 @@ fn journal_run(
     failure_kind: Option<RunFailureKind>,
     bytes_elided: u64,
     meta: &JournalMeta,
-) {
+    code_hash: &str,
+) -> u32 {
     let Some(home) = std::env::var_os("HOME") else {
-        return;
+        return 0;
     };
     let dir = std::path::Path::new(&home).join(".claude/touring");
     if std::fs::create_dir_all(&dir).is_err() {
-        return;
+        return 0;
     }
+    let journal = dir.join("run_journal.jsonl");
+    // P2 — counted BEFORE the append so the record does not see itself.
+    let prior = count_prior_same_hash(&journal, code_hash);
     let record = journal_record(
         run_id,
         language,
@@ -445,15 +469,57 @@ fn journal_run(
         failure_kind,
         bytes_elided,
         meta,
+        code_hash,
+        prior,
     );
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(dir.join("run_journal.jsonl"))
+        .open(&journal)
     {
         let _ = writeln!(f, "{record}");
     }
+    prior
+}
+
+/// P2 (27/10/2026) — stable identity of the program body for the recurrence
+/// signal: sha256 truncated to 16 hex chars. Collisions across a local journal
+/// are negligible (2^64 space, milhares de entradas), and a stable hash lets
+/// "the SAME program ran N×" be counted — the legacy `code_hash_stdout_bytes`
+/// field carries stdout LENGTH, not a hash, and cannot answer it.
+fn code_hash_of(code: &str) -> String {
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(code.as_bytes());
+    digest[..8].iter().map(|b| format!("{b:02x}")).collect()
+}
+
+/// P2 — count prior journal entries with the same `code_hash` scanning only
+/// the journal TAIL (last 512 KiB): older runs fade out by design, a recency
+/// bias that matches the question being asked ("is this program being re-run
+/// LATELY?"), not "did it ever run". Byte-level match on the fixed JSON key —
+/// no per-line parse. Fail-open: any I/O problem reads as zero (the nudge
+/// simply does not fire, never a wrong count).
+fn count_prior_same_hash(journal: &std::path::Path, hash: &str) -> u32 {
+    use std::io::{Read, Seek, SeekFrom};
+    let Ok(mut f) = std::fs::File::open(journal) else {
+        return 0;
+    };
+    let len = f.metadata().map(|m| m.len()).unwrap_or(0);
+    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024))).is_err() {
+        return 0;
+    }
+    let mut buf = Vec::new();
+    if f.read_to_end(&mut buf).is_err() {
+        return 0;
+    }
+    let needle = format!("\"code_hash\":\"{hash}\"").into_bytes();
+    if needle.len() > buf.len() {
+        return 0;
+    }
+    buf.windows(needle.len())
+        .filter(|w| *w == needle.as_slice())
+        .count() as u32
 }
 
 #[cfg(test)]
@@ -477,7 +543,7 @@ mod journal_v2_tests {
             tmp_bytes: 4096,
             hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
         };
-        let rec = journal_record("run-1", "python", "out", 0, 12, None, 3, &meta);
+        let rec = journal_record("run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0);
         assert_eq!(rec["run_id"], "run-1");
         assert_eq!(rec["source"], "file");
         assert_eq!(rec["file"], "/tmp/claude-1000/s/scratchpad/probe.py");
@@ -488,7 +554,7 @@ mod journal_v2_tests {
         assert_eq!(rec["hint"]["key"], "snippet:varre-wiring:2026-09-01");
         assert_eq!(rec["hint"]["sim"], 0.87);
         let meta_sem = JournalMeta::default();
-        let rec_sem = journal_record("run-2", "bash", "out", 0, 5, None, 0, &meta_sem);
+        let rec_sem = journal_record("run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1);
         assert!(
             rec_sem["hint"].is_null(),
             "no match → null, never a fabricated hint"
@@ -499,7 +565,7 @@ mod journal_v2_tests {
 
     #[test]
     fn journal_record_without_meta_keeps_v1_shape_plus_nulls() {
-        let rec = journal_record("run-2", "bash", "", 1, 5, None, 0, &JournalMeta::default());
+        let rec = journal_record("run-2", "bash", "", 1, 5, None, 0, &JournalMeta::default(), "hash-b", 2);
         assert!(rec["source"].is_null());
         assert!(rec["file"].is_null());
         assert!(rec["harvest"].is_null());
@@ -507,6 +573,64 @@ mod journal_v2_tests {
         assert_eq!(rec["orchestrate"], false);
         assert_eq!(rec["tmp_bytes"], 0);
         assert_eq!(rec["exit_code"], 1);
+    }
+
+    /// P2 (27/10/2026): o registro carrega a identidade estável do programa
+    /// (`code_hash`) e a recorrência medida ANTES do append (`prior_same_hash`)
+    /// — os dois campos que o nudge de harvest por recorrência lê.
+    #[test]
+    fn journal_record_carries_code_hash_and_prior_count() {
+        let rec = journal_record(
+            "run-3",
+            "python",
+            "out",
+            0,
+            7,
+            None,
+            0,
+            &JournalMeta::default(),
+            "0123456789abcdef",
+            2,
+        );
+        assert_eq!(rec["code_hash"], "0123456789abcdef");
+        assert_eq!(rec["prior_same_hash"], 2);
+    }
+
+    /// P2 — o hash é estável (mesma entrada, mesmo hash) e sensível ao corpo
+    /// (corpos distintos, hashes distintos); 16 hex chars de um sha256.
+    #[test]
+    fn code_hash_of_is_stable_and_body_sensitive() {
+        let a = code_hash_of("print(1)");
+        assert_eq!(a, code_hash_of("print(1)"));
+        assert_ne!(a, code_hash_of("print(2)"));
+        assert_eq!(a.len(), 16);
+        assert!(a.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// P2 — a contagem lê só a cauda do journal e casa a chave JSON exata;
+    /// journal ausente ou ilegível lê zero (fail-open, nunca contagem errada).
+    #[test]
+    fn count_prior_same_hash_reads_the_tail_and_fails_open() {
+        let dir = std::env::temp_dir().join(format!("touring-p2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let hash = code_hash_of("corpo-x");
+        let other = code_hash_of("corpo-y");
+        let mut lines = String::new();
+        for _ in 0..3 {
+            lines.push_str(&format!("{{\"code_hash\":\"{hash}\",\"ts\":1}}\n"));
+        }
+        lines.push_str(&format!("{{\"code_hash\":\"{other}\",\"ts\":2}}\n"));
+        std::fs::write(&journal, lines).expect("write");
+        assert_eq!(count_prior_same_hash(&journal, &hash), 3);
+        assert_eq!(count_prior_same_hash(&journal, &other), 1);
+        assert_eq!(count_prior_same_hash(&journal, &code_hash_of("nunca")), 0);
+        assert_eq!(
+            count_prior_same_hash(&dir.join("nao-existe.jsonl"), &hash),
+            0,
+            "journal ausente lê zero, não erro"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }
 
@@ -697,6 +821,9 @@ pub async fn ctx_execute_impl(
     // rule the display hint follows) and read BEFORE `code` moves into
     // `final_code` below; one sub-ms read on the ladder, journaled either way.
     let snippet_hint = snippet_hint_for(&code, _cwd.as_deref());
+    // P2 (27/10/2026) — the program's stable identity, also computed BEFORE the
+    // move: the journal's recurrence count joins on it.
+    let code_hash = code_hash_of(&code);
 
     let final_code = if let Some(ref a) = args {
         inject_args(&code, a, lang)
@@ -814,7 +941,7 @@ pub async fn ctx_execute_impl(
         tmp_bytes,
         hint: snippet_hint,
     };
-    journal_run(
+    let prior_same_program = journal_run(
         &run_id,
         &language,
         &stdout,
@@ -823,6 +950,7 @@ pub async fn ctx_execute_impl(
         failure.as_ref().map(|f| f.kind),
         bytes_elided,
         &journal_meta,
+        &code_hash,
     );
     // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
     // disk, hand the model the locator + how to read it (P19).
@@ -853,6 +981,7 @@ pub async fn ctx_execute_impl(
         },
         retrieval_hint,
         run_id,
+        prior_same_program: u64::from(prior_same_program),
     })
 }
 
@@ -885,6 +1014,12 @@ pub fn format_output(
                 v["failure"] = serde_json::json!({
                     "kind": f.kind, "phase": f.phase, "message": f.message,
                 });
+            }
+            // P2 (27/10/2026) — the recurrence count is observability too:
+            // without it in the envelope the nudge fired but the number was
+            // invisible (medido ao vivo: journal certo, payload zerado).
+            if output.prior_same_program > 0 {
+                v["prior_same_program"] = serde_json::json!(output.prior_same_program);
             }
             if let Some(p) = &output.stored_path {
                 v["stored_path"] = serde_json::json!(p);

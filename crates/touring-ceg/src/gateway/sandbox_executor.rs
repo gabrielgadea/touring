@@ -712,9 +712,18 @@ fn scan_dir(path: &std::path::Path, cap: Option<u64>) -> TmpScan {
 /// instruções versionadas, não segredos — e um programa de code mode que varre
 /// skills é exatamente a rajada que os gates G1/T3 fundem para dentro do
 /// sandbox; negar aqui empurrava o trabalho de volta às N chamadas atômicas.
+/// SEG-3 (27/10, ordem de Gabriel: "sandbox precisa ler ~/.claude") — entram
+/// `~/.claude/projects` (transcripts — o insumo da mineração de sessões para o
+/// portfólio de scripts; sem este grant o trabalho saía do sandbox via prefixo
+/// nativo, derrotando o code mode) e `~/.claude/hooks` (código versionado, mesma
+/// classe de skills/rules). O risco residual do SEG-1/SEG-2 (transcripts podem
+/// conter segredos colados em sessão) é coberto pela **rede deny-by-default no
+/// kernel** (Landlock V4 TCP + seccomp UDP): dado local lido não sai da máquina,
+/// e o stdout volta ao modelo — que já lê os mesmos arquivos via Bash (paridade
+/// de confiança, A11: contenção ≠ boundary).
 /// O que **continua negado** de `~/.claude`: `settings.json` (env com chaves),
-/// `.credentials.json`, `projects/` (transcripts), `history.jsonl`, `hooks/` —
-/// nenhum root cobre `~/.claude` inteiro, cada subcaminho é um grant explícito.
+/// `.credentials.json`, `history.jsonl` — nenhum root cobre `~/.claude`
+/// inteiro, cada subcaminho é um grant explícito.
 ///
 /// Fail-safe humano: `TOURING_SANDBOX_READ_WIDE=1` volta ao `/` de antes — use
 /// se uma ferramenta legítima quebrar por um root não enumerado (e reporte o
@@ -768,6 +777,9 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
             ".claude/agents",
             ".claude/commands",
             ".claude/CLAUDE.md",
+            // SEG-3 (27/10): transcripts (mineração de sessões) e hooks (código).
+            ".claude/projects",
+            ".claude/hooks",
             "projects",
         ] {
             let p = home.join(sub);
@@ -3039,8 +3051,10 @@ mod tests {
     /// SEG-2 (30/08/2026): a superfície de instrução do agente é LEGÍVEL pelo
     /// sandbox (o caso real: um programa de code mode varrendo a estrutura de
     /// skills, negado por Landlock na sessão do projeto analise) — e o grant é
-    /// por subcaminho explícito, nunca `~/.claude` inteiro: settings.json,
-    /// .credentials.json e projects/ (transcripts) ficam fora de TODA raiz.
+    /// por subcaminho explícito, nunca `~/.claude` inteiro.
+    /// SEG-3 (27/10/2026): `projects/` (transcripts, insumo da mineração de
+    /// sessões) e `hooks/` (código) também entram; settings.json,
+    /// .credentials.json e history.jsonl ficam fora de TODA raiz.
     #[test]
     fn the_instruction_surface_is_readable_but_claude_secrets_stay_out() {
         let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
@@ -3052,6 +3066,8 @@ mod tests {
             ".claude/rules",
             ".claude/agents",
             ".claude/commands",
+            ".claude/projects",
+            ".claude/hooks",
         ] {
             let p = home.join(sub);
             if p.exists() {
@@ -3064,7 +3080,7 @@ mod tests {
         }
         assert!(
             !raizes.contains(&home.join(".claude")),
-            "~/.claude INTEIRO virou raiz de leitura — credenciais e transcripts reabrem"
+            "~/.claude INTEIRO virou raiz de leitura — credenciais reabrem"
         );
         assert!(
             !raizes.contains(&home),
@@ -3073,7 +3089,6 @@ mod tests {
         for segredo in [
             ".claude/settings.json",
             ".claude/.credentials.json",
-            ".claude/projects",
             ".claude/history.jsonl",
             ".ssh",
             ".aws",
