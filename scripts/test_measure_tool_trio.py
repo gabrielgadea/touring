@@ -151,3 +151,9 @@ def test_since_until_window_keeps_only_the_arm_block(tmp_path):
 
 def test_empty_window_is_refused():
     assert m.main(["--since", "2026-11-02T00:00:00Z", "--until", "2026-11-01T00:00:00Z"]) == 2
+
+
+def test_non_string_bash_command_does_not_crash_and_matches_emission():
+    # tool_trio.rs reads the command with as_str().unwrap_or(""): a dict counts as empty.
+    assert m.tool_class("Bash", {"command": {"oops": 1}}) == "Bash:" + m.classify_bash("")
+    assert m.tool_class("Bash", "input como texto") == "Bash:" + m.classify_bash("")
