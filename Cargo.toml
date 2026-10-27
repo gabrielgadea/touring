@@ -336,7 +336,7 @@ zstd = "0.13"
 tiktoken-rs = "0.9"
 
 # WASM runtime (optional — for plugin system)
-wasmtime = { version = "46", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
+wasmtime = { version = "48", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
 wat = "1.245"
 
 # Full-text search
@@ -419,9 +419,9 @@ tracing-test = "0.2"
 # GGUF quantized models (Q4_K_M / Q8_0) loaded into daemon memory for
 # zero-latency embedding generation. Gated behind `semantic-embeddings`
 # feature in consumer crates to avoid pulling ML deps when unused.
-candle-core = { version = "0.8", default-features = false }
-candle-nn = { version = "0.8", default-features = false }
-candle-transformers = { version = "0.8", default-features = false }
+candle-core = { version = "0.9", default-features = false }
+candle-nn = { version = "0.9", default-features = false }
+candle-transformers = { version = "0.9", default-features = false }
 
 # HuggingFace tokenizers — pure Rust WordPiece/BPE/SentencePiece. Required
 # by CandleEmbedder Phase-2a to load `tokenizer.json` sidecar files shipped
@@ -561,7 +561,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 wgpu = "26"
-z3 = "0.20"
+z3 = "0.21"
 
 # Dev deps declared per-crate, not workspace-level
 # criterion, approx, proptest, rand, rstest, tempfile, tokio-test
