@@ -52,7 +52,17 @@ pub fn run(
 /// (similar to post_edit S-5 pattern).
 ///
 /// Returns `HookResponse::Allow` when there is no structured feedback.
+///
+/// S-14 (27/10/2026): when `TOURING_RESULT_COMPACTOR=on` and the stdout of a log-shaped
+/// result is large, the verdict also carries the compacted result
+/// (`hookSpecificOutput.updatedToolOutput`, see [`super::result_compactor`]). Off by
+/// default: with the flag unset the response is exactly the one the handler built.
 pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
+    super::result_compactor::attach(run_returning_core(runtime, input), input)
+}
+
+/// The handler proper: records the outcome and builds the feedback verdict.
+fn run_returning_core(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     let tool_input = match input.get("tool_input") {
         Some(v) => v,

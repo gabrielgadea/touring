@@ -85,6 +85,10 @@ pub mod pre_tool_use;
 #[cfg(feature = "pre-hooks")]
 #[path = "hooks/pre_write.rs"]
 pub mod pre_write;
+/// Output Diet for large Bash results via PostToolUse `updatedToolOutput` (S-14 / B1).
+#[cfg(feature = "post-hooks")]
+#[path = "hooks/result_compactor.rs"]
+pub mod result_compactor;
 /// S28 gate acceptance tests (cross-process baseline + declared abstention).
 #[cfg(all(test, feature = "post-hooks"))]
 #[path = "hooks/s28_gate.rs"]

@@ -411,7 +411,8 @@ fn journal_cuts(sink: Option<&Path>, level: InjectionLevel, site: &str, cuts: &[
 ///   política não alterou não é re-serializado.
 /// - Algo cortado devolve o envelope filtrado e registra o corte em `sink`.
 ///   Só `additionalContext`/`systemMessage` saem; `permissionDecision`,
-///   `permissionDecisionReason`, `updatedInput`, `decision`, `reason`,
+///   `permissionDecisionReason`, `updatedInput`, `updatedToolOutput` (o
+///   resultado reescrito do PostToolUse, S-14), `decision`, `reason`,
 ///   `continue`, `stopReason` ficam como vieram (contrato C13). Um envelope
 ///   cujo único conteúdo era contexto vira `{}`.
 #[must_use]
@@ -1012,6 +1013,38 @@ mod tests {
         assert_eq!(lines[0]["level"], json!("no-advisory"));
         assert_eq!(lines[0]["cuts"][0]["family"], json!("touring-suggest"));
         assert_eq!(lines[0]["cuts"][0]["bytes"], json!(SERMON.len()));
+    }
+
+    /// S-14: o resultado reescrito de um PostToolUse (`updatedToolOutput`) é o que o
+    /// modelo passa a VER no lugar da saída da ferramenta — não é contexto, e nenhum
+    /// nível o corta. O sermão que viaja ao lado sai; o resultado fica byte a byte.
+    #[test]
+    fn test_updated_tool_output_survives_every_level() {
+        let result = json!({"stdout": "kept\n[touring result-compactor] ...", "stderr": "", "interrupted": false});
+        let envelope = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "updatedToolOutput": result,
+            "additionalContext": SERMON,
+        }})
+        .to_string();
+        for level in [InjectionLevel::NoAdvisory, InjectionLevel::Off] {
+            let out = apply_at(level, SITE_DAEMON_FORWARD, &envelope, None);
+            let v: Value = serde_json::from_str(&out).expect("a saída continua JSON");
+            let hso = &v["hookSpecificOutput"];
+            assert_eq!(hso["updatedToolOutput"], result, "{level:?}: {out}");
+            assert!(hso.get("additionalContext").is_none(), "{level:?}: {out}");
+            assert_eq!(hso["hookEventName"], json!("PostToolUse"));
+        }
+        // sem contexto algum a cortar: o envelope volta emprestado, intocado
+        let only = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "updatedToolOutput": result,
+        }})
+        .to_string();
+        assert!(matches!(
+            apply_at(InjectionLevel::Off, SITE_DAEMON_FORWARD, &only, None),
+            Cow::Borrowed(_)
+        ));
     }
 
     /// Sem env (`Full`) o texto volta EMPRESTADO — o mesmo ponteiro: nada é

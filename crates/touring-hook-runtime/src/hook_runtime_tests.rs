@@ -729,6 +729,38 @@ fn test_hook_response_context_with_updated_input_json() {
     assert_eq!(parsed["hookSpecificOutput"]["hookEventName"], "PreToolUse");
 }
 #[test]
+fn test_hook_response_context_with_updated_tool_output_json() {
+    let result = serde_json::json!({ "stdout" : "kept\n", "stderr" : "", "interrupted" : false });
+    let resp = HookResponse::ContextWithUpdatedToolOutput {
+        context: "tests: 1 failed".to_string(),
+        event_name: Some("PostToolUse".to_string()),
+        updated_tool_output: result.clone(),
+    };
+    let parsed: serde_json::Value = serde_json::from_str(&resp.to_json()).expect("valid JSON");
+    let hso = &parsed["hookSpecificOutput"];
+    assert_eq!(hso["updatedToolOutput"], result);
+    assert_eq!(hso["additionalContext"], "tests: 1 failed");
+    assert_eq!(hso["hookEventName"], "PostToolUse");
+}
+#[test]
+fn test_hook_response_updated_tool_output_without_context_has_no_blank_reminder() {
+    let resp = HookResponse::ContextWithUpdatedToolOutput {
+        context: String::new(),
+        event_name: Some("PostToolUse".to_string()),
+        updated_tool_output: serde_json::json!({ "stdout" : "s", "stderr" : "", "interrupted" : false }),
+    };
+    let parsed: serde_json::Value = serde_json::from_str(&resp.to_json()).expect("valid JSON");
+    assert!(
+        parsed["hookSpecificOutput"]
+            .get("additionalContext")
+            .is_none()
+    );
+    assert_eq!(
+        parsed["hookSpecificOutput"]["updatedToolOutput"]["stdout"],
+        "s"
+    );
+}
+#[test]
 fn test_truncate_context_short_string() {
     let short = "hello world";
     let result = crate::hook_response::truncate_context(short);
