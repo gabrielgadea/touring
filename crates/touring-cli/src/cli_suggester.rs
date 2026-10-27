@@ -3080,19 +3080,21 @@ fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
 }
 
 /// O deny do G10 quando NENHUMA rota de `touring run` executa o corpo: diz isso, cita o destino ou
-/// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo). Não há
-/// comando de `touring run` para colar — nomear um que falha foi o defeito.
+/// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo) como a
+/// linha pronta do PRÓPRIO comando negado. Não há comando de `touring run` para colar — nomear um
+/// que falha foi o defeito.
 fn g10_unrunnable_deny(
     n: u32,
     class: &str,
     rota: &g10_route::Route,
     project_root: &Path,
+    cmd: &str,
 ) -> String {
     format!(
         "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` na janela \
-         de {EXEC_BURST_WINDOW_SECS}s).{} Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} \
-         (contado como bypassed).",
-        rota.explanation(project_root)
+         de {EXEC_BURST_WINDOW_SECS}s).{} {}",
+        rota.explanation(project_root),
+        bypass_next_step(cmd)
     )
 }
 
@@ -3274,9 +3276,9 @@ fn write_run_pair_gate_with(
     if !rota.runs() {
         return Some(deny_response(format!(
             "[G10 write→run] {n}º script escrito-e-executado na janela de \
-             {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} Bypass por-comando: prefixe \
-             {GATE_BYPASS_TOKEN} (contado como bypassed).",
-            rota.explanation(project_root)
+             {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} {}",
+            rota.explanation(project_root),
+            bypass_next_step(cmd)
         )));
     }
     let comando = format!(
@@ -3965,6 +3967,85 @@ fn g6_allowlisted(cmd: &str) -> bool {
         .any(|p| trimmed.starts_with(p))
 }
 
+/// Longest single-line command a reason inlines as a ready-to-paste bypass line; beyond it the
+/// reason points at the command it already shows instead of repeating it.
+const READY_LINE_MAX_CHARS: usize = 600;
+
+/// The bypass line for `cmd`: the per-command token in front of the SAME command, ready to
+/// paste. `None` when the command cannot travel on one line (heredoc, multi-line) or is too
+/// long to paste without error.
+fn ready_bypass_line(cmd: &str) -> Option<String> {
+    let c = cmd.trim();
+    (!c.is_empty() && !c.contains('\n') && c.chars().count() <= READY_LINE_MAX_CHARS)
+        .then(|| format!("{GATE_BYPASS_TOKEN} {c}"))
+}
+
+/// The closing sentence of a reason whose next step is the bypass itself (a G10 deny with no
+/// runnable route): the ready line when the command fits on one line, the rule otherwise.
+fn bypass_next_step(cmd: &str) -> String {
+    match ready_bypass_line(cmd) {
+        Some(line) => {
+            format!("Rode exatamente (bypass por-comando, contado como bypassed):\n  {line}")
+        }
+        None => format!(
+            "Bypass por-comando: prefixe o comando negado, verbatim, com {GATE_BYPASS_TOKEN} \
+             (contado como bypassed)."
+        ),
+    }
+}
+
+/// G6 — the three legitimate next steps after a byte-identical repeat, shared by the advisory
+/// and the deny. Measured before the 27/10/2026 deploy: all 24 denials came from one session
+/// whose first runs had all succeeded with the same result size and no call in between (the
+/// redundant case, not live state), and in 21 the next call carried the same bytes — the model
+/// acknowledged the gate in prose and re-emitted the command. The reason therefore hands over
+/// the one command that is NOT a blind retry: the bypass line for the case where the state
+/// changed outside the Edit/Write epoch this gate watches (build, git, daemon, a background
+/// task). The token is per-command and charged to the G11 budget; both facts are stated.
+fn g6_next_steps(cmd: &str) -> String {
+    let bypass = match ready_bypass_line(cmd) {
+        Some(line) => format!("rode exatamente:\n  {line}"),
+        None => format!("prefixe o comando abaixo, verbatim, com `{GATE_BYPASS_TOKEN} `."),
+    };
+    format!(
+        "Próximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem \
+         rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, \
+         intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o \
+         estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa \
+         em background, outra sessão) — repetir é legítimo, {bypass}\n\
+         O bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` \
+         recarrega o crédito)."
+    )
+}
+
+/// The G6 advisory (first repeat): the call still runs, the next identical one is denied.
+fn g6_advisory_text(cmd: &str) -> String {
+    format!(
+        "[G6 redundant-exact-call] comando byte-idêntico há <{SUGGESTION_TTL_SECS}s sem nenhuma \
+         mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA \
+         idêntica será negada.\n{}",
+        g6_next_steps(cmd)
+    )
+}
+
+/// The G6 deny (second repeat onwards). The command is echoed only when the bypass line cannot
+/// carry it whole (multi-line or over `READY_LINE_MAX_CHARS`).
+fn g6_deny_reason(cmd: &str) -> String {
+    let comando = if ready_bypass_line(cmd).is_some() {
+        String::new()
+    } else {
+        let inicio: String = cmd.chars().take(200).collect();
+        format!("\nComando: {inicio}")
+    };
+    format!(
+        "[G6 redundant-exact-call] repetição byte-idêntica em {SUGGESTION_TTL_SECS}s sem mutação \
+         no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\n\
+         {}\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada \
+         de novo.{comando}",
+        g6_next_steps(cmd)
+    )
+}
+
 /// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
 /// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
 /// G6 ledger key: the session AND the input. A blind retry is the same session repeating
@@ -4217,6 +4298,83 @@ fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64 {
     session.hash(&mut hasher);
     file.hash(&mut hasher);
     hasher.finish()
+}
+
+/// Files above this are not scanned for the Read-window hint (the deny path stays cheap).
+const G3_WINDOW_MAX_BYTES: u64 = 2 * 1024 * 1024;
+/// Context lines kept on each side of the Edit's `old_string` in the Read-window hint.
+const G3_WINDOW_CONTEXT_LINES: usize = 5;
+/// Files shorter than this are read whole: a window would save nothing.
+const G3_WINDOW_MIN_FILE_LINES: usize = 80;
+
+/// The Read window (1-based `offset`, `limit`) that covers the first occurrence of an Edit's
+/// `old_string` with a little context — the lines the model must see to write the Edit right.
+/// `None` when the file is unreadable, large, short, or does not contain `old_string` (the
+/// reason then names the plain `Read`). Measured before the 27/10/2026 deploy: 589 of 607 Edits
+/// after a PARTIAL Read succeeded, against 67 of 70 after a full one, so a window is a valid
+/// Read for the harness.
+fn g3_read_window(project_root: &Path, fp: &str, old_string: &str) -> Option<(usize, usize)> {
+    if old_string.is_empty() {
+        return None;
+    }
+    let path = Path::new(fp);
+    let full = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        project_root.join(path)
+    };
+    let meta = std::fs::metadata(&full).ok()?;
+    if !meta.is_file() || meta.len() > G3_WINDOW_MAX_BYTES {
+        return None;
+    }
+    let text = std::fs::read_to_string(&full).ok()?;
+    let total = text.split('\n').count();
+    if total < G3_WINDOW_MIN_FILE_LINES {
+        return None;
+    }
+    let at = text.find(old_string)?;
+    let first = 1 + text[..at].matches('\n').count();
+    let span = 1 + old_string.trim_end_matches('\n').matches('\n').count();
+    let offset = first.saturating_sub(G3_WINDOW_CONTEXT_LINES).max(1);
+    let limit = (first - offset) + span + G3_WINDOW_CONTEXT_LINES;
+    (offset > 1 || limit < total).then_some((offset, limit))
+}
+
+/// The exact `Read` call a G3 reason hands over for an Edit of `fp`: the window over the Edit's
+/// own `old_string` when it can be derived, the plain file otherwise.
+fn g3_read_call(project_root: &Path, fp: &str, tool_input: &Value) -> String {
+    let old_string = tool_input
+        .get("old_string")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    match g3_read_window(project_root, fp, old_string) {
+        Some((offset, limit)) => format!("Read {fp} offset={offset} limit={limit}"),
+        None => format!("Read {fp}"),
+    }
+}
+
+/// The G3 advisory (first unread Edit): the Edit still runs, the second one in a row is denied.
+fn g3_advisory_text(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
+    let leitura = g3_read_call(project_root, fp, tool_input);
+    format!(
+        "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — o 2º seguido nega). \
+         Próximo passo: `{leitura}` antes do Edit — só a ferramenta Read do arquivo exato conta \
+         (cat/sed/grep via Bash não); o Read zera o contador."
+    )
+}
+
+/// The G3 deny. Measured before the 27/10/2026 deploy: in 37 of 40 denials the session had
+/// already looked at the file through Bash only, and 9 of the 40 were answered with another
+/// unread Edit — so the reason says what counts as a Read and what stays forbidden meanwhile.
+fn g3_deny_reason(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
+    let leitura = g3_read_call(project_root, fp, tool_input);
+    format!(
+        "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os 11 erros \
+         `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: \
+         `{leitura}`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: \
+         cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {fp}. Proibido até lá: \
+         Edit de {fp} ou de qualquer outro arquivo ainda não lido."
+    )
 }
 
 /// W3 S-3.2 — G7: contagem de releituras do MESMO arquivo por projeto (os
@@ -5682,16 +5840,19 @@ fn code_mode_gates_chain(
                 // um aviso basta.
                 if n >= 2 {
                     record_gate_event(GateId::G3, GateEvent::Denied);
-                    return Some(deny_response(format!(
-                        "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os \
-                         11 erros `edit_string_not_found` medidos nascem exatamente aqui. \
-                         Leia primeiro: Read {fp} (o Read reseta o gate)."
+                    return Some(deny_response(g3_deny_reason(
+                        project_root,
+                        fp,
+                        n,
+                        tool_input,
                     )));
                 }
                 record_gate_event(GateId::G3, GateEvent::Emitted);
-                return Some(advisory_response(format!(
-                    "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — \
-                     o 2º seguido nega). Read {fp} zera o contador."
+                return Some(advisory_response(g3_advisory_text(
+                    project_root,
+                    fp,
+                    n,
+                    tool_input,
                 )));
             }
         }
@@ -6034,6 +6195,7 @@ fn code_mode_gates_chain(
                     class,
                     &rota,
                     project_root,
+                    cmd,
                 )));
             }
             // python-inline tem remédio 1:1 (o corpo do PRÓPRIO comando); as
@@ -6226,13 +6388,7 @@ fn code_mode_gates_chain(
                         serde_json::json!({
                             "hookSpecificOutput": {
                                 "hookEventName": "PreToolUse",
-                                "additionalContext": format!(
-                                    "[G6 redundant-exact-call] comando byte-idêntico há \
-                                     <{SUGGESTION_TTL_SECS}s sem nenhuma mutação no meio — o \
-                                     resultado já está no seu contexto. Reuse-o, varie o \
-                                     input, ou funda a família em 1 `touring run`. A PRÓXIMA \
-                                     repetição idêntica será negada."
-                                ),
+                                "additionalContext": g6_advisory_text(cmd),
                             }
                         })
                         .to_string(),
@@ -6241,14 +6397,7 @@ fn code_mode_gates_chain(
                 record_gate_event(GateId::G6, GateEvent::Denied);
                 // um deny encerra o turno cego: a próxima chamada é a RESPOSTA
                 // do modelo ao deny, não continuação de um batch paralelo.
-                let inicio: String = cmd.chars().take(200).collect();
-                return Some(deny_response(format!(
-                    "[G6 redundant-exact-call] repetição byte-idêntica em \
-                     {SUGGESTION_TTL_SECS}s sem mutação no meio — retry cego (5 casos \
-                     medidos). O resultado já está no contexto; reuse-o ou varie o \
-                     input. Comando: {inicio}\nBypass por-comando: prefixe \
-                     {GATE_BYPASS_TOKEN}."
-                )));
+                return Some(deny_response(g6_deny_reason(cmd)));
             }
             // época mudou: a árvore mutou desde a primeira vista — fresh.
             Some((_, _)) => g6_seen().insert(h, (0, epoch)),
@@ -7451,7 +7600,9 @@ mod s24_route_tests {
         for _ in 0..3 {
             let out = code_mode_gates(root, &me, "Bash", &json!({"command": cmd}));
             assert!(
-                !out.as_deref().is_some_and(|s| s.contains("G11")),
+                // The G11 verdict is identified by its structured prefix: other gates' advisories
+                // legitimately NAME the G11 (the G6 one states the bypass cost).
+                !out.as_deref().is_some_and(|s| s.contains("[G11 ")),
                 "data charged as bypass: {out:?}"
             );
         }

@@ -710,3 +710,521 @@ fn g10_par_write_run_com_destino_fora_nao_promete_rota() {
     assert!(!deny.contains("TOURING_TRUSTED_OK=1 touring run"), "{deny}");
     assert!(!deny.contains("touring run --lang python --file"), "{deny}");
 }
+
+// ── S-13 (B2): toda negação nomeia o próximo comando ─────────────────────────
+//
+// Medido no corpus de transcrições antes do deploy de 27/10/2026: depois de um deny do G6 o
+// modelo repetia a chamada byte-idêntica em 21 de 24 casos (duas cadeias de 11-12 cópias numa
+// só sessão — o texto dele reconhecia o gate e a chamada seguinte saía com os mesmos bytes), e
+// depois do G3 cerca de 1 em 4 era negado de novo. G10/G11 recuperavam ≥ 96%: a razão deles
+// já trazia o comando pronto. A rubrica: (1) a invariante, (2) o próximo passo como comando,
+// (3) o que segue proibido, (4) o prefixo `[G<n> nome]` intacto.
+
+/// Os trechos entre crases de uma razão.
+fn backtick_spans(reason: &str) -> Vec<&str> {
+    reason.split('`').skip(1).step_by(2).collect()
+}
+
+/// A razão carrega um comando concreto para a chamada seguinte, em uma destas formas: a linha
+/// pronta (indentada, abrindo por um verbo executável), uma chamada entre crases com argumento,
+/// uma invocação do sandbox com flags, ou o token de bypass SEGUIDO do comando que ele prefixa.
+/// Menção não conta: `touring run` sem argumento e «prefixe TOURING_GATE_OK=1 (contado…)» são a
+/// regra, não o comando.
+fn names_next_command(reason: &str) -> bool {
+    reason.contains("touring run --")
+        || has_ready_line(reason)
+        || has_call_in_backticks(reason)
+        || has_bypass_followed_by_command(reason)
+}
+
+/// Os verbos com que abre uma chamada que o modelo executa, e quantas palavras ela tem no mínimo
+/// (`touring run` sozinho é menção; `touring run --lang bash` é chamada).
+const CALL_VERBS: [(&str, usize); 5] = [
+    ("touring ", 3),
+    ("Read ", 2),
+    ("Edit ", 2),
+    ("set -o pipefail", 3),
+    (GATE_BYPASS_TOKEN, 2),
+];
+
+fn opens_a_call(text: &str) -> bool {
+    CALL_VERBS
+        .iter()
+        .any(|(verb, words)| text.starts_with(verb) && text.split_whitespace().count() >= *words)
+}
+
+/// Uma linha indentada em 2 espaços cujo conteúdo abre uma chamada — a convenção das razões que
+/// já traziam o comando (`\n  touring run …`, `\n  set -o pipefail; …`).
+fn has_ready_line(reason: &str) -> bool {
+    reason.lines().any(|l| {
+        l.strip_prefix("  ")
+            .is_some_and(|rest| opens_a_call(rest.trim_start()))
+    })
+}
+
+/// Um trecho entre crases que abre uma chamada.
+fn has_call_in_backticks(reason: &str) -> bool {
+    backtick_spans(reason).iter().any(|span| opens_a_call(span))
+}
+
+/// O token de bypass com um comando de verdade depois dele (letra, dígito, caminho ou `$`) —
+/// nunca `(contado como bypassed)`.
+fn has_bypass_followed_by_command(reason: &str) -> bool {
+    reason.match_indices(GATE_BYPASS_TOKEN).any(|(i, _)| {
+        reason[i + GATE_BYPASS_TOKEN.len()..]
+            .strip_prefix(' ')
+            .and_then(|rest| rest.chars().next())
+            .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '/' | '_' | '~' | '$'))
+    })
+}
+
+/// A razão PRÓPRIA do gate: o merge do veredito anexa os avisos de outros gates depois do
+/// separador, e um `touring run` de um aviso não é o próximo passo da negação.
+fn razao_propria(reason: &str) -> String {
+    reason
+        .split(touring_hook_runtime::verdict::ALSO_NON_BLOCKING)
+        .next()
+        .unwrap_or_default()
+        .trim_end()
+        .to_string()
+}
+
+/// Um arquivo de 200 linhas no escopo `code`, com a linha 120 única — grande o bastante para o
+/// G3 devolver uma janela de leitura.
+fn projeto_com_arquivo_grande() -> (tempfile::TempDir, PathBuf) {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    escopo_code(tmp.path());
+    let fp = tmp.path().join("grande.rs");
+    let corpo: String = (1..=200).map(|i| format!("linha {i}\n")).collect();
+    std::fs::write(&fp, corpo).expect("grande.rs");
+    (tmp, fp)
+}
+
+/// Leva o G6 ao deny com a sequência do teste do S3: o `touring run` no meio zera a rajada de
+/// inspeção e deixa o G6 decidir sozinho. Devolve o advisory da 2ª cópia e o deny da 3ª.
+fn g6_ate_o_deny(p: &Path, s: &str, cmd: &str) -> (Option<String>, Option<String>) {
+    let igual = bash(cmd);
+    let rota = |n: u8| bash(&format!("touring run --lang bash --code 'echo r{n}'"));
+    assert!(gate(p, s, "Bash", &igual).is_none(), "1ª vista: silêncio");
+    assert!(gate(p, s, "Bash", &rota(1)).is_none());
+    let advisory = gate(p, s, "Bash", &igual);
+    assert!(
+        advisory.is_some() && !is_deny(&advisory),
+        "2ª idêntica: advisory: {advisory:?}"
+    );
+    assert!(gate(p, s, "Bash", &rota(2)).is_none());
+    assert!(gate(p, s, "Bash", &bash("echo outra-coisa")).is_none());
+    (advisory, gate(p, s, "Bash", &igual))
+}
+
+/// Todo deny que a cadeia produz para G1..G11, dirigido como os testes acima. G4/G5 são
+/// telemetria e G8 reescreve — não negam. O rótulo é `G<n>: ramo`.
+fn toda_razao_de_deny() -> Vec<(&'static str, String)> {
+    let mut out: Vec<(&'static str, String)> = Vec::new();
+    let mut push = |rotulo: &'static str, resp: Option<String>| {
+        assert!(
+            is_deny(&resp),
+            "{rotulo}: o driver tem de produzir um deny: {resp:?}"
+        );
+        out.push((rotulo, razao_propria(&reason(&resp))));
+    };
+
+    // G1 — o deny clássico, atrás do kill switch de reescrita.
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let ovr = GateOverrides {
+            g1_rewrite_disabled: true,
+            g1_precision: Some(None),
+            ..Default::default()
+        };
+        for cmd in ["grep -n alpha src/a.rs", "grep -rn beta crates/"] {
+            let _ = burst_gate_with(tmp.path(), "s13-g1", cmd, &Value::Null, &ovr);
+        }
+        let resp = burst_gate_with(
+            tmp.path(),
+            "s13-g1",
+            "grep -l gamma docs/x.md",
+            &Value::Null,
+            &ovr,
+        );
+        push("G1: rajada de inspeção", resp);
+    }
+    // G2 — `$?` depois de pipe, atrás do kill switch de reescrita.
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let ovr = GateOverrides {
+            g2_rewrite_disabled: true,
+            ..Default::default()
+        };
+        let cmd = bash("cargo test 2>&1 | tail -3; echo EXIT=$?");
+        let resp = code_mode_gates_with(tmp.path(), "s13-g2", "Bash", &cmd, &ovr);
+        push("G2: exit através de pipe", resp);
+    }
+    // G3 — o 2º Edit seguido sem Read.
+    {
+        let (tmp, fp) = projeto_com_arquivo_grande();
+        let edit = json!({ "file_path": fp, "old_string": "linha 120", "new_string": "x" });
+        let _ = gate(tmp.path(), "s13-g3", "Edit", &edit);
+        push(
+            "G3: edit sem read",
+            gate(tmp.path(), "s13-g3", "Edit", &edit),
+        );
+    }
+    // G6 — a 3ª cópia byte-idêntica.
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let (_, deny) = g6_ate_o_deny(tmp.path(), "s13-g6", "cat docs/g6a.md");
+        push("G6: chamada redundante", deny);
+    }
+    // G7 — a 3ª leitura do mesmo arquivo.
+    {
+        let (tmp, fp) = projeto_com_arquivo_grande();
+        let le = json!({ "file_path": fp });
+        let _ = gate(tmp.path(), "s13-g7", "Read", &le);
+        let _ = gate(tmp.path(), "s13-g7", "Read", &le);
+        push("G7: re-inspeção", gate(tmp.path(), "s13-g7", "Read", &le));
+    }
+    // G9 — `sed -i` cego.
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let cmd = bash("sed -i 's/old/new/' src/foo.rs");
+        push(
+            "G9: escrita cega inline",
+            gate(tmp.path(), "s13-g9", "Bash", &cmd),
+        );
+    }
+    // G10 — a 5ª execução seriada: rota Sandboxed e destino fora do workspace (sem rota).
+    {
+        let tmp = projeto_g10();
+        let leitura =
+            ".venv/bin/python3 -c 'import pathlib; print(pathlib.Path(\"docs\").exists())'";
+        push(
+            "G10: exec-burst com rota",
+            quinta_chamada(tmp.path(), "s13-g10-rota", leitura),
+        );
+    }
+    {
+        let tmp = projeto_g10();
+        let fora = tempfile::tempdir().expect("tempdir de fora");
+        let cmd = format!(
+            ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{}\").write_text(\"x\")'",
+            fora.path().join("saida.md").display()
+        );
+        push(
+            "G10: exec-burst sem rota",
+            quinta_chamada(tmp.path(), "s13-g10-fora", &cmd),
+        );
+    }
+    // G10 — o par write→run: script de leitura (rota nomeada) e destino fora (sem rota).
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let (a, b) = (tmp.path().join("a.py"), tmp.path().join("b.py"));
+        for p in [&a, &b] {
+            std::fs::write(p, "print(1)\n").expect("script");
+        }
+        push(
+            "G10: par write→run com rota",
+            par_com_scripts("s13-par-rota", &[&a, &b], tmp.path(), &b),
+        );
+    }
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let fora = tempfile::tempdir().expect("tempdir de fora");
+        let (a, b) = (tmp.path().join("a.py"), tmp.path().join("b.py"));
+        std::fs::write(&a, "print(1)\n").expect("a.py");
+        std::fs::write(
+            &b,
+            format!(
+                "import pathlib\npathlib.Path(\"{}\").write_text(\"x\")\n",
+                fora.path().join("saida.md").display()
+            ),
+        )
+        .expect("b.py");
+        push(
+            "G10: par write→run sem rota",
+            par_com_scripts("s13-par-fora", &[&a, &b], tmp.path(), &b),
+        );
+    }
+    // G11 — o 2º bypass colado no 1º.
+    {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let s = "s13-g11";
+        let _ = gate(tmp.path(), s, "Bash", &bash("TOURING_GATE_OK=1 echo a"));
+        push(
+            "G11: orçamento de bypass",
+            gate(tmp.path(), s, "Bash", &bash("TOURING_GATE_OK=1 echo b")),
+        );
+    }
+    out
+}
+
+/// O teste estrutural da S-13: nenhuma razão de deny termina sem dizer o que fazer a seguir.
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn test_every_gate_reason_names_the_next_command() {
+    let razoes = toda_razao_de_deny();
+    for gate_id in ["G1", "G2", "G3", "G6", "G7", "G9", "G10", "G11"] {
+        assert!(
+            razoes
+                .iter()
+                .any(|(rotulo, _)| rotulo.split(':').next() == Some(gate_id)),
+            "{gate_id} sem driver: o teste estrutural teria um buraco"
+        );
+    }
+    let prefixo_perdido: Vec<String> = razoes
+        .iter()
+        .filter(|(rotulo, r)| {
+            let id = rotulo.split(':').next().unwrap_or_default();
+            !r.starts_with(&format!("[{id} "))
+        })
+        .map(|(rotulo, r)| format!("{rotulo}: {r}"))
+        .collect();
+    assert!(
+        prefixo_perdido.is_empty(),
+        "o prefixo estruturado `[G<n> nome]` é casado por parsers e testes: {prefixo_perdido:#?}"
+    );
+    let sem_comando: Vec<String> = razoes
+        .iter()
+        .filter(|(_, r)| !names_next_command(r))
+        .map(|(rotulo, r)| format!("{rotulo}: {r}"))
+        .collect();
+    assert!(
+        sem_comando.is_empty(),
+        "negação que não nomeia o próximo comando ensina nada ({} de {}): {sem_comando:#?}",
+        sem_comando.len(),
+        razoes.len()
+    );
+}
+
+/// O texto do advisory (`additionalContext`) de uma resposta.
+fn contexto(resp: &Option<String>) -> String {
+    let v: Value = serde_json::from_str(resp.as_deref().expect("a resposta existe")).expect("json");
+    v["hookSpecificOutput"]["additionalContext"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// G6 — o deny e o advisory entregam a linha de bypass do PRÓPRIO comando, e a linha funciona:
+/// colada de volta na cadeia ela passa (D8 — a frase promete o que o executor cumpre).
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn g6_entrega_a_linha_de_bypass_do_proprio_comando_e_ela_passa() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    escopo_code(tmp.path());
+    let (p, s) = (tmp.path(), "s13-g6-linha");
+    let cmd = "cat docs/g6a.md";
+    let (advisory, deny) = g6_ate_o_deny(p, s, cmd);
+    let linha = format!("{GATE_BYPASS_TOKEN} {cmd}");
+
+    let aviso = contexto(&advisory);
+    assert!(aviso.starts_with("[G6 redundant-exact-call] "), "{aviso}");
+    assert!(
+        aviso.contains(&format!("\n  {linha}\n")),
+        "o advisory traz a linha pronta: {aviso}"
+    );
+    assert!(aviso.contains("PRÓXIMA idêntica será negada"), "{aviso}");
+
+    assert!(is_deny(&deny), "{deny:?}");
+    let razao = razao_propria(&reason(&deny));
+    assert!(razao.starts_with("[G6 redundant-exact-call] "), "{razao}");
+    assert!(
+        razao.contains(&format!("\n  {linha}\n")),
+        "a linha pronta, sozinha: {razao}"
+    );
+    for parte in [
+        "(1) o dado já basta",
+        "(2) precisa de OUTRO recorte",
+        "(3) o estado mudou",
+    ] {
+        assert!(razao.contains(parte), "falta `{parte}`: {razao}");
+    }
+    assert!(
+        razao.contains("conta no G11"),
+        "o custo do bypass é dito: {razao}"
+    );
+    assert!(
+        razao.contains("Proibido: reemitir este comando sem mudar nada"),
+        "{razao}"
+    );
+    assert!(
+        !razao.contains("\nComando:"),
+        "a linha pronta já carrega o comando inteiro: {razao}"
+    );
+
+    let passou = gate(p, s, "Bash", &bash(&linha));
+    assert!(
+        passou.is_none(),
+        "a linha que o deny entrega tem de passar: {passou:?}"
+    );
+}
+
+/// G6 — comando que não cabe numa linha (várias linhas, ou longo demais) não ganha linha pronta
+/// quebrada: a razão manda prefixar o comando mostrado, verbatim, e o mostra.
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn g6_comando_que_nao_cabe_numa_linha_nao_ganha_linha_pronta() {
+    let longo = format!("echo {}", "x".repeat(READY_LINE_MAX_CHARS + 1));
+    for (i, cmd) in ["echo um\necho dois".to_string(), longo].iter().enumerate() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        escopo_code(tmp.path());
+        let (_, deny) = g6_ate_o_deny(tmp.path(), &format!("s13-g6-multi-{i}"), cmd);
+        let razao = razao_propria(&reason(&deny));
+        assert!(
+            !razao.contains(&format!("\n  {GATE_BYPASS_TOKEN} ")),
+            "{razao}"
+        );
+        assert!(
+            razao.contains(&format!("com `{GATE_BYPASS_TOKEN} `")),
+            "{razao}"
+        );
+        assert!(
+            razao.contains("\nComando: echo "),
+            "o comando aparece uma vez: {razao}"
+        );
+    }
+}
+
+#[test]
+fn ready_bypass_line_recusa_o_que_nao_cabe_numa_linha() {
+    assert_eq!(
+        ready_bypass_line("  cargo test -p x \n").as_deref(),
+        Some("TOURING_GATE_OK=1 cargo test -p x")
+    );
+    assert_eq!(ready_bypass_line("   "), None);
+    assert_eq!(ready_bypass_line("a\nb"), None);
+    assert_eq!(
+        ready_bypass_line(&"y".repeat(READY_LINE_MAX_CHARS + 1)),
+        None
+    );
+    assert!(ready_bypass_line(&"y".repeat(READY_LINE_MAX_CHARS)).is_some());
+}
+
+/// G3 — o advisory e o deny entregam o `Read` com a janela do `old_string` do próprio Edit, e o
+/// Read entregue destrava o Edit (o gate fica mudo — a frase cumpre o que promete).
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn g3_entrega_o_read_com_a_janela_do_old_string_e_o_read_destrava_o_edit() {
+    let (tmp, fp) = projeto_com_arquivo_grande();
+    let (p, s) = (tmp.path(), "s13-g3-janela");
+    let edit = json!({ "file_path": fp, "old_string": "linha 120", "new_string": "x" });
+    let leitura = format!("Read {} offset=115 limit=11", fp.display());
+
+    let advisory = gate(p, s, "Edit", &edit);
+    let aviso = contexto(&advisory);
+    assert!(aviso.starts_with("[G3 edit-sem-read] "), "{aviso}");
+    assert!(aviso.contains("(advisory 1/1"), "{aviso}");
+    assert!(aviso.contains(&format!("`{leitura}`")), "{aviso}");
+    assert!(aviso.contains("cat/sed/grep via Bash não"), "{aviso}");
+
+    let deny = gate(p, s, "Edit", &edit);
+    assert!(is_deny(&deny), "{deny:?}");
+    let razao = reason(&deny);
+    assert!(
+        razao.starts_with("[G3 edit-sem-read] 2º Edit sem Read"),
+        "{razao}"
+    );
+    assert!(
+        razao.contains(&format!("`{leitura}`, e só então o Edit")),
+        "{razao}"
+    );
+    assert!(
+        razao.contains("cat/sed/grep via Bash e o Read de OUTRO arquivo não registram"),
+        "{razao}"
+    );
+    assert!(razao.contains("Proibido até lá"), "{razao}");
+
+    let le = gate(
+        p,
+        s,
+        "Read",
+        &json!({ "file_path": fp, "offset": 115, "limit": 11 }),
+    );
+    assert!(!is_deny(&le), "o Read entregue passa: {le:?}");
+    assert!(
+        gate(p, s, "Edit", &edit).is_none(),
+        "depois do Read entregue o Edit passa em silêncio"
+    );
+}
+
+/// G3 — sem janela derivável (arquivo curto, `old_string` ausente), o Read é o do arquivo todo.
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn g3_sem_janela_derivavel_entrega_o_read_do_arquivo_todo() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    escopo_code(tmp.path());
+    let curto = tmp.path().join("curto.rs");
+    std::fs::write(&curto, "fn a() {}\n").expect("curto.rs");
+    let (grande_tmp, grande) = projeto_com_arquivo_grande();
+    let casos = [
+        (tmp.path(), curto, "fn a"),
+        (grande_tmp.path(), grande, "texto que não existe no arquivo"),
+    ];
+    for (i, (p, fp, old)) in casos.iter().enumerate() {
+        let s = format!("s13-g3-simples-{i}");
+        let edit = json!({ "file_path": fp, "old_string": old, "new_string": "x" });
+        let _ = gate(p, &s, "Edit", &edit);
+        let razao = reason(&gate(p, &s, "Edit", &edit));
+        assert!(
+            razao.contains(&format!("`Read {}`, e só então", fp.display())),
+            "{razao}"
+        );
+        assert!(!razao.contains("offset="), "{razao}");
+    }
+}
+
+#[test]
+fn g3_read_window_cobre_o_old_string_com_contexto() {
+    let (tmp, fp) = projeto_com_arquivo_grande();
+    let (p, f) = (tmp.path(), fp.to_str().expect("utf8"));
+    assert_eq!(g3_read_window(p, f, "linha 120"), Some((115, 11)));
+    // multilinha: 2 linhas + 5 de contexto de cada lado
+    assert_eq!(g3_read_window(p, f, "linha 50\nlinha 51"), Some((45, 12)));
+    // perto do começo o offset trava em 1
+    assert_eq!(g3_read_window(p, f, "linha 2\n"), Some((1, 7)));
+    // caminho relativo ao projeto
+    assert_eq!(g3_read_window(p, "grande.rs", "linha 120"), Some((115, 11)));
+    // sem o que janelar
+    assert_eq!(g3_read_window(p, f, ""), None);
+    assert_eq!(g3_read_window(p, f, "não existe"), None);
+    assert_eq!(g3_read_window(p, "nao-existe.rs", "linha 120"), None);
+    // a janela que é o arquivo inteiro não economiza nada
+    let tudo: String = (1..=200).map(|i| format!("linha {i}\n")).collect();
+    assert_eq!(g3_read_window(p, f, &tudo), None);
+}
+
+/// G10 sem rota — a saída que funciona é a linha de bypass do PRÓPRIO comando negado, não a
+/// regra solta; e ela passa a cadeia.
+#[test]
+#[serial(gate_metrics, t3_env)]
+fn g10_sem_rota_entrega_a_linha_de_bypass_do_proprio_comando() {
+    let tmp = projeto_g10();
+    let fora = tempfile::tempdir().expect("tempdir de fora");
+    let cmd = format!(
+        ".venv/bin/python3 -c 'import pathlib; pathlib.Path(\"{}\").write_text(\"x\")'",
+        fora.path().join("saida.md").display()
+    );
+    let sess = "s13-g10-linha";
+    let resp = quinta_chamada(tmp.path(), sess, &cmd);
+    assert!(is_deny(&resp), "{resp:?}");
+    let r = reason(&resp);
+    let linha = format!("{GATE_BYPASS_TOKEN} {cmd}");
+    assert!(
+        r.contains(&format!("\n  {linha}")),
+        "a linha pronta do comando negado: {r}"
+    );
+    assert!(
+        gate(tmp.path(), sess, "Bash", &bash(&linha)).is_none(),
+        "a linha entregue passa a cadeia"
+    );
+    // comando de várias linhas: sem linha quebrada, a regra sobre o comando negado
+    let multi = bypass_next_step("python3 - <<'EOF'\nprint(1)\nEOF");
+    assert!(
+        multi.contains("prefixe o comando negado, verbatim"),
+        "{multi}"
+    );
+    assert!(!multi.contains("\n  "), "{multi}");
+}
