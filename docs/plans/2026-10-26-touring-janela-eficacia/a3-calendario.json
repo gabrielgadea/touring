@@ -1,0 +1,10 @@
+{
+  "day0": null,
+  "switch_hour_local": 4,
+  "tz": "America/Sao_Paulo",
+  "primary_blocks": ["ABBA", "BAAB"],
+  "extension_blocks": ["ABBA", "BAAB"],
+  "extension_active": false,
+  "arms": {"A": "full", "B": "no-advisory"},
+  "blocos_invalidados": []
+}
