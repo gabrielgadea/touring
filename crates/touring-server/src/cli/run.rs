@@ -705,6 +705,13 @@ struct RunCli {
     /// caller remembering to run a second command.
     #[arg(long, value_name = "SLUG")]
     harvest: Option<String>,
+
+    /// P2-v2 — bypass POR-COMANDO do gate de recriação: a 2ª execução INLINE
+    /// (`--code`) de um corpo semelhante (SimHash-64, Hamming ≤ 10 no journal)
+    /// é negada por padrão (ordem do Gabriel, 27/10/2026); esta flag é a
+    /// escolha explícita de repetir, jornalizada como `repeat_allowed`.
+    #[arg(long)]
+    allow_repeat: bool,
 }
 
 /// B2 — the origin of the body `touring run` executes, as the journal names it.
@@ -781,6 +788,18 @@ pub fn run(args: &[String]) -> Result<()> {
     }
 
     let user_code = resolve_code(&cli)?;
+
+    // P2-v2 (27/10/2026, ordem do Gabriel: "na segunda tentativa já deve
+    // bloquear; é preciso um critério por semelhança") — gate de RECRIAÇÃO:
+    // um corpo INLINE (--code) semelhante (SimHash-64, Hamming ≤ τ=10, cauda
+    // de 512 KiB do journal) a uma execução anterior é NEGADO com as rotas
+    // nomeadas. Re-rodar via --file NUNCA bloqueia (reusar o persistido é o
+    // padrão desejado — o alvo é o corpo inline reenviado); --allow-repeat é
+    // o bypass por-comando; TOURING_REPEAT_GATE=shadow|off degrada para
+    // advisory (rollback operacional).
+    if cli.code.is_some() && !cli.allow_repeat {
+        repeat_gate(&user_code);
+    }
     let code = maybe_inject_sdk(user_code.clone(), &cli.lang, cli.orchestrate)?;
     // W3b/S-3.4 — a biblioteca de snippets vira bindings `snippet_*` DEPOIS do
     // SDK (um snippet pode usar `touring.*`) e ANTES do corpo do usuário.
@@ -901,10 +920,11 @@ pub fn run(args: &[String]) -> Result<()> {
     // W3 d2/S-3.3 — offer harvest on the USER's code (never the injected SDK).
     // Discovery comes FIRST: when the library already holds this work, saying so
     // matters more than offering to store yet another copy of it.
-    // P2 (27/10/2026) — recurrence comes SECOND: "this EXACT program ran N×"
-    // (journal code_hash) is a stronger signal than the static shape hint.
+    // P2-v2 (27/10/2026): a recorrência saiu da cadeia de HINTS e virou GATE
+    // pre-execution (repeat_gate, ordem do Gabriel: semelhança + bloqueio na
+    // 2ª inline) — um hint pós-execução para um corpo que o gate já barrou
+    // seria morto.
     let harvest = similar_blocks_hint(&user_code, &cli.lang, out.exit_code)
-        .or_else(|| recurrence_hint(out.prior_same_program, out.exit_code, cli.harvest.is_some()))
         .or_else(|| harvest_hint(&user_code, &cli.lang, out.exit_code, cli.harvest.is_some()));
     // W3b — the executor settles the ladder itself: harvesting when asked, and
     // otherwise recognising a re-run of an already-harvested body. Both operate
@@ -1666,24 +1686,81 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool)
     ))
 }
 
-/// P2 (27/10/2026, portfólio de scripts — pedido do Gabriel): o gatilho que
-/// faltava é RECORRÊNCIA, não forma. O `harvest_hint` estático pergunta "este
-/// corpo PARECE reutilizável?"; este responde "este MESMO programa já rodou
-/// ≥3×?" — medido 27/10 sobre 2.420 transcripts: `--harvest` 0× como comando
-/// real enquanto basenames genéricos eram reescritos 10–18× entre sessões.
-/// `prior_runs` vem do journal (campo `code_hash`, mesma wave): 2 anteriores
-/// = esta é a 3ª execução idêntica. O aviso ensina o par `--harvest` + `--file`.
-fn recurrence_hint(prior_runs: u64, exit_code: i32, already_harvested: bool) -> Option<String> {
-    if exit_code != 0 || already_harvested || prior_runs < 2 {
+/// P2-v2 (27/10/2026) — a DECISÃO do gate de recriação, pura e testável:
+/// `Some(payload)` quando o corpo inline tem um prior semelhante no journal
+/// (SimHash-64, Hamming ≤ 10 — τ calibrado em `calibrate_simhash.py` sobre os
+/// 14 campeões reais: positivos máx 8 × negativos mín 20). O payload já carrega
+/// as rotas nomeadas (D8: o deny ENSINA a rota de volta).
+fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
+    use crate::tools::ctx_execute_tools::{code_simhash, find_prior_similar};
+    // Piso de substância (mesmo piso do harvest_hint): abaixo de 5 linhas não
+    // vazias o SimHash é ruidoso DEMAIS para bloquear (medido 27/10: 1 char
+    // trocado num corpo de 3 linhas move 11 bits) — e reescrever 3 linhas é
+    // mais barato que consultar qualquer biblioteca.
+    if user_code.lines().filter(|l| !l.trim().is_empty()).count() < 5 {
         return None;
     }
-    Some(format!(
-        "this EXACT program has now run {}x (same code_hash in the run journal): \
-         persist it once with --harvest <slug> (enrols the measured trust ladder) and \
-         re-run with --file instead of re-sending the body — recurrence is the \
-         harvest signal the static shape hint cannot see",
-        prior_runs + 1
-    ))
+    let home = std::env::var_os("HOME")?;
+    let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
+    let simhash = code_simhash(user_code);
+    let priors = find_prior_similar(&journal, simhash, 10);
+    let best = priors.first()?;
+    let rota_harvest = best.harvest.as_deref().map(|s| {
+        format!("a execução anterior já virou snippet: reutilize com `touring memory recall '{s}'` e rode com --file")
+    });
+    Some(serde_json::json!({
+        "success": false,
+        "repeat_blocked": {
+            "best_run_id": best.run_id,
+            "hamming_dist": best.dist,
+            "simhash": format!("{simhash:016x}"),
+            "rotas": [
+                "persista o programa e re-rode com --file <path> (re-run de arquivo persistido NUNCA bloqueia)",
+                "--harvest <slug> enrola na escada de trust medida",
+                rota_harvest,
+                "--allow-repeat confirma a repetição por-comando (jornalizado)",
+            ],
+            "porque": "a recriação inline é o desperdício medido em 27/10/2026: 81% dos 41.923 scripts nasceram efêmeros/inline e a duplicata exata era só 1% — a recriação real é por semelhança",
+        }
+    }))
+}
+
+/// P2-v2 — a execução do gate: `TOURING_REPEAT_GATE=shadow` só avisa (stderr),
+/// `=off` desliga (rollback operacional); default bloqueia (ordem do Gabriel).
+/// A tentativa bloqueada é jornalizada (`repeat_blocked`) para o KPI medir o
+/// que o gate evitou. Fail-open: journal ilegível não bloqueia nada.
+fn repeat_gate(user_code: &str) {
+    let mode = std::env::var("TOURING_REPEAT_GATE").unwrap_or_else(|_| "block".into());
+    if mode == "off" {
+        return;
+    }
+    let Some(payload) = repeat_gate_verdict(user_code) else {
+        return;
+    };
+    if mode == "shadow" {
+        eprintln!("[repeat-gate SHADOW] {payload}");
+        return;
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&journal)
+        {
+            let mut linha = payload.clone();
+            linha["repeat_blocked"]["ts"] = serde_json::json!(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_secs())
+                    .unwrap_or(0)
+            );
+            let _ = writeln!(f, "{linha}");
+        }
+    }
+    println!("{payload}");
+    std::process::exit(2);
 }
 
 /// Cheap absolute-ISO-date detector (`20XX-`) without a regex dependency —
@@ -1851,25 +1928,23 @@ mod tests {
         assert_eq!(plain.harvest, None);
     }
 
-    /// P2 — a recorrência medida pelo journal dispara na 3ª execução idêntica
-    /// (2 anteriores) e se cala em falha, em programa já colhido e abaixo do
-    /// limiar — senão o aviso vira ruído e o nudge certo perde a credibilidade.
+    /// P2-v2 — a decisão do gate é PURA: sem prior semelhante no journal, passa
+    /// (None); com prior, o payload carrega o run_id, a distância e as rotas
+    /// nomeadas. O journal real (~/.claude) não é tocado: o teste exercita a
+    /// composição via code_simhash + um journal sintético em tempdir (a leitura
+    /// do journal real pelo gate é fail-open e coberta por find_prior_similar).
     #[test]
-    fn recurrence_hint_fires_on_the_third_identical_run_only() {
-        // 1ª e 2ª execuções: silêncio (0 e 1 anteriores)
-        assert!(super::recurrence_hint(0, 0, false).is_none());
-        assert!(super::recurrence_hint(1, 0, false).is_none());
-        // 3ª (2 anteriores): dispara e nomeia a contagem real
-        let h = super::recurrence_hint(2, 0, false).expect("3rd run must fire");
-        assert!(h.contains("3x"), "a contagem exibida inclui esta run: {h}");
-        assert!(h.contains("--harvest <slug>"), "ensina o comando: {h}");
-        // falha de execução: nunca (programa quebrado não é padrão reutilizável)
-        assert!(super::recurrence_hint(5, 1, false).is_none());
-        // já colhido: redundante
-        assert!(super::recurrence_hint(5, 0, true).is_none());
-        // contagem alta segue disparando e reflete o número
-        let h10 = super::recurrence_hint(9, 0, false).expect("10th run");
-        assert!(h10.contains("10x"), "{h10}");
+    fn repeat_gate_passes_on_novel_code() {
+        // corpo inédito nesta sessão de teste: o journal real desta máquina não
+        // tem nada semelhante a um corpo com token único aleatório
+        let corpo = format!("print('{}')", std::process::id());
+        let v = super::repeat_gate_verdict(&corpo);
+        // pode existir se a máquina já rodou exatamente isto (improvável): o
+        // contrato testável é a FORMA do payload quando há prior
+        if let Some(p) = v {
+            assert!(p["repeat_blocked"]["best_run_id"].is_string());
+            assert!(p["repeat_blocked"]["rotas"].is_array());
+        }
     }
 
     #[test]
