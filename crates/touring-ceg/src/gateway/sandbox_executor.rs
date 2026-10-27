@@ -793,24 +793,93 @@ fn sandbox_read_roots() -> Vec<PathBuf> {
 
 /// SEG-4 — the read roots `~/.claude` contributes: each entry except the credential
 /// files, sorted (a stable ruleset). Missing directory → none.
+///
+/// Hardening (security review of e2fa91ff): a top-level symlink whose target leaves
+/// `~/.claude` is skipped (landlock grants the RESOLVED path, so a link to `~/.ssh` would
+/// open it), and a settings file whose `env` carries a secret-shaped value is skipped for
+/// this run — the grant follows the content, not only the name.
 fn claude_home_read_roots(claude: &Path) -> Vec<PathBuf> {
     let Ok(entries) = std::fs::read_dir(claude) else {
         return Vec::new();
     };
+    let home = std::fs::canonicalize(claude).unwrap_or_else(|_| claude.to_path_buf());
     let mut roots: Vec<PathBuf> = entries
         .flatten()
         .filter(|e| !is_claude_credential(&e.file_name().to_string_lossy()))
+        .filter(|e| !escapes_via_symlink(&e.path(), &home))
+        .filter(|e| !settings_env_carries_secret(&e.path()))
         .map(|e| e.path())
         .collect();
     roots.sort();
     roots
 }
 
-/// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox:
-/// the OAuth token file and every copy of `settings.json` (its backups carried an API
-/// key, measured 27/10). `settings.json` itself and `settings.local.json` are not copies.
+/// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox: the
+/// OAuth token file, every copy of `settings.json` (its backups carried an API key,
+/// measured 27/10), and any name that says credential/secret/token or is a key file —
+/// so a credential file created tomorrow stays out without editing this list.
 fn is_claude_credential(name: &str) -> bool {
-    name == ".credentials.json" || name.starts_with("settings.json.")
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("settings.json.")
+        || ["credential", "secret", "token"]
+            .iter()
+            .any(|w| lower.contains(w))
+        || [".env", ".pem", ".key"].iter().any(|s| lower.ends_with(s))
+}
+
+/// SEG-4 hardening — a symlink whose resolved target is outside `home` (canonical
+/// `~/.claude`). A dangling link resolves to nothing and is skipped too.
+fn escapes_via_symlink(path: &Path, home: &Path) -> bool {
+    if !path.is_symlink() {
+        return false;
+    }
+    std::fs::canonicalize(path).map_or(true, |t| !t.starts_with(home))
+}
+
+/// SEG-4 hardening — `settings.json` / `settings.local.json` enter only while their `env`
+/// holds no secret-shaped value (measured 27/10: the live file had none). Unreadable or
+/// malformed → skipped (fail closed). Other entries are not inspected.
+fn settings_env_carries_secret(path: &Path) -> bool {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
+    if !matches!(
+        name.as_deref(),
+        Some("settings.json" | "settings.local.json")
+    ) {
+        return false;
+    }
+    let Some(v) = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return true;
+    };
+    let carries = v.get("env").and_then(|e| e.as_object()).is_some_and(|env| {
+        env.iter()
+            .any(|(k, val)| val.as_str().is_some_and(|s| looks_like_secret(k, s)))
+    });
+    if carries {
+        tracing::warn!(
+            "CEG sandbox: {} fora das raízes neste run — o `env` carrega um valor com forma \
+             de segredo",
+            path.display()
+        );
+    }
+    carries
+}
+
+/// A value shaped like a credential: a known token prefix, or a long space-free value
+/// under a name that says key/token/secret/password (`TOKENIZERS_PARALLELISM=false` is
+/// not one: the value is short).
+fn looks_like_secret(name: &str, value: &str) -> bool {
+    const PREFIXES: [&str; 6] = ["sk-", "AIza", "ghp_", "gho_", "xox", "eyJ"];
+    if value.len() >= 20 && PREFIXES.iter().any(|p| value.starts_with(p)) {
+        return true;
+    }
+    let upper = name.to_ascii_uppercase();
+    let named = ["KEY", "TOKEN", "SECRET", "PASSW", "CREDENTIAL"]
+        .iter()
+        .any(|w| upper.contains(w));
+    named && value.len() >= 16 && !value.contains(char::is_whitespace) && !value.starts_with('$')
 }
 
 /// SEG-4 — directories the sandbox may LIST without reading what is beneath them: the
@@ -3442,10 +3511,17 @@ mod s24_reach_tests {
             "settings.local.json",
             "history.jsonl",
             "nasceu-amanha.json",
+            "mcp-oauth-token.json",
+            "deploy.pem",
+            ".env",
         ] {
             std::fs::write(dir.path().join(f), b"{}").expect("write");
         }
         std::fs::create_dir(dir.path().join("projects")).expect("mkdir");
+        let fora = tempfile::tempdir().expect("outside");
+        std::os::unix::fs::symlink(fora.path(), dir.path().join("link-fora")).expect("link");
+        std::os::unix::fs::symlink(dir.path().join("projects"), dir.path().join("link-dentro"))
+            .expect("link");
         let nomes: Vec<String> = claude_home_read_roots(dir.path())
             .iter()
             .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
@@ -3454,6 +3530,7 @@ mod s24_reach_tests {
             nomes,
             [
                 "history.jsonl",
+                "link-dentro",
                 "nasceu-amanha.json",
                 "projects",
                 "settings.json",
@@ -3461,6 +3538,29 @@ mod s24_reach_tests {
             ]
         );
         assert!(claude_home_read_roots(&dir.path().join("ausente")).is_empty());
+    }
+
+    /// SEG-4 hardening: settings enter by CONTENT — a secret-shaped `env` value (or a file
+    /// that cannot be parsed) keeps it out for the run; a short flag under a "token" name
+    /// does not.
+    #[test]
+    fn settings_with_a_secret_shaped_env_value_stay_out() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = dir.path().join("settings.json");
+        // Built at runtime: no credential-shaped literal in the source.
+        let fake = format!("{}{}", "AIza", "F".repeat(35));
+        std::fs::write(&s, format!(r#"{{"env":{{"GEMINI_API_KEY":"{fake}"}}}}"#)).expect("w");
+        assert!(settings_env_carries_secret(&s));
+        std::fs::write(&s, r#"{"env":{"TOKENIZERS_PARALLELISM":"false"}}"#).expect("w");
+        assert!(!settings_env_carries_secret(&s));
+        std::fs::write(&s, "{ nao é json").expect("w");
+        assert!(settings_env_carries_secret(&s), "malformed → fail closed");
+        let other = dir.path().join("history.jsonl");
+        std::fs::write(&other, "{ qualquer").expect("w");
+        assert!(
+            !settings_env_carries_secret(&other),
+            "only settings files are inspected"
+        );
     }
 
     /// SEG-4: the reach answer follows the grant — settings.json in, the OAuth token out.
