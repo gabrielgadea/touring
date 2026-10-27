@@ -643,16 +643,27 @@ def test_analyze_text_summary_has_the_decision_line(tmp_path, fake_home, capsys)
     assert "bloco 0 ABBA [valido]" in out
 
 
-def test_a_transcript_the_instrument_cannot_measure_is_listed_not_dropped_silently(tmp_path, fake_home, capsys):
+def test_a_transcript_the_instrument_cannot_measure_is_listed_not_dropped_silently(
+    tmp_path, fake_home, capsys, monkeypatch
+):
     cal = make_cal()
     fill_all(fake_home, cal, *NON_INFERIOR)
-    # A Bash call whose input.command is a dict (seen in a real transcript) breaks the instrument.
+    # The instrument fails on one transcript (forced: the real trigger — a dict
+    # input.command — was fixed in measure_tool_trio.tool_class).
     start = a3.day_start_utc(cal, 0) + dt.timedelta(hours=9)
-    use = {"type": "tool_use", "id": "t0", "name": "Bash", "input": {"command": {"not": "a string"}}}
+    use = {"type": "tool_use", "id": "t0", "name": "Bash", "input": {"command": "ls"}}
     path = fake_home / ".claude" / "projects" / PROJECT / "malformed.jsonl"
     lines = [_record("user", start, "p"), _record("assistant", start + dt.timedelta(seconds=1), [use], "model-x")]
     path.write_text("\n".join(json.dumps(x) for x in lines) + "\n", encoding="utf-8")
     os.utime(path, (start.timestamp() + 5, start.timestamp() + 5))
+    real = a3.m.iter_records
+
+    def failing(p, *args, **kwargs):
+        if str(p).endswith("malformed.jsonl"):
+            raise TypeError("forced instrument failure")
+        return real(p, *args, **kwargs)
+
+    monkeypatch.setattr(a3.m, "iter_records", failing)
     rep = run_analyze(tmp_path, write_calendar(tmp_path), END_PRIMARY, capsys)
     assert rep["corpus"]["nao_medidos"] == [{"arquivo": "malformed.jsonl", "erro": "TypeError"}]
     assert rep["decisao"]["resultado"] == "nao-inferior"  # the rest of the corpus still decides

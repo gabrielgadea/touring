@@ -89,7 +89,10 @@ def _verb_of(toks: list[str]) -> str:
 
 def tool_class(name: str, tool_input: dict) -> str:
     if name == "Bash":
-        return "Bash:" + classify_bash(tool_input.get("command", ""))
+        # A non-string command (seen once in 600 real transcripts) reads as empty, the
+        # same as the emission side (`tool_trio.rs`: `as_str().unwrap_or("")`).
+        command = tool_input.get("command", "") if isinstance(tool_input, dict) else ""
+        return "Bash:" + classify_bash(command if isinstance(command, str) else "")
     return name
 
 
