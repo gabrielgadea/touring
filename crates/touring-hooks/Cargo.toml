@@ -64,6 +64,11 @@ touring-dispatch = { path = "../touring-dispatch", default-features = false }
 # Direct dep so the binaries can name `touring_hook_runtime::hook_runtime::HookDispatchError`
 # (the unified hook-dispatch error type) in their `match subcommand` arms.
 touring-hook-runtime = { path = "../touring-hook-runtime" }
+# S-4p (26/10/2026): o subcomando stateless `dedup-stdin` do binário touring-hook
+# aplica `injection_dedup::dedup_hook_output` à saída dos hooks Python (processos
+# separados, fora do run_hook_command do daemon). Já está no grafo por via
+# transitiva (touring-dispatch), então o custo de build é zero.
+touring-hooks-shared = { path = "../touring-hooks-shared" }
 # Used directly by the two binaries (main.rs / daemon_main.rs).
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "signal"] }

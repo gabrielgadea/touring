@@ -44,6 +44,9 @@ const RL_REWARD_PII_DENIAL: f64 = -1.0;
 /// for the affected file.
 #[tracing::instrument(skip(runtime, input), fields(hook = "post_tool_failure"))]
 pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
+    // S-11 / D1: a failed call is the `erro` leg of the tool-channel trio. Recorded before
+    // any early return below, so schema validation never hides a failure from the meter.
+    touring_hooks_shared::tool_trio::record_completed_call(input, true);
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // PostToolFailure skips silently on malformed input (non-blocking, like post_read).
     let tool_input = match input.get("tool_input") {

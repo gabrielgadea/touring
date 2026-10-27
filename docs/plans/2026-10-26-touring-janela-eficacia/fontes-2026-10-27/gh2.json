@@ -1,0 +1,617 @@
+{
+  "answer": "Several repositories in your notebook explicitly measure coding-agent harness modifications, prompt changes, or context-engineering strategies by **end outcomes** (such as benchmark pass rates, unit test resolution, solve rates, or cost per accepted outcome) rather than just proxy metrics like token count savings [1-5]. \n\n---\n\n### 1. Harness² (`google-research/harness2`)\n**Harness²** is a framework dedicated to **recursive agent harnessing** [6]. It treats the agent harness—encompassing prompts, guardrails, tool guidance, subagents, skills, scripts, memory, and plugins [7]—as an editable system optimized through task-level and harnessing-level recursion while keeping model weights fixed [1, 6].\n\n* **Outcome-Based Evaluation & Benchmarks**:\n  Harness² measures harness and prompt edits by evaluating end-task outcomes across three professional benchmarks [1, 8]:\n  * **WorkBuddy-Bench** (office, web, and code tasks) [8]\n  * **JobBench** (professional work tasks) [8]\n  * **LAB** (legal work tasks) [8]\n  * Evaluated models include GLM-5 and Gemini 3.5 Flash [1].\n\n* **Sample Sizes & Recursion Modes**:\n  * **Task-Level Recursion Budget (\\\\(K\\\\))**: Harness² evaluates scaling task-level recursion in two ways [9]:\n    * **Parallel Recursion (`--k K --mode parallel`)**: Probes \\\\(K\\\\) general and \\\\(K\\\\) domain-specific candidate harnesses on a task and composes refinements from their execution evidence [9].\n    * **Sequential Recursion (`--k K --mode sequential`)**: Refines the harness sequentially through \\\\(K\\\\) successive Propose–Probe–Compose steps [9].\n\n* **Variance Control & Seeds**:\n  * **Seed & Configuration Alignment**: Judging and reporting workflows strictly require using the exact same benchmark, executor, subset, recursion budget (`--k`), mode, and **seed** as the refinement run [8].\n  * **Environment Isolation & Contamination Guard**: Evaluator network access is configured prior to evaluation to restrict access to online benchmark rubrics or answers [10].\n\n* **Primary Metrics**:\n  * **Benchmark Pass Rate**: Overall accuracy gains (e.g., up to +11.5 points on WorkBuddy-Bench and +4.5 points on JobBench) [1].\n  * **Partial Pass Rate**: Measured specifically on benchmarks like LAB (+11.8 percentage point increase) [1].\n\n---\n\n### 2. Trail-Code (`trailhq/Trail-Code`)\n**Trail-Code** evaluates how wiring a codebase \"graft map\" (a structural code graph built via `tree-sitter`) and session \"learnings\" into coding agents (e.g., Claude Code, Cursor, Codex) alters task resolution and efficiency [2, 11, 12].\n\n* **Outcome-Based Evaluation & Benchmarks**:\n  * **SWE-bench Verified**: Tested on **50 real GitHub issues** graded by the official `swebench` harness using maintainers' actual unit test suites (a binary pass/fail based on flipping failing tests without breaking passing ones) [3, 13].\n  * **Internal Controlled Sweep**: Evaluated across **162 runs** on two repositories (including a Node/Express authentication service) [14, 15].\n  * **Real Repository Tasks (PocketBase)**: Tested across **15 real tasks** (10 developer questions and 5 actual merged pull requests re-implemented from base commits and scored against files maintainers changed) [16, 17].\n\n* **Sample Sizes & Multi-Trial Setup**:\n  * **SWE-bench Verified**: \\\\(N = 50\\\\) instances using the same underlying model (**Claude Sonnet 5**), identical Docker containers, and fixed turn limits across cold vs. graft-map arms [3, 13].\n  * **Controlled Sweep**: **162 total runs**, running 3 trials per task to account for LLM non-determinism across single-file and multi-file tasks [14, 15].\n\n* **Variance Control & Scoring Judges**:\n  * **SWE-bench**: Purely deterministic (no LLM judge used); patches must pass repository unit tests [13].\n  * **Internal Benchmark**: An **Opus 4.8 judge** scored correctness with a required-keyword floor so that fast or brief but incorrect answers could not win simply by reducing latency [14].\n  * **Push vs. Pull Variants**: Tested two interaction strategies: \"push\" (injecting graft context upfront) and \"pull\" (agent querying graft via tools on demand) [14, 15].\n\n* **Primary Metrics**:\n  * **Pass Rate / Correctness**: SWE-bench Verified pass rate improved from **54% (27/50)** to **66% (33/50)** (+12 percentage points) [2, 3]. On internal pull variants, correctness reached **98%** (a 5-point jump over cold agents) [15].\n  * **Tool Call Count**: 25% fewer tool calls on SWE-bench [3] and 46% fewer in internal sweeps [15].\n  * **Token & Cost Efficiency**: 23% fewer tokens and 19% lower cost on SWE-bench [3]; 42% fewer uncached input tokens and 32% lower cost in controlled sweeps [15].\n  * **Wall-Clock Latency**: 32% reduction on SWE-bench [3] and 60% reduction in controlled sweeps [15].\n\n---\n\n### 3. LeanCTX (`yvgude/lean-ctx`)\n**LeanCTX** is a context gateway for AI coding agents that tests whether context compression, selection, and routing preserve task outcome quality [18].\n\n* **Outcome-Based Evaluation & Testbench**:\n  * **Off-vs-On Testbench (`lean-ctx eval testbench`)**: Runs pinned real repositories through a raw-dump baseline and through LeanCTX at identical token budgets [5].\n  * **Dual-Arm Replay (`lean-ctx eval ab`)**: Runs A/B comparisons on fixture suites [19].\n  * **Compression Holdouts**: Uses an opt-in compression holdout (`[proxy] compression_holdout`) to continuously monitor prompt size and answer quality on real traffic [5, 19].\n\n* **Sample Sizes & Statistical Power Gates**:\n  * **Strict Statistical Power Threshold**: LeanCTX defines explicit evidence tiers (Tier A mechanism through Tier E production) [5]. Any run with fewer than **30 paired tasks** is classified as **`UNDERPOWERED`** and automatically fails `--gate` unless executed as an explicit mechanism check [5].\n  * **Model-Free A/B Mechanism Gates**: Model-free checks verify that JSON compression retains 100% of gold answers in fixture datasets [5].\n\n* **Variance Control & Scoring**:\n  * Evaluates free-form QA using an LLM judge and code correctness using each target repository's native unit test suites [5]. Outputs `FINDINGS.md` (detailing tokens, turns, wall-clock time, and quality) alongside a regressions file [5].\n\n* **Primary Metrics**:\n  * **Cost Per Accepted Outcome (CPAO)** [20, 21].\n  * **Test Suite Pass Rates & Regression Flags** [5].\n\n---\n\n### 4. Laya (`NandhaKishorM/laya`)\n**Laya** is a non-autoregressive decision engine and router for agentic workflows [22]. It includes tools for prompt ablations and evaluation gates [23, 24].\n\n* **Outcome-Based Evaluation & Prompt Ablations**:\n  * **Prompt Guidance Ablations**: Includes a **7-rung prompt ablation** on Chinese short-command routing tasks to isolate exactly where accuracy degrades across prompt variations [24].\n  * **Automated CI Evaluation (`laya.evals`)**: Scores labeled datasets and fails CI builds if accuracy or calibration drops below set thresholds [23].\n\n* **Sample Sizes & Fixed Seeds**:\n  * **Shared Benchmark Suite**: Evaluated across **17,416 questions** across 51 languages using a **fixed seed (seed 13)** [25].\n  * **Task Suites**: \\\\(N = 400\\\\) per task (e.g., typed-decisions benchmark across 2,000 decisions/4 workflows) or \\\\(N = 600\\\\) for committed test suites [26, 27].\n\n* **Primary Metrics**:\n  * **Classification Accuracy & Soft Accuracy** (argmax vs. full distribution match against teacher outputs) [28].\n  * **Calibration Error**: Expected Calibration Error (ECE) and Brier score [28].\n  * **Ordinal Error**: Mean Absolute Error (MAE) for ordinal rubric scores [28].\n  * **Latency**: Single-question and batched P50/P95 latency [29, 30].\n\n---\n\n### 5. XERJ (`xerj-org/xerj`)\n**XERJ** evaluates context search and AST-aware indexing for coding agents (\"reference coding\") [31-33].\n\n* **Outcome-Based Evaluation**:\n  * Tested on un-memorized codebase tasks comparing a XERJ-enabled agent against a traditional `grep`-driven agent and a memory-only baseline [4].\n\n* **Sample Sizes**:\n  * **8 tasks across 4 programming languages**, running **16 runs per arm** [4].\n\n* **Primary Metrics**:\n  * **Solve Rate**: 16/16 tasks solved for XERJ and `grep`-driven agents vs. 11/16 for memory-only agents [4].\n  * **Output Token Volume**: 9,982 tokens for XERJ vs. 26,477 for `grep` (2.7x reduction) and 260,916 for memory-only (26x reduction) [4].\n  * **Total API Cost**: \\$1.58 (XERJ) vs. \\$3.27 (`grep`) vs. \\$11.18 (memory-only) [4].\n\n---\n\n### 6. Reflex Search (`reflex-search`)\n**Reflex Search** is a symbol-aware search tool plugin for Claude Code [34].\n\n* **Outcome-Based Evaluation**:\n  * Runs A/B evaluations comparing Reflex Search against Claude Code's built-in search across two task categories: 9 `find-all-usages` tasks and 13 cross-module comprehension tasks, tested on both Sonnet 5 and Opus 5.5 [34].\n\n* **Variance Control & Confidence Intervals**:\n  * Calculates **95% Confidence Intervals (CI)** on token multipliers (e.g., Sonnet 5 token ratio: 1.65 [105% CI: 1.06, 2.25]) [34].\n\n* **Primary Metrics**:\n  * **Turn Count**: Median turns reduced from 4 to 2 on usage tasks [34].\n  * **Answer Completeness / Recall**: Reflex Search produced complete answers on 6 of 9 Sonnet 5 tasks where built-in search missed references [34].\n\n---\n\n### Summary Comparison Table\n\n| Repository | Evaluation Subject | Benchmarks / Tasks | Sample Size (\\\\(N\\\\)) | Variance Control & Seeds | Primary Metrics |\n| :--- | :--- | :--- | :--- | :--- | :--- |\n| **Harness²** [6, 7] | Prompts, tools, skills, subagents, guardrails [7] | WorkBuddy-Bench, JobBench, LAB [8] | Budget \\\\(K\\\\) (Parallel/Sequential) [9] | Fixed seeds, identical executor/subset, web isolation [8, 10] | Benchmark pass rate, partial pass rate [1] |\n| **Trail-Code** [11] | Graft map (code graph) & session learnings [2, 12] | SWE-bench Verified (50 issues), 162-run sweep, PocketBase [13, 15, 16] | \\\\(N=50\\\\) (SWE-bench), \\\\(N=162\\\\) runs (3 trials/task) [13, 15] | Deterministic unit tests (SWE-bench); Opus 4.8 judge w/ keyword floor [13, 14] | Test pass rate (+12 pts), tool calls (-25%), tokens (-23%), time (-32%) [3] |\n| **LeanCTX** [18] | Context compression, selection & gateways [18] | `lean-ctx eval testbench`, A/B suites [5, 19] | Power gate: \\\\(N \\ge 30\\\\) paired tasks minimum [5] | Model-free A/B fixture checks, evidence tiers (A–E) [5] | Cost Per Accepted Outcome (CPAO), test suite pass rate [5, 20] |\n| **Laya** [22] | Non-autoregressive decision routing & prompts [22] | Chinese short-command ablations, 51-lang suite [24, 25] | \\\\(N=17,416\\\\) (multi-lang), \\\\(N=400\\text{--}600\\\\)/task [25-27] | Fixed seed (seed 13), 7-rung prompt guidance ablation [24, 25] | Accuracy, soft accuracy, ECE, MAE, latency [23, 28] |\n| **XERJ** [31] | AST context indexing vs. `grep` / memory [4] | Reference coding (un-memorized repos) [4] | 8 tasks across 4 languages, 16 runs/arm [4] | Measured on non-memorized codebases [4] | Solve rate (16/16 vs 11/16), output tokens (2.7x reduction) [4] |\n| **Reflex Search** [34] | Symbol search tools for Claude Code [34] | Usage finding & cross-module comprehension [34] | 9 usage tasks, 13 comprehension tasks [34] | Evaluated across Opus 5.5 and Sonnet 5; 95% CIs reported [34] | Answer completeness, turn count (2 vs 4), cost multiplier [34] |\n\n---\n\n💡 **Next Step**: Would you like to explore how to set up an automated evaluation pipeline (like `lean-ctx eval testbench` or `laya-evals`) for your own custom coding-agent prompts and workflows?",
+  "question": "Which repositories measure coding-agent harness or prompt changes by OUTCOME (A/B tests, ablations, pass rate)? What sample sizes, variance control, seeds and metrics do they use?",
+  "conversation_id": "b4df737d-0cc0-4814-a56e-25b509414a6c",
+  "sources_used": [
+    "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "ae6ace69-b3c2-4a2c-aa7e-d03b47da62bb"
+  ],
+  "citations": {
+    "1": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "2": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "3": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "4": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "5": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "6": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "7": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "8": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "9": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "10": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+    "11": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "12": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "13": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "14": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "15": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "16": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "17": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "18": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "19": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "20": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "21": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "22": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "23": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "24": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "25": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "26": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "27": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "28": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "29": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "30": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "31": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "32": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "33": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "34": "ae6ace69-b3c2-4a2c-aa7e-d03b47da62bb"
+  },
+  "references": [
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 1,
+      "cited_text": "Task-level recursion refines the execution harness for the current task through a contrastive Propose–Probe–Compose step: propose edits, probe their effects on the same task, and compose a refined harness from behavioral contrasts between executions, without ground-truth feedback. Harnessing-level recursion updates a persistent improvement harness with adopted harnesses and evidence-supported lessons from each task to guide future refinement. Across three professional benchmarks and four model–harness configurations, a single Harness² step improves GLM-5 and Gemini 3.5 Flash over their base harnesses, with gains of up to 11.5 points on WorkBuddy-Bench, 4.5 points on JobBench, and 11.8 percentage points on LAB's partial pass rate. Increasing the task-level recursion budget brings further gains."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 2,
+      "cited_text": "46% fewer tool calls , 60% less time , and more real issues solved. <cited_table> Note Graft is now Trail-code. Graft lives on as the graft map, and every graft command still works. What's new is learnings. What changed What changes in your agent <cited_table>",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "",
+            "Cold agent",
+            "Agent with the graft map"
+          ],
+          [
+            "Tool calls, 162 runs",
+            "baseline",
+            "46% fewer"
+          ],
+          [
+            "Uncached input tokens, 162 runs",
+            "baseline",
+            "42% fewer"
+          ],
+          [
+            "Time, 162 runs",
+            "baseline",
+            "60% less"
+          ],
+          [
+            "SWE-bench Verified, 50 real issues",
+            "27 solved (54%)",
+            "33 solved (66%)"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 3,
+      "cited_text": "<cited_table> The graft map resolved 33 of 50 instances against cold Claude Code's 27, with 25% fewer tool calls, 23% fewer tokens and 32% less wall-clock time. Every correctness win has the same shape: the baseline patches one file and misses its siblings. On django-11532 it patched 1 of the 5 files the fix requires and broke 18 previously passing tests, twice over. On django-16263 it patched 1 of 4 and scored 102 / 103. The graft map found the rest, and on django-16263 did it in half the tokens and half the time.",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Correctness & efficiency",
+            "Cold Claude Code",
+            "Claude Code with the graft map",
+            "Improvement"
+          ],
+          [
+            "Correctness",
+            "27 / 50 (54%)",
+            "33 / 50 (66%)",
+            "+12 pts"
+          ],
+          [
+            "Tokens",
+            "142.0M",
+            "109.4M",
+            "23% fewer"
+          ],
+          [
+            "Cost",
+            "$52.34",
+            "$42.43",
+            "19% lower"
+          ],
+          [
+            "Tool calls",
+            "1,370",
+            "1,031",
+            "25% fewer"
+          ],
+          [
+            "API requests",
+            "2,455",
+            "1,875",
+            "24% fewer"
+          ],
+          [
+            "Wall-clock",
+            "13,094s",
+            "8,922s",
+            "32% less"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 4,
+      "cited_text": "The measured reason: reference coding An agent that greps pulls whole files into its context, up to 1.06M input tokens on one corpus in our measurements, and still has to read them. An agent that queries XERJ gets the passage. Measured end to end on code the model had not memorised ( case study : 8 tasks, 4 languages, 16 runs per arm, real claude -p token counts): <cited_table> That is 2.7x fewer output tokens than grep and 26x fewer than memory alone at the same solve rate, and up to 278x fewer on a single Java task. In real development, users report roughly 5x fewer tokens end to end ( field reports ). The value is gated by memorisation: it wins on private, internal, niche or post-cutoff code, and is neutral to harmful on popular public libraries the model already knows. The honest limits are in the case study .",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "",
+            "output tokens",
+            "cost",
+            "solved"
+          ],
+          [
+            "from memory only",
+            "260,916",
+            "$11.18",
+            "11/16"
+          ],
+          [
+            "grep-driven agent",
+            "26,477",
+            "$3.27",
+            "16/16"
+          ],
+          [
+            "XERJ",
+            "9,982",
+            "$1.58",
+            "16/16"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 5,
+      "cited_text": "Accuracy is gated, within stated limits. A model-free A/B gate checks that the JSON crusher keeps every gold answer in its fixtures while cutting tokens, and proxy rewrites preserve stable output for prompt-cache eligibility under the same inputs and settings. Actual cache hits, prices, and discounts depend on the provider. The off-vs-on testbench ( lean-ctx eval testbench ) runs pinned real repos through a raw-dump baseline and through lean-ctx at an identical token budget, grades free-form QA with an LLM judge and code with each repo's own tests, and emits FINDINGS.md (tokens / turns / walltime / quality) plus a regressions file. What CI replays is a small committed recording: it is a mechanism gate (it catches a broken pipeline or a changed grade), not evidence that compression preserves answer quality. Every eval report states its evidence tier (A mechanism … E production); a run below 30 paired tasks is UNDERPOWERED and fails --gate unless run as an explicit --mechanism check — see context-quality-v1 . A powered with/without quality study has not been run yet; the proxy's compression holdout measures prompt size on real traffic and reports answer quality as unknown . What each number can and cannot show, per data path: measurement scope ."
+    },
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 6,
+      "cited_text": "Repository files navigation README Contributing Apache-2.0 license More items Recursive Agent Harnessing for an Open World A harness is the system around a model that enables it to act as an agent: prompts, tools, memory, skills, orchestration, and more. Harnessing is the process of optimizing that system. Harness² is a plug-and-play framework for recursive agent harnessing in an open world, where agents encounter tasks unseen during harness design. It connects two levels of recursion while keeping model weights fixed:"
+    },
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 7,
+      "cited_text": "The release supports parallel and sequential recursion , OpenCode and Codex executors , and JobBench, LAB, and WorkBuddy-Bench . Video overview harness2-video.mp4 Contents Video overview Harness components Install Run a benchmark Experiments Web access Results and resume Citation Contributing License Disclaimer Harness components Harness² exposes eight editable components around the model: system prompt, guardrails, memory, tool guidance, subagents, skills, scripts, and plugins . They control context construction, the tool interface, delegation, and behavior inside the tool loop."
+    },
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 8,
+      "cited_text": "Sequential recursion runs the same commands with --mode sequential . --k is the task-level recursion budget; see Experiments . Judging and reporting must use the same benchmark, executor, subset, --k , --mode , and seed as the refinement run. Add --dry-run to harness2 to preview task selection without model calls. <cited_table> Choose one benchmark per command. WorkBuddy also takes --subset office , --subset web , or --subset code on every command after setup. The benchmark guides cover each one's data, domains, and grading.",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Benchmark",
+            "Tasks",
+            "Install",
+            "Guide"
+          ],
+          [
+            "JobBench",
+            "Professional work",
+            "harness2-setup jb",
+            "JobBench"
+          ],
+          [
+            "LAB",
+            "Legal work",
+            "harness2-setup lab",
+            "LAB"
+          ],
+          [
+            "WorkBuddy-Bench",
+            "Office, web, and code",
+            "harness2-setup wb",
+            "WorkBuddy"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 9,
+      "cited_text": "Experiments Scale task-level recursion in two ways: parallel recursion explores multiple candidate harnesses and composes refinements from their execution evidence; sequential recursion carries the refined harness and accumulated evidence through successive Propose–Probe–Compose steps. Parallel recursion explores wider; sequential recursion refines deeper. <cited_table>",
+      "cited_table": {
+        "num_columns": 2,
+        "rows": [
+          [
+            "Option",
+            "Behavior"
+          ],
+          [
+            "--k 1",
+            "One Propose–Probe–Compose step"
+          ],
+          [
+            "--k K --mode parallel",
+            "Probe"
+          ],
+          [
+            "--k K --mode sequential",
+            "Refine the harness through"
+          ],
+          [
+            "--substrate cx",
+            "Use Codex instead of the default OpenCode executor"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "c22d6f93-5bc9-46e0-b650-8de5159e9b21",
+      "citation_number": 10,
+      "cited_text": "After each task, harnessing-level recursion retains the adopted harness and evidence-supported lessons to guide future refinement. See the experiment guide for task selection, concurrency, reproducibility, and baseline comparisons. Web access Executor network access is unrestricted, and Codex runs with its sandbox disabled. Public benchmark rubrics may be accessible online. Before evaluation, configure network restrictions to prevent access to benchmark answers and grading criteria. Results and resume Results are saved under runs/ , organized by benchmark and subset where applicable. They include task summaries, deliverables, adopted harnesses, reflection notes, and evaluation results."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 11,
+      "cited_text": "About Turbocharge Claude Code, Cursor, Codex, Gemini & every coding agent: faster, cheaper, with contextual understanding specific to your codebase. trailhq.com/graft Topics ai-agents anthropic claude-code cli code-graph codex context-engineering cursor developer-tools gemini knowledge-graph llm mcp mcp-server open-source openai tree-sitter Resources Readme MIT license Security policy Security policy Activity Custom properties Stars 10.3k stars Watchers 35 watching Forks 902 forks Report repository main 114 Branches 14 Tags"
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 12,
+      "cited_text": "Part 1: The graft map Without a map, your coding agent starts every task blind. It greps a term, opens a file, follows an import, backs out and tries again, rebuilding a picture of a codebase it mapped an hour ago and threw away. That rediscovery burns most of a run's tool calls, tokens and time. People onboard to a codebase once. Agents onboard every single time. The graft map builds that understanding once, and keeps it current: Every file, function and caller. Parsed with tree-sitter into a graph of symbols and who calls what. Deterministic, no model, no network, 23 languages. The right code with every prompt. In Claude Code, hooks add the matching files and functions to each prompt, and show what depends on a file right after your agent edits it (the \"blast radius\"). Cursor, Codex and other agents get the same map through MCP tools and their instruction files. Always fresh. Every query checks the working tree first (a few tens of milliseconds when nothing moved) and rebuilds only what changed, so answers describe the code as it is right now, uncommitted edits included. Plain files you can read. Linked markdown nodes your agent opens and greps like any other file. No embeddings, no index to keep warm. Summaries if you want them. trail build --deep adds plain-English summaries of each part of the system, written by the model provider you choose, under your own key."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 13,
+      "cited_text": "SWE-bench Verified The sweep above is our harness measuring our mechanism. So we ran the industry-standard one too: SWE-bench Verified , real GitHub issues from real repos, graded by the official swebench harness. No judge model, no similarity score: your patch is applied, the maintainers' own tests are run, and you either flip the failing test without breaking the passing ones or you don't. 50 instances , the same model on both arms ( Claude Sonnet 5 ), the same Docker images, the same turn limits. The only difference is whether the graft map is wired in."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 14,
+      "cited_text": "Benchmark An agent that reads the graft map should be cheaper and faster without getting more answers wrong. That's the whole claim, so we measured it instead of asserting it. The harness ran three variants of the same agent loop on Claude Sonnet 5, with the same file tools: cold (explores from zero), push (a trail ask --source bundle up front), and pull (the trail_find_code and trail_file_api tools, nothing injected, context paid for only when asked). An Opus 4.8 judge scored correctness with a required-keyword floor, so a fast but wrong answer couldn't win by being fast. Cost is cache-aware: reads ≈0.1×, writes 1.25×, the billing model agents actually run under."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 15,
+      "cited_text": "162 runs, two repos (this one and a real Node/Express auth service), 3 trials each, tasks split between single-file and multi-file questions. <cited_table> Push, the column above, gave up 3 correctness points on one corpus for its savings. The pull variant never answered worse than cold on any corpus, and gave up most of that speed for something bigger: correctness jumped to 98%, 5 points over cold, the strongest single result in the sweep. Push when speed is what you need; pull when being right matters more.",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "Metric (mean/task)",
+            "Cold agent",
+            "Agent with the graft map (push)"
+          ],
+          [
+            "Cost ($)",
+            "0.0429",
+            "0.0292 (32% lower)"
+          ],
+          [
+            "Uncached input tokens",
+            "8,070",
+            "4,650 (42% fewer)"
+          ],
+          [
+            "Tool calls",
+            "4.2",
+            "2.3 (46% fewer)"
+          ],
+          [
+            "Latency (s)",
+            "39.8",
+            "15.8 (60% less)"
+          ],
+          [
+            "Correctness",
+            "93%",
+            "93% (equal)"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 16,
+      "cited_text": "Two harnesses, two claims: the controlled sweep says the graft map is cheaper and faster, SWE-bench says it's also more correct. Correctnessoverallinstances;tokens,costandcallsovertheinstancesbotharmsresolved,foralike-for-likecomparison.OfficialSWE-benchVerifiedimagesandofficial swebench 4.1.0grader,nativex86_64. Tested on popular repos The benchmarks measure the mechanism. The real test is whether the graft map helps an agent ship real changes on code people actually run, not just answer questions. So we benchmark it on popular open-source repos: 15 tasks each , 10 real developer questions plus 5 actual implementation tasks (real merged pull requests, each re-implemented from its base commit and scored against the files the maintainers actually changed). Same agent (Claude Opus), same file tools; the only difference is whether the graft map is wired in."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 17,
+      "cited_text": "Method Two clones of PocketBase at the same commit: one wired with graft init , one untouched and verified to have no graft map in it. Each task run headless ( claude -p , Claude Opus) with an empty MCP config. Understanding questions were graded by whether the answer pointed to the right files and functions; PR tasks were scored on whether the agent's diff touched the same files as the merged PR. Every transcript was audited to confirm the graft map was actually used in one arm and absent from the other."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 18,
+      "cited_text": "About LeanCTX is the Context Gateway for AI Systems. Select task-relevant context, apply supported controls, connect local knowledge and inspect recorded evidence. Open-source Engine: CLI, MCP, hooks and supported proxy paths. leanctx.com Topics agentic-coding ai ai-agents ai-coding ai-governance ai-security audit-trail claude-code context-engineering context-gateway copilot cursor data-governance developer-tools gemini-cli llm mcp mcp-server rust Resources Readme Apache-2.0, License licenses found Code of conduct Code of conduct Contributing Contributing Security policy Security policy Activity Stars 3.9k stars Watchers 22 watching Forks 356 forks Report repository main 2 Branches 265 Tags Go to file Code Open more actions menu Latest commit yvgude and claude chore(deps-dev): vite 6.4.5 in pi-lean-ctx (replaces #2137 ) ( #2140 ) Open commit details success 54 minutes ago ab56c04 · 54 minutes ago History 8,620 Commits Open commit details 8,620 Commits Folders and files"
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 19,
+      "cited_text": "Measure the Engine's own advertised schema, instruction, and briefing overhead with lean-ctx doctor overhead --gate . The deterministic lean-ctx benchmark dual-arm --json replay reports a synthetic upper bound : its baseline never uses the provider's prompt cache, while agent hosts can cache the prefix with or without LeanCTX. It is not a provider invoice, an on/off comparison or an outcome-quality evaluation. Available comparison methods include the lean-ctx eval ab subcommand (requires a suite file via --suite ), the injected-context footprint comparison in lean-ctx eval footprint (requires a suite via --suite and a baseline via --compare ), and the proxy's opt-in compression holdout ( [proxy] compression_holdout )."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 20,
+      "cited_text": "Usage and cost — measure the result Context controls and evidence come first. Usage estimates and calculated costs help you assess their operational effect; they do not prove answer quality. Shadow Mode — a simulated baseline Shadow Mode estimates what the same work would have cost without LeanCTX, without changing the active workflow. The baseline is simulated from the uncompressed token counts and the same outcome signals, not a second measured run, so its reports estimate cost, tokens and CPAO deltas; they do not measure answer quality."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 21,
+      "cited_text": "LeanCTX records local cost and outcome signals without adding those reports to agent context. CPAO (cost per accepted outcome) is one comparison metric; Shadow Mode provides simulated savings estimates. Keep estimates, provider-measured usage and outcome quality separate."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 22,
+      "cited_text": "About Non-autoregressive System 1 decision engine. Typed choice, score and yes/no decisions over any text in a single forward pass, in 100+ languages, with a router that picks the right checkpoint per request. huggingface.co/convaiinnovations/laya Topics calibration classification decision-model huggingface jev modernbert multilingual nlp python pytorch routing typed-decisions zero-shot Resources Readme Apache-2.0 license Code of conduct Code of conduct Contributing Contributing Security policy Security policy Activity Stars 33.2k stars Watchers 118 watching Forks 3.0k forks Report repository main 6 Branches 43 Tags Go to file Code Open more actions menu Latest commit NandhaKishorM and claude release: 0.4.10 Open commit details success 4 hours ago a4958de · 4 hours ago History 2,300 Commits Open commit details 2,300 Commits Folders and files"
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 23,
+      "cited_text": "Evaluation harness laya.evals scores a labelled dataset and gates a build on it, so a quality change is a reviewable diff instead of a hand-check. It is pure Python plus numpy, imports no torch, and needs no weights until you point it at a checkpoint. run reports overall and per-slice metrics ( choice_accuracy , noul_accuracy , score_mae , ece , mean_confidence , latency) and exits non-zero on a threshold or baseline failure, so it drops into CI unchanged. A weight-free job runs the metric and API tests on every PR, and a scheduled workflow evaluates the English checkpoint against the committed baseline. See docs/evals.md for the dataset format and the gate."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 24,
+      "cited_text": "Benchmarks Community diagnostics: Chinese workplace decisions (Feishu-style) · 中文说明 . Includes frozen synthetic cases, archived paired Laya/Jev responses, and an offline audit; separate from the benchmark suites below. Also Chinese short-command routing · 中文说明 : 18 frozen commands and a seven-rung ablation of the documented prompt guidance, which locates the accuracy loss on the four-question path rather than the six-option one. Full report: BENCHMARKS.md — every run consolidated, languages and themes, with per-language detail for all 51 languages."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 25,
+      "cited_text": "Prediction hooks installed on the Router run once per request, as they do for predict() , so a redaction hook rewrites every state before the model sees it. Requests that share a checkpoint run all their start hooks before their shared forward pass; see docs/hooks/lifecycle.md . You can also bound the Agent-level forward-pass batch size, and forward the length grouping knob to every group (see Batch Mode ): Why Route: The Evidence On a shared benchmark (17,416 questions, one T4 GPU, identical questions per model — seed 13, 20 options per choice question, the first 300 test rows per language, from research/results/t4_colab_benchmark.json ; tests/test_doc_tables.py checks every cell of this table against that file):"
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 26,
+      "cited_text": "Laya (with routing) vs Jev Every Laya figure is what Router().predict(...) actually returns — the checkpoint the router selects for that input, not a hand-picked best of three. Jev figures are third-party published, never measured here (no TypeSafe API access), so sample sizes and prompts differ. The Laya column here comes from the Applications run ( research/scripts/bench_apps.py , N=400 per task; research/results/app_benchmark_results.json ), so AG News / DAIR Emotion read 0.950 / 0.595 here versus 0.947 / 0.573 in the committed T4 English suites (N=600) below."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 27,
+      "cited_text": "Soft distribution matching: On typed-decisions, while Laya achieves higher argmax accuracy (0.766 vs 0.727), Jev achieves higher soft accuracy (0.580 vs 0.471) against the teacher's full probability distributions. Out-of-the-box raw calibration: Before temperature scaling, the base checkpoint has higher raw ECE (0.213 vs 0.144). Laya achieves its 0.081 ECE after domain temperature fitting. Full detail, including every workflow and all 51 languages: BENCHMARKS.md . typed-decisions, measured on all three checkpoints 400 cases, 2,000 decisions, four workflows."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 28,
+      "cited_text": "<cited_table> The fine-tuned checkpoint beats Jev by 3.9 points and clears the teacher ceiling, with 2.4x better Brier and 1.6x better score MAE. It wins on all four workflows: invoice processing 0.804, security incidents 0.766, customer service 0.764, agent-trace observability 0.730. By primitive: noul 0.857, choice 0.733, score 0.723.",
+      "cited_table": {
+        "num_columns": 6,
+        "rows": [
+          [
+            "model",
+            "accuracy",
+            "soft acc",
+            "Brier",
+            "ECE",
+            "score MAE"
+          ],
+          [
+            "laya-typed-decisions",
+            "0.766",
+            "0.471",
+            "0.062",
+            "0.213",
+            "0.242"
+          ],
+          [
+            "laya",
+            "0.362",
+            "0.331",
+            "0.315",
+            "0.174",
+            "0.694"
+          ],
+          [
+            "laya-multilingual",
+            "0.352",
+            "0.328",
+            "0.463",
+            "0.314",
+            "0.760"
+          ],
+          [
+            "Jev 1.13.0 (published)",
+            "0.727",
+            "0.580",
+            "0.148",
+            "0.144",
+            "0.391"
+          ],
+          [
+            "teacher self-agreement ceiling",
+            "0.735",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "per-question majority class",
+            "0.461",
+            "",
+            "",
+            "",
+            ""
+          ],
+          [
+            "random guess",
+            "0.318",
+            "",
+            "",
+            "",
+            ""
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 29,
+      "cited_text": "All Laya numbers below are measured. Every model answered byte-identical questions (fixed seed) in the same run. Reproduce with research/scripts/laya_benchmark_colab.ipynb on a T4. Speed (Tesla T4, measured) <cited_table> Batched throughput reaches 103-332 questions/sec on a single T4. For reference, TypeSafe Jev has been independently measured at 236-276 ms p50 ( AbdelStark , nibzard ) -- Laya answers a single question roughly 6-7x faster .",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "questions per call",
+            "laya",
+            "laya-multilingual"
+          ],
+          [
+            "1",
+            "39.5 ms",
+            "32.8 ms"
+          ],
+          [
+            "5",
+            "84.5 ms",
+            "40.1 ms"
+          ],
+          [
+            "10",
+            "158.6 ms (15.9 ms/q)",
+            "72.3 ms (7.2 ms/q)"
+          ],
+          [
+            "50",
+            "771 ms",
+            "337 ms (6.8 ms/q)"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 30,
+      "cited_text": "<cited_table> On DAIR Emotion, Jev assigned zero probability to the true label on 16% of examples — a hard failure for anything branching on confidence.",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "",
+            "Jev 1.13.0",
+            "Laya (routed)",
+            ""
+          ],
+          [
+            "typed-decisions, 2,000 decisions",
+            "0.727",
+            "0.766",
+            "+0.039"
+          ],
+          [
+            "AG News, 4 labels",
+            "0.910",
+            "0.950",
+            "+0.040"
+          ],
+          [
+            "DAIR Emotion, 6 labels",
+            "0.480",
+            "0.595",
+            "+0.115"
+          ],
+          [
+            "Banking77 (72 vs 77 labels)",
+            "0.870",
+            "0.425",
+            "Jev leads on >20 options"
+          ],
+          [
+            "ECE",
+            "0.246",
+            "0.081",
+            "3× better (post-temperature)"
+          ],
+          [
+            "p50 latency, 1 question",
+            "236–276 ms",
+            "32.8 ms",
+            "7.8× faster"
+          ],
+          [
+            "Languages usable",
+            "no published benchmark",
+            "48 of 51",
+            "—"
+          ],
+          [
+            "Weights",
+            "closed API",
+            "Apache 2.0",
+            "—"
+          ],
+          [
+            "Cost",
+            "$0.042 / 1M tokens",
+            "$0 self-hosted",
+            "—"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 31,
+      "cited_text": "Humans and AI agents are both welcome; this is deliberately not an agents-only project. Whether you indexed a repo over lunch or an agent installed XERJ mid-session in someone else's codebase, the ask is the same: one short report saying what you pointed it at, what you used it for, and your honest verdict. A negative verdict is a good report. If something broke, that is a separate issue or fix on top. Field-report PRs are CLA-exempt, so they merge without a signature. The path that works on any build is a plain gh pr create adding exactly one markdown file under user-feedback/16-agent-field-reports/ , with nothing else in the diff. On a build that has it, xerj feedback drafts the report and fills in version, OS and what was indexed, and xerj feedback --open-pr opens the PR for you. Check xerj --help for whether your binary has the command."
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 32,
+      "cited_text": "Use cases Reference coding : your coding agent retrieves how peer projects already solved it instead of re-deriving. Measured 2.7x fewer output tokens than grep-driven coding (26x vs memory alone); users report ~5x in real development. Code search and security audits : AST-aware indexing, so an agent finds a function instead of a line. AI search and RAG : full-text, vector and hybrid retrieval in one query, with no separate vector database. Agent memory : durable recall with a knowledge graph over your own documents. Log analytics and observability : logs, metrics and traces in one engine. Elasticsearch replacement : same wire protocol, one binary."
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 33,
+      "cited_text": "All four losses are the same gap: read p99 while a high-rate writer runs. It is written up in full rather than left out. Results, methodology and the harness are at xerj.org/benchmarks and in demo/playbooks , so you can rerun them yourself. Treat any number you cannot reproduce with skepticism, including ours. Code indexing Source files are parsed with tree-sitter and indexed AST-aware — symbols plus full text — so an agent retrieves a function, not a line. On an Apache Lucene checkout (6,113 source files, 51 MB) single-threaded in-process extraction runs at ~1,500 files/s (13 MB/s) ; the tree-sitter parse is ~72% of that and is the per-file floor. Reproduce it with:"
+    },
+    {
+      "source_id": "ae6ace69-b3c2-4a2c-aa7e-d03b47da62bb",
+      "citation_number": 34,
+      "cited_text": "<cited_table> What drives the cost. It is round-trips, not payload. Claude Code defers MCP tool schemas, so the first Reflex call costs an extra ToolSearch turn; Sonnet 5 also added check_index_status calls. Trials where the agent ignored Reflex cost the same as the control (1.04–1.07×); trials that used it cost 1.55–1.68×. Columnar results already save about 20% of bytes per call, which the extra turns outweigh.",
+      "cited_table": {
+        "num_columns": 6,
+        "rows": [
+          [
+            "Tasks",
+            "Model",
+            "Tokens (95% CI)",
+            "Cost",
+            "Turns (median)",
+            "Accuracy"
+          ],
+          [
+            "9 find-all-usages",
+            "Opus 5.5",
+            "1.66",
+            "1.27×",
+            "2 → 3",
+            "equal (both near-perfect)"
+          ],
+          [
+            "9 find-all-usages",
+            "Sonnet 5",
+            "1.65",
+            "2.07×",
+            "2 → 4",
+            "Reflex more complete on 6 of 9 tasks"
+          ],
+          [
+            "13 comprehension / cross-module",
+            "Opus 5.5",
+            "1.26",
+            "1.10×",
+            "6 → 6 (B more in 55 of 104 pairs, fewer in 27)",
+            "equal recall"
+          ]
+        ]
+      }
+    }
+  ]
+}

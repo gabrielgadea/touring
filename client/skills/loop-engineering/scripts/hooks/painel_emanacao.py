@@ -208,6 +208,23 @@ def render(itens: list[dict[str, Any]], espelho: dict[str, Any]) -> str:
     return "\n".join(linhas)
 
 
+def _dedup_epoch(out: str, payload: dict) -> str:
+    """S-4p (26/10/2026): dedupe por época via ponte Rust (`touring-hook
+    dedup-stdin`) — este processo nunca passa pelo daemon. No RESUME (mesmo
+    session_id) o painel que já consta no transcript é omitido; o que mudou
+    (itens novos de retomada) passa. Fail-open: falha devolve o texto intacto."""
+    try:
+        sys.path.insert(0, os.path.expanduser("~/.claude/hooks"))
+        import injection_dedup
+        return injection_dedup.dedup_output(
+            out,
+            session_id=str(payload.get("session_id") or ""),
+            cwd=str(payload.get("cwd") or ""),
+        )
+    except Exception:  # noqa: BLE001 — a dedupe nunca custa o painel
+        return out
+
+
 def main() -> int:
     """Entrada do hook SessionStart: stdin JSON → additionalContext; exit 0 sempre."""
     if os.environ.get("PAINEL_EMANACAO_DISABLED") == "1":
@@ -242,14 +259,27 @@ def main() -> int:
             "session": str(payload.get("session_id", ""))[:12],
             "n_itens": len(itens),
         })
-    print(json.dumps({
+    out = json.dumps({
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": texto,
         }
-    }, ensure_ascii=False))
+    }, ensure_ascii=False)
+    print(_dedup_epoch(out, payload))
     return 0
 
+
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+import sys as _ipsys, pathlib as _ippath
+_ip_spec = _ipsys.path
+_ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
+if _ip_mod_path.exists():
+    import importlib.util as _ipu
+    _ip_sp = _ipu.spec_from_file_location("injection_policy", _ip_mod_path)
+    _ip_m = _ipu.module_from_spec(_ip_sp)
+    _ip_sp.loader.exec_module(_ip_m)
+    if not _ip_m.allows("plugin-hook"):
+        _ipsys.exit(0)
 
 if __name__ == "__main__":
     sys.exit(main())

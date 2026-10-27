@@ -15,6 +15,8 @@
 
 use crate::hook_runtime::HookResponse;
 use serde_json::Value;
+use std::path::Path;
+use touring_foundation::injection_policy::{self, InjectionLevel};
 
 /// Marker that precedes the advisories carried inside a deny's `permissionDecisionReason`.
 pub const ALSO_NON_BLOCKING: &str = "[também, sem bloquear]";
@@ -51,8 +53,34 @@ impl HookResponse {
     ///   context.
     ///
     /// An empty `avisos` returns `self` untouched.
+    ///
+    /// The advisories pass through the injection policy first
+    /// ([`HookResponse::with_advisories_at`]) at the level of THIS process's
+    /// environment — `TOURING_HOOK_INJECTION`, unset ⇒ `full` ⇒ nothing changes.
+    /// In the daemon that is the daemon's boot environment, not the client's.
     #[must_use]
     pub fn with_advisories(self, avisos: Vec<String>) -> HookResponse {
+        let (level, sink) = injection_policy::current();
+        self.with_advisories_at(level, sink.as_deref(), avisos)
+    }
+
+    /// [`HookResponse::with_advisories`] at an explicit injection `level`.
+    ///
+    /// An advisory that rides along a verdict contaminates it: a deny carries it in
+    /// `permissionDecisionReason`, any other verdict in `additionalContext`, and the
+    /// policy keeps a payload that mixes sermon and fact WHOLE. So the filter acts
+    /// BEFORE the gluing, advisory by advisory ([`injection_policy::retain_allowed`]):
+    /// the gate's own reason and context are never touched, only what would have
+    /// been appended to them. What it cuts goes to the journal at `sink`.
+    #[must_use]
+    pub fn with_advisories_at(
+        self,
+        level: InjectionLevel,
+        sink: Option<&Path>,
+        avisos: Vec<String>,
+    ) -> HookResponse {
+        let avisos =
+            injection_policy::retain_allowed(level, injection_policy::SITE_VERDICT, avisos, sink);
         if avisos.is_empty() {
             return self;
         }
@@ -111,6 +139,22 @@ impl HookResponse {
 /// plain advisory. An unparseable `veredito` is returned as it came (the chain's own bytes).
 #[must_use]
 pub fn merge_pretool_json(veredito: Option<String>, avisos: Vec<String>) -> Option<String> {
+    let (level, sink) = injection_policy::current();
+    merge_pretool_json_at(level, sink.as_deref(), veredito, avisos)
+}
+
+/// [`merge_pretool_json`] at an explicit injection `level` — the same advisory
+/// filter as [`HookResponse::with_advisories_at`], so the two adapters still
+/// answer alike.
+#[must_use]
+pub fn merge_pretool_json_at(
+    level: InjectionLevel,
+    sink: Option<&Path>,
+    veredito: Option<String>,
+    avisos: Vec<String>,
+) -> Option<String> {
+    let avisos =
+        injection_policy::retain_allowed(level, injection_policy::SITE_VERDICT, avisos, sink);
     if avisos.is_empty() {
         return veredito;
     }
@@ -313,5 +357,129 @@ mod tests {
             merge_pretool_json(Some("não é json".into()), avisos()),
             Some("não é json".to_string())
         );
+    }
+
+    // ── S-2 (27/10/2026): a política de injeção na montagem do veredito ──────
+
+    const SERMON: &str =
+        "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+    const FACT: &str = "[CODE MODE · rajada] 2a inspecao grep em 300s";
+
+    fn deny() -> HookResponse {
+        HookResponse::Deny {
+            reason: "razao do deny".into(),
+            context: None,
+            event_name: Some("PreToolUse".into()),
+        }
+    }
+
+    fn journal(path: &Path) -> Vec<Value> {
+        std::fs::read_to_string(path)
+            .unwrap_or_default()
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("cada linha do diário é JSON"))
+            .collect()
+    }
+
+    /// `no-advisory`: o aviso de sermão não é colado — a razão do deny e o
+    /// veredito saem exatamente como o gate os produziu —, o aviso de fato
+    /// (o deny de outro gate) continua colado, e o corte vai para o diário.
+    #[test]
+    fn test_no_advisory_drops_sermon_keeps_decision() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sink = touring_foundation::injection_journal::journal_path_in(dir.path());
+
+        let so_sermao =
+            deny().with_advisories_at(InjectionLevel::NoAdvisory, Some(&sink), vec![SERMON.into()]);
+        assert_eq!(
+            so_sermao,
+            deny(),
+            "sem aviso que sobreviva, o deny é o do gate"
+        );
+
+        let misto = deny().with_advisories_at(
+            InjectionLevel::NoAdvisory,
+            Some(&sink),
+            vec![SERMON.into(), FACT.into()],
+        );
+        match &misto {
+            HookResponse::Deny { reason, .. } => {
+                assert!(reason.starts_with("razao do deny"), "{reason}");
+                assert!(reason.contains(FACT), "o aviso de fato viaja: {reason}");
+                assert!(
+                    !reason.contains("TOURING SUGGEST"),
+                    "o sermão não: {reason}"
+                );
+            }
+            outro => panic!("o deny segue deny: {outro:?}"),
+        }
+        let j: Value = serde_json::from_str(&misto.to_json()).expect("json");
+        assert_eq!(
+            j.pointer("/hookSpecificOutput/permissionDecision"),
+            Some(&serde_json::json!("deny"))
+        );
+
+        let lines = journal(&sink);
+        assert_eq!(lines.len(), 2, "um corte por montagem que cortou");
+        assert_eq!(lines[0]["site"], serde_json::json!("verdict"));
+        assert_eq!(
+            lines[0]["cuts"][0]["family"],
+            serde_json::json!("touring-suggest")
+        );
+        assert_eq!(
+            lines[0]["cuts"][0]["bytes"],
+            serde_json::json!(SERMON.len())
+        );
+    }
+
+    /// `off`: nenhum aviso é colado em lugar nenhum — e um `Allow` com avisos
+    /// continua `Allow` (nada de contexto vazio no lugar do silêncio).
+    #[test]
+    fn test_off_attaches_no_advisory_to_any_verdict() {
+        for (nome, v) in variantes() {
+            let com = v
+                .clone()
+                .with_advisories_at(InjectionLevel::Off, None, avisos());
+            assert_eq!(com, v, "{nome}: off não cola aviso");
+        }
+        assert_eq!(
+            merge_pretool_json_at(InjectionLevel::Off, None, None, avisos()),
+            None
+        );
+    }
+
+    /// `Full` é o comportamento de sempre: o adaptador explícito e o do
+    /// ambiente (sem env) devolvem a mesma coisa, e os dois adaptadores (enum e
+    /// JSON) seguem pintando a mesma tabela em todos os níveis.
+    #[test]
+    fn test_levels_keep_both_adapters_in_step() {
+        for level in [
+            InjectionLevel::Full,
+            InjectionLevel::NoAdvisory,
+            InjectionLevel::Off,
+        ] {
+            let mistos = || vec![SERMON.to_string(), FACT.to_string()];
+            for (nome, v) in variantes() {
+                let pelo_enum = v
+                    .clone()
+                    .with_advisories_at(level, None, mistos())
+                    .to_json();
+                let pelo_json = merge_pretool_json_at(level, None, Some(v.to_json()), mistos())
+                    .unwrap_or_else(|| v.to_json());
+                assert_eq!(
+                    sem_carimbo(&pelo_enum),
+                    sem_carimbo(&pelo_json),
+                    "{nome} @ {level:?}: enum e JSON divergem"
+                );
+            }
+        }
+        for (nome, v) in variantes() {
+            assert_eq!(
+                v.clone()
+                    .with_advisories_at(InjectionLevel::Full, None, avisos()),
+                v.clone().with_advisories(avisos()),
+                "{nome}: Full == o caminho do ambiente sem env"
+            );
+        }
     }
 }

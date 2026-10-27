@@ -21,6 +21,7 @@ use super::shared::patterns::FILE_PATH_RE;
 use crate::schemas::validate_payload;
 use crate::shared::hook_helpers;
 use touring_foundation::truncate_str;
+use touring_intelligence::reasoning::pensieve::Pensieve;
 use touring_intelligence::rl::ImmediateReward;
 
 /// Lazy-compiled regex for exit code detection (compiled once, reused across calls).
@@ -197,22 +198,12 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
     // `cargo test --workspace` vs `cargo build` hash to distinct states
     // instead of both collapsing to just `["cargo"]`.
     if !outcome.success {
-        let states = crate::shared::command_hash::command_to_states(&outcome.command);
-        if !states.is_empty() {
-            let reason = outcome.error_pattern.as_deref().unwrap_or("unknown error");
-            let depth = states.len();
-            match runtime.learning.pensieve.try_borrow_mut() {
-                Ok(mut pensieve) => {
-                    pensieve.record_failure(&states, reason, depth);
-                    tracing::debug!(
-                        command = %outcome.command,
-                        "pensieve: recorded failed command ({} states)",
-                        states.len()
-                    );
-                }
-                _ => {
-                    tracing::debug!("pensieve: skipped recording (already borrowed)");
-                }
+        match runtime.learning.pensieve.try_borrow_mut() {
+            Ok(mut pensieve) => {
+                record_failed_command(&mut pensieve, &outcome);
+            }
+            _ => {
+                tracing::debug!("pensieve: skipped recording (already borrowed)");
             }
         }
     }
@@ -679,6 +670,36 @@ fn format_capture_context(capture: &super::output_capture::OutputCapture) -> Str
 ///
 /// Only fires when the outcome has a `file_context` so the note is
 /// attributed to the right file in the knowledge graph.
+/// Record the failed command in the Pensieve so later lookups can name it.
+///
+/// The command travels WITH the failure: a notice that names what failed is
+/// actionable, while a score alone only says that something similar failed.
+fn record_failed_command(pensieve: &mut Pensieve, outcome: &BashOutcome) {
+    let states = crate::shared::command_hash::command_to_states(&outcome.command);
+    if states.is_empty() {
+        return;
+    }
+    let reason = outcome.error_pattern.as_deref().unwrap_or("unknown error");
+    let depth = states.len();
+    pensieve.record_failure_with_command(&states, reason, depth, &outcome.command);
+    // Log the command's shape, never its raw text: an inline token or credential
+    // in the command would otherwise reach the log whenever TOURING_LOG enables
+    // debug (the Pensieve store above already redacts the same way).
+    tracing::debug!(
+        command = %log_safe_command(&outcome.command),
+        "pensieve: recorded failed command ({} states)",
+        states.len()
+    );
+}
+
+/// The command as it may appear in a log line: secrets redacted, capped at 60 bytes.
+fn log_safe_command(command: &str) -> String {
+    truncate(
+        &touring_foundation::text_sanitize::redact_secrets(command),
+        60,
+    )
+}
+
 fn maybe_record_failure_note(db: &super::knowledge::FileKnowledgeDB, outcome: &BashOutcome) {
     if let Some(ref file_ctx) = outcome.file_context {
         let note = format!(
@@ -834,6 +855,23 @@ fn truncate(s: &str, max: usize) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_post_bash_log_has_no_raw_command() {
+        // An inline key in a failed command must not reach the debug log line.
+        // Built at runtime so the source holds no secret-shaped literal (F2.4).
+        let key = format!("{}-proj-{}", "sk", "Q".repeat(32));
+        let logged = log_safe_command(&format!("OPENAI_API_KEY={key} curl https://api.example"));
+        assert!(
+            !logged.contains(key.as_str()),
+            "raw secret leaked into the log: {logged}"
+        );
+        assert!(
+            logged.len() <= 60,
+            "log line not capped: {} bytes",
+            logged.len()
+        );
+    }
 
     #[test]
     fn test_detect_exit_code_explicit() {
@@ -1488,5 +1526,73 @@ mod s21_tests {
         assert_eq!(short("sudo -E apt update"), "apt");
         assert_eq!(short("for f in *; do grep x $f; done"), "for");
         assert_eq!(short("cd /repo && git status"), "git");
+    }
+}
+
+/// S-2 (2026-10-26) — the producer must keep the command that failed.
+///
+/// Without the command the later notice can only say "something similar
+/// failed", and the model has nothing to avoid repeating.
+#[cfg(test)]
+mod s2_pensieve_tests {
+    use super::*;
+
+    // touring-quality:allow-secrets — a SAMPLE token: the test exists to prove
+    // the command is redacted on the way into the store, so the shape has to
+    // be present in the source.
+    const TOKEN: &str = "ghp_abcdefghijklmnopqrstuvwxyz012345";
+    const COMANDO_COM_SEGREDO: &str =
+        "curl -H 'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz012345' https://api";
+
+    fn falha() -> serde_json::Value {
+        serde_json::json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_input": {"command": "cargo test -p touring-intelligence"},
+            "error": "Exit code 1\ntest result: FAILED"
+        })
+    }
+
+    #[test]
+    fn a_falha_guarda_o_comando_que_falhou() {
+        let output = bash_payload_output(&falha(), None);
+        let outcome = build_bash_outcome_for_event("cargo test -p touring-intelligence", &output)
+            .expect("outcome");
+        assert!(!outcome.success, "o payload de falha tem de ser falha");
+
+        let mut pensieve = Pensieve::new(32);
+        record_failed_command(&mut pensieve, &outcome);
+
+        assert_eq!(pensieve.failure_count(), 1, "a falha não foi registrada");
+        assert!(
+            pensieve.failures()[0]
+                .command
+                .contains("cargo test -p touring-intelligence"),
+            "o comando que falhou não foi guardado: {:?}",
+            pensieve.failures()[0].command
+        );
+    }
+
+    #[test]
+    fn o_comando_guardado_viaja_redigido() {
+        let entrada = serde_json::json!({
+            "hook_event_name": "PostToolUseFailure",
+            "tool_input": {"command": COMANDO_COM_SEGREDO},
+            "error": "Exit code 1\nunauthorized"
+        });
+        let output = bash_payload_output(&entrada, None);
+        let outcome = build_bash_outcome_for_event(COMANDO_COM_SEGREDO, &output).expect("outcome");
+
+        let mut pensieve = Pensieve::new(32);
+        record_failed_command(&mut pensieve, &outcome);
+
+        let stored = &pensieve.failures()[0].command;
+        assert!(
+            !stored.contains(TOKEN),
+            "o token sobreviveu no store: {stored}"
+        );
+        assert!(
+            stored.contains("[REDACTED]"),
+            "faltou a marca de redação: {stored}"
+        );
     }
 }

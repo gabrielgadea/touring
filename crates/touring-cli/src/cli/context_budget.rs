@@ -193,118 +193,15 @@ const REUSE_MIN_LINE: usize = 8;
 
 /// Which emitter a block of injected context came from.
 ///
-/// ONE source for the taxonomy: the payload, the per-family ratios and the
-/// duplicate accounting all call this, so a family can never mean one thing in
-/// the totals and another in the breakdown.
-#[must_use]
-pub fn injection_family(text: &str) -> &'static str {
-    const TABLE: &[(&str, &[&str])] = &[
-        (
-            "code-mode-deny",
-            &[
-                "CODE MODE",
-                "G7 re-inspe",
-                "G10 write",
-                "G1 rajada",
-                "G11 ",
-                "G3 edit",
-            ],
-        ),
-        ("touring-suggest", &["TOURING SUGGEST"]),
-        (
-            "loop-outer",
-            &["LOOP RESUME", "work-outer", "explore-ledger", "OUTER ·"],
-        ),
-        (
-            "session-start",
-            &[
-                "Touring Knowledge",
-                "ATZILUTH",
-                "SCOUT PERP",
-                "TOURING (slim)",
-                "Painel",
-            ],
-        ),
-        ("prompt-enhance", &["PROMPT ENHANCEMENT"]),
-        (
-            "past-lessons",
-            &["lições de erros passados", "Similar command failed"],
-        ),
-        (
-            "post-tool-echo",
-            &["temporal: reliability", "last fail:", "post-tool-batch"],
-        ),
-    ];
-    for (name, needles) in TABLE {
-        if needles.iter().any(|n| text.contains(n)) {
-            return name;
-        }
-    }
-    "other"
-}
-
-/// How an emitter's mark claims the output it produced (C10, 2026-10-17).
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Claim {
-    /// A single-purpose hook: whatever it injects belongs to ITS family, whatever the text says.
-    Owns,
-    /// A multi-purpose emitter: used only when the text names no family.
-    Fallback,
-}
-
-/// Emitter mark → family. The mark is the label Claude Code records on every `hook_success`
-/// attachment (`command`): the hook's `statusMessage` when it has one, else its command line.
-/// It is the emitter's OWN identity, so attributing by it infers nothing from the text and
-/// stamps no byte into the injection.
-///
-/// Measured 17/10/2026 over the 3 newest transcripts (13,741 `hook_success`, 23 distinct marks):
-/// text needles alone left 82.8 % of the injected bytes in `other`. The first match wins, and
-/// every needle is checked against the versioned hook registry
-/// (`the_emitter_table_has_no_stale_needle`).
-const EMITTERS: &[(&str, &str, Claim)] = &[
-    ("analyzing blast radius", "pre-edit", Claim::Owns),
-    ("speculative validation", "pre-write", Claim::Owns),
-    ("analyzing file context", "pre-read", Claim::Owns),
-    ("checking command history", "pre-bash", Claim::Owns),
-    ("syntax pre-check", "pre-edit-prevention", Claim::Owns),
-    ("verifying edit quality", "post-edit", Claim::Owns),
-    ("registering new file", "post-write", Claim::Owns),
-    ("evidence_guard.py", "evidence-guard", Claim::Owns),
-    // Hooks that ship with a plugin carry an unexpanded `${CLAUDE_PLUGIN_ROOT}` in the label.
-    ("CLAUDE_PLUGIN_ROOT", "plugin-hook", Claim::Owns),
-    ("prose_integrity_gate.py", "prose-integrity", Claim::Owns),
-    ("check_context.sh", "context-monitor", Claim::Owns),
-    ("delegation-nudge", "delegation-nudge", Claim::Owns),
-    // Multi-purpose emitters: the text decides first (a `cli-suggest` block can be a code-mode
-    // deny, a suggestion or a past lesson); the mark only rescues what the text leaves in `other`.
-    ("touring cli-suggest", "touring-suggest", Claim::Fallback),
-    ("loop_resume.py", "loop-outer", Claim::Fallback),
-    ("touring-hook post-bash", "post-tool-echo", Claim::Fallback),
-];
-
-/// The family an emitter mark claims, and how.
-fn emitter_claim(emitter: &str) -> Option<(&'static str, Claim)> {
-    EMITTERS
-        .iter()
-        .find(|(needle, _, _)| emitter.contains(needle))
-        .map(|(_, family, claim)| (*family, *claim))
-}
-
-/// [`injection_family`] with the emitter's own mark applied — the taxonomy every accounting
-/// path uses (C10). Order: a dedicated emitter owns its output; else the text needles; else the
-/// emitter's fallback; else `other`. A transcript without the mark (older Claude Code) falls
-/// straight to the text, exactly as before.
-#[must_use]
-pub fn attributed_family(text: &str, emitter: Option<&str>) -> &'static str {
-    let claimed = emitter.and_then(emitter_claim);
-    if let Some((family, Claim::Owns)) = claimed {
-        return family;
-    }
-    match injection_family(text) {
-        "other" => claimed.map_or("other", |(family, _)| family),
-        family => family,
-    }
-}
+/// A taxonomia de famílias (a REGUA canônica) migrou para
+/// [`touring_foundation::injection_family`] na S-4 (26/10/2026): esta régua (que
+/// publica `context_budget.by_family` no KPI) e a política nativa
+/// (`touring_foundation::injection_policy`) leem a MESMA tabela — o predicado
+/// escrito duas vezes nunca se encontra, e já custou nove famílias de
+/// divergência contra o espelho Python. Este módulo re-exporta os dois pontos
+/// de entrada para manter os call sites intactos; a tabela, os padrões
+/// compilados e a tabela de emissores vivem lá.
+pub use touring_foundation::injection_family::{attributed_family, injection_family};
 
 /// Actionable propositions carried by a block: lines in the MUST / SHOULD / MAY
 /// shape the injection-density invariant mandates
@@ -974,7 +871,14 @@ pub fn context_budget(project_root: &Path) -> Value {
     let Some(home) = std::env::var_os("HOME") else {
         return json!({"available": false, "reason": "HOME unset"});
     };
-    let dir = transcript_dir_for(Path::new(&home), project_root);
+    context_budget_in(Path::new(&home), project_root)
+}
+
+/// [`context_budget`] against an explicit `home` (the directory that holds
+/// `.claude/`) — the testable body of the IO shell.
+#[must_use]
+pub(crate) fn context_budget_in(home: &Path, project_root: &Path) -> Value {
+    let dir = transcript_dir_for(home, project_root);
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return json!({
             "available": false,
@@ -1039,7 +943,87 @@ pub fn context_budget(project_root: &Path) -> Value {
             .map(|(id, s)| session_summary(id, s))
             .collect(),
     );
+    let scope: BTreeSet<String> = sessions.iter().map(|(id, _)| id.clone()).collect();
+    attach_injection_suppressed(&mut out, home, &scope);
     out
+}
+
+/// What the injection policy kept OUT of the window, per family — S-3
+/// (27/10/2026). The transcript only carries what REACHED the model, so a cut
+/// never shows in `by_family`; the hook processes that make the cut journal it
+/// ([`touring_foundation::injection_journal`]) and this is the read side.
+///
+/// `journal` is the journal's text, or `None` when there is no journal: that is
+/// "not measured", reported as `available: false` and a `null`
+/// `injection_suppressed_by_family` — never as zero cuts. `scope` is the set of
+/// session ids of this project's transcripts: cuts of other projects' sessions
+/// are counted apart, and cuts with no session (the daemon's own) are shown as
+/// `unattributed` instead of being folded into the totals.
+fn injection_suppressed(
+    journal: Option<&str>,
+    scope: &BTreeSet<String>,
+) -> (Value, Value, touring_foundation::injection_journal::Summary) {
+    use touring_foundation::injection_journal::{Summary, summarize};
+    let default_level = touring_foundation::injection_policy::DEFAULT_LEVEL.as_str();
+    let Some(text) = journal else {
+        return (
+            json!({
+                "available": false,
+                "reason": "no injection journal yet (nothing was ever cut, or the policy never ran above `full`)",
+                "default_level": default_level,
+            }),
+            Value::Null,
+            Summary::default(),
+        );
+    };
+    let s = summarize(text, Some(scope));
+    let by_family: serde_json::Map<String, Value> = s
+        .by_family
+        .iter()
+        .map(|(family, t)| (family.clone(), json!({"count": t.count, "bytes": t.bytes})))
+        .collect();
+    let detail = json!({
+        "available": true,
+        "reason": Value::Null,
+        "scope": format!("sessions of this project's {} scanned transcript(s)", scope.len()),
+        // The level is NOT inferred from the absence of lines: `full` writes
+        // none. A level appears here only because a cut was made under it.
+        "default_level": default_level,
+        "levels_seen": s.by_level,
+        "lines": s.lines,
+        "cuts": s.count,
+        "bytes": s.bytes,
+        "by_site_bytes": s.by_site,
+        "unattributed": {"lines": s.unattributed_lines, "bytes": s.unattributed_bytes},
+        "out_of_scope_lines": s.out_of_scope_lines,
+        "malformed_lines": s.malformed_lines,
+    });
+    (detail, Value::Object(by_family), s)
+}
+
+/// Read the journal under `home` and put the S-3 keys into the payload:
+/// `injection_suppressed_by_family` and `injection_suppressed` at the top, and
+/// `injection_suppressed_bytes` on every `by_session` row (`null` while there
+/// is no journal to read).
+fn attach_injection_suppressed(out: &mut Value, home: &Path, scope: &BTreeSet<String>) {
+    let journal = touring_foundation::injection_journal::read_tail(
+        &touring_foundation::injection_journal::journal_path_in(home),
+    );
+    let (detail, by_family, summary) = injection_suppressed(journal.as_deref(), scope);
+    let measured = detail["available"] == json!(true);
+    out["injection_suppressed_by_family"] = by_family;
+    out["injection_suppressed"] = detail;
+    if let Some(rows) = out["by_session"].as_array_mut() {
+        for row in rows {
+            let bytes = row["session_id"]
+                .as_str()
+                .map(|id| summary.by_session.get(id).copied().unwrap_or(0));
+            row["injection_suppressed_bytes"] = match (measured, bytes) {
+                (true, Some(b)) => json!(b),
+                _ => Value::Null,
+            };
+        }
+    }
 }
 
 /// The per-session row of the payload: the same formulas as the project
@@ -1071,6 +1055,10 @@ pub fn session_summary(session_id: &str, s: &ContextBudgetAggregate) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    // A tabela canônica mora em `touring_foundation::injection_family` (S-4); os
+    // testes abaixo são os JUÍZES da paridade com o espelho Python e leem a
+    // tabela de lá — se a tabela mudar, é aqui que a divergência apita.
+    use touring_foundation::injection_family::{EMITTERS, FAMILY_MARKERS, FAMILY_PATTERNS};
 
     /// A minimal transcript: one hook injection repeated, one user turn, one
     /// assistant tool call. Every number below is arithmetic a reader can redo
@@ -1324,18 +1312,19 @@ mod tests {
         assert_eq!(agg.tool_result_bytes, "saida grande".len() as u64);
         assert!(agg.by_family.contains_key("touring-suggest"));
         assert!(
-            agg.by_family.contains_key("other"),
-            "[generic] has no family"
+            agg.by_family.contains_key("generic-noise"),
+            "[generic] tem família própria desde S-3: o catch-all é para o \
+             genuinamente desconhecido, não para o que faltava nomear"
         );
     }
 
     #[test]
     fn a_block_with_no_directive_line_is_counted_as_zero_proposition() {
         let agg = run(&synthetic());
-        let other = &agg.by_family["other"];
-        assert_eq!(other.propositions, 0);
+        let noise = &agg.by_family["generic-noise"];
+        assert_eq!(noise.propositions, 0);
         assert_eq!(
-            other.zero_proposition_blocks, 1,
+            noise.zero_proposition_blocks, 1,
             "[generic] carries no instruction"
         );
         let sug = &agg.by_family["touring-suggest"];
@@ -1434,9 +1423,206 @@ mod tests {
             ("[PROMPT ENHANCEMENT -- DEBUG MODE]", "prompt-enhance"),
             ("⚠ lições de erros passados para esta ação:", "past-lessons"),
             ("temporal: reliability 96% (7d)", "post-tool-echo"),
+            // The families the canonical taxonomy added, each pinned to the
+            // shape that identifies it (S-3, 26/10/2026).
+            (
+                "[CODE MODE — contrato desta sessão · apresentação `code`]",
+                "code-mode-contract",
+            ),
+            ("MUST    touring doctor -j", "session-contract"),
+            (
+                "`cat` exited 0, but its output shows errors after a pipe",
+                "pipefail-evidence",
+            ),
+            ("[generic]", "generic-noise"),
+            (
+                "Contexto em 63% — a autocompactação dispara aos 65%.",
+                "context-monitor",
+            ),
+            (
+                "[COMPACTAÇÃO · lacunas do resumo, medidas no transcript]",
+                "compaction-gaps",
+            ),
+            (
+                "[delegation-nudge] 6 leituras (Read/Grep/Glob) em 6 min",
+                "delegation-nudge",
+            ),
+            (
+                "⚡ last fail: python3 — sqlite3.OperationalError",
+                "post-tool-echo",
+            ),
+            ("failed (exit 1): o comando quebrou", "failure-echo"),
+            ("[E2 contrato] o gate exige", "quality-gate"),
+            (
+                "Similar command failed recently (similarity=57%)",
+                "past-lessons",
+            ),
+            // Genuinely unknown: the catch-all keeps it, and only it.
             ("[gabrielgadea]", "other"),
         ] {
             assert_eq!(injection_family(text), want, "for {text:?}");
+        }
+    }
+
+    /// O DEFEITO que a S-3 conserta (D1): o caminho de **orçamento de turno
+    /// esgotado** emite o payload SEM o cabeçalho que o nomeava. Medido no
+    /// corpus: 3.048 blocos com esse sufixo, e 5.630 blocos de sermão sem
+    /// cabeçalho caíam no catch-all `other` — 19 % do contexto do Touring
+    /// invisível, e era justamente o sermão.
+    ///
+    /// O sufixo é a assinatura do caminho (`turn_budget.rs::directives_only`):
+    /// sobram só as linhas de diretiva, e o cabeçalho vai junto.
+    #[test]
+    fn o_payload_sem_cabecalho_cai_em_touring_suggest_e_nao_no_catch_all() {
+        let elided = "  MUST    touring run --lang bash --code 'ls -la'\n  \
+                      (orçamento do turno esgotado — só as diretivas; \
+                      `TOURING_TURN_BUDGET=<bytes>` ajusta o teto)";
+        assert_eq!(
+            injection_family(elided),
+            "touring-suggest",
+            "o payload sem cabeçalho tem família nomeada — e não `other`"
+        );
+        assert_ne!(injection_family(elided), "other");
+        // A mesma forma sem o sufixo (o bloco completo do suggester) continua
+        // sendo do suggester: a elisão não muda o dono do bloco.
+        assert_eq!(
+            injection_family("  MUST    touring run --lang bash --code 'ls -la'"),
+            "touring-suggest"
+        );
+    }
+
+    /// O melhor bloco do corpus é a razão de deny do gate: frase, verbo, causa,
+    /// mecanismo e kill switch. Ela não tem marcador próprio — a forma é
+    /// `[G<n> …]`, e é isso que a casa.
+    #[test]
+    fn a_razao_de_deny_do_gate_tem_familia_nomeada() {
+        for reason in [
+            "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe leria o status \
+             do último estágio; `set -o pipefail; ` prefixado.",
+            "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; uma varredura \
+             no sandbox devolve só o agregado. Kill switch humano: \
+             TOURING_G8_REWRITE_DISABLED=1.",
+            "[G3 edit-sem-read] Edit de /tmp/x.rs",
+        ] {
+            let family = injection_family(reason);
+            assert_eq!(family, "code-mode-deny", "for {reason:?}");
+            assert_ne!(family, "other");
+        }
+    }
+
+    /// O catch-all `other` é para o que é genuinamente desconhecido — não para o
+    /// que a régua ainda não sabia nomear. Cada família nova é umapopulation
+    /// real do corpus; nenhuma delas pode voltar para `other`.
+    #[test]
+    fn nenhum_payload_conhecido_cai_no_catch_all() {
+        for (text, want) in [
+            (
+                "  MUST    touring run --lang bash --code 'ls -la'",
+                "touring-suggest",
+            ),
+            ("[generic]", "generic-noise"),
+            (
+                "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe",
+                "code-mode-deny",
+            ),
+            ("[COMPACTAÇÃO · lacunas do resumo]", "compaction-gaps"),
+            (
+                "Contexto em 55% — a autocompactação dispara aos 65%.",
+                "context-monitor",
+            ),
+            (
+                "`cat` exited 0, but its output shows errors after a pipe",
+                "pipefail-evidence",
+            ),
+            (
+                "[CODE MODE — contrato desta sessão · apresentação `code`]",
+                "code-mode-contract",
+            ),
+            ("  MUST    touring doctor -j", "session-contract"),
+            (
+                "⚡ last fail: python3 — sqlite3.OperationalError",
+                "post-tool-echo",
+            ),
+            ("failed (exit 1): o comando quebrou", "failure-echo"),
+            ("[E2 contrato] o gate exige", "quality-gate"),
+            ("[delegation-nudge] 6 leituras em 6 min", "delegation-nudge"),
+            (
+                "Similar command failed recently (similarity=57%)",
+                "past-lessons",
+            ),
+        ] {
+            assert_eq!(injection_family(text), want, "for {text:?}");
+            assert_ne!(injection_family(text), "other", "for {text:?}");
+        }
+    }
+
+    /// A política Python é o ESPELHO desta taxonomia — o mesmo predicado escrito
+    /// duas vezes já custou uma divergência de nove famílias. Este teste reprova
+    /// quando os dois lados divergem: é o juiz do "predicado escrito duas vezes".
+    ///
+    /// O predicado escrito duas vezes nunca se encontra — agora tem um judge.
+    #[test]
+    fn the_python_policy_mirrors_this_taxonomy() {
+        const POLICY: &str = include_str!("../../../../client/hooks/injection_policy.py");
+        // O código Python quebra as linhas onde a linha ficou longa; a
+        // comparação é sobre o TEXTO normalizado, para casar a MESMA linha
+        // sem depender da quebra.
+        let flat = POLICY.split_whitespace().collect::<Vec<_>>().join(" ");
+        // 1. As MESMAS linhas de família, na MESMA ordem, com os MESMOS
+        //    marcadores e padrões.
+        for (family, needles) in FAMILY_MARKERS {
+            let row = format!("(\"{family}\", (");
+            assert!(
+                flat.contains(&row),
+                "a política Python não tem a família {family} — a taxonomia divergiu"
+            );
+            for needle in needles.iter() {
+                assert!(
+                    flat.contains(needle),
+                    "a política Python não tem o marcador {needle:?} de {family}"
+                );
+            }
+        }
+        for (family, patterns) in FAMILY_PATTERNS {
+            assert!(
+                flat.contains(&format!("(\"{family}\", re.compile(")),
+                "a política Python não tem o padrão de {family} — a taxonomia divergiu"
+            );
+            for pattern in patterns.iter() {
+                assert!(
+                    flat.contains(pattern),
+                    "a política Python não tem o padrão {pattern:?} de {family}"
+                );
+            }
+        }
+        // 2. Nenhum nome na política que a régua não conheça — um nome órfão
+        //    cai em "permitir" (fail-open) e nada acusa.
+        // 2. Os nomes CANÔNICOS existem na política…
+        for family in [
+            "code-mode-contract",
+            "session-contract",
+            "compaction-gaps",
+            "pipefail-evidence",
+            "generic-noise",
+            "failure-echo",
+            "quality-gate",
+            "past-lessons",
+            "context-monitor",
+            "session-start",
+        ] {
+            assert!(
+                flat.contains(&format!("\"{family}\"")),
+                "a política Python não conhece {family}"
+            );
+        }
+        // …e os nomes OBSOLETOS sumiram dela. Um nome que a régua não conhece
+        // mas a política ainda tem é um nome órfão: `allows()` devolve False
+        // (fail-closed) e o hook para de injetar sem nada dizer por quê.
+        for obsolete in ["similar-fail", "session-start-contract", "compact-warning"] {
+            assert!(
+                !flat.contains(&format!("\"{obsolete}\"")),
+                "a política Python ainda tem o nome obsoleto {obsolete}"
+            );
         }
     }
 
@@ -1475,7 +1661,9 @@ mod tests {
                 .map(|(k, v)| (k.as_str(), v.bytes))
                 .collect::<Vec<_>>()
         );
-        // And the defect is real on this very fixture: text alone leaves the majority in `other`.
+        // O defeito que a S-3 conserta, medido no MESMO fixture: só o texto
+        // deixava a maioria no catch-all. Agora o texto sozinho nomeia o
+        // suficiente, e o que sobra é o genuinamente desconhecido.
         let text_only_other: usize = emitter_fixture_lines()
             .iter()
             .filter_map(|l| serde_json::from_str::<Value>(l).ok())
@@ -1484,18 +1672,28 @@ mod tests {
             .map(|i| i.text.len())
             .sum();
         assert!(
-            text_only_other as f64 / agg.injected_bytes as f64 > 0.50,
-            "the fixture must reproduce the defect (text-only other = {text_only_other} B)"
+            text_only_other as f64 / (agg.injected_bytes as f64) < 0.20,
+            "o texto sozinho não pode mais deixar a maioria no catch-all \
+             (text-only other = {text_only_other} B de {})",
+            agg.injected_bytes
         );
     }
 
     /// Each mark pinned to the family the real record lands in — the table, not a count.
+    ///
+    /// Three of these answers changed in S-3, and each is a CORRECTION, not a
+    /// loss: the payload NAMES its family, and the name is more precise than the
+    /// coarse bucket it used to fall into.
+    /// - the code-mode CONTRACT is not a deny (`code-mode-deny` → `code-mode-contract`);
+    /// - the pipefail evidence is not a post-tool echo (`post-tool-echo` →
+    ///   `pipefail-evidence`);
+    /// - the compaction report is not the outer loop (`loop-outer` → `compaction-gaps`).
     #[test]
     fn every_real_mark_lands_in_its_family() {
         for (mark, want) in [
             ("check_context.sh", "context-monitor"),
-            ("touring-hook post-bash", "post-tool-echo"),
-            ("Code Mode: contrato do SDK", "code-mode-deny"),
+            ("touring-hook post-bash", "pipefail-evidence"),
+            ("Code Mode: contrato do SDK", "code-mode-contract"),
             ("Scout Perpétuo", "loop-outer"),
             ("TACO: batch RL", "post-tool-echo"),
             ("analyzing blast radius", "pre-edit"),
@@ -1511,7 +1709,7 @@ mod tests {
             ("delegation-nudge", "delegation-nudge"),
             ("evidence_guard.py", "evidence-guard"),
             ("prose_integrity_gate.py", "prose-integrity"),
-            ("loop_resume.py", "loop-outer"),
+            ("loop_resume.py", "compaction-gaps"),
             ("painel_ema", "session-start"),
             ("touring cli-suggest", "touring-suggest"),
         ] {
@@ -1854,6 +2052,159 @@ mod tests {
         assert_eq!(
             row["user_turns"],
             budget_from_aggregate(&each[1])["user_turns"]
+        );
+    }
+
+    // ── S-3 (27/10/2026): o que a política de injeção cortou ─────────────────
+
+    /// Um HOME de teste com o diretório de transcripts do projeto e uma sessão
+    /// (arquivo) por id — a régua só precisa que existam.
+    fn home_with_sessions(root: &Path, ids: &[&str]) -> tempfile::TempDir {
+        let home = tempfile::tempdir().expect("tempdir");
+        let dir = transcript_dir_for(home.path(), root);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        for id in ids {
+            std::fs::write(dir.join(format!("{id}.jsonl")), "").expect("write");
+        }
+        home
+    }
+
+    fn write_journal(home: &Path, lines: &[String]) {
+        let path = touring_foundation::injection_journal::journal_path_in(home);
+        std::fs::create_dir_all(path.parent().expect("parent")).expect("mkdir");
+        std::fs::write(path, lines.concat()).expect("write journal");
+    }
+
+    fn cut(family: &'static str, bytes: usize) -> touring_foundation::injection_journal::Cut {
+        touring_foundation::injection_journal::Cut { family, bytes }
+    }
+
+    /// O KPI lê o diário e publica, sob `context_budget`, o contador por
+    /// família (contagem + bytes) — só das sessões DESTE projeto; a sessão de
+    /// outro projeto e o corte sem sessão ficam de fora dos totais, mas
+    /// aparecem, separados.
+    #[test]
+    fn test_kpi_reports_injection_suppressed_by_family() {
+        use touring_foundation::injection_journal::line_for;
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a", "sess-b"]);
+        write_journal(
+            home.path(),
+            &[
+                line_for(
+                    "no-advisory",
+                    "daemon-forward",
+                    Some("sess-a"),
+                    &[cut("touring-suggest", 400), cut("prompt-enhance", 90)],
+                    1,
+                ),
+                line_for(
+                    "no-advisory",
+                    "emit-runtime",
+                    Some("sess-a"),
+                    &[cut("touring-suggest", 120)],
+                    2,
+                ),
+                line_for(
+                    "no-advisory",
+                    "verdict",
+                    Some("sess-b"),
+                    &[cut("pre-bash", 33)],
+                    3,
+                ),
+                line_for(
+                    "off",
+                    "emit-core",
+                    Some("sess-de-outro-projeto"),
+                    &[cut("touring-suggest", 9_999)],
+                    4,
+                ),
+                line_for("no-advisory", "verdict", None, &[cut("pre-bash", 700)], 5),
+            ],
+        );
+
+        let out = context_budget_in(home.path(), root);
+
+        let by_family = &out["injection_suppressed_by_family"];
+        assert_eq!(
+            by_family["touring-suggest"],
+            json!({"count": 2, "bytes": 520})
+        );
+        assert_eq!(
+            by_family["prompt-enhance"],
+            json!({"count": 1, "bytes": 90})
+        );
+        assert_eq!(by_family["pre-bash"], json!({"count": 1, "bytes": 33}));
+
+        let detail = &out["injection_suppressed"];
+        assert_eq!(detail["available"], true);
+        assert_eq!(detail["bytes"], 520 + 90 + 33);
+        assert_eq!(detail["cuts"], 4);
+        assert_eq!(detail["levels_seen"], json!({"no-advisory": 3}));
+        assert_eq!(detail["default_level"], "full");
+        assert_eq!(
+            detail["out_of_scope_lines"], 1,
+            "a sessão de outro projeto não é nossa"
+        );
+        assert_eq!(
+            detail["unattributed"],
+            json!({"lines": 1, "bytes": 700}),
+            "o corte sem sessão aparece, e não entra nos totais"
+        );
+        assert_eq!(detail["by_site_bytes"]["verdict"], 33);
+
+        // A linha de cada sessão carrega os bytes que ELA deixou de receber.
+        let rows = out["by_session"].as_array().expect("by_session");
+        let bytes_of = |id: &str| {
+            rows.iter()
+                .find(|r| r["session_id"] == id)
+                .map(|r| r["injection_suppressed_bytes"].clone())
+        };
+        assert_eq!(bytes_of("sess-a"), Some(json!(610)));
+        assert_eq!(bytes_of("sess-b"), Some(json!(33)));
+    }
+
+    /// Sem diário, o KPI diz «não medido» — `available: false`, o contador por
+    /// família `null` e os bytes por sessão `null` —, nunca «0 cortes».
+    #[test]
+    fn test_kpi_without_a_journal_says_not_measured_not_zero() {
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a"]);
+        let out = context_budget_in(home.path(), root);
+        assert_eq!(out["injection_suppressed"]["available"], false);
+        assert!(out["injection_suppressed_by_family"].is_null());
+        assert!(out["by_session"][0]["injection_suppressed_bytes"].is_null());
+    }
+
+    /// Ponta a ponta com a política REAL: o corte feito por `apply_at` vai ao
+    /// diário pelo escritor de produção, e a leitura do KPI o reencontra — aqui
+    /// sem sessão (o processo de teste não é um hook), logo como `unattributed`.
+    #[test]
+    fn test_policy_cut_reaches_the_kpi_through_the_real_writer() {
+        use touring_foundation::injection_policy::{InjectionLevel, SITE_EMIT_CORE, apply_at};
+        let root = Path::new("/home/x/proj");
+        let home = home_with_sessions(root, &["sess-a"]);
+        let sink = touring_foundation::injection_journal::journal_path_in(home.path());
+        let sermon = "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run";
+        let envelope = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse", "additionalContext": sermon}})
+        .to_string();
+        let _ = apply_at(
+            InjectionLevel::NoAdvisory,
+            SITE_EMIT_CORE,
+            &envelope,
+            Some(&sink),
+        );
+
+        let out = context_budget_in(home.path(), root);
+        assert_eq!(out["injection_suppressed"]["available"], true);
+        assert_eq!(
+            out["injection_suppressed"]["unattributed"],
+            json!({"lines": 1, "bytes": sermon.len()})
+        );
+        assert_eq!(
+            out["injection_suppressed"]["cuts"], 0,
+            "nenhum corte atribuído a este projeto"
         );
     }
 }

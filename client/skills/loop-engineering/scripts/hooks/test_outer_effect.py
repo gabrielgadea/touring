@@ -381,3 +381,43 @@ def test_a_lapide_sobrevive_ao_refresh_e_um_ciclo_novo_fala_de_novo(tmp_path):
     f.write_text(json.dumps(d))
     _write_marker(home, cwd, task="task_1790298226705629625", status="active")
     assert _is_deny(_fire_env(env, payload)), "ciclo novo dispara de novo"
+
+
+# ── the internal deadline (23/10/2026) ───────────────────────────────────────────────
+# The host registers this hook with `timeout: 5` and `onFailure: "block"`. Before the
+# deadline, the subprocess timeouts alone (assess 3 × 8 s, recall + gotcha 2 × 6 s) could
+# add up to 36 s: the host killed the process and `block` turned the promised fail-open
+# into a denial of EVERY edit on a high-blast file (test_escrever_norma_okf.py, 26
+# callers; 6 denials measured on 23/10). A slow `touring` must cost at most the budget.
+
+HOST_TIMEOUT_S = 5.0
+
+
+def _slow_touring(tmp_path):
+    """A `touring` that never answers. `exec` makes the sleeper the process the timeout kills."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    fake = bindir / "touring"
+    fake.write_text("#!/bin/sh\nexec sleep 30\n")
+    fake.chmod(0o755)
+    return f"{bindir}:/usr/bin:/bin"
+
+
+@pytest.mark.parametrize("armado", [False, True], ids=["caminho-de-armar", "caminho-armado"])
+def test_touring_lento_nunca_estoura_o_prazo_do_host(tmp_path, armado):
+    import time
+
+    cwd = tmp_path / "proj"; cwd.mkdir()
+    home = tmp_path / "home"; home.mkdir()
+    if armado:
+        _arm(home, cwd)
+    t0 = time.monotonic()
+    out = _fire(home, {"tool_name": "Edit", "cwd": str(cwd), "session_id": "sess",
+                       "tool_input": {"file_path": str(cwd / "a.rs")}},
+                PATH=_slow_touring(tmp_path))
+    gasto = time.monotonic() - t0
+    assert gasto < HOST_TIMEOUT_S - 0.5, f"hook levou {gasto:.1f} s com touring mudo (prazo do host {HOST_TIMEOUT_S} s)"
+    if armado:
+        # The nudge still goes out, honestly labelled: the recall did not answer.
+        assert _is_deny(out)
+        assert "NÃO respondeu" in json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]

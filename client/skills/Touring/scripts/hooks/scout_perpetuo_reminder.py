@@ -117,14 +117,40 @@ def main() -> int:
         cwd = Path(payload.get("cwd")
                    or os.environ.get("CLAUDE_PROJECT_DIR")
                    or os.getcwd())
-        print(json.dumps({"hookSpecificOutput": {
+        out = json.dumps({"hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": build_context(cwd),
-        }}, ensure_ascii=False))
+        }}, ensure_ascii=False)
+        # S-4p (26/10/2026): dedupe por época via ponte Rust — no RESUME (mesmo
+        # session_id) o lembrete que já consta no transcript é omitido.
+        # Fail-open: qualquer falha devolve o texto intacto.
+        try:
+            sys.path.insert(0, os.path.expanduser("~/.claude/hooks"))
+            import injection_dedup
+            out = injection_dedup.dedup_output(
+                out,
+                session_id=str(payload.get("session_id") or ""),
+                cwd=str(cwd),
+            )
+        except Exception:  # noqa: BLE001 — a dedupe nunca custa o lembrete
+            pass
+        print(out)
     except Exception:  # noqa: BLE001 — fail-open is the hook contract
         pass
     return 0
 
+
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+import sys as _ipsys, pathlib as _ippath
+_ip_spec = _ipsys.path
+_ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
+if _ip_mod_path.exists():
+    import importlib.util as _ipu
+    _ip_sp = _ipu.spec_from_file_location("injection_policy", _ip_mod_path)
+    _ip_m = _ipu.module_from_spec(_ip_sp)
+    _ip_sp.loader.exec_module(_ip_m)
+    if not _ip_m.allows("plugin-hook"):
+        _ipsys.exit(0)
 
 if __name__ == "__main__":
     sys.exit(main())

@@ -180,6 +180,13 @@ def main() -> int:
     """Emite a seção; qualquer erro é silêncio, jamais um bloqueio."""
     if os.environ.get("TOURING_SDK_SECTION_DISABLED") == "1":
         return 0
+    # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
+    import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+    import injection_policy
+    # O nome canônico do contrato do code mode na taxonomia unificada (S-3):
+    # `code-mode-contract` — o mesmo nome que a régua publica.
+    if not injection_policy.allows("code-mode-contract"):
+        return 0
     stub = sdk_stub()
     if not stub:
         # Sem transporte não há contrato a anunciar. Silêncio é a resposta
@@ -187,16 +194,30 @@ def main() -> int:
         return 0
     modo, origem = presentation(os.getcwd())
     body = caber(section(stub, modo, origem))
-    print(
-        json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": "SessionStart",
-                    "additionalContext": body,
-                }
+    out = json.dumps(
+        {
+            "hookSpecificOutput": {
+                "hookEventName": "SessionStart",
+                "additionalContext": body,
             }
-        )
+        }
     )
+    # S-4p (26/10/2026): a seção é BYTE-ESTÁVEL por projeto (ver o cabeçalho),
+    # então no RESUME (mesmo session_id) ela já consta no transcript — a dedupe
+    # por época a omite. Fail-open: qualquer falha devolve o texto intacto.
+    try:
+        payload = json.load(sys.stdin)
+        if not isinstance(payload, dict):
+            payload = {}
+        import injection_dedup
+        out = injection_dedup.dedup_output(
+            out,
+            session_id=str(payload.get("session_id") or ""),
+            cwd=str(payload.get("cwd") or os.getcwd()),
+        )
+    except Exception:  # noqa: BLE001 — a dedupe nunca custa a seção
+        pass
+    print(out)
     return 0
 
 

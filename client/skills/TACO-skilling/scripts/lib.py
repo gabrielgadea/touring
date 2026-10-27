@@ -13,9 +13,10 @@ Importable as a module; running it directly performs an environment self-check.
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any, Iterator, Sequence
 
 HOME = Path.home()
 SKILLS_DIR = HOME / ".claude" / "skills"
@@ -174,6 +175,62 @@ def list_skills(skills_dir: Path | None = None) -> list[dict[str, str]]:
             "description": frontmatter.get("description", ""),
         })
     return skills
+
+
+def default_skill_dirs(
+    extra: Sequence[Path | str] = (),
+    project: Path | str | None = None,
+    cwd: Path | None = None,
+) -> list[Path]:
+    """Return the directories searched for a skill, highest priority first.
+
+    Order: ``extra`` (explicit ``--skills-dir``), ``<project>/.claude/skills``
+    (explicit ``--project``), ``<cwd>/.claude/skills`` (a PROJECT skill is found
+    when the audit runs from its project root), then ``~/.claude/skills``. Looking
+    only at the last was the defect that made every project skill "not installed".
+    """
+    dirs: list[Path] = [Path(d).expanduser() for d in extra]
+    if project is not None:
+        dirs.append(Path(project).expanduser() / ".claude" / "skills")
+    dirs.append((cwd or Path.cwd()) / ".claude" / "skills")
+    dirs.append(SKILLS_DIR)
+    unique: list[Path] = []
+    for directory in dirs:
+        if directory not in unique:
+            unique.append(directory)
+    return unique
+
+
+def is_path_ref(ref: str) -> bool:
+    """Return True when a skill reference is a filesystem path rather than a bare name."""
+    return os.sep in ref or ref.startswith(("~", "."))
+
+
+def find_skill(ref: str, skills_dirs: Sequence[Path] | None = None) -> dict[str, str] | None:
+    """Resolve a skill reference to ``{name, dir, description}``, or ``None``.
+
+    ``ref`` is either a path (it contains a separator or starts with ``~``/``.``;
+    the skill directory or its SKILL.md) or a bare name matched — against the
+    frontmatter ``name`` or the directory name — in each of ``skills_dirs`` in
+    order (default: :func:`default_skill_dirs`). First match wins.
+    """
+    if is_path_ref(ref):
+        candidate = Path(ref).expanduser()
+        skill_dir = candidate.parent if candidate.name == "SKILL.md" else candidate
+        skill_md = skill_dir / "SKILL.md"
+        if not skill_md.is_file():
+            return None
+        frontmatter = read_frontmatter(skill_md)
+        return {
+            "name": frontmatter.get("name", skill_dir.name),
+            "dir": str(skill_dir),
+            "description": frontmatter.get("description", ""),
+        }
+    for root in skills_dirs if skills_dirs is not None else default_skill_dirs():
+        for installed in list_skills(root):
+            if installed["name"] == ref or os.path.basename(installed["dir"]) == ref:
+                return installed
+    return None
 
 
 def _self_check() -> int:

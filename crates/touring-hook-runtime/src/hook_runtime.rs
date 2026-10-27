@@ -25,6 +25,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 use std::sync::RwLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tokio::sync::broadcast::Receiver;
@@ -105,6 +106,47 @@ pub enum HookResponse {
         updated_input: serde_json::Value,
     },
 }
+/// S-4p (26/10/2026) — o escopo de dedupe da rota STANDALONE: (raiz, sessão).
+///
+/// O daemon dedupa a saída de todo handler em `maybe_dedup_output`
+/// (touring-dispatch/src/daemon.rs); a rota standalone — daemon fora do ar,
+/// timeout de 3 s, `TOURING_NO_DAEMON` — imprimia sem dedupe, e é por ela que
+/// as famílias Rust (`session-contract` 95,8%, `similar-fail` 92,3%,
+/// `pipefail-evidence` 90,5% de excedente no corpus de 400 sessões) repetiam
+/// quando o daemon caía. O cliente `touring-hook` grava o escopo UMA vez, só
+/// ao entrar na rota standalone; o processo do daemon nunca o define — a
+/// dedupe da resposta dele JÁ aconteceu no daemon, e dedupar de novo
+/// esvaziaria a 1ª emissão (as linhas restantes já constam no estado) — então
+/// o `emit()` dedupa EXCLUSIVAMENTE na rota standalone. Unset ⇒ bytes
+/// idênticos aos de antes da S-4p.
+static DEDUP_SCOPE: OnceLock<(PathBuf, String)> = OnceLock::new();
+
+/// Grava o escopo de dedupe da rota standalone. A primeira chamada vence;
+/// sessão vazia não grava (sem sessão não há arquivo de estado por época, e
+/// a dedupe não teria chave).
+pub fn set_dedup_scope(root: PathBuf, session: &str) {
+    if !session.is_empty() {
+        let _ = DEDUP_SCOPE.set((root, session.to_string()));
+    }
+}
+
+/// O escopo gravado, se houver — lido pelo `HookResponse::emit` e pelo
+/// `task-completed` standalone.
+pub fn dedup_scope() -> Option<&'static (PathBuf, String)> {
+    DEDUP_SCOPE.get()
+}
+
+/// O miolo testável da dedupe do `emit`: com escopo, devolve o JSON com as
+/// repetições da época omitidas; sem escopo (rota daemon, testes, binários
+/// que não o gravaram), devolve o JSON intacto — fail-open por construção.
+fn dedup_with_scope(json: &str, scope: Option<&(PathBuf, String)>) -> String {
+    match scope {
+        Some((root, session)) => {
+            touring_hooks_shared::injection_dedup::dedup_hook_output(root, session, json)
+        }
+        None => json.to_string(),
+    }
+}
 impl HookResponse {
     /// Serialize this response to stdout and call `process::exit(0)`.
     ///
@@ -121,9 +163,37 @@ impl HookResponse {
             crate::hook_trace::set_reason("emit-allow");
         } else {
             crate::hook_trace::set_reason("emit-json");
-            println!("{}", self.to_json());
+            // S-2 (27/10/2026): a política de injeção primeiro, a dedupe depois
+            // — assim o estado de época só registra o que de fato chegou ao
+            // modelo. S-4p (26/10/2026): na rota standalone (escopo gravado
+            // pelo cliente), a saída passa pela MESMA dedupe de época do
+            // daemon — sem escopo, os bytes são idênticos aos de sempre.
+            let (level, sink) = touring_foundation::injection_policy::current();
+            println!(
+                "{}",
+                self.stdout_text(level, sink.as_deref(), dedup_scope())
+            );
         }
         std::process::exit(0);
+    }
+    /// O texto exato que [`HookResponse::emit`] escreve no stdout: a
+    /// serialização, a política de injeção (`level`, registrando o corte em
+    /// `sink`) e a dedupe de época (`scope`). Separado de `emit` — que sai do
+    /// processo — para ser testável.
+    pub(crate) fn stdout_text(
+        &self,
+        level: touring_foundation::injection_policy::InjectionLevel,
+        sink: Option<&Path>,
+        scope: Option<&(PathBuf, String)>,
+    ) -> String {
+        let json = self.to_json();
+        let json = touring_foundation::injection_policy::apply_at(
+            level,
+            touring_foundation::injection_policy::SITE_EMIT_RUNTIME,
+            &json,
+            sink,
+        );
+        dedup_with_scope(&json, scope)
     }
     /// Build a context response with event name.
     pub fn context_with_event(context: impl Into<String>, event_name: impl Into<String>) -> Self {

@@ -1,0 +1,323 @@
+{
+  "answer": "### Patterns for Hook and Gate Deny Messages\n\nWhen autonomous agents or AI coding tools attempt actions that violate routing rules, safety policies, or resource boundaries, programmatic hooks and architectural gates intercept those calls [1, 2]. Rather than simply throwing opaque error codes, system designs employ structured deny messages paired with instruction files to teach the agent the correct alternative path [1, 3].\n\n#### 1. Dual-Layer Enforcement (Programmatic Hooks + Instruction Files)\nA primary pattern seen in multi-platform agent gateways is combining **hard programmatic interception** with **soft instruction context** [1, 3]. \n* **The Interception Layer**: Tools like `context-mode` use `PreToolUse` or `tool_call` hooks to intercept disallowed tool invocations (such as raw `curl`, `Playwright`, or un-sandboxed shell calls) [1, 4, 5]. On platforms like OpenCode or KiloCode, hooks enforce hard blocks (`{ block: true, reason }` or `permissionDecision: \"deny\"`) [5-7].\n* **The Alternative Route Guidance**: When a hook blocks a tool, it relies on companion system files (such as `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md`) to inform the model *why* the command was denied and *which* alternative tools to use [1, 3]. As noted in `context-mode`, without an explicit instruction file, the hook still enforces the denial, but the model cannot discern the reason or locate the sandbox tools (e.g., `ctx_execute` or `ctx_batch_execute`) designed to replace raw execution [1, 3].\n\n#### 2. Periodic Context Nudging\nDuring long agent sessions, prompt context can compact or decay, causing the agent to forget prior deny instructions [8]. To counteract this, hook systems implement **cadenced re-injection** [8]. For instance, `context-mode` uses `CONTEXT_MODE_EXTERNAL_MCP_NUDGE_EVERY` to re-inject guidance (e.g., \"wrap large external-MCP payloads in `ctx_execute`\") into the model's recent context window every \\\\(N\\\\) tool calls, maintaining routing compliance throughout extended sessions [8].\n\n#### 3. Boundary Containment with Actionable Remedy Messages\nWhen an agent attempts a path-traversal or out-of-workspace file read (such as accessing `/home/user/secrets` or `../../`), system guards refuse the request with explicit, actionable errors such as `\"File access blocked\"` [9, 10]. The error message explicitly informs the agent or user that accessing the path requires configuring a specific `permissions.allow` rule (e.g., `Read(/var/log/**)`) matching the host platform's permissions schema [10].\n\n#### 4. The \"Verifier-is-the-Gradient\" Pattern for Task Supervision\nIn task-execution supervisors like `claudectl`, gate denials use structured failure feedback to guide retries [11, 12]. When an automated verifier (such as a build check, unit test, or critic agent) evaluates a task as `FAIL`, the raw verifier failure output is injected directly into the retry prompt for the next attempt [11, 12]. This provides a negative feedback gradient that explicitly details what went wrong and how the agent must adjust its approach [11, 12].\n\n#### 5. Explicit Retry-Prevention & Escalation Headers\nWhen an agent or client hits a hard gate or rate limit, gateways prevent infinite retry loops by sending structural signals:\n* **Circuit Breakers**: Systems like `tokio-prompt-orchestrator` return `503 circuit_open` responses containing `x-should-retry: false` and `Retry-After` headers [13, 14]. This explicitly signals the downstream SDK/agent to fail fast and halt automated retries until the breaker closes [13, 14].\n* **Confidence & Fallback Escalation**: Decision engines like `Laya` evaluate outputs against confidence thresholds (`min_confidence`) [15, 16]. When an answer falls below the required threshold, the result is flagged with `low_confidence: True` or `abstention: \"abstained\"` [16, 17]. The deny/abstain state triggers an explicit fallback action—such as `escalate_to_human_agent` or routing to a human review queue—rather than letting the agent guess [15, 16].\n* **Typed Task Invalidation**: In `claudectl`'s task supervisor, when a dependency fails or max retries are exhausted, the task transitions to `NEEDS_HUMAN` with a typed failure reason (e.g., `dependency_cancelled:<name>`), preventing unguided execution loops [18].\n\n---\n\n### Measurement of Agent Behavior After Denial\n\n**The sources do not contain quantitative empirical measurements or benchmark studies specifically comparing the exact distribution of agent outcomes (recovery vs. retry vs. abandonment) following hook or gate denials.** They do, however, document the telemetry architectures, event schemas, and tracking mechanisms used to monitor these behaviors [19-21].\n\n#### Captured Behaviors and Monitoring Metrics in the Sources\n\nWhile global percentages of recovery vs. abandonment are not reported, several frameworks track and log these events during execution:\n\n1. **Iteration Loops & Error-Fix Resolution**: `context-mode` records detailed session event categories via `PostToolUse` and `UserPromptSubmit` hooks [19]:\n   * **`Rejected Approaches`**: Logs tool calls explicitly denied by the user or hook [19].\n   * **`Iteration Loops`**: Automatically flags when an agent calls the same tool 3+ times with similar inputs (retry loop detection) [19].\n   * **`Error Resolution`**: Tracks `Error → Fix` pairs across sequential tool calls to measure whether an agent successfully recovered from a tool failure or error state [19].\n   * **`Constraints` & `Blockers`**: Captures discovered permission limitations and open dependencies [19].\n\n2. **Session Health & Loop Detection Metrics**: `claudectl` monitors active sessions for failure patterns, surfacing them on metrics dashboards and Prometheus endpoints (`claudectl_retries_total`, `claudectl_verifier_pass_rate`) [20, 21]:\n   * **`Loop detection`**: Identifies tools failing repeatedly in retry loops [20].\n   * **`Stall detection`**: Flags sessions that continue consuming tokens/money without producing file edits or progress [20].\n   * **`Max Retries to Human Escalation`**: Tracks task state transitions from repeated verifier failures (`FAIL`) up to `max_retries`, at which point the system forces abandonment of automated attempts and transfers the state to `NEEDS_HUMAN` [11, 18].\n\n3. **Abstention and Correction Tracking**:\n   * `Laya` tracks abstention rates across evaluation runs via structured output fields (`abstention: \"passed\" | \"abstained\" | \"unevaluated\"`), allowing systems to audit how often confidence gates withhold automated execution [17, 22].\n   * `claudectl` tracks an **Impact Scorecard** measuring auto-handled decisions, dangerous operations blocked, and human correction rates (e.g., correction rate dropping from 8.4% to 2.1%) [23].\n\n---\n\n💡 **Next Step**: Would you like to explore how to design a custom `PreToolUse` hook script in Python or TypeScript to enforce path containment and tool re-routing for your specific coding agent setup?",
+  "question": "What patterns exist for hook or gate deny messages that teach the agent the correct alternative route? Is there any measurement of what agents do after a denial (recovery vs retry vs abandonment)?",
+  "conversation_id": "74048fd3-d93b-4219-92ad-3f7d5063daa1",
+  "sources_used": [
+    "0babbd43-35ec-420d-b185-9292dd35173d",
+    "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "fad630a9-3003-4a5d-ac4c-c97ac0e36054"
+  ],
+  "citations": {
+    "1": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "2": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "3": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "4": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "5": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "6": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "7": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "8": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "9": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "10": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "11": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "12": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "13": "fad630a9-3003-4a5d-ac4c-c97ac0e36054",
+    "14": "fad630a9-3003-4a5d-ac4c-c97ac0e36054",
+    "15": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "16": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "17": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "18": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "19": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "20": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "21": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+    "22": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+    "23": "2fc0259b-ade0-4b14-8498-4324e5c86690"
+  },
+  "references": [
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 1,
+      "cited_text": "Routing Enforcement Hooks intercept tool calls programmatically — they can block dangerous commands and redirect them to the sandbox before execution. Instruction files guide the model via prompt instructions but cannot block anything. Always enable hooks where supported. Note: Routing instruction files were previously auto-written to project directories on first session start. This was disabled to prevent git tree pollution ( #158 , #164 ). Hook-capable platforms (Claude Code, Gemini CLI, VS Code Copilot, JetBrains Copilot, GitHub Copilot CLI, Cursor, OpenCode, OpenClaw, Codex CLI, Antigravity CLI for bounded tool hooks, Kiro for tool hooks, OMP via plugin) inject or enforce routing without writing files. Platforms without hook support — Zed and Antigravity IDE — require a one-time manual copy of the routing file; see each platform's install section."
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 2,
+      "cited_text": "Spend Control Auto-Rules Rules support matching by tool, command, project, cost, and error state. Deny rules always take precedence."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 3,
+      "cited_text": "The plugin entry registers all 11 ctx_* tools natively and enables hooks — OpenCode calls context-mode's TypeScript plugin in-process, so there is no redundant stdio MCP child per session. 2. (Optional) Copy the routing rules file. The model needs an AGENTS.md file for routing awareness: This tells the model which tools to use and which commands are blocked. Without it, hooks still enforce routing — but the model won't know why a command was denied. 3. Restart OpenCode."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 4,
+      "cited_text": "Restart Gemini CLI. Verify: You should see context-mode: ... - Connected . Routing: Automatic via SessionStart hook. Optionally copy routing instructions for full model awareness: Why the BeforeTool matcher? It targets only tools that produce large output ( run_shell_command , read_file , read_many_files , grep_search , search_file_content , web_fetch , activate_skill ) plus context-mode's own tools ( mcp__plugin_context-mode ). This avoids unnecessary hook overhead on lightweight tools while intercepting every tool that could flood your context window."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 5,
+      "cited_text": "Project-scoped alternative: cp ....omp/SYSTEM.md . OMP also auto-discovers any AGENTS.md in the project tree. 4. Restart OMP. Verify (any path): In an OMP session, type ctx stats . Context-mode tools should appear and respond. Routing: Plugin path — programmatic enforcement via four pi.on(...) handlers ( tool_call returns { block: true, reason } for curl / wget /inline-fetch per upstream hooks/types.ts:566 , tool_result captures session events, session_start initializes the per-session DB row, session_before_compact persists a resume snapshot). ~98% compliance, parity with Claude Code hooks. MCP-only path — rule-based via SYSTEM.md , ~60% compliance. Auto-detected via PI_CODING_AGENT_DIR env var or presence of ~/.omp/ . Storage roots at ~/.omp/context-mode/ so OMP and Pi installs never share session DBs, content indices, or stats files."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 6,
+      "cited_text": "PreToolUse enforces deny/block routing today and is prepared for input rewrites once Codex supports them. PostToolUse captures session events. PreCompact builds the resume snapshot before compaction. SessionStart restores state after compaction. UserPromptSubmit captures user decisions and corrections. Stop records turn-end state. Note: Codex PreToolUse routing currently supports deny rules only (blocks dangerous commands). It still needs upstream updatedInput support before context-mode can rewrite tool input; track openai/codex#18491 . Context injection ( additionalContext ) is not supported in Codex PreToolUse — it works via PostToolUse and SessionStart instead. This is handled automatically. PreCompact support is runtime-gated: it is present in Codex CLI 0.130.0, while the public Codex hooks docs may lag the shipped hook-event list. Older Codex builds that do not emit PreCompact will not create pre-compaction snapshots. 4. Copy routing instructions (recommended even with hooks for full routing awareness):"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 7,
+      "cited_text": "Restart Kimi Code CLI and verify MCP with ctx stats . Note: Kimi Code uses the same JSON stdin/stdout wire protocol as Codex, but accepts additionalContext , updatedInput , and permissionDecision: \"ask\" in PreToolUse responses (Codex rejects these). The kimi hook normalizes ContentPart[] prompt arrays to strings for downstream extractors. (Optional) Copy the routing instructions file for your project: Or for global use:"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 8,
+      "cited_text": "Cadence (in tool calls) at which the PreToolUse hook re-injects the \"wrap large external-MCP payloads in ctx_execute \" guidance. The original implementation ( #529 ) fired only once per session, which got lost after context compaction in MCP-heavy sessions (e.g. 50+ Jira/Slack/Notion calls — see #567 follow-up). The default re-fires every 10th matching call, keeping the guidance in the model's recent window. Range [1, 100] ; invalid values fall back to 10 . Set to 1 for \"every call\" (most aggressive — adds ~250 tokens/call) or to a larger value for less frequent reminders."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 9,
+      "cited_text": "The pattern is Tool(what to match) where * means \"anything\". Commands chained with && , ; , or | are split — each part is checked separately. echo hello && sudo rm -rf /tmp is blocked because the sudo part matches the deny rule. deny always wins over allow . More specific (project-level) rules override global ones. Project-boundary containment ctx_execute_file is confined to the project root. A path that resolves outside the workspace — an absolute path like /home/user/secrets , a ../../ traversal, or a project-local symlink whose target escapes the project — is refused with a File access blocked error. This closes the #852 escape vector where an agent, denied an out-of-project read by the host sandbox, retried through the MCP sandbox (the host's MCP approval prompt cannot inspect the tool's input params, so the escape was invisible to the approver)."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 10,
+      "cited_text": "The guard is on by default and requires no configuration. To intentionally process a file outside the project (e.g. a shared log under /var/log ), opt that path back in with the same permissions.allow rule you already use for the host Read tool — there is no context-mode-specific env flag: context-mode honors that allow rule (read from your .claude/settings.json / ~/.claude/settings.json ) exactly as Claude Code does, so an out-of-project grant lives in one place and stays meaningful."
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 11,
+      "cited_text": "Tasks are submittable three ways: this CLI, a task.created bus message addressed to the supervisor role, or the submit_task MCP tool from inside a Claude Code session. All three land as the same SQLite row. Three load-bearing properties from the design spec: Cattle vs. pets — a task survives the death of the session executing it; the next attempt is a fresh session that reads the recovery context (original prompt + autopsy + prior verifier failures + tree-state drift warning). Crash-safe by construction — kill the headless daemon mid-tick, restart, and observed state re-converges from ~/.claudectl/coord/coord.db . The ledger is the source of truth. Fail-closed verifiers — a brain/agent verifier whose reply lacks the leading PASS / FAIL: marker is treated as FAIL. RFC §5 calls this the verifier-is-the-gradient principle: every FAIL output becomes the retry prompt the next attempt sees."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 12,
+      "cited_text": "noul takes the strongest window (the statement holds if any window supports it). choice / score take the most-confident window — averaging over a long, mostly-neutral document lets the neutral majority out-vote the one window that saw the deciding span. A state that already fits one window is passed straight to system_one (identical output, plus usage[\"windows\"] = 1 ). Without an explicit window , that is any state the questions leave room for, since system_one reads it whole. The key is total: 1 single window, N scanned windows, 0 a hook answered the document before the model read any of it. Hooks wrap the inference that answers the state, so on a scanned document on_predict_start fires once with ctx.states holding the decoded windows, not the state you passed in (it was tokenized to produce them). A start hook may replace that list: the answers are aggregated over whatever reached inference, and usage[\"windows\"] counts those states. What a rewritten scan costs is the attribution — answer[\"window\"] names a span of your document, so it is only reported when the scan reached inference unchanged. A hook that means to answer the document calls ctx.skip(...) instead: its result comes back with no answer[\"window\"] and usage[\"windows\"] at 0, because no window scored it."
+    },
+    {
+      "source_id": "fad630a9-3003-4a5d-ac4c-c97ac0e36054",
+      "citation_number": 13,
+      "cited_text": "The orchestrator answers with the provider and model it was started with ( --provider openai --model gpt-4o-mini , say), whatever model the request names. Errors come back in OpenAI's format: 503 while the breaker is open (with x-should-retry: false , so the SDK does not retry it), 429 at the spend cap. Details, auth and limits: docs/REFERENCE.md . For OpenAI models the token counts in usage (and so the spend cap) come from the model's own tokenizer, so they match your OpenAI bill. Other models get an estimate of about 4 characters per token, which is what you see from echo above."
+    },
+    {
+      "source_id": "fad630a9-3003-4a5d-ac4c-c97ac0e36054",
+      "citation_number": 14,
+      "cited_text": "When the breaker is open, refused requests come back as 503 circuit_open with x-should-retry: false and a Retry-After set to when the breaker will try the provider again. The OpenAI and Anthropic SDKs read x-should-retry , so they fail at once instead of retrying a request that cannot succeed yet. Answer from your own documents orchestrator --docs ./my-docs indexes the Markdown and text files in a folder ( tantivy BM25 search with English stemming, in memory) and sends the best passages, with their file names, in front of each question. Real run with --provider echo , which shows exactly what the model receives:"
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 15,
+      "cited_text": "Automated Confidence Gating Because Laya's probabilities are trained with strictly proper scoring rules (RLCD), confidence scores are statistically meaningful:"
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 16,
+      "cited_text": "Opt-in abstention: min_confidence predict , predict_batch , system_one , decide and decide_batch — on Agent , Router and ONNXAgent — take an opt-in min_confidence , off by default: a number, or a per-bucket map. It is a caller-side policy on top of the emitted confidence: every answer whose answer_confidence falls below its threshold is flagged low_confidence: True , with the raw answer, probabilities and confidence left intact for inspection."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 17,
+      "cited_text": "<cited_table> Left without min_confidence , the response is byte-for-byte what it was before any of this: no abstention , no abstention_threshold , no flag. That is deliberate — a field on every answer that only some calls populate is a schema change for callers who never asked to be gated. The presence of abstention is how you tell a gated run from an ungated one; a min_confidence of exactly 0.0 still counts as set, so it reports states, and flag_low_confidence treats 0.0 as a no-op because nothing can fall below it.",
+      "cited_table": {
+        "num_columns": 2,
+        "rows": [
+          [
+            "abstention",
+            "meaning"
+          ],
+          [
+            "passed",
+            "a gate ran and this answer's"
+          ],
+          [
+            "abstained",
+            "a gate ran and this answer's"
+          ],
+          [
+            "unevaluated",
+            "a gate ran and this answer carried no usable confidence, so the gate could not decide"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 18,
+      "cited_text": "When a verifier fails, the task goes back to work in the same worktree with the failing verifier's output added to its prompt, up to max_retries ; after that it's NEEDS_HUMAN. A session that dies is resumed with a prompt that tells it to assess the worktree before continuing. A task with depends_on starts once each dependency is DONE, and its prompt names each dependency's branch and closing summary; if a dependency is cancelled or needs a human, the tasks after it move to NEEDS_HUMAN with the reason ( dependency_cancelled:<name> )."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 19,
+      "cited_text": "What gets captured Every tool call passes through hooks that extract structured events: <cited_table>",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Category",
+            "Events",
+            "Priority",
+            "Captured By"
+          ],
+          [
+            "Files",
+            "read, edit, write, glob, grep",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Tasks",
+            "create, update, complete",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Plans",
+            "enter, exit, approved, rejected, file write",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Rules",
+            "CLAUDE.md / GEMINI.md / AGENTS.md paths + content",
+            "Critical (P1)",
+            "SessionStart"
+          ],
+          [
+            "User Prompts",
+            "Every user message (for last-prompt restore)",
+            "Critical (P1)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Decisions",
+            "User corrections, preferences (\"use X instead\", \"don't do Y\")",
+            "High (P2)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Git",
+            "checkout, commit, merge, rebase, stash, push, pull, diff, status",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Errors",
+            "Tool failures, non-zero exit codes",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Error Resolution",
+            "Error → fix pairs detected across sequential tool calls",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Constraints",
+            "Discovered limitations (\"not supported\", \"permission denied\")",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Blockers",
+            "\"blocked on\", \"waiting for\", \"depends on\" — tracked until resolved",
+            "High (P2)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Rejected Approaches",
+            "Tool calls denied by user (PreToolUse → PostToolUse marker)",
+            "High (P2)",
+            "PreToolUse"
+          ],
+          [
+            "Environment",
+            "cwd changes, venv, nvm, conda, worktree, package installs",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Agent Findings",
+            "Completed subagent results (first 500 chars)",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Iteration Loops",
+            "Same tool called 3+ times with similar input (retry detection)",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Latency",
+            "Tool calls exceeding 5s (tool name + duration in ms)",
+            "Normal (P3)",
+            "PreToolUse"
+          ],
+          [
+            "MCP Tools",
+            "All",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Subagents",
+            "Agent tool launches and completions",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Skills",
+            "Slash command invocations",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "External Refs",
+            "URLs, GitHub issue references (#123), deduped",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Role",
+            "Persona / behavioral directives (\"act as senior engineer\")",
+            "Normal (P3)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Intent",
+            "Session mode classification (investigate, implement, review)",
+            "Low (P4)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Data",
+            "Large user-pasted data references (>1 KB)",
+            "Low (P4)",
+            "UserPromptSubmit"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 20,
+      "cited_text": "Session Health Monitoring Continuously checks each session and surfaces problems in the dashboard: Cognitive decay — composite 0-100 score tracking degradation over time Proactive compaction — suggests /compact at 50% context, before the 80/90% thresholds Cost spikes — flags when burn rate exceeds the session average Loop detection — catches tools failing repeatedly in retry loops Stall detection — sessions spending money but producing no edits File conflicts — detects when multiple sessions edit the same file"
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 21,
+      "cited_text": "Metrics (team observability): claudectl supervisor metrics serves a Prometheus /metrics endpoint on 127.0.0.1:9464 ( claudectl_tasks_by_state , claudectl_fleet_cost_usd_total , claudectl_retries_total , claudectl_verifier_pass_rate ) that Grafana or Datadog scrape with no claudectl-specific glue. Each scrape reads the coord DB fresh (WAL), so it runs safely alongside the reconciler. A ready dashboard and the full recipe live in docs/team-observability.md . Policy as code (team guardrails): commit a .claudectl/policy.toml to the repo and its [deny] commands/tools are enforced by the brain gate at the highest precedence — a developer can't soften them by editing local config. Scaffold with claudectl --policy init , inspect with claudectl --policy . See docs/policy-as-code.md ."
+    },
+    {
+      "source_id": "bbccbb62-b7c8-4e34-9350-94626e632d0a",
+      "citation_number": 22,
+      "cited_text": "With decide(..., min_confidence=...) a low-confidence field comes back as None in the schema output, while return_details=True keeps the answer and its confidence. LangChain LayaRouter 's confidence_threshold reads the same value: answer_confidence when the answer carries it, confidence otherwise. Left unset, min_confidence changes nothing. A gate is a policy, and a policy whose application you cannot observe is not one. low_confidence is written only when the gate fires, so its absence cannot tell you \"a gate ran and this answer cleared it\" apart from \"no gate ran at all\" — you could neither compute an abstention rate nor prove the gate was in effect. When you pass min_confidence , every answer therefore also reports abstention :"
+    },
+    {
+      "source_id": "2fc0259b-ade0-4b14-8498-4324e5c86690",
+      "citation_number": 23,
+      "cited_text": "~6MBbinary(fullfeatures,Homebrewbottle).Sub-50msstartup.Zeroconfigrequired. Website | Docs | Blog: Why a local brain? | Releases What it does for you Run claudectl --brain-stats impact to see your numbers:"
+    }
+  ]
+}

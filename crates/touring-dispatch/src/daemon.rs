@@ -516,9 +516,11 @@ const KPI_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 /// da vez), então a dedupe por bloco deixava as seções estáticas viajarem a
 /// cada chamada. Medido: 894 B de conselho por chamada em 8.864 chamadas.
 /// Fail-open: sem `session_id` no envelope, ou output não-JSON, passa intacto.
-/// O caminho standalone (daemon fora, `forward_daemon_output` no main.rs) fica
-/// sem dedupe — fallback raro, decisão declarada no brief da S8
-/// (docs/plans/2026-10-08-compactacao-65/ESTADO-S8-dedupe-origem.md).
+/// S-4p (26/10/2026): o caminho standalone (daemon fora) ganhou a MESMA dedupe —
+/// o cliente grava o escopo (raiz, sessão) ao cair na rota standalone e o
+/// `HookResponse::emit` dedupa por ele (`set_dedup_scope` em
+/// touring-hook-runtime/src/hook_runtime.rs); este processo nunca o define,
+/// logo a resposta do daemon nunca é dedupada duas vezes.
 fn maybe_dedup_output(
     runtime: &HookRuntime,
     payload: &serde_json::Value,

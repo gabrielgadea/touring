@@ -49,6 +49,13 @@ elif [[ "${doc_count}" -gt 0 ]]; then
 fi
 
 if [[ -n "${MSG}" ]]; then
+    # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
+    # Only rc 1 (policy denies) silences the hook; a missing or broken policy
+    # (rc 2) must not (27/10/2026).
+    python3 "$HOME/.claude/hooks/injection_policy.py" --allows post-tool-echo >/dev/null 2>&1 && _ip_rc=0 || _ip_rc=$?
+    if [[ "${_ip_rc}" -eq 1 ]]; then
+        exit 0
+    fi
     # Emit via hookSpecificOutput.additionalContext so the model sees it (S41).
     MSG_ESC=$(printf '%s' "${MSG}" | sed 's/\\/\\\\/g; s/"/\\"/g')
     printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"%s"}}\n' "${MSG_ESC}"

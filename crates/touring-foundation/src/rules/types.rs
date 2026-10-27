@@ -62,8 +62,7 @@ impl RuleSet {
     /// Load a [`RuleSet`] from a YAML file.
     pub fn load_from_file(path: &PathBuf) -> super::Result<Self> {
         let content = std::fs::read_to_string(path)?;
-        let ruleset: RuleSet = serde_yaml::from_str(&content)?;
-        Ok(ruleset)
+        Self::parse(&content)
     }
 
     /// Parse a [`RuleSet`] from YAML string content.
@@ -628,6 +627,27 @@ rules:
     fn test_ruleset_load_missing_file_returns_err() {
         let result = RuleSet::load_from_file(&PathBuf::from("/no/such/path/qzz.yaml"));
         assert!(result.is_err(), "expected Err for missing file");
+    }
+
+    /// REQUIREMENT RuleSet::load_from_file is `read_to_string` + `parse` — same rules,
+    /// and the same error for malformed content (27/10/2026: the YAML body used to be
+    /// duplicated in both, and `parse` had no production caller).
+    /// BOUNDARY a valid file and a file whose body is malformed
+    #[test]
+    fn test_ruleset_load_from_file_matches_parse_on_valid_and_malformed_content() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let yaml = "rules:\n  - name: from-file\n    pattern: \"foo\"\n    languages: [rust]\n";
+        let valid = dir.path().join("rules.yaml");
+        std::fs::write(&valid, yaml).expect("write valid");
+        let loaded = RuleSet::load_from_file(&valid).expect("valid file loads");
+        let parsed = RuleSet::parse(yaml).expect("same content parses");
+        assert_eq!(loaded.rules.len(), 1);
+        assert_eq!(loaded.rules[0].name, "from-file");
+        assert_eq!(loaded.rules[0].name, parsed.rules[0].name);
+
+        let broken = dir.path().join("broken.yaml");
+        std::fs::write(&broken, "rules: not_an_array").expect("write broken");
+        assert!(RuleSet::load_from_file(&broken).is_err());
     }
 
     /// REQUIREMENT RuleSet::parse errors on malformed YAML

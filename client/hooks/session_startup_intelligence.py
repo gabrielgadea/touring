@@ -68,6 +68,20 @@ from pathlib import Path
 from typing import Any
 
 HOOK_NAME = "SessionStart"
+
+
+def _dedup_epoch(out: str, session_id: str = "", cwd: str = "") -> str:
+    """S-4p (26/10/2026): dedupe por época via a ponte Rust (`touring-hook
+    dedup-stdin`) — este processo nunca passa pelo daemon. No RESUME (mesmo
+    session_id) o painel que já consta no transcript é omitido. Fail-open:
+    qualquer falha devolve o texto intacto."""
+    try:
+        sys.path.insert(0, os.path.expanduser("~/.claude/hooks"))
+        import injection_dedup
+
+        return injection_dedup.dedup_output(out, session_id=session_id, cwd=cwd)
+    except Exception:  # noqa: BLE001 — a dedupe nunca derruba um hook
+        return out
 PER_CMD_TIMEOUT = 1.5
 STATUS_TIMEOUT = 3.0  # status walks more than doctor; still inside TOTAL_BUDGET_S
 PATH_CMD_TIMEOUT = 2.0
@@ -829,9 +843,24 @@ def main() -> int:
             "additionalContext": additional,
         }
     }
-    print(json.dumps(out))
+    # Dedup keys on the REAL session id only: the "unknown" display placeholder
+    # made every id-less invocation share one dedup scope, so a second id-less
+    # run printed an envelope without the panel (27/10/2026).
+    print(_dedup_epoch(json.dumps(out), session_id=str(data.get("session_id") or ""), cwd=str(cwd or "")))
     return 0
 
+
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+import sys as _ipsys, pathlib as _ippath
+_ip_spec = _ipsys.path
+_ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
+if _ip_mod_path.exists():
+    import importlib.util as _ipu
+    _ip_sp = _ipu.spec_from_file_location("injection_policy", _ip_mod_path)
+    _ip_m = _ipu.module_from_spec(_ip_sp)
+    _ip_sp.loader.exec_module(_ip_m)
+    if not _ip_m.allows("plugin-hook"):
+        _ipsys.exit(0)
 
 if __name__ == "__main__":
     try:

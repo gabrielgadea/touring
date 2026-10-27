@@ -191,6 +191,10 @@ pub fn run(
     runtime: &mut HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
+    // S-11 / D1: the tool-channel trio is measured at emission. Recorded BEFORE the RL
+    // schema check so a payload the RL path rejects is still counted (matcher `*`: every
+    // tool lands here). In-memory and fail-open.
+    touring_hooks_shared::tool_trio::record_completed_call(input, false);
     // D9: Validate payload with typed schema — skip on failure (non-blocking RL).
     if validate_payload::<crate::schemas::PostToolRlPayload>(input).is_err() {
         return Ok(());

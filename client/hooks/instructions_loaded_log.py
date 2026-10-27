@@ -31,11 +31,27 @@ LOG = Path.home() / ".claude" / "touring" / "instructions_loaded.jsonl"
 
 
 def _registrar(linha: dict) -> None:
-    LOG.parent.mkdir(parents=True, exist_ok=True)
-    with open(LOG, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps(linha, ensure_ascii=False) + "\n")
-        fh.flush()
-        os.fsync(fh.fileno())
+    """Acrescenta UMA linha ao log.
+
+    O arquivo é criado e MANTIDO em 0600 (só o dono): o log carrega
+    `file_path` e `cwd`, que são caminho do usuário — 0644 o exporia a
+    qualquer usuário da máquina. `fchmod` fecha também um arquivo já
+    permissivo que veio de antes (a criação sozinha não corrige).
+    """
+    LOG.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    fd = os.open(LOG, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+    try:
+        os.fchmod(fd, 0o600)
+        with os.fdopen(fd, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(linha, ensure_ascii=False) + "\n")
+            fh.flush()
+            os.fsync(fh.fileno())
+    except BaseException:
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+        raise
 
 
 def _bytes_da_fonte(file_path: str) -> int | None:
@@ -49,6 +65,15 @@ def _bytes_da_fonte(file_path: str) -> int | None:
 
 
 def _linha_do_evento(payload: dict) -> dict:
+    """A linha do evento.
+
+    `cwd` foi REMOVIDO: o agregador (`scripts/diagnostics/kpi_contexto_sessoes.py`)
+    não o usa, e ele é um segundo caminho completo da árvore do usuário no log.
+    `session_id`, `file_path`, `load_reason` e `bytes` ficam porque o agregador
+    depende deles (`tipo_da_fonte(file_path)`, agrupamento por sessão e por
+    fonte) — redigir quebraria a medição que este hook existe para produzir.
+    A exposição é tratada no permission: arquivo 0600.
+    """
     file_path = str(payload.get("file_path") or "")
     return {
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -57,7 +82,6 @@ def _linha_do_evento(payload: dict) -> dict:
         "memory_type": payload.get("memory_type"),
         "load_reason": payload.get("load_reason"),
         "bytes": _bytes_da_fonte(file_path),
-        "cwd": payload.get("cwd"),
     }
 
 

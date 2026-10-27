@@ -100,7 +100,18 @@ def main() -> int:
     if prompt and not prompt.startswith("<"):
         _spawn_background_judge(prompt)
     if suggestion:
-        print(json.dumps(suggestion))
+        # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
+        import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+        import injection_policy
+        if not injection_policy.allows("plugin-hook"):
+            return 0
+        # S-4p (26/10/2026): dedupe por época via ponte Rust — fail-open.
+        import injection_dedup
+        print(injection_dedup.dedup_output(
+            json.dumps(suggestion),
+            session_id=str(payload.get("session_id") or ""),
+            cwd=str(payload.get("cwd") or ""),
+        ))
     return 0
 
 

@@ -35,6 +35,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import time
 from pathlib import Path
 
 CLI_TIMEOUT = 8
@@ -60,11 +61,43 @@ DEFAULT_MIN_LEVEL = 1
 LEVEL_ENV = "TOURING_OUTER_MIN_LEVEL"
 
 
+#: One wall-clock deadline per hook invocation, shared by every subprocess this subsystem
+#: starts. The host registers `loop_outer_effect.py` with `timeout: 5` and `onFailure:
+#: "block"`; per-call timeouts alone (3 x 8 s here, 2 x 6 s in the effect hook) summed to
+#: 36 s, the host killed the hook first, and `block` turned the documented fail-open into a
+#: denial of every edit on a high-blast file (23/10/2026). `None` = no deadline (library use).
+BUDGET_ENV = "TOURING_OUTER_EFFECT_BUDGET_S"
+DEFAULT_BUDGET_S = 3.5
+_DEADLINE: float | None = None
+
+
+def arm_deadline(seconds: float | None = None) -> None:
+    """Start the invocation's clock: `seconds`, else $TOURING_OUTER_EFFECT_BUDGET_S, else 3.5 s."""
+    global _DEADLINE
+    budget = seconds
+    if budget is None:
+        try:
+            budget = float(os.environ.get(BUDGET_ENV) or DEFAULT_BUDGET_S)
+        except ValueError:
+            budget = DEFAULT_BUDGET_S
+    _DEADLINE = time.monotonic() + budget
+
+
+def remaining(cap: float) -> float:
+    """Seconds a subprocess may use: `cap`, bounded by what is left of the deadline (0 = spent)."""
+    if _DEADLINE is None:
+        return cap
+    return max(0.0, min(cap, _DEADLINE - time.monotonic()))
+
+
 def _cli(args, cwd=None):
-    """Best-effort JSON from a touring subcommand; None on any failure."""
+    """Best-effort JSON from a touring subcommand; None on any failure or once the deadline is spent."""
+    budget = remaining(CLI_TIMEOUT)
+    if budget <= 0.05:
+        return None  # same three-state contract as a timeout: the instrument did not answer
     try:
         proc = subprocess.run(["touring", *args], capture_output=True, text=True,
-                              timeout=CLI_TIMEOUT, cwd=cwd)
+                              timeout=budget, cwd=cwd)
         if proc.returncode != 0 or not proc.stdout.strip():
             return None
         return json.loads(proc.stdout)

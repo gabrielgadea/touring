@@ -346,13 +346,26 @@ def _run_as_hook() -> int:
     if verdict.state == "clean":
         return 0
 
-    print(json.dumps(
+    _out = json.dumps(
         {"hookSpecificOutput": {
             "hookEventName": "PostToolUse",
             "additionalContext": _render(verdict),
         }},
         ensure_ascii=False,
-    ))
+    )
+    # S-4p (26/10/2026): dedupe por época via ponte Rust — este processo nunca
+    # passa pelo daemon. Fail-open: qualquer falha devolve o texto intacto.
+    try:
+        import sys as _dsys; _dsys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+        import injection_dedup
+        _out = injection_dedup.dedup_output(
+            _out,
+            session_id=str(payload.get("session_id") or ""),
+            cwd=str(payload.get("cwd") or ""),
+        )
+    except Exception:  # noqa: BLE001 — a dedupe nunca derruba o hook
+        pass
+    print(_out)
     return 0
 
 
@@ -518,6 +531,18 @@ def self_test() -> int:
     print(f"\nauto-auditoria: scan_output(None) -> {v.state} ({v.reason})")
     return 0 if not gaps else 1
 
+
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+import sys as _ipsys, pathlib as _ippath
+_ip_spec = _ipsys.path
+_ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
+if _ip_mod_path.exists():
+    import importlib.util as _ipu
+    _ip_sp = _ipu.spec_from_file_location("injection_policy", _ip_mod_path)
+    _ip_m = _ipu.module_from_spec(_ip_sp)
+    _ip_sp.loader.exec_module(_ip_m)
+    if not _ip_m.allows("evidence-guard"):
+        _ipsys.exit(0)
 
 if __name__ == "__main__":
     sys.exit(main())

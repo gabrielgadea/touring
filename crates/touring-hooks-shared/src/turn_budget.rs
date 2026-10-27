@@ -107,28 +107,94 @@ pub fn spent_this_turn(root: &Path, session: &str) -> usize {
     read_turn(root, session)
 }
 
+/// True when a directive's program CLOSES on its own line.
+///
+/// Medido no corpus (400 sessões, S-7, 26/10/2026): 58,0 % das ordens MUST da
+/// família `code-mode-contract` chegavam sintaticamente inválidas — 1.070 com
+/// aspas ímpares, 513 com heredoc sem terminador — porque o emissor original
+/// corta o payload no meio do programa e esta função mantinha a linha inteira.
+/// O modelo não executa metade de um programa, e a "não-adesão" medida era de
+/// ordem quebrada, não de modelo que ignora. Precedente do harness2
+/// (`spec.py:163-167`): truncamento que fabrica defeito é pior que ausência.
+/// Ambos os sinais erram na direção SEGURA: em dúvida, omite.
+fn directive_program_closes(line: &str) -> bool {
+    !has_heredoc_operator(line) && quotes_balance(line)
+}
+
+/// O terminador de um heredoc tem de estar sozinho na própria linha, e uma
+/// diretiva É uma linha — um `<<` aqui significa que o corpo ficou de fora.
+/// `<<<` (herestring) fecha na própria linha, então não conta.
+fn has_heredoc_operator(line: &str) -> bool {
+    let bytes = line.as_bytes();
+    let mut i = 0;
+    while i + 1 < bytes.len() {
+        if bytes[i] == b'<' && bytes[i + 1] == b'<' {
+            if bytes.get(i + 2) == Some(&b'<') {
+                i += 3; // <<< herestring: consome o trio inteiro, nao o re-le
+                continue;
+            }
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
+/// Aspas abrem e fecham aos pares. O ideoma shell `'\''` é uma aspa ESCAPADA
+/// dentro de aspas simples — some antes de contar — e `\` torna literal a aspa
+/// seguinte.
+fn quotes_balance(line: &str) -> bool {
+    let normalized = line.replace("'\\''", "");
+    let b = normalized.as_bytes();
+    let (mut singles, mut doubles) = (0usize, 0usize);
+    let mut j = 0;
+    while j < b.len() {
+        match b[j] {
+            b'\\' => j += 1,
+            b'\'' => singles += 1,
+            b'"' => doubles += 1,
+            _ => {}
+        }
+        j += 1;
+    }
+    singles % 2 == 0 && doubles % 2 == 0
+}
+
 /// Keep only the directive lines of a block — what survives when the turn's
 /// budget is gone.
 ///
 /// The MUST/SHOULD lines ARE the instruction; the rest is rationale, which is
 /// worth its bytes in a turn with room and is the first thing to go in one
-/// without. Returns `None` when there is no directive to keep, because a block
+/// without. A directive whose program does not close (heredoc cortado, aspa
+/// órfã) é OMITIDA — meia ordem não executa, e a ausência é declarada no
+/// rodapé. Returns `None` when there is no directive to keep, because a block
 /// with nothing to act on has nothing worth spending the last bytes on.
 #[must_use]
 pub fn directives_only(context: &str) -> Option<String> {
+    let mut omitted = 0usize;
     let kept: Vec<&str> = context
         .lines()
         .filter(|l| {
             let t = l.trim_start();
             t.starts_with("MUST") || t.starts_with("SHOULD")
         })
+        .filter(|l| {
+            let closes = directive_program_closes(l);
+            omitted += usize::from(!closes);
+            closes
+        })
         .collect();
     if kept.is_empty() {
         return None;
     }
+    let omission_note = if omitted > 0 {
+        format!("; {omitted} diretiva(s) truncada(s) omitida(s) — programa não fecha")
+    } else {
+        String::new()
+    };
     Some(format!(
         "{}\n  (orçamento do turno esgotado — só as diretivas; \
-         `TOURING_TURN_BUDGET=<bytes>` ajusta o teto)",
+         `TOURING_TURN_BUDGET=<bytes>` ajusta o teto{omission_note})",
         kept.join("\n")
     ))
 }
@@ -203,5 +269,79 @@ mod tests {
     #[test]
     fn a_block_with_no_directive_has_nothing_worth_the_last_bytes() {
         assert_eq!(directives_only("[generic]\n  algum eco"), None);
+    }
+
+    /// S-7 (26/10/2026): 58,0 % das MUSTs de code-mode-contract chegavam
+    /// quebradas (1.070 aspas ímpares, 513 heredocs sem terminador). A ordem
+    /// truncada é omitida — o modelo não executa metade de um programa — e a
+    /// omissão é declarada no rodapé.
+    #[test]
+    fn a_directive_cut_mid_program_is_omitted_and_the_omission_is_declared() {
+        let block = "[CODE MODE — contrato]\n  \
+            MUST    touring run --lang bash --code 'mkdir -p /tmp/c3 && cat > /tmp/c3/a.py <<'\\''PYEOF'\\''\n  \
+            MUST    touring ast tdg crates/foo/src/lib.rs\n  \
+            SHOULD  touring index find Foo";
+        let cut = directives_only(block).expect("uma diretiva valida sobrevive");
+        assert!(
+            !cut.contains("heredoc") && !cut.contains("PYEOF"),
+            "a ordem com heredoc sem terminador nao chega ao modelo: {cut}"
+        );
+        assert!(
+            cut.contains("MUST    touring ast tdg"),
+            "a ordem que FECHA fica"
+        );
+        assert!(cut.contains("SHOULD  touring index find Foo"));
+        assert!(
+            cut.contains("1 diretiva(s) truncada(s) omitida(s)"),
+            "a omissao e' declarada: {cut}"
+        );
+        // Contrato do cli_suggester_e2e.rs e do injection_family (S-3):
+        // o prefixo do rodapé e' a assinatura do caminho — intocado.
+        assert!(
+            cut.contains("orçamento do turno esgotado — só as diretivas; `TOURING_TURN_BUDGET=<bytes>` ajusta o teto"),
+            "o prefixo exato do rodape e' preservado: {cut}"
+        );
+    }
+
+    #[test]
+    fn odd_quotes_mark_a_truncated_program_and_the_line_falls() {
+        let block = "  MUST    touring run --lang bash --code 'ls -la\n  \
+                     SHOULD  touring doctor -j";
+        let cut = directives_only(block).expect("SHOULD valida");
+        assert!(
+            !cut.contains("ls -la"),
+            "aspa orfa = programa cortado: {cut}"
+        );
+        assert!(cut.contains("touring doctor -j"));
+    }
+
+    #[test]
+    fn the_shell_idiom_and_the_herestring_close_on_their_own_line() {
+        // `'\''` e' aspa escapada dentro de aspas simples — o programa fecha.
+        // Texto shell real: bash -c 'echo 'it'\''s''  (a sequencia de 4 chars
+        // quote-backslash-quote-quote e' o ideoma normalizado pelo conserto).
+        let idiom = "  MUST    bash -c 'echo 'it'\\''s''";
+        let cut = directives_only(idiom).expect("o ideoma shell e' valido");
+        assert!(cut.contains("echo"), "o ideoma '\\'' sobrevive: {cut}");
+        // herestring e' de linha unica — nao e' heredoc.
+        let herestring = "  MUST    bash -c 'cat <<< \"done\"'";
+        assert!(
+            directives_only(herestring).is_some(),
+            "<<< fecha na propria linha"
+        );
+        // aspas escapadas por barra nao contam como abertura/fechamento.
+        let escaped = "  MUST    bash -c \"echo \\\"ok\\\"\"";
+        assert!(directives_only(escaped).is_some());
+    }
+
+    #[test]
+    fn when_every_directive_is_truncated_there_is_nothing_to_keep() {
+        let block = "  MUST    touring run --lang bash --code 'cat <<'\\''EOF\n  \
+                     SHOULD  touring run --lang bash --code 'echo";
+        assert_eq!(
+            directives_only(block),
+            None,
+            "bloco sem diretiva executavel nao gasta os ultimos bytes"
+        );
     }
 }

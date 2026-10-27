@@ -34,6 +34,10 @@ pub mod qa_syntax;
 pub mod query_dsl;
 pub mod reranked_context;
 pub mod rfc100_emission;
+// S-11 / D1 (27/10/2026): the tool-channel trio (erro/vazio/negado, retry, size,
+// deny -> next action) measured at emission; predicates ported from
+// `scripts/measure_tool_trio.py`, surfaced as `tool_trio` in `touring gate-metrics -j`.
+pub mod tool_trio;
 // S-13 (2026-06-06) — StaticSeverity relocated here (shared severity vocabulary
 // for the gateway X2 stage + workflow antipattern). Re-exported by gateway::static_stage.
 pub mod severity;
@@ -62,6 +66,10 @@ pub mod index_policy;
 // calls crate::gate_metrics::record_query_cache_*). Old src/gate_metrics.rs orphaned (git-rm).
 pub use touring_foundation::gate_metrics;
 pub mod hook_events;
+// injection_policy nasceu em touring-foundation (S-4, 26/10/2026): a taxonomia de
+// famílias (injection_family) é a régua canônica e a política a consome de lá;
+// re-exportado para que os hooks resolvam `touring_hooks_shared::injection_policy`.
+pub use touring_foundation::injection_policy;
 // memory_stats_probe relocated to touring-foundation (A5 Path-A step-1, 2026-06-16);
 // re-exported so `touring_hooks_shared::memory_stats_probe` resolves unchanged for all
 // consumers (incl. no-touch touring-cli). Old src/memory_stats_probe.rs orphaned (git-rm).

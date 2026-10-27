@@ -227,16 +227,16 @@ fn run_chain(
             match runtime.learning.pensieve.try_borrow() {
                 Ok(pensieve) => {
                     // Use check_known_failure_seq for multi-token commands, single-state for one token.
-                    let penalty = match states.first() {
-                        Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                        _ => pensieve.check_known_failure_seq(&states),
+                    let matched = match states.first() {
+                        Some(&single) if states.len() == 1 => {
+                            pensieve.check_known_failure_detail(single)
+                        }
+                        _ => pensieve.check_known_failure_seq_detail(&states),
                     };
-                    penalty.map(|sim| {
-                        format!(
-                            "Similar command failed recently (similarity={:.0}%)",
-                            sim * 100.0
-                        )
-                    })
+                    // The notice names the command that failed — a percentage
+                    // alone tells the model that something similar failed, not
+                    // what to avoid repeating.
+                    matched.map(|m| m.command_notice())
                 }
                 _ => {
                     tracing::debug!("pensieve: skipped check (already borrowed)");
@@ -1511,5 +1511,80 @@ mod vgp_execucao_tests {
         let frag = off.arquivo("frag.py", FRAGMENTO);
         nao_e_deny(&off.roda(&format!("python3 {frag}")));
         assert!(off.linhas().is_empty(), "modo off não mede nem registra");
+    }
+}
+
+/// S-2 (2026-10-26) — the notice must NAME the command that failed.
+///
+/// The notice used to carry a percentage and nothing else: the model was told
+/// that something similar had failed, and not what to avoid repeating.
+#[cfg(test)]
+mod pensieve_notice_tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    fn ambiente() -> (TempDir, HookRuntime) {
+        // The project cannot live under `/tmp/` (the $TMPDIR may be there): the
+        // policy bucket is literal, and a `src/a.py` there is born "scratch".
+        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+        std::fs::write(
+            projeto.path().join(".touring/touring.toml"),
+            "[vgp]\nmodo = \"off\"\ncamada2_langs = []\n",
+        )
+        .expect("toml");
+        let runtime = HookRuntime::new(projeto.path()).expect("HookRuntime::new");
+        (projeto, runtime)
+    }
+
+    /// Record the failure the way `post_bash` does: WITH the command.
+    fn registra_falha(rt: &HookRuntime, comando: &str) {
+        let short_key = crate::shared::bash_ast_validator::command_shape(comando)
+            .unwrap_or_else(|| extract_command_short(comando));
+        let states = crate::shared::command_hash::command_to_states(&short_key);
+        let mut p = rt.learning.pensieve.borrow_mut();
+        p.record_failure_with_command(&states, "exit code 1", states.len(), comando);
+    }
+
+    fn contexto(rt: &HookRuntime, comando: &str) -> String {
+        let input = serde_json::json!({
+            "session_id": "pensieve-s2",
+            "tool_input": { "command": comando }
+        });
+        match run_returning(rt, &input) {
+            HookResponse::Context { context, .. } => context,
+            // Nothing injected is the right answer for a command with no past failure:
+            // `sem_falha_passada_não_avisa` asserts exactly that (REGRA #21, found while
+            // gating the tool_trio change — the helper used to panic on `Allow`).
+            HookResponse::Allow => String::new(),
+            outra => panic!("esperava Context ou Allow, veio {outra:?}"),
+        }
+    }
+
+    #[test]
+    fn o_aviso_nomeia_o_comando_que_falhou() {
+        let (_projeto, rt) = ambiente();
+        registra_falha(&rt, "cargo test -p touring-intelligence");
+
+        let ctx = contexto(&rt, "cargo test -p touring-intelligence");
+
+        assert!(
+            ctx.contains("cargo test"),
+            "o aviso tem que nomear o comando que falhou: {ctx}"
+        );
+        assert!(
+            !ctx.contains("Similar command failed recently"),
+            "o aviso antigo (só similaridade) ainda está em uso: {ctx}"
+        );
+    }
+
+    #[test]
+    fn sem_falha_passada_não_avisa() {
+        let (_projeto, rt) = ambiente();
+        let ctx = contexto(&rt, "cargo test -p touring-intelligence");
+        assert!(
+            !ctx.contains("Similar failure"),
+            "sem falha no store não há aviso: {ctx}"
+        );
     }
 }

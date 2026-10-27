@@ -144,6 +144,10 @@ fn retain_exploitable(source: &str, lang: &str, vuln_matches: &mut Vec<VulnMatch
     if super::code_regions::is_shell_language(lang) {
         vuln_matches.retain(|v| !is_shell_idiom(source, v));
     }
+    // 27/10/2026: a Cargo build-script directive is read by cargo, never opened as a
+    // path by the program. The `println!("cargo:…")` form is Rust-only syntax, so the
+    // predicate needs no language gate (and adds no branch to this function).
+    vuln_matches.retain(|v| !is_cargo_build_directive(source, v));
     // 25/09/2026 (touring-36, the analise-50 judge): an HTML event-handler attribute
     // with a CONSTANT value is inline JS, not CWE-79 — no untrusted data reaches it
     // (`onclick="rodar('preset')"` in a Python-generated template failed P0 on a file
@@ -177,6 +181,67 @@ fn is_shell_syntax_payload(source: &str, m: &VulnMatch) -> bool {
         && source
             .get(m.span.0..m.span.1)
             .is_some_and(|text| text.starts_with([';', '|', '&']))
+}
+
+/// A `../` climb inside a Cargo build-script directive.
+///
+/// `println!("cargo:rerun-if-changed=../../.git/HEAD")` (or the `cargo::` form,
+/// or any other `cargo:<key>=…` directive) tells CARGO what to watch or link —
+/// the build script never opens the path, and no input builds it. A build script
+/// reaching the workspace root from its crate directory is the normal case
+/// (`crates/touring-server/build.rs` failed F2.1 on exactly this line, 27/10/2026).
+///
+/// The exemption is the directive form and nothing wider: the match must sit in
+/// the same string literal as a lowercase `cargo:<key>=` prefix, and that
+/// literal must be the first argument of a stdout `println!` / `print!` — the
+/// only stream cargo reads. `eprintln!`, a bare literal, or a `cargo:` string
+/// that is later opened as a path (`fs::read(p)`) still count.
+fn is_cargo_build_directive(source: &str, m: &VulnMatch) -> bool {
+    if m.pattern_name != "PathTraversal" {
+        return false;
+    }
+    let head = &source[..m.span.0];
+    let line_start = head.rfind('\n').map_or(0, |p| p + 1);
+    // The literal's opening quote: the last `"` before the match on its line.
+    let Some(quote) = head[line_start..].rfind('"').map(|q| line_start + q) else {
+        return false;
+    };
+    names_cargo_directive(&head[quote + 1..]) && opens_stdout_print(&head[..quote])
+}
+
+/// True when `literal_head` (a string literal's text up to the match) starts a
+/// `cargo:<key>=` or `cargo::<key>=` directive with a lowercase kebab/snake key
+/// (`rerun-if-changed`, `rustc-link-search`, `rustc-env`, `warning`).
+fn names_cargo_directive(literal_head: &str) -> bool {
+    let Some(rest) = literal_head
+        .strip_prefix("cargo::")
+        .or_else(|| literal_head.strip_prefix("cargo:"))
+    else {
+        return false;
+    };
+    let Some((key, _)) = rest.split_once('=') else {
+        return false;
+    };
+    !key.is_empty()
+        && key
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-' || b == b'_')
+}
+
+/// True when `call` (the source up to a string literal's opening quote) ends in
+/// `println!(` or `print!(` — the macro name not part of a longer identifier, so
+/// `eprintln!(` / `eprint!(` (stderr, ignored by cargo) do not qualify. The
+/// literal may start on the next line (`rustfmt` splits long calls).
+fn opens_stdout_print(call: &str) -> bool {
+    let Some(callee) = call.trim_end().strip_suffix('(') else {
+        return false;
+    };
+    let callee = callee.trim_end();
+    ["println!", "print!"].iter().any(|name| {
+        callee.strip_suffix(name).is_some_and(|before| {
+            !before.ends_with(|c: char| c.is_ascii_alphanumeric() || c == '_')
+        })
+    })
 }
 
 /// A match in a shell script that is how shell scripts are written, not an attack.
