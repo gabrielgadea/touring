@@ -134,3 +134,8 @@ docs/plans/2026-10-08-compactacao-65/diagnostics/c1-por-familia-2026-10-09/cache
 # O CLAUDE.md dos crates continua versionado: só os subdiretórios de estado são ignorados.
 **/.claude/touring/
 **/.claude/data/
+
+# Raw evidence of the 26/10 context-injection analysis: transcript digests and doc dumps
+# (private-session content, bulky). Kept on disk, never committed (public repo).
+docs/plans/2026-10-26-injecao-contexto-hooks/evidence/
+docs/plans/2026-10-26-injecao-contexto-hooks/round4/evidence/
