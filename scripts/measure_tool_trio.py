@@ -303,16 +303,25 @@ def extras_report(ex: Extras, rows: dict) -> dict:
     }
 
 
-def iter_records(path: str, until: str = ""):
-    """Records of one transcript; with ``until`` (ISO UTC), only those stamped before it."""
+def iter_records(path: str, until: str = "", since: str = ""):
+    """Records of one transcript inside ``[since, until)`` (ISO UTC; empty = open end).
+
+    A record without a timestamp is dropped under ``since`` (it cannot be placed in the
+    window). A call whose use falls before ``since`` and whose result falls after it has
+    no pair in the window and is not counted: an A3 arm window loses its boundary calls,
+    never gains the other arm's.
+    """
     with open(path, errors="ignore") as fh:
         for line in fh:
             try:
                 rec = json.loads(line)
             except ValueError:
                 continue
-            if until and rec.get("timestamp", "") >= until:
+            ts = rec.get("timestamp", "")
+            if until and ts >= until:
                 return
+            if since and ts < since:
+                continue
             yield rec
 
 
@@ -329,8 +338,12 @@ def main(argv=None) -> int:
     ap.add_argument("--min-calls", type=int, default=40)
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--until", default="", help="ISO UTC cut, e.g. 2026-10-27T13:29:00Z (pre-deploy baseline)")
+    ap.add_argument("--since", default="", help="ISO UTC start of the window (inclusive), e.g. an A3 arm block")
     ap.add_argument("--extras", action="store_true", help="D1a: deny→next per gate, sizes, superseded reads")
     args = ap.parse_args(argv)
+    if args.since and args.until and args.since >= args.until:
+        print(f"janela vazia: --since {args.since} não é anterior a --until {args.until}", file=sys.stderr)
+        return 2
     files = corpus(args.dirs.split(","), args.sessions)
     if not files:
         print("sem sessões no corpus", file=sys.stderr)
@@ -338,12 +351,18 @@ def main(argv=None) -> int:
     stats: dict[str, Stats] = {}
     ex = Extras()
     for f in files:
-        measure_session(iter_records(f, args.until), stats)
+        measure_session(iter_records(f, args.until, args.since), stats)
         if args.extras:
-            measure_extras(iter_records(f, args.until), ex)
+            measure_extras(iter_records(f, args.until, args.since), ex)
     rows = {k: v.row() for k, v in stats.items() if v.calls >= args.min_calls}
     rows = dict(sorted(rows.items(), key=lambda kv: -kv[1]["calls"]))
-    report = {"sessions": len(files), "window": WINDOW, "until": args.until or None, "rows": rows}
+    report = {
+        "sessions": len(files),
+        "window": WINDOW,
+        "since": args.since or None,
+        "until": args.until or None,
+        "rows": rows,
+    }
     if args.extras:
         report["extras"] = extras_report(ex, rows)
     if args.json:

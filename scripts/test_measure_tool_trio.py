@@ -128,3 +128,26 @@ if __name__ == "__main__":
                 fails += 1
                 print(f"FAIL {name}: {e!r}")
     sys.exit(1 if fails else 0)
+
+
+def test_since_until_window_keeps_only_the_arm_block(tmp_path):
+    # A3 arm windows: a call paired inside [since, until) counts; one before, one after,
+    # and one whose use precedes `since` (boundary) do not.
+    rows = [
+        dict(_use(1, "Bash", {"command": "ls"}), timestamp="2026-11-01T09:00:00Z"),
+        dict(_res(1, "a"), timestamp="2026-11-01T09:00:01Z"),
+        dict(_use(2, "Bash", {"command": "pwd"}), timestamp="2026-11-01T23:59:59Z"),
+        dict(_res(2, "b"), timestamp="2026-11-02T00:00:01Z"),
+        dict(_use(3, "Bash", {"command": "id"}), timestamp="2026-11-02T10:00:00Z"),
+        dict(_res(3, "c"), timestamp="2026-11-02T10:00:01Z"),
+        dict(_use(4, "Bash", {"command": "uptime"}), timestamp="2026-11-03T10:00:00Z"),
+        dict(_res(4, "d"), timestamp="2026-11-03T10:00:01Z"),
+    ]
+    f = tmp_path / "s.jsonl"
+    f.write_text("\n".join(m.json.dumps(r) for r in rows))
+    stats = _run(m.iter_records(str(f), until="2026-11-03T00:00:00Z", since="2026-11-02T00:00:00Z"))
+    assert sum(s.calls for s in stats.values()) == 1, {k: s.calls for k, s in stats.items()}
+
+
+def test_empty_window_is_refused():
+    assert m.main(["--since", "2026-11-02T00:00:00Z", "--until", "2026-11-01T00:00:00Z"]) == 2
