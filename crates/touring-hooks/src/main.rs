@@ -73,6 +73,20 @@ fn main() {
         process::exit(0);
     }
 
+    // S-4p (26/10/2026) — ponte de dedupe para os hooks Python. Eles são
+    // processos separados que nunca passam pelo `run_hook_command` do daemon,
+    // então a dedupe por época da S8 não os alcançava — e o corpus mediu as
+    // famílias deles no topo da repetição (evidence-guard 96,2%). Este
+    // subcomando aplica a MESMA `dedup_hook_output` do daemon ao JSON de SAÍDA
+    // do hook lido em stdin; o estado é o arquivo por sessão, compartilhado
+    // entre os dois caminhos (a 1ª cópia emitida por qualquer um protege a
+    // repetição em ambos). Stateless: não sobe daemon, não inicia HookRuntime.
+    if subcommand == "dedup-stdin" {
+        touring_hook_runtime::hook_trace::set_route("stateless");
+        touring_hook_runtime::hook_trace::set_reason("dedup-stdin");
+        run_dedup_stdin(&args);
+    }
+
     // Sprint 4 PD-3 (2026-05-23, REGRA #19): the legacy polymorphic
     // `touring-hook --start-daemon` daemon path is DEPRECATED. The
     // dedicated `touring-daemon` binary (touring-hooks/src/daemon_main.rs)
@@ -128,6 +142,7 @@ fn main() {
     touring_hook_runtime::hook_trace::set_session_id(
         input.get("session_id").and_then(|v| v.as_str()),
     );
+    note_injection_session(&input);
     // S214: this process answers as the event that invoked it — every standalone
     // serialization is stamped from here (the daemon path is stamped below).
     touring_hook_runtime::hook_response::set_invoking_event(&input);
@@ -211,6 +226,21 @@ fn main() {
 
     // Detect project root (HOOKCWD: o `cwd` do payload entra na cadeia, como no caminho do daemon)
     let project_root = HookRuntime::detect_project_root_for(payload_cwd(&input).as_deref());
+
+    // S-4p (26/10/2026): a rota standalone dedupa como o daemon. O escopo
+    // (raiz, sessão) é gravado AQUI — depois do fast-path do daemon, antes de
+    // qualquer handler — e lido pelo `HookResponse::emit`, o funil por onde
+    // todo handler standalone imprime. A raiz passa pela MESMA normalização
+    // do daemon (daemon.rs:1929) e do `dedup-stdin`, para que o arquivo de
+    // estado por sessão seja um só nas três rotas. Na rota daemon este ponto
+    // nunca é alcançado (o `process::exit(0)` do fast-path), logo o daemon
+    // nunca é dedupado duas vezes.
+    if let Some(session) = input.get("session_id").and_then(|v| v.as_str()) {
+        touring_hook_runtime::hook_runtime::set_dedup_scope(
+            touring_foundation::TouringConfig::normalize_project_root(&project_root),
+            session,
+        );
+    }
 
     // Initialize HookRuntime (shared state: SQLite, classifier, PII scanner)
     // `&mut runtime` is taken only by feature-gated arms (pre/post/session hooks):
@@ -339,7 +369,7 @@ fn main() {
             match resp.to_json().is_empty() {
                 true => Ok(()),
                 false => {
-                    println!("{}", resp.to_json());
+                    print_standalone(&resp.to_json());
                     Ok(())
                 }
             }
@@ -410,7 +440,7 @@ fn run_prompt_enhance(input: &Value) -> ! {
     }
 
     let output = touring_hooks::prompt_enhance::compose_json(prompt);
-    println!("{}", serde_json::to_string(&output).unwrap_or_default());
+    print_standalone(&serde_json::to_string(&output).unwrap_or_default());
     process::exit(0);
 }
 
@@ -668,7 +698,6 @@ fn run_lifecycle_event(
 /// what the platform does not admit on stdout (the `task-completed` receipt's 14
 /// keys) goes to stderr, the diagnostics channel, instead of reaching no one.
 fn forward_daemon_output(output: &str, success: bool) {
-    use touring_hook_runtime::hook_response;
     // HOOKCWD (30.4.97): a recusa do daemon (`success: false` — o pin, o orçamento estourado…) é
     // JSON bem-formado como qualquer sucesso, e gravava `daemon-json`, IGUAL ao sucesso. Medir
     // recusa e sucesso com o mesmo rótulo é o instrumento que mente: o trace distingue.
@@ -684,20 +713,17 @@ fn forward_daemon_output(output: &str, success: bool) {
     if output.is_empty() {
         return;
     }
-    match serde_json::from_str::<serde_json::Value>(output.trim()) {
-        Ok(mut value) => {
-            let stamped = hook_response::stamp_invoking_event(&mut value);
-            let removed = hook_response::split_off_invoking_event_violations(&mut value);
-            if let Some(diagnostics) = &removed {
+    // S-2 (27/10/2026): the policy level is the CLIENT's — this process inherits
+    // the Claude Code environment, the daemon only its boot one.
+    let (level, sink) = touring_foundation::injection_policy::current();
+    match conform_daemon_output(output, level, sink.as_deref()) {
+        Some((text, diagnostics)) => {
+            if let Some(diagnostics) = &diagnostics {
                 eprintln!("{diagnostics}");
             }
-            if stamped || removed.is_some() {
-                println!("{value}");
-            } else {
-                println!("{output}");
-            }
+            println!("{text}");
         }
-        Err(_) => {
+        None => {
             eprintln!(
                 "[touring-hook] daemon returned non-JSON output ({} bytes), \
                  emitting canonical {{}} Allow instead",
@@ -706,6 +732,57 @@ fn forward_daemon_output(output: &str, success: bool) {
             println!("{{}}");
         }
     }
+}
+
+/// What `forward_daemon_output` prints for a daemon answer, and what it sends to
+/// stderr: `None` when `output` is not JSON (the caller falls back to `{}`).
+///
+/// Order: stamp the invoking event, split off the contract violations, THEN the
+/// injection policy ([`touring_foundation::injection_policy`], S-2) — so the
+/// policy judges the very bytes that would reach Claude Code. With the policy at
+/// `full` the text is `output` untouched (or the re-stamped value), as before.
+fn conform_daemon_output(
+    output: &str,
+    level: touring_foundation::injection_policy::InjectionLevel,
+    sink: Option<&std::path::Path>,
+) -> Option<(String, Option<Value>)> {
+    use touring_hook_runtime::hook_response;
+    let mut value = serde_json::from_str::<Value>(output.trim()).ok()?;
+    let stamped = hook_response::stamp_invoking_event(&mut value);
+    let removed = hook_response::split_off_invoking_event_violations(&mut value);
+    let text = if stamped || removed.is_some() {
+        value.to_string()
+    } else {
+        output.to_string()
+    };
+    let text = touring_foundation::injection_policy::apply_at(
+        level,
+        touring_foundation::injection_policy::SITE_DAEMON_FORWARD,
+        &text,
+        sink,
+    )
+    .into_owned();
+    Some((text, removed))
+}
+
+/// Tell the injection journal which session this process answers (S-3), so
+/// `touring kpi` can scope the cuts to a project's transcripts.
+fn note_injection_session(input: &Value) {
+    if let Some(session) = input.get("session_id").and_then(Value::as_str) {
+        touring_foundation::injection_journal::set_session(session);
+    }
+}
+
+/// Print a standalone hook answer that does not travel as a `HookResponse`
+/// (`prompt-enhance`, `task-validation`) through the injection policy.
+fn print_standalone(json: &str) {
+    println!(
+        "{}",
+        touring_foundation::injection_policy::apply(
+            touring_foundation::injection_policy::SITE_STANDALONE,
+            json,
+        )
+    );
 }
 
 /// O `exit_reason` do trace para uma resposta do daemon. `success: false` vence o formato da
@@ -756,6 +833,52 @@ fn payload_cwd(input: &serde_json::Value) -> Option<std::path::PathBuf> {
         .and_then(serde_json::Value::as_str)
         .filter(|c| !c.is_empty())
         .map(std::path::PathBuf::from)
+}
+
+/// S-4p (26/10/2026) — corpo do `dedup-stdin`: lê o JSON de SAÍDA de um hook
+/// Python em stdin, aplica a dedupe por época com a MESMA chave (root, sessão)
+/// do caminho do daemon e imprime o resultado em stdout. Fail-open em toda
+/// falha: sem sessão, stdin inválido ou I/O quebrado, o input sai intacto —
+/// um hook nunca perde a saída por causa da dedupe.
+fn run_dedup_stdin(args: &[String]) -> ! {
+    use std::io::Read;
+    let mut raw = String::new();
+    let _ = std::io::stdin().read_to_string(&mut raw);
+    let out = dedup_stdin_apply(args, &raw).unwrap_or_else(|| raw.clone());
+    print!("{out}");
+    process::exit(0);
+}
+
+/// A decisão pura do `dedup-stdin` (testável sem stdin): `None` = o caller
+/// devolve o input intacto. A raiz é resolvida pela MESMA cadeia do cliente
+/// daemon (`detect_project_root_for` → `normalize_project_root`), para que o
+/// arquivo de estado por sessão seja o mesmo das duas pontas.
+fn dedup_stdin_apply(args: &[String], raw: &str) -> Option<String> {
+    if raw.trim().is_empty() {
+        return Some(String::new());
+    }
+    let session = arg_value(args, "--session")?;
+    if session.is_empty() {
+        return None;
+    }
+    let cwd = arg_value(args, "--cwd");
+    let cwd = cwd
+        .as_deref()
+        .filter(|c| !c.is_empty())
+        .map(std::path::Path::new);
+    let root = touring_foundation::TouringConfig::normalize_project_root(
+        &HookRuntime::detect_project_root_for(cwd),
+    );
+    Some(touring_hooks_shared::injection_dedup::dedup_hook_output(
+        &root,
+        &session,
+        raw.trim_end(),
+    ))
+}
+
+/// O valor de `--nome <valor>` em argv, se presente.
+fn arg_value(args: &[String], name: &str) -> Option<String> {
+    args.windows(2).find(|w| w[0] == name).map(|w| w[1].clone())
 }
 
 /// Attempt to send a hook request to the running daemon via Unix socket.
@@ -827,7 +950,17 @@ fn run_task_completed_standalone(
     let table = touring_hooks::hook_registry::build_dispatch_table();
     if let Some(handler) = table.get("task-completed") {
         // O handler local não tem como «recusar» como o daemon: a saída é de sucesso.
-        forward_daemon_output(&handler(runtime, input), true);
+        // S-4p (26/10/2026): a saída standalone passa pela MESMA dedupe de época
+        // do daemon — o escopo foi gravado na entrada da rota standalone
+        // (sem escopo, os bytes saem intactos: fail-open).
+        let out = handler(runtime, input);
+        let out = match touring_hook_runtime::hook_runtime::dedup_scope() {
+            Some((root, session)) => {
+                touring_hooks_shared::injection_dedup::dedup_hook_output(root, session, &out)
+            }
+            None => out,
+        };
+        forward_daemon_output(&out, true);
     }
     Ok(())
 }
@@ -1235,6 +1368,8 @@ SUBCOMMANDS:
         metrics               Export consolidated runtime metrics
         session-insights      Session trend analysis
         session-audit         CLAUDE.md hash drift detection
+        dedup-stdin           Dedupe por época da saída JSON de um hook
+                              (ponte para os hooks Python; args: --session --cwd)
 
     Other:
         help                  Show this help message
@@ -1297,5 +1432,182 @@ mod hookcwd_tests {
         assert_eq!(cwd(json!({"cwd": ""})), None);
         assert_eq!(cwd(json!({"cwd": 7})), None);
         assert_eq!(cwd(json!({})), None);
+    }
+}
+
+/// S-4p (26/10/2026) — a ponte `dedup-stdin`: fail-open por construção e a
+/// MESMA dedupe por época do daemon, chaveada pela mesma (raiz, sessão).
+#[cfg(test)]
+mod dedup_stdin_tests {
+    use super::{arg_value, dedup_stdin_apply};
+
+    fn args(pairs: &[(&str, &str)]) -> Vec<String> {
+        let mut v = vec!["touring-hook".to_string(), "dedup-stdin".to_string()];
+        for (k, val) in pairs {
+            v.push((*k).to_string());
+            v.push((*val).to_string());
+        }
+        v
+    }
+
+    #[test]
+    fn sem_sessao_devolve_none_e_o_caller_passa_o_input_intacto() {
+        let raw = r#"{"hookSpecificOutput":{"additionalContext":"qualquer prosa suficientemente longa para o dedup"}}"#;
+        assert_eq!(dedup_stdin_apply(&args(&[]), raw), None);
+        assert_eq!(dedup_stdin_apply(&args(&[("--session", "")]), raw), None);
+    }
+
+    #[test]
+    fn stdin_vazio_produz_saida_vazia() {
+        assert_eq!(
+            dedup_stdin_apply(&args(&[("--session", "s")]), "  \n"),
+            Some(String::new())
+        );
+    }
+
+    #[test]
+    fn arg_value_le_pares_e_ignora_o_resto() {
+        let a = args(&[("--session", "abc"), ("--cwd", "/tmp")]);
+        assert_eq!(arg_value(&a, "--session"), Some("abc".to_string()));
+        assert_eq!(arg_value(&a, "--cwd"), Some("/tmp".to_string()));
+        assert_eq!(arg_value(&a, "--outro"), None);
+    }
+
+    /// O roundtrip real: a 1ª emissão passa intacta, a 2ª idêntica na mesma
+    /// sessão perde o additionalContext — o mesmo comportamento do daemon.
+    /// O tempdir carrega um marcador `.git/` para o `normalize_project_root`
+    /// resolver a raiz para ELE (sem marcador, o walk-up cai no store global
+    /// `~/.claude/touring/` e cada run deixaria um arquivo de estado lá —
+    /// medido 26/10). A sessão é única por run por precaução.
+    #[test]
+    fn roundtrip_dedupa_a_repeticao_na_mesma_sessao() {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0);
+        let sess = format!("sess-s4p-{}-{nanos}", std::process::id());
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir(dir.path().join(".git")).expect("marcador de projeto");
+        let a = args(&[
+            ("--session", &sess),
+            ("--cwd", dir.path().to_str().expect("utf8")),
+        ]);
+        let ctx =
+            "  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence) prosa longa de verdade";
+        let raw = serde_json::json!({
+            "hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": ctx}
+        })
+        .to_string();
+        let o1 = dedup_stdin_apply(&a, &raw).expect("com sessão há saída");
+        assert!(o1.contains("cached 300s"), "primeira passa: {o1}");
+        let o2 = dedup_stdin_apply(&a, &raw).expect("com sessão há saída");
+        assert!(
+            !o2.contains("cached 300s"),
+            "repetição na mesma sessão é omitida: {o2}"
+        );
+        // e uma sessão NOVA nunca herda o estado da outra
+        let a2 = args(&[
+            ("--session", &format!("{sess}-outra")),
+            ("--cwd", dir.path().to_str().expect("utf8")),
+        ]);
+        let o3 = dedup_stdin_apply(&a2, &raw).expect("com sessão há saída");
+        assert!(
+            o3.contains("cached 300s"),
+            "outra sessão passa intacta: {o3}"
+        );
+    }
+}
+
+/// S-2 (27/10/2026) — a política de injeção no repasse da resposta do daemon.
+/// `conform_daemon_output` é o miolo puro de `forward_daemon_output`: o nível e
+/// o diário entram como argumento, nenhum teste toca o ambiente do processo.
+#[cfg(test)]
+mod injection_policy_tests {
+    use super::conform_daemon_output;
+    use serde_json::{Value, json};
+    use touring_foundation::injection_policy::InjectionLevel;
+
+    const SERMON: &str =
+        "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+    fn daemon_deny() -> String {
+        json!({"hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": "G2: pipe sem pipefail",
+            "additionalContext": SERMON,
+        }})
+        .to_string()
+    }
+
+    /// O contrato C13 no repasse do daemon: o sermão sai, a decisão fica, e o
+    /// corte é registrado com o sítio `daemon-forward`.
+    #[test]
+    fn test_no_advisory_drops_sermon_keeps_decision() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sink = touring_foundation::injection_journal::journal_path_in(dir.path());
+        let (text, diagnostics) =
+            conform_daemon_output(&daemon_deny(), InjectionLevel::NoAdvisory, Some(&sink))
+                .expect("é JSON");
+        assert!(diagnostics.is_none());
+        let v: Value = serde_json::from_str(&text).expect("a saída continua JSON");
+        let hso = &v["hookSpecificOutput"];
+        assert!(
+            hso.get("additionalContext").is_none(),
+            "o sermão sai: {text}"
+        );
+        assert_eq!(hso["permissionDecision"], "deny");
+        assert_eq!(hso["permissionDecisionReason"], "G2: pipe sem pipefail");
+
+        let journal = std::fs::read_to_string(&sink).expect("diário");
+        let line: Value = serde_json::from_str(journal.trim()).expect("uma linha JSON");
+        assert_eq!(line["site"], "daemon-forward");
+        assert_eq!(line["level"], "no-advisory");
+        assert_eq!(line["cuts"][0]["family"], "touring-suggest");
+    }
+
+    /// Sem env (`Full`) a saída é a do daemon, byte a byte — mesmo quando a
+    /// ordem das chaves ou os espaços não são os do `serde_json`.
+    #[test]
+    fn test_full_forwards_the_daemon_bytes_untouched() {
+        let odd = format!(
+            r#"{{ "hookSpecificOutput" : {{ "additionalContext" : {} }} , "systemMessage":"m" }}"#,
+            json!(SERMON)
+        );
+        let (text, _) = conform_daemon_output(&odd, InjectionLevel::Full, None).expect("é JSON");
+        assert_eq!(text, odd);
+    }
+
+    /// `off`: o envelope cujo único conteúdo era contexto chega como `{}` e a
+    /// resposta de um daemon que não é JSON continua sendo o `None` do `{}` de
+    /// emergência — o nível não muda o fail-open.
+    #[test]
+    fn test_off_empties_a_context_only_answer_and_non_json_still_falls_back() {
+        let ctx_only = json!({"hookSpecificOutput": {
+            "hookEventName": "PostToolUse",
+            "additionalContext": SERMON,
+        }})
+        .to_string();
+        let (text, _) =
+            conform_daemon_output(&ctx_only, InjectionLevel::Off, None).expect("é JSON");
+        assert_eq!(text, "{}");
+        assert!(conform_daemon_output("não é json", InjectionLevel::Off, None).is_none());
+    }
+
+    /// O `systemMessage` da raiz é contexto (C13): sai em `off` e a decisão
+    /// `block` ao lado dele atravessa.
+    #[test]
+    fn test_off_drops_system_message_and_keeps_block_decision() {
+        let answer = json!({
+            "decision": "block",
+            "reason": "gate falhou",
+            "systemMessage": "Contexto em 63% — a autocompactação dispara aos 65%.",
+        })
+        .to_string();
+        let (text, _) = conform_daemon_output(&answer, InjectionLevel::Off, None).expect("JSON");
+        let v: Value = serde_json::from_str(&text).expect("JSON");
+        assert!(v.get("systemMessage").is_none(), "{text}");
+        assert_eq!(v["decision"], "block");
+        assert_eq!(v["reason"], "gate falhou");
     }
 }

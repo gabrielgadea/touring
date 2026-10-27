@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+# Only rc 1 (policy denies) silences the hook; a missing or broken policy (rc 2)
+# must not (27/10/2026: `if ! python3 …` muted it and 27 tests went red).
+python3 "$HOME/.claude/hooks/injection_policy.py" --allows plugin-hook >/dev/null 2>&1 && _ip_rc=0 || _ip_rc=$?
+if [[ "${_ip_rc}" -eq 1 ]]; then
+    exit 0
+fi
+
 # check_context.sh — PostToolUse hook: ONE checkpoint warning per compaction cycle.
 #
 # 08/10/2026 (Gabriel: "autocompactar aos 65%"): auto-compaction fires at

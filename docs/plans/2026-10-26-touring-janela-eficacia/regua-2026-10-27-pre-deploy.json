@@ -1,0 +1,539 @@
+{
+ "sessions": 200,
+ "window": 8,
+ "until": "2026-10-27T13:29:00Z",
+ "rows": {
+  "Bash:python3": {
+   "calls": 2346,
+   "erro%": 2.4,
+   "vazio%": 4.0,
+   "negado%": 4.9,
+   "retry%": 0.3,
+   "eficacia%": 88.7,
+   "result_bytes": 2799149
+  },
+  "Edit": {
+   "calls": 1908,
+   "erro%": 5.5,
+   "vazio%": 0.0,
+   "negado%": 9.6,
+   "retry%": 4.3,
+   "eficacia%": 84.9,
+   "result_bytes": 413642
+  },
+  "Bash:touring run": {
+   "calls": 1278,
+   "erro%": 4.3,
+   "vazio%": 3.1,
+   "negado%": 0.2,
+   "retry%": 0.4,
+   "eficacia%": 92.4,
+   "result_bytes": 3538739
+  },
+  "Write": {
+   "calls": 911,
+   "erro%": 0.3,
+   "vazio%": 0.0,
+   "negado%": 8.8,
+   "retry%": 0.3,
+   "eficacia%": 90.9,
+   "result_bytes": 188095
+  },
+  "Read": {
+   "calls": 860,
+   "erro%": 0.5,
+   "vazio%": 0.0,
+   "negado%": 4.1,
+   "retry%": 1.5,
+   "eficacia%": 95.4,
+   "result_bytes": 9092568
+  },
+  "Bash:grep": {
+   "calls": 818,
+   "erro%": 1.0,
+   "vazio%": 4.9,
+   "negado%": 3.1,
+   "retry%": 3.1,
+   "eficacia%": 91.0,
+   "result_bytes": 1117591
+  },
+  "Agent": {
+   "calls": 382,
+   "erro%": 0.0,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 100.0,
+   "result_bytes": 187671
+  },
+  "Bash:sed": {
+   "calls": 380,
+   "erro%": 1.1,
+   "vazio%": 0.3,
+   "negado%": 2.4,
+   "retry%": 0.0,
+   "eficacia%": 96.2,
+   "result_bytes": 1049974
+  },
+  "Bash:cat-write": {
+   "calls": 331,
+   "erro%": 1.5,
+   "vazio%": 0.0,
+   "negado%": 4.5,
+   "retry%": 0.0,
+   "eficacia%": 94.0,
+   "result_bytes": 307134
+  },
+  "SendMessage": {
+   "calls": 327,
+   "erro%": 0.3,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 99.7,
+   "result_bytes": 125263
+  },
+  "Bash:ls": {
+   "calls": 253,
+   "erro%": 4.0,
+   "vazio%": 3.6,
+   "negado%": 0.4,
+   "retry%": 0.0,
+   "eficacia%": 92.0,
+   "result_bytes": 363392
+  },
+  "Bash:for": {
+   "calls": 222,
+   "erro%": 4.5,
+   "vazio%": 3.2,
+   "negado%": 0.9,
+   "retry%": 0.5,
+   "eficacia%": 91.4,
+   "result_bytes": 404110
+  },
+  "StructuredOutput": {
+   "calls": 171,
+   "erro%": 0.0,
+   "vazio%": 100.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 0.0,
+   "result_bytes": 6669
+  },
+  "Bash:touring decompose": {
+   "calls": 168,
+   "erro%": 2.4,
+   "vazio%": 8.9,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 88.7,
+   "result_bytes": 158555
+  },
+  "TaskStop": {
+   "calls": 148,
+   "erro%": 1.4,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 98.6,
+   "result_bytes": 37143
+  },
+  "Bash:git diff": {
+   "calls": 137,
+   "erro%": 0.7,
+   "vazio%": 1.5,
+   "negado%": 0.7,
+   "retry%": 21.2,
+   "eficacia%": 97.1,
+   "result_bytes": 209836
+  },
+  "Grep": {
+   "calls": 123,
+   "erro%": 0.8,
+   "vazio%": 5.7,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 93.5,
+   "result_bytes": 346110
+  },
+  "Bash:bash": {
+   "calls": 114,
+   "erro%": 3.5,
+   "vazio%": 0.9,
+   "negado%": 10.5,
+   "retry%": 1.8,
+   "eficacia%": 85.1,
+   "result_bytes": 134324
+  },
+  "ListAgents": {
+   "calls": 91,
+   "erro%": 0.0,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 16.5,
+   "eficacia%": 100.0,
+   "result_bytes": 153604
+  },
+  "Bash:ruff": {
+   "calls": 86,
+   "erro%": 1.2,
+   "vazio%": 2.3,
+   "negado%": 2.3,
+   "retry%": 0.0,
+   "eficacia%": 94.2,
+   "result_bytes": 61498
+  },
+  "Bash:systemd-run": {
+   "calls": 86,
+   "erro%": 4.7,
+   "vazio%": 0.0,
+   "negado%": 7.0,
+   "retry%": 1.2,
+   "eficacia%": 88.3,
+   "result_bytes": 82551
+  },
+  "Bash:git status": {
+   "calls": 85,
+   "erro%": 2.4,
+   "vazio%": 1.2,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 96.4,
+   "result_bytes": 96330
+  },
+  "Bash:cat-read": {
+   "calls": 78,
+   "erro%": 5.1,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 94.9,
+   "result_bytes": 222485
+  },
+  "Bash:mkdir": {
+   "calls": 70,
+   "erro%": 2.9,
+   "vazio%": 10.0,
+   "negado%": 8.6,
+   "retry%": 1.4,
+   "eficacia%": 78.5,
+   "result_bytes": 64480
+  },
+  "Bash:tail": {
+   "calls": 68,
+   "erro%": 0.0,
+   "vazio%": 4.4,
+   "negado%": 1.5,
+   "retry%": 0.0,
+   "eficacia%": 94.1,
+   "result_bytes": 86279
+  },
+  "Bash:wc": {
+   "calls": 68,
+   "erro%": 4.4,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 95.6,
+   "result_bytes": 168586
+  },
+  "ToolSearch": {
+   "calls": 67,
+   "erro%": 0.0,
+   "vazio%": 0.0,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 100.0,
+   "result_bytes": 9114
+  },
+  "Bash:find": {
+   "calls": 55,
+   "erro%": 3.6,
+   "vazio%": 7.3,
+   "negado%": 3.6,
+   "retry%": 0.0,
+   "eficacia%": 85.5,
+   "result_bytes": 55484
+  },
+  "Bash:cp": {
+   "calls": 48,
+   "erro%": 2.1,
+   "vazio%": 8.3,
+   "negado%": 10.4,
+   "retry%": 0.0,
+   "eficacia%": 79.2,
+   "result_bytes": 45261
+  },
+  "Bash:touring memory": {
+   "calls": 41,
+   "erro%": 0.0,
+   "vazio%": 9.8,
+   "negado%": 0.0,
+   "retry%": 0.0,
+   "eficacia%": 90.2,
+   "result_bytes": 134149
+  }
+ },
+ "extras": {
+  "deny_next_by_gate": {
+   "outro": {
+    "recuperou": 121,
+    "negado-de-novo": 25,
+    "repetiu": 3
+   },
+   "G10": {
+    "negado-de-novo": 2,
+    "recuperou": 89
+   },
+   "G3": {
+    "negado-de-novo": 16,
+    "recuperou": 47
+   },
+   "python3": {
+    "recuperou": 47,
+    "negado-de-novo": 5,
+    "repetiu": 1
+   },
+   "G11": {
+    "recuperou": 48,
+    "negado-de-novo": 2
+   },
+   "$CLAUDE_PROJECT_DIR/.venv/bin/python3": {
+    "recuperou": 36,
+    "negado-de-novo": 3
+   },
+   "G7": {
+    "recuperou": 25,
+    "negado-de-novo": 5
+   },
+   "G6": {
+    "recuperou": 3,
+    "repetiu": 21
+   },
+   "G9": {
+    "recuperou": 14,
+    "negado-de-novo": 2
+   },
+   "OUTER": {
+    "recuperou": 7,
+    "repetiu": 4,
+    "negado-de-novo": 2
+   }
+  },
+  "sizes": {
+   "Bash:python3": {
+    "n": 2346,
+    "p50": 624,
+    "p95": 3846,
+    "gt10k%": 0.9,
+    "gt10k_bytes%": 11.7
+   },
+   "Edit": {
+    "n": 1908,
+    "p50": 145,
+    "p95": 361,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:touring run": {
+    "n": 1278,
+    "p50": 1872,
+    "p95": 8557,
+    "gt10k%": 0.5,
+    "gt10k_bytes%": 2.0
+   },
+   "Write": {
+    "n": 911,
+    "p50": 178,
+    "p95": 634,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Read": {
+    "n": 860,
+    "p50": 2331,
+    "p95": 21309,
+    "gt10k%": 13.6,
+    "gt10k_bytes%": 78.9
+   },
+   "Bash:grep": {
+    "n": 818,
+    "p50": 959,
+    "p95": 4098,
+    "gt10k%": 0.1,
+    "gt10k_bytes%": 1.3
+   },
+   "Agent": {
+    "n": 382,
+    "p50": 288,
+    "p95": 1069,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:sed": {
+    "n": 380,
+    "p50": 2227,
+    "p95": 6841,
+    "gt10k%": 1.1,
+    "gt10k_bytes%": 4.9
+   },
+   "Bash:cat-write": {
+    "n": 331,
+    "p50": 361,
+    "p95": 4415,
+    "gt10k%": 0.3,
+    "gt10k_bytes%": 5.8
+   },
+   "SendMessage": {
+    "n": 327,
+    "p50": 351,
+    "p95": 681,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:ls": {
+    "n": 253,
+    "p50": 593,
+    "p95": 5581,
+    "gt10k%": 1.2,
+    "gt10k_bytes%": 16.8
+   },
+   "Bash:for": {
+    "n": 221,
+    "p50": 956,
+    "p95": 8976,
+    "gt10k%": 0.9,
+    "gt10k_bytes%": 6.2
+   },
+   "StructuredOutput": {
+    "n": 171,
+    "p50": 39,
+    "p95": 39,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:touring decompose": {
+    "n": 168,
+    "p50": 617,
+    "p95": 3162,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "TaskStop": {
+    "n": 148,
+    "p50": 182,
+    "p95": 483,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:git diff": {
+    "n": 137,
+    "p50": 1113,
+    "p95": 4128,
+    "gt10k%": 1.5,
+    "gt10k_bytes%": 10.1
+   },
+   "Grep": {
+    "n": 123,
+    "p50": 1268,
+    "p95": 10490,
+    "gt10k%": 5.7,
+    "gt10k_bytes%": 28.6
+   },
+   "Bash:bash": {
+    "n": 114,
+    "p50": 570,
+    "p95": 4291,
+    "gt10k%": 1.8,
+    "gt10k_bytes%": 21.6
+   },
+   "ListAgents": {
+    "n": 91,
+    "p50": 755,
+    "p95": 6652,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:ruff": {
+    "n": 86,
+    "p50": 332,
+    "p95": 1139,
+    "gt10k%": 1.2,
+    "gt10k_bytes%": 27.8
+   },
+   "Bash:systemd-run": {
+    "n": 86,
+    "p50": 752,
+    "p95": 2310,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:git status": {
+    "n": 86,
+    "p50": 750,
+    "p95": 3072,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:cat-read": {
+    "n": 78,
+    "p50": 1465,
+    "p95": 9536,
+    "gt10k%": 3.8,
+    "gt10k_bytes%": 24.3
+   },
+   "Bash:mkdir": {
+    "n": 70,
+    "p50": 423,
+    "p95": 3254,
+    "gt10k%": 1.4,
+    "gt10k_bytes%": 19.4
+   },
+   "Bash:tail": {
+    "n": 68,
+    "p50": 765,
+    "p95": 4906,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:wc": {
+    "n": 68,
+    "p50": 1711,
+    "p95": 7473,
+    "gt10k%": 1.5,
+    "gt10k_bytes%": 6.3
+   },
+   "ToolSearch": {
+    "n": 67,
+    "p50": 87,
+    "p95": 544,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:find": {
+    "n": 55,
+    "p50": 857,
+    "p95": 3066,
+    "gt10k%": 0.0,
+    "gt10k_bytes%": 0.0
+   },
+   "Bash:cp": {
+    "n": 48,
+    "p50": 484,
+    "p95": 2060,
+    "gt10k%": 2.1,
+    "gt10k_bytes%": 22.5
+   },
+   "Bash:touring memory": {
+    "n": 41,
+    "p50": 751,
+    "p95": 24657,
+    "gt10k%": 9.8,
+    "gt10k_bytes%": 73.5
+   }
+  },
+  "read_bytes": 9092568,
+  "read_superseded_bytes": 1524703,
+  "read_superseded%": 16.8
+ }
+}

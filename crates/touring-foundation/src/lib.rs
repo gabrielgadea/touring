@@ -66,6 +66,18 @@ pub mod text_sanitize;
 pub mod hash;
 pub mod health;
 pub mod health_events;
+/// A taxonomia canônica de famílias de injeção (a REGUA): migrada de
+/// `touring-cli::cli::context_budget` na S-4 (26/10/2026) para que a régua e a
+/// política leiam a MESMA tabela — o mesmo movimento do `cila`.
+pub mod injection_family;
+/// Diário do que a política de injeção CORTOU (S-3, 27/10/2026): JSONL
+/// append-only sob `~/.claude/touring/`, escrito pelos processos de hook
+/// efêmeros e lido pelo `touring kpi` (`context_budget`).
+pub mod injection_journal;
+/// Política de injeção de contexto dos hooks — o interruptor
+/// `TOURING_HOOK_INJECTION`, nativo (S-4, 26/10/2026). Espelho Python:
+/// `client/hooks/injection_policy.py`.
+pub mod injection_policy;
 /// Session-insight value types (`ErrorPatternInsight`, `EditedFileInsight`) shared by
 /// the knowledge data layer and the hooks session-insights layer (relocated A5, 2026-06-15).
 pub mod insights;

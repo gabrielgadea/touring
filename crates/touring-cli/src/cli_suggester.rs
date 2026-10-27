@@ -6618,7 +6618,17 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
 
     // W1 — gates com executor (G2 deny + G6 escalada): decididos ANTES do
     // anti-spam, porque um deny repetido nunca pode ser engolido pelo cache.
-    if let Some(resp) = code_mode_gates(&rt.project_root, &session, tool_name, tool_input) {
+    let gate_resp = code_mode_gates(&rt.project_root, &session, tool_name, tool_input);
+    // S-11 / D1 (27/10/2026) — o trio do canal de ferramentas medido na emissão: o deny
+    // (qual gate, qual classe) e a classificação da chamada SEGUINTE (recovered /
+    // repeated / denied_again). Fail-open: estado em memória, sem I/O, sem pânico.
+    touring_hooks_shared::tool_trio::observe_pre_call(
+        &session,
+        tool_name,
+        tool_input,
+        gate_resp.as_deref(),
+    );
+    if let Some(resp) = gate_resp {
         return resp;
     }
 
@@ -7062,6 +7072,39 @@ mod actor_isolation_tests {
         assert!(
             denied(&code_mode_gates(root, &me, "Read", &read)),
             "isolation disabled the gate for its own actor"
+        );
+    }
+
+    /// S-11 / D1: a REAL gate denial feeds the tool-channel trio. The gate tag is read from
+    /// the same `[G<n> …]` prefix the model sees, an allowed call is not a denial, and the
+    /// trio's session key is the one these gates use (a denial and the call that follows it
+    /// must land in the same session, subagents included).
+    #[test]
+    fn real_gate_denial_is_read_by_the_tool_trio() {
+        use touring_hooks_shared::tool_trio::{deny_gate_of, session_key as trio_session_key};
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s11_trio_g7.py"});
+        for payload in [
+            json!({}),
+            json!({"session_id": ""}),
+            json!({"session_id": "s11-trio"}),
+            json!({"session_id": "s11-trio", "agent_id": "agent-z"}),
+        ] {
+            assert_eq!(trio_session_key(&payload), session_key(&payload));
+        }
+        let me = session_key(&json!({"session_id": "s11-trio-g7", "agent_id": "agent-z"}));
+        let first = code_mode_gates(root, &me, "Read", &read);
+        assert_eq!(first.as_deref().and_then(deny_gate_of), None);
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        let third = code_mode_gates(root, &me, "Read", &read);
+        assert!(
+            denied(&third),
+            "the 3rd read in the window is the G7 denial"
+        );
+        assert_eq!(
+            deny_gate_of(third.as_deref().unwrap_or_default()).as_deref(),
+            Some("G7")
         );
     }
 

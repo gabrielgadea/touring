@@ -506,7 +506,9 @@ fn count_prior_same_hash(journal: &std::path::Path, hash: &str) -> u32 {
         return 0;
     };
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
-    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024))).is_err() {
+    if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024)))
+        .is_err()
+    {
         return 0;
     }
     let mut buf = Vec::new();
@@ -554,7 +556,9 @@ mod journal_v2_tests {
         assert_eq!(rec["hint"]["key"], "snippet:varre-wiring:2026-09-01");
         assert_eq!(rec["hint"]["sim"], 0.87);
         let meta_sem = JournalMeta::default();
-        let rec_sem = journal_record("run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1);
+        let rec_sem = journal_record(
+            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1,
+        );
         assert!(
             rec_sem["hint"].is_null(),
             "no match → null, never a fabricated hint"
@@ -565,7 +569,18 @@ mod journal_v2_tests {
 
     #[test]
     fn journal_record_without_meta_keeps_v1_shape_plus_nulls() {
-        let rec = journal_record("run-2", "bash", "", 1, 5, None, 0, &JournalMeta::default(), "hash-b", 2);
+        let rec = journal_record(
+            "run-2",
+            "bash",
+            "",
+            1,
+            5,
+            None,
+            0,
+            &JournalMeta::default(),
+            "hash-b",
+            2,
+        );
         assert!(rec["source"].is_null());
         assert!(rec["file"].is_null());
         assert!(rec["harvest"].is_null());

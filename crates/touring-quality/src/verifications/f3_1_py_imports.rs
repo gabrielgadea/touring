@@ -127,12 +127,11 @@ pub(super) fn importing_tests(target: &Path) -> Vec<ImportingTest> {
 
 fn index_for(root: &Path) -> Arc<PyTestIndex> {
     let now = Instant::now();
-    if let Ok(map) = cache().lock() {
-        if let Some((built, idx)) = map.get(root) {
-            if now.duration_since(*built) < INDEX_TTL {
-                return Arc::clone(idx);
-            }
-        }
+    if let Ok(map) = cache().lock()
+        && let Some((built, idx)) = map.get(root)
+        && now.duration_since(*built) < INDEX_TTL
+    {
+        return Arc::clone(idx);
     }
     let built = Arc::new(PyTestIndex::build(root));
     if let Ok(mut map) = cache().lock() {
@@ -195,10 +194,10 @@ impl PyTestIndex {
                         module_paths.push(m);
                     }
                     let stem = name.trim_end_matches(".py");
-                    if is_test_stem(stem) {
-                        if let Some(tf) = parse_test_file(&p, &rel) {
-                            tests.push(tf);
-                        }
+                    if is_test_stem(stem)
+                        && let Some(tf) = parse_test_file(&p, &rel)
+                    {
+                        tests.push(tf);
                     }
                 }
             }
@@ -258,7 +257,7 @@ impl PyTestIndex {
             if !dotted.contains('.') && !tf.touches_sys_path {
                 continue;
             }
-            if self.module_paths.iter().any(|m| *m == p) {
+            if self.module_paths.contains(&p) {
                 continue;
             }
             if self.files_answering_to(&p) == 1 {
@@ -384,10 +383,10 @@ impl<'a> Scan<'a> {
                     self.eat_blank();
                 }
             } else if self.b[self.i] == q {
-                if let Ok(s) = std::str::from_utf8(&self.b[start..self.i]) {
-                    if s.len() < 512 {
-                        self.literals.push(s.to_string());
-                    }
+                if let Ok(s) = std::str::from_utf8(&self.b[start..self.i])
+                    && s.len() < 512
+                {
+                    self.literals.push(s.to_string());
                 }
                 self.eat_blank();
                 return;

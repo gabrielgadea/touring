@@ -1,0 +1,182 @@
+{
+ "Agent": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 70,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:(prefixo-só)": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 0,
+  "result_bytes": 0,
+  "retry": 0,
+  "vazio": 1
+ },
+ "Bash:-n": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 128,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:a": {
+  "calls": 1,
+  "erro": 1,
+  "negado": 0,
+  "ok": 0,
+  "result_bytes": 40,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:cargo test": {
+  "calls": 3,
+  "erro": 1,
+  "negado": 0,
+  "ok": 2,
+  "result_bytes": 348,
+  "retry": 1,
+  "vazio": 0
+ },
+ "Bash:cat-read": {
+  "calls": 2,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 390,
+  "retry": 0,
+  "vazio": 1
+ },
+ "Bash:cat-write": {
+  "calls": 2,
+  "erro": 0,
+  "negado": 0,
+  "ok": 2,
+  "result_bytes": 0,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:echo": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 67,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:git": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 106,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:git log": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 126,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:git status": {
+  "calls": 2,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 114,
+  "retry": 0,
+  "vazio": 1
+ },
+ "Bash:grep": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 0,
+  "result_bytes": 11,
+  "retry": 0,
+  "vazio": 1
+ },
+ "Bash:ls": {
+  "calls": 3,
+  "erro": 0,
+  "negado": 1,
+  "ok": 0,
+  "result_bytes": 141,
+  "retry": 0,
+  "vazio": 2
+ },
+ "Bash:python3": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 64,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:rg": {
+  "calls": 2,
+  "erro": 1,
+  "negado": 0,
+  "ok": 0,
+  "result_bytes": 33,
+  "retry": 0,
+  "vazio": 1
+ },
+ "Bash:scripts/hw-slot": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 120,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Bash:touring run": {
+  "calls": 1,
+  "erro": 0,
+  "negado": 0,
+  "ok": 1,
+  "result_bytes": 128,
+  "retry": 0,
+  "vazio": 0
+ },
+ "Edit": {
+  "calls": 4,
+  "erro": 2,
+  "negado": 0,
+  "ok": 2,
+  "result_bytes": 252,
+  "retry": 1,
+  "vazio": 0
+ },
+ "Read": {
+  "calls": 17,
+  "erro": 0,
+  "negado": 1,
+  "ok": 13,
+  "result_bytes": 20848,
+  "retry": 1,
+  "vazio": 3
+ },
+ "mcp__touring__touring_ctx_execute": {
+  "calls": 2,
+  "erro": 0,
+  "negado": 0,
+  "ok": 2,
+  "result_bytes": 120,
+  "retry": 0,
+  "vazio": 0
+ }
+}

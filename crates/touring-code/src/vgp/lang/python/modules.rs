@@ -211,7 +211,12 @@ pub struct Resolver<'a> {
 
 impl<'a> Resolver<'a> {
     /// A resolver over `root`, with `overlays` (path → content) laid over the disk.
-    pub fn new(root: &'a Path, overlays: &'a HashMap<String, String>) -> Self {
+    ///
+    /// Crate-internal: the only caller is `run_checks` in the parent module. The
+    /// wiring index cannot see a `Type::new(…)` call (`new` has ~1.5k producers and
+    /// the by-name resolver caps them), so a `pub` constructor read as an orphan
+    /// export although nothing outside this crate ever built a `Resolver`.
+    pub(crate) fn new(root: &'a Path, overlays: &'a HashMap<String, String>) -> Self {
         Self {
             root,
             overlays,
@@ -223,11 +228,6 @@ impl<'a> Resolver<'a> {
     /// The project root modules resolve against.
     pub fn root_path(&self) -> &'a Path {
         self.root
-    }
-
-    /// The overlay map (path → content at the entry's instant).
-    pub fn overlays_map(&self) -> &'a HashMap<String, String> {
-        self.overlays
     }
 
     /// Resolve `a.b.c` imported from `importer` (a virtual path; `<string>` for inline).
@@ -983,6 +983,35 @@ mod tests {
         assert!(sig.has_kwargs);
         assert_eq!(sig.returns.as_deref(), Some("Recibo"));
         assert!(sig.params.contains(&"a".to_string()) && sig.params.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn resolver_prefere_o_overlay_ao_disco_e_guarda_a_raiz() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("pkg")).expect("mkdir");
+        std::fs::write(dir.path().join("pkg/mod.py"), "do_disco = 1\n").expect("write mod");
+        std::fs::write(dir.path().join("pkg/so_disco.py"), "x = 1\n").expect("write so_disco");
+
+        // No overlay: modules resolve from the disk, against the root the resolver was given.
+        let sem_overlay = HashMap::new();
+        let res = Resolver::new(dir.path(), &sem_overlay);
+        assert_eq!(res.root_path(), dir.path());
+        let info = res
+            .resolve_module("pkg.mod", "<string>")
+            .expect("module on disk");
+        assert!(info.top_names.contains("do_disco"));
+        assert!(res.module_exists("pkg.so_disco", "<string>"));
+        assert!(!res.module_exists("pkg.ausente", "<string>"));
+
+        // The same path with proposed content: the overlay wins over the file on disk.
+        let chave = dir.path().join("pkg/mod.py").to_string_lossy().into_owned();
+        let overlays = HashMap::from([(chave, "do_overlay = 2\n".to_string())]);
+        let res = Resolver::new(dir.path(), &overlays);
+        let info = res
+            .resolve_module("pkg.mod", "<string>")
+            .expect("module from the overlay");
+        assert!(info.top_names.contains("do_overlay"));
+        assert!(!info.top_names.contains("do_disco"));
     }
 }
 

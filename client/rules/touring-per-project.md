@@ -1,6 +1,7 @@
----
 # Touring Per-Project — topologia rustup-like
-# (sem `paths:` de proposito: o daemon e o hook sao globais)
+
+<!-- Sem frontmatter e sem `paths:` de propósito: o daemon e o hook são globais. Um `---` de abertura sem
+     fechamento passa a truncar a regra no 1º `---` futuro (L4-004, I13: o mesmo defeito das regras #11/#19). -->
 
 **4 camadas:** L1 fonte `~/projects/touring` → L2 `~/.touring/toolchains/<v>/`
 (imutável) → L3 shim CC `~/.claude/hooks/touring-hook` → L4 `<proj>/.touring/`.

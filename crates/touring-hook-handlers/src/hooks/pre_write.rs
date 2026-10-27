@@ -578,18 +578,13 @@ fn collect_upfront_signals(
         if !states.is_empty()
             && let Ok(pensieve) = runtime.learning.pensieve.try_borrow()
         {
-            let penalty = match states.first() {
-                Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                _ => pensieve.check_known_failure_seq(&states),
+            let matched = match states.first() {
+                Some(&single) if states.len() == 1 => pensieve.check_known_failure_detail(single),
+                _ => pensieve.check_known_failure_seq_detail(&states),
             };
-            if let Some(sim) = penalty {
-                signals.push((
-                    1.2,
-                    format!(
-                        "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
-                        sim * 100.0
-                    ),
-                ));
+            if let Some(m) = matched {
+                // The notice names the command that failed on the similar path.
+                signals.push((1.2, m.path_notice()));
             }
         }
     }

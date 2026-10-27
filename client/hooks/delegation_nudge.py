@@ -360,7 +360,18 @@ def main() -> int:
         session = payload.get("session_id") if isinstance(payload, dict) else None
         output = handle(payload, os.environ, home, time.time())
         if output is not None:
-            sys.stdout.write(json.dumps(output, ensure_ascii=True))
+            # Interruptor de injeção de contexto (26/10/2026) — client/hooks/injection_policy.py
+            import sys as _sys; _sys.path.insert(0, __import__("os").path.expanduser("~/.claude/hooks"))
+            import injection_policy
+            if not injection_policy.allows("plugin-hook"):
+                return 0
+            # S-4p (26/10/2026): dedupe por época via ponte Rust — fail-open.
+            import injection_dedup
+            sys.stdout.write(injection_dedup.dedup_output(
+                json.dumps(output, ensure_ascii=True),
+                session_id=session if isinstance(session, str) else "",
+                cwd=str(payload.get("cwd") or "") if isinstance(payload, dict) else "",
+            ))
             sys.stdout.flush()
     except Exception as exc:  # noqa: BLE001 — an advisory hook must never fail the tool call; the log keeps it loud
         log(home, {"session": session if isinstance(session, str) else None, "evento": "erro", "n": 0, "kb": 0.0,

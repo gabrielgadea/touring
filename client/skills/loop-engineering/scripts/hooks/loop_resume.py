@@ -269,5 +269,17 @@ def main(argv=None) -> int:
     return 0
 
 
+# Interruptor de injecao de contexto (26/10/2026) — client/hooks/injection_policy.py
+import sys as _ipsys, pathlib as _ippath
+_ip_spec = _ipsys.path
+_ip_mod_path = _ippath.Path.home() / ".claude/hooks/injection_policy.py"
+if _ip_mod_path.exists():
+    import importlib.util as _ipu
+    _ip_sp = _ipu.spec_from_file_location("injection_policy", _ip_mod_path)
+    _ip_m = _ipu.module_from_spec(_ip_sp)
+    _ip_sp.loader.exec_module(_ip_m)
+    if not _ip_m.allows("loop-outer"):
+        _ipsys.exit(0)
+
 if __name__ == "__main__":
     sys.exit(main())

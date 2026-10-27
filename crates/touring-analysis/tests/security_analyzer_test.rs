@@ -380,6 +380,50 @@ fn a_climb_from_the_scripts_own_directory_is_not_traversal_but_one_from_input_is
     ));
 }
 
+/// 27/10/2026: `crates/touring-server/build.rs` failed F2.1 (0.2, P0) on
+/// `println!("cargo:rerun-if-changed=../../.git/HEAD");` — a directive CARGO reads,
+/// not a path the program opens. The detector, not the build script, was wrong.
+#[test]
+fn test_cargo_rerun_directive_is_not_path_traversal() {
+    for directive in [
+        // The two lines of `crates/touring-server/build.rs`, verbatim.
+        "fn main() {\n    println!(\"cargo:rerun-if-changed=../../.git/HEAD\");\n}\n",
+        "fn main() {\n    println!(\"cargo:rerun-if-changed=../../.git/refs/heads/main\");\n}\n",
+        // The `cargo::` form and another directive key.
+        "fn main() {\n    println!(\"cargo::rerun-if-changed=../../.git/HEAD\");\n}\n",
+        "fn main() {\n    println!(\"cargo:rustc-link-search=native=../../vendor/lib\");\n}\n",
+        // `print!`, and a call that rustfmt split so the literal starts on its own line.
+        "fn main() {\n    print!(\"cargo:rerun-if-changed=../../a\\n\");\n}\n",
+        "fn main() {\n    println!(\n        \"cargo:rerun-if-changed=../../some/long/path\"\n    );\n}\n",
+        // An interpolated tail: the climb itself is still a constant.
+        "fn main() {\n    println!(\"cargo:rerun-if-changed=../../{}\", name);\n}\n",
+    ] {
+        assert!(!traversal(directive, "rust"), "{directive}");
+    }
+}
+
+/// The positive control for the cargo-directive exemption: it is the directive
+/// form and nothing wider, and dropping it must never hide a real sink.
+#[test]
+fn test_cargo_directive_exemption_is_narrow_and_real_traversal_still_counts() {
+    for sink in [
+        // A request-driven read: the canonical CWE-22 shape.
+        "fn read(user_input: &str) -> String {\n    std::fs::read_to_string(format!(\"../../{}\", user_input)).unwrap_or_default()\n}\n",
+        // A printed path is not a cargo directive.
+        "fn main() {\n    println!(\"see ../../etc/passwd\");\n}\n",
+        // cargo reads stdout only; stderr is not a directive channel.
+        "fn main() {\n    eprintln!(\"cargo:rerun-if-changed=../../.git/HEAD\");\n}\n",
+        // A `cargo:`-looking string that is opened as a path is not printed to cargo.
+        "fn main() {\n    let p = \"cargo:rerun-if-changed=../../.git/HEAD\";\n    let _ = std::fs::read(p);\n}\n",
+        // No `<key>=`: not the directive grammar.
+        "fn main() {\n    println!(\"cargo:../../x\");\n}\n",
+        // Directive lines first, a real sink further down: the sink survives.
+        "fn main() {\n    println!(\"cargo:rerun-if-changed=../../.git/HEAD\");\n    let _ = std::fs::read(\"../../etc/passwd\");\n}\n",
+    ] {
+        assert!(traversal(sink, "rust"), "{sink}");
+    }
+}
+
 /// 25/09/2026 (touring-36, the analise-50 judge): an HTML event handler whose
 /// VALUE is a constant is inline JS, not CWE-79 — no untrusted data reaches
 /// it (`onclick="rodar('preset')"` in a Python-generated template failed P0

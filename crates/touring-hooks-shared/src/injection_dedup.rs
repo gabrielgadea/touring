@@ -260,10 +260,19 @@ fn dedup_sections_with(root: &Path, session: &str, text: &str, disabled: bool) -
 }
 
 /// Aplica a dedupe ao **output JSON final** de um hook — o ponto central do daemon
-/// (`run_hook_command`), por onde TODOS os handlers da dispatch table saem.
+/// (`run_hook_command`), por onde TODOS os handlers da dispatch table saem, e o
+/// subcomando stateless `dedup-stdin` do `touring-hook` (S-4p), por onde os hooks
+/// Python passam a mesma dedupe com a mesma chave (root, sessão).
 ///
-/// Extrai `hookSpecificOutput.additionalContext`, passa por [`dedup_sections`] e
-/// re-serializa. Qualquer outra forma (não-JSON, sem o campo, contexto vazio,
+/// Extrai os campos de CONTEXTO — `hookSpecificOutput.additionalContext`,
+/// `hookSpecificOutput.systemMessage` e o `systemMessage` da raiz (S-4p,
+/// 26/10/2026: o corpus mediu o Touring injetando pelos três) — passa cada um
+/// por [`dedup_sections`] e re-serializa. `permissionDecisionReason` fica FORA
+/// por contrato: é o canal da DECISÃO (a separação está declarada em
+/// `client/hooks/injection_policy.py`), e suprimir a razão repetida de um deny
+/// esconderia do operador por que a 2ª negação aconteceu.
+///
+/// Qualquer outra forma (não-JSON, sem os campos, contexto vazio,
 /// re-serialização falha) devolve o output intacto — fail-open por construção.
 /// Quando nada muda, os bytes originais voltam sem re-serialização (a ordem de
 /// chaves do JSON de outros campos nunca é tocada).
@@ -280,35 +289,76 @@ fn dedup_hook_output_with(root: &Path, session: &str, output: &str, disabled: bo
     let Ok(mut v) = serde_json::from_str::<serde_json::Value>(output) else {
         return output.to_string();
     };
-    let Some(ctx) = v
-        .pointer("/hookSpecificOutput/additionalContext")
-        .and_then(|c| c.as_str())
-    else {
+    let mut changed = false;
+    // A ordem é a ordem de prioridade de retenção: uma linha partilhada entre
+    // campos fica no PRIMEIRO (o additionalContext é o canal principal).
+    changed |= dedup_json_field(
+        &mut v,
+        root,
+        session,
+        Some("hookSpecificOutput"),
+        "additionalContext",
+    );
+    changed |= dedup_json_field(
+        &mut v,
+        root,
+        session,
+        Some("hookSpecificOutput"),
+        "systemMessage",
+    );
+    changed |= dedup_json_field(&mut v, root, session, None, "systemMessage");
+    if !changed {
         return output.to_string();
+    }
+    // Omissão total em todos os campos esvazia o hookSpecificOutput? O envelope
+    // vazio sai junto (~2 B é o menor rastro possível, e o CC não injeta nada).
+    if v.get("hookSpecificOutput")
+        .and_then(serde_json::Value::as_object)
+        .is_some_and(serde_json::Map::is_empty)
+    {
+        v.as_object_mut().map(|m| m.remove("hookSpecificOutput"));
+    }
+    serde_json::to_string(&v).unwrap_or_else(|_| output.to_string())
+}
+
+/// Dedupa UM campo-string de contexto do JSON de saída (`parent=None` = raiz).
+///
+/// Retorna `true` quando o campo mudou — reduzido ou REMOVIDO (omissão total:
+/// o campo repetido sai do JSON em vez de viajar vazio). Campo ausente, vazio
+/// ou não-string: inalterado, `false`. A dedupe do conteúdo é a de
+/// [`dedup_sections`], com o mesmo arquivo de estado por sessão.
+fn dedup_json_field(
+    v: &mut serde_json::Value,
+    root: &Path,
+    session: &str,
+    parent: Option<&str>,
+    key: &str,
+) -> bool {
+    let field = match parent {
+        Some(p) => v.get(p).and_then(|h| h.get(key)),
+        None => v.get(key),
+    };
+    let Some(ctx) = field.and_then(serde_json::Value::as_str) else {
+        return false;
     };
     if ctx.is_empty() {
-        return output.to_string();
+        return false;
     }
     let deduped = dedup_sections(root, session, ctx);
     if deduped == ctx {
-        return output.to_string();
+        return false;
     }
-    if deduped.is_empty() {
-        // Omissão total: o additionalContext repetido sai do JSON — o envelope
-        // vazio (~2 B) é o menor rastro possível, e o CC não injeta nada.
-        if let Some(hso) = v.get_mut("hookSpecificOutput") {
-            hso.as_object_mut().map(|m| m.remove("additionalContext"));
-            if hso.as_object().is_some_and(|m| m.is_empty()) {
-                v.as_object_mut().map(|m| m.remove("hookSpecificOutput"));
-            }
-        }
-        return serde_json::to_string(&v).unwrap_or_else(|_| output.to_string());
-    }
-    let Some(hso) = v.get_mut("hookSpecificOutput") else {
-        return output.to_string();
+    let target = match parent {
+        Some(p) => v.get_mut(p),
+        None => Some(&mut *v),
     };
-    hso["additionalContext"] = serde_json::Value::String(deduped);
-    serde_json::to_string(&v).unwrap_or_else(|_| output.to_string())
+    let Some(t) = target else { return false };
+    if deduped.is_empty() {
+        t.as_object_mut().map(|m| m.remove(key));
+    } else {
+        t[key] = serde_json::Value::String(deduped);
+    }
+    true
 }
 
 #[cfg(test)]
@@ -497,6 +547,114 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&o2).expect("JSON válido");
         assert_eq!(v["outroCampo"]["ordem"][0], "b");
         assert_eq!(v["hookSpecificOutput"]["hookEventName"], "PreToolUse");
+    }
+
+    /// S-4p (26/10/2026): `systemMessage` (raiz e dentro de hookSpecificOutput)
+    /// é o MESMO canal de contexto — o corpus mediu o Touring injetando por ele
+    /// — então passa pela mesma dedupe; a repetição na época sai do JSON.
+    #[test]
+    fn dedupe_json_system_message_tambem_e_dedupado() {
+        let (d, s) = setup();
+        let msg = "prosa de sistema suficientemente longa para ser suprimível na repetição";
+        let mk = |m: &str| {
+            serde_json::json!({
+                "systemMessage": m,
+                "hookSpecificOutput": {"hookEventName": "PostToolUse", "systemMessage": m}
+            })
+            .to_string()
+        };
+        let o1 = dedup_hook_output(d.path(), &s, &mk(msg));
+        assert!(o1.contains(msg), "primeira emissão passa intacta: {o1}");
+        let o2 = dedup_hook_output(d.path(), &s, &mk(msg));
+        assert!(
+            !o2.contains(msg),
+            "a repetição dos DOIS systemMessage sai do JSON: {o2}"
+        );
+        let v: serde_json::Value = serde_json::from_str(&o2).expect("JSON válido");
+        assert!(v.get("systemMessage").is_none(), "raiz omitida: {v}");
+        assert!(
+            v.pointer("/hookSpecificOutput/systemMessage").is_none(),
+            "aninhado omitido: {v}"
+        );
+        // e o que não é contexto sobrevive
+        assert_eq!(
+            v.pointer("/hookSpecificOutput/hookEventName")
+                .and_then(|h| h.as_str()),
+            Some("PostToolUse")
+        );
+    }
+
+    /// S-4p: `permissionDecisionReason` é o canal da DECISÃO — a separação está
+    /// declarada em `client/hooks/injection_policy.py`. Suprimir a razão
+    /// repetida de um deny esconderia do operador por que a 2ª negação
+    /// aconteceu: o campo passa INTACTO, byte a byte, mesmo repetido.
+    #[test]
+    fn dedupe_json_permission_decision_reason_nunca_e_tocado() {
+        let (d, s) = setup();
+        let mk = || {
+            serde_json::json!({
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "permissionDecision": "deny",
+                    "permissionDecisionReason": "a razão da negação, repetida a cada deny idêntico"
+                }
+            })
+            .to_string()
+        };
+        let o1 = dedup_hook_output(d.path(), &s, &mk());
+        let o2 = dedup_hook_output(d.path(), &s, &mk());
+        assert_eq!(o1, mk(), "primeira passa intacta");
+        assert_eq!(o2, mk(), "a razão da decisão NUNCA é suprimida");
+    }
+
+    /// S-4p: controle positivo por campo — a 1ª emissão de um systemMessage com
+    /// conteúdo NOVO passa mesmo quando o additionalContext do mesmo payload já
+    /// foi visto na época (a dedupe é por conteúdo, não por payload).
+    #[test]
+    fn dedupe_json_primeira_emissao_de_cada_campo_passa() {
+        let (d, s) = setup();
+        let ctx = "  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence) prosa longa";
+        let msg = "aviso de sistema novo, suficientemente longo para ser suprimível";
+        let o1 = dedup_hook_output(
+            d.path(),
+            &s,
+            &serde_json::json!({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ctx}}).to_string(),
+        );
+        assert!(o1.contains("cached 300s"));
+        // 2º payload: additionalContext repetido (omitido), systemMessage NOVO (fica)
+        let o2 = dedup_hook_output(
+            d.path(),
+            &s,
+            &serde_json::json!({"hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ctx, "systemMessage": msg}}).to_string(),
+        );
+        assert!(!o2.contains("cached 300s"), "ctx repetido omitido: {o2}");
+        assert!(o2.contains(msg), "systemMessage novo passa: {o2}");
+    }
+
+    /// S-4p: uma linha partilhada entre campos fica no PRIMEIRO processado
+    /// (additionalContext) e é omitida no segundo — a ordem é declarada.
+    #[test]
+    fn dedupe_json_linha_partilhada_fica_no_primeiro_campo() {
+        let (d, s) = setup();
+        let linha = "a mesma lição suficientemente longa aparece nos dois campos do payload";
+        let mk = || {
+            serde_json::json!({
+                "hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": linha, "systemMessage": linha}
+            })
+            .to_string()
+        };
+        let o1 = dedup_hook_output(d.path(), &s, &mk());
+        let v: serde_json::Value = serde_json::from_str(&o1).expect("JSON válido");
+        assert_eq!(
+            v.pointer("/hookSpecificOutput/additionalContext")
+                .and_then(|c| c.as_str()),
+            Some(linha),
+            "o canal principal retém a linha: {o1}"
+        );
+        assert!(
+            v.pointer("/hookSpecificOutput/systemMessage").is_none(),
+            "a cópia no segundo campo é omitida na MESMA passada: {o1}"
+        );
     }
 
     #[test]

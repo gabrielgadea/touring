@@ -153,11 +153,42 @@ impl HookResponse {
     ///
     /// This is the bridge between the testable `HookResponse` and the
     /// diverging behavior required by Claude Code hook protocol.
+    ///
+    /// S-2 (27/10/2026): the answer goes through the injection policy
+    /// ([`touring_foundation::injection_policy`]) on its way out, at the level
+    /// of this process's environment. With `TOURING_HOOK_INJECTION` unset the
+    /// bytes are exactly what they always were.
     pub fn emit(self) -> ! {
+        if let Some(output) = self.emit_value() {
+            let (level, sink) = touring_foundation::injection_policy::current();
+            println!("{}", Self::stdout_text(&output, level, sink.as_deref()));
+        }
+        std::process::exit(0);
+    }
+
+    /// The text `emit` writes to stdout for `output`: its compact JSON, filtered
+    /// by the injection policy at `level` (cuts recorded in the journal at
+    /// `sink`). Split from `emit` — which exits the process — to be testable.
+    fn stdout_text(
+        output: &serde_json::Value,
+        level: touring_foundation::injection_policy::InjectionLevel,
+        sink: Option<&std::path::Path>,
+    ) -> String {
+        let json = serde_json::to_string(output).unwrap_or_default();
+        touring_foundation::injection_policy::apply_at(
+            level,
+            touring_foundation::injection_policy::SITE_EMIT_CORE,
+            &json,
+            sink,
+        )
+        .into_owned()
+    }
+
+    /// The JSON object `emit` prints, or `None` for `Allow` (which prints
+    /// nothing: an empty stdout is the hook protocol's "no answer").
+    fn emit_value(self) -> Option<serde_json::Value> {
         match self {
-            HookResponse::Allow => {
-                std::process::exit(0);
-            }
+            HookResponse::Allow => None,
             HookResponse::Context {
                 context,
                 event_name,
@@ -175,8 +206,7 @@ impl HookResponse {
                 let output = serde_json::json!({
                     "hookSpecificOutput": hso,
                 });
-                println!("{}", serde_json::to_string(&output).unwrap_or_default());
-                std::process::exit(0);
+                Some(output)
             }
             HookResponse::Deny {
                 reason,
@@ -202,8 +232,7 @@ impl HookResponse {
                 let output = serde_json::json!({
                     "hookSpecificOutput": hso,
                 });
-                println!("{}", serde_json::to_string(&output).unwrap_or_default());
-                std::process::exit(0);
+                Some(output)
             }
             HookResponse::Block {
                 reason,
@@ -228,16 +257,14 @@ impl HookResponse {
                     "reason": reason,
                     "hookSpecificOutput": hso,
                 });
-                println!("{}", serde_json::to_string(&output).unwrap_or_default());
-                std::process::exit(0);
+                Some(output)
             }
             HookResponse::Halt { reason } => {
                 let output = serde_json::json!({
                     "continue": false,
                     "stopReason": reason,
                 });
-                println!("{}", serde_json::to_string(&output).unwrap_or_default());
-                std::process::exit(0);
+                Some(output)
             }
             HookResponse::ContextWithUpdatedInput {
                 context,
@@ -258,8 +285,7 @@ impl HookResponse {
                 let output = serde_json::json!({
                     "hookSpecificOutput": hso,
                 });
-                println!("{}", serde_json::to_string(&output).unwrap_or_default());
-                std::process::exit(0);
+                Some(output)
             }
         }
     }
@@ -637,6 +663,138 @@ mod s214_tests {
     fn stamp_reports_no_change_when_the_name_already_matches() {
         let mut out = json!({"hookSpecificOutput": {"hookEventName": "PostToolUse", "additionalContext": "c"}});
         assert!(!stamp_event_name(&mut out, "PostToolUse"));
+    }
+}
+
+/// S-2 (27/10/2026) — a política de injeção no `emit` do tipo canônico.
+/// `emit` sai do processo; o que ele escreve é `stdout_text(emit_value())`,
+/// testado com nível e diário EXPLÍCITOS (nenhum teste mexe no ambiente).
+#[cfg(test)]
+mod s2_injection_policy_tests {
+    use super::HookResponse;
+    use serde_json::{Value, json};
+    use touring_foundation::injection_policy::InjectionLevel;
+
+    const SERMON: &str =
+        "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+    /// O que `emit` escreveria para `r` no `level`, ou `None` se calaria.
+    fn written(
+        r: HookResponse,
+        level: InjectionLevel,
+        sink: Option<&std::path::Path>,
+    ) -> Option<String> {
+        r.emit_value()
+            .map(|o| HookResponse::stdout_text(&o, level, sink))
+    }
+
+    /// O contrato C13 no `emit` do núcleo: sob `no-advisory` o sermão sai dos
+    /// três veredictos que o carregam e a decisão de cada um fica intacta.
+    #[test]
+    fn test_no_advisory_drops_sermon_keeps_decision() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let sink = touring_foundation::injection_journal::journal_path_in(dir.path());
+        let level = InjectionLevel::NoAdvisory;
+
+        let deny = HookResponse::Deny {
+            reason: "G2: pipe sem pipefail".into(),
+            context: Some(SERMON.into()),
+            event_name: Some("PreToolUse".into()),
+        };
+        let v: Value =
+            serde_json::from_str(&written(deny, level, Some(&sink)).expect("deny escreve"))
+                .expect("JSON");
+        assert!(v["hookSpecificOutput"].get("additionalContext").is_none());
+        assert_eq!(v["hookSpecificOutput"]["permissionDecision"], "deny");
+        assert_eq!(
+            v["hookSpecificOutput"]["permissionDecisionReason"],
+            "G2: pipe sem pipefail"
+        );
+
+        let block = HookResponse::Block {
+            reason: "gate falhou".into(),
+            context: Some(SERMON.into()),
+            event_name: Some("PostToolUse".into()),
+        };
+        let v: Value =
+            serde_json::from_str(&written(block, level, Some(&sink)).expect("block escreve"))
+                .expect("JSON");
+        assert_eq!(v["decision"], "block");
+        assert_eq!(v["reason"], "gate falhou");
+        assert!(v["hookSpecificOutput"].get("additionalContext").is_none());
+
+        let rewrite = HookResponse::ContextWithUpdatedInput {
+            context: SERMON.into(),
+            event_name: Some("PreToolUse".into()),
+            updated_input: json!({"command": "set -o pipefail; ls"}),
+        };
+        let v: Value =
+            serde_json::from_str(&written(rewrite, level, Some(&sink)).expect("escreve"))
+                .expect("JSON");
+        assert_eq!(
+            v["hookSpecificOutput"]["updatedInput"],
+            json!({"command": "set -o pipefail; ls"}),
+            "a entrada reescrita é decisão, não contexto"
+        );
+        assert!(v["hookSpecificOutput"].get("additionalContext").is_none());
+
+        // Três cortes, três linhas, todas deste sítio.
+        let lines: Vec<Value> = std::fs::read_to_string(&sink)
+            .expect("diário")
+            .lines()
+            .map(|l| serde_json::from_str(l).expect("linha JSON"))
+            .collect();
+        assert_eq!(lines.len(), 3);
+        assert!(lines.iter().all(|l| l["site"] == "emit-core"));
+    }
+
+    /// `off` num `Context` puro: o envelope vira `{}`; `Halt` (só decisão)
+    /// atravessa `off` byte a byte; `Allow` não escreve nada em nível algum.
+    #[test]
+    fn test_off_empties_context_keeps_halt_and_allow_stays_silent() {
+        let ctx = HookResponse::context_with_event(SERMON, "PostToolUse");
+        assert_eq!(
+            written(ctx, InjectionLevel::Off, None).as_deref(),
+            Some("{}")
+        );
+
+        let halt = || HookResponse::halt("fim de sessão");
+        assert_eq!(
+            written(halt(), InjectionLevel::Off, None),
+            written(halt(), InjectionLevel::Full, None),
+            "uma decisão pura não muda com o nível"
+        );
+
+        for level in [
+            InjectionLevel::Full,
+            InjectionLevel::NoAdvisory,
+            InjectionLevel::Off,
+        ] {
+            assert_eq!(written(HookResponse::Allow, level, None), None);
+        }
+    }
+
+    /// Sem política (`Full`, o default) o `emit` escreve a serialização de
+    /// sempre, variante a variante: a identidade de bytes do default.
+    #[test]
+    fn test_full_writes_the_serialization_byte_for_byte() {
+        let variants = || {
+            vec![
+                HookResponse::context_with_event(SERMON, "PostToolUse"),
+                HookResponse::deny_with_context("razão", SERMON),
+                HookResponse::block("razão"),
+                HookResponse::halt("fim"),
+                HookResponse::context_with_updated_input(SERMON, json!({"command": "ls"})),
+            ]
+        };
+        for (r, expected) in variants().into_iter().zip(variants()) {
+            let value = expected.emit_value().expect("não é Allow");
+            let direct = serde_json::to_string(&value).expect("serializa");
+            assert_eq!(
+                written(r, InjectionLevel::Full, None).as_deref(),
+                Some(direct.as_str())
+            );
+        }
     }
 }
 

@@ -20,6 +20,13 @@ pub fn cli_gate_metrics(_rt: &mut HookRuntime, _payload: &serde_json::Value) -> 
             "hook_dispatch_by_name".to_string(),
             serde_json::to_value(by_name).unwrap_or(serde_json::Value::Null),
         );
+        // S-11 / D1 (27/10/2026): the tool-channel trio measured at emission (per-class
+        // erro/vazio/negado, retry, result sizes, and the per-gate deny -> next action
+        // table). A sibling key for the same reason as above.
+        map.insert(
+            "tool_trio".to_string(),
+            touring_hooks_shared::tool_trio::snapshot_json(),
+        );
     }
     value.to_string()
 }
@@ -84,4 +91,31 @@ pub fn cli_gate_event(_rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         recorded += 1;
     }
     format!("{{\"recorded\":{recorded},\"skipped\":{skipped}}}")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// S-11 / D1: `touring gate-metrics -j` carries the tool-channel trio as a SIBLING
+    /// key, and the existing sibling (`hook_dispatch_by_name`) is still there.
+    #[test]
+    fn gate_metrics_carries_the_tool_trio_key() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        let raw = cli_gate_metrics(&mut rt, &serde_json::Value::Null);
+        let value: serde_json::Value =
+            serde_json::from_str(&raw).expect("gate-metrics output is JSON");
+        let trio = &value["tool_trio"];
+        assert!(trio["classes"].is_object(), "per-class rows: {trio}");
+        assert!(
+            trio["deny_recovery"].is_object(),
+            "per-gate recovery: {trio}"
+        );
+        assert_eq!(
+            trio["window"], 8,
+            "the retry window is part of the contract"
+        );
+        assert!(value.get("hook_dispatch_by_name").is_some());
+    }
 }

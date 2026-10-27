@@ -17,6 +17,16 @@
 //! values closer to 1.0 mean the candidate is very similar to a past failure.
 
 use crate::reasoning::ann_index::AnnIndex;
+use touring_foundation::text_sanitize::redact_secrets;
+
+/// Maximum bytes of the failing command kept in the store.
+///
+/// The notice renders far less than this; the cap only stops a pathological
+/// command line from growing the in-memory store without bound.
+const MAX_STORED_COMMAND_BYTES: usize = 512;
+
+/// Minimum bytes a name must have to be worth printing.
+const MIN_LABEL_BYTES: usize = 8;
 
 /// A recorded failure from MCTS/GoT search.
 #[derive(Debug, Clone)]
@@ -25,12 +35,32 @@ pub struct FailedPath {
     pub state_hash: u64,
     /// Human-readable reason for failure.
     pub reason: String,
+    /// The command that failed — empty when the producer recorded none.
+    ///
+    /// Stored redacted: the command travels from the shell into the model's
+    /// context, so a credential pasted into the command line must not
+    /// survive the round-trip.
+    pub command: String,
     /// Depth at which the path was pruned.
     pub depth: usize,
     /// Timestamp (epoch seconds).
     pub timestamp: u64,
     /// Number of times this failure pattern was seen.
     pub hit_count: u32,
+}
+
+/// A known failure that matched a candidate, with the score that matched it.
+///
+/// The query API hands back the recorded failure itself, not only a score: a
+/// score says "something similar failed", the failure says WHICH command
+/// failed — the difference between a notice the model can act on and one it
+/// can only stare at.
+#[derive(Debug, Clone)]
+pub struct FailedMatch<'a> {
+    /// Cosine similarity to the matched failure (0.0–1.0).
+    pub similarity: f64,
+    /// The recorded failure that matched.
+    pub path: &'a FailedPath,
 }
 
 /// Pensieve memory for failed reasoning paths.
@@ -77,7 +107,28 @@ impl Pensieve {
     ///
     /// Computes an embedding from `states`, stores the metadata, and
     /// rebuilds the ANN index so the failure is immediately searchable.
+    ///
+    /// The failure is recorded WITHOUT a command; use
+    /// [`record_failure_with_command`](Self::record_failure_with_command) when
+    /// the command that failed is known — that is what lets a later lookup
+    /// name the failure instead of only scoring it.
     pub fn record_failure(&mut self, states: &[u64], reason: &str, depth: usize) {
+        self.record_failure_with_command(states, reason, depth, "");
+    }
+
+    /// Record a failed path together with the command that failed.
+    ///
+    /// The command is what makes the later notice actionable, so it is stored
+    /// alongside the failure — redacted, because it travels from the shell
+    /// into the model's context and a credential pasted into the command line
+    /// must not survive the round-trip.
+    pub fn record_failure_with_command(
+        &mut self,
+        states: &[u64],
+        reason: &str,
+        depth: usize,
+        command: &str,
+    ) {
         let embedding = compute_embedding(states, self.dim);
         let state_hash = hash_states(states);
 
@@ -85,6 +136,10 @@ impl Pensieve {
             .duration_since(std::time::SystemTime::UNIX_EPOCH)
             .map(|d| d.as_secs())
             .unwrap_or(0);
+
+        // Redact BEFORE truncating: a half-cut token would no longer match the
+        // redaction patterns and its prefix would leak.
+        let command = truncate_bytes(&redact_secrets(command), MAX_STORED_COMMAND_BYTES);
 
         // Check for duplicate state_hash and increment hit_count instead.
         if let Some(existing) = self
@@ -94,12 +149,16 @@ impl Pensieve {
         {
             existing.hit_count = existing.hit_count.saturating_add(1);
             existing.timestamp = timestamp;
+            if !command.is_empty() {
+                existing.command = command;
+            }
             return;
         }
 
         self.failures.push(FailedPath {
             state_hash,
             reason: reason.to_string(),
+            command,
             depth,
             timestamp,
             hit_count: 1,
@@ -115,21 +174,21 @@ impl Pensieve {
     /// threshold.  Penalty is in 0.0–1.0 (higher = more similar to failure).
     /// Returns `None` if no match meets the threshold.
     pub fn check_known_failure(&self, state: u64) -> Option<f64> {
+        self.check_known_failure_detail(state).map(|m| m.similarity)
+    }
+
+    /// Check a candidate state and return the failure that matched.
+    ///
+    /// Unlike [`check_known_failure`](Self::check_known_failure) this hands
+    /// back the recorded failure, so the caller can name what failed instead
+    /// of only knowing that something similar failed.
+    pub fn check_known_failure_detail(&self, state: u64) -> Option<FailedMatch<'_>> {
         if self.failures.is_empty() {
             return None;
         }
 
         let embedding = compute_embedding(&[state], self.dim);
-        let results = self.index.query(&embedding, 1);
-
-        let (_, similarity) = results.first()?;
-        let sim = f64::from(*similarity);
-
-        if sim >= self.threshold {
-            Some(sim.clamp(0.0, 1.0))
-        } else {
-            None
-        }
+        self.match_failure(&embedding)
     }
 
     /// Check a full state sequence against known failures.
@@ -137,21 +196,45 @@ impl Pensieve {
     /// Like [`check_known_failure`](Self::check_known_failure) but embeds the
     /// entire sequence, giving a more accurate match.
     pub fn check_known_failure_seq(&self, states: &[u64]) -> Option<f64> {
+        self.check_known_failure_seq_detail(states)
+            .map(|m| m.similarity)
+    }
+
+    /// Check a full state sequence and return the failure that matched.
+    ///
+    /// Like [`check_known_failure_detail`](Self::check_known_failure_detail) but
+    /// embeds the entire sequence, giving a more accurate match.
+    pub fn check_known_failure_seq_detail(&self, states: &[u64]) -> Option<FailedMatch<'_>> {
         if self.failures.is_empty() || states.is_empty() {
             return None;
         }
 
         let embedding = compute_embedding(states, self.dim);
-        let results = self.index.query(&embedding, 1);
+        self.match_failure(&embedding)
+    }
 
-        let (_, similarity) = results.first()?;
+    /// The closest recorded failure to `embedding`, when it clears the threshold.
+    fn match_failure(&self, embedding: &[f32]) -> Option<FailedMatch<'_>> {
+        let results = self.index.query(embedding, 1);
+
+        let (id, similarity) = results.first()?;
         let sim = f64::from(*similarity);
 
-        if sim >= self.threshold {
-            Some(sim.clamp(0.0, 1.0))
-        } else {
-            None
+        // `sim` é um f64 (clippy::neg_cmp_op_on_partial_ord): NaN torna a
+        // comparação falsa; queremos `None` nesse caso, e a forma explícita
+        // com partial_cmp deixa isso óbvio em vez de esconder atrás de um `!`.
+        if sim.partial_cmp(&self.threshold).is_none_or(|o| o.is_lt()) {
+            return None;
         }
+
+        // The index stores the position of the failure as its key.
+        let position: usize = id.parse().ok()?;
+        let path = self.failures.get(position)?;
+
+        Some(FailedMatch {
+            similarity: sim.clamp(0.0, 1.0),
+            path,
+        })
     }
 
     /// Number of recorded failures.
@@ -187,6 +270,136 @@ impl Pensieve {
             .collect();
         self.index.build(&entries);
     }
+}
+
+impl<'a> FailedMatch<'a> {
+    /// The name of what failed, compacted to one line and truncated to
+    /// `max_bytes`.
+    ///
+    /// The command is the name when the producer recorded one; the recorded
+    /// reason stands in when it did not (the producer may not know the
+    /// command); `"unknown"` when neither is known.
+    pub fn failure_label(&self, max_bytes: usize) -> String {
+        let source = if !self.path.command.trim().is_empty() {
+            self.path.command.as_str()
+        } else if !self.path.reason.trim().is_empty() {
+            self.path.reason.as_str()
+        } else {
+            "unknown"
+        };
+        compact_command(source, max_bytes)
+    }
+
+    /// One-line notice for a command-shaped lookup.
+    ///
+    /// Names the command that failed. The notice is never longer than the one
+    /// it replaces — the name is what the leftover budget pays for.
+    pub fn command_notice(&self) -> String {
+        let pct = self.similarity * 100.0;
+        let legacy = format!("Similar command failed recently (similarity={pct:.0}%)");
+        self.notice(
+            "Similar failure: ",
+            &format!(" ({pct:.0}%)"),
+            &legacy,
+            legacy.len(),
+        )
+    }
+
+    /// One-line notice for a path-shaped lookup.
+    ///
+    /// Names the command that failed on the similar path.
+    pub fn path_notice(&self) -> String {
+        let pct = self.similarity * 100.0;
+        let legacy = format!("⚠ pensieve: similar path had recorded failures ({pct:.0}% match)");
+        self.notice(
+            "⚠ pensieve: ",
+            &format!(" failed before ({pct:.0}% match)"),
+            &legacy,
+            legacy.len(),
+        )
+    }
+
+    /// One-line notice for a task-shaped lookup.
+    ///
+    /// Names the command that failed on the similar task.
+    pub fn task_notice(&self) -> String {
+        let legacy = format!(
+            "⚠ pensieve: similar task failed before (penalty={:.2}) — review gotchas before proceeding",
+            self.similarity
+        );
+        self.notice(
+            "⚠ pensieve: ",
+            &format!(
+                " failed before (penalty={:.2}) — review gotchas",
+                self.similarity
+            ),
+            &legacy,
+            legacy.len(),
+        )
+    }
+
+    /// Build `<lead>`<name>`<tail>`, hard-bounded to `max_total` bytes.
+    ///
+    /// `fallback` is returned verbatim when the budget cannot hold a name, so
+    /// the notice keeps its shape and never grows.
+    fn notice(&self, lead: &str, tail: &str, fallback: &str, max_total: usize) -> String {
+        let room = max_total
+            .saturating_sub(lead.len())
+            .saturating_sub(tail.len())
+            .saturating_sub(2); // the two backticks around the name
+        if room < MIN_LABEL_BYTES {
+            return fallback.to_string();
+        }
+        format!("{lead}`{}`{tail}", self.failure_label(room))
+    }
+}
+
+/// Compact `command` to a single line, truncated to `max_bytes`.
+///
+/// A cut is marked with an ellipsis, so the reader knows the name is a prefix
+/// of the real command rather than the whole of it.
+pub fn compact_command(command: &str, max_bytes: usize) -> String {
+    let flat = command.split_whitespace().collect::<Vec<_>>().join(" ");
+    // A backtick would close the inline-code marker the notice wraps the name in.
+    let flat = flat.replace('`', "'");
+    truncate_bytes(&flat, max_bytes)
+}
+
+/// Truncate `s` to at most `max_bytes`, marking the cut with an ellipsis.
+///
+/// Never splits a character: the result is always valid UTF-8 and always fits
+/// the budget.
+fn truncate_bytes(s: &str, max_bytes: usize) -> String {
+    if s.len() <= max_bytes {
+        return s.to_string();
+    }
+    if max_bytes == 0 {
+        return String::new();
+    }
+
+    const ELLIPSIS: &str = "…";
+    if max_bytes <= ELLIPSIS.len() {
+        // No room for the marker — cut on a character boundary and stop.
+        let mut out = String::new();
+        for ch in s.chars() {
+            if out.len() + ch.len_utf8() > max_bytes {
+                break;
+            }
+            out.push(ch);
+        }
+        return out;
+    }
+
+    let budget = max_bytes - ELLIPSIS.len();
+    let mut out = String::new();
+    for ch in s.chars() {
+        if out.len() + ch.len_utf8() > budget {
+            break;
+        }
+        out.push(ch);
+    }
+    out.push_str(ELLIPSIS);
+    out
 }
 
 /// Hash a state sequence into a single u64 for deduplication.
@@ -429,5 +642,220 @@ mod tests {
         // Just verify determinism of the different input
         let d = hash_states(&[3, 2, 1]);
         assert_eq!(c, d);
+    }
+
+    #[test]
+    fn record_failure_with_command_stores_the_command() {
+        let mut p = Pensieve::new(16);
+        p.record_failure_with_command(
+            &[1, 2, 3],
+            "exit code 1",
+            3,
+            "cargo test -p touring-intelligence",
+        );
+        assert_eq!(p.failure_count(), 1);
+        assert_eq!(
+            p.failures()[0].command,
+            "cargo test -p touring-intelligence"
+        );
+    }
+
+    #[test]
+    fn record_failure_without_a_command_leaves_it_empty() {
+        let mut p = Pensieve::new(16);
+        p.record_failure(&[1, 2, 3], "exit code 1", 3);
+        assert_eq!(p.failures()[0].command, "");
+    }
+
+    #[test]
+    fn record_failure_redacts_secrets_in_the_command() {
+        // touring-quality:allow-secrets — a SAMPLE token: the test exists to
+        // prove the redactor eats a provider-shaped token, so the shape has to
+        // be present in the source.
+        const TOKEN: &str = "ghp_abcdefghijklmnopqrstuvwxyz012345";
+        let mut p = Pensieve::new(16);
+        p.record_failure_with_command(
+            &[1, 2, 3],
+            "auth failed",
+            3,
+            "curl -H 'Authorization: Bearer ghp_abcdefghijklmnopqrstuvwxyz012345' https://api",
+        );
+        let stored = &p.failures()[0].command;
+        assert!(
+            !stored.contains(TOKEN),
+            "the token survived into the store: {stored}"
+        );
+        assert!(
+            stored.contains("[REDACTED]"),
+            "the redaction marker is missing: {stored}"
+        );
+    }
+
+    #[test]
+    fn record_failure_truncates_a_pathological_command() {
+        let mut p = Pensieve::new(16);
+        let huge = "x".repeat(MAX_STORED_COMMAND_BYTES * 2);
+        p.record_failure_with_command(&[1, 2, 3], "boom", 3, &huge);
+        assert!(
+            p.failures()[0].command.len() <= MAX_STORED_COMMAND_BYTES,
+            "the stored command is unbounded: {}",
+            p.failures()[0].command.len()
+        );
+    }
+
+    #[test]
+    fn duplicate_failure_keeps_the_stored_command() {
+        let mut p = Pensieve::new(16);
+        p.record_failure_with_command(&[1, 2, 3], "first", 2, "cargo build");
+        p.record_failure_with_command(&[1, 2, 3], "second", 2, "cargo build");
+        assert_eq!(p.failure_count(), 1);
+        assert_eq!(p.failures()[0].command, "cargo build");
+        assert_eq!(p.failures()[0].hit_count, 2);
+    }
+
+    #[test]
+    fn check_known_failure_detail_names_the_failing_command() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(&[42], "exit code 1", 1, "cargo test --workspace");
+        let matched = p
+            .check_known_failure_detail(42)
+            .expect("the exact state matches");
+        assert!(
+            matched.path.command.contains("cargo test"),
+            "the match must carry the failing command: {}",
+            matched.path.command
+        );
+    }
+
+    #[test]
+    fn check_known_failure_seq_detail_names_the_failing_command() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(&[10, 20, 30], "exit code 1", 3, "cargo test --workspace");
+        let matched = p
+            .check_known_failure_seq_detail(&[10, 20, 30])
+            .expect("the same sequence matches");
+        assert!(matched.path.command.contains("cargo test"));
+    }
+
+    #[test]
+    fn check_known_failure_keeps_returning_the_score() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(&[42], "exit code 1", 1, "cargo test");
+        let score = p
+            .check_known_failure(42)
+            .expect("the score API still matches");
+        let detail = p
+            .check_known_failure_detail(42)
+            .expect("the detail API matches");
+        assert!(
+            (score - detail.similarity).abs() < f64::EPSILON,
+            "the two APIs disagree: {score} vs {}",
+            detail.similarity
+        );
+    }
+
+    #[test]
+    fn command_notice_names_the_command_and_never_grows() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(
+            &[42],
+            "exit code 1",
+            1,
+            "cargo test -p touring-intelligence --lib --release",
+        );
+        let matched = p
+            .check_known_failure_detail(42)
+            .expect("the exact state matches");
+        let notice = matched.command_notice();
+        assert!(
+            notice.contains("cargo test"),
+            "the notice must name the failing command: {notice}"
+        );
+        let legacy = format!(
+            "Similar command failed recently (similarity={:.0}%)",
+            matched.similarity * 100.0
+        );
+        assert!(
+            notice.len() <= legacy.len(),
+            "the notice must not grow: {notice} ({}) > {legacy} ({})",
+            notice.len(),
+            legacy.len()
+        );
+    }
+
+    #[test]
+    fn path_notice_names_the_command_and_never_grows() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(
+            &[42],
+            "exit code 1",
+            1,
+            "ruff check crates/touring-cli/src/cli/pretask.rs",
+        );
+        let matched = p
+            .check_known_failure_detail(42)
+            .expect("the exact state matches");
+        let notice = matched.path_notice();
+        assert!(
+            notice.contains("ruff check"),
+            "the notice must name the failing command: {notice}"
+        );
+        let legacy = format!(
+            "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
+            matched.similarity * 100.0
+        );
+        assert!(
+            notice.len() <= legacy.len(),
+            "the notice must not grow: {notice} ({}) > {legacy} ({})",
+            notice.len(),
+            legacy.len()
+        );
+    }
+
+    #[test]
+    fn task_notice_names_the_command_and_never_grows() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure_with_command(&[42], "exit code 1", 1, "cargo build --release");
+        let matched = p
+            .check_known_failure_detail(42)
+            .expect("the exact state matches");
+        let notice = matched.task_notice();
+        assert!(
+            notice.contains("cargo build"),
+            "the notice must name the failing command: {notice}"
+        );
+        let legacy = format!(
+            "⚠ pensieve: similar task failed before (penalty={:.2}) — review gotchas before proceeding",
+            matched.similarity
+        );
+        assert!(
+            notice.len() <= legacy.len(),
+            "the notice must not grow: {notice} ({}) > {legacy} ({})",
+            notice.len(),
+            legacy.len()
+        );
+    }
+
+    #[test]
+    fn failure_label_falls_back_to_the_reason_when_no_command_was_recorded() {
+        let mut p = Pensieve::new(32).with_threshold(0.0);
+        p.record_failure(&[42], "dependency cycle in auth refactor", 1);
+        let matched = p
+            .check_known_failure_detail(42)
+            .expect("the exact state matches");
+        let notice = matched.command_notice();
+        assert!(
+            notice.contains("dependency cycle"),
+            "the notice must name the recorded reason: {notice}"
+        );
+    }
+
+    #[test]
+    fn compact_command_flattens_to_one_line_and_marks_the_cut() {
+        assert_eq!(compact_command("cargo\n  test", 64), "cargo test");
+        assert_eq!(compact_command("echo `date`", 64), "echo 'date'");
+        let cut = compact_command("cargo test -p touring-intelligence --lib", 12);
+        assert!(cut.len() <= 12, "the cut is too long: {cut}");
+        assert!(cut.ends_with('…'), "the cut must be marked: {cut}");
     }
 }

@@ -50,7 +50,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from loop_marker import active_marker, save_marker, write_marker  # noqa: E402
-from loop_task_signal import assess  # noqa: E402
+from loop_task_signal import arm_deadline, assess, remaining  # noqa: E402
 
 MUTATING_TOOLS = {"Edit", "Write", "NotebookEdit", "MultiEdit"}
 RECALL_TIMEOUT = 6
@@ -65,9 +65,12 @@ def _payload():
 
 
 def _run(cmd, timeout=RECALL_TIMEOUT):
-    """Best-effort CLI call; '' on any failure (never raises, never blocks)."""
+    """Best-effort CLI call; '' on any failure or once the invocation's deadline is spent."""
+    budget = remaining(timeout)
+    if budget <= 0.05:
+        return ""  # read by the callers as «the instrument did not answer», never as «nothing found»
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=budget)
         return proc.stdout.strip()
     except Exception:  # noqa: BLE001 — fail-open
         return ""
@@ -224,6 +227,7 @@ def build_reason(marker: dict, file_path: str) -> str:
 def main() -> int:
     if os.environ.get("TOURING_WORK_OUTER_DISABLED") == "1":
         return 0
+    arm_deadline()  # below the host's 5 s: the fail-open this hook promises must be reachable
     payload = _payload()
     tool = str(payload.get("tool_name") or "")
     if tool not in MUTATING_TOOLS:

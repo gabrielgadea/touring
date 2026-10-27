@@ -1,0 +1,1075 @@
+{
+  "answer": "### Repositories Compressing and Filtering Tool Output\n\nSeveral repositories and frameworks optimize context windows for AI coding agents by filtering, sandboxing, or compressing tool outputs:\n\n1. **`context-mode` (`mksglu/context-mode`)**: An MCP server and multi-platform plugin system that sandboxes tool output before it enters the context window [1, 2]. It runs code in isolated subprocesses (supporting 12 languages), captures `stdout`, and indexes heavy outputs into SQLite FTS5, preventing raw log files, API responses, and browser snapshots from clogging the LLM context [2-5].\n2. **`RTK` (`@terrain-ai/rtk`)**: Integrated into the **Terrain** engineering environment (`sopaco/terrain`) as part of its agent navigation layer [6, 7]. RTK acts as a dedicated CLI tool that compresses shell command output to save tokens during agent execution [7, 8].\n3. **`billion-context` (`ranxianglei/billion-context`)**: An incremental, hierarchical context-compression proxy (`acp-kernel`) that sits between AI coding agents (such as Claude Code, Codex, or Cursor) and model APIs [9, 10]. It introduces model-driven context management tools (`compress`, `decompress`, `search_context`, `acp_status`) so the model itself folds older context into high-fidelity summaries [10, 11].\n4. **`LeanCTX` (`yvgude/lean-ctx`)**: A local \"Context Gateway\" for AI systems that provides 16 structured file read modes (such as `map`, `signatures`, and `density:0.4`) and filters shell output using 85+ command output patterns (for `git`, `npm`, `cargo`, `docker`, `kubectl`, etc.) [12, 13].\n5. **`XERJ` (`xerj-org/xerj`)**: An auto-indexing code and data search engine that uses tree-sitter AST parsing and trigram search to deliver targeted code passages rather than dumping whole files or large `grep` outputs into the prompt [14-16].\n6. **`Trail-Code` (`trailhq/Trail-Code`)**: Formerly known as Graft, it uses a tree-sitter code map and session learnings to give agents immediate access to relevant functions and call dependencies, eliminating repetitive grepping and file discovery [17-19].\n\n---\n\n### Integration Mechanics with Claude Code: `PreToolUse` vs `PostToolUse`\n\nTools like `context-mode` integrate with Claude Code and other coding agent platforms (such as Codex, OpenCode, Gemini CLI, Cursor, and Kiro) by leveraging lifecycle hooks [20-22].\n\n#### 1. `PreToolUse` (Command Rewrite & Pre-Execution Routing)\n* **Execution Phase**: Fires **before** a tool call runs [21, 22].\n* **Functionality**:\n  * **Command Blocking & Redirection**: Intercepts high-volume or \"high-flood\" commands (e.g., raw `Bash`, `curl`, `Read`, `Grep`, or Playwright snapshots) and blocks or redirects them to sandboxed alternatives (`ctx_execute`, `ctx_batch_execute`) [3, 21, 23, 24].\n  * **Input Rewriting (`updatedInput`)**: On platforms that support payload modification (such as Claude Code and Kimi Code), `PreToolUse` can rewrite tool arguments on the fly before execution [22, 25, 26]. On platforms with narrower hook capabilities (such as Codex CLI), `PreToolUse` supports `deny` (blocking) decisions while waiting for upstream `updatedInput` support [25, 27].\n  * **Guidance Re-injection**: Re-injects prompt guidance periodically (e.g., every 10th tool call) reminding the agent to wrap large external payloads in sandboxed tools [23].\n\n#### 2. `PostToolUse` (Output Capture & Event Extraction)\n* **Execution Phase**: Fires **after** a tool completes execution [21, 22].\n* **Functionality**:\n  * **Event Logging & Extraction**: Captures structured metadata from the completed tool call—such as edited file paths, git operations, CLI execution latency, and error states—storing them in a project-level SQLite database without dumping raw output into the active chat transcript [21, 28].\n  * **Context-Safe Summarization**: When tool output exceeds a threshold (e.g., 5 KB in `context-mode`), `PostToolUse` triggers intent-driven filtering, indexing the full raw output into a SQLite FTS5 database and returning only a focused matching snippet alongside searchable terms [5].\n\n---\n\n### Quantitative Token Reductions & Measurement Methodologies\n\n| Repository | Measured Reduction | How It Is Measured |\n| :--- | :--- | :--- |\n| **`context-mode`** | **98% overall context reduction** (315 KB raw tool output reduced to 5.4 KB) [2, 3, 29]. | Compares raw input/output bytes against the compact `stdout` or FTS5 snippet returned to the chat context [2, 3, 5]. Reported live via `/context-mode:ctx-stats`, the `context-mode statusline`, or `ctx stats` [20, 30, 31]. |\n| **`billion-context`** | **5x fewer tokens**; maintains a **95–97% prefix-cache hit rate** [32, 33]. | Measured via a 4.5-month longitudinal study tracking 174,327 model calls and 18.76 billion tokens [9]. Per-turn cache health is calculated as `[acp-usage] round N input=X cached=Y (cache hit Z%)` and audited via `/__bili/cache-report` [33, 34]. |\n| **`XERJ`** | **2.7x–5x fewer tokens** compared to `grep`-driven agents (up to **278x fewer** on individual tasks) [14]. | Benchmarked end-to-end on unmemorized codebase tasks comparing memory-only, `grep`-driven, and XERJ retrieval token counts and costs [14]. |\n| **`Trail-Code`** | **42% fewer uncached input tokens**, **46% fewer tool calls**, and **32% lower cost** [18, 35]. | Measured across 162 multi-file task benchmark runs and 50 SWE-bench Verified instances comparing cold agents against map-assisted agents [18, 35, 36]. |\n| **`LeanCTX`** | Variable savings across 85+ shell command patterns and 16 read modes [13]. | Utilizes a \"Shadow Mode\" baseline engine (`lean-ctx shadow` / `lean-ctx savings`) that simulates what uncompressed tool outputs would have cost to calculate token and cost deltas [37-39]. |\n\n#### Specific Output Reduction Benchmarks (`context-mode`):\n* **Playwright HTML Snapshot**: 56.2 KB → 299 B (**99% saved**) [29].\n* **GitHub Issues (20 items)**: 58.9 KB → 1.1 KB (**98% saved**) [29].\n* **Access Log (500 requests)**: 45.1 KB → 155 B (**100% saved**) [29].\n* **Analytics CSV (500 rows)**: 85.5 KB → 222 B (**100% saved**) [29].\n* **Large JSON API (20,000 records)**: 7.5 MB → 0.9 KB (**99% saved**) [40].\n\n---\n\n### How These Tools Avoid Hiding Failures\n\nFiltering and compressing tool output carries the risk of swallowing critical error details, stack traces, or non-zero exit codes. These repositories implement several mechanisms to ensure failures remain visible to the agent:\n\n1. **Dedicated Error Event Extraction in `PostToolUse`**:\n   * In `context-mode`, tool failures, non-zero exit codes, and error traces are explicitly categorized as **High Priority (P2) events** [28].\n   * The system detects sequential \"Error → Fix\" pairs across tool calls, ensuring that error context is indexed into FTS5 for immediate retrieval rather than lost during compaction [28, 41].\n2. **Preservation of `stdout`/`stderr` Streams in Code Execution**:\n   * Sandboxed execution tools (like `ctx_execute`) execute code in isolated subprocesses and return the script's `stdout` and error output directly to the LLM [4]. The LLM sees full runtime error messages and stack traces whenever a script fails [4].\n3. **Intent-Driven Fallback for Large Output**:\n   * When output exceeds 5 KB, `context-mode` does not truncate blindly; it indexes the entire output into SQLite FTS5 and extracts matching sections based on intent, returning the relevant snippets along with searchable terms so the agent can query specific error lines if needed [5].\n4. **Reversible & Model-Driven Decompression**:\n   * In `billion-context`, summaries are written incrementally and can be decompressed on demand using the `decompress` tool if exact original error text is needed [11, 42].\n   * In `LeanCTX`, compact views retain source and archive references for expansion via `ctx_expand` or `ctx_retrieve` [13]. Users can also bypass compression for specific commands using `lean-ctx -c --raw \"<command>\"` when raw unformatted logs are required [43].\n5. **Fail-Open Behavior**:\n   * If hook scripts fail or encounter version mismatches, tools like `context-mode` fail open rather than blocking tool execution or hiding command results [44]. Boundary violations (e.g., attempted out-of-workspace file reads) return explicit, actionable error messages (\"File access blocked\") [45].\n\n---\n\n💡 **Next Step**: Would you like to explore setting up `context-mode` or `billion-context` with your current local agent configuration?",
+  "question": "Which repositories compress or filter tool output for coding agents (rtk, context-mode, others)? How do they integrate with Claude Code (PreToolUse command rewrite vs PostToolUse output replacement), what reduction do they measure and how, and how do they avoid hiding failures?",
+  "conversation_id": "5d6ae787-3011-4005-83cb-26cbf47ce5a4",
+  "sources_used": [
+    "0babbd43-35ec-420d-b185-9292dd35173d",
+    "adf49b31-41cb-426f-9608-1f09e77ac510",
+    "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de"
+  ],
+  "citations": {
+    "1": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "2": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "3": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "4": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "5": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "6": "adf49b31-41cb-426f-9608-1f09e77ac510",
+    "7": "adf49b31-41cb-426f-9608-1f09e77ac510",
+    "8": "adf49b31-41cb-426f-9608-1f09e77ac510",
+    "9": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "10": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "11": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "12": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "13": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "14": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "15": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "16": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+    "17": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "18": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "19": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "20": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "21": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "22": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "23": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "24": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "25": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "26": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "27": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "28": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "29": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "30": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "31": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "32": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "33": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "34": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "35": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "36": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+    "37": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "38": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "39": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "40": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "41": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "42": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+    "43": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+    "44": "0babbd43-35ec-420d-b185-9292dd35173d",
+    "45": "0babbd43-35ec-420d-b185-9292dd35173d"
+  },
+  "references": [
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 1,
+      "cited_text": "About Context window optimization for AI coding agents. Sandboxes tool output (98% reduction), persists session memory, and enforces routing across 17 platforms via MCP + hooks. context-mode.com Topics antigravity claude claude-code claude-code-hooks claude-code-plugins claude-code-skill codex codex-cli context-mode copilot cursor-plugin kiro mcp mcp-server mcp-tools openclaw opencode pi-agent skills zed-extension Resources Readme License Contributing Contributing Activity Stars 30.5k stars Watchers 111 watching"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 2,
+      "cited_text": "How Context Mode Solves It Context Mode is an MCP server that solves all four sides of this problem: Context Saving — Sandbox tools keep raw data out of the context window. 315 KB becomes 5.4 KB. 98% reduction. Session Continuity — Every file edit, git operation, task, error, and user decision is tracked in SQLite. When the conversation compacts, context-mode doesn't dump this data back into context — it indexes events into FTS5 and retrieves only what's relevant via BM25 search. The model picks up exactly where you left off. If you don't --continue , previous session data is deleted immediately — a fresh session means a clean slate. Think in Code — The LLM should program the analysis, not compute it. Instead of reading 50 files into context to count functions, the agent writes a script that does the counting and console.log() s only the result. One script replaces ten tool calls and saves 100x context. This is a mandatory paradigm across all 17 supported clients, plus the OpenClaw gateway integration: stop treating the LLM as a data processor, treat it as a code generator."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 3,
+      "cited_text": "Tools <cited_table>",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "Tool",
+            "What it does",
+            "Context saved"
+          ],
+          [
+            "ctx_batch_execute",
+            "Run multiple commands + search multiple queries in ONE call. Opt-in",
+            "986 KB → 62 KB"
+          ],
+          [
+            "ctx_execute",
+            "Run code in 12 languages. Only stdout enters context.",
+            "56 KB → 299 B"
+          ],
+          [
+            "ctx_execute_file",
+            "Process files in sandbox. Raw content never leaves.",
+            "45 KB → 155 B"
+          ],
+          [
+            "ctx_index",
+            "Chunk markdown into FTS5 with BM25 ranking.",
+            "60 KB → 40 B"
+          ],
+          [
+            "ctx_search",
+            "Query indexed content with multiple queries in one call.",
+            "On-demand retrieval"
+          ],
+          [
+            "ctx_fetch_and_index",
+            "Fetch URL, chunk and index. Cache reuses content within TTL (default 24h, override per-call with",
+            "60 KB → 40 B"
+          ],
+          [
+            "ctx_stats",
+            "Show context savings, call counts, and session statistics.",
+            "—"
+          ],
+          [
+            "ctx_doctor",
+            "Diagnose installation: runtimes, hooks, FTS5, versions.",
+            "—"
+          ],
+          [
+            "ctx_upgrade",
+            "Upgrade to latest version from GitHub, rebuild, reconfigure hooks.",
+            "—"
+          ],
+          [
+            "ctx_purge",
+            "Permanently deletes all indexed content from the knowledge base.",
+            "—"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 4,
+      "cited_text": "How the Sandbox Works Each ctx_execute call spawns an isolated subprocess with its own process boundary. Scripts can't access each other's memory or state. The subprocess runs your code, captures stdout, and only that stdout enters the conversation context. The raw data — log files, API responses, snapshots — never leaves the sandbox. Twelve language runtimes are available: JavaScript, TypeScript, Python, Shell, Ruby, Go, Rust, PHP, Perl, R, Elixir, and C#. Bun is auto-detected for 3-5x faster JS/TS execution."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 5,
+      "cited_text": "Authenticated CLIs work through credential passthrough — gh , aws , gcloud , kubectl , docker inherit environment variables and config paths without exposing them to the conversation. When output exceeds 5 KB and an intent is provided, Context Mode switches to intent-driven filtering: it indexes the full output into the knowledge base, searches for sections matching your intent, and returns only the relevant matches with a vocabulary of searchable terms for follow-up queries. How the Knowledge Base Works The ctx_index tool chunks markdown content by headings while keeping code blocks intact, then stores them in a SQLite FTS5 (Full-Text Search 5) virtual table. The SQLite backend is selected automatically at runtime: bun:sqlite on Bun, node:sqlite on Node.js >= 22.5, and better-sqlite3 everywhere else. Search uses BM25 ranking — a probabilistic relevance algorithm that scores documents based on term frequency, inverse document frequency, and document length normalization. Porter stemming is applied at index time so \"running\", \"runs\", and \"ran\" match the same stem. Titles and headings are weighted 5x in BM25 scoring for precise navigational queries."
+    },
+    {
+      "source_id": "adf49b31-41cb-426f-9608-1f09e77ac510",
+      "citation_number": 6,
+      "cited_text": "It runs as a desktop app (GUI) or a CLI — see Getting started for which to pick. Three pillars Pillar   Metaphor   What you get Knowledge assets Map Dual-track docs in  .terrain/ , produced from code Agent tooling Roads CodeGraph, RTK, and the Terrain CLI Conventions & workflow Trail markers Skills,  AGENTS.md , and the four-phase SDD workflow One codebase, two audiences: Audience   Path   Format Humans .terrain/human/   Narrative C4 docs with Mermaid diagrams AI agents .terrain/agent/context.md   Structured architecture overview (≤ 14 KiB) Source index .terrain/agent/repomix.md   Repomix pack — grep/read on demand, not preloaded Domain terms .terrain/knowledge/   Business glossary and internal conventions"
+    },
+    {
+      "source_id": "adf49b31-41cb-426f-9608-1f09e77ac510",
+      "citation_number": 7,
+      "cited_text": "When sources conflict: repomix > CodeGraph > context.md > human/ . Down-weight macro context when  freshness_score < 50 . ② Agent tooling — the roads terrain env apply  installs the navigation layer so agents don't improvise: Component   Purpose Tools ~/.terrain/bin/  — CodeGraph, RTK,  terrain  CLI ( terrain tools  for ACP) Skills Standard playbooks — terrain-knowledge → repomix → codegraph → rtk AGENTS.md Managed snippets — knowledge-first workflow, repomix for code, RTK for shell ③ Conventions & workflow — the trail markers"
+    },
+    {
+      "source_id": "adf49b31-41cb-426f-9608-1f09e77ac510",
+      "citation_number": 8,
+      "cited_text": "Ecosystem Terrain composes with the tools your AI workflow already uses: Component   Role Claude Code / Codex / OpenCode / ACP agents Execute knowledge composition, SDD codegen, and tool calls in an isolated process Repomix Packs source into a grep-friendly index for agents CodeGraph Symbol callers/callees/impact queries via  bunx codegraph RTK Compresses shell output to save tokens ( @terrain-ai/rtk  on npm, or  ~/.terrain/bin/rtk ) Terrain CLI Scan, assets,  terrain tools  for ACP ( @terrain-ai/cli  on npm, or  ~/.terrain/bin/terrain ) Preset Skills LLM workflow instructions in  preset_skills/  (knowledge, SDD, Ask, Context) DeepWiki / Litho Book Knowledge-grounded Q&A and Markdown reader, integrated in the desktop UI"
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 9,
+      "cited_text": "Community QQ Group: 1056132097 (full) 1108730198 (open) 📄 Paper / Preprint Model-Driven Incremental Hierarchical Compression: Training-Free Multi-Generational Context Management for Long-Lived Coding Agents (English, v0.2) 📝 The paper itself is open-sourced under the MIT License as part of the codebase ( paper/ ). It is a living document — anyone may edit it; improvements are welcome via pull request. A production-scale longitudinal study: 4.5 months, three hosts, 174,327 model calls, 18.76B cumulative input tokens (~24.7B across all hosts), zero window violations on 204,800-token models, marathon sessions of 8,584–12,049 calls. billion-context sits between any agent and its model API, rewriting Anthropic/OpenAI streams with acp-kernel compression. The model decides when and what to compress into high-fidelity summaries — not a hard truncation limit."
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 10,
+      "cited_text": "How it works"
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 11,
+      "cited_text": "Context-management tools The proxy injects four context-management tools into the conversation; the model calls them itself as context grows, and the proxy executes compress server-side so folded ranges stay summarized in history until restored: compress — fold a message range into a detailed summary. decompress — restore a compressed range when exact details are needed again. search_context — keyword search over compressed summaries and visible messages. acp_status — context-usage overview plus which ranges are still compressible."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 12,
+      "cited_text": "LeanCTX Context Gateway for AI Systems. Control what your AI can see. LeanCTX sits between AI tools and the information they read. It selects task-relevant context, applies supported access and content controls before delivery, and records the context operations and delivery evidence it can observe. Your application, agent loop and model stay yours. The open-source LeanCTX Engine runs locally through CLI, MCP, hooks and proxy paths. The LeanCTX SDK embeds supported Engine capabilities in your application."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 13,
+      "cited_text": "File reads : 16 read modes ( full , map , signatures , diff , lines:N-M , density:X , …) — eligible cached re-reads return a compact reference instead of repeating content Target density ( density:0.4 ): SDE-style budget compression — keeps the highest-entropy lines until ~40% of the original tokens remain, deterministic JIT disclosure : signatures carries line spans and points at lines:N-M for targeted expansion — outline first, bodies on demand Shell output : 85+ shell-output patterns compress git, npm, cargo, docker, kubectl, terraform and more (250+ passthrough rules) Tree-sitter AST : structural understanding for 27 languages — not just text compression Source recovery (CCR) : supported compact views retain source or archive references for expansion through ctx_expand , ctx_retrieve or the reference API. Recovery depends on permissions, retention and the source remaining available. Read modes and detail →"
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 14,
+      "cited_text": "The measured reason: reference coding An agent that greps pulls whole files into its context, up to 1.06M input tokens on one corpus in our measurements, and still has to read them. An agent that queries XERJ gets the passage. Measured end to end on code the model had not memorised ( case study : 8 tasks, 4 languages, 16 runs per arm, real claude -p token counts): <cited_table> That is 2.7x fewer output tokens than grep and 26x fewer than memory alone at the same solve rate, and up to 278x fewer on a single Java task. In real development, users report roughly 5x fewer tokens end to end ( field reports ). The value is gated by memorisation: it wins on private, internal, niche or post-cutoff code, and is neutral to harmful on popular public libraries the model already knows. The honest limits are in the case study .",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "",
+            "output tokens",
+            "cost",
+            "solved"
+          ],
+          [
+            "from memory only",
+            "260,916",
+            "$11.18",
+            "11/16"
+          ],
+          [
+            "grep-driven agent",
+            "26,477",
+            "$3.27",
+            "16/16"
+          ],
+          [
+            "XERJ",
+            "9,982",
+            "$1.58",
+            "16/16"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 15,
+      "cited_text": "Two more are not plain proxies: xerj_map returns the per-index field map from the autoindex catalog (trimmed to a byte cap, otherwise verbatim), and xerj_code_search runs the xerj code reference-coding pipeline ( tools/xerj-code/ ) and returns its rendered text. xerj mcp --help prints the same config block and the full option list. The machine-readable tool schemas are published at xerj.org/docs/agents/schemas/mcp-tools.json , generated from a live tools/list , never hand-written, and gated in CI ( scripts/mcp-schema-check.sh ) plus a unit test, so the published list cannot drift from the served one."
+    },
+    {
+      "source_id": "c61ce8cf-e3db-4ab9-a946-63d900383b7b",
+      "citation_number": 16,
+      "cited_text": "All four losses are the same gap: read p99 while a high-rate writer runs. It is written up in full rather than left out. Results, methodology and the harness are at xerj.org/benchmarks and in demo/playbooks , so you can rerun them yourself. Treat any number you cannot reproduce with skepticism, including ours. Code indexing Source files are parsed with tree-sitter and indexed AST-aware — symbols plus full text — so an agent retrieves a function, not a line. On an Apache Lucene checkout (6,113 source files, 51 MB) single-threaded in-process extraction runs at ~1,500 files/s (13 MB/s) ; the tree-sitter parse is ~72% of that and is the per-file floor. Reproduce it with:"
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 17,
+      "cited_text": "Repository files navigation README MIT license Security More items The self-learning context layer for coding agents. Trail-code gives Claude Code, Cursor, Codex and other coding agents a map of your code, and what your team has learned about it. <cited_table>",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "",
+            "Code map (previously graft)",
+            "Learnings"
+          ],
+          [
+            "What is it?",
+            "An index of your code: every function and who calls it, so your agent sees what a change can break",
+            "What you, your agents and your team have learned and decided"
+          ],
+          [
+            "What does it do for your agent?",
+            "Takes it straight to the right files",
+            "Lets it pick up where you and your team left off"
+          ],
+          [
+            "Where does it come from?",
+            "Your code, read on your machine",
+            "Your conversations, as you work"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 18,
+      "cited_text": "46% fewer tool calls , 60% less time , and more real issues solved. <cited_table> Note Graft is now Trail-code. Graft lives on as the graft map, and every graft command still works. What's new is learnings. What changed What changes in your agent <cited_table>",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "",
+            "Cold agent",
+            "Agent with the graft map"
+          ],
+          [
+            "Tool calls, 162 runs",
+            "baseline",
+            "46% fewer"
+          ],
+          [
+            "Uncached input tokens, 162 runs",
+            "baseline",
+            "42% fewer"
+          ],
+          [
+            "Time, 162 runs",
+            "baseline",
+            "60% less"
+          ],
+          [
+            "SWE-bench Verified, 50 real issues",
+            "27 solved (54%)",
+            "33 solved (66%)"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 19,
+      "cited_text": "Part 1: The graft map Without a map, your coding agent starts every task blind. It greps a term, opens a file, follows an import, backs out and tries again, rebuilding a picture of a codebase it mapped an hour ago and threw away. That rediscovery burns most of a run's tool calls, tokens and time. People onboard to a codebase once. Agents onboard every single time. The graft map builds that understanding once, and keeps it current: Every file, function and caller. Parsed with tree-sitter into a graph of symbols and who calls what. Deterministic, no model, no network, 23 languages. The right code with every prompt. In Claude Code, hooks add the matching files and functions to each prompt, and show what depends on a file right after your agent edits it (the \"blast radius\"). Cursor, Codex and other agents get the same map through MCP tools and their instruction files. Always fresh. Every query checks the working tree first (a few tens of milliseconds when nothing moved) and rebuilds only what changed, so answers describe the code as it is right now, uncommitted edits included. Plain files you can read. Linked markdown nodes your agent opens and greps like any other file. No embeddings, no index to keep warm. Summaries if you want them. trail build --deep adds plain-English summaries of each part of the system, written by the model provider you choose, under your own key."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 20,
+      "cited_text": "Verify: All checks should show [x] . The doctor validates runtimes, hooks, FTS5, and plugin registration. Routing: Automatic. The SessionStart hook injects routing instructions at runtime — no file is written to your project. The plugin registers all hooks (PreToolUse, PostToolUse, UserPromptSubmit, PreCompact, SessionStart, Stop) and 11 MCP tools — six sandbox tools ( ctx_batch_execute , ctx_execute , ctx_execute_file , ctx_index , ctx_search , ctx_fetch_and_index ) plus five meta-tools ( ctx_stats , ctx_doctor , ctx_upgrade , ctx_purge , ctx_insight )."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 21,
+      "cited_text": "Session continuity requires 5 hooks working together: <cited_table>",
+      "cited_table": {
+        "num_columns": 18,
+        "rows": [
+          [
+            "Hook",
+            "Role",
+            "Claude Code",
+            "Gemini CLI",
+            "VS Code Copilot",
+            "JetBrains Copilot",
+            "GitHub Copilot CLI",
+            "Cursor",
+            "OpenCode",
+            "KiloCode",
+            "OpenClaw",
+            "Codex CLI",
+            "Antigravity",
+            "Antigravity CLI (",
+            "Kiro",
+            "Zed",
+            "Pi",
+            "OMP"
+          ],
+          [
+            "PreToolUse",
+            "Enforces sandbox routing before tool execution",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "Yes",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "Yes",
+            "--",
+            "Bounded",
+            "Yes",
+            "--",
+            "✓ (via tool_call event)",
+            "✓ (via tool_call event)"
+          ],
+          [
+            "PostToolUse",
+            "Captures events after each tool call",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "--",
+            "Yes (capture-only)",
+            "Yes",
+            "--",
+            "✓ (via tool_result event)",
+            "✓ (via tool_result event)"
+          ],
+          [
+            "UserPromptSubmit",
+            "Captures user decisions and corrections",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "Yes",
+            "--",
+            "Plugin (via chat.message)",
+            "Plugin (via chat.message)",
+            "--",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--"
+          ],
+          [
+            "Stop",
+            "Captures assistant turn-end state",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "Yes",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "Yes",
+            "--",
+            "Best-effort",
+            "--",
+            "--",
+            "--",
+            "--"
+          ],
+          [
+            "PreCompact",
+            "Builds snapshot before compaction",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "--",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "✓ (via session_before_compact)",
+            "✓ (via session_before_compact)"
+          ],
+          [
+            "SessionStart",
+            "Restores state after compaction or resume",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "--",
+            "✓ (via experimental.chat.system.transform)",
+            "✓ (via experimental.chat.system.transform)",
+            "Plugin",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "✓ (via session_start event)",
+            "✓ (via session_start event)"
+          ],
+          [
+            "",
+            "Session completeness",
+            "Full",
+            "High",
+            "High",
+            "High",
+            "High",
+            "Partial",
+            "Full",
+            "Full",
+            "High",
+            "Partial",
+            "--",
+            "Partial",
+            "Partial",
+            "--",
+            "High",
+            "High"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 22,
+      "cited_text": "OMP (Oh My Pi) — High coverage. The plugin (installed via omp plugin install context-mode ) registers all key lifecycle events: tool_call (PreToolUse), tool_result (PostToolUse), session_start (SessionStart), and session_before_compact (PreCompact). Storage roots cleanly under ~/.omp/context-mode/ so OMP and Pi installs never share state (issue #473 ). Auto-detected via PI_CODING_AGENT_DIR env var or presence of ~/.omp/ . Platform Compatibility <cited_table>",
+      "cited_table": {
+        "num_columns": 19,
+        "rows": [
+          [
+            "Feature",
+            "Claude Code",
+            "Qwen Code",
+            "Gemini CLI",
+            "VS Code Copilot",
+            "JetBrains Copilot",
+            "GitHub Copilot CLI",
+            "Cursor",
+            "OpenCode",
+            "KiloCode",
+            "OpenClaw",
+            "Codex CLI",
+            "Kimi Code",
+            "Antigravity",
+            "Antigravity CLI (",
+            "Kiro",
+            "Zed",
+            "Pi",
+            "OMP"
+          ],
+          [
+            "MCP Server / Native Tools",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Native plugin",
+            "Native plugin",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes"
+          ],
+          [
+            "PreToolUse Hook",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "Yes",
+            "--",
+            "Bounded",
+            "Yes",
+            "--",
+            "Yes (extension)",
+            "Plugin"
+          ],
+          [
+            "PostToolUse Hook",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "Yes",
+            "--",
+            "Yes (capture-only)",
+            "Yes",
+            "--",
+            "Yes (extension)",
+            "Plugin"
+          ],
+          [
+            "SessionStart Hook",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "--",
+            "✓ (via experimental.chat.system.transform)",
+            "✓ (via experimental.chat.system.transform)",
+            "Plugin",
+            "Yes",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "Yes (extension)",
+            "Plugin"
+          ],
+          [
+            "PreCompact Hook",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "--",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "Yes (extension)",
+            "Plugin"
+          ],
+          [
+            "Can Modify Args",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "--",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "Yes (extension)",
+            "--"
+          ],
+          [
+            "Can Block Tools",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Plugin",
+            "Plugin",
+            "Plugin",
+            "Yes",
+            "Yes",
+            "--",
+            "Bounded",
+            "Yes",
+            "--",
+            "Yes (extension)",
+            "Plugin"
+          ],
+          [
+            "Utility Commands (ctx)",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes",
+            "Yes (/ctx-stats, /ctx-doctor)",
+            "Yes"
+          ],
+          [
+            "Slash Commands",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--"
+          ],
+          [
+            "Plugin Marketplace",
+            "Yes",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--",
+            "--"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 23,
+      "cited_text": "Cadence (in tool calls) at which the PreToolUse hook re-injects the \"wrap large external-MCP payloads in ctx_execute \" guidance. The original implementation ( #529 ) fired only once per session, which got lost after context compaction in MCP-heavy sessions (e.g. 50+ Jira/Slack/Notion calls — see #567 follow-up). The default re-fires every 10th matching call, keeping the guidance in the model's recent window. Range [1, 100] ; invalid values fall back to 10 . Set to 1 for \"every call\" (most aggressive — adds ~250 tokens/call) or to a larger value for less frequent reminders."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 24,
+      "cited_text": "Routing Enforcement Hooks intercept tool calls programmatically — they can block dangerous commands and redirect them to the sandbox before execution. Instruction files guide the model via prompt instructions but cannot block anything. Always enable hooks where supported. Note: Routing instruction files were previously auto-written to project directories on first session start. This was disabled to prevent git tree pollution ( #158 , #164 ). Hook-capable platforms (Claude Code, Gemini CLI, VS Code Copilot, JetBrains Copilot, GitHub Copilot CLI, Cursor, OpenCode, OpenClaw, Codex CLI, Antigravity CLI for bounded tool hooks, Kiro for tool hooks, OMP via plugin) inject or enforce routing without writing files. Platforms without hook support — Zed and Antigravity IDE — require a one-time manual copy of the routing file; see each platform's install section."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 25,
+      "cited_text": "PreToolUse enforces deny/block routing today and is prepared for input rewrites once Codex supports them. PostToolUse captures session events. PreCompact builds the resume snapshot before compaction. SessionStart restores state after compaction. UserPromptSubmit captures user decisions and corrections. Stop records turn-end state. Note: Codex PreToolUse routing currently supports deny rules only (blocks dangerous commands). It still needs upstream updatedInput support before context-mode can rewrite tool input; track openai/codex#18491 . Context injection ( additionalContext ) is not supported in Codex PreToolUse — it works via PostToolUse and SessionStart instead. This is handled automatically. PreCompact support is runtime-gated: it is present in Codex CLI 0.130.0, while the public Codex hooks docs may lag the shipped hook-event list. Older Codex builds that do not emit PreCompact will not create pre-compaction snapshots. 4. Copy routing instructions (recommended even with hooks for full routing awareness):"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 26,
+      "cited_text": "Restart Kimi Code CLI and verify MCP with ctx stats . Note: Kimi Code uses the same JSON stdin/stdout wire protocol as Codex, but accepts additionalContext , updatedInput , and permissionDecision: \"ask\" in PreToolUse responses (Codex rejects these). The kimi hook normalizes ContentPart[] prompt arrays to strings for downstream extractors. (Optional) Copy the routing instructions file for your project: Or for global use:"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 27,
+      "cited_text": "Codex CLI hooks require [features].hooks = true . MCP tools work, and hook scripts activate through $CODEX_HOME/hooks.json or ~/.codex/hooks.json . PreToolUse supports permissionDecision: \"deny\" only; input modification still needs upstream updatedInput support ( openai/codex#18491 ). additionalContext is not supported in PreToolUse (context injection works via PostToolUse and SessionStart instead; the codex formatter handles this automatically). PreCompact stores resume snapshots before compaction on Codex builds that emit the event, SessionStart restores them, and UserPromptSubmit/Stop capture prompt and turn-end continuity events. See the Codex install section for setup. Antigravity and Zed do not support hooks. They rely solely on manually-copied routing instruction files ( AGENTS.md / GEMINI.md ) for enforcement (~60% compliance). See each platform's install section for copy instructions. Antigravity and Zed are auto-detected via MCP protocol handshake — no manual platform configuration needed."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 28,
+      "cited_text": "What gets captured Every tool call passes through hooks that extract structured events: <cited_table>",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Category",
+            "Events",
+            "Priority",
+            "Captured By"
+          ],
+          [
+            "Files",
+            "read, edit, write, glob, grep",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Tasks",
+            "create, update, complete",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Plans",
+            "enter, exit, approved, rejected, file write",
+            "Critical (P1)",
+            "PostToolUse"
+          ],
+          [
+            "Rules",
+            "CLAUDE.md / GEMINI.md / AGENTS.md paths + content",
+            "Critical (P1)",
+            "SessionStart"
+          ],
+          [
+            "User Prompts",
+            "Every user message (for last-prompt restore)",
+            "Critical (P1)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Decisions",
+            "User corrections, preferences (\"use X instead\", \"don't do Y\")",
+            "High (P2)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Git",
+            "checkout, commit, merge, rebase, stash, push, pull, diff, status",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Errors",
+            "Tool failures, non-zero exit codes",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Error Resolution",
+            "Error → fix pairs detected across sequential tool calls",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Constraints",
+            "Discovered limitations (\"not supported\", \"permission denied\")",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Blockers",
+            "\"blocked on\", \"waiting for\", \"depends on\" — tracked until resolved",
+            "High (P2)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Rejected Approaches",
+            "Tool calls denied by user (PreToolUse → PostToolUse marker)",
+            "High (P2)",
+            "PreToolUse"
+          ],
+          [
+            "Environment",
+            "cwd changes, venv, nvm, conda, worktree, package installs",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Agent Findings",
+            "Completed subagent results (first 500 chars)",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Iteration Loops",
+            "Same tool called 3+ times with similar input (retry detection)",
+            "High (P2)",
+            "PostToolUse"
+          ],
+          [
+            "Latency",
+            "Tool calls exceeding 5s (tool name + duration in ms)",
+            "Normal (P3)",
+            "PreToolUse"
+          ],
+          [
+            "MCP Tools",
+            "All",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Subagents",
+            "Agent tool launches and completions",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Skills",
+            "Slash command invocations",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "External Refs",
+            "URLs, GitHub issue references (#123), deduped",
+            "Normal (P3)",
+            "PostToolUse"
+          ],
+          [
+            "Role",
+            "Persona / behavioral directives (\"act as senior engineer\")",
+            "Normal (P3)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Intent",
+            "Session mode classification (investigate, implement, review)",
+            "Low (P4)",
+            "UserPromptSubmit"
+          ],
+          [
+            "Data",
+            "Large user-pasted data references (>1 KB)",
+            "Low (P4)",
+            "UserPromptSubmit"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 29,
+      "cited_text": "Works on all platforms . On Claude Code, slash commands ( /ctx-stats , /ctx-doctor , /ctx-index , /ctx-search , /ctx-upgrade , /ctx-purge , /ctx-insight ) are also available. Benchmarks <cited_table> Over a full session: 315 KB of raw output becomes 5.4 KB. Session time extends from ~30 minutes to ~3 hours.",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Scenario",
+            "Raw",
+            "Context",
+            "Saved"
+          ],
+          [
+            "Playwright snapshot",
+            "56.2 KB",
+            "299 B",
+            "99%"
+          ],
+          [
+            "GitHub Issues (20)",
+            "58.9 KB",
+            "1.1 KB",
+            "98%"
+          ],
+          [
+            "Access log (500 requests)",
+            "45.1 KB",
+            "155 B",
+            "100%"
+          ],
+          [
+            "Context7 React docs",
+            "5.9 KB",
+            "261 B",
+            "96%"
+          ],
+          [
+            "Analytics CSV (500 rows)",
+            "85.5 KB",
+            "222 B",
+            "100%"
+          ],
+          [
+            "Git log (153 commits)",
+            "11.6 KB",
+            "107 B",
+            "99%"
+          ],
+          [
+            "Test output (30 suites)",
+            "6.0 KB",
+            "337 B",
+            "95%"
+          ],
+          [
+            "Repo research (subagent)",
+            "986 KB",
+            "62 KB",
+            "94%"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 30,
+      "cited_text": "Note: Slash commands are a Claude Code plugin feature. On other platforms, type ctx stats , ctx doctor , ctx index , ctx search , ctx upgrade , or ctx insight in the chat — the model calls the MCP tool automatically. See Utility Commands . Status line (optional): Claude Code's plugin manifest cannot declare a status line, so this is a one-time manual edit to ~/.claude/settings.json : After saving, restart Claude Code. The bar shows $ saved this session · $ saved across sessions · % efficient so you can see savings accumulate in real time. The wiring is path-free — context-mode statusline resolves through the bundled CLI regardless of where the plugin cache lives."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 31,
+      "cited_text": "Without hooks, one unrouted curl or Playwright snapshot can dump 56 KB into context — wiping out an entire session's worth of savings. See docs/platform-support.md for the full capability comparison. Utility Commands Inside any AI session — just type the command. The LLM calls the MCP tool automatically:"
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 32,
+      "cited_text": "Repository files navigation README License More items billion-context English | 中文 Context-compression plugin — billion-context is all you need. smallcontextwindows(100Kisenough)· 5×fewertokens ·month-longsinglesessions(billionsoftokens)·highcompressionquality npm install -g billion-context --prefix=~/.local Cache health at a glance: a healthy session keeps a 95–97% prefix-cache hit rate — compression itself costs ≤2%. Sustained lower? Check attribution with /acp or /acp-cache (see FAQ ); usual causes, in order: upstream cache TTL expiry · model switch · a bili bug (please report) · other/unknown."
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 33,
+      "cited_text": "The report has four blocks that pin things down at a glance: GRAND LEDGER (totals + hit% with an explicit HEALTHY verdict; misses decomposed into new content / compress re-pay / upstream-ttl-or-client-rewrite) · FOLD ECONOMICS (per-fold economics: net tokens saved, paid-back verdicts) · LINE ITEMS (anomalies only: hit<85% or miss≥5000). Rule of thumb: compression itself costs ≤2% — a healthy session sits at 95–97% . When you see less, the attribution tells you which of the usual suspects it was, in this order: ① upstream cache TTL expiry (shows up as stable-prefix misses — the top-spikes line names idle times), ② a model switch, ③ a bili bug (report it with the page attached), ④ other/unknown. /acp-cache [full] lists every fold & line; same report over Since #1535 the report ends with a MODEL SWITCHES section: a mid-session model change invalidates the provider's prefix cache, so the whole stable prefix is re-billed on the next request — each switch's unexplained residual (its ttl bucket minus new content) is charged to the switch instead of masquerading as TTL expiry; per-event from → to , hit %, and attributed tokens are listed ( full lists every event, the summary the last 8), and the web sessions table gains a matching model-switch column. Since #2131 the same machinery fingerprints the outbound credential (a 12-hex sha256 of the authorization / x-api-key -family headers — the raw key is never stored) and attributes a key switch — the relay behind a stable URL rotated to a different account — in a dedicated KEY SWITCHES section, a key switch: line in CACHE INVALIDATION , and a 🔑 badge in the web sessions column. HTTP: GET /__bili/cache-report ; the raw per-request [acp-usage] lines still land in the log file for deep dives."
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 34,
+      "cited_text": "Then send one message from your client and watch the log ( ~/.local/state/billion-context/bili.log , also printed to stderr). You should see a processTurn line per request, and once the conversation grows, [acp-usage] round N input=X cached=Y (cache hit Z%) + a compress event."
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 35,
+      "cited_text": "162 runs, two repos (this one and a real Node/Express auth service), 3 trials each, tasks split between single-file and multi-file questions. <cited_table> Push, the column above, gave up 3 correctness points on one corpus for its savings. The pull variant never answered worse than cold on any corpus, and gave up most of that speed for something bigger: correctness jumped to 98%, 5 points over cold, the strongest single result in the sweep. Push when speed is what you need; pull when being right matters more.",
+      "cited_table": {
+        "num_columns": 3,
+        "rows": [
+          [
+            "Metric (mean/task)",
+            "Cold agent",
+            "Agent with the graft map (push)"
+          ],
+          [
+            "Cost ($)",
+            "0.0429",
+            "0.0292 (32% lower)"
+          ],
+          [
+            "Uncached input tokens",
+            "8,070",
+            "4,650 (42% fewer)"
+          ],
+          [
+            "Tool calls",
+            "4.2",
+            "2.3 (46% fewer)"
+          ],
+          [
+            "Latency (s)",
+            "39.8",
+            "15.8 (60% less)"
+          ],
+          [
+            "Correctness",
+            "93%",
+            "93% (equal)"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "5b44a3c1-e3fe-4d05-b5f3-3f9954a6a9de",
+      "citation_number": 36,
+      "cited_text": "SWE-bench Verified The sweep above is our harness measuring our mechanism. So we ran the industry-standard one too: SWE-bench Verified , real GitHub issues from real repos, graded by the official swebench harness. No judge model, no similarity score: your patch is applied, the maintainers' own tests are run, and you either flip the failing test without breaking the passing ones or you don't. 50 instances , the same model on both arms ( Claude Sonnet 5 ), the same Docker images, the same turn limits. The only difference is whether the graft map is wired in."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 37,
+      "cited_text": "Usage and cost — measure the result Context controls and evidence come first. Usage estimates and calculated costs help you assess their operational effect; they do not prove answer quality. Shadow Mode — a simulated baseline Shadow Mode estimates what the same work would have cost without LeanCTX, without changing the active workflow. The baseline is simulated from the uncompressed token counts and the same outcome signals, not a second measured run, so its reports estimate cost, tokens and CPAO deltas; they do not measure answer quality."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 38,
+      "cited_text": "LeanCTX records local cost and outcome signals without adding those reports to agent context. CPAO (cost per accepted outcome) is one comparison metric; Shadow Mode provides simulated savings estimates. Keep estimates, provider-measured usage and outcome quality separate."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 39,
+      "cited_text": "Quick start: usage tracking Feature overview (see generated MCP registry for the current count) Web & Research ( ctx_url_read ): pull a public web page, PDF, or YouTube transcript into context as compressed, citation-backed text — facts / quotes return claims with a confidence score + source URL, relevance-ranked research-compression distils to a token budget, SSRF-guarded (http/https only) Graph-Powered Intelligence : hybrid search (BM25 + embeddings + graph proximity via RRF), incremental git-diff updates LSP Refactoring ( ctx_refactor ): language-server-powered rename, references, go-to-definition via rust-analyzer, typescript-language-server, pylsp, gopls Multi-Agent — Research ( ctx_agent , ctx_handoff ): experimental local agent handoff with context transfer bundles, diary system, and shared state; not a hosted or generally available team service Archive Full-Text Search ( ctx_expand search_all ): FTS5-powered cross-archive search over all previously archived tool outputs PR Context Packs : lean-ctx pack --pr builds a PR-ready context pack (changed files, related tests, impact, artifacts) Context Packages — Research : lean-ctx pack create bundles local Knowledge, Graph and Session state into .ctxpkg files with SHA-256 integrity; this is experimental local packaging, not a generally available Context Kits or hosted sharing product Context Time Machine — Research : lean-ctx snapshot create|list|show|verify|restore|publish|import handles git-anchored, signed local snapshots and file-based sharing; dashboard replay and restore are experimental, and hosted history or a hosted registry is not a generally available product ( concept → ) Observability : lean-ctx gain --live , lean-ctx wrapped , lean-ctx watch and the browser dashboard show local activity and recorded context metrics; gain --svg / --share creates a shareable card or self-hostable page Usage ledger : lean-ctx savings is a local per-event ledger with tokenizer transparency, bounce-netting and a tamper-evident SHA-256 chain; provider-measured savings require the proxy's counterfactual holdout HTTP mode : lean-ctx serve for Streamable HTTP MCP + /v1/tools/call (used by the Cookbook and external clients)"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 40,
+      "cited_text": "Web scraping — 1 call, 3.2 KB context Large JSON API — 7.5 MB raw → 0.9 KB context (99% saved) Documentation search — 2 calls, 1.8 KB context"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 41,
+      "cited_text": "Detailed event data is also indexed into FTS5 for on-demand retrieval via ctx_search() . Per-platform details Claude Code — Full session support. All 5 hook types fire, capturing tool events, user decisions, building compaction snapshots, and restoring state after compaction, --continue , --resume , or /resume . Gemini CLI — High coverage. PostToolUse (AfterTool), PreCompact (PreCompress), and SessionStart all fire. Missing UserPromptSubmit, so user decisions and corrections aren't captured — but file edits, git ops, errors, and tasks are fully tracked."
+    },
+    {
+      "source_id": "87ac2766-1d58-4e1a-9707-886a35a694e6",
+      "citation_number": 42,
+      "cited_text": "Why Long coding sessions blow up context. Each provider charges per token, and once you pass the context window the session degrades or dies. billion-context compresses consumed conversation into layered summaries so you can run a single session for days — billions of tokens through one context window. Unlike a host's built-in summarizer, compression here is incremental, reversible, and prefix-cache friendly : summaries are written in small ranges, can be decompressed on demand, and the cache prefix stays intact."
+    },
+    {
+      "source_id": "d0c2bafb-67ed-4f29-a376-4b5baa1420cd",
+      "citation_number": 43,
+      "cited_text": "See Windows signing and verification and #1820 for verification status. Troubleshooting / Safety Disable immediately (current shell): lean-ctx-off Run a single command uncompressed: lean-ctx -c --raw \"git status\" Only activate in AI agent sessions: set shell_activation = \"agents-only\" in ~/.config/lean-ctx/config.toml Per-project config override: create .lean-ctx.toml in your project root (auto-merged with global config) Docker projects sharing /workspace : create .lean-ctx-id with a unique name to prevent context collisions Update: lean-ctx update Diagnose (shareable): lean-ctx doctor --json"
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 44,
+      "cited_text": "Version note: the hook commands run the global context-mode ( context-mode hook copilot-cli … ), so they need a context-mode version with Copilot CLI support. On an older global the hooks are inert (no routing/capture) until you upgrade — but they do not block your tools (context-mode fails open). Upgrade with npm install -g context-mode@latest . Verify: In a Copilot CLI session, type ctx stats . Context-mode tools should appear and respond. Run context-mode doctor to confirm hook + MCP registration."
+    },
+    {
+      "source_id": "0babbd43-35ec-420d-b185-9292dd35173d",
+      "citation_number": 45,
+      "cited_text": "The pattern is Tool(what to match) where * means \"anything\". Commands chained with && , ; , or | are split — each part is checked separately. echo hello && sudo rm -rf /tmp is blocked because the sudo part matches the deny rule. deny always wins over allow . More specific (project-level) rules override global ones. Project-boundary containment ctx_execute_file is confined to the project root. A path that resolves outside the workspace — an absolute path like /home/user/secrets , a ../../ traversal, or a project-local symlink whose target escapes the project — is refused with a File access blocked error. This closes the #852 escape vector where an agent, denied an out-of-project read by the host sandbox, retried through the MCP sandbox (the host's MCP approval prompt cannot inspect the tool's input params, so the escape was invisible to the approver)."
+    }
+  ]
+}

@@ -362,6 +362,28 @@ def respond(v: Verdict, action: str) -> tuple[int, str, str]:
     return 0, json.dumps(out, ensure_ascii=False), ""
 
 
+def _dedup_epoch(out: str, raw: str) -> str:
+    """S-4p (26/10/2026): dedupe por época via ponte Rust (`touring-hook
+    dedup-stdin`) — este processo nunca passa pelo daemon. O aviso repetido na
+    mesma época é omitido; um aviso com conteúdo novo passa. Fail-open:
+    qualquer falha devolve o texto intacto (a gate é shadow — aviso, não deny).
+    """
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+        if not isinstance(payload, dict):
+            return out
+        sys.path.insert(0, os.path.expanduser("~/.claude/hooks"))
+        import injection_dedup
+
+        return injection_dedup.dedup_output(
+            out,
+            session_id=str(payload.get("session_id") or ""),
+            cwd=str(payload.get("cwd") or ""),
+        )
+    except Exception:  # noqa: BLE001 — a dedupe nunca custa o aviso
+        return out
+
+
 # ── controls, replay, criterion ──────────────────────────────────────────────
 
 def controls() -> dict[str, bool]:
@@ -480,11 +502,12 @@ def main(argv: list[str]) -> int:
         print(json.dumps(criterion(labels)))
         return 0
     try:
-        rc, out, err = run_hook(sys.stdin.read())
+        raw = sys.stdin.read()
+        rc, out, err = run_hook(raw)
     except Exception:  # noqa: BLE001 — fail-open is the contract: a gate bug must never stop a session
         return 0
     if out:
-        print(out)
+        print(_dedup_epoch(out, raw))
     if err:
         print(err, file=sys.stderr)
     return rc
