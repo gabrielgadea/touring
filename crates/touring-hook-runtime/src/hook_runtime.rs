@@ -105,6 +105,19 @@ pub enum HookResponse {
         /// Corrected tool input that replaces the original invocation payload.
         updated_input: serde_json::Value,
     },
+    /// Context injection with a replacement for the tool RESULT (PostToolUse only).
+    /// Returns `updatedToolOutput` (+ `additionalContext` when `context` is non-empty)
+    /// in hookSpecificOutput. Claude Code validates the value against the tool's own
+    /// output schema and falls back to the original output when it does not match, so
+    /// the producer must hand back the whole result object, not a bare string.
+    ContextWithUpdatedToolOutput {
+        /// Additional context string injected next to the result; empty = none.
+        context: String,
+        /// Name of the lifecycle event this response belongs to, if known.
+        event_name: Option<String>,
+        /// The tool result object that replaces the original before the model sees it.
+        updated_tool_output: serde_json::Value,
+    },
 }
 /// S-4p (26/10/2026) — o escopo de dedupe da rota STANDALONE: (raiz, sessão).
 ///
@@ -306,8 +319,31 @@ impl HookResponse {
                 }
                 serde_json::json!({ "hookSpecificOutput" : hso }).to_string()
             }
+            HookResponse::ContextWithUpdatedToolOutput {
+                context,
+                event_name,
+                updated_tool_output,
+            } => updated_tool_output_json(context, event_name.as_deref(), updated_tool_output),
         }
     }
+}
+/// Wire form of [`HookResponse::ContextWithUpdatedToolOutput`]: `updatedToolOutput`
+/// always, `additionalContext` only when there is context to carry (an empty string
+/// would put a blank reminder next to the result).
+fn updated_tool_output_json(
+    context: &str,
+    event_name: Option<&str>,
+    updated_tool_output: &serde_json::Value,
+) -> String {
+    let mut hso = serde_json::json!({ "updatedToolOutput" : updated_tool_output, });
+    if !context.is_empty() {
+        let truncated = crate::hook_response::truncate_context(context);
+        hso["additionalContext"] = serde_json::Value::String(truncated);
+    }
+    if let Some(name) = event_name {
+        hso["hookEventName"] = serde_json::Value::String(name.to_string());
+    }
+    serde_json::json!({ "hookSpecificOutput" : hso }).to_string()
 }
 /// Core context layer — always initialized, used by ALL hooks.
 ///

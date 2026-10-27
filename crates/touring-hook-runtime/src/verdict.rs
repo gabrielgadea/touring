@@ -126,6 +126,15 @@ impl HookResponse {
                 event_name,
                 updated_input,
             },
+            HookResponse::ContextWithUpdatedToolOutput {
+                context,
+                event_name,
+                updated_tool_output,
+            } => HookResponse::ContextWithUpdatedToolOutput {
+                context: context_with(&avisos, Some(&context)),
+                event_name,
+                updated_tool_output,
+            },
         }
     }
 }
@@ -242,6 +251,22 @@ mod tests {
                     context: "contexto da reescrita".into(),
                     event_name: Some("PreToolUse".into()),
                     updated_input: serde_json::json!({"command": "ls"}),
+                },
+            ),
+            (
+                "resultado-reescrito",
+                HookResponse::ContextWithUpdatedToolOutput {
+                    context: "contexto do resultado".into(),
+                    event_name: Some("PostToolUse".into()),
+                    updated_tool_output: serde_json::json!({"stdout": "s", "stderr": "", "interrupted": false}),
+                },
+            ),
+            (
+                "resultado-reescrito-sem-contexto",
+                HookResponse::ContextWithUpdatedToolOutput {
+                    context: String::new(),
+                    event_name: Some("PostToolUse".into()),
+                    updated_tool_output: serde_json::json!({"stdout": "s", "stderr": "", "interrupted": false}),
                 },
             ),
         ]
