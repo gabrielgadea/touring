@@ -564,3 +564,19 @@ o `~/.claude` da guarda e da suíte; o rc 2 da guarda agora é nomeado como
 rótulo 30.4.98. Desde esse deploy, o 30.4.98 em produção é o `adbeea9a`, não o
 `685d78ad`. O próximo `propagate-release.sh` sobe para 30.4.99. Registro espelhado em
 `docs/plans/2026-10-27-portfolio-scripts/p2-redesign-gate-semelhanca.md` §6.
+
+**Pausa por cota (27/10, ~19:05)**: aviso da sessão `analise-42` (cota semanal 81%,
+"ordem de parada aos 78%"; regra não documentada no repo, aplicada por prudência até
+o Gabriel confirmar). Feito e commitado nesta janela: matcher `*` do
+PostToolUseFailure (`97af9448`, vivo no settings.json), `--since` no instrumento,
+SEG-4 `~/.claude` inteiro no sandbox menos credenciais + endurecimento (`e2fa91ff`,
+`fc34029e`; vale a partir do 30.4.99), pré-registro do A3 (`59404571`). Em curso,
+mandados encerrar em estado consistente: engenheiros B2 (rubrica G6/G3, touring-cli),
+B1 (compactador `updatedToolOutput`, touring-hook-handlers), B3m (mod
+`session.compact`) e A3 (`a3_arm.py`, `test_a3_arm.py`, `a3-calendario.json`); a
+entrega de cada um é hipótese até revisão e gates. C1b (wasmtime 48, z3 0.21, zip)
+com a `touring-a1` num worktree. Próximo: revisar as entregas, juntar o C1b, um
+`propagate-release.sh 30.4.99`, prova 5.5 (agora exige `settings.json` legível e
+`.credentials.json` negado). Pendentes do Gabriel: sim ao mecanismo de troca diária
+do A3; rotação da `GEMINI_API_KEY` presente no `history.jsonl` e nos
+`settings.json.bak*`.
