@@ -512,3 +512,49 @@ naquele turno e o output visto.
 _O plano é o contrato. As decisões estão aprovadas (§3); a fronteira de
 implementação está aberta (§5). O momento do restart do W0 é a única
 confirmação humana restante._
+
+---
+
+## 11. Execução (27/10/2026)
+
+**Commits**: `37f67fd0` (a wave: A1, A2, C0/D1a, C1, C2, C3, C4, C5, C6, D1, o gate
+de hooks injetores e a wave S-\* de 26/10) e `0eede673` (versão 30.4.98), sobre o
+`b19d3353` da `touring-a1` (SEG-3 + P2, que vão no mesmo release). Release:
+`scripts/propagate-release.sh 30.4.98`.
+
+**Fora do plano, pedido pelo Gabriel**: `client/hooks/injection_policy_gate.py`
+(PreToolUse `Write|Edit|MultiEdit`) nega gravar ou registrar um hook injetor que
+não consulta a política; mesmo predicado da guarda (`uncovered_injector`).
+
+**Pontos abertos trazidos pela execução** (viram itens das próximas waves):
+1. Na rota do daemon, avisos colados na `permissionDecisionReason` de um deny
+   (verdict.rs) só são filtrados com o env do daemon; o cliente não manda o nível
+   no `DaemonRequest` (ipc.rs/daemon.rs).
+2. Cortes dos hooks Python não entram no `injection_journal`, então a telemetria
+   (A2) subconta essa parte. O espelho `client/hooks/injection_policy.py` precisa
+   gravar no mesmo diário.
+3. Divergência declarada: um envelope que sobra só com `hookEventName` colapsa
+   para `{}` no Rust, mas não no Python.
+4. O trio ao vivo (D1) só vê falhas de `Edit|Write|Bash`: o matcher do
+   PostToolUseFailure no `settings.json` é esse, e mudar é decisão do Gabriel.
+   O "negado" ao vivo conta só os gates do cli-suggest (G1..G11).
+5. O índice de wiring não vê ponteiro de função (`m.insert("cli-x", fn)`) como
+   consumidor: cerca de 33 handlers da CLI aparecem como órfãos falsos.
+6. CVEs restantes (S-4b): wasmtime 46 → 48, z3 0.20 → 0.21, zip via candle.
+7. Ponto 0 da régua: G6 repete 87,5% depois do deny (alvo nº 1 do S-13); Read
+   superado = 16,8% dos bytes (S-16).
+
+**Release R1 entregue (27/10, 15:40)**: 3ª tentativa do `propagate-release.sh 30.4.98`
+com EXIT=0 e prova comportamental 41/41. A 1ª parou no drift de `docs/reference`
+(`4072ba72`); a 2ª no teste de pinagem do `touring-dispatch`, que via o
+`injection_policy.rs` como escritor de `updatedInput` sem ser (as linhas são fixtures
+dos testes embutidos; registrado em `FRAMEWORK`, `685d78ad`). Pós-deploy:
+`touring --version` = 30.4.98; `gate-metrics` expõe `tool_trio`; KPI
+`injection_suppressed` = sem journal (nível default `full`, nada cortado: esperado);
+`touring e2e -j` 0,868 pass (baseline 0,857); `client/hooks/tests` 1400 passed; guarda
+0 lacunas. DAG: W0, A1, A2, C1, C2, C4, D1 completos (17/23). `audit-plan-completion.sh`
+fora do sandbox: 5 faltas, todas fases seguintes (S-4b, S-12, S-13, S-14, S-16).
+Dentro do `touring run` o audit acusava o S-8 falsamente, porque o sandbox esconde
+o `~/.claude` da guarda e da suíte; o rc 2 da guarda agora é nomeado como
+"não medido". Próximo: acumular dados com o binário novo para a régua pós-deploy
+(D2) e o pré-registro do A3 (S-12).
