@@ -578,5 +578,6 @@ entrega de cada um é hipótese até revisão e gates. C1b (wasmtime 48, z3 0.21
 com a `touring-a1` num worktree. Próximo: revisar as entregas, juntar o C1b, um
 `propagate-release.sh 30.4.99`, prova 5.5 (agora exige `settings.json` legível e
 `.credentials.json` negado). Pendentes do Gabriel: sim ao mecanismo de troca diária
-do A3; rotação da `GEMINI_API_KEY` presente no `history.jsonl` e nos
-`settings.json.bak*`.
+do A3; rotação da chave `AIza…` presente no `history.jsonl`. (Correção 27/10: os
+`settings.json.bak*` guardam só o marcador `REDACTED-moved-to-…`; o scanner contou
+o marcador como segredo. A chave com forma real está só no `history.jsonl`.)
