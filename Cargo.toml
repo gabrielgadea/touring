@@ -193,7 +193,7 @@ pollster = "0.3"
 tokio = { version = "1.40", features = ["full"] }
 
 # Collections
-lru = "0.16" # >=0.16.3 fixes RUSTSEC-2026-0002 (IterMut Stacked-Borrows unsoundness); API (LruCache::new(NonZeroUsize)/get/put) unchanged from 0.12
+lru = "0.18" # >=0.18.2 fixes RUSTSEC-2026-0253 (unsound LruCache::pop); a 0.16 já cobria RUSTSEC-2026-0002
 indexmap = "2.6"
 moka = { version = "0.12", features = ["sync", "future"] }
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -330,7 +330,7 @@ rkyv = { version = "0.8.17", features = ["std", "bytecheck"] }
 memmap2 = "0.9"
 
 # Compression
-zstd = "0.13"
+zstd = "0.14"
 
 # Tokenization
 tiktoken-rs = "0.9"
