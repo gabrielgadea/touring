@@ -600,3 +600,14 @@ Comandos testados: o apply recusa antes do dia 0 (rc 2) e o reset, contra um HOM
 falso, só remove a chave. **Janela congelada de 29/10 04:00 a 06/11 04:00**: deploy,
 `update-touring` ou mudança no `settings.json` fora do mecanismo invalida o bloco
 (§3 do pré-registro). Próximo: `a3_arm.py analyze` depois de 06/11, depois D2.
+
+**SimHash v2 fundido sem deploy (28/10, `9dd4aa99`)**: branch `feat/simhash-distintos` da
+analise-40 — `b15cd900` (build_info_freshness segue o `.git` de worktree), `9c8f7c95`
+(causa do intermitente do migrate: 6 testes `test_schema_registry_*` liam
+`TOURING_PROJECT_ROOT` sem `ENV_LOCK`; 12% de suítes vermelhas → 0 em 300 iterações) e
+`f130a703` (`code_simhash_v2`, um voto por shingle distinto, τ = 9 escolhido no treino:
+precisão 1,00 e recall 0,95 contra 0,53 do v1; o gate compara só v2 com v2). Juiz dela:
+1.841 passed no `touring-server` com `--no-fail-fast`; reverificado aqui (clippy -D
+warnings e os testes tocados verdes). Entra no 30.4.100, deploy depois de 06/11 04:00.
+**Defeito latente registrado**: o `with_project_root` dos testes do migrate limpa o
+`TOURING_PROJECT_ROOT` ao sair em vez de restaurar o valor anterior (inofensivo hoje).
