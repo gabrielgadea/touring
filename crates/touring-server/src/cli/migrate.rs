@@ -828,11 +828,57 @@ mod tests {
     /// process-global resource is not two guards, it is none — and the comment
     /// asserting the symmetry was the only thing that made it look safe.
     fn with_project_root<F: FnOnce()>(root: &std::path::Path, f: F) {
+        // Restores the PREVIOUS value on exit, panic included: clearing it (the old
+        // behaviour) dropped a root an outer scope had set, and a panicking test
+        // left its tempdir as the crate-wide project root.
+        struct Restore(Option<std::ffi::OsString>);
+        impl Drop for Restore {
+            fn drop(&mut self) {
+                // SAFETY: same `ENV_LOCK` invariant as the `set_var` below.
+                match self.0.take() {
+                    Some(prev) => unsafe { std::env::set_var("TOURING_PROJECT_ROOT", prev) },
+                    None => unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") },
+                }
+            }
+        }
+        let _restore = Restore(std::env::var_os("TOURING_PROJECT_ROOT"));
         // SAFETY: the caller holds `crate::cli::ENV_LOCK`, the single lock
         // every mutation of this variable is taken under, crate-wide.
         unsafe { std::env::set_var("TOURING_PROJECT_ROOT", root) };
         f();
-        unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") };
+    }
+
+    #[test]
+    fn with_project_root_restores_the_previous_value() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let saved = std::env::var_os("TOURING_PROJECT_ROOT");
+        // SAFETY: ENV_LOCK held for the whole test.
+        unsafe { std::env::set_var("TOURING_PROJECT_ROOT", "/outer-root") };
+        with_project_root(Path::new("/inner-root"), || {
+            assert_eq!(
+                std::env::var("TOURING_PROJECT_ROOT").as_deref(),
+                Ok("/inner-root")
+            );
+        });
+        assert_eq!(
+            std::env::var("TOURING_PROJECT_ROOT").as_deref(),
+            Ok("/outer-root")
+        );
+        let caught = std::panic::catch_unwind(|| {
+            with_project_root(Path::new("/panics"), || panic!("test panic"));
+        });
+        assert!(caught.is_err());
+        assert_eq!(
+            std::env::var("TOURING_PROJECT_ROOT").as_deref(),
+            Ok("/outer-root"),
+            "a panic inside must not leave the inner root behind"
+        );
+        match saved {
+            Some(v) => unsafe { std::env::set_var("TOURING_PROJECT_ROOT", v) },
+            None => unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") },
+        }
     }
 
     fn make_sqlite(path: &Path) -> rusqlite::Connection {

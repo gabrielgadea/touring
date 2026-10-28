@@ -20,6 +20,8 @@ HOOKS = os.path.join(REPO, "client", "hooks")
 SHIM = os.path.join(REPO, "scripts", "hooks", "touring-hook-shim.sh")
 
 sys.path.insert(0, HOOKS)
+# The policy journals its cuts under $HOME (28/10/2026); this suite never writes there.
+os.environ["TOURING_INJECTION_JOURNAL_DISABLED"] = "1"
 import injection_policy as ip  # noqa: E402
 
 FAILURES = []

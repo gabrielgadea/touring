@@ -29,3 +29,6 @@ def _isolate_injection_dedup(monkeypatch: pytest.MonkeyPatch) -> None:
     """
     monkeypatch.setenv("TOURING_DEDUP_DISABLED", "1")
     monkeypatch.delenv("CLAUDE_PROJECT_DIR", raising=False)
+    # 28/10/2026: the policy now journals its cuts under $HOME; tests must not write
+    # into the real ~/.claude/touring/injection_suppressed.jsonl (the A3 dose reads it).
+    monkeypatch.setenv("TOURING_INJECTION_JOURNAL_DISABLED", "1")
