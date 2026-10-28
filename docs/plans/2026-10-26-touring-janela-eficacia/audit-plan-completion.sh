@@ -64,7 +64,15 @@ daemon_ts="$(stat -c %Y target/release/touring-daemon 2>/dev/null || echo 0)"
 [ -f "$B/A3-preregistro.md" ] && ok "S-12 pré-registro do quase-experimento" || falta "S-12 A3-preregistro.md ausente"
 has "fn test_every_gate_reason_names_the_next_command" crates/ && ok "S-13 rubrica das negações" || falta "S-13 teste da rubrica ausente"
 has "fn test_compactor_never_cuts_failure_block" crates/ && ok "S-14 compactador com controle de falha" || falta "S-14 compactador ausente"
-has "fn test_never_evicts_failure_results" crates/ && ok "S-16 mod de evicção determinístico" || falta "S-16 mod session.compact ausente"
+# The mod is TypeScript (tools/mods/, 62082b20), not a Rust crate: check its test names and
+# run its own suite, so a present-but-red mod is still a FALTA.
+mod=tools/mods/touring-compact-evict
+if has "test_never_evicts_failure_results" "$mod/tests" && has "test_stub_carries_pointer_to_raw" "$mod/tests" \
+   && timeout 180 claude plugin test "$mod" >/dev/null 2>&1; then
+  ok "S-16 mod de evicção determinístico (suíte do mod verde)"
+else
+  falta "S-16 mod session.compact ausente ou com a suíte vermelha ($mod)"
+fi
 ls "$B"/regua-*.md >/dev/null 2>&1 && ok "S-15 régua semanal com ponto registrado" || falta "S-15 nenhum ponto da régua semanal"
 
 if [ "$faltas" -gt 0 ]; then

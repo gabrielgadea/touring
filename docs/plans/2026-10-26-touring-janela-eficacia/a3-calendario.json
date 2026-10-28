@@ -1,10 +1,19 @@
 {
-  "day0": null,
+  "day0": "2026-10-29",
   "switch_hour_local": 4,
   "tz": "America/Sao_Paulo",
-  "primary_blocks": ["ABBA", "BAAB"],
-  "extension_blocks": ["ABBA", "BAAB"],
+  "primary_blocks": [
+    "ABBA",
+    "BAAB"
+  ],
+  "extension_blocks": [
+    "ABBA",
+    "BAAB"
+  ],
   "extension_active": false,
-  "arms": {"A": "full", "B": "no-advisory"},
+  "arms": {
+    "A": "full",
+    "B": "no-advisory"
+  },
   "blocos_invalidados": []
 }
