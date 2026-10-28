@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -50,9 +51,14 @@ class Parametros:
     tau_fraco: int = simhash.TAU_FRACO
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class Candidato:
-    """A library entry, whatever the source: the minimal contract every federated source exposes."""
+    """A library entry, whatever the source: the minimal contract every federated source exposes.
+
+    ``slots`` and not ``frozen``: a frozen dataclass sets every field through ``object.__setattr__``, and building
+    the 7 893 candidates of the analise index cost 69 ms of a 150 ms hook budget (measured 28/10/2026). The
+    instance was never truly immutable anyway — it carries a lazy cache.
+    """
 
     id: str
     nome: str
@@ -60,9 +66,15 @@ class Candidato:
     conteudo: str = ""
     proposito: str = ""
     origem: str = ""
+    #: Precomputed by an exporter (P2 federation) so a hook process never re-reads thousands of files.
+    hash_pre: int | None = None
+    linhas_pre: int | None = None
+    termos_pre: frozenset[str] | None = None
     _cache: dict[str, object] = field(default_factory=dict, compare=False, repr=False)
 
     def simhash(self) -> int | None:
+        if self.hash_pre is not None:
+            return self.hash_pre
         if not self.conteudo:
             return None
         if "hash" not in self._cache:
@@ -70,13 +82,17 @@ class Candidato:
         return self._cache["hash"]  # type: ignore[return-value]
 
     def linhas(self) -> int:
+        if self.linhas_pre is not None:
+            return self.linhas_pre
         if "linhas" not in self._cache:
             self._cache["linhas"] = linhas_substantivas(self.conteudo)
         return self._cache["linhas"]  # type: ignore[return-value]
 
-    def termos(self) -> set[str]:
+    def termos(self) -> frozenset[str] | set[str]:
+        if self.termos_pre is not None:
+            return self.termos_pre  # read-only use (intersection): no copy per query
         if "termos" not in self._cache:
-            self._cache["termos"] = _termos(f"{Path(self.nome).stem} {self.proposito or proposito_de(self.conteudo)}")
+            self._cache["termos"] = termos_de(self.nome, self.proposito or proposito_de(self.conteudo))
         return self._cache["termos"]  # type: ignore[return-value]
 
 
@@ -109,6 +125,11 @@ def proposito_de(conteudo: str) -> str:
 
 def _termos(texto: str) -> set[str]:
     return {t for t in _PALAVRA.findall(texto.lower().replace("_", " ")) if t not in _VAZIAS}
+
+
+def termos_de(nome: str, proposito: str) -> set[str]:
+    """Purpose terms of a script: its stem plus its stated purpose. Exporters call this to precompute."""
+    return _termos(f"{Path(nome).stem} {proposito}")
 
 
 def _sinal_proposito(alvo: set[str], c: Candidato) -> int:
@@ -238,23 +259,48 @@ def consultar(caminho: str, conteudo: str, cwd: str | None = None, params: Param
     nome = Path(caminho).name
     if Path(nome).suffix.lower() not in SCRIPT_EXTS:
         return Veredito("nao_aplicavel", motivo="não é script")
-    candidatos: list[Candidato] = []
-    falhas: list[str] = []
-    try:
-        candidatos += fonte_manifest()
-    except (OSError, ValueError) as exc:
-        falhas.append(f"global ({type(exc).__name__})")
-    termos = " ".join(sorted(_termos(f"{Path(nome).stem} {proposito_de(conteudo)}"))[:6])
-    try:
-        candidatos += fonte_tantivy(termos, cwd)
-    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
-        falhas.append(f"tantivy ({type(exc).__name__})")
+    candidatos, falhas = _coletar(nome, conteudo, cwd)
+    # Normalize the target ONCE; per-candidate Path() was 15 852 Path objects and ~50 ms per hook (28/10/2026).
+    alvo = os.path.normpath(caminho)
     vistos: dict[str, Candidato] = {}
     for c in candidatos:
-        if c.caminho and str(Path(c.caminho)) == str(Path(caminho)):
+        if c.caminho == alvo:
             continue  # the file being written is not its own equivalent
-        vistos.setdefault(c.caminho or c.id, c)
+        vistos.setdefault(c.caminho or c.id, c)  # first source wins: project, then global, then tantivy
     return decidir(nome, conteudo, vistos.values(), falhas, params)
+
+
+def _coletar(nome: str, conteudo: str, cwd: str | None) -> tuple[list[Candidato], list[str]]:
+    """Federated sources (project index > global MANIFEST, project wins by name) plus tantivy; failures named."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    import federacao  # local import: federacao imports Candidato from this module
+
+    falhas: list[str] = []
+    # tantivy is a subprocess and independent of the index load: start it first, overlap both (A7).
+    termos = " ".join(sorted(_termos(f"{Path(nome).stem} {proposito_de(conteudo)}"))[:6])
+    pool = ThreadPoolExecutor(max_workers=1)
+    busca = pool.submit(fonte_tantivy, termos, cwd)
+    projeto: list[Candidato] = []
+    indice = federacao.achar_indice(cwd)
+    if indice is not None:
+        try:
+            projeto = federacao.fonte_projeto(indice)
+        except federacao.IndiceInvalido as exc:
+            falhas.append(f"projeto ({exc})"[:160])
+    globais: list[Candidato] = []
+    try:
+        globais = fonte_manifest()
+    except (OSError, ValueError) as exc:
+        falhas.append(f"global ({type(exc).__name__})")
+    achados: list[Candidato] = []
+    try:
+        achados = busca.result()
+    except (OSError, ValueError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        falhas.append(f"tantivy ({type(exc).__name__})")
+    finally:
+        pool.shutdown(wait=False)
+    return federacao.federar(projeto, globais) + achados, falhas
 
 
 def main(argv: list[str] | None = None) -> int:
