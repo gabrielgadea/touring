@@ -51,10 +51,18 @@ o braço vale por sessão, fixado quando ela abre.
   `settings.json` fora do mecanismo do §5 durante um bloco invalida o bloco inteiro, que é
   repetido no fim da sequência. **Esclarecimento de 28/10, antes do dia 0:** editar o
   script vivo de um hook que injeta contexto (texto, condição ou família do que ele
-  emite) é da mesma classe e também invalida o bloco, porque muda o próprio tratamento.
-  O que estiver no ar antes do dia 0 é ambiente fixo; mudança em modo sombra que não
-  altera o que chega ao modelo não conta. Os blocos invalidados ficam listados em
-  `a3-calendario.json` (`blocos_invalidados`) com o motivo.
+  emite), ou os DADOS que ele lê para decidir o que emitir (p. ex. o índice
+  `analise/.claude/portfolio/indice.json` do `script_portfolio_gate.py`, reexportado pelo
+  `portfolio_export.py`), é da mesma classe e também invalida o bloco, porque muda o
+  próprio tratamento. O que estiver no ar antes do dia 0 é ambiente fixo; mudança em modo
+  sombra que não altera o que chega ao modelo não conta. Os blocos invalidados ficam
+  listados em `a3-calendario.json` (`blocos_invalidados`) com o motivo.
+- **Ambiente no dia 0 (registrado em 28/10):** Touring 30.4.99 (Rust de `b46b68ab`);
+  `script_portfolio_gate.py` na versão P2 da analise-40 — P1 (`87e007cb`, ~11:10) mudou o
+  texto e a condição do `additionalContext` (estado do veredito e distâncias em bits;
+  emite quando a recuperação nova tem candidatos) e P2 (`e5509ffa`, ~11:25) passou a ler o
+  índice do projeto analise (7.893 scripts), emitindo em casos em que antes calava. Os
+  dois braços recebem esse mesmo hook; a política de injeção decide o que dele chega.
 - **Mínimo por célula (bloco × braço):** 10 sessões com pelo menos 40 chamadas de
   ferramenta. Célula abaixo do mínimo invalida o bloco.
 
