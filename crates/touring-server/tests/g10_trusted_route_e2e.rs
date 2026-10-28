@@ -105,6 +105,12 @@ fn roda(projeto: &Path, comando: &str) -> (i32, String) {
         .env("TOURING_DAEMON_SOCK", projeto.join("sem-daemon.sock"))
         .env_remove("CLAUDE_PROJECT_DIR")
         .env_remove("TOURING_PROJECT_ROOT")
+        // Hermetic against the user's run journal (28/10/2026): the P2-v2 repeat gate reads
+        // `$HOME/.claude/touring/run_journal.jsonl`, so once ANY earlier green run of this
+        // very test journaled the program, every later run was `repeat_blocked` (exit 2) and
+        // the named route looked broken. This test is about the G10 route; the repeat gate
+        // has its own suite. `off` keeps it out of the way without touching the command.
+        .env("TOURING_REPEAT_GATE", "off")
         .output()
         .expect("bash");
     (
