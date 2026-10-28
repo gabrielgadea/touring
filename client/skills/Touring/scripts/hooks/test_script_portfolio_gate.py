@@ -159,6 +159,73 @@ def test_stats_conta_por_estado_e_legado(ambiente: dict) -> None:
     assert sum(resumo["por_estado"].values()) == resumo["eventos"] == 2
 
 
+def _bash(comando: str, cwd: str = "/home/u/projects/analise") -> dict:
+    return {"tool_name": "Bash", "tool_input": {"command": comando}, "cwd": cwd}
+
+
+def test_bash_heredoc_dispara_como_write(ambiente: dict) -> None:
+    # P3: the same script written through `cat > … <<EOF` reaches the same decision as a Write.
+    r = _rodar(ambiente, _bash(f"cat > /tmp/x/fetch_proveniencia.py <<'PY'\n{SCRIPT}PY\n"))
+    assert r.returncode == 0
+    assert "fetch_proveniencia.py" in json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+    (evento,) = _eventos(ambiente)
+    assert evento["origem"] == "Bash.heredoc"
+    assert evento["file"] == "/tmp/x/fetch_proveniencia.py"
+    assert "content" not in evento
+
+
+def test_bash_nao_emite_updated_input_nem_bloqueia(ambiente: dict, tmp_path: Path) -> None:
+    # The touring-hook already rewrites Bash commands: a second rewriter would be last-write-wins.
+    existente = tmp_path / "recalcula_tarifa.py"
+    existente.write_text(PROGRAMA)
+    ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
+        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}])
+    corpo = PROGRAMA.replace("ajuste_3", "correcao_3")
+    r = _rodar(ambiente, _bash(f"cat <<'PY' > /tmp/x/zzz_unico.py\n{corpo}\nPY\n"))
+    assert r.returncode == 0
+    saida = json.loads(r.stdout)["hookSpecificOutput"]
+    assert "reprovado" in saida["additionalContext"]  # control: the case did reach the strongest verdict
+    assert set(saida) == {"hookEventName", "additionalContext"}
+    assert "updatedInput" not in r.stdout
+    assert "permissionDecision" not in r.stdout
+
+
+def test_bash_sem_heredoc_fica_em_silencio_e_nao_registra(ambiente: dict) -> None:
+    for comando in ("ls -la /tmp", "python3 /tmp/x/probe.py", "tee /tmp/x/probe.py <<'E'\nx\nE\n"):
+        r = _rodar(ambiente, _bash(comando))
+        assert (r.returncode, r.stdout) == (0, "")
+    assert _eventos(ambiente) == []
+
+
+def test_bash_caminho_relativo_resolvido_pelo_cwd(ambiente: dict) -> None:
+    _rodar(ambiente, _bash(f"cat > probe.py <<'PY'\n{SCRIPT}PY\n", cwd="/tmp/sessao"))
+    (evento,) = _eventos(ambiente)
+    assert evento["file"] == "/tmp/sessao/probe.py"
+    assert evento["ephemeral"] is True
+
+
+def test_bash_dois_heredocs_dois_eventos(ambiente: dict) -> None:
+    comando = f"cat > /tmp/x/a.py <<'A'\n{SCRIPT}A\ncat > /home/u/notas.md <<'B'\nnota\nB\ncat > /tmp/x/b.sh <<'C'\necho oi\nC\n"
+    _rodar(ambiente, _bash(comando))
+    assert sorted(e["file"] for e in _eventos(ambiente)) == ["/tmp/x/a.py", "/tmp/x/b.sh"]
+
+
+def test_write_registra_origem_write(ambiente: dict) -> None:
+    _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
+    (evento,) = _eventos(ambiente)
+    assert evento["origem"] == "Write"
+
+
+def test_latencia_bash_sem_heredoc(ambiente: dict) -> None:
+    # The Bash matcher fires on EVERY Bash call: the no-heredoc path must stay at interpreter start-up cost.
+    tempos = []
+    for _ in range(7):
+        t0 = time.perf_counter()
+        _rodar(ambiente, _bash("git status --short"))
+        tempos.append(time.perf_counter() - t0)
+    assert statistics.median(tempos) < 0.15
+
+
 def test_latencia_mediana_do_processo_cabe_no_orcamento(ambiente: dict) -> None:
     # Budget is p99 <= 150 ms for the hook body; a cold subprocess adds interpreter start-up, so the
     # contract checked here is the generous median of the whole process.

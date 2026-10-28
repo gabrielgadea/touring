@@ -201,44 +201,87 @@ def injection_allowed() -> bool:
         return True
 
 
-def _gatilho(payload: dict) -> tuple[str, str, bool, bool] | None:
-    """(path, content, ephemeral, generic) when the write creates a script the gate watches; else None."""
-    ti = payload.get("tool_input") or {}
-    path = str(ti.get("file_path", ""))
+def _vigiado(path: str, content: str) -> tuple[str, str, bool, bool] | None:
+    """(path, content, ephemeral, generic) when the destination is a script the gate watches; else None."""
     if Path(path).suffix.lower() not in SCRIPT_EXTS:
         return None
     ephemeral = is_ephemeral(path)
     generic = Path(path).name in GENERIC_BASENAMES
     if not (ephemeral or generic):
         return None
-    return path, str(ti.get("content", "")), ephemeral, generic
+    return path, content, ephemeral, generic
+
+
+def _heredoc():
+    """The single heredoc parser (``../portfolio/heredoc.py``, P3), shared with the analise inventory."""
+    import importlib.util
+
+    caminho = Path(__file__).resolve().parent.parent / "portfolio" / "heredoc.py"
+    spec = importlib.util.spec_from_file_location("portfolio_heredoc", caminho)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"heredoc.py ausente em {caminho}")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _absoluto(path: str, cwd: str | None) -> str:
+    """A heredoc target as written (``~/x.py``, ``x.py``) resolved against the command's cwd; ``$VAR`` stays."""
+    p = os.path.expanduser(path)
+    return p if os.path.isabs(p) or not cwd or p.startswith("$") else os.path.join(cwd, p)
+
+
+def _gatilhos(payload: dict) -> list[tuple[str, str, bool, bool, str]]:
+    """Every watched script this tool call creates, with its door (``Write`` or ``Bash.heredoc``).
+
+    Bash (P3, 28/10/2026): the command is parsed by the shared heredoc parser; the substring check first keeps
+    the common Bash call (no heredoc) away from any import or regex cost — the hook runs on every Bash call.
+    """
+    ti = payload.get("tool_input") or {}
+    if payload.get("tool_name") == "Bash":
+        comando = str(ti.get("command", ""))
+        if "<<" not in comando or "cat" not in comando:
+            return []
+        cwd = payload.get("cwd")
+        alvos = (_vigiado(_absoluto(p, cwd), c) for p, c in _heredoc().extrair(comando))
+        return [(*a, "Bash.heredoc") for a in alvos if a is not None]
+    alvo = _vigiado(str(ti.get("file_path", "")), str(ti.get("content", "")))
+    return [] if alvo is None else [(*alvo, "Write")]
+
+
+def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | None:
+    """Consult, record the event, and return the context line when there are candidates."""
+    path, content, ephemeral, generic, origem = alvo
+    v, erro = _consultar_seguro(path, content, cwd)
+    log_event(_evento(path, ephemeral, generic, v, erro, origem))
+    return _contexto(v, Path(path).name, ephemeral) if v is not None and v.candidatos else None
 
 
 def main() -> int:
-    """Hook PreToolUse (Write): consulta o portfólio e avisa — nunca bloqueia (sombra).
+    """Hook PreToolUse (Write e Bash): consulta o portfólio e avisa — nunca bloqueia (sombra).
 
     Desde a P1 (28/10/2026) a decisão é ``recuperar.consultar`` — corpo (SimHash por conjunto de shingles,
     τ=8) + propósito, devolvendo ``veredito_gate/1``. O casamento antigo (``manifest_candidates`` /
     ``tantivy_candidates``) fica neste módulo só como linha de base do avaliador (``portfolio/avaliar.py``).
+
+    Desde a P3 (28/10/2026) também o Bash: heredoc ``cat`` que cria script vigiado. No Bash o hook só emite
+    contexto — nunca ``updatedInput`` nem negação: o ``touring-hook`` já reescreve comandos Bash, e dois
+    reescritores no mesmo PreToolUse se sobrescrevem (o último vence).
     """
     if os.environ.get("TOURING_PORTFOLIO_GATE_DISABLED"):
         return 0
     if "--stats" in sys.argv:
         return stats()
-    if not injection_allowed():
-        return 0
     try:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):
         return 0  # fail-open: payload ilegível nunca bloqueia
-    alvo = _gatilho(payload) if isinstance(payload, dict) else None
-    if alvo is None:
+    alvos = _gatilhos(payload) if isinstance(payload, dict) else []
+    if not alvos or not injection_allowed():
         return 0
-    path, content, ephemeral, generic = alvo
-    v, erro = _consultar_seguro(path, content, payload.get("cwd"))
-    log_event(_evento(path, ephemeral, generic, v, erro))
-    if v is not None and v.candidatos:
-        emit({"context": _contexto(v, Path(path).name, ephemeral)})
+    contextos = [c for a in alvos if (c := _avaliar(a, payload.get("cwd")))]
+    if contextos:
+        emit({"context": "\n".join(contextos)})
     return 0
 
 
@@ -250,9 +293,9 @@ def _consultar_seguro(path: str, content: str, cwd: str | None):
         return None, f"recuperar: {type(exc).__name__}"
 
 
-def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None) -> dict:
+def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None, origem: str = "Write") -> dict:
     base = {"ts": int(time.time()), "file": path, "basename": Path(path).name,
-            "ephemeral": ephemeral, "generic_name": generic}
+            "ephemeral": ephemeral, "generic_name": generic, "origem": origem}
     if v is None:
         return {**base, "estado": "inaferivel", "motivo": erro, "n_candidates": 0, "would_avoid": False, "top": []}
     return {**base, "estado": v.estado, "motivo": v.motivo, "fontes_falhas": list(v.fontes_falhas),
