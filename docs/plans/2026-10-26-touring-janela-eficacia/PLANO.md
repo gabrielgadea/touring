@@ -581,3 +581,22 @@ com a `touring-a1` num worktree. Próximo: revisar as entregas, juntar o C1b, um
 do A3; rotação da chave `AIza…` presente no `history.jsonl`. (Correção 27/10: os
 `settings.json.bak*` guardam só o marcador `REDACTED-moved-to-…`; o scanner contou
 o marcador como segredo. A chave com forma real está só no `history.jsonl`.)
+
+**Release 30.4.99 (28/10, 11:1x)**: `propagate-release.sh 30.4.99` EXIT=0 na 2ª tentativa
+(a 1ª parou no drift do espelho `client/`: correção legítima do `gap_detector` feita no
+lado vivo por outra sessão; `b46b68ab`). Gate 1/6 sem nenhuma suíte vermelha; prova
+comportamental 43/43 (as 2 novas cobrem o SEG-4). Pós-deploy: `touring --version` =
+30.4.99; SEG-4 ao vivo (`touring run`: `settings.json` legível, `~/.claude` listável com
+61 entradas, `.credentials.json` negado); `tool_trio` vivo; `touring e2e -j` 0,868 pass.
+O binário corresponde ao Rust de `b46b68ab`: `ed15c74b` e `87e007cb` (analise-40,
+durante o rito) só tocam Python do espelho. C1b/C1c: F2.5 18 → 0 CVEs; residual zstd do
+tantivy aceito com evidência (`caaa95b7`). `audit-plan-completion.sh`: completo (o check
+do S-16 procurava o mod em `crates/`; o mod é TypeScript em `tools/mods/`).
+
+**A3 ativado**: `a3-calendario.json` com `day0 = 2026-10-29`; crontab do Gabriel com a
+troca diária às 04:01 (`a3_arm.py apply --yes`, log em `~/.claude/touring/a3_arm.log`) e
+o reset para `full` em 06/11 04:05 (remover a linha se a extensão do §3 for ativada).
+Comandos testados: o apply recusa antes do dia 0 (rc 2) e o reset, contra um HOME
+falso, só remove a chave. **Janela congelada de 29/10 04:00 a 06/11 04:00**: deploy,
+`update-touring` ou mudança no `settings.json` fora do mecanismo invalida o bloco
+(§3 do pré-registro). Próximo: `a3_arm.py analyze` depois de 06/11, depois D2.
