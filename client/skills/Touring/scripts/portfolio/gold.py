@@ -150,11 +150,30 @@ def particao(item_id: str, semente: str = SEMENTE) -> str:
     return "held_out" if h[0] % 2 else "treino"
 
 
+def _ampliar_sinteticos(rotulos: dict[str, Rotulo], todos: list[Item]) -> dict[str, Rotulo]:
+    """A mutation of a champion is equivalent to the champion AND to every copy of it (Jaccard >= ALTO).
+
+    v2 listed only the champion, but the champions were mined from the same transcripts, so the corpus holds
+    identical copies (measured 28/10/2026: the 2 remaining train false positives were ``recalc.py`` mutations
+    whose nearest item was a corpus ``recalc.py`` with Jaccard 1.0 and 0.998).
+    """
+    por_id = {i.id: i for i in todos}
+    saida = {}
+    for qid, r in rotulos.items():
+        base = por_id[r.equivalentes[0]]
+        copias = {i.id for i in todos if i.timestamp < "9999" and jaccard(base.toks, i.toks) >= ALTO}
+        saida[qid] = Rotulo(r.classe, tuple(sorted(copias | set(r.equivalentes))), r.metodo)
+    return saida
+
+
 def montar(itens: list[Item], extras: list[Item], extras_rotulos: dict[str, Rotulo]) -> dict:
     """The gold document: labels, split and counts per class and partition."""
     todos = itens + extras
-    rotulos = rotular(itens)
-    rotulos.update(extras_rotulos)
+    # Label against the SAME library the evaluator uses (corpus + champions). v1 labeled against the corpus
+    # only, so a query identical to a champion was "sem_equivalente" (measured 28/10/2026: 3 of 9 false
+    # positives on train were this label defect, e.g. rodar.sh -> rodar.sh with Jaccard 1.0).
+    rotulos = rotular(todos)
+    rotulos.update(_ampliar_sinteticos(extras_rotulos, todos))
     for e in extras:
         rotulos.setdefault(e.id, Rotulo("sem_biblioteca"))  # champions are library, not queries
     entradas = {

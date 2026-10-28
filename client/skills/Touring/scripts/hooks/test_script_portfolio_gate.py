@@ -108,18 +108,55 @@ def test_basename_generico_dispara_fora_do_efemero(ambiente: dict) -> None:
     assert evento["ephemeral"] is False
 
 
-def test_rota_tantivy_quando_o_manifest_nao_casa(ambiente: dict) -> None:
+PROGRAMA = "\n".join(f"linha_{i} = calcular(valor_{i}, base) + ajuste_{i}" for i in range(12))
+
+
+def test_copia_editada_achada_pelo_tantivy_e_reprovada(ambiente: dict, tmp_path: Path) -> None:
+    existente = tmp_path / "recalcula_tarifa.py"
+    existente.write_text(PROGRAMA)
     ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
-        [{"file_path": "scripts/recalcula_tarifa.py", "symbol_name": "recalcula tarifa"}])
-    r = _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
-    assert "recalcula_tarifa.py" in json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}])
+    r = _rodar(ambiente, _write("/tmp/x/zzz_unico.py", PROGRAMA.replace("ajuste_3", "correcao_3")))
+    contexto = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "reprovado" in contexto
+    assert "recalcula_tarifa.py" in contexto
+    (evento,) = _eventos(ambiente)
+    assert evento["estado"] == "reprovado"
+    assert evento["would_avoid"] is True
 
 
-@pytest.mark.xfail(strict=True, reason="P1 (S-1.2): hoje uma fonte fora do ar vira silêncio, não inaferível")
 def test_fonte_fora_do_ar_registra_inaferivel(ambiente: dict) -> None:
     _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"), TOURING_FALSO_RC="1")
     (evento,) = _eventos(ambiente)
     assert evento.get("estado") == "inaferivel"
+    assert any("tantivy" in f for f in evento["fontes_falhas"])
+
+
+def test_hook_registra_estado_do_veredito(ambiente: dict) -> None:
+    _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
+    (evento,) = _eventos(ambiente)
+    assert evento["estado"] in ("reprovado", "aprovado", "inaferivel")
+    assert "motivo" in evento
+
+
+def test_manifest_nao_curto_circuita_mais(ambiente: dict, tmp_path: Path) -> None:
+    # The old hook skipped tantivy whenever the MANIFEST matched; now every source is consulted.
+    marca = tmp_path / "tantivy_consultado"
+    falso = Path(ambiente["env"]["PATH"].split(os.pathsep)[0]) / "touring"
+    falso.write_text(f"#!/bin/sh\ntouch {marca}\nprintf '[]'\n")
+    _rodar(ambiente, _write("/tmp/x/fetch_proveniencia.py"))
+    assert marca.exists()
+
+
+def test_stats_conta_por_estado_e_legado(ambiente: dict) -> None:
+    ambiente["eventos"].parent.mkdir(parents=True, exist_ok=True)
+    ambiente["eventos"].write_text(json.dumps({"n_candidates": 1, "would_avoid": True}) + "\n")
+    _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
+    r = subprocess.run([sys.executable, str(HOOK), "--stats"], capture_output=True, text=True,
+                       env=ambiente["env"], timeout=20, check=False)
+    resumo = json.loads(r.stdout)
+    assert resumo["por_estado"]["legado"] == 1
+    assert sum(resumo["por_estado"].values()) == resumo["eventos"] == 2
 
 
 def test_latencia_mediana_do_processo_cabe_no_orcamento(ambiente: dict) -> None:

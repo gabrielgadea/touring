@@ -47,6 +47,26 @@ def test_simhash_separa_programas_e_aproxima_copia_editada() -> None:
     assert copia <= simhash.TAU_FORTE < outro
 
 
+BANNER = 'print("' + "─" * 70 + '")\n'
+PROG_A = BANNER * 4 + "\n".join(f"total_{i} = soma(parcelas_{i}) / quantidade" for i in range(6))
+PROG_B = BANNER * 4 + "\n".join(f"for linha in arquivo_{i}:\n    escrever(linha.upper())" for i in range(6))
+
+
+def test_banners_colidem_no_modo_rust_e_se_separam_no_modo_distinto() -> None:
+    # The defect measured on the frozen corpus, reproduced: two unrelated programs that share only
+    # decorative lines. Rust-weighted votes collapse them; distinct shingles keep them apart.
+    rust = simhash.hamming(simhash.simhash64(PROG_A), simhash.simhash64(PROG_B))
+    distinto = simhash.hamming(simhash.simhash64(PROG_A, distintos=True), simhash.simhash64(PROG_B, distintos=True))
+    assert rust <= simhash.TAU_FORTE < distinto
+
+
+def test_modo_distinto_ainda_aproxima_copia_editada() -> None:
+    base = next(v["codigo"] for v in VETORES if v["nome"] == "longo_realista")
+    copia = next(v["codigo"] for v in VETORES if v["nome"] == "longo_realista_renomeado")
+    d = simhash.hamming(simhash.simhash64(base, distintos=True), simhash.simhash64(copia, distintos=True))
+    assert d <= simhash.TAU_FORTE
+
+
 def test_tokens_mantem_o_separador_colado_como_o_rust() -> None:
     assert simhash.tokens("foo(bar) # x") == ["foo(", "bar)", "#", "x"]
     assert simhash.tokens("# só comentário\n\n// outro") == []

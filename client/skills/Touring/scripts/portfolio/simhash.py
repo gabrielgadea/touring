@@ -75,17 +75,28 @@ def _fnv1a(dados: bytes, h: int = FNV_OFFSET) -> int:
     return h
 
 
-def simhash64(codigo: str) -> int:
-    """Port of ``code_simhash``; returns the unsigned 64-bit value."""
+def simhash64(codigo: str, *, distintos: bool = False) -> int:
+    """Port of ``code_simhash``; returns the unsigned 64-bit value.
+
+    ``distintos=False`` (default) is the Rust function bit for bit: every shingle votes as many times as it
+    occurs. ``distintos=True`` lets each DISTINCT shingle vote once. Measured 28/10/2026 on the frozen corpus:
+    decorative lines (``print("─" * 60)``, ``====``) tokenize into dozens of identical shingles that outvote
+    the rest of the program, so unrelated scripts collided at distance 0 (``capa_invariant.py`` ×
+    ``s64_warmer.py``, Jaccard 0.066). The set form removes that domination and tracks shingle-set Jaccard.
+    The Rust gate has the same defect until it adopts the same change; parity tests cover the default only.
+    """
     toks = tokens(codigo)
     if len(toks) < 3:
         h = FNV_OFFSET
         for t in toks:
             h = _fnv1a(t.encode("utf-8"), h)
         return h
+    shingles = ["".join(toks[i : i + 3]) for i in range(len(toks) - 2)]
+    if distintos:
+        shingles = sorted(set(shingles))
     v = [0] * 64
-    for i in range(len(toks) - 2):
-        h = _fnv1a("".join(toks[i : i + 3]).encode("utf-8"))
+    for s in shingles:
+        h = _fnv1a(s.encode("utf-8"))
         for bit in range(64):
             v[bit] += 1 if (h >> bit) & 1 else -1
     return sum(1 << bit for bit in range(64) if v[bit] > 0)

@@ -87,7 +87,7 @@ def manifest_candidates(keys: list[str]) -> list[dict]:
 def tantivy_candidates(query: str) -> list[dict]:
     """Candidatos do índice BM25 (scripts de planos + snippets companion)."""
     try:
-        p = subprocess.run(  # noqa: S603 — argv fixo, sem shell
+        p = subprocess.run(
             ["touring", "tantivy", "search", query, "3"],
             capture_output=True, text=True, timeout=2.5,
         )
@@ -121,22 +121,63 @@ def log_event(event: dict) -> None:
 
 
 def stats() -> int:
-    """Resumo do events.jsonl: volume, % com candidato, % would_avoid (critério de promoção)."""
+    """Resumo do events.jsonl: volume, candidatos e, desde a P1 (28/10/2026), a contagem por estado do veredito.
+
+    Eventos anteriores à P1 não têm ``estado``: entram como ``legado`` (visíveis, nunca somados a um estado).
+    """
     try:
-        rows = [json.loads(l) for l in EVENTS.read_text().splitlines() if l.strip()]
+        rows = [json.loads(linha) for linha in EVENTS.read_text().splitlines() if linha.strip()]
     except (OSError, json.JSONDecodeError):
         print("sem eventos")
         return 0
     n = len(rows)
     com_cand = sum(1 for r in rows if r.get("n_candidates"))
-    evit = sum(1 for r in rows if r.get("would_avoid"))
+    evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
+    por_estado: dict[str, int] = {}
+    for r in rows:
+        chave = r.get("estado", "legado")
+        por_estado[chave] = por_estado.get(chave, 0) + 1
     print(json.dumps({
         "eventos": n,
         "com_candidato": com_cand,
         "would_avoid": evit,
         "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
+        "por_estado": por_estado,
     }, ensure_ascii=False))
     return 0
+
+
+def _recuperar():
+    """The single portfolio decision (``../portfolio/recuperar.py``), the same code the CLI and evaluator run."""
+    import importlib.util
+
+    caminho = Path(__file__).resolve().parent.parent / "portfolio" / "recuperar.py"
+    spec = importlib.util.spec_from_file_location("portfolio_recuperar", caminho)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"recuperar.py ausente em {caminho}")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules["portfolio_recuperar"] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+_PALAVRA_ESTADO = {
+    "reprovado": "já existe equivalente de CORPO (cópia editada)",
+    "aprovado": "nada equivalente; candidatos só por propósito/nome",
+    "inaferivel": "a consulta ficou INCOMPLETA",
+}
+
+
+def _contexto(v, basename: str, ephemeral: bool) -> str:
+    lista = " · ".join(f"{cid} ({sinal}{'' if d is None else f', {d} bits'})" for cid, sinal, d in v.candidatos)
+    destino = "destino EFÊMERO (morre com a sessão)" if ephemeral else "basename genérico recriado entre sessões"
+    return (
+        f"[PORTFOLIO · consulta-antes-de-criar · {v.estado}] {basename}: {destino}. "
+        f"{_PALAVRA_ESTADO.get(v.estado, v.estado)} — {v.motivo}. Candidatos: {lista}. "
+        f"Antes de recriar: leia o candidato e estenda; se o script for reutilizável, grave em "
+        f"~/.claude/scripts-portfolio/ (contrato no MANIFEST.json) ou `touring run --harvest <slug>`. "
+        f"Consulta manual: python3 ~/.claude/skills/Touring/scripts/portfolio/recuperar.py --arquivo <script>."
+    )
 
 
 def injection_allowed() -> bool:
@@ -156,12 +197,30 @@ def injection_allowed() -> bool:
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         return bool(mod.allows("plugin-hook"))
-    except Exception:  # noqa: BLE001 — fail-open por contrato do interruptor
+    except Exception:
         return True
 
 
+def _gatilho(payload: dict) -> tuple[str, str, bool, bool] | None:
+    """(path, content, ephemeral, generic) when the write creates a script the gate watches; else None."""
+    ti = payload.get("tool_input") or {}
+    path = str(ti.get("file_path", ""))
+    if Path(path).suffix.lower() not in SCRIPT_EXTS:
+        return None
+    ephemeral = is_ephemeral(path)
+    generic = Path(path).name in GENERIC_BASENAMES
+    if not (ephemeral or generic):
+        return None
+    return path, str(ti.get("content", "")), ephemeral, generic
+
+
 def main() -> int:
-    """Hook PreToolUse (Write): consulta o portfólio e avisa — nunca bloqueia."""
+    """Hook PreToolUse (Write): consulta o portfólio e avisa — nunca bloqueia (sombra).
+
+    Desde a P1 (28/10/2026) a decisão é ``recuperar.consultar`` — corpo (SimHash por conjunto de shingles,
+    τ=8) + propósito, devolvendo ``veredito_gate/1``. O casamento antigo (``manifest_candidates`` /
+    ``tantivy_candidates``) fica neste módulo só como linha de base do avaliador (``portfolio/avaliar.py``).
+    """
     if os.environ.get("TOURING_PORTFOLIO_GATE_DISABLED"):
         return 0
     if "--stats" in sys.argv:
@@ -172,39 +231,33 @@ def main() -> int:
         payload = json.load(sys.stdin)
     except (json.JSONDecodeError, EOFError):
         return 0  # fail-open: payload ilegível nunca bloqueia
-    ti = payload.get("tool_input") or {}
-    path = str(ti.get("file_path", ""))
-    if Path(path).suffix.lower() not in SCRIPT_EXTS:
+    alvo = _gatilho(payload) if isinstance(payload, dict) else None
+    if alvo is None:
         return 0
-    basename = Path(path).name
-    ephemeral = is_ephemeral(path)
-    generic = basename in GENERIC_BASENAMES
-    if not (ephemeral or generic):
-        return 0
-
-    keys = keywords_of(basename, str(ti.get("content", "")))
-    candidates = manifest_candidates(keys) or tantivy_candidates(" ".join(keys))
-    same_name = any(Path(c["path"]).name == basename for c in candidates)
-    would_avoid = bool(candidates) and (same_name or any(c.get("hits", 0) >= 2 for c in candidates))
-    log_event({
-        "ts": int(time.time()), "file": path, "basename": basename,
-        "ephemeral": ephemeral, "generic_name": generic,
-        "n_candidates": len(candidates), "would_avoid": would_avoid,
-        "top": [c["path"][-80:] for c in candidates],
-    })
-    if not candidates:
-        return 0  # sem candidato, silêncio (o portfólio ainda está sendo povoado)
-
-    lista = " · ".join(f"{c['path']} ({c['why']})" for c in candidates)
-    destino = "destino EFÊMERO (morre com a sessão)" if ephemeral else "basename genérico recriado entre sessões"
-    emit({"context": (
-        f"[PORTFOLIO · consulta-antes-de-criar] {basename}: {destino}. "
-        f"O portfólio/índice já tem trabalho próximo: {lista}. "
-        f"Antes de recriar: leia o candidato e estenda; se o script for reutilizável, grave em "
-        f"~/.claude/scripts-portfolio/ (contrato no MANIFEST.json) ou `touring run --harvest <slug>` "
-        f"(medido 27/10: 81% dos scripts nascem efêmeros; --harvest nunca foi usado)."
-    )})
+    path, content, ephemeral, generic = alvo
+    v, erro = _consultar_seguro(path, content, payload.get("cwd"))
+    log_event(_evento(path, ephemeral, generic, v, erro))
+    if v is not None and v.candidatos:
+        emit({"context": _contexto(v, Path(path).name, ephemeral)})
     return 0
+
+
+def _consultar_seguro(path: str, content: str, cwd: str | None):
+    """Sombra: qualquer falha da decisão vira registro inaferível, nunca bloqueio nem silêncio."""
+    try:
+        return _recuperar().consultar(path, content, cwd), None
+    except Exception as exc:
+        return None, f"recuperar: {type(exc).__name__}"
+
+
+def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None) -> dict:
+    base = {"ts": int(time.time()), "file": path, "basename": Path(path).name,
+            "ephemeral": ephemeral, "generic_name": generic}
+    if v is None:
+        return {**base, "estado": "inaferivel", "motivo": erro, "n_candidates": 0, "would_avoid": False, "top": []}
+    return {**base, "estado": v.estado, "motivo": v.motivo, "fontes_falhas": list(v.fontes_falhas),
+            "n_candidates": len(v.candidatos), "would_avoid": v.estado == "reprovado",
+            "top": [f"{cid[-80:]}|{sinal}|{d}" for cid, sinal, d in v.candidatos]}
 
 
 if __name__ == "__main__":
