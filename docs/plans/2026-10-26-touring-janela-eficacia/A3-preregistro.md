@@ -61,8 +61,16 @@ o braço vale por sessão, fixado quando ela abre.
   `script_portfolio_gate.py` na versão P2 da analise-40 — P1 (`87e007cb`, ~11:10) mudou o
   texto e a condição do `additionalContext` (estado do veredito e distâncias em bits;
   emite quando a recuperação nova tem candidatos) e P2 (`e5509ffa`, ~11:25) passou a ler o
-  índice do projeto analise (7.893 scripts), emitindo em casos em que antes calava. Os
-  dois braços recebem esse mesmo hook; a política de injeção decide o que dele chega.
+  índice do projeto analise (7.893 scripts), emitindo em casos em que antes calava. P3
+  (`2286b45a`, decisão do Gabriel de entrar antes do dia 0, confirmada por ele direto na
+  analise-40 às ~11:51): o mesmo hook passou a ser registrado em `Write|Bash` (11:52:34) e
+  dispara no Bash só em heredoc `cat` que cria script vigiado; família `plugin-hook`, canal
+  `additionalContext` em PreToolUse. Congelados até 06/11 04:00 (hora da última mudança em
+  28/10): `hooks/script_portfolio_gate.py` 11:42:19, `portfolio/recuperar.py` 11:45:50,
+  `portfolio/heredoc.py` 11:39:38, `portfolio/federacao.py` 11:21:04,
+  `portfolio/simhash.py` 10:53:39, `~/.claude/scripts-portfolio/MANIFEST.json` 10:53:52 e
+  `analise/.claude/portfolio/indice.json` 11:19:31 (7.893 entradas). Os dois braços
+  recebem esse mesmo hook; a política de injeção decide o que dele chega.
 - **Mínimo por célula (bloco × braço):** 10 sessões com pelo menos 40 chamadas de
   ferramenta. Célula abaixo do mínimo invalida o bloco.
 
