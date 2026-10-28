@@ -35,6 +35,7 @@ AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 
 import gold as gold_mod
+import recuperar
 import simhash
 
 HOOK = AQUI.parent / "hooks" / "script_portfolio_gate.py"
@@ -129,6 +130,36 @@ def recuperador_simhash(tau: int = simhash.TAU_FORTE) -> Recuperador:
     return rec
 
 
+def recuperador_portfolio(params: recuperar.Parametros | None = None) -> Recuperador:
+    """The production decision (``recuperar.decidir``) on the query's library — the same code the hook runs."""
+    escolhidos = params or recuperar.Parametros()
+    cache: dict[str, recuperar.Candidato] = {}
+
+    def cand(i: gold_mod.Item) -> recuperar.Candidato:
+        if i.id not in cache:
+            cache[i.id] = recuperar.Candidato(id=i.id, nome=i.nome, conteudo=i.content)
+        return cache[i.id]
+
+    def rec(q: gold_mod.Item, bib: list[gold_mod.Item]) -> Veredito:
+        v = recuperar.decidir(q.nome, q.content, [cand(c) for c in bib], (), escolhidos)
+        return Veredito(v.estado, tuple((cid, float(-1 if d is None else d)) for cid, _s, d in v.candidatos))
+
+    return rec
+
+
+def grade(itens: list[gold_mod.Item], gold: dict, taus: tuple[int, ...], pisos: tuple[int, ...]) -> list[dict]:
+    """Calibration grid on the TRAIN half only (held-out stays untouched until the choice is made)."""
+    linhas = []
+    for piso in pisos:
+        for tau in taus:
+            rel = avaliar(recuperador_portfolio(recuperar.Parametros(tau=tau, piso_linhas=piso)), itens, gold, "treino")
+            g = rel["geral"]
+            linhas.append({"tau": tau, "piso": piso, "precisao": g["precisao"], "recall": g["recall"],
+                           "falso_alarme": g["taxa_falso_alarme"], "tp": g.get("tp", 0),
+                           "fp": g.get("fp_errado", 0) + g.get("fp_alarme", 0), "unscored": g.get("unscored", 0)})
+    return linhas
+
+
 def _carregar_hook() -> ModuleType:
     spec = importlib.util.spec_from_file_location("script_portfolio_gate_avaliado", HOOK)
     if spec is None or spec.loader is None:
@@ -189,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--gold", type=Path, required=True)
     ap.add_argument("--campeoes", type=Path)
     ap.add_argument("--particao", default="held_out", choices=("held_out", "treino"))
+    ap.add_argument("--grade", action="store_true", help="calibra tau x piso só no treino")
     args = ap.parse_args(argv)
     manifesto = gold_mod.MANIFESTO
     esperado = json.loads(manifesto.read_text(encoding="utf-8"))["sha256_conteudo"] if manifesto.exists() else None
@@ -196,9 +228,13 @@ def main(argv: list[str] | None = None) -> int:
     if args.campeoes:
         itens += gold_mod.sinteticos(args.campeoes)[0]
     gold = json.loads(args.gold.read_text(encoding="utf-8"))
+    if args.grade:
+        print(json.dumps(grade(itens, gold, (4, 6, 8, 10), (5, 8, 12)), ensure_ascii=False, indent=1))
+        return 0
     relatorio = {
         nome: avaliar(rec, itens, gold, args.particao)
-        for nome, rec in (("hook_atual", recuperador_hook_atual()), ("simhash_tau10", recuperador_simhash()))
+        for nome, rec in (("hook_atual", recuperador_hook_atual()), ("simhash_tau10", recuperador_simhash()),
+                          ("portfolio_p1", recuperador_portfolio()))
     }
     print(json.dumps(relatorio, ensure_ascii=False, indent=1))
     return 0
