@@ -1688,11 +1688,12 @@ fn harvest_hint(code: &str, lang: &str, exit_code: i32, already_harvested: bool)
 
 /// P2-v2 (27/10/2026) — a DECISÃO do gate de recriação, pura e testável:
 /// `Some(payload)` quando o corpo inline tem um prior semelhante no journal
-/// (SimHash-64, Hamming ≤ 10 — τ calibrado em `calibrate_simhash.py` sobre os
-/// 14 campeões reais: positivos máx 8 × negativos mín 20). O payload já carrega
+/// (SimHash-64 **v2**, um voto por shingle distinto, Hamming ≤ `SIMHASH_V2_TAU`
+/// = 9 — τ escolhido no treino do gold do portfólio em 28/10/2026; o v1 com τ=10
+/// colidia programas sem relação por causa de linhas decorativas). O payload já carrega
 /// as rotas nomeadas (D8: o deny ENSINA a rota de volta).
 fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
-    use crate::tools::ctx_execute_tools::{code_simhash, find_prior_similar};
+    use crate::tools::ctx_execute_tools::{SIMHASH_V2_TAU, code_simhash_v2, find_prior_similar};
     // Piso de substância (mesmo piso do harvest_hint): abaixo de 5 linhas não
     // vazias o SimHash é ruidoso DEMAIS para bloquear (medido 27/10: 1 char
     // trocado num corpo de 3 linhas move 11 bits) — e reescrever 3 linhas é
@@ -1702,8 +1703,9 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
     }
     let home = std::env::var_os("HOME")?;
     let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
-    let simhash = code_simhash(user_code);
-    let priors = find_prior_similar(&journal, simhash, 10);
+    let simhash = code_simhash_v2(user_code);
+    // só v2 contra v2: as linhas do journal anteriores ao v2 não têm o campo e não casam
+    let priors = find_prior_similar(&journal, "code_simhash_v2", simhash, SIMHASH_V2_TAU);
     let best = priors.first()?;
     let rota_harvest = best.harvest.as_deref().map(|s| {
         format!("a execução anterior já virou snippet: reutilize com `touring memory recall '{s}'` e rode com --file")
@@ -1714,6 +1716,7 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
             "best_run_id": best.run_id,
             "hamming_dist": best.dist,
             "simhash": format!("{simhash:016x}"),
+            "simhash_versao": "v2",
             "rotas": [
                 "persista o programa e re-rode com --file <path> (re-run de arquivo persistido NUNCA bloqueia)",
                 "--harvest <slug> enrola na escada de trust medida",

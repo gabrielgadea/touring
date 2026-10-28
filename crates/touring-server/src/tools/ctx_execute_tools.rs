@@ -382,6 +382,7 @@ fn journal_record(
     code_hash: &str,
     prior_same_hash: u32,
     code_simhash: u64,
+    code_simhash_v2: u64,
 ) -> serde_json::Value {
     serde_json::json!({
         "ts": std::time::SystemTime::now()
@@ -393,6 +394,7 @@ fn journal_record(
         "code_hash_stdout_bytes": stdout_full.len(),
         "code_hash": code_hash,
         "code_simhash": format!("{code_simhash:016x}"),
+        "code_simhash_v2": format!("{code_simhash_v2:016x}"),
         "prior_same_hash": prior_same_hash,
         "exit_code": exit_code,
         "duration_ms": duration_ms,
@@ -457,6 +459,7 @@ fn journal_run(
     meta: &JournalMeta,
     code_hash: &str,
     code_simhash: u64,
+    code_simhash_v2: u64,
 ) -> u32 {
     let Some(home) = std::env::var_os("HOME") else {
         return 0;
@@ -480,6 +483,7 @@ fn journal_run(
         code_hash,
         prior,
         code_simhash,
+        code_simhash_v2,
     );
     use std::io::Write;
     if let Ok(mut f) = std::fs::OpenOptions::new()
@@ -500,8 +504,44 @@ fn journal_run(
 /// de distância — medido em `calibrate_simhash.py` sobre os 14 campeões reais de
 /// recriação: positivos máx 8, negativos mín 20, **τ=10** com margem larga.
 pub(crate) fn code_simhash(code: &str) -> u64 {
-    let tokens: Vec<&str> = code
-        .lines()
+    let tokens = simhash_tokens(code);
+    if tokens.len() < 3 {
+        return fnv1a_tokens(&tokens);
+    }
+    simhash_vote(tokens.windows(3).map(fnv1a_tokens))
+}
+
+/// τ do gate de recriação sobre `code_simhash_v2`, escolhido pelos dados ANTES
+/// de mudar o default (acordo com a coordenadora, 28/10/2026): partição de
+/// TREINO do gold congelado do portfólio + campeões, τ ∈ 8..12, só o sinal de
+/// corpo. τ=9 é o maior com precisão 1,00 (recall 0,95); τ=10 admite 2 falsos
+/// positivos. Registro: `analise/docs/plans/2026-10-27-portfolio-scripts-harness/
+/// diagnostics/grade_tau_rust_v2.json`.
+pub(crate) const SIMHASH_V2_TAU: u32 = 9;
+
+/// v2 (28/10/2026) — o mesmo SimHash, mas cada shingle DISTINTO vota UMA vez.
+/// No `code_simhash` (v1) cada shingle vota quantas vezes ocorre, e linhas
+/// decorativas (`print("=" * 60)`, réguas de `─`) viram dezenas de shingles
+/// idênticos que vencem a votação do resto do programa: medido no corpus
+/// congelado do portfólio, programas sem relação colidiam a distância 0
+/// (Jaccard 0,066), e a precisão do gate no treino era 0,53 a τ=9 contra 1,00
+/// aqui. O conjunto acompanha o Jaccard de shingles. A deduplicação é pelo
+/// TEXTO do shingle (tokens concatenados), a mesma do port Python
+/// `portfolio/simhash.py --distintos`; o v1 segue gravado para continuidade.
+pub(crate) fn code_simhash_v2(code: &str) -> u64 {
+    let tokens = simhash_tokens(code);
+    if tokens.len() < 3 {
+        return fnv1a_tokens(&tokens);
+    }
+    let distintos: std::collections::BTreeSet<String> =
+        tokens.windows(3).map(|w| w.concat()).collect();
+    simhash_vote(distintos.iter().map(|s| fnv1a_tokens(&[s.as_str()])))
+}
+
+/// Tokens do corpo NORMALIZADO: sem linhas vazias nem de comentário, cortados
+/// em fronteira de não-(alfanumérico|_) com o separador colado ao token.
+fn simhash_tokens(code: &str) -> Vec<&str> {
+    code.lines()
         .map(str::trim)
         .filter(|l| !l.is_empty() && !l.starts_with('#') && !l.starts_with("//"))
         .flat_map(|l| {
@@ -510,25 +550,24 @@ pub(crate) fn code_simhash(code: &str) -> u64 {
         })
         .map(str::trim)
         .filter(|t| !t.is_empty())
-        .collect();
-    if tokens.len() < 3 {
-        // corpos mínimos: hash dos tokens crus (sem shingle) — identidade, não semelhança
-        let mut h = 0xcbf29ce484222325u64;
-        for t in &tokens {
-            for b in t.as_bytes() {
-                h = (h ^ u64::from(*b)).wrapping_mul(0x100000001b3);
-            }
+        .collect()
+}
+
+/// FNV-1a 64 sobre os bytes dos tokens em sequência (= sobre a concatenação).
+fn fnv1a_tokens(tokens: &[&str]) -> u64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for t in tokens {
+        for b in t.as_bytes() {
+            h = (h ^ u64::from(*b)).wrapping_mul(0x100000001b3);
         }
-        return h;
     }
+    h
+}
+
+/// A votação bit a bit do SimHash-64 sobre os hashes de shingle.
+fn simhash_vote(hashes: impl Iterator<Item = u64>) -> u64 {
     let mut v = [0i32; 64];
-    for w in tokens.windows(3) {
-        let mut h = 0xcbf29ce484222325u64;
-        for t in w {
-            for byte in t.as_bytes() {
-                h = (h ^ u64::from(*byte)).wrapping_mul(0x100000001b3);
-            }
-        }
+    for h in hashes {
         for (bit, cell) in v.iter_mut().enumerate() {
             *cell += if (h >> bit) & 1 == 1 { 1 } else { -1 };
         }
@@ -554,11 +593,17 @@ pub(crate) struct PriorSimilar {
 /// mesmo recorte de recência do `count_prior_same_hash`). Filtra por substring
 /// `"code_simhash"` antes de parsear a linha (a cauda tem centenas de linhas,
 /// o parse só roda nas que têm o campo — v4 em diante). Fail-open: [].
+///
+/// `campo` nomeia a versão do hash (`"code_simhash"` ou `"code_simhash_v2"`):
+/// só se compara v2 com v2 — uma linha antiga, sem o campo, não casa nada, em
+/// vez de comparar dois hashes de votações diferentes (acordo de 28/10/2026).
 pub(crate) fn find_prior_similar(
     journal: &std::path::Path,
+    campo: &str,
     simhash: u64,
     tau: u32,
 ) -> Vec<PriorSimilar> {
+    let marca = format!("\"{campo}\"");
     use std::io::{Read, Seek, SeekFrom};
     let Ok(mut f) = std::fs::File::open(journal) else {
         return Vec::new();
@@ -577,12 +622,12 @@ pub(crate) fn find_prior_similar(
         return Vec::new(); // cauda cortou um char no meio — a próxima run reconta
     };
     let mut out = Vec::new();
-    for line in text.lines().filter(|l| l.contains("\"code_simhash\"")) {
+    for line in text.lines().filter(|l| l.contains(&marca)) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
             continue;
         };
         let Some(h) = v
-            .get("code_simhash")
+            .get(campo)
             .and_then(|x| x.as_str())
             .and_then(|x| u64::from_str_radix(x, 16).ok())
         else {
@@ -671,7 +716,7 @@ mod journal_v2_tests {
             hint: Some(("snippet:varre-wiring:2026-09-01".to_string(), 0.87)),
         };
         let rec = journal_record(
-            "run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0, 0,
+            "run-1", "python", "out", 0, 12, None, 3, &meta, "hash-a", 0, 0, 0,
         );
         assert_eq!(rec["run_id"], "run-1");
         assert_eq!(rec["source"], "file");
@@ -684,7 +729,7 @@ mod journal_v2_tests {
         assert_eq!(rec["hint"]["sim"], 0.87);
         let meta_sem = JournalMeta::default();
         let rec_sem = journal_record(
-            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1, 0,
+            "run-2", "bash", "out", 0, 5, None, 0, &meta_sem, "hash-b", 1, 0, 0,
         );
         assert!(
             rec_sem["hint"].is_null(),
@@ -707,6 +752,7 @@ mod journal_v2_tests {
             &JournalMeta::default(),
             "hash-b",
             2,
+            0,
             0,
         );
         assert!(rec["source"].is_null());
@@ -734,6 +780,7 @@ mod journal_v2_tests {
             &JournalMeta::default(),
             "0123456789abcdef",
             2,
+            0,
             0,
         );
         assert_eq!(rec["code_hash"], "0123456789abcdef");
@@ -826,16 +873,152 @@ mod journal_v2_tests {
             "{{\"run_id\":\"run-longe\",\"code_simhash\":\"{longe:016x}\",\"harvest\":null}}\n"
         ));
         std::fs::write(&journal, s).expect("write");
-        let achados = find_prior_similar(&journal, h, 10);
+        let achados = find_prior_similar(&journal, "code_simhash", h, 10);
         assert_eq!(achados.len(), 1, "só o similar casa: {achados:?}");
         assert_eq!(achados[0].run_id, "run-perto");
         assert_eq!(achados[0].harvest.as_deref(), Some("meu-snippet"));
         assert!(achados[0].dist <= 10);
         assert!(
-            find_prior_similar(&dir.join("nao-existe.jsonl"), h, 10).is_empty(),
+            find_prior_similar(&dir.join("nao-existe.jsonl"), "code_simhash", h, 10).is_empty(),
             "fail-open: journal ausente = sem priors"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Programa realista (>5 linhas não vazias, o piso do gate) para os testes do v2.
+    const PROG_V2: &str = r#"import json
+import sys
+from pathlib import Path
+
+
+def carregar(caminho):
+    dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
+    return [d for d in dados if d.get("ativo")]
+
+
+def resumir(itens):
+    total = sum(i["valor"] for i in itens)
+    maior = max((i["valor"] for i in itens), default=0)
+    return {"total": total, "maior": maior, "n": len(itens)}
+
+
+def main():
+    itens = carregar(sys.argv[1])
+    print(json.dumps(resumir(itens), ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
+"#;
+
+    /// Dois programas sem relação embrulhados nas MESMAS réguas decorativas.
+    fn banners(corpo: &str) -> String {
+        let regua = "print(\"=\" * 60)\nprint(\"-\" * 60)\nprint(\"=\" * 60)\n".repeat(6);
+        format!("{regua}{corpo}{regua}")
+    }
+
+    /// v2 (28/10/2026) — paridade com o port Python `portfolio/simhash.py`
+    /// (`simhash64(x, distintos=True)`), valores calculados por ele; e o v1
+    /// segue bit a bit o que era antes da extração do tokenizador.
+    #[test]
+    fn code_simhash_v2_matches_the_python_port_and_v1_is_unchanged() {
+        let banner = banners(
+            "import csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\n",
+        );
+        for (codigo, v1, v2) in [
+            ("", 0xcbf29ce484222325u64, 0xcbf29ce484222325u64),
+            ("a b", 0x089c4407b545986a, 0x089c4407b545986a),
+            (PROG_V2, 0x447bdb935846aa01, 0x047bdb935944aa01),
+            (banner.as_str(), 0x56250d359e69bc4f, 0x76065d100c48914b),
+        ] {
+            assert_eq!(code_simhash(codigo), v1, "v1 mudou: {codigo:?}");
+            assert_eq!(
+                code_simhash_v2(codigo),
+                v2,
+                "v2 diverge do port: {codigo:?}"
+            );
+        }
+    }
+
+    /// Regressão do defeito medido no corpus do portfólio: réguas decorativas
+    /// dominavam a votação do v1 e colavam programas sem relação. O controle
+    /// (v1 colide) prova que o par exercita o defeito; o v2 os separa.
+    #[test]
+    fn code_simhash_v2_separates_programs_sharing_decorative_banners() {
+        let a = banners(
+            "import csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\n",
+        );
+        let b = banners(
+            "import socket\n\ns = socket.socket()\ns.connect(('localhost', 8080))\ns.send(b'ping')\nprint(s.recv(64))\n",
+        );
+        let d1 = (code_simhash(&a) ^ code_simhash(&b)).count_ones();
+        assert!(
+            d1 <= SIMHASH_V2_TAU,
+            "controle: o v1 colide o par (dist={d1})"
+        );
+        let d2 = (code_simhash_v2(&a) ^ code_simhash_v2(&b)).count_ones();
+        assert!(d2 > SIMHASH_V2_TAU, "v2 separa o par: dist={d2}");
+    }
+
+    /// Controle positivo: a variante editada (campo renomeado) ainda casa ≤ τ,
+    /// e um programa distinto fica fora.
+    #[test]
+    fn code_simhash_v2_keeps_edited_variants_within_tau() {
+        let h = code_simhash_v2(PROG_V2);
+        let editado = code_simhash_v2(&PROG_V2.replace("total", "soma"));
+        let d = (h ^ editado).count_ones();
+        assert!(d <= SIMHASH_V2_TAU, "variante editada casa: dist={d}");
+        let outro = code_simhash_v2(
+            "use std::collections::BTreeMap;\nuse std::fs;\n\nfn main() {\n    let texto = fs::read_to_string(\"entrada.txt\").expect(\"ler\");\n    let mut contagem: BTreeMap<&str, u32> = BTreeMap::new();\n    for palavra in texto.split_whitespace() {\n        *contagem.entry(palavra).or_insert(0) += 1;\n    }\n    for (p, n) in &contagem {\n        println!(\"{p}\\t{n}\");\n    }\n}\n",
+        );
+        let longe = (h ^ outro).count_ones();
+        assert!(
+            longe > SIMHASH_V2_TAU,
+            "programa distinto fica fora: dist={longe}"
+        );
+    }
+
+    /// Só v2 contra v2: uma linha antiga com o MESMO valor no campo v1 não casa
+    /// quando a busca é pelo campo v2; a linha com o campo v2 casa.
+    #[test]
+    fn find_prior_similar_compares_only_the_named_hash_version() {
+        let dir = std::env::temp_dir().join(format!("touring-v2-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let journal = dir.join("run_journal.jsonl");
+        let h = code_simhash_v2(PROG_V2);
+        std::fs::write(
+            &journal,
+            format!(
+                "{{\"run_id\":\"run-v1\",\"code_simhash\":\"{h:016x}\"}}\n{{\"run_id\":\"run-v2\",\"code_simhash\":\"0000000000000000\",\"code_simhash_v2\":\"{h:016x}\"}}\n"
+            ),
+        )
+        .expect("write");
+        let achados = find_prior_similar(&journal, "code_simhash_v2", h, SIMHASH_V2_TAU);
+        assert_eq!(achados.len(), 1, "só a linha v2 casa: {achados:?}");
+        assert_eq!(achados[0].run_id, "run-v2");
+        assert_eq!(achados[0].dist, 0);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// O registro do journal grava os dois hashes, v1 e v2.
+    #[test]
+    fn journal_record_carries_both_simhash_versions() {
+        let rec = journal_record(
+            "run-4",
+            "python",
+            "out",
+            0,
+            7,
+            None,
+            0,
+            &JournalMeta::default(),
+            "0123456789abcdef",
+            0,
+            0xff,
+            0x0f,
+        );
+        assert_eq!(rec["code_simhash"], "00000000000000ff");
+        assert_eq!(rec["code_simhash_v2"], "000000000000000f");
     }
 }
 
@@ -1031,6 +1214,7 @@ pub async fn ctx_execute_impl(
     // o gate de semelhança (a identidade exata provou-se rara demais).
     let code_hash = code_hash_of(&code);
     let code_simhash = code_simhash(&code);
+    let code_simhash_v2 = code_simhash_v2(&code);
 
     let final_code = if let Some(ref a) = args {
         inject_args(&code, a, lang)
@@ -1159,6 +1343,7 @@ pub async fn ctx_execute_impl(
         &journal_meta,
         &code_hash,
         code_simhash,
+        code_simhash_v2,
     );
     // W1 d3/S-1.2 — when the inline view lost bytes and the full output is on
     // disk, hand the model the locator + how to read it (P19).
