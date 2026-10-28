@@ -35,17 +35,25 @@ fn main() {
     // That matters beyond cosmetics: `--version` is the label the release/propagation gate
     // uses to judge a binary fresh. A frozen SHA lets a stale binary pass a freshness check —
     // the "version label does not prove the build" failure, with the label as the evidence.
-    // Paths are relative to THIS crate's directory (`crates/touring-server`), so the checkout
-    // root is two levels up. Getting this wrong is silent — cargo treats a missing
-    // rerun-if-changed path as "nothing changed", which is the very bug these lines fix. Hence
-    // `tests/build_info_freshness.rs` reads the declared path back off disk.
-    println!("cargo:rerun-if-changed=../../.git/HEAD");
-    // A commit on the current branch updates the ref the HEAD points at, so the ref file must
-    // be tracked too or the SHA still goes stale on a fast-forward. `main` is checked by name
-    // because the propagation flow targets it; a detached HEAD would leave this path missing,
-    // which cargo tolerates (and the test above catches).
-    println!("cargo:rerun-if-changed=../../.git/refs/heads/main");
+    // The checkout root is THIS crate directory's grandparent (`crates/touring-server`). Getting
+    // this wrong is silent — cargo treats a missing rerun-if-changed path as "nothing changed",
+    // which is the very bug these lines fix. Hence `tests/build_info_freshness.rs` resolves the
+    // same inputs (`build_git`) and reads them back off disk.
+    //
+    // A commit on the current branch updates the ref the HEAD points at, so that ref is tracked
+    // too, plus `main` by name (the propagation flow targets it). In a `git worktree` the `.git`
+    // entry is a FILE pointing elsewhere, which `build_git` follows (28/10/2026: the old literal
+    // HEAD path named nothing in a worktree).
+    let crate_dir =
+        std::path::PathBuf::from(std::env::var_os("CARGO_MANIFEST_DIR").unwrap_or_default());
+    let root = crate_dir.ancestors().nth(2).unwrap_or(&crate_dir);
+    for input in build_git::git_inputs(&root.join(".git")) {
+        println!("cargo:rerun-if-changed={}", input.display());
+    }
 }
+
+#[path = "build_git.rs"]
+mod build_git;
 
 #[cfg(feature = "build-info")]
 fn emit_vergen() {
