@@ -445,6 +445,203 @@ fn peer_label_for_a_dead_pid_keeps_the_pid_and_marks_comm_unknown() {
     assert_eq!(label, "pid=4194305 comm=?");
 }
 
+// ── A3: o nível de injeção atravessa o daemon por requisição ────────────────
+
+const INJECTION_DENY_HOOK: &str = "test-injection-deny";
+const INJECTION_PANIC_HOOK: &str = "test-injection-panic";
+const INJECTION_SERMON: &str =
+    "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+fn injection_deny_handler(_: &mut HookRuntime, _: &serde_json::Value) -> String {
+    // O nível vem da rota real (`current`), mas o diário fica de fora: teste
+    // não pode escrever telemetria de supressão no HOME do usuário.
+    let (level, _) = injection_policy::current();
+    touring_hook_runtime::hook_runtime::HookResponse::Deny {
+        reason: "bloqueado de teste".into(),
+        context: None,
+        event_name: Some("PreToolUse".into()),
+    }
+    .with_advisories_at(level, None, vec![INJECTION_SERMON.into()])
+    .to_json()
+}
+
+fn injection_panic_handler(_: &mut HookRuntime, _: &serde_json::Value) -> String {
+    let (level, _) = injection_policy::current();
+    let _ = touring_hook_runtime::hook_runtime::HookResponse::Deny {
+        reason: "bloqueado antes do pânico".into(),
+        context: None,
+        event_name: Some("PreToolUse".into()),
+    }
+    .with_advisories_at(level, None, vec![INJECTION_SERMON.into()]);
+    panic!("pânico intencional para provar a restauração do override");
+}
+
+fn injection_dispatch_map(
+    root: &std::path::Path,
+    daemon_level: InjectionLevel,
+) -> (RuntimeMap, thread::JoinHandle<()>) {
+    let mut table: HashMap<&'static str, HookHandler> = HashMap::new();
+    table.insert(INJECTION_DENY_HOOK, injection_deny_handler);
+    table.insert(INJECTION_PANIC_HOOK, injection_panic_handler);
+    let table: &'static HashMap<&'static str, HookHandler> = Box::leak(Box::new(table));
+
+    let (cmd_tx, cmd_rx) = mpsc::channel(8);
+    let actor_runtime = HookRuntime::new(root).expect("runtime do actor de teste");
+    let actor = thread::spawn(move || {
+        // Um nível-base no actor simula o ambiente de boot do daemon sem
+        // mutar o ambiente global do processo de testes.
+        injection_policy::with_daemon_level_override(daemon_level, || {
+            run_project_actor_with(actor_runtime, cmd_rx, table);
+        });
+    });
+    let project = ProjectRuntime {
+        cmd_tx,
+        last_accessed: Instant::now(),
+        connection_semaphore: Arc::new(Semaphore::new(MAX_CONCURRENT_CONNECTIONS_PER_PROJECT)),
+    };
+    let normalized = touring_foundation::TouringConfig::normalize_project_root(&root.to_path_buf());
+    let map: RuntimeMap = tokio::sync::RwLock::new(HashMap::new());
+    map.blocking_write().insert(normalized, project);
+    (map, actor)
+}
+
+fn injection_request(
+    root: &std::path::Path,
+    hook: &str,
+    injection_level: Option<&str>,
+) -> DaemonRequest {
+    DaemonRequest {
+        peer_pid: None,
+        hook: hook.to_string(),
+        payload: serde_json::json!({}),
+        project_root: root.display().to_string(),
+        session_id: None,
+        priority: 0,
+        origin: None,
+        injection_level: injection_level.map(str::to_string),
+    }
+}
+
+fn injection_deny_reason(response: &DaemonResponse) -> String {
+    assert!(response.success, "{}", response.output);
+    let value: serde_json::Value = serde_json::from_str(&response.output).expect("deny JSON");
+    let output = value["hookSpecificOutput"].clone();
+    assert_eq!(output["permissionDecision"], "deny", "{value}");
+    output["permissionDecisionReason"]
+        .as_str()
+        .expect("razão do deny")
+        .to_string()
+}
+
+fn injection_tokio() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("tokio de teste")
+}
+
+fn injection_tempdir() -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    std::fs::create_dir(tmp.path().join(".git")).expect("marcador de projeto");
+    tmp
+}
+
+#[test]
+fn request_level_suppresses_advisory_and_restores_full_on_the_same_actor() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::Full);
+    let tokio_rt = injection_tokio();
+
+    let no_advisory = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("no-advisory")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&no_advisory);
+    assert!(reason.starts_with("bloqueado de teste"), "{reason}");
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+    assert!(
+        !reason.contains(touring_hook_runtime::verdict::ALSO_NON_BLOCKING),
+        "{reason}"
+    );
+
+    let full = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("full")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&full);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    let legacy = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&legacy);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina");
+}
+
+#[test]
+fn request_level_is_restored_after_a_handler_panics() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::Full);
+    let tokio_rt = injection_tokio();
+
+    let panicked = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_PANIC_HOOK, Some("no-advisory")),
+        &map,
+    ));
+    assert!(panicked.success, "{}", panicked.output);
+    assert!(panicked.output.is_empty(), "{}", panicked.output);
+
+    // Mesmo actor, requisição legada: o NoAdvisory da que panicou não vaza.
+    let after = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&after);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina após pânico");
+}
+
+#[test]
+fn full_request_overrides_no_advisory_daemon_and_legacy_keeps_daemon_level() {
+    let tmp = injection_tempdir();
+    let (map, actor) = injection_dispatch_map(tmp.path(), InjectionLevel::NoAdvisory);
+    let tokio_rt = injection_tokio();
+
+    let full = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("full")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&full);
+    assert!(reason.contains("TOURING SUGGEST"), "{reason}");
+
+    let legacy = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, None),
+        &map,
+    ));
+    let reason = injection_deny_reason(&legacy);
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+
+    // Valor inválido também é legado: não pode falhar aberto para Full.
+    let invalid = tokio_rt.block_on(dispatch_request_async(
+        injection_request(tmp.path(), INJECTION_DENY_HOOK, Some("invalid")),
+        &map,
+    ));
+    let reason = injection_deny_reason(&invalid);
+    assert!(!reason.contains("TOURING SUGGEST"), "{reason}");
+
+    drop(tokio_rt);
+    drop(map);
+    actor.join().expect("actor termina");
+}
+
 /// Decision 3-A (14/09/2026): `index status` is answered before the runtime map
 /// is touched. A project whose databases exist gets its status with NO project
 /// actor created — the property that lets it answer while that actor seals a
@@ -470,6 +667,7 @@ fn index_status_is_served_without_the_project_actor() {
         session_id: None,
         priority: 0,
         origin: None,
+        injection_level: None,
     };
     let dispatched = || {
         touring_foundation::gate_metrics::hook_dispatch_by_name()

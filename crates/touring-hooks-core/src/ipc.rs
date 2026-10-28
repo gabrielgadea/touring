@@ -80,6 +80,12 @@ pub struct DaemonRequest {
     /// (d4: the context bytes tool calling would have cost).
     #[serde(default)]
     pub origin: Option<String>,
+    /// Injection level resolved in the CLIENT's environment. The daemon applies
+    /// it only while executing this request, so its own boot environment cannot
+    /// leak advisories into another session. Old clients omit the field and keep
+    /// the daemon's environment; old daemons ignore the unknown field.
+    #[serde(default)]
+    pub injection_level: Option<String>,
     /// PID of the connecting client (`SO_PEERCRED` via `UnixStream::peer_cred`),
     /// stamped by the daemon at accept time — never on the wire. It is what lets
     /// the `heavy op:` log line name its sender: until 21/08/2026 six
@@ -117,13 +123,19 @@ mod tests {
         let legacy = r#"{"hook":"cli-index-find","payload":{},"project_root":"/tmp"}"#;
         let req: DaemonRequest = serde_json::from_str(legacy).expect("legacy request parses");
         assert_eq!(req.origin, None, "absent field defaults to None");
+        assert_eq!(
+            req.injection_level, None,
+            "old clients keep the daemon level"
+        );
 
-        let stamped = r#"{"hook":"cli-index-find","payload":{"symbol_name":"X"},"project_root":"/tmp","origin":"run-1-2:code:3"}"#;
+        let stamped = r#"{"hook":"cli-index-find","payload":{"symbol_name":"X"},"project_root":"/tmp","origin":"run-1-2:code:3","injection_level":"no-advisory"}"#;
         let req: DaemonRequest = serde_json::from_str(stamped).expect("stamped request parses");
         assert_eq!(req.origin.as_deref(), Some("run-1-2:code:3"));
+        assert_eq!(req.injection_level.as_deref(), Some("no-advisory"));
 
         let wire = serde_json::to_string(&req).expect("serialize");
         let back: DaemonRequest = serde_json::from_str(&wire).expect("round-trip");
         assert_eq!(back.origin.as_deref(), Some("run-1-2:code:3"));
+        assert_eq!(back.injection_level.as_deref(), Some("no-advisory"));
     }
 }

@@ -178,6 +178,11 @@ fn main() {
             session_id,
             priority: 128,
             origin: None,
+            injection_level: Some(
+                touring_foundation::injection_policy::level_from_env()
+                    .as_str()
+                    .to_string(),
+            ),
         };
 
         if let Some(resp) = try_daemon_request(&req) {
@@ -910,6 +915,11 @@ fn try_daemon_health_direct() -> Option<DaemonResponse> {
             .into_owned(),
         session_id: None,
         origin: None,
+        injection_level: Some(
+            touring_foundation::injection_policy::level_from_env()
+                .as_str()
+                .to_string(),
+        ),
         priority: 0,
     };
 

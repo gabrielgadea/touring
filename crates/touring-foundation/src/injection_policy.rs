@@ -63,12 +63,16 @@
 //!
 //! O nível vem do ambiente do processo que EMITE ([`current`]): no cliente
 //! `touring-hook` é o do Claude Code (o braço de um experimento troca por
-//! sessão); no daemon é o do boot. `Full` — o default — não parseia, não aloca
-//! e não toca o disco: a saída é a de antes, byte a byte.
+//! sessão). Na rota do daemon, o cliente o transporta no `DaemonRequest` e o
+//! actor o aplica por requisição ([`with_level_override`]); uma requisição
+//! legada, sem o campo, mantém o ambiente do boot do daemon. `Full` — o
+//! default — não parseia, não aloca e não toca o disco: a saída é a de antes,
+//! byte a byte.
 
 use crate::injection_family;
 use crate::injection_journal::{self, Cut};
 use std::borrow::Cow;
+use std::cell::{Cell, RefCell};
 use std::path::{Path, PathBuf};
 
 /// A env var do interruptor único.
@@ -192,6 +196,81 @@ pub fn level_from_raw(raw: Option<&str>) -> InjectionLevel {
 #[must_use]
 pub fn level_from_env() -> InjectionLevel {
     level_from_raw(std::env::var(ENV_VAR).ok().as_deref())
+}
+
+thread_local! {
+    /// Pilha de níveis por requisição. Um frame `None` significa "herdar o
+    /// daemon" e, por isso, esconde frames de requisições mais externas.
+    static REQUEST_LEVELS: RefCell<Vec<Option<InjectionLevel>>> = const { RefCell::new(Vec::new()) };
+    /// Nível-base do daemon nesta thread. Separado da pilha para que uma
+    /// requisição legada aninhada durante yield não herde a requisição heavy.
+    static DAEMON_LEVEL_OVERRIDE: Cell<Option<InjectionLevel>> = const { Cell::new(None) };
+}
+
+/// Trunca a pilha à profundidade anterior mesmo durante unwinding.
+struct RequestLevelReset(usize);
+
+impl Drop for RequestLevelReset {
+    fn drop(&mut self) {
+        REQUEST_LEVELS.with(|levels| levels.borrow_mut().truncate(self.0));
+    }
+}
+
+/// Restaura o nível-base anterior mesmo durante unwinding.
+struct DaemonLevelReset(Option<InjectionLevel>);
+
+impl Drop for DaemonLevelReset {
+    fn drop(&mut self) {
+        DAEMON_LEVEL_OVERRIDE.with(|slot| slot.set(self.0));
+    }
+}
+
+fn with_request_level<R>(level: Option<InjectionLevel>, run: impl FnOnce() -> R) -> R {
+    let depth = REQUEST_LEVELS.with(|levels| {
+        let mut levels = levels.borrow_mut();
+        let depth = levels.len();
+        levels.push(level);
+        depth
+    });
+    let _reset = RequestLevelReset(depth);
+    run()
+}
+
+/// Executa `run` com `level` no lugar do ambiente deste processo.
+///
+/// Serve à fronteira cliente → daemon: a requisição carrega o nível do Claude
+/// Code e o actor o aplica antes de chamar o handler. Overrides podem ser
+/// aninhados; o nível anterior sempre volta ao sair, inclusive em pânico.
+pub fn with_level_override<R>(level: InjectionLevel, run: impl FnOnce() -> R) -> R {
+    with_request_level(Some(level), run)
+}
+
+/// Executa uma requisição legada com o nível-base do daemon, sem herdar uma
+/// requisição mais externa que esteja fazendo yield no mesmo actor.
+pub fn with_inherited_level<R>(run: impl FnOnce() -> R) -> R {
+    with_request_level(None, run)
+}
+
+/// Executa `run` com o nível-base do daemon nesta thread.
+///
+/// Produção normalmente usa o ambiente de boot. O override-base existe para
+/// embeddings e testes que precisam simular esse ambiente sem mudar o processo.
+pub fn with_daemon_level_override<R>(level: InjectionLevel, run: impl FnOnce() -> R) -> R {
+    let previous = DAEMON_LEVEL_OVERRIDE.with(|slot| slot.replace(Some(level)));
+    let _reset = DaemonLevelReset(previous);
+    run()
+}
+
+/// Nível da requisição atual, ou o nível-base do daemon fora de um override.
+#[must_use]
+fn current_level() -> InjectionLevel {
+    let request = REQUEST_LEVELS.with(|levels| levels.borrow().last().copied());
+    match request {
+        Some(Some(level)) => level,
+        _ => DAEMON_LEVEL_OVERRIDE
+            .with(Cell::get)
+            .unwrap_or_else(level_from_env),
+    }
 }
 
 /// O contexto desta família deve chegar ao modelo?
@@ -433,16 +512,17 @@ pub fn apply_at<'a>(
     Cow::Owned(filtered)
 }
 
-/// O nível em vigor neste processo e, só quando ele corta, o diário onde
+/// O nível em vigor nesta thread e, só quando ele corta, o diário onde
 /// registrar. `Full` não resolve `HOME` nem aloca caminho nenhum.
 ///
-/// Quem chama é o processo que EMITE: no cliente `touring-hook` o ambiente é
-/// o do Claude Code (o braço do experimento troca por sessão); no daemon é o
-/// do boot — por isso o repasse da resposta do daemon ao stdout (o sítio
-/// [`SITE_DAEMON_FORWARD`]) acontece no CLIENTE.
+/// Fora de um override, quem chama é o processo que EMITE: no cliente
+/// `touring-hook` o ambiente é o do Claude Code; no daemon é o do boot. Dentro
+/// do project actor, [`with_level_override`] substitui esse ambiente pelo nível
+/// transportado na requisição. O repasse da resposta ao stdout
+/// ([`SITE_DAEMON_FORWARD`]) acontece no CLIENTE.
 #[must_use]
 pub fn current() -> (InjectionLevel, Option<PathBuf>) {
-    let level = level_from_env();
+    let level = current_level();
     if level == InjectionLevel::Full {
         return (level, None);
     }
@@ -524,6 +604,43 @@ mod tests {
 
     /// A env var é a fonte do interruptor. Serializado pelo mutex: outro teste
     /// deste processo não pode ler o valor no meio da troca.
+    #[test]
+    fn override_aninha_e_restaura_o_nivel_mesmo_com_panico() {
+        with_level_override(InjectionLevel::Full, || {
+            assert_eq!(current().0, InjectionLevel::Full);
+            with_level_override(InjectionLevel::NoAdvisory, || {
+                assert_eq!(current().0, InjectionLevel::NoAdvisory);
+                with_level_override(InjectionLevel::Off, || {
+                    assert_eq!(current().0, InjectionLevel::Off);
+                });
+                assert_eq!(current().0, InjectionLevel::NoAdvisory);
+            });
+            assert_eq!(current().0, InjectionLevel::Full);
+
+            let panic = std::panic::catch_unwind(|| {
+                with_level_override(InjectionLevel::NoAdvisory, || {
+                    assert_eq!(current().0, InjectionLevel::NoAdvisory);
+                    panic!("força a restauração durante unwinding");
+                });
+            });
+            assert!(panic.is_err());
+            assert_eq!(current().0, InjectionLevel::Full);
+        });
+    }
+
+    #[test]
+    fn requisicao_legada_usa_o_nivel_base_mesmo_sob_override_externo() {
+        with_daemon_level_override(InjectionLevel::NoAdvisory, || {
+            with_level_override(InjectionLevel::Full, || {
+                with_inherited_level(|| {
+                    assert_eq!(current().0, InjectionLevel::NoAdvisory);
+                });
+                assert_eq!(current().0, InjectionLevel::Full);
+            });
+            assert_eq!(current().0, InjectionLevel::NoAdvisory);
+        });
+    }
+
     #[test]
     fn level_from_env_le_a_env_var_do_interruptor() {
         static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

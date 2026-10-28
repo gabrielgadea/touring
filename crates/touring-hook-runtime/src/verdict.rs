@@ -55,9 +55,9 @@ impl HookResponse {
     /// An empty `avisos` returns `self` untouched.
     ///
     /// The advisories pass through the injection policy first
-    /// ([`HookResponse::with_advisories_at`]) at the level of THIS process's
-    /// environment — `TOURING_HOOK_INJECTION`, unset ⇒ `full` ⇒ nothing changes.
-    /// In the daemon that is the daemon's boot environment, not the client's.
+    /// ([`HookResponse::with_advisories_at`]) at the current request's level.
+    /// Standalone code reads `TOURING_HOOK_INJECTION` from its own environment;
+    /// the project actor applies the client level carried by `DaemonRequest`.
     #[must_use]
     pub fn with_advisories(self, avisos: Vec<String>) -> HookResponse {
         let (level, sink) = injection_policy::current();

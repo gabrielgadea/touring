@@ -68,6 +68,7 @@ use tokio::time::{interval, timeout};
 use crate::ipc::{DaemonRequest, DaemonResponse, daemon_lock_path_for, daemon_socket_path};
 use crate::runtime::HookRuntime;
 use crate::shared::latency_marker::LatencyMarker;
+use touring_foundation::injection_policy::{self, InjectionLevel};
 use touring_foundation::is_heavy_hook;
 use touring_hook_runtime::actor_yield;
 
@@ -301,6 +302,7 @@ fn run_project_actor_with(
             ProjectCommand::RunHook {
                 hook_name,
                 payload,
+                injection_level,
                 response,
                 enqueued_at,
             } => {
@@ -309,15 +311,22 @@ fn run_project_actor_with(
                 // points today); the guard uninstalls on return or panic.
                 let _light_yield = is_heavy_hook(&hook_name)
                     .then(|| install_light_yield(table, &cmd_rx, &deferred));
-                run_hook_command(
-                    &mut runtime,
-                    table,
-                    hook_name,
-                    payload,
-                    response,
-                    enqueued_at,
-                    &mut last_e2e_scan,
-                );
+                let run = || {
+                    run_hook_command(
+                        &mut runtime,
+                        table,
+                        hook_name,
+                        payload,
+                        response,
+                        enqueued_at,
+                        &mut last_e2e_scan,
+                    );
+                };
+                if let Some(level) = injection_level {
+                    injection_policy::with_level_override(level, run);
+                } else {
+                    injection_policy::with_inherited_level(run);
+                }
             }
             ProjectCommand::RunSaga {
                 hook_name,
@@ -704,18 +713,26 @@ fn install_light_yield(
                 ProjectCommand::RunHook {
                     hook_name,
                     payload,
+                    injection_level,
                     response,
                     enqueued_at,
                 } if may_run_during_heavy(&hook_name) => {
-                    run_hook_command(
-                        runtime,
-                        table,
-                        hook_name,
-                        payload,
-                        response,
-                        enqueued_at,
-                        &mut last_e2e_scan,
-                    );
+                    let run = || {
+                        run_hook_command(
+                            runtime,
+                            table,
+                            hook_name,
+                            payload,
+                            response,
+                            enqueued_at,
+                            &mut last_e2e_scan,
+                        );
+                    };
+                    if let Some(level) = injection_level {
+                        injection_policy::with_level_override(level, run);
+                    } else {
+                        injection_policy::with_inherited_level(run);
+                    }
                 }
                 other => deferred.borrow_mut().push_back(other),
             }
@@ -1614,6 +1631,7 @@ where
         priority: archived.priority,
         // rkyv wire predates S-5.2 and the SDK speaks JSON only.
         origin: None,
+        injection_level: None,
     };
 
     let resp = dispatch_request_async(req, runtime).await;
@@ -1863,6 +1881,7 @@ where
         priority: 0,
         session_id: None,
         origin: None,
+        injection_level: None,
     };
 
     dispatch_request_async(req, runtime).await
@@ -2103,6 +2122,12 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // commands within its queue (correct: rusqlite !Sync) but without the
     // kernel Mutex contention that previously let 50+ ESTAB connections pile
     // up behind a single `.lock()` call.
+    // An absent or invalid level is a legacy request: retain the daemon's
+    // environment instead of failing open to `full` and leaking advisories.
+    let injection_level = req
+        .injection_level
+        .as_deref()
+        .and_then(InjectionLevel::parse);
     let payload = req.payload.clone();
     let is_heavy = is_heavy_hook(&hook_name);
     if is_heavy {
@@ -2123,6 +2148,7 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     let cmd = ProjectCommand::RunHook {
         hook_name,
         payload,
+        injection_level,
         response: resp_tx,
         enqueued_at: Instant::now(),
     };
@@ -2271,6 +2297,7 @@ fn kpi_snapshot_request(project_root: String) -> DaemonRequest {
         session_id: None,
         priority: 0,
         origin: None,
+        injection_level: None,
     }
 }
 
