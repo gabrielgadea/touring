@@ -66,6 +66,7 @@ import json
 import os
 import re
 import sys
+import time
 
 ENV_VAR = "TOURING_HOOK_INJECTION"
 LEVELS = ("full", "no-advisory", "off")
@@ -281,6 +282,45 @@ def families(payload: str) -> set:
 ALL_FAMILIES = ADVISORY_FAMILIES | FACT_FAMILIES
 
 
+#: Same journal file as `touring_foundation::injection_journal::JOURNAL_FILE`: the
+#: Python cuts land beside the Rust ones, so the dose KPI (`injection_suppressed`) and
+#: the A3 analysis see both sides. Until 28/10/2026 the Python cuts were never
+#: journaled and the dose undercounted that half (PLANO §11, open point 2).
+JOURNAL_FILE = "injection_suppressed.jsonl"
+#: Opt-out for tests that exercise the policy without a scratch HOME.
+JOURNAL_DISABLED_ENV = "TOURING_INJECTION_JOURNAL_DISABLED"
+#: Sites of the Python side: `py-filter` measures the bytes it removed; `py-allows`
+#: counts a cut whose text the hook never built, so its `bytes` is 0 by construction.
+SITE_PY_FILTER = "py-filter"
+SITE_PY_ALLOWS = "py-allows"
+
+
+def journal_cut(level: str, site: str, family: str | None, nbytes: int) -> None:
+    """Append one cut in the Rust journal schema (`injection_journal::line_for`).
+
+    Never raises and never writes at `full` (nothing is cut there). The Rust side
+    rotates the file; a single short `O_APPEND` write keeps concurrent lines whole.
+    """
+    if level == "full" or os.environ.get(JOURNAL_DISABLED_ENV):
+        return
+    home = os.environ.get("HOME")
+    if not home:
+        return
+    path = os.path.join(home, ".claude", "touring", JOURNAL_FILE)
+    line = {
+        "ts": int(time.time() * 1000),
+        "level": level,
+        "site": site,
+        "cuts": [{"family": family or "unknown", "bytes": int(nbytes)}],
+    }
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps(line, ensure_ascii=False, separators=(",", ":")) + "\n")
+    except OSError:
+        pass
+
+
 def allows(family: str, level: str | None = None) -> bool:
     """O contexto desta família deve chegar ao modelo?
 
@@ -303,9 +343,10 @@ def allows(family: str, level: str | None = None) -> bool:
     lvl = level if level is not None else policy()
     if lvl == "full":
         return True
-    if lvl == "no-advisory":
-        return family not in ADVISORY_FAMILIES
-    return False  # off
+    allowed = lvl == "no-advisory" and family not in ADVISORY_FAMILIES
+    if not allowed:
+        journal_cut(lvl, SITE_PY_ALLOWS, family, 0)
+    return allowed
 
 
 def allows_payload(payload: str, level: str | None = None) -> bool:
@@ -353,9 +394,12 @@ def _strip_context(obj, level):
             continue
         holder.pop(key, None)
         removed += len(text)
-    if isinstance(hso, dict):
-        # `hookSpecificOutput` vazio não deve sobrar no envelope.
-        if not hso and "hookSpecificOutput" in obj:
+    if isinstance(hso, dict) and "hookSpecificOutput" in obj:
+        # `hookSpecificOutput` vazio não deve sobrar no envelope; depois de um corte,
+        # o reduzido ao `hookEventName` também sai e o envelope vira o `{}` canônico —
+        # a mesma regra do Rust (`strip_envelope`, `is_bare_event`, só com corte).
+        bare_event = removed > 0 and set(hso) == {"hookEventName"}
+        if not hso or bare_event:
             obj.pop("hookSpecificOutput", None)
     return obj, removed, family
 
@@ -380,16 +424,20 @@ def filter_output(level: str, text: str) -> str:
         # stdout cru: decide pelo conjunto de familias do texto.
         if allows_payload(stripped, level):
             return text
+        journal_cut(level, SITE_PY_FILTER, classify(stripped), len(stripped))
         return ""
     try:
         obj = json.loads(stripped)
     except (ValueError, TypeError):
         if allows_payload(stripped, level):
             return text
+        journal_cut(level, SITE_PY_FILTER, classify(stripped), len(stripped))
         return ""
     if not isinstance(obj, dict):
         return text
-    obj, _removed, _fam = _strip_context(obj, level)
+    obj, removed, fam = _strip_context(obj, level)
+    if removed:
+        journal_cut(level, SITE_PY_FILTER, fam, removed)
     return json.dumps(obj, ensure_ascii=False, separators=(",", ":"))
 
 
