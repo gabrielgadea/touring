@@ -48,8 +48,11 @@ from lib import (  # noqa: E402  pylint: disable=wrong-import-position
 # Path alphabet includes -, ., digits and uppercase (hyphenated crate dirs) —
 # the old class captured MUTILATED paths ("ceg/src/…" from "crates/touring-ceg/
 # src/…"), which fail any existence check downstream.
+# Leading dot-dir kept (`.claude/…`), never a mid-path start; the suffix guard refuses a
+# following letter too, so `manifest.json` is not read as `manifest.js` (28/10/2026).
 _RE_FILE_CITATION = re.compile(
-    r"`?([A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|ts|tsx|js|go))(?!\.[A-Za-z0-9])(?::(\d+))?`?"
+    r"(?<![A-Za-z0-9_./-])(\.?[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|tsx|ts|js|go))"
+    r"(?![A-Za-z0-9]|\.[A-Za-z0-9])(?::(\d+))?"
 )
 _RE_PASCAL_SYMBOL = re.compile(r"\b([A-Z][a-zA-Z0-9]{2,}(?:[A-Z][a-zA-Z0-9]{2,})*)\b")
 _RE_SUBTASK_BLOCK = re.compile(

@@ -81,6 +81,28 @@ class PathAlphabet(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(m.group(0), "docs/code-mode.md")
 
+    def test_citation_never_reads_a_longer_extension_as_code(self):
+        # Measured 28/10/2026 on the analise portfolio plan: `manifest.json`,
+        # `portfolio_events.jsonl` and `settings.local.json` were captured as
+        # `*.js` — the suffix guard only refused a following DOT, not a letter —
+        # and gap_detector raised VAGUE_BLAST on subtasks that touch only data.
+        for texto in ("`data/eval/manifest.json`", "`.claude/data/portfolio_events.jsonl`",
+                      "registro em `settings.local.json`"):
+            self.assertIsNone(_RE_FILE_CITATION.search(texto), texto)
+        # The longer CODE extension must still win over its prefix.
+        m = _RE_FILE_CITATION.search("veja `web/src/App.tsx` agora")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "web/src/App.tsx")
+
+    def test_citation_keeps_the_leading_dotdir(self):
+        # Same mutilation _PATH_RE already fixed: `.claude/hooks/x.py` was
+        # captured as `claude/hooks/x.py`, which fails every existence check.
+        m = _RE_FILE_CITATION.search("hook em `.claude/hooks/portfolio/reuso_scripts.py`")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), ".claude/hooks/portfolio/reuso_scripts.py")
+        m = _RE_FILE_CITATION.search("veja crates/touring-ceg/src/lib.rs:12 aqui")
+        self.assertEqual(m.group(1), "crates/touring-ceg/src/lib.rs")
+
 
 if __name__ == "__main__":
     unittest.main()
