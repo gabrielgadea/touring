@@ -1,10 +1,51 @@
 use super::*;
 
+// ── env isolation for tests that build a production GeneratorContext ──────
+
+/// Runs `f` with `TOURING_PROJECT_ROOT` pinned to a private tempdir, holding the
+/// crate-wide [`crate::cli::ENV_LOCK`] for the whole call.
+///
+/// **Why every `schema_registry_*` test needs it**: `schema_registry_info/check`
+/// call `make_context()`, which resolves `$TOURING_PROJECT_ROOT/.claude/touring/
+/// knowledge.db` and OPENS it (`build_knowledge_upsert_fn` → `FileKnowledgeDB::new`
+/// → `ensure_schema`, plus the wiring gate). Without the lock these tests read the
+/// process-global variable while `cli::migrate` / `cli::backup` tests have it
+/// pointed at THEIR tempdir, so up to five of them opened — and created, with
+/// `ensure_schema`'s older `bash_outcomes`/`gotchas` DDL — the very `knowledge.db`
+/// that `cmd_run` was migrating. `cmd_run`'s `CREATE INDEX ... (command_hash)`
+/// then hit the window between that CREATE TABLE and its `ALTER TABLE ADD COLUMN`
+/// (`no such column: command_hash`; also `database is locked`, `no such column:
+/// language`, "knowledge.db must not exist after rollback"). With the var unset
+/// the same tests fell back to `./.claude/touring` under the crate dir (a
+/// leaked, gitignored database); pinning a tempdir removes that too.
+fn with_isolated_project_root<T>(f: impl FnOnce() -> T) -> T {
+    struct RestoreEnv(Option<std::ffi::OsString>);
+    impl Drop for RestoreEnv {
+        fn drop(&mut self) {
+            // SAFETY: still under `ENV_LOCK` (the guard below outlives this value).
+            match self.0.take() {
+                Some(v) => unsafe { std::env::set_var("TOURING_PROJECT_ROOT", v) },
+                None => unsafe { std::env::remove_var("TOURING_PROJECT_ROOT") },
+            }
+        }
+    }
+
+    let _env = crate::cli::ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    let dir = tempfile::tempdir().expect("tempdir");
+    let _restore = RestoreEnv(std::env::var_os("TOURING_PROJECT_ROOT"));
+    // SAFETY: the caller-side lock above is the single lock every mutation of this
+    // variable is taken under, crate-wide.
+    unsafe { std::env::set_var("TOURING_PROJECT_ROOT", dir.path()) };
+    f()
+}
+
 // ── schema_registry_info ─────────────────────────────────────────────────
 
 #[test]
 fn test_schema_registry_info_returns_ok() {
-    let result = schema_registry_info();
+    let result = with_isolated_project_root(schema_registry_info);
     assert_eq!(
         result["ok"], true,
         "schema_registry_info must return ok=true"
@@ -13,7 +54,7 @@ fn test_schema_registry_info_returns_ok() {
 
 #[test]
 fn test_schema_registry_info_has_engine_version() {
-    let result = schema_registry_info();
+    let result = with_isolated_project_root(schema_registry_info);
     assert!(
         result["engine_version"].is_string(),
         "engine_version must be a string, got: {:?}",
@@ -27,10 +68,40 @@ fn test_schema_registry_info_has_engine_version() {
 
 #[test]
 fn test_schema_registry_info_migration_count_is_number() {
-    let result = schema_registry_info();
+    let result = with_isolated_project_root(schema_registry_info);
     assert!(
         result["migration_count"].is_number(),
         "migration_count must be a number"
+    );
+}
+
+/// Proves the isolation the helper promises: a `schema_registry_*` call resolves
+/// its knowledge DB from `TOURING_PROJECT_ROOT`, so under the helper it must land
+/// in the pinned tempdir and nowhere else.
+#[test]
+fn schema_registry_calls_stay_inside_the_pinned_project_root() {
+    let root = with_isolated_project_root(|| {
+        let root = std::path::PathBuf::from(
+            std::env::var_os("TOURING_PROJECT_ROOT").expect("helper pins the variable"),
+        );
+        // Same layout `cli::migrate` tests give their root: the DB can only be
+        // opened (and thereby created) if the directory is already there.
+        std::fs::create_dir_all(root.join(".claude").join("touring")).expect("touring dir");
+        let _ = schema_registry_info();
+        assert!(
+            touring_foundation::TouringConfig::knowledge_db_canonical(&root).exists(),
+            "make_context must open the knowledge DB under the pinned root"
+        );
+        root
+    });
+    // The pin is restored for the next lock holder: it must not outlive the helper.
+    let _env = crate::cli::ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    assert_ne!(
+        std::env::var_os("TOURING_PROJECT_ROOT").map(std::path::PathBuf::from),
+        Some(root),
+        "the pinned root must not leak past the helper"
     );
 }
 
@@ -39,11 +110,11 @@ fn test_schema_registry_info_migration_count_is_number() {
 #[test]
 fn test_schema_registry_check_current_version_compatible() {
     // The current engine version must always report compatible=true.
-    let engine_version = schema_registry_info()["engine_version"]
+    let engine_version = with_isolated_project_root(schema_registry_info)["engine_version"]
         .as_str()
         .expect("engine_version is a string")
         .to_owned();
-    let result = schema_registry_check(&engine_version);
+    let result = with_isolated_project_root(|| schema_registry_check(&engine_version));
     assert_eq!(result["ok"], true);
     assert_eq!(
         result["compatible"], true,
@@ -54,7 +125,7 @@ fn test_schema_registry_check_current_version_compatible() {
 
 #[test]
 fn test_schema_registry_check_unknown_version_incompatible() {
-    let result = schema_registry_check("99.99.99-nonexistent");
+    let result = with_isolated_project_root(|| schema_registry_check("99.99.99-nonexistent"));
     assert_eq!(result["ok"], true);
     assert_eq!(
         result["compatible"], false,
@@ -64,7 +135,7 @@ fn test_schema_registry_check_unknown_version_incompatible() {
 
 #[test]
 fn test_schema_registry_check_returns_engine_version() {
-    let result = schema_registry_check("1.0.0");
+    let result = with_isolated_project_root(|| schema_registry_check("1.0.0"));
     assert!(
         result["engine_version"].is_string(),
         "engine_version field must be present in schema_registry_check output"
