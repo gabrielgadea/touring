@@ -3,13 +3,14 @@
 
 use std::collections::HashMap;
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
 use tokio::sync::{mpsc, oneshot};
 
 use super::{HookHandler, is_heavy_hook, may_run_during_heavy, run_project_actor_with};
 use crate::runtime::HookRuntime;
+use touring_foundation::injection_policy::{self, InjectionLevel};
 use touring_hook_runtime::actor_yield;
 use touring_hook_runtime::daemon_protocol::ProjectCommand;
 
@@ -53,16 +54,25 @@ fn other(_: &mut HookRuntime, _: &serde_json::Value) -> String {
     "other".to_string()
 }
 
-fn send(tx: &mpsc::Sender<ProjectCommand>, hook: &str) -> oneshot::Receiver<String> {
+fn send_with_level(
+    tx: &mpsc::Sender<ProjectCommand>,
+    hook: &str,
+    injection_level: Option<InjectionLevel>,
+) -> oneshot::Receiver<String> {
     let (response, rx) = oneshot::channel();
     tx.blocking_send(ProjectCommand::RunHook {
         hook_name: hook.to_string(),
         payload: serde_json::json!({}),
+        injection_level,
         response,
         enqueued_at: Instant::now(),
     })
     .expect("actor alive");
     rx
+}
+
+fn send(tx: &mpsc::Sender<ProjectCommand>, hook: &str) -> oneshot::Receiver<String> {
+    send_with_level(tx, hook, None)
 }
 
 fn wait_reply(rx: &mut oneshot::Receiver<String>, what: &str) -> String {
@@ -121,6 +131,71 @@ fn a_light_command_is_served_while_a_heavy_hook_yields_and_others_wait() {
 
     drop(tx);
     actor.join().expect("actor exits when every sender is gone");
+}
+
+static LEVEL_HEAVY_STARTED: AtomicBool = AtomicBool::new(false);
+static LEVEL_LIGHTS_SERVED: AtomicUsize = AtomicUsize::new(0);
+
+fn level_heavy(rt: &mut HookRuntime, _: &serde_json::Value) -> String {
+    LEVEL_HEAVY_STARTED.store(true, Ordering::SeqCst);
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while LEVEL_LIGHTS_SERVED.load(Ordering::SeqCst) < 2 && Instant::now() < deadline {
+        actor_yield::yield_now(rt);
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert_eq!(LEVEL_LIGHTS_SERVED.load(Ordering::SeqCst), 2);
+    "heavy".to_string()
+}
+
+fn level_light(_: &mut HookRuntime, _: &serde_json::Value) -> String {
+    LEVEL_LIGHTS_SERVED.fetch_add(1, Ordering::SeqCst);
+    injection_policy::current().0.as_str().to_string()
+}
+
+fn run_legacy_light_case(daemon_level: InjectionLevel) {
+    LEVEL_HEAVY_STARTED.store(false, Ordering::SeqCst);
+    LEVEL_LIGHTS_SERVED.store(0, Ordering::SeqCst);
+
+    let mut table: HashMap<&'static str, HookHandler> = HashMap::new();
+    table.insert("cli-index-rebuild", level_heavy);
+    table.insert("cli-memory-store", level_light);
+    let table: &'static HashMap<&'static str, HookHandler> = Box::leak(Box::new(table));
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let runtime = HookRuntime::new(tmp.path()).expect("runtime");
+    let (tx, rx) = mpsc::channel(8);
+    let actor = std::thread::spawn(move || {
+        injection_policy::with_daemon_level_override(daemon_level, || {
+            run_project_actor_with(runtime, rx, table);
+        });
+    });
+
+    let heavy_level = match daemon_level {
+        InjectionLevel::Full => InjectionLevel::NoAdvisory,
+        InjectionLevel::NoAdvisory | InjectionLevel::Off => InjectionLevel::Full,
+    };
+    let mut heavy = send_with_level(&tx, "cli-index-rebuild", Some(heavy_level));
+    let deadline = Instant::now() + Duration::from_secs(20);
+    while !LEVEL_HEAVY_STARTED.load(Ordering::SeqCst) && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(2));
+    }
+    assert!(LEVEL_HEAVY_STARTED.load(Ordering::SeqCst));
+
+    // Um valor inválido é normalizado para None em dispatch_request_async;
+    // portanto estes dois envelopes são exatamente os casos legado e inválido.
+    let mut legacy = send_with_level(&tx, "cli-memory-store", None);
+    let mut invalid = send_with_level(&tx, "cli-memory-store", None);
+    assert_eq!(wait_reply(&mut legacy, "legado"), daemon_level.as_str());
+    assert_eq!(wait_reply(&mut invalid, "inválido"), daemon_level.as_str());
+    assert_eq!(wait_reply(&mut heavy, "heavy"), "heavy");
+
+    drop(tx);
+    actor.join().expect("actor termina");
+}
+
+#[test]
+fn legacy_light_requests_do_not_inherit_the_heavy_request_level() {
+    run_legacy_light_case(InjectionLevel::Full);
+    run_legacy_light_case(InjectionLevel::NoAdvisory);
 }
 
 static BOUND_HEAVY_STARTED: AtomicBool = AtomicBool::new(false);
@@ -185,6 +260,7 @@ fn deferred_commands_never_outgrow_the_channel_and_keep_their_order() {
                     tx.blocking_send(ProjectCommand::RunHook {
                         hook_name: "cli-wiring-orphans".to_string(),
                         payload: serde_json::json!({ "i": i }),
+                        injection_level: None,
                         response,
                         enqueued_at: Instant::now(),
                     })
