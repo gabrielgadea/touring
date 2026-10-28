@@ -231,27 +231,39 @@ def fonte_manifest(manifest: Path = MANIFEST) -> list[Candidato]:
     return out
 
 
+def _diretorio_existente(cwd: str | None) -> str | None:
+    """The cwd for a subprocess, or None when it no longer exists.
+
+    A removed session directory made ``subprocess.run(cwd=…)`` raise FileNotFoundError, so the whole tantivy
+    source read as failed (measured 28/10/2026 in the P3 contract tests); the search itself needs no cwd.
+    """
+    return cwd if cwd and os.path.isdir(cwd) else None
+
+
+def _candidato_tantivy(row: dict, base: Path) -> Candidato | None:
+    """One search hit as a candidate; None for hits that are not scripts."""
+    fp = str(row.get("file_path", ""))
+    if not fp or Path(fp).suffix.lower() not in SCRIPT_EXTS:
+        return None
+    p = Path(fp) if Path(fp).is_absolute() else base / fp
+    return Candidato(id=f"tantivy:{fp}", nome=p.name, caminho=str(p), conteudo=_ler(p),
+                     proposito=str(row.get("symbol_name", ""))[:200], origem="tantivy")
+
+
 def fonte_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -> list[Candidato]:
     """Indexed scripts close to the query terms. Any failure raises: the caller turns it into ``inaferivel``."""
     if not consulta.strip():
         return []
     r = subprocess.run(
         ["touring", "tantivy", "search", consulta, "5"],
-        capture_output=True, text=True, timeout=timeout, cwd=cwd, check=False,
+        capture_output=True, text=True, timeout=timeout, check=False, cwd=_diretorio_existente(cwd),
     )
     if r.returncode != 0:
         raise RuntimeError(f"tantivy rc={r.returncode}")
     rows = json.loads(r.stdout or "[]")
     base = Path(cwd or ".")
-    out = []
-    for row in rows if isinstance(rows, list) else []:
-        fp = str(row.get("file_path", ""))
-        if not fp or Path(fp).suffix.lower() not in SCRIPT_EXTS:
-            continue
-        p = Path(fp) if Path(fp).is_absolute() else base / fp
-        out.append(Candidato(id=f"tantivy:{fp}", nome=p.name, caminho=str(p), conteudo=_ler(p),
-                             proposito=str(row.get("symbol_name", ""))[:200], origem="tantivy"))
-    return out
+    candidatos = (_candidato_tantivy(row, base) for row in (rows if isinstance(rows, list) else []))
+    return [c for c in candidatos if c is not None]
 
 
 def consultar(caminho: str, conteudo: str, cwd: str | None = None, params: Parametros = Parametros()) -> Veredito:
