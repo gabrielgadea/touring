@@ -49,7 +49,11 @@ o braço vale por sessão, fixado quando ela abre.
 - **Extensão (só se a regra do §6 mandar):** mais 2 blocos, `A B B A · B A A B`.
 - **Invalidação:** um deploy do Touring, um `update-touring` ou uma mudança de
   `settings.json` fora do mecanismo do §5 durante um bloco invalida o bloco inteiro, que é
-  repetido no fim da sequência. Os blocos invalidados ficam listados em
+  repetido no fim da sequência. **Esclarecimento de 28/10, antes do dia 0:** editar o
+  script vivo de um hook que injeta contexto (texto, condição ou família do que ele
+  emite) é da mesma classe e também invalida o bloco, porque muda o próprio tratamento.
+  O que estiver no ar antes do dia 0 é ambiente fixo; mudança em modo sombra que não
+  altera o que chega ao modelo não conta. Os blocos invalidados ficam listados em
   `a3-calendario.json` (`blocos_invalidados`) com o motivo.
 - **Mínimo por célula (bloco × braço):** 10 sessões com pelo menos 40 chamadas de
   ferramenta. Célula abaixo do mínimo invalida o bloco.
