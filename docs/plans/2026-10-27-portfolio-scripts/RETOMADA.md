@@ -26,3 +26,30 @@
 
 - touring-44: merge + propagate 30.4.99 são dela; sem cargo/update-touring meu sem aviso cruzado.
 - Worktree `../touring-wt-c1b` pode ser removido APÓS o merge (não antes — o 74d7e966 mora lá).
+
+## Estado verificado em 29/10/2026 (touring-cb)
+
+O "Pendente" acima ficou para trás. Item a item, com evidência:
+
+1. **Merge do C1b + ignores do zip + 30.4.99: FEITO.** Merge `68779491`, ignores do zip
+   em `deny.toml` (candle nunca chama extract), 30.4.99 propagado com prova 43/43. F2.5
+   em 0 CVEs.
+2. **Residual zip: segue aceito**, reavaliar quando sair candle com zip ≥ 9.
+3. **Medição do portfólio: EM CURSO.** `script_portfolio_gate.py --stats` em 29/10:
+   50 eventos, 36 com candidato, 2 evitáveis (4,0%); legado 24, aprovado 26. A semana
+   fecha em 03/11 (leitura só, permitida no congelamento do A3).
+4. **Calibração do τ: SUPERADA** pelo SimHash v2 da analise-40 (`9dd4aa99`/`f130a703`,
+   uma voz por shingle distinto, τ=9, precisão 1,00 e recall 0,95 no corpus). Está no
+   30.4.100, vivo só em `projects/touring`. A troca do default do `simhash.py` no analise
+   espera 06/11.
+5. **F2.4: era REAL, e era defeito do detector.** `scripts/test_measure_tool_trio.py:139`
+   bloqueava o workspace inteiro: `"pwd"` (comando do shell) num lado esquerdo de `=`.
+   Corrigido em `20d2b05a` (0,000 → 0,985 Diamond); o binário vivo do `touring-quality`
+   muda no próximo deploy.
+
+Também: `scripts/champions_content/` e `scripts/transcript_miner_detail.json` têm o
+conteúdo integral de scripts minerados de transcripts privados (briefing VIA 040, SEI).
+Ficam fora do git pelo `.gitignore` deste bundle; o `calibrate_simhash.py` os lê do disco.
+O worktree `../touring-wt-c1b` já pode ser removido (o C1b está no main), por decisão do
+Gabriel. A seção 6 não commitada de `p2-redesign-gate-semelhanca.md` (rótulo 30.4.98) é de
+outra sessão e está obsoleta desde o 30.4.99.
