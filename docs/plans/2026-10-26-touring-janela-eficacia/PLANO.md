@@ -611,3 +611,16 @@ precisão 1,00 e recall 0,95 contra 0,53 do v1; o gate compara só v2 com v2). J
 warnings e os testes tocados verdes). Entra no 30.4.100, deploy depois de 06/11 04:00.
 **Defeito latente registrado**: o `with_project_root` dos testes do migrate limpa o
 `TOURING_PROJECT_ROOT` ao sair em vez de restaurar o valor anterior (inofensivo hoje).
+
+**Verificação de 29/10 (~13:20, dia 0 do A3)**: a máquina suspendeu às 18:42:07 de 28/10 e
+só religou às 13:08 de 29/10. (1) O 3º rito do **30.4.100** morreu na suspensão, depois do
+`update-touring` (binário global e daemon global às 18:35–18:37) e antes de toolchain,
+default, propagação, prova 5.5 e verify. Ficou assim: `projects/touring` no 30.4.100,
+toolchain default e `analise` no 30.4.99, `latina` no 30.4.97. Completar é deploy, então
+espera 06/11 04:00; o ambiente misto foi declarado no pré-registro, com sensibilidade por
+projeto. (2) Nenhum cron rodou na madrugada; a troca das 04:01 nunca dispararia com a
+máquina dormindo. O A3 passou a timers do systemd de usuário com `Persistent=true`, e o
+reset virou `a3_arm.py reset` (recusa com bloco em curso). O one-liner antigo do reset
+falhava com `SyntaxError` quando testado pelo systemd. Emenda no pré-registro §5, antes
+da 1ª troca. O teste do calendário (`..._inactive_and_valid`) estava vermelho desde a
+ativação (`a7651e9d`) e passou a fixar o calendário ativado; 48 testes.

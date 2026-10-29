@@ -175,12 +175,22 @@ def test_arm_for_extends_only_when_the_extension_is_active():
     assert a3.arm_for("2026-11-13T12:00:00Z", make_cal(extension_active=True)) is None
 
 
-def test_calendar_shipped_in_the_bundle_is_inactive_and_valid():
+def test_calendar_shipped_in_the_bundle_is_the_activated_one(tmp_path):
+    # Activated in a7651e9d (28/10/2026, before day 0); the commit is the calendar's clock.
     cal = a3.load_calendar(a3.CALENDAR_PATH)
-    assert cal["day0"] is None
+    assert cal["day0"] == "2026-10-29"
+    assert cal["primary_blocks"] == ["ABBA", "BAAB"]
     assert cal["extension_active"] is False
     assert cal["arms"] == {"A": "full", "B": "no-advisory"}
-    assert a3.arm_for("2026-11-01T12:00:00Z", cal) is None
+    assert cal["blocos_invalidados"] == []
+    assert a3.arm_for("2026-10-29T12:00:00Z", cal) == (0, "A")
+    assert a3.arm_for("2026-10-30T12:00:00Z", cal) == (0, "B")
+    assert a3.arm_for("2026-11-01T12:00:00Z", cal) == (0, "A")
+    # The 06/11 reset refuses on the last primary day and runs the day after.
+    settings = write_settings(tmp_path)
+    argv = ["reset", "--calendar", a3.CALENDAR_PATH, "--settings", str(settings)]
+    assert a3.main(argv, now=utc("2026-11-06T06:00:00Z")) == 2
+    assert a3.main(argv, now=utc("2026-11-06T07:05:00Z")) == 0
 
 
 @pytest.mark.parametrize(
@@ -307,6 +317,36 @@ def test_apply_refuses_when_the_experiment_is_not_active(tmp_path, capsys):
         assert "nada a aplicar" in capsys.readouterr().err
     assert settings.read_bytes() == before
     assert not backups(settings)
+
+
+def test_reset_refuses_while_a_block_is_running(tmp_path, capsys):
+    cal = write_calendar(tmp_path)
+    settings = write_settings(tmp_path, env={"KEEP": "1", a3.ENV_KEY: "no-advisory"})
+    before = settings.read_bytes()
+    argv = ["reset", "--yes", "--calendar", cal, "--settings", str(settings)]
+    assert a3.main(argv, now=utc("2026-10-29T12:00:00Z")) == 2
+    assert "reset recusado" in capsys.readouterr().err
+    assert settings.read_bytes() == before
+    assert not backups(settings)
+
+
+def test_reset_after_the_end_removes_the_key_with_backup_and_is_idempotent(tmp_path, capsys):
+    cal = write_calendar(tmp_path)
+    settings = write_settings(tmp_path, env={"KEEP": "ção", a3.ENV_KEY: "no-advisory"}, trailing_newline=True)
+    original = settings.read_bytes()
+    now = utc("2026-11-06T12:00:00Z")
+    dry = ["reset", "--calendar", cal, "--settings", str(settings)]
+    assert a3.main(dry, now=now) == 0
+    assert "dry-run" in capsys.readouterr().out
+    assert settings.read_bytes() == original
+    assert a3.main([*dry, "--yes"], now=now) == 0
+    assert json.loads(settings.read_text(encoding="utf-8"))["env"] == {"KEEP": "ção"}
+    assert settings.read_text(encoding="utf-8").endswith("}\n")
+    (backup,) = backups(settings)
+    assert backup.read_bytes() == original
+    assert a3.main([*dry, "--yes"], now=now) == 0
+    assert "sem mudança" in capsys.readouterr().out
+    assert len(backups(settings)) == 1
 
 
 def test_apply_refuses_malformed_or_missing_settings(tmp_path):
