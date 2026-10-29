@@ -25,6 +25,25 @@ def test_simhash_paridade_com_o_binario(vetor: dict) -> None:
     assert simhash.hex64(simhash.simhash64(vetor["codigo"])) == vetor["simhash_rust"]
 
 
+@pytest.mark.parametrize("vetor", VETORES, ids=[v["nome"] for v in VETORES])
+def test_simhash_v2_paridade_com_o_binario(vetor: dict) -> None:
+    # 30.4.100+: the binary journals code_simhash_v2 (one vote per distinct shingle); the port's
+    # distintos=True must match it bit for bit, the same way the default matches v1.
+    assert simhash.hex64(simhash.simhash64(vetor["codigo"], distintos=True)) == vetor["simhash_rust_v2"]
+
+
+def test_vetores_trazem_os_dois_modos() -> None:
+    # A vector set without v2 would leave the v2 parity test parametrized over nothing it checks.
+    assert all(v.get("simhash_rust") and v.get("simhash_rust_v2") for v in VETORES)
+
+
+def test_vetores_distinguem_v1_de_v2() -> None:
+    # Control for the v2 parity: on bodies without repeated shingles v1 == v2, so a binary that journaled
+    # v1 under the v2 key would pass every v2 parity case. At least one vector must have v1 != v2.
+    divergentes = [v["nome"] for v in VETORES if v["simhash_rust"] != v["simhash_rust_v2"]]
+    assert "reguas_repetidas" in divergentes, divergentes
+
+
 def test_vetores_cobrem_as_bordas_declaradas() -> None:
     # The parity only means something if the divergence-prone cases are in the set.
     nomes = {v["nome"] for v in VETORES}
