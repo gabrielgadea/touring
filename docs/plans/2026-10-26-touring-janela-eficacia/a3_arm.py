@@ -874,14 +874,18 @@ def cmd_apply(args, cal: dict, now: dt.datetime) -> int:
     block, arm, level = cur
     real = os.path.realpath(os.path.expanduser(args.settings))
     raw, settings = _load_settings(real)
-    before = settings.get("env", {}).get(ENV_KEY)
-    after = None if level == FULL_LEVEL else level
     print(f"bloco {block}, braço {arm}, nível {level}")
+    return _write_level(real, raw, settings, None if level == FULL_LEVEL else level, args.yes, now)
+
+
+def _write_level(real: str, raw: str, settings: dict, after: str | None, yes: bool, now: dt.datetime) -> int:
+    """Show the diff of ``env.TOURING_HOOK_INJECTION`` and, with ``yes``, write it after a backup."""
+    before = settings.get("env", {}).get(ENV_KEY)
     print(f"--- {real}\n+++ {real}\n@@ env.{ENV_KEY} @@\n- {_shown(before)}\n+ {_shown(after)}")
     if before == after:
-        print("sem mudança: o settings já está no nível do dia")
+        print("sem mudança: o settings já está no nível pedido")
         return 0
-    if not args.yes:
+    if not yes:
         print("dry-run: nada gravado (use --yes para gravar, com backup)")
         return 0
     backup = _unique_backup(real, now)
@@ -891,6 +895,19 @@ def cmd_apply(args, cal: dict, now: dt.datetime) -> int:
     _write_atomic(real, text)
     print(f"gravado; backup em {backup}")
     return 0
+
+
+def cmd_reset(args, cal: dict, now: dt.datetime) -> int:
+    """End of the experiment: remove the key (level full). Refuses while the calendar says
+    a block is running, so an extension written into the calendar keeps the arms in force."""
+    cur = level_now(cal, now)
+    if cur is not None:
+        block, arm, level = cur
+        raise Refusal(f"experimento ativo (bloco {block}, braço {arm}, nível {level}): reset recusado")
+    real = os.path.realpath(os.path.expanduser(args.settings))
+    raw, settings = _load_settings(real)
+    print(f"experimento não ativo ({_inactive_reason(cal, now)}): volta ao nível {FULL_LEVEL}")
+    return _write_level(real, raw, settings, None, args.yes, now)
 
 
 # ------------------------------------------------------------------------------- CLI
@@ -905,6 +922,9 @@ def build_parser() -> argparse.ArgumentParser:
     ap_apply = sub.add_parser("apply", parents=[common], help="grava o nível do dia no settings.json")
     ap_apply.add_argument("--yes", action="store_true", help="grava de verdade (default: dry-run)")
     ap_apply.add_argument("--settings", default=DEFAULT_SETTINGS)
+    ap_reset = sub.add_parser("reset", parents=[common], help="fim do experimento: remove a chave (nível full)")
+    ap_reset.add_argument("--yes", action="store_true", help="grava de verdade (default: dry-run)")
+    ap_reset.add_argument("--settings", default=DEFAULT_SETTINGS)
     ap_an = sub.add_parser("analyze", parents=[common], help="análise pré-registrada (§6)")
     ap_an.add_argument("--dirs", default=",".join(m.DEFAULT_DIRS), help="projetos em ~/.claude/projects, separados por vírgula")
     ap_an.add_argument("--sessions", type=int, default=2000, help="máximo de transcritos mais recentes lidos")
@@ -913,7 +933,7 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-COMMANDS = {"status": cmd_status, "apply": cmd_apply, "analyze": cmd_analyze}
+COMMANDS = {"status": cmd_status, "apply": cmd_apply, "reset": cmd_reset, "analyze": cmd_analyze}
 
 
 def main(argv=None, now: dt.datetime | None = None) -> int:

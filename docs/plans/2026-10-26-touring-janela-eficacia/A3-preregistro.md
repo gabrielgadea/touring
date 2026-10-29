@@ -71,6 +71,24 @@ o braço vale por sessão, fixado quando ela abre.
   `portfolio/simhash.py` 10:53:39, `~/.claude/scripts-portfolio/MANIFEST.json` 10:53:52 e
   `analise/.claude/portfolio/indice.json` 11:19:31 (7.893 entradas). Os dois braços
   recebem esse mesmo hook; a política de injeção decide o que dele chega.
+- **Correção do ambiente (29/10 ~13:20, dia 0, antes da 1ª troca e de qualquer análise):**
+  a linha acima diz "Touring 30.4.99"; medido nos processos vivos, o ambiente é misto. O
+  rito do 30.4.100 (`propagate-release.sh`) instalou o binário global e reiniciou o daemon
+  global às 18:35–18:37 de 28/10 e morreu na suspensão da máquina às 18:42:07, antes de
+  instalar a toolchain, torná-la default e propagar aos projetos. Resultado, fixo até
+  06/11 porque o congelamento proíbe completar o deploy:
+  - sessões em `projects/touring` (pin `dev`): cliente e daemon global **30.4.100**
+    (`target/release`, commit `704fbf72` + `b6f747c8` só de teste). O `6a89128d` leva o nível
+    de injeção do cliente ao daemon por requisição: o **vazamento 1 está fechado** aqui;
+  - sessões em `projects/analise` (lock `30.4.99`): cliente e daemon do projeto **30.4.99**:
+    o **vazamento 1 segue aberto**;
+  - o **vazamento 2 está fechado para todos**: os hooks Python são symlink vivo de
+    `client/hooks`, e o journal dos cortes (`96113cd4`) estava no ar antes do dia 0.
+  A mistura é a mesma nos dois braços e nos 8 dias, então não confunde A×B; dilui o efeito
+  na fatia analise, o que numa não-inferioridade favorece concluir "não pior". Por isso,
+  **sensibilidade adicional** (registrada agora, antes de ver dado do braço B): a análise
+  primária repetida por projeto (`touring` × `analise`); se as duas fatias divergirem na
+  decisão do §6, o relatório dá as duas e não só o pool.
 - **Mínimo por célula (bloco × braço):** 10 sessões com pelo menos 40 chamadas de
   ferramenta. Célula abaixo do mínimo invalida o bloco.
 
@@ -99,6 +117,23 @@ nível do dia no `env` do `~/.claude/settings.json` (com backup antes; no braço
 chave). Rodaria por cron às 04:00 BRT. É uma mudança diária e durável da configuração do
 Gabriel; por isso o experimento **não começa** sem a aprovação explícita dele. Sem cron,
 a troca manual às 04:00 também vale, desde que registrada no calendário.
+
+**Emenda de 29/10 (~13:20, dia 0, antes da 1ª troca):** o cron não serve. A máquina dorme
+à noite (boots de 27/10 09:14–18:14, 28/10 09:22–18:42, 29/10 a partir de 13:08) e o
+cronie não recupera disparo perdido: nenhum cron rodou na madrugada de 29/10 (nem o
+`disk-watch` das 03:00), e a troca de 30/10 para o braço B nunca aconteceria. O dia 0 não
+foi afetado, porque o braço A é a ausência da chave e ela já estava ausente. O mecanismo
+passou a timers do systemd de usuário, `~/.config/systemd/user/a3-{arm,reset}.timer`:
+`OnCalendar` 04:01 com `Persistent=true`, que disparam ao religar ou fazer login quando a
+hora passou com a máquina dormindo. O `apply` é idempotente, então disparar a mais não
+grava nada. O reset de 06/11 virou `a3_arm.py reset`, que **recusa enquanto o calendário
+tiver bloco em curso**: acionar a extensão no `a3-calendario.json` basta para mantê-la, sem
+ninguém ter de lembrar de apagar uma linha. O one-liner antigo do reset, testado pelo
+systemd, falhava com `SyntaxError`. Os dois foram provados pelo systemd contra settings e
+calendário falsos (braço B gravado com backup; reset gravado com backup). Risco residual
+declarado: uma sessão aberta nos segundos entre religar e o timer rodar recebe o braço da
+véspera mas é atribuída ao do dia; o `a3_arm.log` traz a hora de cada disparo, então essas
+sessões são identificáveis e o relatório as conta.
 
 ## 6. Análise e regra de decisão
 
