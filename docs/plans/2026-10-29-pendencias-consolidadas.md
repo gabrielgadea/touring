@@ -45,7 +45,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | # | Item | P | Tam. | Depende de | O que fazer | Evidência |
 |---|---|---|---|---|---|---|
 | V-1 | **P0B2** — camada 2 nega atributo que existe | P0 | M | — | Rebaixar a aviso/abster quando o submódulo existe em disco ou a camada 1 confirma dinamismo; 3 regressões (`urllib.error` ×2: `ddc0a56fb49f`, `056b54167b0b`; `PIL.Image.LANCZOS`: `94a5472efe4c`); re-julgar num held-out **novo** selado (o 20261013f foi gasto) | `crates/touring-pyright/src/pyright.rs:59,321` (`NEGA_MODULO`); `diagnostics/j13/5c7b3d80_v3.json:65-110` |
-| V-2 | **JUIZ-TIMEOUT** — juiz lê veredito com a camada 2 em timeout | P0 | M | — | Novo pré-registro; contar timeouts por run e declarar `INCONCLUSIVO` acima do patamar do A/A (fail-closed), com testes e mutantes; classe de medição exclusiva no `hw-slot` (toma rust + heavy) | `scripts/juiz_motor_vgp.py`; `RELATORIO-INT97I-FASE-D.md:49-59` (521/738 timeouts) |
+| V-2 | **JUIZ-TIMEOUT** — juiz lê veredito com a camada 2 em timeout | P0 | M | — | Novo pré-registro; contar timeouts por run e declarar `INCONCLUSIVO` acima do patamar do A/A (fail-closed), com testes e mutantes; classe de medição exclusiva no `hw-slot` (toma rust + heavy) | `docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py`; `RELATORIO-INT97I-FASE-D.md:49-59` (521/738 timeouts) |
 | V-3 | **V3** — camada 2 PRONTA | P0 | M | V-1, V-2 | Medir o daemon quente (o juiz mede CLI fria; DOC-V3-HOT-DAEMON) e re-julgar | `diagnostics/j13/5c7b3d80_v3.out` (2/600 falsos, CP95 1,05%, p95 1.027 ms, `NÃO PRONTO`) |
 | V-4 | **INTADAPT** — integrar os adaptadores multi-linguagem | P1 | XL | — | Reconciliar `touring-wt-adapt` (base `c118aa52`, 09/10) com o main; reaplicar vtransv E1, vts, vhtml+política, vrs, F21K; build, gates, binário reproduzível, juízes por id, `RELATORIO-INT-ADAPT.md` | `crates/touring-code/src/vgp/lang/{rust,html}.rs` ainda stubs; `diagnostics/int-adapt/simulacao.txt` |
 | V-5 | **F21K** — URL `javascript:` constante inerte | P2 | S | V-4 | Integrar `is_inert_constant_url`, testar constantes/payloads/concatenação, registrar aceite | só no worktree; main tem só o F21 posicional (`cwe_patterns.rs:138-141`) |
@@ -121,7 +121,10 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 
 ## Ordem recomendada para "agora"
 
-1. **V-1 P0B2 + V-2 JUIZ-TIMEOUT** (em curso desde 29/10): há falso deny real, e o próprio instrumento perde denies.
+1. **V-1 P0B2 + V-2 JUIZ-TIMEOUT** (em curso desde 29/10 ~14:50: P0B2 com a touring-7e/Kimi em
+   `crates/touring-pyright/**`, JUIZ-TIMEOUT com a touring-c1/MiniMax no juiz, no pré-registro
+   novo e no `hw-slot`; nenhuma das duas commita, a touring-cb revisa e commita): há falso deny
+   real, e o próprio instrumento perde denies.
 2. **I-1 + I-2**: a régua precisa estar certa **antes** da análise do A3 em 06/11.
 3. **T-1 + T-2**: o journal é insumo do gate de repetição e do KPI.
 4. **V-4 INTADAPT**, que destrava V-5…V-9 e V-12.
