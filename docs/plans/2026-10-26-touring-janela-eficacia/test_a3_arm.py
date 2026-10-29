@@ -175,22 +175,19 @@ def test_arm_for_extends_only_when_the_extension_is_active():
     assert a3.arm_for("2026-11-13T12:00:00Z", make_cal(extension_active=True)) is None
 
 
-def test_calendar_shipped_in_the_bundle_is_the_activated_one(tmp_path):
-    # Activated in a7651e9d (28/10/2026, before day 0); the commit is the calendar's clock.
+def test_calendar_shipped_in_the_bundle_is_the_ended_one(tmp_path):
+    # Activated in a7651e9d (day0 2026-10-29), ended on day 0 by Gabriel's decision (29/10
+    # 17:26): day0 back to null, the original date kept under `encerrado`.
     cal = a3.load_calendar(a3.CALENDAR_PATH)
-    assert cal["day0"] == "2026-10-29"
+    assert cal["day0"] is None
+    assert cal["encerrado"]["day0_original"] == "2026-10-29"
     assert cal["primary_blocks"] == ["ABBA", "BAAB"]
-    assert cal["extension_active"] is False
     assert cal["arms"] == {"A": "full", "B": "no-advisory"}
-    assert cal["blocos_invalidados"] == []
-    assert a3.arm_for("2026-10-29T12:00:00Z", cal) == (0, "A")
-    assert a3.arm_for("2026-10-30T12:00:00Z", cal) == (0, "B")
-    assert a3.arm_for("2026-11-01T12:00:00Z", cal) == (0, "A")
-    # The 06/11 reset refuses on the last primary day and runs the day after.
+    assert a3.arm_for("2026-10-30T12:00:00Z", cal) is None
+    # Nothing is applied any more; the reset is allowed and finds nothing to remove.
     settings = write_settings(tmp_path)
-    argv = ["reset", "--calendar", a3.CALENDAR_PATH, "--settings", str(settings)]
-    assert a3.main(argv, now=utc("2026-11-06T06:00:00Z")) == 2
-    assert a3.main(argv, now=utc("2026-11-06T07:05:00Z")) == 0
+    assert a3.main(["apply", "--yes", "--calendar", a3.CALENDAR_PATH, "--settings", str(settings)]) == 2
+    assert a3.main(["reset", "--calendar", a3.CALENDAR_PATH, "--settings", str(settings)]) == 0
 
 
 @pytest.mark.parametrize(
