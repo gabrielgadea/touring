@@ -57,6 +57,14 @@ CORPOS: dict[str, str] = {
         "    args = ap.parse_args()\n    linhas = carregar(args.arquivo)\n"
         "    print(json.dumps({'n': len(linhas)}))\n    return 0\n"
     ),
+    # Repeated shingles: the ONLY kind of body where v1 (one vote per occurrence) and v2 (one vote per
+    # distinct shingle) differ. Without it every vector has v1 == v2 and the v2 parity test cannot tell
+    # the two votes apart (measured 28-29/10/2026: 22/22 equal before this body was added).
+    "reguas_repetidas": (
+        'print("=" * 60)\nprint("-" * 60)\nprint("=" * 60)\n' * 6
+        + "import csv\nimport sys\n\nwith open(sys.argv[1]) as f:\n    linhas = list(csv.reader(f))\nprint(len(linhas))\n"
+        + 'print("=" * 60)\nprint("-" * 60)\nprint("=" * 60)\n' * 6
+    ),
     "longo_realista_renomeado": (
         "import argparse\nimport json\nfrom pathlib import Path\n\n"
         "def ler(p: Path) -> list[dict]:\n    return [json.loads(l) for l in p.read_text().splitlines() if l]\n\n"
@@ -71,7 +79,11 @@ def _codigo(corpo: str) -> str:
     return f": <<'ZZZ'\n{corpo}\nZZZ\n"
 
 
-def _simhash_do_binario(codigo: str) -> str:
+CAMPOS = ("code_simhash", "code_simhash_v2")  # v1 (weighted) and v2 (one vote per distinct shingle), 30.4.100+
+
+
+def _simhash_do_binario(codigo: str) -> dict[str, str]:
+    """Both journaled hashes for this code; a binary without v2 raises instead of yielding a half vector."""
     r = subprocess.run(
         ["touring", "run", "--lang", "bash", "--allow-repeat", "--code", codigo],
         capture_output=True, text=True, timeout=60, check=False,
@@ -83,10 +95,11 @@ def _simhash_do_binario(codigo: str) -> str:
     for _ in range(20):  # the journal append can trail the process exit by a few ms
         for linha in reversed(JOURNAL.read_text(encoding="utf-8").splitlines()[-200:]):
             if f'"{run_id}"' in linha:
-                valor = json.loads(linha).get("code_simhash")
-                if not valor:
-                    raise RuntimeError(f"{run_id} sem code_simhash no journal")
-                return valor
+                registro = json.loads(linha)
+                faltam = [c for c in CAMPOS if not registro.get(c)]
+                if faltam:
+                    raise RuntimeError(f"{run_id} sem {faltam} no journal — binário anterior ao 30.4.100?")
+                return {c: registro[c] for c in CAMPOS}
         time.sleep(0.05)
     raise RuntimeError(f"{run_id} não apareceu no journal")
 
@@ -98,10 +111,12 @@ def main() -> int:
     vetores = []
     for nome, corpo in CORPOS.items():
         codigo = _codigo(corpo)
-        vetores.append({"nome": nome, "codigo": codigo, "simhash_rust": _simhash_do_binario(codigo)})
+        h = _simhash_do_binario(codigo)
+        vetores.append({"nome": nome, "codigo": codigo, "simhash_rust": h["code_simhash"],
+                        "simhash_rust_v2": h["code_simhash_v2"]})
     versao = subprocess.run(["touring", "--version"], capture_output=True, text=True, check=False)
     dados = {
-        "origem": "touring run --allow-repeat → run_journal.jsonl code_simhash",
+        "origem": "touring run --allow-repeat → run_journal.jsonl code_simhash + code_simhash_v2",
         "binario": (versao.stdout or versao.stderr).strip().splitlines()[0],
         "gerado_em": time.strftime("%Y-%m-%d"),
         "vetores": vetores,
