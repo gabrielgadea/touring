@@ -496,15 +496,329 @@ fn bases(nivel: usize, raiz: &Path, origem: &Path) -> Vec<PathBuf> {
 
 /// `Some(inside_root)` when the module exists under `base`, `None` when it does not.
 fn modulo_em(base: &Path, partes: &[&str], raiz_real: &Path) -> Option<bool> {
-    let alvo = partes.iter().fold(base.to_path_buf(), |dir, p| dir.join(p));
-    let found = [alvo.with_extension("py"), alvo.join("__init__.py")]
-        .into_iter()
-        .find(|candidate| candidate.is_file())?;
+    let found = arquivo_modulo(base, partes)?;
     Some(
         found
             .canonicalize()
             .is_ok_and(|real| real.starts_with(raiz_real)),
     )
+}
+
+/// The real Python source of a module, never its stub: `<module>.py` or `<module>/__init__.py`.
+fn arquivo_modulo(base: &Path, partes: &[&str]) -> Option<PathBuf> {
+    let alvo = partes.iter().fold(base.to_path_buf(), |dir, p| dir.join(p));
+    [alvo.with_extension("py"), alvo.join("__init__.py")]
+        .into_iter()
+        .find(|candidate| candidate.is_file())
+}
+
+/// P0B2: pyright's stub can lag the runtime module in two ways that are not safe to deny. A package
+/// may expose a submodule only after another import (`urllib.error` via `urllib.request`), and a
+/// dynamic module may define a name omitted by the stub (`PIL.Image.LANCZOS`). Abstain only on
+/// positive filesystem/source evidence; an actually missing public attribute keeps denying.
+fn atributo_de_modulo_incerto(d: &Value, nome: &str, raiz: &Path, origem: &Path) -> bool {
+    let msg = mensagem(d);
+    if regra(d) != "reportAttributeAccessIssue" || !msg.contains(MODULE_ATTRIBUTE) {
+        return false;
+    }
+    if nome.is_empty() || !nome.chars().all(is_word_char) {
+        return false;
+    }
+    let Some(modulo) = modulo_citado(d, msg, "") else {
+        return false;
+    };
+    let partes: Vec<&str> = modulo.split('.').filter(|p| !p.is_empty()).collect();
+    if partes.is_empty() {
+        return false;
+    }
+    let raizes = raizes_de_busca(raiz, origem);
+    evidencia_de_modulo(&raizes, &partes, nome)
+}
+
+fn evidencia_de_modulo(raizes: &[PathBuf], partes: &[&str], nome: &str) -> bool {
+    let Some(base) = raizes
+        .iter()
+        .find(|base| arquivo_modulo(base, partes).is_some())
+    else {
+        return false;
+    };
+    let mut submodulo = partes.to_vec();
+    submodulo.push(nome);
+    if arquivo_modulo(base, &submodulo).is_some() {
+        return true;
+    }
+    arquivo_modulo(base, partes)
+        .and_then(|fonte| std::fs::read_to_string(fonte).ok())
+        .is_some_and(|fonte| fonte_define_nome(&fonte, nome))
+}
+
+/// Import roots of the selected venv, its matching base interpreter, and the project itself. The
+/// venv's `lib/pythonX.Y` fixes the base version, so another Python installed under the same prefix
+/// cannot supply the evidence.
+fn raizes_de_busca(raiz: &Path, origem: &Path) -> Vec<PathBuf> {
+    let mut raizes = bases(0, raiz, origem);
+    if let Some(venv) = venv_ativo(raiz) {
+        let mut locais = Vec::new();
+        let mut versoes = Vec::new();
+        for lib in [venv.join("lib"), venv.join("lib64")] {
+            acrescenta_raizes_python(&mut locais, &lib, &mut versoes);
+        }
+        if let Some((prefixo, pacotes_sistema)) = configuracao_python(&venv) {
+            let mut globais = Vec::new();
+            versoes.sort();
+            versoes.dedup();
+            for versao in versoes {
+                for lib in [prefixo.join("lib"), prefixo.join("lib64")] {
+                    let dir = lib.join(&versao);
+                    raizes.push(dir.clone());
+                    if pacotes_sistema {
+                        globais.push(dir.join("site-packages"));
+                        globais.push(dir.join("dist-packages"));
+                    }
+                }
+            }
+            // CPython: base stdlib → venv site-packages → system site-packages.
+            raizes.extend(locais);
+            raizes.extend(globais);
+        } else {
+            raizes.extend(locais);
+        }
+    }
+    raizes
+}
+
+/// The venv selected by [`locate_server`], or the first conventional one in test/client sessions.
+fn venv_ativo(raiz: &Path) -> Option<PathBuf> {
+    if let Some(server) = locate_server(raiz)
+        && let Some(venv) = server.python.parent().and_then(|bin| bin.parent())
+    {
+        return Some(venv.to_path_buf());
+    }
+    VENV_DIRS
+        .iter()
+        .map(|nome| raiz.join(nome))
+        .find(|candidato| candidato.is_dir())
+}
+
+fn configuracao_python(venv: &Path) -> Option<(PathBuf, bool)> {
+    let cfg = std::fs::read_to_string(venv.join("pyvenv.cfg")).ok()?;
+    let mut home = None;
+    let mut pacotes_sistema = false;
+    for linha in cfg.lines() {
+        let Some((chave, valor)) = linha.split_once('=') else {
+            continue;
+        };
+        match chave.trim() {
+            "home" => home = Some(PathBuf::from(valor.trim())),
+            "include-system-site-packages" => {
+                pacotes_sistema = valor.trim().eq_ignore_ascii_case("true");
+            }
+            _ => {}
+        }
+    }
+    let prefixo = home?.parent()?.to_path_buf();
+    Some((prefixo, pacotes_sistema))
+}
+
+fn acrescenta_raizes_python(raizes: &mut Vec<PathBuf>, lib: &Path, versoes: &mut Vec<String>) {
+    let Ok(entries) = std::fs::read_dir(lib) else {
+        return;
+    };
+    let mut dirs: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_dir()
+                && path
+                    .file_name()
+                    .and_then(|nome| nome.to_str())
+                    .is_some_and(|nome| nome.starts_with("python"))
+        })
+        .collect();
+    dirs.sort();
+    for dir in dirs {
+        if let Some(versao) = dir.file_name().and_then(|nome| nome.to_str()) {
+            versoes.push(versao.to_string());
+        }
+        raizes.push(dir.clone());
+        raizes.push(dir.join("site-packages"));
+        raizes.push(dir.join("dist-packages"));
+    }
+}
+
+/// Direct top-level evidence, or dynamic module publication together with the name as a real
+/// identifier. The second condition prevents an unrelated `setattr` loop from hiding a typo.
+fn fonte_define_nome(fonte: &str, nome: &str) -> bool {
+    let codigo = codigo_sem_comentarios(fonte);
+    let definicao_direta = codigo.lines().any(|linha| linha_define_nome(linha, nome));
+    definicao_direta || (publicacao_dinamica(&codigo) && contem_identificador(&codigo, nome))
+}
+
+/// Source outside comments and triple-quoted strings, preserving ordinary strings for recognizing
+/// `sys.modules[__name__]`. Single-line strings are handled separately by `contem_identificador`.
+fn codigo_sem_comentarios(fonte: &str) -> String {
+    let mut em_multilinha: Option<&str> = None;
+    let mut limpo = String::with_capacity(fonte.len());
+    for linha in fonte.lines() {
+        let comentario = linha.split('#').next().unwrap_or("");
+        let Some(codigo) = codigo_apos_fecho(comentario, &mut em_multilinha) else {
+            limpo.push('\n');
+            continue;
+        };
+        if let Some((inicio, delimitador)) = delimitador_multilinha(codigo) {
+            limpo.push_str(&codigo[..inicio]);
+            let depois = &codigo[inicio + delimitador.len()..];
+            if let Some(fim) = ocorrencia_nao_escapada(depois, delimitador) {
+                limpo.push_str(&depois[fim + delimitador.len()..]);
+            } else {
+                em_multilinha = Some(delimitador);
+            }
+        } else {
+            limpo.push_str(codigo);
+        }
+        limpo.push('\n');
+    }
+    limpo
+}
+
+fn publicacao_dinamica(codigo: &str) -> bool {
+    let setattr_modulo = codigo.contains("setattr(sys.modules[__name__]")
+        || (codigo.contains("module = sys.modules[__name__]")
+            && codigo.contains("setattr(module,"));
+    let atualiza_namespace =
+        codigo.contains("globals().update(") || codigo.contains("vars().update(");
+    let atribuicao_globals = codigo.match_indices("globals()[").any(|(inicio, _)| {
+        let resto = &codigo[inicio + "globals()[".len()..];
+        resto.find(']').is_some_and(|fim| {
+            let depois = resto[fim + 1..].trim_start();
+            depois.starts_with('=') && !depois.starts_with("==")
+        })
+    });
+    setattr_modulo || atualiza_namespace || atribuicao_globals
+}
+
+/// Identifier occurrence outside ordinary quoted strings, with Python identifier boundaries.
+fn contem_identificador(codigo: &str, nome: &str) -> bool {
+    if nome.is_empty() {
+        return false;
+    }
+    let mut em_string: Option<char> = None;
+    let mut escapado = false;
+    let mut inicio = 0;
+    while inicio < codigo.len() {
+        if consome_string(codigo, &mut inicio, &mut em_string, &mut escapado) {
+            continue;
+        }
+        if codigo[inicio..].starts_with(nome) {
+            let antes = codigo[..inicio].chars().next_back();
+            let depois = codigo[inicio + nome.len()..].chars().next();
+            if antes.is_none_or(|c| !is_word_char(c)) && depois.is_none_or(|c| !is_word_char(c)) {
+                return true;
+            }
+        }
+        let c = codigo[inicio..].chars().next().unwrap_or('\0');
+        inicio += c.len_utf8();
+    }
+    false
+}
+
+/// Consume one character inside a quoted string, or the quote that opens it. `true` means the
+/// caller should skip identifier recognition at this position.
+fn consome_string(
+    codigo: &str,
+    inicio: &mut usize,
+    em_string: &mut Option<char>,
+    escapado: &mut bool,
+) -> bool {
+    let c = codigo[*inicio..].chars().next().unwrap_or('\0');
+    if let Some(delimitador) = *em_string {
+        if *escapado {
+            *escapado = false;
+        } else if c == '\\' {
+            *escapado = true;
+        } else if c == delimitador {
+            *em_string = None;
+        }
+        *inicio += c.len_utf8();
+        return true;
+    }
+    if c == '"' || c == '\'' {
+        *em_string = Some(c);
+        *inicio += c.len_utf8();
+        return true;
+    }
+    false
+}
+
+fn codigo_apos_fecho<'a>(codigo: &'a str, em_multilinha: &mut Option<&str>) -> Option<&'a str> {
+    let Some(delimitador) = *em_multilinha else {
+        return Some(codigo);
+    };
+    let fim = ocorrencia_nao_escapada(codigo, delimitador)?;
+    *em_multilinha = None;
+    Some(&codigo[fim + delimitador.len()..])
+}
+
+fn ocorrencia_nao_escapada(codigo: &str, delimitador: &str) -> Option<usize> {
+    let mut inicio = 0;
+    while let Some(pos) = codigo[inicio..].find(delimitador) {
+        let encontrado = inicio + pos;
+        let barras = codigo.as_bytes()[..encontrado]
+            .iter()
+            .rev()
+            .take_while(|byte| **byte == b'\\')
+            .count();
+        if barras % 2 == 0 {
+            return Some(encontrado);
+        }
+        inicio = encontrado + delimitador.len();
+    }
+    None
+}
+
+fn delimitador_multilinha(codigo: &str) -> Option<(usize, &'static str)> {
+    match (
+        ocorrencia_nao_escapada(codigo, "\"\"\""),
+        ocorrencia_nao_escapada(codigo, "'''"),
+    ) {
+        (Some(duplas), Some(simples)) if duplas <= simples => Some((duplas, "\"\"\"")),
+        (Some(_), Some(simples)) => Some((simples, "'''")),
+        (Some(duplas), None) => Some((duplas, "\"\"\"")),
+        (None, Some(simples)) => Some((simples, "'''")),
+        (None, None) => None,
+    }
+}
+
+fn linha_define_nome(codigo: &str, nome: &str) -> bool {
+    atribuicao_de_nome(codigo, nome) || getattr_de_modulo(codigo)
+}
+
+fn atribuicao_de_nome(codigo: &str, nome: &str) -> bool {
+    let Some(resto) = codigo.strip_prefix(nome) else {
+        return false;
+    };
+    let resto = resto.trim_start();
+    resto
+        .strip_prefix('=')
+        .is_some_and(|tail| !tail.starts_with('='))
+        || (resto.starts_with(':')
+            && resto
+                .split_once('=')
+                .is_some_and(|(_, tail)| !tail.starts_with('=')))
+}
+
+fn getattr_de_modulo(codigo: &str) -> bool {
+    let Some(resto) = codigo.strip_prefix("def") else {
+        return false;
+    };
+    let Some(resto) = skip_required_space(resto) else {
+        return false;
+    };
+    resto.strip_prefix("__getattr__").is_some_and(|tail| {
+        tail.chars()
+            .next()
+            .is_none_or(|c| c == '(' || c.is_whitespace())
+    })
 }
 
 /// The virtual file an inline program (`<string>`, `<stdin>`) is opened as: `<raiz>/.vgp_inline_<hash>.py`.
@@ -656,6 +970,13 @@ fn achados_de(diags: &[Value], pedido: &Pedido<'_>, raiz: &Path) -> Vec<L2Achado
             if membro_nao_publico_de_modulo_externo(d, &nome, escopo) {
                 return None;
             }
+            let escopo = if escopo == Escopo::Externo
+                && atributo_de_modulo_incerto(d, &nome, raiz, &pedido.origem)
+            {
+                Escopo::Dinamico
+            } else {
+                escopo
+            };
             Some(L2Achado {
                 classe: classe_do_achado(d).to_string(),
                 nome,
@@ -1826,5 +2147,304 @@ while True:
         let r = s.check("<string>", "# modattr _ajuda pkg\n", None, &[]);
         assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
         assert_eq!(r.achados[0].escopo, Escopo::Projeto);
+    }
+
+    fn venv_com_base(tree: &TempTree) {
+        tree.file(".venv/lib/python3.12/site-packages/.keep", "");
+        let home = tree.root.join("base/bin");
+        tree.file(".venv/pyvenv.cfg", &format!("home = {}\n", home.display()));
+    }
+
+    fn stdlib(tree: &TempTree, rel: &str, body: &str) {
+        tree.file(&format!("base/lib/python3.12/{rel}"), body);
+    }
+
+    #[test]
+    fn p0b2_arquivo_urllib_error_submodulo_carregado_abstem() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        stdlib(&tree, "urllib/__init__.py", "");
+        stdlib(
+            &tree,
+            "urllib/error.py",
+            "class URLError(OSError):\n    pass\n",
+        );
+        let path = tree.file("ddc0a56fb49f.py", "");
+        let r = s.check(
+            &path.to_string_lossy(),
+            "import urllib.request\n# modattr error urllib\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Warn, "{r:?}");
+        assert_eq!(r.achados.len(), 1, "{r:?}");
+        assert_eq!(r.achados[0].classe, "atributo");
+        assert_eq!(r.achados[0].escopo, Escopo::Dinamico);
+        assert_eq!(r.achados[0].severidade, Severidade::Warn);
+    }
+
+    #[test]
+    fn p0b2_arquivo_urllib_error_pacote_carregado_abstem() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        stdlib(&tree, "urllib/__init__.py", "");
+        stdlib(
+            &tree,
+            "urllib/error/__init__.py",
+            "class HTTPError(Exception):\n    pass\n",
+        );
+        let path = tree.file("056b54167b0b.py", "");
+        let r = s.check(
+            &path.to_string_lossy(),
+            "import urllib.request\n# modattr error urllib\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Warn, "{r:?}");
+        assert_eq!(r.achados.len(), 1, "{r:?}");
+        assert_eq!(r.achados[0].classe, "atributo");
+        assert_eq!(r.achados[0].escopo, Escopo::Dinamico);
+        assert_eq!(r.achados[0].severidade, Severidade::Warn);
+    }
+
+    #[test]
+    fn p0b2_inline_pil_image_lanczos_dinamico_abstem() {
+        let (tree, mut s) = session(5000);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/PIL/Image.py",
+            r##"class Resampling:
+    LANCZOS = 1
+
+module = sys.modules[__name__]
+for enum in (Resampling,):
+    for item in enum:
+        setattr(module, item.name, item.value)
+"##,
+        );
+        let r = s.check(
+            "<string>",
+            "from PIL import Image\n# modattr LANCZOS PIL.Image\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Warn, "{r:?}");
+        assert_eq!(r.achados.len(), 1, "{r:?}");
+        assert_eq!(r.achados[0].classe, "atributo");
+        assert_eq!(r.achados[0].escopo, Escopo::Dinamico);
+        assert_eq!(r.achados[0].severidade, Severidade::Warn);
+    }
+
+    #[test]
+    fn p0b2_modulo_dinamico_sem_o_nome_continua_negando() {
+        let (tree, mut s) = session(5000);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/PIL/Image.py",
+            r##"class Resampling:
+    LANCZOS = 1
+
+module = sys.modules[__name__]
+for item in Resampling:
+    setattr(module, item.name, item.value)
+"##,
+        );
+        let r = s.check("<string>", "# modattr FOOBAR PIL.Image\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_nome_so_em_comentario_ou_docstring_continua_negando() {
+        let (tree, mut s) = session(5000);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/PIL/Image.py",
+            r##"# FOOBAR = 4
+"""
+FOOBAR = 4
+"""
+module = sys.modules[__name__]
+setattr(module, "outro", 1)
+"##,
+        );
+        let r = s.check("<string>", "# modattr FOOBAR PIL.Image\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+    }
+
+    #[test]
+    #[ignore = "needs the analise venv"]
+    fn p0b2_pillow_real_lanczos_abstem_e_foobar_nega() {
+        let imagem = Path::new(
+            "/home/gabrielgadea/projects/analise/.venv/lib/python3.12/site-packages/PIL/Image.py",
+        );
+        if !imagem.is_file() {
+            eprintln!("Pillow real ausente: {}", imagem.display());
+            return;
+        }
+        let Some(raiz) = imagem.parent() else {
+            eprintln!("Pillow sem diretório pai: {}", imagem.display());
+            return;
+        };
+        let Some(raiz) = raiz.parent() else {
+            eprintln!("Pillow sem site-packages: {}", imagem.display());
+            return;
+        };
+        let fonte = fs::read_to_string(imagem).expect("Image.py real deve ser legível");
+        let codigo = codigo_sem_comentarios(&fonte);
+        assert!(
+            codigo.contains("module = sys.modules[__name__]"),
+            "a sanitização perdeu a ligação do módulo"
+        );
+        assert!(
+            publicacao_dinamica(&codigo),
+            "a publicação dinâmica real não foi reconhecida"
+        );
+        assert!(
+            contem_identificador(&codigo, "LANCZOS"),
+            "LANCZOS não foi reconhecido como identificador no código real"
+        );
+        assert!(
+            arquivo_modulo(raiz, &["PIL", "Image"]).is_some(),
+            "o resolvedor não encontrou Image.py"
+        );
+        assert!(
+            fonte_define_nome(&fonte, "LANCZOS"),
+            "o predicado completo não reconheceu LANCZOS"
+        );
+        let raizes = vec![raiz.to_path_buf()];
+        assert!(
+            evidencia_de_modulo(&raizes, &["PIL", "Image"], "LANCZOS"),
+            "LANCZOS deve ser encontrado no Image.py real"
+        );
+        assert!(
+            !evidencia_de_modulo(&raizes, &["PIL", "Image"], "FOOBAR"),
+            "FOOBAR não pode ser inferido da publicação dinâmica"
+        );
+        println!("Pillow real verificado: {}", imagem.display());
+    }
+
+    #[test]
+    fn p0b2_modulo_com_getattr_abstem() {
+        let (tree, mut s) = session(5000);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/dinamico.py",
+            "def __getattr__(nome):\n    return 42\n",
+        );
+        let r = s.check(
+            "<string>",
+            "import dinamico\n# modattr qualquer dinamico\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Warn, "{r:?}");
+        assert_eq!(r.achados[0].classe, "atributo");
+        assert_eq!(r.achados[0].escopo, Escopo::Dinamico);
+    }
+
+    #[test]
+    fn p0b2_atributo_realmente_inexistente_continua_negando() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        stdlib(&tree, "urllib/__init__.py", "");
+        stdlib(&tree, "urllib/request.py", "def urlopen():\n    pass\n");
+        let r = s.check(
+            "<string>",
+            "import urllib.request\n# modattr nao_existe urllib.request\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+        assert_eq!(nomes(&r), ["nao_existe"], "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_unknown_import_symbol_continua_negando() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        stdlib(&tree, "urllib/__init__.py", "");
+        stdlib(&tree, "urllib/request.py", "def urlopen():\n    pass\n");
+        let r = s.check(
+            "<string>",
+            "from urllib.request import nao_existe  # unk\n",
+            None,
+            &[],
+        );
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+        assert_eq!(r.achados[0].classe, "import");
+        assert_eq!(nomes(&r), ["nao_existe"], "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_privado_com_getattr_segue_sem_achado() {
+        let (tree, mut s) = session(5000);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/pkg/__init__.py",
+            "def __getattr__(nome):\n    return 42\n",
+        );
+        let r = s.check("<string>", "# modattr _impl pkg\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Allow, "{r:?}");
+        assert!(r.achados.is_empty(), "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_pacote_global_fora_do_venv_nao_abstem() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        tree.file(
+            "base/lib/python3.12/site-packages/globalpkg.py",
+            "nao_existe = 1\n",
+        );
+        let r = s.check("<string>", "# modattr nao_existe globalpkg\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_primeira_ocorrencia_do_modulo_decide() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        tree.file(
+            ".venv/lib/python3.12/site-packages/sombra.py",
+            "nao_existe = 1\n",
+        );
+        stdlib(&tree, "sombra.py", "");
+        let r = s.check("<string>", "# modattr nao_existe sombra\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_venv_precede_pacotes_globais_quando_habilitados() {
+        let (tree, mut s) = session(5000);
+        venv_com_base(&tree);
+        let home = tree.root.join("base/bin");
+        tree.file(
+            ".venv/pyvenv.cfg",
+            &format!(
+                "home = {}\ninclude-system-site-packages = true\n",
+                home.display()
+            ),
+        );
+        tree.file(".venv/lib/python3.12/site-packages/sombra.py", "");
+        tree.file(
+            "base/lib/python3.12/site-packages/sombra.py",
+            "nao_existe = 1\n",
+        );
+        let r = s.check("<string>", "# modattr nao_existe sombra\n", None, &[]);
+        assert_eq!(r.verdict, Verdict::Deny, "{r:?}");
+    }
+
+    #[test]
+    fn p0b2_fonte_ignora_comparacao_e_docstring() {
+        assert!(!fonte_define_nome("len == 4\n", "len"));
+        assert!(!fonte_define_nome("len: int\n", "len"));
+        assert!(!fonte_define_nome(
+            "\"\"\"\nlen = 4\ndef __getattr__(nome):\n\"\"\"\n",
+            "len"
+        ));
+        assert!(!fonte_define_nome(
+            r##""""
+\"""
+len = 4
+"""
+"##,
+            "len"
+        ));
+        assert!(fonte_define_nome("len = 4\n", "len"));
     }
 }
