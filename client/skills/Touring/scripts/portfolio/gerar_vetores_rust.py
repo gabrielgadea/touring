@@ -15,6 +15,7 @@ Writes ``vetores_rust.json`` beside this file; refuses to overwrite unless ``--s
 Non-Latin scripts are stored as ``\\uXXXX`` escapes (lossless) so no raw foreign character lands in
 versioned prose.
 """
+
 from __future__ import annotations
 
 import json
@@ -86,7 +87,10 @@ def _simhash_do_binario(codigo: str) -> dict[str, str]:
     """Both journaled hashes for this code; a binary without v2 raises instead of yielding a half vector."""
     r = subprocess.run(
         ["touring", "run", "--lang", "bash", "--allow-repeat", "--code", codigo],
-        capture_output=True, text=True, timeout=60, check=False,
+        capture_output=True,
+        text=True,
+        timeout=60,
+        check=False,
     )
     inicio = r.stdout.find("{")
     if inicio < 0:
@@ -112,8 +116,9 @@ def main() -> int:
     for nome, corpo in CORPOS.items():
         codigo = _codigo(corpo)
         h = _simhash_do_binario(codigo)
-        vetores.append({"nome": nome, "codigo": codigo, "simhash_rust": h["code_simhash"],
-                        "simhash_rust_v2": h["code_simhash_v2"]})
+        vetores.append(
+            {"nome": nome, "codigo": codigo, "simhash_rust": h["code_simhash"], "simhash_rust_v2": h["code_simhash_v2"]}
+        )
     versao = subprocess.run(["touring", "--version"], capture_output=True, text=True, check=False)
     dados = {
         "origem": "touring run --allow-repeat → run_journal.jsonl code_simhash + code_simhash_v2",
