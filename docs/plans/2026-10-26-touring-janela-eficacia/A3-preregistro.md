@@ -1,7 +1,7 @@
 ---
 fase: S-12 (A3) — desfecho por quase-experimento (d) [T-A3]
 pre_registrado_em: 2026-10-27 (BRT) — a hora vale pelo commit deste arquivo
-status: pré-registrado; ativação depende do deploy 30.4.99 e do sim do Gabriel ao mecanismo de troca (§5)
+status: ENCERRADO no dia 0 (29/10/2026 17:26) por decisão do Gabriel, sem análise de eficácia; ver §"Encerramento" no fim
 ---
 
 # A3 — pré-registro do quase-experimento `full` × `no-advisory`
@@ -161,3 +161,20 @@ sessões são identificáveis e o relatório as conta.
   constante nos dois braços.
 - Desfecho por tarefa com juiz (testes verdes por tarefa): é o piloto pago (c), que só
   roda com sinal daqui e orçamento aprovado.
+
+## Encerramento (29/10/2026 17:26, dia 0)
+
+O Gabriel encerrou o A3 no próprio dia 0: o congelamento (nenhum deploy, `settings.json` nem
+hook vivo que injeta contexto, em todos os projetos, até 06/11) travava várias frentes, e a
+correção de uma falha aberta do gate P0 de segredos (F2.4, `4a93eac0`) estava parada sem deploy.
+Os timers `a3-{arm,reset}` foram desligados (`systemctl --user disable --now`); o `settings.json`
+ficou no nível `full`, a chave ausente, exatamente como estava. `a3-calendario.json` volta a
+`day0: null`, com a data original e o motivo em `encerrado`.
+
+**Nenhuma conclusão sobre eficácia sai deste A3.** Só houve braço A, por cerca de quatro horas
+com a máquina ligada (13:08–17:26). O dia 0 fica como piloto do mecanismo: ele mostrou que o
+cron não disparava com a máquina dormindo (emenda do §5) e que o ambiente estava misto
+(correção do ambiente no §3). O default de injeção continua `full`. Refazer o A3 exige uma
+janela planejada de 8 dias sem deploy, com o ambiente homogêneo (todos os projetos na mesma
+versão) e o mecanismo por timer já pronto (`a3_arm.py`, `a3-{arm,reset}.{service,timer}` em
+`~/.config/systemd/user/`, hoje desabilitados).

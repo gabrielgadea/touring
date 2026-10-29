@@ -624,3 +624,10 @@ reset virou `a3_arm.py reset` (recusa com bloco em curso). O one-liner antigo do
 falhava com `SyntaxError` quando testado pelo systemd. Emenda no pré-registro §5, antes
 da 1ª troca. O teste do calendário (`..._inactive_and_valid`) estava vermelho desde a
 ativação (`a7651e9d`) e passou a fixar o calendário ativado; 48 testes.
+
+**A3 encerrado no dia 0 (29/10 17:26, decisão do Gabriel)**: o congelamento travava várias
+frentes, e a correção do F2.4 (falha aberta do gate de segredos) estava parada sem deploy.
+Timers desligados, `settings.json` no nível `full` (como estava), calendário de volta a
+`day0: null`. Nenhuma conclusão de eficácia; o dia 0 serviu de piloto do mecanismo. O
+deploy da versão seguinte sai hoje, com os consertos de 28–29/10. A3 a refazer numa janela
+planejada; D2 (calibração) e a decisão do default ficam sem o dado do A3 até lá.
