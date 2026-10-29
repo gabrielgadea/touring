@@ -35,6 +35,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | DAG VGP limpo: V1, V0e1b, V2, V5, P2, P95C → completed; F21INNER → failed (fora do plano); P0B2 e JUIZ-TIMEOUT com id limpo; V3 passa a depender deles | `touring decompose validate` → valid, sem ciclos |
 | Worktree `touring-wt-c1b` removido (snapshot `9b3547de` em `feat/c1c-cves`) | `git worktree list` |
 | Nota obsoleta de `p2-redesign-gate-semelhanca.md` descartada (snapshot `32978c55` em `safety/2026-10-29-p2-redesign-nota`) | `git status` limpo no arquivo |
+| **V-2 JUIZ-TIMEOUT** (touring-c1, revisada pela touring-cb): pré-registro, juiz com `INCONCLUSIVO` (exit 3), classe `medida` no `hw-slot` | `69d824a6`, `c59840bd`; 19/19 cenários, 4 mutantes mortos, `test_hw_slot.py` 34 passed; DAG `JUIZ-TIMEOUT` → completed |
 
 ---
 
@@ -45,8 +46,8 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | # | Item | P | Tam. | Depende de | O que fazer | Evidência |
 |---|---|---|---|---|---|---|
 | V-1 | **P0B2** — camada 2 nega atributo que existe | P0 | M | — | Rebaixar a aviso/abster quando o submódulo existe em disco ou a camada 1 confirma dinamismo; 3 regressões (`urllib.error` ×2: `ddc0a56fb49f`, `056b54167b0b`; `PIL.Image.LANCZOS`: `94a5472efe4c`); re-julgar num held-out **novo** selado (o 20261013f foi gasto) | `crates/touring-pyright/src/pyright.rs:59,321` (`NEGA_MODULO`); `diagnostics/j13/5c7b3d80_v3.json:65-110` |
-| V-2 | **JUIZ-TIMEOUT** — juiz lê veredito com a camada 2 em timeout | P0 | M | — | Novo pré-registro; contar timeouts por run e declarar `INCONCLUSIVO` acima do patamar do A/A (fail-closed), com testes e mutantes; classe de medição exclusiva no `hw-slot` (toma rust + heavy) | `docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py`; `RELATORIO-INT97I-FASE-D.md:49-59` (521/738 timeouts) |
-| V-3 | **V3** — camada 2 PRONTA | P0 | M | V-1, V-2 | Medir o daemon quente (o juiz mede CLI fria; DOC-V3-HOT-DAEMON) e re-julgar | `diagnostics/j13/5c7b3d80_v3.out` (2/600 falsos, CP95 1,05%, p95 1.027 ms, `NÃO PRONTO`) |
+| V-2 | ~~**JUIZ-TIMEOUT**~~ **FEITO em 29/10** (`c59840bd`); resta re-derivar o patamar (20%, provisório) quando a classe `medida` produzir um A/A por id | P0 | M | — | Novo pré-registro; contar timeouts por run e declarar `INCONCLUSIVO` acima do patamar do A/A (fail-closed), com testes e mutantes; classe de medição exclusiva no `hw-slot` (toma rust + heavy) | `docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py`; `RELATORIO-INT97I-FASE-D.md:49-59` (521/738 timeouts) |
+| V-3 | **V3** — camada 2 PRONTA | P0 | M | V-1 (V-2 feito) | Medir o daemon quente (o juiz mede CLI fria; DOC-V3-HOT-DAEMON) e re-julgar | `diagnostics/j13/5c7b3d80_v3.out` (2/600 falsos, CP95 1,05%, p95 1.027 ms, `NÃO PRONTO`) |
 | V-4 | **INTADAPT** — integrar os adaptadores multi-linguagem | P1 | XL | — | Reconciliar `touring-wt-adapt` (base `c118aa52`, 09/10) com o main; reaplicar vtransv E1, vts, vhtml+política, vrs, F21K; build, gates, binário reproduzível, juízes por id, `RELATORIO-INT-ADAPT.md` | `crates/touring-code/src/vgp/lang/{rust,html}.rs` ainda stubs; `diagnostics/int-adapt/simulacao.txt` |
 | V-5 | **F21K** — URL `javascript:` constante inerte | P2 | S | V-4 | Integrar `is_inert_constant_url`, testar constantes/payloads/concatenação, registrar aceite | só no worktree; main tem só o F21 posicional (`cwe_patterns.rs:138-141`) |
 | V-6 | **VRS** — aceite do adaptador Rust | P1 | M | V-4 | Julgar no HORUST-REAL e corpora de dev (warns, `use super::*`, cfg, deny efetivo) | `RELATORIO-VRS.md:78,120-126` (recall de nome 5/20) |
@@ -63,7 +64,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 |---|---|---|---|---|---|
 | I-1 | **Régua `context_budget`** — o instrumento que vai decidir o default | P0 | M | Piso de amostra (abaixo dele, "não medido" em vez de FAIL; hoje reprova com n=3); `denied` no denominador do `injection_follow_ratio`; implementar `fact_kb` e `nudge_follow_ratio` | `crates/touring-cli/src/cli/context_budget.rs:757-758,842-845`; 0 ocorrências de `fact_kb` |
 | I-2 | **Nível corrente no KPI** | P1 | S | Expor `injection_level` e `injection_suppressed_bytes_count`/`_blocks_count` no `kpi`/`gate-metrics` | 0 ocorrências de `injection_level` na CLI |
-| I-3 | **`HookResponse` duplicado** (§8.7 passo 0) | P2 | M (L3) | Remover o enum de `touring-hook-runtime` e reexportar o canônico | `hook_runtime.rs:61` × `touring-hooks-core/src/hook_response.rs:102` |
+| I-3 | **`HookResponse` duplicado** (§8.7 passo 0) | P2 | M (L3) | Remover o enum de `touring-hook-runtime` e reexportar o canônico | `crates/touring-hook-runtime/src/hook_runtime.rs:61` × `crates/touring-hooks-core/src/hook_response.rs:102` |
 | I-4 | **Invariante "So what?"** | P2 | L | Predicado único sobre o payload de todo injetor (hoje só declarado em `pre_read.rs:3-4`, com 1 teste); ~34% do contexto o viola | `ANALISE-CONSOLIDADA.md` §11.4 |
 | I-5 | **Taxonomia residual** | P3 | S | Reduzir os ~10,4% que caem em `other` | `round4/RELATORIO-RODADA-4.md:127` |
 
@@ -100,7 +101,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | 3.4 | **A/B do compactador (B1) e do mod de evicção (B3m)** | 3.1 | `TOURING_RESULT_COMPACTOR` (desligado) e `tools/mods/touring-compact-evict` (não instalado), cada um com seu A/B |
 | 3.5 | **Calibração D2** (Phase 4) | 3.1 | Calibrar gates e compactadores com dado |
 | 3.6 | **VGP V0e5** — remedição dos gates | 3.2 | `scripts/v0e_negacoes.py --desde/--ate` congelados, janela pós-deploy, S3/G10/write→run/G3/G11 separados, com denominador e IC |
-| 3.7 | **VGP V4 → V6 → J** | V-3, 3.2 | Ligar o deny e coletar 5 sessões com zero falso deny (`scripts/juiz_v4_sessoes.py` hoje dá exit 3); V6 aplica o ponteiro em `analise/.claude/rules/vgp-protocol.md` + docs/skill/espelho; J roda `juiz_plano_vgp.py`, `prova_vgp_motor.py` e a convergência no binário final |
+| 3.7 | **VGP V4 → V6 → J** | V-3, 3.2 | Ligar o deny e coletar 5 sessões com zero falso deny (`scripts/juiz_v4_sessoes.py` hoje dá exit 3); V6 aplica o ponteiro em `~/projects/analise/.claude/rules/vgp-protocol.md` (hoje 6.326 bytes, o protocolo antigo) + docs/skill/espelho; J roda `juiz_plano_vgp.py`, `prova_vgp_motor.py` e a convergência no binário final |
 | 3.8 | **VGP A6HTML → JHTML** | V-7, V-8 | Sessão Kimi nova no mesmo modo de permissão lê o brief `briefs/2026-10-10-a6-revisao-html-whatwg.md`; depois JHTML por id com `--exigir-limite-superior` |
 | 3.9 | **Aplicar V-11 ao vivo** | V-11 | Provar que o gate P0 não falha aberto sob contenção |
 | 3.10 | **analise: default do `simhash.py`** | 3.2 | A troca da analise-40, que espera o congelamento |
@@ -121,10 +122,9 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 
 ## Ordem recomendada para "agora"
 
-1. **V-1 P0B2 + V-2 JUIZ-TIMEOUT** (em curso desde 29/10 ~14:50: P0B2 com a touring-7e/Kimi em
-   `crates/touring-pyright/**`, JUIZ-TIMEOUT com a touring-c1/MiniMax no juiz, no pré-registro
-   novo e no `hw-slot`; nenhuma das duas commita, a touring-cb revisa e commita): há falso deny
-   real, e o próprio instrumento perde denies.
+1. **V-1 P0B2** (em curso desde 29/10 ~14:50 com a touring-7e/Kimi em `crates/touring-pyright/**`;
+   `pyright.rs` já modificado no working tree; ela não commita, a touring-cb revisa e commita): há
+   falso deny real. A V-2 JUIZ-TIMEOUT foi entregue e commitada no mesmo dia.
 2. **I-1 + I-2**: a régua precisa estar certa **antes** da análise do A3 em 06/11.
 3. **T-1 + T-2**: o journal é insumo do gate de repetição e do KPI.
 4. **V-4 INTADAPT**, que destrava V-5…V-9 e V-12.
