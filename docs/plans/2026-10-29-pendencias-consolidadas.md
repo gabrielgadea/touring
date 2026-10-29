@@ -35,6 +35,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | DAG VGP limpo: V1, V0e1b, V2, V5, P2, P95C → completed; F21INNER → failed (fora do plano); P0B2 e JUIZ-TIMEOUT com id limpo; V3 passa a depender deles | `touring decompose validate` → valid, sem ciclos |
 | Worktree `touring-wt-c1b` removido (snapshot `9b3547de` em `feat/c1c-cves`) | `git worktree list` |
 | Nota obsoleta de `p2-redesign-gate-semelhanca.md` descartada (snapshot `32978c55` em `safety/2026-10-29-p2-redesign-nota`) | `git status` limpo no arquivo |
+| **V-1 P0B2** (touring-7e, revisada pela touring-cb; o caso PIL voltou uma vez porque a fixture não tinha a forma real do Pillow): abstenção com evidência positiva nas raízes do venv | `3675ed2c`; 191+2+1 testes, 15 com pyright real, teste contra o `Image.py` instalado, 3 mutantes mortos; DAG `P0B2` → completed |
 | **V-2 JUIZ-TIMEOUT** (touring-c1, revisada pela touring-cb): pré-registro, juiz com `INCONCLUSIVO` (exit 3), classe `medida` no `hw-slot` | `69d824a6`, `c59840bd`; 19/19 cenários, 4 mutantes mortos, `test_hw_slot.py` 34 passed; DAG `JUIZ-TIMEOUT` → completed |
 
 ---
