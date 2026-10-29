@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """hw-slot — machine-wide semaphore for heavy jobs (kernel-enforced, not a convention).
 
-    hw-slot [--class heavy|rust] [--wait S] [--max-temp C] [--min-mem-gb N] [--label TXT] -- <cmd...>
+    hw-slot [--class heavy|rust|medida] [--wait S] [--max-temp C] [--min-mem-gb N] [--label TXT] -- <cmd...>
     hw-slot --status
 
 Why it exists: on this i9-14900HX the trigger of the machine checks is heavy
@@ -13,6 +13,12 @@ Classes (design agreed with the analise coordinator, 02/10/2026)
   heavy  full pytest / judge / OCR / GPU batch — 2 slots machine-wide.
   rust   cargo build/test/clippy — exactly 1 machine-wide (the MCE trigger), and it
          ALSO takes a heavy slot, so total concurrent heavy jobs stay <= 2.
+  medida a MEASUREMENT run that has to see a quiet machine (the VGP latency judge): it takes
+         the rust slot AND EVERY heavy slot, so no other heavy/rust job can run beside it — a
+         measurement that shares the machine with a neighbour measures the neighbour. It also
+         takes its own `medida-1` slot (1 machine-wide) so two measurements never overlap.
+         `--status` keeps listing rust+heavy only (the classes that admit work); the exclusive
+         run shows up in the log with class=medida and in the holders of the rust/heavy slots.
 
 Contract
   * Slots are flock'd files held by the WRAPPER for exactly as long as the job runs; the
@@ -71,7 +77,8 @@ def slot_dir():
 
 def counts():
     return {"rust": int(os.environ.get("HW_SLOT_RUST_COUNT", "1")),
-            "heavy": int(os.environ.get("HW_SLOT_COUNT", "2"))}
+            "heavy": int(os.environ.get("HW_SLOT_COUNT", "2")),
+            "medida": int(os.environ.get("HW_SLOT_MEDIDA_COUNT", "1"))}
 
 
 def lock_names(cls):
@@ -215,12 +222,30 @@ def inherited_holds():
     return out
 
 
-def try_acquire_all(classes):
-    """One slot per class, atomically: every class or nothing (no hold-and-wait)."""
+def try_acquire_all(classes, exclusivos=(), held=()):
+    """One slot per class, atomically: every class or nothing (no hold-and-wait).
+
+    A class in `exclusivos` has ALL of its slots taken — é o que faz a medição ter a máquina
+    sozinha (a medida com vizinho mede o vizinho). Os slots que a MESMA árvore já segura
+    (`held`) são pulados: re-flocar um lock que o próprio processo tem é deadlock."""
     d = slot_dir()
     d.mkdir(parents=True, exist_ok=True)
     got = []
     for cls in classes:
+        if cls in exclusivos:
+            fds = []
+            for name in [n for n in lock_names(cls) if n not in held]:
+                fd = os.open(lock_path(name), os.O_CREAT | os.O_RDWR, 0o600)
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    os.close(fd)
+                    for _, outro in got + fds:
+                        os.close(outro)
+                    return None
+                fds.append((name, fd))
+            got.extend(fds)
+            continue
         for name in lock_names(cls):
             fd = os.open(lock_path(name), os.O_CREAT | os.O_RDWR, 0o600)
             try:
@@ -278,7 +303,7 @@ def parse(argv):
         argv, cmd = argv[:i], argv[i + 1:]
     p = Parser(prog="hw-slot")
     p.add_argument("--status", action="store_true")
-    p.add_argument("--class", dest="cls", choices=("heavy", "rust"), default="heavy")
+    p.add_argument("--class", dest="cls", choices=("heavy", "rust", "medida"), default="heavy")
     p.add_argument("--wait", type=float, default=float(os.environ.get("HW_SLOT_WAIT_SECS", "600")))
     p.add_argument("--max-temp", type=float, default=float(os.environ.get("HW_SLOT_MAX_TEMP", "88")))
     p.add_argument("--min-mem-gb", type=float, default=float(os.environ.get("HW_SLOT_MIN_MEM_GB", "12")))
@@ -300,13 +325,25 @@ def acquire(a):
     """
     held = inherited_holds()
     needed = ["rust", "heavy"] if a.cls == "rust" else ["heavy"]
-    missing = [c for c in needed if not any(n.startswith(c + "-") for n in held)]
+    exclusivos = set()
+    if a.cls == "medida":
+        # A medição quer a máquina sozinha: rust + TODOS os heavy + o slot dela própria.
+        needed = ["medida", "rust", "heavy"]
+        exclusivos = {"medida", "rust", "heavy"}
+    missing = []
+    for c in needed:
+        if c in exclusivos:
+            # classe exclusiva: só passa direto se JÁ temos TODOS os slots dela (reentrância)
+            if not all(any(n == s for n in held) for s in lock_names(c)):
+                missing.append(c)
+        elif not any(n.startswith(c + "-") for n in held):
+            missing.append(c)
     t0, warned, announced = time.time(), set(), False
     poll = float(os.environ.get("HW_SLOT_POLL_SECS", "2"))
     while True:
         why, temp, mem = blockers(a.max_temp, a.min_mem_gb, a.min_vram_gb, warned)
         if not why:
-            new = try_acquire_all(missing) if missing else []
+            new = try_acquire_all(missing, exclusivos, set(held)) if missing else []
             if new is not None:
                 return held, new, temp, mem, time.time() - t0
             why = [f"slot — {'+'.join(missing)} ocupado: {holders_summary()}"]

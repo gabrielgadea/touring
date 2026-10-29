@@ -72,6 +72,12 @@ CONF_LIMITE = (
     0.95  # confiança do limite superior UNILATERAL do falso deny (Clopper-Pearson)
 )
 LIMIAR_P95_MS = 150.0
+# JUIZ-TIMEOUT (29/10/2026 — PREREGISTRO-JUIZ-TIMEOUT-2026-10-29.md): a camada 2 (pyright) que estourou o prazo
+# devolve `allow` sem achado; o juiz contava essa chamada como negativo sem deny e perdia denies, o que FAVORECE
+# o critério de falso deny. Acima do patamar do A/A o run declara INCONCLUSIVO (exit 3), nunca PRONTO.
+PATAMAR_TIMEOUTS_CAMADA2 = 0.20
+EXIT_INCONCLUSIVO = 3
+PREFIXO_TIMEOUT_CAMADA2 = "unknown: prazo de"
 ORIGENS_ARQUIVO = (
     "atribuido",
     "tmp",
@@ -239,6 +245,11 @@ def novo_acumulador() -> dict:
         "negativos": {"arquivo": 0, "inline": 0},
         "avisos_em_negativos": 0,
         "defeito_de_corpus": [],
+        # camada 2 (JUIZ-TIMEOUT): o estado que o MOTOR devolveu por chamada — contagem feita no acumulador,
+        # nunca no dicionário do motor (o wrapper instrumentado grava tudo que o `rodar_motor` devolve).
+        "timeouts_camada2": 0,
+        "camada2_sem_veredito": 0,
+        "camada2_observadas": 0,
     }
 
 
@@ -298,6 +309,59 @@ def snap_compila(corpus: Path, e: dict) -> bool:
     return True
 
 
+def contar_estado_camada2(m: dict, saida: dict) -> None:
+    """O estado da camada 2 que o MOTOR devolveu nesta chamada (JUIZ-TIMEOUT).
+
+    A camada 2 (pyright) que estourou o prazo devolve `allow` sem achado e o diz no campo `camada2`
+    (`unknown: prazo de … estourado …`); a camada 2 que não pôde rodar diz `unknown: no pyright-langserver
+    in the venv of …`. Nos dois casos o veredito é `allow` ⇒ o juiz contava a chamada como negativo sem
+    deny ⇒ denies perdidos. O predicado do timeout é o MESMO dos scripts de run (`rodar_j13.sh`,
+    `timeouts_v3_abba.sh`), para a contagem ser comparável com o histórico.
+    """
+    estado = saida.get("camada2")
+    if isinstance(estado, str):
+        if estado.startswith(PREFIXO_TIMEOUT_CAMADA2):
+            m["timeouts_camada2"] += 1
+        if estado.startswith("unknown:"):
+            m["camada2_sem_veredito"] += 1
+    if str(saida.get("layer")) == "2" or "camada2" in saida:
+        m["camada2_observadas"] += 1
+
+
+def camadas_pedidas() -> set[str]:
+    """As camadas que este run pediu ao motor (`--arg-motor=--camadas --arg-motor=1,2`)."""
+    camadas: set[str] = set()
+    for i, arg in enumerate(ARGS_MOTOR):
+        if arg == "--camadas" and i + 1 < len(ARGS_MOTOR):
+            camadas.update(c.strip() for c in ARGS_MOTOR[i + 1].split(",") if c.strip())
+    return camadas
+
+
+def estado_camada2(m: dict) -> tuple[str, str]:
+    """(sinal, motivo) do sinal da camada 2 neste run — `nao_aplicavel`, `presente` ou `ausente`.
+
+    `ausente` = o run pediu a camada 2 e o juiz não viu NENHUMA evidência dela (o motor não reportou
+    `layer` nem `camada2` em nenhuma chamada) — ou o juiz não fez chamada nenhuma (sem denominador).
+    Sinal ausente ≠ zero: o run é INCONCLUSIVO (fail-closed).
+
+    Não é "o campo `camada2` apareceu": o motor o OMITE quando a camada 2 respondeu normalmente (978 de
+    1217 registros do run J13 V3 não o têm) — quem responde sempre é `layer` (1217/1217 com `layer == 2`).
+    """
+    if "2" not in camadas_pedidas():
+        return "nao_aplicavel", ""
+    if not m["tempos"]:
+        return "ausente", "nenhuma chamada do motor — sem denominador para a taxa de timeout"
+    if not m["camada2_observadas"]:
+        return (
+            "ausente",
+            (
+                "o motor não reportou o estado da camada 2 em nenhuma chamada (nem `layer`, nem `camada2`) "
+                "— sinal ausente não é zero"
+            ),
+        )
+    return "presente", ""
+
+
 def medir(touring: list[str], corpus: Path, pos: list[dict], neg: list[dict]) -> dict:
     """Roda o motor em cada entrada e acumula; nenhuma decisão de aceite aqui."""
     m = novo_acumulador()
@@ -310,6 +374,7 @@ def medir(touring: list[str], corpus: Path, pos: list[dict], neg: list[dict]) ->
             m["erros"].append({"id": e["id"], "erro": saida["_erro"]})
             continue
         m["tempos"].append(float(saida.get("elapsed_ms", math.inf)))
+        contar_estado_camada2(m, saida)
         (contar_negativo if e["rotulo"] == "negativo" else contar_positivo)(m, e, saida)
     return m
 
@@ -479,6 +544,32 @@ def contra_a_base(v: dict, base: dict) -> list[str]:
     return pend
 
 
+def campos_camada2(m: dict) -> tuple[str, str, float | None, dict]:
+    """(sinal, motivo do sinal, taxa, campos do JSON) da camada 2 — a MESMA fonte para todo retorno
+    de `julgar`, porque o pré-registro promete timeouts/denominador/patamar em TODA execução."""
+    sinal, motivo_sinal = estado_camada2(m)
+    chamadas = len(m["tempos"])
+    taxa = (m["timeouts_camada2"] / chamadas) if chamadas else None
+    campos = {
+        "timeouts_camada2": m["timeouts_camada2"],
+        "camada2_sem_veredito": m["camada2_sem_veredito"],
+        "taxa_timeouts_camada2": taxa,
+        "patamar_timeouts_camada2": PATAMAR_TIMEOUTS_CAMADA2,
+        "sinal_camada2": sinal,
+    }
+    return sinal, motivo_sinal, taxa, campos
+
+
+def sem_medida(motivo: str, m: dict) -> dict:
+    """Retorno antecipado (corpus que não deixa medir): NÃO PRONTO pelo defeito do corpus, mais
+    específico que INCONCLUSIVO, com os campos da camada 2 e o motivo do sinal ausente quando houver
+    (revisão touring-cb, 29/10: estes retornos saíam sem os campos e o ramo "nenhuma chamada" de
+    `estado_camada2` ficava inalcançável)."""
+    sinal, motivo_sinal, _taxa, campos = campos_camada2(m)
+    pend = [motivo] + ([motivo_sinal] if sinal == "ausente" else [])
+    return {"pronto": False, "pendencias": pend, "inconclusivo": False, "inconclusivo_motivo": "", **campos}
+
+
 def julgar(
     touring: list[str],
     corpus: Path,
@@ -487,24 +578,36 @@ def julgar(
 ) -> dict:
     pos, neg = carregar(corpus)
     if not pos or not neg:
-        return {
-            "pronto": False,
-            "pendencias": [
-                f"corpus degenerado: {len(pos)} positivos reproduzidos, {len(neg)} negativos"
-            ],
-        }
+        return sem_medida(
+            f"corpus degenerado: {len(pos)} positivos reproduzidos, {len(neg)} negativos",
+            novo_acumulador(),
+        )
     m = medir(touring, corpus, pos, neg)
     if not m["simbolo"]["arquivo"][1] and not m["erros"]:
-        return {
-            "pronto": False,
-            "pendencias": [
-                "corpus sem positivo de SÍMBOLO de arquivo — o recall não é medível"
-            ],
-        }
+        return sem_medida("corpus sem positivo de SÍMBOLO de arquivo — o recall não é medível", m)
     pend = pendencias(m, v5_estrito, exigir_limite)
+    sinal, motivo_sinal, taxa, campos = campos_camada2(m)
+    chamadas = len(m["tempos"])
+    inconclusivo = False
+    motivo = ""
+    if sinal == "ausente":
+        inconclusivo = True
+        motivo = motivo_sinal
+    elif sinal == "presente" and taxa is not None and taxa > PATAMAR_TIMEOUTS_CAMADA2:
+        inconclusivo = True
+        motivo = (
+            f"taxa de timeout da camada 2 {taxa:.2%} acima do patamar {PATAMAR_TIMEOUTS_CAMADA2:.0%} "
+            f"({m['timeouts_camada2']}/{chamadas}) — os denies perdidos pelas timeouts distorcem o falso deny "
+            "(JUIZ-TIMEOUT)"
+        )
+    if inconclusivo:
+        pend = pend + [motivo]
     return {
         "pronto": not pend,
         "pendencias": pend,
+        "inconclusivo": inconclusivo,
+        "inconclusivo_motivo": motivo,
+        **campos,
         "exigir_limite_superior": exigir_limite,
         "falso_deny_por_balde": tabela_falso_deny(m),
         "recall_simbolo": {b: razao(par) for b, par in m["simbolo"].items()},
@@ -1107,10 +1210,26 @@ def main(argv: list[str] | None = None) -> int:
         f"| chamadas {v.get('chamadas', 0)} | não classificados {len(v.get('nao_classificado', []))} "
         f"| defeito de corpus (snap não compila) {len(v.get('defeito_de_corpus', []))}"
     )
+    taxa_c2 = v.get("taxa_timeouts_camada2")
+    print(
+        "timeouts da camada 2: "
+        f"{v.get('timeouts_camada2', 0)}/{v.get('chamadas', 0)} · "
+        f"taxa {'n/d' if taxa_c2 is None else format(taxa_c2, '.2%')} · "
+        f"patamar {v.get('patamar_timeouts_camada2', PATAMAR_TIMEOUTS_CAMADA2):.0%} · "
+        f"sinal {v.get('sinal_camada2', 'nao_aplicavel')}"
+        + (
+            f" · camada 2 sem veredito {v.get('camada2_sem_veredito', 0)}"
+            if v.get("camada2_sem_veredito")
+            else ""
+        )
+    )
     for b, t in v.get("falso_deny_por_balde", {}).items():
         print(linha_falso_deny(b, t, a.exigir_limite_superior))
     for p in v["pendencias"]:
         print(f"  PENDENTE: {p}")
+    if v.get("inconclusivo"):
+        print(f"veredito: INCONCLUSIVO — {v.get('inconclusivo_motivo', '')}")
+        return EXIT_INCONCLUSIVO
     print(f"veredito: {'PRONTO' if v['pronto'] else 'NÃO PRONTO'}")
     return 0 if v["pronto"] else 1
 
