@@ -1125,7 +1125,7 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
     // A line that merely *mentions* a keyword next to strings (a meta tuple, a
     // doc comment, `= std::env::var("…")`) is NOT a blocking assignment.
     if let Some((lhs, rhs)) = split_at_code_delimiter(line, code)
-        && names_secret(lhs)
+        && names_secret(assigned_name(lhs))
     {
         let strong = if rhs.trim_start().starts_with('"') {
             !is_shell_expansion(rhs)
@@ -1171,6 +1171,17 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
 ///
 /// Fail-CLOSED on a misaligned projection: fall back to the raw split, which is
 /// the strictly more sensitive pre-fix reading.
+/// The name an assignment binds: the LHS after its last `,` `(` `{` `[`, so
+/// `f(a, password` → `password`, `{"api_key"` → `"api_key"`, `data["token"]` →
+/// `"token"]`, while `let token: T` stays whole. Before 29/10/2026 the whole LHS was
+/// searched, and a keyword that was only a VALUE earlier on the line blocked the file:
+/// `dict(_use(2, "Bash", {"command": "pwd"}), timestamp="…")` named `pwd`.
+fn assigned_name(lhs: &str) -> &str {
+    // The delimiters are ASCII, so `i + 1` is a char boundary.
+    lhs.rfind([',', '(', '{', '['])
+        .map_or(lhs, |i| &lhs[i + 1..])
+}
+
 fn split_at_code_delimiter<'a>(line: &'a str, code: &str) -> Option<(&'a str, &'a str)> {
     if code.len() != line.len() {
         return line.split_once('=').or_else(|| line.split_once(':'));
@@ -1527,6 +1538,31 @@ mod tests {
     fn test_secret_named_assignment_blocks() {
         let s = score("let password = \"hunter2value\";\n");
         assert_eq!(s.value, 0.0, "secret-named assignment must block");
+    }
+
+    #[test]
+    fn test_keyword_as_an_earlier_value_is_not_the_assigned_name() {
+        // scripts/test_measure_tool_trio.py:139 (29/10/2026): `pwd` is the shell
+        // command, the assignment binds `timestamp`.
+        let fp = "    dict(_use(2, \"Bash\", {\"command\": \"pwd\"}), timestamp=\"2026-11-01T23:59:59Z\"),\n";
+        assert_eq!(scan_text(fp).rule, None, "{fp}");
+        // The name right before the delimiter still blocks, in every binding form.
+        // (Known gap, older than this test: `cfg = connect(password="…")` and
+        // `creds = {"api_key": "…"}` split at the FIRST `=`, so the secret name is
+        // never the LHS.)
+        for real in [
+            "connect(host, password=\"hunter2value\")\n",
+            "{\"api_key\": \"hunter2value\"}\n",
+            "data[\"token\"] = \"hunter2value\"\n",
+            "let token: String = \"hunter2value\".into();\n",
+            "pwd = \"hunter2value\"\n",
+        ] {
+            assert_eq!(
+                scan_text(real).rule,
+                Some("secret-named-assignment"),
+                "{real}"
+            );
+        }
     }
 
     #[test]
