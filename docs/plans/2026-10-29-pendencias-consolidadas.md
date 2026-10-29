@@ -16,9 +16,9 @@ Fontes, todas verificadas contra o código e o git nesta data:
 `docs/plans/2026-10-2{6,7,8}-work-outer/` são manifestos automáticos do hook, sem pendência
 (o DAG `task_1793033502719494636` está `done`); entram no próximo commit "acumulado".
 
-**Restrição vigente: congelamento do A3 até 06/11/2026 04:00.** Nada de deploy, mudança em
-`~/.claude/settings.json` ou edição de hook vivo que injeta contexto (nem dos dados que ele lê).
-Commits, código e testes estão liberados; o que muda o que roda espera 06/11.
+**Sem congelamento desde 29/10 17:26.** O Gabriel encerrou o A3 no dia 0 (`c26b09cc`): deploy,
+`settings.json` e hooks vivos estão liberados. O deploy do 30.4.101 foi lançado às 17:28, levando
+os consertos de 28–29/10 (F2.4, P0B2, JUIZ-TIMEOUT só como script, SimHash v2 etc.).
 
 Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade: P0 > P1 > P2 > P3.
 
@@ -56,7 +56,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | V-8 | **SEM2** — corpora onda 2 | P1 | L | — | Completar denominadores (web: 83 HTML + 21 JS de 300), resolver concentração OSS, gerar selos externos que o validador atual aceite; classe sem n suficiente sai como **não provada** | `~/.claude/touring/vgp/corpus_holdout_web_20261012/meta.json` (`atinge_alvo=false`) |
 | V-9 | **HORUST** — held-out Rust | P1 | M | V-6 | Julgar uma vez os 184 ids primários + 340 negativos; selar o estrato cfg ou registrar a exclusão | `diagnostics/horust-real/selo.json` (898 arquivos, 618 entradas) |
 | V-10 | **V0e** — correções remanescentes das 606 fora de gate | P2 | M | — | Fechar os destinos ainda abertos da triagem | `diagnostics/V0e-fora-de-gate.md` |
-| V-11 | **DOC-QUALITY-LOCK-FAIL-OPEN** — locks/orçamento do gate P0 | P1 | M | — | Desenhar e testar a separação **na fonte**; aplicar ao vivo só depois de 06/11 (ver 3.9) | `client/hooks/touring-quality-block-all.sh:93` (20 s); `RETOMAR-AQUI-2026-10-09.md:1124-1127` |
+| V-11 | **DOC-QUALITY-LOCK-FAIL-OPEN** — locks/orçamento do gate P0 | P1 | M | — | Desenhar e testar a separação **na fonte**; aplicar ao vivo depois dos testes (ver 3.9) | `client/hooks/touring-quality-block-all.sh:93` (20 s); `RETOMAR-AQUI-2026-10-09.md:1124-1127` |
 | V-12 | Aceite residual **VTS/VTSX**, **VCDN/VCSS**, **VL0 camada 2** | P2 | L | V-4 | Julgar TS/TSX/JS em corpora suficientes (TSX n=213<299, 9 negativos JS, `.d.ts`); juiz web com controles de rede/JSX/CSS-in-JS; medir VL0-L2 (precisão, concorrência, daemon, custo do rust-analyzer) sob `hw-slot` | `RELATORIO-VTS.md:266`; `RELATORIO-VTRANSV.md:322-337`; `RELATORIO-VL0-camada2-generica.md` |
 
 ### 1b. Injeção de contexto
@@ -88,24 +88,24 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 |---|---|---|
 | M-1 | Ponto semanal da régua (S-15/D2) | `scripts/measure_tool_trio.py` + `scripts/measure_injection_effect.py` com o corpus declarado |
 | M-2 | Semana do `script_portfolio_gate` | `python3 ~/.claude/skills/Touring/scripts/hooks/script_portfolio_gate.py --stats` (29/10: 50 eventos, 4,0% evitáveis); critério de promoção à la prose gate |
-| M-3 | Conferência diária do A3 | `systemctl --user list-timers 'a3-*'` e `~/.claude/touring/a3_arm.log`: uma linha datada por dia; 30/10 deve gravar o braço B |
+
 
 ---
 
-## 3. A partir de 06/11/2026 04:00 (fim do congelamento)
+## 3. Antes presos ao congelamento — liberados desde 29/10 17:26
 
 | # | Item | Depende de | O que fazer |
 |---|---|---|---|
-| 3.1 | **Análise do A3** | fim do bloco 2 | `a3_arm.py analyze` (unidade sessão, bootstrap semente 20261027, margem −1 pp); sensibilidades: sem sessões que atravessam a troca, e **por projeto** (touring × analise, emenda de 29/10) |
-| 3.2 | **Terminar o release** | — | O rito do 30.4.100 morreu na suspensão de 28/10; o HEAD já passou dele (consertos do F2.4 etc.), então sobe a versão seguinte com `scripts/propagate-release.sh <v>`: toolchain, default, projetos (`analise` 30.4.99, `latina` 30.4.97), prova 5.5, verify |
-| 3.3 | **Decisão do default de injeção** | 3.1, I-1 | Gabriel decide se `no-advisory` vira o default |
-| 3.4 | **A/B do compactador (B1) e do mod de evicção (B3m)** | 3.1 | `TOURING_RESULT_COMPACTOR` (desligado) e `tools/mods/touring-compact-evict` (não instalado), cada um com seu A/B |
-| 3.5 | **Calibração D2** (Phase 4) | 3.1 | Calibrar gates e compactadores com dado |
+| 3.2 | **Release 30.4.101** | — | **Em curso** desde 17:28 (`propagate-release.sh 30.4.101`, sob `systemd-inhibit`; log `~/.claude/touring/propagate-30.4.101.log`): toolchain, default, projetos (`analise` 30.4.99, `latina` 30.4.97), prova 5.5, verify |
+| 3.3 | **Decisão do default de injeção** | I-1 | Sem o dado do A3 (encerrado). O default segue `full`; decidir com a régua corrigida (I-1) ou com um A3 refeito numa janela planejada |
+| 3.4 | **A/B do compactador (B1) e do mod de evicção (B3m)** | — | `TOURING_RESULT_COMPACTOR` (desligado) e `tools/mods/touring-compact-evict` (não instalado), cada um com seu A/B; não colidem mais com o A3 |
+| 3.5 | **Calibração D2** (Phase 4) | M-1 | Calibrar gates e compactadores com o dado da régua semanal |
 | 3.6 | **VGP V0e5** — remedição dos gates | 3.2 | `scripts/v0e_negacoes.py --desde/--ate` congelados, janela pós-deploy, S3/G10/write→run/G3/G11 separados, com denominador e IC |
 | 3.7 | **VGP V4 → V6 → J** | V-3, 3.2 | Ligar o deny e coletar 5 sessões com zero falso deny (`scripts/juiz_v4_sessoes.py` hoje dá exit 3); V6 aplica o ponteiro em `~/projects/analise/.claude/rules/vgp-protocol.md` (hoje 6.326 bytes, o protocolo antigo) + docs/skill/espelho; J roda `juiz_plano_vgp.py`, `prova_vgp_motor.py` e a convergência no binário final |
 | 3.8 | **VGP A6HTML → JHTML** | V-7, V-8 | Sessão Kimi nova no mesmo modo de permissão lê o brief `briefs/2026-10-10-a6-revisao-html-whatwg.md`; depois JHTML por id com `--exigir-limite-superior` |
 | 3.9 | **Aplicar V-11 ao vivo** | V-11 | Provar que o gate P0 não falha aberto sob contenção |
-| 3.10 | **analise: default do `simhash.py`** | 3.2 | A troca da analise-40, que espera o congelamento |
+| 3.10 | **analise: default do `simhash.py`** | 3.2 | A troca da analise-40, que esperava o congelamento |
+| 3.11 | **Refazer o A3** (opcional) | janela de 8 dias sem deploy | Ambiente homogêneo (todos os projetos na mesma versão); mecanismo pronto e desabilitado (`a3_arm.py`, timers `a3-{arm,reset}`) |
 
 ---
 
@@ -115,7 +115,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 |---|---|---|
 | D-1 | **Rotacionar a chave `AIza…`** | Presente em `~/.claude/history.jsonl`; rotação no console do Google |
 | D-2 | **23 worktrees restantes** | VGP (`wt-vl0`, `wt-vrs`, `wt-vrs2`, `wt-vhtml`, `wt-vts`, `wt-vtransv`, `wt-adapt`, `wt-semeado`, `wt-f21`, `wt-horust-real`, `wt-frag`, `wt-p0b`, `wt-p0bd`, `wt-roteamento`, `wt-tiers`) só depois do INTADAPT; os demais (`wt-ecc-{hk,mem,py,qa,val}`, `wt-onda1`, `wt-int97`, `wt-r98`) pedem a mesma medição feita no `wt-c1b` antes de sair |
-| D-3 | **`SECURITY_REVIEW_MODEL`** (opcional) | Mudança no settings, só depois de 06/11 |
+| D-3 | **`SECURITY_REVIEW_MODEL`** (opcional) | Mudança no settings, liberada desde o fim do A3 |
 | D-4 | **F21INNER** como plano próprio | Sink `innerHTML` com taint/sanitização; fora do VGP |
 | D-5 | **Residual zip** | RUSTSEC-2026-0367/0368/0369 aceitos; reavaliar quando sair candle com zip ≥ 9 |
 
@@ -126,7 +126,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 1. **V-3 V3**: P0B2 e JUIZ-TIMEOUT foram entregues e commitados em 29/10. Falta montar um
    held-out **novo** selado (o 20261013f foi gasto), medir o daemon quente e re-julgar com o juiz
    novo, que declara INCONCLUSIVO sob timeout. O re-julgamento mede o binário construído do HEAD
-   (`cargo build` em `target/debug` ou worktree, nunca `--release -p`); o deploy espera 06/11.
-2. **I-1 + I-2**: a régua precisa estar certa **antes** da análise do A3 em 06/11.
+   (o 30.4.101, se o rito de 29/10 fechar verde).
+2. **I-1 + I-2**: sem o A3, a régua corrigida é o instrumento que vai decidir o default de injeção.
 3. **T-1 + T-2**: o journal é insumo do gate de repetição e do KPI.
 4. **V-4 INTADAPT**, que destrava V-5…V-9 e V-12.
