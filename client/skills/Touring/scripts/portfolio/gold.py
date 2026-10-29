@@ -19,6 +19,7 @@ Purpose-only equivalence (rewrite from scratch) has no label yet: it is reported
 Usage:
     python3 gold.py --corpus <corpus.jsonl.gz> --saida <gold.json> [--campeoes <dir>]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,8 +69,15 @@ class CorpusAdulterado(RuntimeError):
 
 
 def _item(d: dict) -> Item:
-    return Item(d["id"], d["sessao"], d["timestamp"], d["nome"], d["origem"], d["content"],
-                frozenset(simhash.tokens(d["content"])))
+    return Item(
+        d["id"],
+        d["sessao"],
+        d["timestamp"],
+        d["nome"],
+        d["origem"],
+        d["content"],
+        frozenset(simhash.tokens(d["content"])),
+    )
 
 
 def carregar_corpus(caminho: Path, sha256_esperado: str | None = None) -> list[Item]:
@@ -117,9 +125,7 @@ _IDENT = re.compile(r"\b[A-Za-z_][A-Za-z0-9_]{3,}\b")
 
 def mutacoes(content: str) -> list[str]:
     """Deterministic edits that keep the program: drop comments/blanks, rename identifiers, append."""
-    sem_coment = "\n".join(
-        ln for ln in content.splitlines() if ln.strip() and not ln.strip().startswith(("#", "//"))
-    )
+    sem_coment = "\n".join(ln for ln in content.splitlines() if ln.strip() and not ln.strip().startswith(("#", "//")))
     frequentes = [n for n, _ in Counter(_IDENT.findall(content)).most_common(3)]
     renomeado = content
     for n in frequentes:
@@ -133,13 +139,31 @@ def sinteticos(campeoes: Path) -> tuple[list[Item], dict[str, Rotulo]]:
     rotulos: dict[str, Rotulo] = {}
     for p in sorted(campeoes.glob("*.json")):
         d = json.loads(p.read_text(encoding="utf-8"))
-        base = _item({"id": f"campeao-{p.stem}", "sessao": f"campeao:{p.stem}", "timestamp": "0000",
-                      "nome": d["basename"], "origem": "campeao", "content": d["content"]})
+        base = _item(
+            {
+                "id": f"campeao-{p.stem}",
+                "sessao": f"campeao:{p.stem}",
+                "timestamp": "0000",
+                "nome": d["basename"],
+                "origem": "campeao",
+                "content": d["content"],
+            }
+        )
         itens.append(base)
         for k, corpo in enumerate(mutacoes(d["content"])):
             mid = f"mutacao-{p.stem}-{k}"
-            itens.append(_item({"id": mid, "sessao": f"mutacao:{p.stem}:{k}", "timestamp": "9999",
-                                "nome": d["basename"], "origem": "mutacao", "content": corpo}))
+            itens.append(
+                _item(
+                    {
+                        "id": mid,
+                        "sessao": f"mutacao:{p.stem}:{k}",
+                        "timestamp": "9999",
+                        "nome": d["basename"],
+                        "origem": "mutacao",
+                        "content": corpo,
+                    }
+                )
+            )
             rotulos[mid] = Rotulo("tem_equivalente", (base.id,), "construcao")
     return itens, rotulos
 

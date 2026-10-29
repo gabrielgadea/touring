@@ -19,6 +19,7 @@ from the installed hook, not re-implemented) and the SimHash body signal alone (
 Usage:
     python3 avaliar.py --corpus <corpus.jsonl.gz> --gold <gold.json> [--particao held_out] [--campeoes <dir>]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -154,9 +155,18 @@ def grade(itens: list[gold_mod.Item], gold: dict, taus: tuple[int, ...], pisos: 
         for tau in taus:
             rel = avaliar(recuperador_portfolio(recuperar.Parametros(tau=tau, piso_linhas=piso)), itens, gold, "treino")
             g = rel["geral"]
-            linhas.append({"tau": tau, "piso": piso, "precisao": g["precisao"], "recall": g["recall"],
-                           "falso_alarme": g["taxa_falso_alarme"], "tp": g.get("tp", 0),
-                           "fp": g.get("fp_errado", 0) + g.get("fp_alarme", 0), "unscored": g.get("unscored", 0)})
+            linhas.append(
+                {
+                    "tau": tau,
+                    "piso": piso,
+                    "precisao": g["precisao"],
+                    "recall": g["recall"],
+                    "falso_alarme": g["taxa_falso_alarme"],
+                    "tp": g.get("tp", 0),
+                    "fp": g.get("fp_errado", 0) + g.get("fp_alarme", 0),
+                    "unscored": g.get("unscored", 0),
+                }
+            )
     return linhas
 
 
@@ -197,8 +207,13 @@ def recuperador_hook_atual() -> Recuperador:
 
     def entrada(i: gold_mod.Item) -> dict:
         if i.id not in entradas:
-            entradas[i.id] = {"slug": Path(i.nome).stem, "purpose": _proposito(i.content),
-                              "domain": "", "tags": "", "path": f"{i.id}/{i.nome}"}
+            entradas[i.id] = {
+                "slug": Path(i.nome).stem,
+                "purpose": _proposito(i.content),
+                "domain": "",
+                "tags": "",
+                "path": f"{i.id}/{i.nome}",
+            }
         return entradas[i.id]
 
     def rec(q: gold_mod.Item, bib: list[gold_mod.Item]) -> Veredito:
@@ -233,8 +248,11 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     relatorio = {
         nome: avaliar(rec, itens, gold, args.particao)
-        for nome, rec in (("hook_atual", recuperador_hook_atual()), ("simhash_tau10", recuperador_simhash()),
-                          ("portfolio_p1", recuperador_portfolio()))
+        for nome, rec in (
+            ("hook_atual", recuperador_hook_atual()),
+            ("simhash_tau10", recuperador_simhash()),
+            ("portfolio_p1", recuperador_portfolio()),
+        )
     }
     print(json.dumps(relatorio, ensure_ascii=False, indent=1))
     return 0
