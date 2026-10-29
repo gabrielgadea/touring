@@ -1125,9 +1125,12 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
     // A line that merely *mentions* a keyword next to strings (a meta tuple, a
     // doc comment, `= std::env::var("…")`) is NOT a blocking assignment.
     if let Some((lhs, rhs)) = split_at_code_delimiter(line, code)
-        && names_secret(assigned_name(lhs))
+        && binds_secret(lhs, line, code)
     {
-        let strong = if rhs.trim_start().starts_with('"') {
+        let rhs_start = rhs.trim_start();
+        let quoted = rhs_start.starts_with('"')
+            || (is_destructuring(lhs_code(lhs, line, code)) && rhs_start.starts_with(['(', '[']));
+        let strong = if quoted {
             !is_shell_expansion(rhs)
                 && extract_quoted(rhs)
                     .iter()
@@ -1180,6 +1183,39 @@ fn assigned_name(lhs: &str) -> &str {
     // The delimiters are ASCII, so `i + 1` is a char boundary.
     lhs.rfind([',', '(', '{', '['])
         .map_or(lhs, |i| &lhs[i + 1..])
+}
+
+/// `lhs` with its string literals and comments blanked: the same bytes of the
+/// line's code projection. Falls back to `lhs` itself when the projection does not
+/// address the same bytes (the stricter reading).
+fn lhs_code<'a>(lhs: &'a str, line: &str, code: &'a str) -> &'a str {
+    if code.len() == line.len() {
+        code.get(..lhs.len()).unwrap_or(lhs)
+    } else {
+        lhs
+    }
+}
+
+/// Does the assignment bind a secret-named target? Either the name right before
+/// the delimiter (which may be a quoted key, `{"api_key": …}`) or any IDENTIFIER of
+/// the LHS once its strings are blanked — the destructuring forms
+/// `let (password, other) = …` and `password, other = …` (29/10/2026: the first
+/// was a fail-open older than the release of 28/10; the second broke in
+/// 20d2b05a, which looked only at the last name). A keyword that is only a string
+/// VALUE inside the LHS (`{"command": "pwd"}`) is blank in the projection.
+fn binds_secret(lhs: &str, line: &str, code: &str) -> bool {
+    names_secret(assigned_name(lhs)) || names_secret(lhs_code(lhs, line, code))
+}
+
+/// A destructuring LHS (strings already blanked): `let (a, b)`, `let [a, b]`,
+/// `const [a, b]`, `(a, b)`, or a bare `a, b` outside any call. Its RHS is a
+/// tuple or list of the values, so a literal inside `(…)`/`[…]` is the value.
+fn is_destructuring(lhs_code: &str) -> bool {
+    let mut t = lhs_code.trim();
+    for kw in ["let ", "const ", "var ", "mut "] {
+        t = t.strip_prefix(kw).map_or(t, str::trim_start);
+    }
+    t.starts_with(['(', '[']) || (t.contains(',') && !t.contains(['(', '{', '[']))
 }
 
 fn split_at_code_delimiter<'a>(line: &'a str, code: &str) -> Option<(&'a str, &'a str)> {
@@ -1556,12 +1592,25 @@ mod tests {
             "data[\"token\"] = \"hunter2value\"\n",
             "let token: String = \"hunter2value\".into();\n",
             "pwd = \"hunter2value\"\n",
+            // Destructuring (29/10/2026, found by touring-c1): the Rust tuple form
+            // passed with a Warn, the Python one broke in 20d2b05a.
+            "let (password, other) = (\"hunter2value\", \"x\");\n",
+            "let (other, password) = (\"x\", \"hunter2value\");\n",
+            "password, other = \"hunter2value\", \"x\"\n",
+            "const [token, rest] = [\"hunter2value\", \"x\"];\n",
         ] {
             assert_eq!(
                 scan_text(real).rule,
                 Some("secret-named-assignment"),
                 "{real}"
             );
+        }
+        // A tuple/list RHS is read as values only behind a destructuring LHS.
+        for clean in [
+            "scopes = [\"read\", \"write\"]\n",
+            "let (a, b) = (\"hunter2value\", \"x\");\n",
+        ] {
+            assert_eq!(scan_text(clean).rule, None, "{clean}");
         }
     }
 
