@@ -1,0 +1,4 @@
+# Conteúdo integral de scripts minerados de transcripts privados (briefings, SEI): o repo é
+# público. Ficam só em disco, como corpus do calibrate_simhash.py. (29/10/2026)
+scripts/champions_content/
+scripts/transcript_miner_detail.json
