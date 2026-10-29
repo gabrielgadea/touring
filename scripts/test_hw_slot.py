@@ -37,7 +37,7 @@ def env(tmp_path):
 def run(env, *args, timeout=20):
     return subprocess.run(
         [sys.executable, str(SCRIPT), *args],
-        env=env, capture_output=True, text=True, timeout=timeout,
+        env=env, capture_output=True, text=True, timeout=timeout, check=False,
     )
 
 
@@ -282,7 +282,7 @@ def test_unmeasured_vram_proceeds_with_a_warning(env, tmp_path):
     env.pop("HW_SLOT_VRAM_FREE_GB", None)
     env["PATH"] = str(tmp_path)  # no nvidia-smi anywhere
     r = subprocess.run([sys.executable, str(SCRIPT), "--wait", "1", "--min-vram-gb", "4", "--", sys.executable, "-c", "pass"],
-                       env=env, capture_output=True, text=True, timeout=20)
+                       env=env, capture_output=True, text=True, timeout=20, check=False)
     assert r.returncode == 0 and "vram unmeasured" in r.stderr
 
 
@@ -322,3 +322,78 @@ def test_abort_is_recorded_in_the_log(env):
     run(_abort_env(env), "--label", "hot", "--max-temp", "99", "--abort-temp", "90", "--", "sleep", "30")
     rec = json.loads(Path(env["HW_SLOT_LOG"]).read_text().splitlines()[-1])
     assert rec["aborted"] is True and rec["label"] == "hot" and rec["rc"] == 75
+
+
+# ── A classe de MEDIÇÃO (29/10/2026): o juiz de latência precisa da máquina sem vizinho ──
+
+def _espera_mediacao(env, timeout=5):
+    """Espera até rust-1 E os dois heavy estarem tomados — a prova de que a medição pegou a
+    máquina inteira (o status não lista o slot `medida`, que é interno à aquisição exclusiva)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        held = {s["slot"]: s["held"] for s in json.loads(run(env, "--status").stdout)["slots"]}
+        if all(held.get(s) for s in ("rust-1", "heavy-1", "heavy-2")):
+            return True
+        time.sleep(0.05)
+    return False
+
+
+def test_medida_takes_the_rust_slot_and_every_heavy_slot(env, tmp_path):
+    """A medição toma rust + TODOS os heavy: nenhum job pesado roda ao lado dela."""
+    p = hold(env, 6, tmp_path, "--class", "medida")
+    try:
+        assert _espera_mediacao(env), "a medição não tomou rust + todos os heavy"
+        # nenhum vizinho entra: nem heavy, nem rust
+        assert run(env, "--wait", "1", "--", "true").returncode == 75
+        assert run(env, "--class", "rust", "--wait", "1", "--", "true").returncode == 75
+    finally:
+        kill_group(p)
+    # e o log registra os slots que ela tomou (o log é escrito no FIM do job)
+    assert run(env, "--class", "medida", "--wait", "1", "--", "true").returncode == 0
+    rec = json.loads(Path(env["HW_SLOT_LOG"]).read_text().splitlines()[-1])
+    assert rec["class"] == "medida"
+    assert rec["slots"] == ["medida-1", "rust-1", "heavy-1", "heavy-2"]
+
+
+def test_medida_waits_for_a_busy_heavy_slot(env, tmp_path):
+    p = hold(env, 4, tmp_path)
+    try:
+        r = run(env, "--class", "medida", "--wait", "1", "--", "true")
+        assert r.returncode == 75 and "heavy" in r.stderr
+    finally:
+        kill_group(p)
+
+
+def test_medida_waits_for_a_busy_rust_slot(env, tmp_path):
+    p = hold(env, 4, tmp_path, "--class", "rust")
+    try:
+        r = run(env, "--class", "medida", "--wait", "1", "--", "true")
+        assert r.returncode == 75 and "rust" in r.stderr
+    finally:
+        kill_group(p)
+
+
+def test_medida_does_not_change_the_existing_classes(env, tmp_path):
+    """`--status` continua listando só rust+heavy, e as classes antigas seguem como antes."""
+    names = [s["slot"] for s in json.loads(run(env, "--status").stdout)["slots"]]
+    assert names == ["rust-1", "heavy-1", "heavy-2"]
+    # o default segue sendo heavy
+    run(env, "--label", "default", "--", "true")
+    rec = json.loads(Path(env["HW_SLOT_LOG"]).read_text().splitlines()[-1])
+    assert rec["class"] == "heavy" and rec["slots"] == ["heavy-1"]
+    # rust continua exclusivo e ainda deixa UM heavy passar
+    p = hold(env, 4, tmp_path, "--class", "rust")
+    try:
+        assert run(env, "--wait", "1", "--", "true").returncode == 0
+    finally:
+        kill_group(p)
+
+
+def test_nested_medida_passes_through_without_deadlock(env):
+    """Reentrância: uma medição dentro de uma medição não se auto-bloqueia."""
+    r = run(
+        env,
+        "--class", "medida", "--wait", "1", "--",
+        sys.executable, str(SCRIPT), "--class", "medida", "--wait", "1", "--", "echo", "inner-ran",
+    )
+    assert r.returncode == 0 and "inner-ran" in r.stdout
