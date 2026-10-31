@@ -8,6 +8,8 @@ corpus cresce a cada turno.
 from __future__ import annotations
 
 import json
+import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -21,7 +23,7 @@ import r3_extract_a1_blocks as ex  # noqa: E402
 
 def _attachment(tipo: str, texto: str) -> str:
     """Um bloco de transcript no formato que o Claude Code escreve (a forma que o
-    próprio teste Rust do KPI usa, `context_budget.rs:827-830`)."""
+    próprio teste Rust do KPI usa, `context_budget.rs:1069`)."""
     inner = json.dumps({"hookSpecificOutput": {"additionalContext": texto}})
     return json.dumps({"type": "attachment",
                        "attachment": {"type": tipo, "stdout": inner}})
@@ -31,8 +33,8 @@ def test_family_table_is_the_rust_one() -> None:
     """A tabela e a ORDEM: `code-mode-deny` primeiro, e o catch-all no fim.
 
     Um bloco que casa duas agulhas pertence à PRIMEIRA família da tabela
-    (context_budget.rs:179-183) — inverter a ordem troca a classificação de todo
-    bloco que contém `CODE MODE` e `TOURING SUGGEST`.
+    (a régua: injection_family.rs:41-50) — inverter a ordem troca a classificação
+    de todo bloco que contém `CODE MODE` e `TOURING SUGGEST`.
     """
     assert kpi.injection_family("[CODE MODE · rajada] x") == "code-mode-deny"
     assert kpi.injection_family("[TOURING SUGGEST · cli] x") == "touring-suggest"
@@ -40,27 +42,179 @@ def test_family_table_is_the_rust_one() -> None:
     # as duas agulhas no mesmo texto: a primeira da tabela vence
     ambos = "[TOURING SUGGEST] e CODE MODE"
     assert kpi.injection_family(ambos) == "code-mode-deny", (
-        "a ordem da tabela decide (context_budget.rs:142-178), e code-mode-deny vem antes"
+        "a ordem da tabela decide (a régua: injection_family.rs:88), e code-mode-deny vem antes"
     )
 
 
-def test_emitter_table_is_the_rust_one() -> None:
-    """C10 (17/10/2026): `EMITTERS` do porte == `EMITTERS` de `context_budget.rs`, lida do FONTE.
+# --- A RÉGUA, lida do FONTE ---------------------------------------------------
+# A taxonomia canônica NÃO está mais em `context_budget.rs`: a S-4 (26/10/2026)
+# moveu-a para `crates/touring-foundation/src/injection_family.rs`, e
+# `context_budget.rs:204` re-exporta as funções. Um guard que lê o caminho
+# velho lê um arquivo que já não guarda a tabela — e morre com IndexError, sem
+# dizer qual linha estava procurando.
+#
+# A leitura é por SCANNER, não por regex ingênua: as agulhas contêm `]`
+# ("[EVENT_READER]") e os padrões são raw strings (`r"\[G\d+\s"`). Um `.*?` até
+# o primeiro `]` parte a agulha no meio — e o guard passaria a comparar MEIOS,
+# que é a falha silenciosa que ele existe para impedir.
+REPO = Path(__file__).parent.parent
+REGUA = REPO / "crates/touring-foundation/src/injection_family.rs"
 
-    A tabela existe duas vezes (o KPI Rust e este porte, que a paridade de 1% do S-3 compara com
-    o `touring kpi -j`). Uma agulha editada num lado só reprova a paridade só depois do deploy; aqui
-    reprova no CI. Linha, família e a ordem (a primeira que casa vence) têm de bater.
-    """
-    import re
 
-    rust = (Path(__file__).parent.parent / "crates/touring-cli/src/cli/context_budget.rs").read_text()
-    corpo = rust.split("const EMITTERS:", 1)[1].split("];", 1)[0]
-    do_rust = [
-        (n, f, c == "Owns")
-        for n, f, c in re.findall(r'\("([^"]+)",\s*"([^"]+)",\s*Claim::(Owns|Fallback)\)', corpo)
+def _pula_ws(s: str, pos: int) -> int:
+    """Passa por espaços e comentários Rust."""
+    n = len(s)
+    while pos < n:
+        if s[pos] in " \t\r\n":
+            pos += 1
+        elif s.startswith("//", pos):
+            fim = s.find("\n", pos)
+            pos = n if fim < 0 else fim + 1
+        elif s.startswith("/*", pos):
+            fim = s.find("*/", pos)
+            pos = n if fim < 0 else fim + 2
+        else:
+            break
+    return pos
+
+
+def _le_string(s: str, pos: int) -> tuple[str, int]:
+    """Lê uma string Rust (normal ou raw) em `pos`. Devolve (valor, índice seguinte)."""
+    if s[pos] == "r":
+        abre = pos + 1
+        while s[abre] == "#":
+            abre += 1
+        assert s[abre] == '"', s[pos:pos + 20]
+        fecha = '"' + "#" * (abre - pos - 1)
+        fim = s.index(fecha, abre + 1)
+        return s[abre + 1:fim], fim + len(fecha)
+    cursor = pos + 1
+    pedacos: list[str] = []
+    while True:
+        c = s[cursor]
+        if c == "\\":
+            nxt = s[cursor + 1]
+            pedacos.append({"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\"}.get(nxt, nxt))
+            cursor += 2
+            continue
+        if c == '"':
+            return "".join(pedacos), cursor + 1
+        pedacos.append(c)
+        cursor += 1
+
+
+def _corpo_const(src: str, nome: str) -> str:
+    """O corpo do `= &[...]` de uma const do Rust, sem as chaves do array."""
+    inicio = src.index("pub const " + nome)
+    # `len("= &[")` e não `+3`: o "=" e o espaço e o "&" e o "[" — o corpo começa
+    # DEPOIS do "[", ou a profundidade começa errada e o array nunca fecha.
+    corpo = src.index("= &[", inicio) + len("= &[")
+    pos = corpo
+    profundidade = 1
+    while profundidade:
+        c = src[pos]
+        if c == '"' or (c == "r" and src[pos + 1] in '"#'):
+            _, pos = _le_string(src, pos)
+            continue
+        if c == "[":
+            profundidade += 1
+        elif c == "]":
+            profundidade -= 1
+            if profundidade == 0:
+                return src[corpo:pos]
+        pos += 1
+    raise AssertionError(f"const {nome} sem fechamento")
+
+
+def _item(corpo: str, pos: int) -> tuple[tuple[str, object], int]:
+    """Um item de uma entrada Rust: ('s', string) | ('l', lista) | ('x', identificador)."""
+    c = corpo[pos]
+    if c == '"' or (c == "r" and corpo[pos + 1] in '"#'):
+        valor, pos = _le_string(corpo, pos)
+        return ("s", valor), pos
+    if c == "&":
+        pos = _pula_ws(corpo, pos + 1)
+        assert corpo[pos] == "[", corpo[pos:pos + 20]
+        pos += 1
+        lista: list[str] = []
+        while True:
+            pos = _pula_ws(corpo, pos)
+            if corpo[pos] == "]":
+                pos += 1
+                break
+            if corpo[pos] == ",":
+                pos += 1
+                continue
+            valor, pos = _le_string(corpo, pos)
+            lista.append(valor)
+        return ("l", lista), pos
+    fim = pos
+    while fim < len(corpo) and corpo[fim] not in ",()":
+        fim += 1
+    return ("x", corpo[pos:fim].strip()), fim
+
+
+def _entradas(corpo: str) -> list[list]:
+    """As entradas de um array Rust: cada uma é uma lista de itens."""
+    entradas: list[list] = []
+    pos = 0
+    n = len(corpo)
+    while True:
+        pos = _pula_ws(corpo, pos)
+        if pos >= n:
+            return entradas
+        if corpo[pos] == ",":
+            pos += 1
+            continue
+        assert corpo[pos] == "(", corpo[pos:pos + 40]
+        pos += 1
+        itens: list[tuple[str, object]] = []
+        while True:
+            pos = _pula_ws(corpo, pos)
+            if corpo[pos] == ")":
+                pos += 1
+                break
+            item, pos = _item(corpo, pos)
+            itens.append(item)
+            pos = _pula_ws(corpo, pos)
+            if pos < n and corpo[pos] == ",":
+                pos += 1
+        entradas.append(itens)
+
+
+def _tabelas_rust() -> dict:
+    """As TRÊS tabelas da régua, lidas do fonte Rust."""
+    src = REGUA.read_text(encoding="utf-8")
+    marcadores = [
+        (it[0][1], tuple(it[1][1])) for it in _entradas(_corpo_const(src, "FAMILY_MARKERS"))
     ]
-    assert do_rust, "a tabela Rust não foi lida"
-    assert list(kpi.EMITTERS) == do_rust
+    padroes = [
+        (it[0][1], tuple(it[1][1])) for it in _entradas(_corpo_const(src, "FAMILY_PATTERNS"))
+    ]
+    emissores = []
+    for it in _entradas(_corpo_const(src, "EMITTERS")):
+        claim = it[2][1]
+        assert str(claim).startswith("Claim::"), claim
+        emissores.append((it[0][1], it[1][1], claim == "Claim::Owns"))
+    return {"marcadores": marcadores, "padroes": padroes, "emissores": emissores}
+
+
+def test_the_port_mirrors_the_canonical_taxonomy() -> None:
+    """As TRÊS tabelas do porte == as três da régua, lidas do FONTE.
+
+    O porte é o TERCEIRO espelho (a régua Rust, a política Python e este porte).
+    Um predicado escrito duas vezes nunca se encontra — então este teste
+    compara as três tabelas com a fonte, ESTRUTURALMENTE: nome, ordem, agulhas e
+    padrão. Divergir aqui reprova no CI; divergir só na paridade de 1% custaria
+    um deploy inteiro para aparecer.
+    """
+    t = _tabelas_rust()
+    assert t["marcadores"], "FAMILY_MARKERS não foi lida da régua"
+    assert list(kpi.FAMILY_TABLE) == t["marcadores"], "FAMILY_TABLE divergiu da régua"
+    assert [
+        (n, tuple(p.pattern for p in ps)) for n, ps in kpi.FAMILY_PATTERNS
+    ] == t["padroes"], "FAMILY_PATTERNS divergiu da régua"
+    assert list(kpi.EMITTERS) == t["emissores"], "EMITTERS divergiu da régua"
 
 
 def test_attributed_family_emitter_owns_or_defers_to_the_text() -> None:
@@ -79,8 +233,12 @@ def test_attributed_family_emitter_owns_or_defers_to_the_text() -> None:
 
 def test_the_real_emitter_fixture_leaves_no_other_in_the_port() -> None:
     """A MESMA fixture real do teste Rust (45 `hook_success`, 23 marcas, caminhos anonimizados):
-    o porte, com a atribuição por emissor, não deixa nada em `other` — e o texto sozinho deixa
-    mais da metade (o defeito de C10, medido nas duas linguagens sobre os mesmos registros)."""
+    o porte, com a atribuição por emissor, não deixa nada em `other`.
+
+    S-3: o texto SOZINHO já não deixa a maioria no catch-all — era esse o defeito
+    (C10, medido nas duas linguagens sobre os mesmos registros: 77,2 % dos bytes
+    do corpus sem nome). Agora o texto nomeia o suficiente, e o que sobra é o
+    genuinamente desconhecido."""
     fixture = Path(__file__).parent.parent / "crates/touring-cli/tests/fixtures/context_budget_emitters.jsonl"
     agg = kpi.agregar([fixture])
     assert agg["injected_blocks"] == 45
@@ -91,11 +249,13 @@ def test_the_real_emitter_fixture_leaves_no_other_in_the_port() -> None:
         for _, texto in kpi.hook_injections(json.loads(linha))
         if kpi.injection_family(texto) == kpi.OTHER
     )
-    assert so_texto / agg["injected_bytes"] > 0.5, "a fixture tem de reproduzir o defeito"
+    assert so_texto / agg["injected_bytes"] < 0.2, (
+        f"o texto sozinho não pode mais deixar a maioria no catch-all: {so_texto} B"
+    )
 
 
 def test_count_propositions_counts_must_should_may_lines() -> None:
-    """`count_propositions` — context_budget.rs:196-203: linhas cujo trim_start
+    """`count_propositions` — context_budget.rs:215: linhas cujo trim_start
     começa por MUST/SHOULD/MAY."""
     assert kpi.count_propositions("  MUST  touring run\n  MAY x\n  SHOULD y") == 3
     assert kpi.count_propositions("nada aqui") == 0
@@ -105,7 +265,7 @@ def test_count_propositions_counts_must_should_may_lines() -> None:
 
 
 def test_only_hook_success_enters_the_kpi() -> None:
-    """`hook_contexts` — context_budget.rs:222: SÓ `hook_success`.
+    """`hook_contexts` — context_budget.rs:248: SÓ `hook_success`.
 
     `hook_additional_context` NÃO entra no KPI. O universe do r3 é superset, e a
     paridade de 1% só vale sobre a interseção (E1.1).
@@ -113,7 +273,7 @@ def test_only_hook_success_enters_the_kpi() -> None:
     rec_s = json.loads(_attachment("hook_success", "TOURING SUGGEST · x"))
     rec_c = json.loads(_attachment("hook_additional_context", "TOURING SUGGEST · x"))
     assert kpi.hook_contexts(rec_s) == ["TOURING SUGGEST · x"]
-    assert kpi.hook_contexts(rec_c) == [], "o KPI ignora hook_additional_context (:222)"
+    assert kpi.hook_contexts(rec_c) == [], "o KPI ignora hook_additional_context (:248)"
 
 
 def test_plain_text_still_costs_the_window() -> None:
@@ -125,7 +285,7 @@ def test_plain_text_still_costs_the_window() -> None:
 
 
 def test_kpi_reads_only_three_newest_transcripts(tmp_path: Path) -> None:
-    """`MAX_TRANSCRIPTS = 3` (context_budget.rs:40, aplicado em :805) e o mais
+    """`MAX_TRANSCRIPTS = 3` (context_budget.rs:40, aplicado em :909) e o mais
     recente primeiro (:801). Sem reproduzir isto, a 'paridade' compara duas
     populations diferentes."""
     for i in range(6):
@@ -197,9 +357,57 @@ def test_touring_and_harness_are_separated(tmp_path: Path) -> None:
     assert blocos[1]["is_touring_family"] is False
 
 
+def _geracao_do_binario() -> tuple[bool, str]:
+    """A geração do binário DEPLOYADO — verificada, não inferida.
+
+    Comparar o porte com um binário de outra geração da taxonomia dá um número
+    confidentemente errado, que é pior do que nenhum. A marca é OBJETIVA: o
+    binário imprime o commit de que foi construído (`touring --version`, em
+    STDERR) e a régua tem um commit — o que a tocou por último. O binário só
+    vale se esse commit for ancestral do dele.
+
+    A marca anterior (a família `code-mode-contract` aparecer com bytes no KPI)
+    era dependente do CORPUS: um corpus sem esse bloco declarava "não medido" e
+    a paridade de 1% deixava de ser medida — em silêncio. Aqui a ausência é
+    declarada, e a presença não depende do que há nos transcripts.
+    """
+    try:
+        p = subprocess.run(["touring", "--version"], capture_output=True, text=True, timeout=30)
+    except OSError as exc:
+        return False, f"o binário `touring` não respondeu: {exc}"
+    m = re.search(r"git:\s+([0-9a-f]{7,40})", p.stdout + p.stderr)
+    if not m:
+        return False, "o binário `touring` não imprimiu o commit de construção"
+    sha = m.group(1)
+    rel = str(REGUA.relative_to(REPO))
+    tac = subprocess.run(
+        ["git", "log", "-1", "--format=%H", "--", rel],
+        capture_output=True, text=True, cwd=REPO,
+    ).stdout.strip()
+    if not tac:
+        return False, "a régua não tem commit conhecido neste repositório"
+    if subprocess.run(
+        ["git", "cat-file", "-e", sha + "^{commit}"],
+        capture_output=True, text=True, cwd=REPO,
+    ).returncode != 0:
+        return False, f"a geração do binário ({sha[:8]}) não pôde ser verificada neste repositório"
+    if subprocess.run(
+        ["git", "merge-base", "--is-ancestor", tac, sha],
+        capture_output=True, text=True, cwd=REPO,
+    ).returncode == 0:
+        return True, ""
+    return False, (
+        f"o binário deployado ({sha[:8]}) é anterior à última mudança da régua ({tac[:8]}): "
+        "comparar os dois seria comparar taxonomias diferentes"
+    )
+
+
 def test_family_table_parity_with_context_budget_kpi() -> None:
     """O critério de paridade do S-3: bytes por família dentro de 1% do
     `touring kpi -j`, medidos NO MESMO INSTANTE (o corpus cresce a cada turno)."""
+    ok, motivo = _geracao_do_binario()
+    if not ok:
+        pytest.skip(motivo)
     par = ex.paridade()
     if "erro" in par:
         pytest.skip(f"KPI indisponível: {par['erro']}")
@@ -265,7 +473,7 @@ def test_paridade_com_populacao_estavel_da_veredito(monkeypatch) -> None:
 
 
 def test_agregador_do_kpi_conta_so_o_universe_do_kpi(tmp_path: Path) -> None:
-    """O agregado `universe_kpi` conta SÓ `hook_success` (context_budget.rs:222).
+    """O agregado `universe_kpi` conta SÓ `hook_success` (context_budget.rs:248).
 
     Sem esta asserção, `_acumula` pode deixar de contar o KPI e nada acusa: o
     extrator continuaria devolvendo blocos certos e um agregado errado.

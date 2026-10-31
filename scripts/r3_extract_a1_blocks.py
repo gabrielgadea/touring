@@ -4,13 +4,15 @@ de EXEMPT + duplicatas, com a PARIDADE medida contra o KPI `context_budget`.
 
 Plano: docs/plans/2026-10-02-jev-harness-r3/plan.md:81-88
 Critérios: CRITERIOS-ACEITACAO.md §1, §3, Errata E1.1
-Porte do KPI: scripts/r3_a1_kpi.py (fiel a context_budget.rs:141-251, :505-541, :780-818)
+Porte do KPI: scripts/r3_a1_kpi.py — fiel à RÉGUA da taxonomia
+(`crates/touring-foundation/src/injection_family.rs`, a canônica desde a S-4 de
+26/10/2026) e ao agregador (`crates/touring-cli/src/cli/context_budget.rs`).
 
 ## Duas populations, e por que isso é declarado e não escondido
 
 | population | o que é | para quê |
 |---|---|---|
-| **KPI** | `attachment.type == "hook_success"` (context_budget.rs:222) | a paridade de 1% (plan S-3) |
+| **KPI** | `attachment.type == "hook_success"` (context_budget.rs:248) | a paridade de 1% (plan S-3) |
 | **r3 universe** | `hook_success` **e** `hook_additional_context` | o gate de relevância, que tem de ver também o que o KPI ignora |
 
 CRITERIOS §1 define "bloco de injeção" como `hook_additional_context`/`hook_success`;
@@ -241,7 +243,7 @@ def extract(transcript_paths: list[Path], since: str = SINCE) -> tuple[list[dict
 
 
 def _texts_do_attachment(att: dict) -> list[str]:
-    """Mesma travessia de `hook_contexts` (context_budget.rs:226-249), sem o filtro
+    """Mesma travessia de `hook_injections` (context_budget.rs:244-295), sem o filtro
     de `type` — quem filtra o `type` aqui é o universe r3, não esta função."""
     out = []
     for key in kpi.RAW_KEYS:
