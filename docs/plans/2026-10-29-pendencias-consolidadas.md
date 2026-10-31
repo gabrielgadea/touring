@@ -96,7 +96,7 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 
 | # | Item | Depende de | O que fazer |
 |---|---|---|---|
-| 3.2 | **Release 30.4.101** | — | **Em curso** desde 17:28 (`propagate-release.sh 30.4.101`, sob `systemd-inhibit`; log `~/.claude/touring/propagate-30.4.101.log`): toolchain, default, projetos (`analise` 30.4.99, `latina` 30.4.97), prova 5.5, verify |
+| 3.2 | ~~**Release 30.4.101**~~ **FEITO em 31/10 14:26** | — | A 1ª tentativa (29/10 17:28) morreu num desligamento às 18:04 (o inhibit só bloqueava suspensão); a 2ª, do HEAD `3b9119c1` com `shutdown` também inibido, deu EXIT 0: prova 43/43, doctor 9/9, global + toolchain default + `analise` + `konverter` em 30.4.101. `latina` segue em 30.4.97 por pin declarado (`[toolchain] channel = "30.4.97"` no `touring.toml` dela) |
 | 3.3 | **Decisão do default de injeção** | I-1 | Sem o dado do A3 (encerrado). O default segue `full`; decidir com a régua corrigida (I-1) ou com um A3 refeito numa janela planejada |
 | 3.4 | **A/B do compactador (B1) e do mod de evicção (B3m)** | — | `TOURING_RESULT_COMPACTOR` (desligado) e `tools/mods/touring-compact-evict` (não instalado), cada um com seu A/B; não colidem mais com o A3 |
 | 3.5 | **Calibração D2** (Phase 4) | M-1 | Calibrar gates e compactadores com o dado da régua semanal |
