@@ -23,7 +23,8 @@ const PRODUCERS: &[&str] = &[
 
 /// Files that DEFINE, build or serialize the variant — infrastructure, not writers.
 const FRAMEWORK: &[&str] = &[
-    "touring-hook-runtime/src/hook_runtime.rs",
+    // (I-3, 31/10/2026: `hook_runtime.rs` left this list — the duplicate `HookResponse`
+    // enum it defined is gone; the one canonical type is `touring-hooks-core`'s, below.)
     "touring-hook-runtime/src/hook_runtime_ext.rs",
     // The verdict merge re-wraps a `ContextWithUpdatedInput` it RECEIVES, carrying the same
     // `updated_input` through (`a_reescrita_mantem_o_updated_input`) — it never originates one.
@@ -92,8 +93,10 @@ const OUTPUT_PRODUCERS: &[&str] = &[
 
 /// Files that DEFINE, serialize or carry the variant — infrastructure, not writers.
 const OUTPUT_FRAMEWORK: &[&str] = &[
-    // defines `ContextWithUpdatedToolOutput` and its wire form
-    "touring-hook-runtime/src/hook_runtime.rs",
+    // defines `ContextWithUpdatedToolOutput` and its wire form — the ONE canonical
+    // `HookResponse` (I-3, 31/10/2026: the runtime layer's duplicate enum was removed
+    // and this variant moved here, so `hook_runtime.rs` left the list)
+    "touring-hooks-core/src/hook_response.rs",
     // re-wraps the variant it RECEIVES when advisories are attached; never originates one
     "touring-hook-runtime/src/verdict.rs",
     // the injection policy keeps `updatedToolOutput` as it came; its fixtures write the key
