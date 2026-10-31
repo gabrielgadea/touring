@@ -404,6 +404,13 @@ impl<'a> Disco<'a> {
                     return Resolucao::Existe;
                 }
             }
+            // The reference may also name an ABSOLUTE path of the project itself.
+            // It is tried ONLY when it is inside the allowed roots — the search
+            // never goes above the project root (V-4, 31/10/2026).
+            let absoluto = Path::new("/").join(v);
+            if self.permitido(&absoluto) && self.existe(&absoluto) {
+                return Resolucao::Existe;
+            }
         }
         // A root-relative URL names a path on the SERVER — the filesystem root is
         // one of the adapter's declared roots, and what the page is served from is
@@ -425,26 +432,27 @@ impl<'a> Disco<'a> {
 
     /// Every directory a root-relative URL may be served from.
     ///
-    /// V-4 (31/10/2026): the filesystem root IS one of them — a root-relative URL
-    /// (`/x`) names a path on the SERVER, and the adapter's contract is to count
-    /// the absolute paths the document writes. What changed is not the resolution
-    /// but the ANSWER: a target outside the allowed roots is refused (see
-    /// [`Disco::permitido`]), never reported as a missing file.
+    /// V-4 (31/10/2026): the search climbs the ancestors and the web roots **up to
+    /// the project root** — never above it. The filesystem root is NOT a candidate:
+    /// a root-relative URL names a path on the SERVER, and letting the search
+    /// reach the disk's root let the CONTENT probe the machine (the existence
+    /// oracle). A declared web root is a directory INSIDE the root.
     fn raizes_candidatas(&self) -> Vec<PathBuf> {
         let mut raizes = Vec::new();
         for a in self.ancestrais() {
             raizes.extend(RAIZES_WEB.iter().map(|w| a.join(w)));
             raizes.push(a);
         }
-        raizes.push(PathBuf::from("/"));
         raizes
     }
 
-    /// The document's directory and each parent up to the project root (only the project root
-    /// besides, when the document lives outside it).
+    /// The document's directory and each parent **up to the project root** — never
+    /// above it (V-4, 31/10/2026: a declared web root is a directory INSIDE the
+    /// root; when the document lives outside the project, the root is the only
+    /// candidate).
     fn ancestrais(&self) -> Vec<PathBuf> {
         if !self.dir_doc.starts_with(self.raiz) {
-            return vec![self.dir_doc.clone(), self.raiz.to_path_buf()];
+            return vec![self.raiz.to_path_buf()];
         }
         self.dir_doc
             .ancestors()

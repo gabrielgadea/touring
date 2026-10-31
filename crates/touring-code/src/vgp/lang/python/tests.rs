@@ -79,6 +79,40 @@ fn denies(out: &crate::vgp::CheckOutput) -> Vec<(String, String)> {
 // --------------------------------------------------------------------------- nome
 
 #[test]
+/// V-4 (31/10/2026): o `site-packages` do venv é uma raiz DECLARADA pelo
+/// resolver — o módulo de lá é lido; e um módulo cujo nome carrega `..` não
+/// escapa das raízes (no `Path::join`, um caminho absoluto SUBSTITUI a base).
+#[test]
+fn o_venv_e_a_raiz_declarada_e_o_dot_dot_nao_escapa() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let raiz = tmp.path();
+    let pkg = raiz.join(".venv/lib/python3.12/site-packages");
+    std::fs::create_dir_all(&pkg).expect("mkdir");
+    std::fs::write(pkg.join("mio.py"), "def f():\n    pass\n").expect("write");
+    let dentro = check(&CheckInput {
+        path: raiz.join("app.py").to_string_lossy().to_string(),
+        content: "from mio import f\n".into(),
+        project_root: raiz.to_path_buf(),
+        disk: None,
+        overlays: HashMap::new(),
+        lang: "python".into(),
+    });
+    assert!(denies(&dentro).is_empty(), "{:?}", denies(&dentro));
+    let fora = check(&CheckInput {
+        path: raiz.join("app.py").to_string_lossy().to_string(),
+        content: "from ..mio import f\n".into(),
+        project_root: raiz.to_path_buf(),
+        disk: None,
+        overlays: HashMap::new(),
+        lang: "python".into(),
+    });
+    assert_ne!(
+        fora.verdict, "deny",
+        "um modulo com `..` nao escapa das raizes"
+    );
+}
+
+#[test]
 fn nome_ausente_nega_com_linha() {
     let tmp = std::env::temp_dir().join("vgp-t-nome");
     let _ = std::fs::remove_dir_all(&tmp);
