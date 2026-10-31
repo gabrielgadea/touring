@@ -1,0 +1,12 @@
+[Unit]
+Description=AB34: fim do experimento, desliga as duas flags com backup e restart verificado (recusa, com exit 4, enquanto o calendário tem dia em curso)
+
+[Service]
+Type=oneshot
+KillMode=process
+# Exit 4 = o calendário ainda tem dia em curso: estado esperado até o fim, não falha.
+SuccessExitStatus=4
+WorkingDirectory=/home/gabrielgadea/projects/touring
+Environment=PATH=/home/gabrielgadea/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/bin/mkdir -p /home/gabrielgadea/.claude/touring/ab34
+ExecStart=/bin/sh -c 'date "+%%F %%T %%z ab34-reset.service" >>/home/gabrielgadea/.claude/touring/ab34/arm.log; /usr/bin/python3 /home/gabrielgadea/projects/touring/docs/plans/2026-10-31-ab34-compactador-eviccao/ab34_arm.py reset --yes >>/home/gabrielgadea/.claude/touring/ab34/arm.log 2>&1'

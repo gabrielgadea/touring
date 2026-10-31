@@ -1,0 +1,23 @@
+{
+  "day0": null,
+  "tz": "America/Sao_Paulo",
+  "seed": 20261105,
+  "blocks": [
+    [
+      "C-",
+      "CE",
+      "-E",
+      "--"
+    ],
+    [
+      "-E",
+      "C-",
+      "--",
+      "CE"
+    ]
+  ],
+  "daemon_socket": "/tmp/touring-daemon-1000.sock",
+  "transcript_dirs": [
+    "-home-gabrielgadea-projects-touring"
+  ]
+}
