@@ -12,6 +12,7 @@
 
 // HookResponse uses serde_json::Value for JSON serialization
 
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// Serialization-optimized response wrapper.
@@ -146,6 +147,19 @@ pub enum HookResponse {
         /// The corrected tool input that replaces the original.
         updated_input: serde_json::Value,
     },
+    /// Context injection with a replacement for the tool RESULT (PostToolUse only).
+    /// Returns `updatedToolOutput` (+ `additionalContext` when `context` is non-empty)
+    /// in hookSpecificOutput. Claude Code validates the value against the tool's own
+    /// output schema and falls back to the original output when it does not match, so
+    /// the producer must hand back the whole result object, not a bare string.
+    ContextWithUpdatedToolOutput {
+        /// Additional context string injected next to the result; empty = none.
+        context: String,
+        /// Originating hook event name, if known.
+        event_name: Option<String>,
+        /// The tool result object that replaces the original before the model sees it.
+        updated_tool_output: serde_json::Value,
+    },
 }
 
 impl HookResponse {
@@ -154,140 +168,61 @@ impl HookResponse {
     /// This is the bridge between the testable `HookResponse` and the
     /// diverging behavior required by Claude Code hook protocol.
     ///
+    /// `Allow` emits nothing — an empty hook response is signalled by empty
+    /// stdout. Every other variant prints [`HookResponse::stdout_text`], which
+    /// serializes byte-identically to [`HookResponse::to_json`]: one source of
+    /// truth for the wire format, so the emit/to_json drift-bug class cannot exist.
+    ///
+    /// S14: the exit reason is recorded BEFORE the process exits (through the sink
+    /// the runtime layer installs, see [`set_emit_reason_sink`]) — without it the
+    /// hook trace kept the install default `handler-diverged` and a clean exit read
+    /// like a crash.
+    ///
     /// S-2 (27/10/2026): the answer goes through the injection policy
-    /// ([`touring_foundation::injection_policy`]) on its way out, at the level
-    /// of this process's environment. With `TOURING_HOOK_INJECTION` unset the
-    /// bytes are exactly what they always were.
+    /// ([`touring_foundation::injection_policy`]) on its way out, at the level of
+    /// this process's environment; S-4p (26/10/2026): on the standalone route (a
+    /// dedupe scope recorded by the client) it also goes through the epoch dedupe
+    /// the daemon applies. With `TOURING_HOOK_INJECTION` unset and no scope
+    /// recorded the bytes are exactly what they always were.
     pub fn emit(self) -> ! {
-        if let Some(output) = self.emit_value() {
+        if matches!(self, HookResponse::Allow) {
+            note_emit_reason("emit-allow");
+        } else {
+            note_emit_reason("emit-json");
             let (level, sink) = touring_foundation::injection_policy::current();
-            println!("{}", Self::stdout_text(&output, level, sink.as_deref()));
+            println!(
+                "{}",
+                self.stdout_text(level, sink.as_deref(), dedup_scope())
+            );
         }
         std::process::exit(0);
     }
 
-    /// The text `emit` writes to stdout for `output`: its compact JSON, filtered
-    /// by the injection policy at `level` (cuts recorded in the journal at
-    /// `sink`). Split from `emit` — which exits the process — to be testable.
-    fn stdout_text(
-        output: &serde_json::Value,
+    /// The exact text [`HookResponse::emit`] writes to stdout: the serialization
+    /// ([`HookResponse::to_json`]), the injection policy (`level`, recording the cut
+    /// in the journal at `sink`) and the epoch dedupe (`scope`). Split from `emit` —
+    /// which exits the process — to be testable.
+    ///
+    /// The policy runs BEFORE the dedupe: what it cut never reached the model, so it
+    /// must not enter the epoch state. The site label is [`SITE_EMIT_RUNTIME`]
+    /// (`emit-runtime`): it is the label the standalone emit funnel always wrote and
+    /// the one the journals already hold — the type was unified around it.
+    ///
+    /// [`SITE_EMIT_RUNTIME`]: touring_foundation::injection_policy::SITE_EMIT_RUNTIME
+    pub fn stdout_text(
+        &self,
         level: touring_foundation::injection_policy::InjectionLevel,
         sink: Option<&std::path::Path>,
+        scope: Option<&(PathBuf, String)>,
     ) -> String {
-        let json = serde_json::to_string(output).unwrap_or_default();
-        touring_foundation::injection_policy::apply_at(
+        let json = self.to_json();
+        let json = touring_foundation::injection_policy::apply_at(
             level,
-            touring_foundation::injection_policy::SITE_EMIT_CORE,
+            touring_foundation::injection_policy::SITE_EMIT_RUNTIME,
             &json,
             sink,
-        )
-        .into_owned()
-    }
-
-    /// The JSON object `emit` prints, or `None` for `Allow` (which prints
-    /// nothing: an empty stdout is the hook protocol's "no answer").
-    fn emit_value(self) -> Option<serde_json::Value> {
-        match self {
-            HookResponse::Allow => None,
-            HookResponse::Context {
-                context,
-                event_name,
-            } => {
-                let truncated = truncate_context(&context);
-                let mut hso = serde_json::json!({
-                    "additionalContext": truncated,
-                });
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name);
-                    }
-                }
-                let output = serde_json::json!({
-                    "hookSpecificOutput": hso,
-                });
-                Some(output)
-            }
-            HookResponse::Deny {
-                reason,
-                context,
-                event_name,
-            } => {
-                let mut hso = serde_json::json!({
-                    "permissionDecision": "deny",
-                    "permissionDecisionReason": reason,
-                });
-                if let Some(ctx) = context {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["additionalContext"] = serde_json::Value::String(ctx);
-                    }
-                }
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name);
-                    }
-                }
-                let output = serde_json::json!({
-                    "hookSpecificOutput": hso,
-                });
-                Some(output)
-            }
-            HookResponse::Block {
-                reason,
-                context,
-                event_name,
-            } => {
-                let mut hso = serde_json::json!({});
-                if let Some(ctx) = context {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["additionalContext"] = serde_json::Value::String(ctx);
-                    }
-                }
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name);
-                    }
-                }
-                let output = serde_json::json!({
-                    "decision": "block",
-                    "reason": reason,
-                    "hookSpecificOutput": hso,
-                });
-                Some(output)
-            }
-            HookResponse::Halt { reason } => {
-                let output = serde_json::json!({
-                    "continue": false,
-                    "stopReason": reason,
-                });
-                Some(output)
-            }
-            HookResponse::ContextWithUpdatedInput {
-                context,
-                event_name,
-                updated_input,
-            } => {
-                let truncated = truncate_context(&context);
-                let mut hso = serde_json::json!({
-                    "additionalContext": truncated,
-                    "updatedInput": updated_input,
-                });
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name);
-                    }
-                }
-                let output = serde_json::json!({
-                    "hookSpecificOutput": hso,
-                });
-                Some(output)
-            }
-        }
+        );
+        dedup_with_scope(&json, scope)
     }
 
     /// Build a context response (injects additionalContext).
@@ -441,10 +376,231 @@ impl HookResponse {
                     "hookSpecificOutput": hso,
                 })
             }
+            HookResponse::ContextWithUpdatedToolOutput {
+                context,
+                event_name,
+                updated_tool_output,
+            } => updated_tool_output_value(context, event_name.as_deref(), updated_tool_output),
         };
         let mut value = value;
         stamp_invoking_event(&mut value);
         serde_json::to_string(&value).unwrap_or_default()
+    }
+}
+
+/// Wire value of [`HookResponse::ContextWithUpdatedToolOutput`]: `updatedToolOutput`
+/// always, `additionalContext` only when there is context to carry (an empty string
+/// would put a blank reminder next to the result).
+fn updated_tool_output_value(
+    context: &str,
+    event_name: Option<&str>,
+    updated_tool_output: &serde_json::Value,
+) -> serde_json::Value {
+    let mut hso = serde_json::json!({
+        "updatedToolOutput": updated_tool_output,
+    });
+    if !context.is_empty() {
+        let truncated = truncate_context(context);
+        hso["additionalContext"] = serde_json::Value::String(truncated);
+    }
+    if let Some(name) = event_name {
+        hso["hookEventName"] = serde_json::Value::String(name.to_string());
+    }
+    serde_json::json!({
+        "hookSpecificOutput": hso,
+    })
+}
+
+/// S-4p (26/10/2026) — the dedupe scope of the STANDALONE route: (root, session).
+///
+/// The daemon dedupes every handler's output in `maybe_dedup_output`
+/// (touring-dispatch/src/daemon.rs); the standalone route — daemon down, 3 s
+/// timeout, `TOURING_NO_DAEMON` — printed without dedupe, and it is through it
+/// that the Rust families (`session-contract` 95.8%, `similar-fail` 92.3%,
+/// `pipefail-evidence` 90.5% of excess in the 400-session corpus) repeated when
+/// the daemon was down. The `touring-hook` client records the scope ONCE, only on
+/// entering the standalone route; the daemon process never sets it — the dedupe
+/// of ITS answer already happened in the daemon, and deduping again would empty
+/// the first emission (the remaining lines are already in the state) — so
+/// [`HookResponse::emit`] dedupes EXCLUSIVELY on the standalone route. Unset ⇒
+/// bytes identical to those before S-4p.
+///
+/// I-3 (31/10/2026): the state moved here with the unified `HookResponse`
+/// (the `emit` that reads it lives on the canonical type); the runtime layer
+/// re-exports [`set_dedup_scope`] / [`dedup_scope`] under their old paths.
+static DEDUP_SCOPE: OnceLock<(PathBuf, String)> = OnceLock::new();
+
+/// Record the standalone route's dedupe scope. The first call wins; an empty
+/// session records nothing (no session means no per-epoch state file, and the
+/// dedupe would have no key).
+pub fn set_dedup_scope(root: PathBuf, session: &str) {
+    if !session.is_empty() {
+        let _ = DEDUP_SCOPE.set((root, session.to_string()));
+    }
+}
+
+/// The recorded scope, if any — read by [`HookResponse::emit`] and by the
+/// standalone `task-completed`.
+pub fn dedup_scope() -> Option<&'static (PathBuf, String)> {
+    DEDUP_SCOPE.get()
+}
+
+/// The testable core of the `emit` dedupe: with a scope, returns the JSON with the
+/// epoch's repetitions omitted; without one (daemon route, tests, binaries that did
+/// not record it) returns the JSON intact — fail-open by construction.
+pub fn dedup_with_scope(json: &str, scope: Option<&(PathBuf, String)>) -> String {
+    match scope {
+        Some((root, session)) => {
+            touring_hooks_shared::injection_dedup::dedup_hook_output(root, session, json)
+        }
+        None => json.to_string(),
+    }
+}
+
+/// Sink the runtime layer installs so [`HookResponse::emit`] can say WHY the
+/// process exits (`emit-allow` / `emit-json`). The hook trace lives in
+/// `touring-hook-runtime` (it reads the stdin state kept there), a layer ABOVE
+/// this crate, so `emit` reaches it through this pointer instead of a dependency.
+/// `touring_hook_runtime::hook_trace::install` registers it; the trace's
+/// `set_reason` is a no-op until `install` armed it, so "not registered" and
+/// "registered, trace unarmed" are the same observable behaviour.
+static EMIT_REASON_SINK: OnceLock<fn(&'static str)> = OnceLock::new();
+
+/// Install the exit-reason sink. The first call wins.
+pub fn set_emit_reason_sink(sink: fn(&'static str)) {
+    let _ = EMIT_REASON_SINK.set(sink);
+}
+
+/// Forward `reason` to the installed sink, if any.
+fn note_emit_reason(reason: &'static str) {
+    if let Some(sink) = EMIT_REASON_SINK.get() {
+        sink(reason);
+    }
+}
+
+/// Marker that precedes the advisories carried inside a deny's `permissionDecisionReason`.
+pub const ALSO_NON_BLOCKING: &str = "[também, sem bloquear]";
+
+/// The event every PreToolUse verdict answers as.
+const PRE_TOOL_USE: &str = "PreToolUse";
+
+/// A deny's reason with the advisories that rode along. The deny stays a deny.
+#[must_use]
+pub fn deny_reason_with(reason: &str, avisos: &[String]) -> String {
+    if avisos.is_empty() {
+        return reason.to_string();
+    }
+    format!("{reason}\n\n{ALSO_NON_BLOCKING} {}", avisos.join("\n"))
+}
+
+/// The `additionalContext` of a non-deny verdict: the advisories first, the verdict's own
+/// context after.
+#[must_use]
+pub fn context_with(avisos: &[String], context: Option<&str>) -> String {
+    match context.filter(|c| !c.is_empty()) {
+        Some(c) if !avisos.is_empty() => format!("{}\n{c}", avisos.join("\n")),
+        Some(c) => c.to_string(),
+        None => avisos.join("\n"),
+    }
+}
+
+impl HookResponse {
+    /// This verdict with the deposited `avisos` attached — deny > rewrite/advisory > nothing.
+    ///
+    /// * `Allow` has nothing to be more severe than: the advisories become the context.
+    /// * `Deny` / `Block` / `Halt` keep their decision; the advisories enter the reason.
+    /// * `Context` / `ContextWithUpdatedInput` / `ContextWithUpdatedToolOutput` keep
+    ///   their payload; the advisories lead the context.
+    ///
+    /// An empty `avisos` returns `self` untouched.
+    ///
+    /// The advisories pass through the injection policy first
+    /// ([`HookResponse::with_advisories_at`]) at the current request's level.
+    /// Standalone code reads `TOURING_HOOK_INJECTION` from its own environment;
+    /// the project actor applies the client level carried by `DaemonRequest`.
+    #[must_use]
+    pub fn with_advisories(self, avisos: Vec<String>) -> HookResponse {
+        let (level, sink) = touring_foundation::injection_policy::current();
+        self.with_advisories_at(level, sink.as_deref(), avisos)
+    }
+
+    /// [`HookResponse::with_advisories`] at an explicit injection `level`.
+    ///
+    /// An advisory that rides along a verdict contaminates it: a deny carries it in
+    /// `permissionDecisionReason`, any other verdict in `additionalContext`, and the
+    /// policy keeps a payload that mixes sermon and fact WHOLE. So the filter acts
+    /// BEFORE the gluing, advisory by advisory
+    /// ([`touring_foundation::injection_policy::retain_allowed`]): the gate's own
+    /// reason and context are never touched, only what would have been appended to
+    /// them. What it cuts goes to the journal at `sink`.
+    #[must_use]
+    pub fn with_advisories_at(
+        self,
+        level: touring_foundation::injection_policy::InjectionLevel,
+        sink: Option<&std::path::Path>,
+        avisos: Vec<String>,
+    ) -> HookResponse {
+        let avisos = touring_foundation::injection_policy::retain_allowed(
+            level,
+            touring_foundation::injection_policy::SITE_VERDICT,
+            avisos,
+            sink,
+        );
+        if avisos.is_empty() {
+            return self;
+        }
+        match self {
+            HookResponse::Allow => HookResponse::Context {
+                context: context_with(&avisos, None),
+                event_name: Some(PRE_TOOL_USE.to_string()),
+            },
+            HookResponse::Context {
+                context,
+                event_name,
+            } => HookResponse::Context {
+                context: context_with(&avisos, Some(&context)),
+                event_name,
+            },
+            HookResponse::Deny {
+                reason,
+                context,
+                event_name,
+            } => HookResponse::Deny {
+                reason: deny_reason_with(&reason, &avisos),
+                context,
+                event_name,
+            },
+            HookResponse::Block {
+                reason,
+                context,
+                event_name,
+            } => HookResponse::Block {
+                reason: deny_reason_with(&reason, &avisos),
+                context,
+                event_name,
+            },
+            HookResponse::Halt { reason } => HookResponse::Halt {
+                reason: deny_reason_with(&reason, &avisos),
+            },
+            HookResponse::ContextWithUpdatedInput {
+                context,
+                event_name,
+                updated_input,
+            } => HookResponse::ContextWithUpdatedInput {
+                context: context_with(&avisos, Some(&context)),
+                event_name,
+                updated_input,
+            },
+            HookResponse::ContextWithUpdatedToolOutput {
+                context,
+                event_name,
+                updated_tool_output,
+            } => HookResponse::ContextWithUpdatedToolOutput {
+                context: context_with(&avisos, Some(&context)),
+                event_name,
+                updated_tool_output,
+            },
+        }
     }
 }
 
@@ -667,8 +823,8 @@ mod s214_tests {
 }
 
 /// S-2 (27/10/2026) — a política de injeção no `emit` do tipo canônico.
-/// `emit` sai do processo; o que ele escreve é `stdout_text(emit_value())`,
-/// testado com nível e diário EXPLÍCITOS (nenhum teste mexe no ambiente).
+/// `emit` sai do processo; o que ele escreve é `stdout_text`, testado com
+/// nível, diário e escopo EXPLÍCITOS (nenhum teste mexe no ambiente).
 #[cfg(test)]
 mod s2_injection_policy_tests {
     use super::HookResponse;
@@ -684,8 +840,7 @@ mod s2_injection_policy_tests {
         level: InjectionLevel,
         sink: Option<&std::path::Path>,
     ) -> Option<String> {
-        r.emit_value()
-            .map(|o| HookResponse::stdout_text(&o, level, sink))
+        (!matches!(r, HookResponse::Allow)).then(|| r.stdout_text(level, sink, None))
     }
 
     /// O contrato C13 no `emit` do núcleo: sob `no-advisory` o sermão sai dos
@@ -745,7 +900,7 @@ mod s2_injection_policy_tests {
             .map(|l| serde_json::from_str(l).expect("linha JSON"))
             .collect();
         assert_eq!(lines.len(), 3);
-        assert!(lines.iter().all(|l| l["site"] == "emit-core"));
+        assert!(lines.iter().all(|l| l["site"] == "emit-runtime"));
     }
 
     /// `off` num `Context` puro: o envelope vira `{}`; `Halt` (só decisão)
@@ -788,8 +943,7 @@ mod s2_injection_policy_tests {
             ]
         };
         for (r, expected) in variants().into_iter().zip(variants()) {
-            let value = expected.emit_value().expect("não é Allow");
-            let direct = serde_json::to_string(&value).expect("serializa");
+            let direct = expected.to_json();
             assert_eq!(
                 written(r, InjectionLevel::Full, None).as_deref(),
                 Some(direct.as_str())
@@ -916,5 +1070,31 @@ mod tests {
         // Both should work independently
         assert!(lazy1.as_str().contains("oops"));
         assert!(lazy1.as_str().len() > 0);
+    }
+}
+
+/// I-3 — the exit-reason sink: `emit` reaches the runtime layer's hook trace through
+/// a pointer installed once, not through a dependency.
+#[cfg(test)]
+mod i3_emit_reason_sink_tests {
+    use super::{note_emit_reason, set_emit_reason_sink};
+    use std::sync::Mutex;
+
+    static SEEN: Mutex<Vec<&'static str>> = Mutex::new(Vec::new());
+
+    fn record(reason: &'static str) {
+        SEEN.lock().expect("lock").push(reason);
+    }
+
+    #[test]
+    fn note_emit_reason_reaches_the_installed_sink() {
+        set_emit_reason_sink(record);
+        note_emit_reason("emit-json");
+        note_emit_reason("emit-allow");
+        assert_eq!(
+            *SEEN.lock().expect("lock"),
+            vec!["emit-json", "emit-allow"],
+            "o sink recebe cada razão, na ordem"
+        );
     }
 }

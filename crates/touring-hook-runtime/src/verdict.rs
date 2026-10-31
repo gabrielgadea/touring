@@ -7,139 +7,30 @@
 //! never lost.
 //!
 //! The chains speak two dialects — the `cli-suggest` gates return the wire JSON, the
-//! `pre-bash`/`pre-edit`/`pre-write` handlers return [`HookResponse`] — and a rule written
-//! twice diverges. This module is the single home: [`HookResponse::with_advisories`] and
+//! `pre-bash`/`pre-edit`/`pre-write` handlers return [`HookResponse`](touring_hooks_core::hook_response::HookResponse) — and a rule written
+//! twice diverges. This module is the single home: [`HookResponse::with_advisories`](touring_hooks_core::hook_response::HookResponse::with_advisories) and
 //! [`merge_pretool_json`] are two adapters over the same two text helpers
 //! ([`deny_reason_with`], [`context_with`]), and the test table below pins that both adapters
 //! produce the same wire output for every verdict.
 
+#[cfg(test)]
 use crate::hook_runtime::HookResponse;
 use serde_json::Value;
 use std::path::Path;
 use touring_foundation::injection_policy::{self, InjectionLevel};
 
-/// Marker that precedes the advisories carried inside a deny's `permissionDecisionReason`.
-pub const ALSO_NON_BLOCKING: &str = "[também, sem bloquear]";
-
 /// The event every PreToolUse verdict answers as.
 const PRE_TOOL_USE: &str = "PreToolUse";
 
-/// A deny's reason with the advisories that rode along. The deny stays a deny.
-#[must_use]
-pub fn deny_reason_with(reason: &str, avisos: &[String]) -> String {
-    if avisos.is_empty() {
-        return reason.to_string();
-    }
-    format!("{reason}\n\n{ALSO_NON_BLOCKING} {}", avisos.join("\n"))
-}
+// I-3 (31/10/2026): `HookResponse` is defined in `touring-hooks-core`, and an inherent
+// impl (`with_advisories`, `with_advisories_at`) can only live in the defining crate —
+// they moved there together with the two text helpers and the marker, so the JSON
+// adapter below and the typed adapter keep ONE rule. Re-exported here: the old paths
+// (`verdict::context_with`, `verdict::deny_reason_with`, `verdict::ALSO_NON_BLOCKING`)
+// still resolve.
+pub use touring_hooks_core::hook_response::{ALSO_NON_BLOCKING, context_with, deny_reason_with};
 
-/// The `additionalContext` of a non-deny verdict: the advisories first, the verdict's own
-/// context after.
-#[must_use]
-pub fn context_with(avisos: &[String], context: Option<&str>) -> String {
-    match context.filter(|c| !c.is_empty()) {
-        Some(c) if !avisos.is_empty() => format!("{}\n{c}", avisos.join("\n")),
-        Some(c) => c.to_string(),
-        None => avisos.join("\n"),
-    }
-}
-
-impl HookResponse {
-    /// This verdict with the deposited `avisos` attached — deny > rewrite/advisory > nothing.
-    ///
-    /// * `Allow` has nothing to be more severe than: the advisories become the context.
-    /// * `Deny` / `Block` / `Halt` keep their decision; the advisories enter the reason.
-    /// * `Context` / `ContextWithUpdatedInput` keep their payload; the advisories lead the
-    ///   context.
-    ///
-    /// An empty `avisos` returns `self` untouched.
-    ///
-    /// The advisories pass through the injection policy first
-    /// ([`HookResponse::with_advisories_at`]) at the current request's level.
-    /// Standalone code reads `TOURING_HOOK_INJECTION` from its own environment;
-    /// the project actor applies the client level carried by `DaemonRequest`.
-    #[must_use]
-    pub fn with_advisories(self, avisos: Vec<String>) -> HookResponse {
-        let (level, sink) = injection_policy::current();
-        self.with_advisories_at(level, sink.as_deref(), avisos)
-    }
-
-    /// [`HookResponse::with_advisories`] at an explicit injection `level`.
-    ///
-    /// An advisory that rides along a verdict contaminates it: a deny carries it in
-    /// `permissionDecisionReason`, any other verdict in `additionalContext`, and the
-    /// policy keeps a payload that mixes sermon and fact WHOLE. So the filter acts
-    /// BEFORE the gluing, advisory by advisory ([`injection_policy::retain_allowed`]):
-    /// the gate's own reason and context are never touched, only what would have
-    /// been appended to them. What it cuts goes to the journal at `sink`.
-    #[must_use]
-    pub fn with_advisories_at(
-        self,
-        level: InjectionLevel,
-        sink: Option<&Path>,
-        avisos: Vec<String>,
-    ) -> HookResponse {
-        let avisos =
-            injection_policy::retain_allowed(level, injection_policy::SITE_VERDICT, avisos, sink);
-        if avisos.is_empty() {
-            return self;
-        }
-        match self {
-            HookResponse::Allow => HookResponse::Context {
-                context: context_with(&avisos, None),
-                event_name: Some(PRE_TOOL_USE.to_string()),
-            },
-            HookResponse::Context {
-                context,
-                event_name,
-            } => HookResponse::Context {
-                context: context_with(&avisos, Some(&context)),
-                event_name,
-            },
-            HookResponse::Deny {
-                reason,
-                context,
-                event_name,
-            } => HookResponse::Deny {
-                reason: deny_reason_with(&reason, &avisos),
-                context,
-                event_name,
-            },
-            HookResponse::Block {
-                reason,
-                context,
-                event_name,
-            } => HookResponse::Block {
-                reason: deny_reason_with(&reason, &avisos),
-                context,
-                event_name,
-            },
-            HookResponse::Halt { reason } => HookResponse::Halt {
-                reason: deny_reason_with(&reason, &avisos),
-            },
-            HookResponse::ContextWithUpdatedInput {
-                context,
-                event_name,
-                updated_input,
-            } => HookResponse::ContextWithUpdatedInput {
-                context: context_with(&avisos, Some(&context)),
-                event_name,
-                updated_input,
-            },
-            HookResponse::ContextWithUpdatedToolOutput {
-                context,
-                event_name,
-                updated_tool_output,
-            } => HookResponse::ContextWithUpdatedToolOutput {
-                context: context_with(&avisos, Some(&context)),
-                event_name,
-                updated_tool_output,
-            },
-        }
-    }
-}
-
-/// The wire form of [`HookResponse::with_advisories`] for the chains that answer in JSON.
+/// The wire form of [`HookResponse::with_advisories`](touring_hooks_core::hook_response::HookResponse::with_advisories) for the chains that answer in JSON.
 ///
 /// `veredito` is the chain's own answer (`None`, `{}` or an object without
 /// `hookSpecificOutput` all mean "no verdict"); `avisos` the texts deposited along the way.
@@ -153,7 +44,7 @@ pub fn merge_pretool_json(veredito: Option<String>, avisos: Vec<String>) -> Opti
 }
 
 /// [`merge_pretool_json`] at an explicit injection `level` — the same advisory
-/// filter as [`HookResponse::with_advisories_at`], so the two adapters still
+/// filter as [`HookResponse::with_advisories_at`](touring_hooks_core::hook_response::HookResponse::with_advisories_at), so the two adapters still
 /// answer alike.
 #[must_use]
 pub fn merge_pretool_json_at(

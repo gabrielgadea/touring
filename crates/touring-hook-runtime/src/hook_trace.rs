@@ -71,6 +71,10 @@ static STATE: OnceLock<Option<TraceState>> = OnceLock::new();
 /// Arm the trace for this process. Idempotent; a no-op when the env var is
 /// unset or empty. Registers the `atexit` flush on first arming.
 pub fn install(hook: &str) {
+    // I-3: `HookResponse::emit` lives in `touring-hooks-core`, a layer below this one,
+    // and records its exit reason through this sink. `set_reason` is a no-op while the
+    // trace is unarmed, so registering it here (the only way to arm) loses nothing.
+    touring_hooks_core::hook_response::set_emit_reason_sink(set_reason);
     let hook = hook.to_string();
     let _ = STATE.get_or_init(|| {
         let path = std::env::var_os(ENV_TRACE_FILE)
