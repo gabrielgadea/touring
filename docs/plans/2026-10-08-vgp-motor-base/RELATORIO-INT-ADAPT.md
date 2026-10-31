@@ -392,5 +392,27 @@ para ela decidir (ela marcou `INTADAPT` como `in_progress`).
 3. **O recall de Rust (0,270 / 0,500) não é desta integração** — é o estado do
    adaptador VRS (o aceite de V-6/V-7). A contenção **não custou recall**
    (§6).
-4. **O oráculo de existência do HTML** (o `src` absoluto) ficou de fora da
-   contenção, por contrato — o custo de fechá-lo está medido (§2.2).
+4. **O oráculo de existência do HTML** (o `src` absoluto) foi fechado pela
+   decisão da coordenadora (§2.2, commit `1eca7d46`): a busca não sobe acima da
+   raiz do projeto.
+
+## 10. O `corpus_rust` velho (decisão 3 da coordenadora) — RESOLVIDO
+
+O corpus em disco grava `contexto` como **STRING** nas 280 entradas e o juiz
+crasha (`TypeError: string indices must be integers`). O **gerador já grava
+LISTA** (`corpus_rust.py:277` e `:320`) — o corpus é que é velho.
+
+| passo | resultado |
+|---|---|
+| o teste de contrato (`scripts/test_corpus_rust_contrato_juiz.py`) | **PASSOU** — "o gerador escreve o que o juiz lê": 104 entradas com `contexto` = LISTA, e o juiz de verdade sobre elas **não crasha** |
+| o corpus regenerado (`corpus_rust.py --n 40 --negativos 200`) | **160 positivos** (4 classes × 40) + 200 negativos |
+| o juiz de Rust sanidade sobre o corpus regenerado | **não crasha**: recall 80/160 · 0,500 · falso deny **0/200** · p95 0,4 ms · 360 chamadas — a única pendência é o limite superior de 95 % (n=200 < 299: **não provado por estatística**, como declarado) |
+
+**O que NÃO foi feito, e por quê**: o corpus em disco
+(`~/.claude/touring/vgp/corpus_rust`) **não foi substituído** — o gerador de
+hoje produz 160 positivos e o corpus em disco tem 80: são corpora
+**diferentes** (o gerador ganhou classes), e trocar o corpus mudaria os
+números do V-6/V-7 sem que a comparação com o ANTES/DEPOIS valesse mais. A
+substituição é decisão da coordenadora (o caminho é `corpus_rust.py --n … --
+saida ~/.claude/touring/vgp/corpus_rust`); o regenerado está em
+`/tmp/corpus_rust_novo`, e o juiz já mediu sobre ele.
