@@ -11,6 +11,7 @@ use std::sync::OnceLock;
 
 static SQLI_RE: OnceLock<Regex> = OnceLock::new();
 static XSS_RE: OnceLock<Regex> = OnceLock::new();
+static INERT_URL_BODY_RE: OnceLock<Regex> = OnceLock::new();
 static CMDI_RE: OnceLock<Regex> = OnceLock::new();
 static PATH_TRAV_RE: OnceLock<Regex> = OnceLock::new();
 static INT_OVF_RE: OnceLock<Regex> = OnceLock::new();
@@ -75,7 +76,7 @@ impl VulnerabilityPattern for SqlInjectionPattern {
 // ---------------------------------------------------------------------------
 // Cross-Site Scripting — CWE-79
 // ---------------------------------------------------------------------------
-/// Detects cross-site scripting (CWE-79): `<script>` tags, `javascript:` URIs (the scheme, in any letter case, at the start of a URL value: not the word in prose, not a literal a scheme blocklist refuses), and inline HTML event-handler attributes (lowercase DOM events).
+/// Detects cross-site scripting (CWE-79): `<script>` tags, `javascript:` URIs (the scheme, in any letter case, at the start of a URL value: not the word in prose, not a literal a scheme blocklist refuses, not an inert constant URL such as `javascript:void(0)`), and inline HTML event-handler attributes (lowercase DOM events).
 #[derive(Debug, Clone, Copy)]
 pub struct XssPattern;
 
@@ -134,10 +135,13 @@ impl VulnerabilityPattern for XssPattern {
                 // (`log("rota javascript: …")` talks ABOUT it) and when it is not the
                 // literal a scheme BLOCKLIST names to refuse it. The open-tag rescue
                 // below never applies to it: `a<b` in JS opened a phantom "tag" and
-                // kept `u.startsWith('javascript:')` reported.
+                // kept `u.startsWith('javascript:')` reported. Nor is an INERT constant URL
+                // (`href="javascript:;"`, `void(0)`, `history.back()`): no untrusted
+                // data reaches it (F2.1, 10/10/2026).
                 if is_javascript_scheme(text) {
                     return starts_url_value(input, m.start())
-                        && !is_scheme_blocklist_literal(input, m.start());
+                        && !is_scheme_blocklist_literal(input, m.start())
+                        && !is_inert_constant_url(input, m.start());
                 }
                 // B3 (2026-09-02): the handler arm (`on<event>=`) is an HTML
                 // attribute — a sink only INSIDE an open tag. Bare, it is a
@@ -505,6 +509,74 @@ fn follows_for_target(b: &[u8], in_start: usize) -> bool {
     seg[f + 3..]
         .iter()
         .all(|&c| is_ident(c) || matches!(c, b',' | b' ' | b'\t' | b'(' | b')'))
+}
+
+/// The whole value of the `javascript:` URL at `at` is an INERT constant (F2.1,
+/// 10/10/2026): a no-op or a history/print navigation, no data in it.
+/// `href="javascript:;"`, `href="javascript:void(0)"`, `javascript:history.back()` and
+/// `javascript:this.print();` are in 16 captured HTML pages (portal reports, TSE, ANTT
+/// legislation); no untrusted data reaches them, so there is no XSS to report.
+///
+/// Positional and closed on purpose: the value must be delimited (a quote, or an
+/// unquoted attribute after `=`), its body must be one of the forms of
+/// [`INERT_URL_BODY_RE`], and the value must not go on past the delimiter (`+`, `%`,
+/// `.format(`, an adjacent literal). A constant that is not inert — `alert(1)`,
+/// `alert(document.cookie)`, a call into page code — keeps reporting: a constant
+/// payload and a constant site function look alike here, and `alert(…)` is the
+/// canonical proof of concept. Not judged: a URL opened by `(` (Markdown link, CSS
+/// `url(`) and the bare payload at the start of an input.
+fn is_inert_constant_url(input: &str, at: usize) -> bool {
+    let b = input.as_bytes();
+    let Some(opener) = prev_non_blank(b, at, false) else {
+        return false;
+    };
+    let body_start = at + "javascript:".len();
+    let tail = &b[body_start..b.len().min(body_start + BLOCKLIST_WINDOW)];
+    let (body, end) = if is_quote(b[opener]) {
+        let Some(close) = tail.iter().position(|&c| c == b[opener]) else {
+            return false;
+        };
+        // `\"javascript:void(0)\"` in a string the program writes: the backslash
+        // belongs to the delimiter.
+        let body = tail[..close].strip_suffix(b"\\").unwrap_or(&tail[..close]);
+        (body, body_start + close + 1)
+    } else if b[opener] == b'=' {
+        let close = tail
+            .iter()
+            .position(|&c| c.is_ascii_whitespace() || matches!(c, b'>' | b'"' | b'\''))
+            .unwrap_or(tail.len());
+        (&tail[..close], body_start + close)
+    } else {
+        return false;
+    };
+    let goes_on = b[end..]
+        .iter()
+        .find(|c| !c.is_ascii_whitespace())
+        .is_some_and(|&c| matches!(c, b'+' | b'%' | b'.' | b'"' | b'\''));
+    !goes_on && is_inert_url_body(body)
+}
+
+/// `body` (a `javascript:` URL's script, blanks ignored, one trailing `;` allowed) is
+/// empty, `void(0)`, `history.back()`/`forward()`/`go()` with an optional integer
+/// (`window.` prefix allowed) or `this.print()` — every body read in the captured pages
+/// that carries no data.
+fn is_inert_url_body(body: &[u8]) -> bool {
+    let compact: Vec<u8> = body
+        .iter()
+        .copied()
+        .filter(|c| !c.is_ascii_whitespace())
+        .collect();
+    let Ok(text) = std::str::from_utf8(&compact) else {
+        return false;
+    };
+    INERT_URL_BODY_RE
+        .get_or_init(|| {
+            Regex::new(
+                r"^(?:;?|void(?:\(0\)|0);?|(?:window\.)?history\.(?:back|forward|go)\((?:-?\d{1,3})?\);?|this\.print\(\);?)$",
+            )
+            .expect("valid static regex")
+        })
+        .is_match(text)
 }
 
 /// True when the `<script` at `at` belongs to an HTML document the program
@@ -1106,8 +1178,8 @@ mod tests {
         for sink in [
             "if ok: el.href = \"javascript:\" + x",
             "x == 1 and go(\"javascript:alert(1)\")",
-            "redirect(url if url.startswith(\"/\") else \"javascript:void(0)\")",
-            "el.href = x || 'javascript:'",
+            "redirect(url if url.startswith(\"/\") else \"javascript:alert(1)\")",
+            "el.href = x || 'javascript:alert(1)'",
             "img.src = ok ? \"a\" : \"javascript:alert(1)\"",
             "plugin(\"javascript:alert(1)\")",
             "render([\"data:\", \"javascript:alert(1)\"])",
@@ -1118,6 +1190,99 @@ mod tests {
             "<a href=\"JavaScript:alert(1)\">",
         ] {
             assert!(p.detect(sink).is_some(), "sink missed: {sink}");
+        }
+    }
+
+    /// Scheme matches only (an `onclick=` next to the URL is the code judge's business).
+    fn scheme_hits(src: &str) -> usize {
+        XssPattern
+            .detect_every(src)
+            .iter()
+            .filter(|m| is_javascript_scheme(&src[m.span.0..m.span.1]))
+            .count()
+    }
+
+    /// F2.1 false positive (10/10/2026): a `javascript:` URL whose body is an INERT
+    /// constant (no-op or history/print navigation, no data) is not XSS — no
+    /// untrusted data reaches it. The real tag lines come from 16 captured HTML
+    /// pages (portal reports, TSE, ANTT legislation); every body below was read there.
+    #[test]
+    fn test_xss_inert_constant_javascript_url_is_not_a_sink() {
+        for inert in [
+            r#"<a href="javascript:;" class="link-contraste" id="alto_contraste_id">"#,
+            r#"<a href="javascript:;" id="voltar" class="float-right" onclick="window.close()">"#,
+            r#"<a href="javascript:void(0)" class="contrast-event">"#,
+            r#"<a class="report-error-button" data-toggle="modal" href="javascript:void(0);" >"#,
+            r#"<a href="javascript:history.back()">Página Anterior</a>"#,
+            r#"<a href="javascript:history.back(-1);">"#,
+            r#"<a href="javascript:history.forward(1);" title="Avançar">"#,
+            r#"<a class="btn btn-default" href="javascript:history.go(-1);" title="Voltar">"#,
+            r#"<a href="javascript:window.history.back();">"#,
+            r#"<a class="imprimir-salvar__link" href="javascript:this.print();" role="button">"#,
+            // spellings of the same bodies
+            r#"<a href='javascript:void(0)'>"#,
+            r#"<a href="javascript:void 0">"#,
+            r#"<a href="javascript: void( 0 ) ;">"#,
+            r#"<a href="JavaScript:void(0)">"#,
+            "<a href=javascript:;>",
+            "<a href=javascript:void(0)>",
+            "<a href=javascript:void(0) class=x>", // an unquoted value ends at a blank
+            r#"s = "x=javascript:;""#,             // ... or at a quote
+            "s = 'x=javascript:;'",
+            "<a href=\"javascript:\n  void(0)\">", // a line break inside the value
+            r#"<a href="javascript:">"#,
+            // the same attribute inside a string the program writes
+            r#"html = "<a href=\"javascript:void(0)\">x</a>""#,
+            r#"html = f'<a href="javascript:void(0)">{name}</a>'"#,
+            "html = `<a href=\"javascript:void(0)\">${name}</a>`",
+            r#"url = "javascript:""#,
+            r#"TOKENS = ["PORTARIA", "javascript:", "detalharAto"]"#,
+        ] {
+            assert_eq!(
+                scheme_hits(inert),
+                0,
+                "inert constant URL reported: {inert}"
+            );
+        }
+    }
+
+    /// What keeps failing: a body with data flow (concatenation, template, format), a
+    /// body that is not inert (`alert`, `eval`, a DOM read, a second statement) and the
+    /// bare payload at the start of an input.
+    #[test]
+    fn test_xss_javascript_url_with_data_flow_or_payload_still_reports() {
+        for sink in [
+            "location = 'javascript:' + x;",
+            r#"url = "javascript:void(0)" + suffix"#,
+            r#"url = "javascript:" % x"#,
+            r#"url = "javascript:".format(x)"#,
+            r#"url = "javascript:" f"{x}""#,
+            r#"url = "javascript:" "alert(1)""#,
+            "url = 'javascript:' 'alert(1)'",
+            r#"url = "javascript:"#, // never closed: the body is unknown
+            r#"html = f'<a href="javascript:{x}">go</a>'"#,
+            "el.href = `javascript:${x}`",
+            r#"url = "javascript:%s" % x"#,
+            r#"<a href="javascript:alert(1)">"#,
+            r#"<a href="javascript:alert('XSS')">"#,
+            r#"<a href="javascript:alert(document.cookie)">"#,
+            r#"<a href="javascript:void(0);alert(1)">"#,
+            r#"<a href="javascript:void(alert(1))">"#,
+            r#"<a href="javascript:void(x)">"#,
+            r#"<a href="javascript:history.go('http://evil.example')">"#,
+            r#"<a href="javascript:history.go(x)">"#,
+            r#"<a href="javascript:history.back()+x">"#,
+            r#"<a href="javascript:this.print();alert(1)">"#,
+            r#"<a href="javascript:eval(name)">"#,
+            r#"<a href="javascript:document.location='http://evil.example'">"#,
+            "<a href=javascript:alert(1)>",
+            "<a href=javascript:void(0);alert(1)>",
+            // the bare payload at the start of an input has no delimiter: it keeps reporting
+            "javascript:void(0)",
+            // `(` opens a body that holds its own parentheses: not judged, so it reports
+            "[clique](javascript:void(0))",
+        ] {
+            assert!(scheme_hits(sink) > 0, "sink missed: {sink}");
         }
     }
 
