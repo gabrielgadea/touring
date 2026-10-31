@@ -59,6 +59,20 @@ fn limpo(out: &CheckOutput) {
 
 // ======================================================================================== import
 
+/// V-4 (31/10/2026): um specifier que sai das raízes permitidas não é
+/// reportado como módulo faltando — e o caminho não é ecoado.
+#[test]
+fn um_import_fora_das_raizes_nao_e_reportado_como_faltando() {
+    let p = projeto(&[("src/a.ts", "")]);
+    let out = rodar(
+        p.path(),
+        "src/a.ts",
+        "typescript",
+        "import { x } from '../../../../etc/passwd';\n",
+    );
+    assert!(achados(&out).is_empty(), "{:?}", achados(&out));
+}
+
 #[test]
 fn modulo_relativo_inexistente_e_achado_import_com_o_ultimo_segmento() {
     let p = projeto(&[("src/a.ts", "")]);

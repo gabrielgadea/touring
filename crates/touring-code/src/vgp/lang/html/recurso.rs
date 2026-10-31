@@ -393,7 +393,6 @@ impl<'a> Disco<'a> {
     /// dropped after ONE check, shared by every reference that starts with it.
     fn resolver_da_raiz(&mut self, rel: &str, variantes: &[String]) -> Resolucao {
         let raizes = self.raizes_candidatas();
-        let mut fora = false;
         for v in variantes {
             let v = v.trim_start_matches('/');
             let (primeiro, resto) = v.split_once('/').unwrap_or((v, ""));
@@ -401,21 +400,16 @@ impl<'a> Disco<'a> {
                 if !resto.is_empty() && !self.existe(&raiz.join(primeiro)) {
                     continue;
                 }
-                let alvo = raiz.join(v);
-                // V-4 (31/10/2026): a target outside the allowed roots is refused —
-                // it is not a missing file, and the refusal names no path.
-                if !self.permitido(&alvo) {
-                    fora = true;
-                    continue;
-                }
-                if self.existe(&alvo) {
+                if self.existe(&raiz.join(v)) {
                     return Resolucao::Existe;
                 }
             }
         }
-        if fora {
-            return Resolucao::Fora;
-        }
+        // A root-relative URL names a path on the SERVER — the filesystem root is
+        // one of the adapter's declared roots, and what the page is served from is
+        // unknown ("onde a página é servida o arquivo não diz: nunca deny"). The
+        // path that goes into the evidence is the PROJECT's, never the resolved
+        // one outside it.
         Resolucao::Ausente {
             alvo: Alvo::Incerto,
             resolvido: self.raiz.join(rel),
