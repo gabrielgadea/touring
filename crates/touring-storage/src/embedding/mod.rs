@@ -54,7 +54,8 @@ pub use client::Embedder as Embedded;
 // concrete `pub use client::{GpuEmbedder, ...}` re-exports above become
 // shim-only and can be removed.
 //
-// See: `scripts/touring_premium_refactor_2026/staging/w3.2-extraction-roadmap.md`
+// See: `scripts/touring_premium_refactor_2026/staging/w3.2-extraction-roadmap.md` in branch
+// `safety/2026-10-31-premium-staging` (the staging tree left `main` on 31/10/2026, D-7).
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Lightweight configuration for selecting an embedder backend at runtime.
