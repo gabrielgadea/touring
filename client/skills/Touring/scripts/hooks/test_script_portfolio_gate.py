@@ -4,6 +4,7 @@ Isolation: ``HOME`` points to a temp dir (events log, MANIFEST and the injection
 under it) and ``PATH`` starts with a fake ``touring`` whose answer each test controls, so no test
 touches the live daemon, the real portfolio or the real telemetry.
 """
+
 from __future__ import annotations
 
 import json
@@ -25,25 +26,42 @@ def ambiente(tmp_path: Path) -> dict:
     home = tmp_path / "home"
     portfolio = home / ".claude" / "scripts-portfolio"
     portfolio.mkdir(parents=True)
-    (portfolio / "MANIFEST.json").write_text(json.dumps({"scripts": [
-        {"slug": "fetch_proveniencia", "path": "fetch_proveniencia.py",
-         "purpose": "baixa a proveniencia das fontes", "domain": "harvest", "tags": "proveniencia"},
-    ]}))
+    (portfolio / "MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "scripts": [
+                    {
+                        "slug": "fetch_proveniencia",
+                        "path": "fetch_proveniencia.py",
+                        "purpose": "baixa a proveniencia das fontes",
+                        "domain": "harvest",
+                        "tags": "proveniencia",
+                    },
+                ]
+            }
+        )
+    )
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     falso = bin_dir / "touring"
-    falso.write_text("#!/bin/sh\nprintf '%s' \"$TOURING_FALSO_SAIDA\"\nexit \"${TOURING_FALSO_RC:-0}\"\n")
+    falso.write_text('#!/bin/sh\nprintf \'%s\' "$TOURING_FALSO_SAIDA"\nexit "${TOURING_FALSO_RC:-0}"\n')
     falso.chmod(0o755)
     env = {k: v for k, v in os.environ.items() if not k.startswith("TOURING_")}
-    env.update({"HOME": str(home), "PATH": f"{bin_dir}{os.pathsep}{env.get('PATH', '')}",
-                "TOURING_FALSO_SAIDA": "[]"})
+    env.update({"HOME": str(home), "PATH": f"{bin_dir}{os.pathsep}{env.get('PATH', '')}", "TOURING_FALSO_SAIDA": "[]"})
     return {"env": env, "home": home, "eventos": home / ".claude/touring/portfolio_gate/events.jsonl"}
 
 
 def _rodar(amb: dict, payload: object, **extra: str) -> subprocess.CompletedProcess[str]:
     entrada = payload if isinstance(payload, str) else json.dumps(payload)
-    return subprocess.run([sys.executable, str(HOOK)], input=entrada, capture_output=True, text=True,
-                          env={**amb["env"], **extra}, timeout=20, check=False)
+    return subprocess.run(
+        [sys.executable, str(HOOK)],
+        input=entrada,
+        capture_output=True,
+        text=True,
+        env={**amb["env"], **extra},
+        timeout=20,
+        check=False,
+    )
 
 
 def _write(caminho: str, conteudo: str = SCRIPT) -> dict:
@@ -100,7 +118,8 @@ def test_hook_fail_open_payload_ilegivel(ambiente: dict) -> None:
 
 def test_basename_generico_dispara_fora_do_efemero(ambiente: dict) -> None:
     ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
-        [{"file_path": "scripts/probe_antigo.py", "symbol_name": "sonda antiga"}])
+        [{"file_path": "scripts/probe_antigo.py", "symbol_name": "sonda antiga"}]
+    )
     r = _rodar(ambiente, _write("/home/u/projects/analise/probe.py", "x = 1\n"))
     assert r.returncode == 0
     (evento,) = _eventos(ambiente)
@@ -115,7 +134,8 @@ def test_copia_editada_achada_pelo_tantivy_e_reprovada(ambiente: dict, tmp_path:
     existente = tmp_path / "recalcula_tarifa.py"
     existente.write_text(PROGRAMA)
     ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
-        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}])
+        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}]
+    )
     r = _rodar(ambiente, _write("/tmp/x/zzz_unico.py", PROGRAMA.replace("ajuste_3", "correcao_3")))
     contexto = json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
     assert "reprovado" in contexto
@@ -152,11 +172,42 @@ def test_stats_conta_por_estado_e_legado(ambiente: dict) -> None:
     ambiente["eventos"].parent.mkdir(parents=True, exist_ok=True)
     ambiente["eventos"].write_text(json.dumps({"n_candidates": 1, "would_avoid": True}) + "\n")
     _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
-    r = subprocess.run([sys.executable, str(HOOK), "--stats"], capture_output=True, text=True,
-                       env=ambiente["env"], timeout=20, check=False)
+    r = subprocess.run(
+        [sys.executable, str(HOOK), "--stats"],
+        capture_output=True,
+        text=True,
+        env=ambiente["env"],
+        timeout=20,
+        check=False,
+    )
     resumo = json.loads(r.stdout)
     assert resumo["por_estado"]["legado"] == 1
     assert sum(resumo["por_estado"].values()) == resumo["eventos"] == 2
+
+
+def test_stats_separa_eventos_de_medicao(ambiente: dict) -> None:
+    # Latency/audit runs feed real-looking events into the shadow log (206 on 31/10/2026); the P5 numbers
+    # must not count them, but they stay visible as their own bucket instead of vanishing.
+    linhas = [
+        {"file": "/tmp/medicao-latencia-hook/a.py", "estado": "reprovado", "would_avoid": True},
+        {"file": "/tmp/auditoria-portfolio/b.py", "estado": "aprovado"},
+        {"file": "/home/u/proj/c.py", "estado": "aprovado", "n_candidates": 2},
+    ]
+    ambiente["eventos"].parent.mkdir(parents=True, exist_ok=True)
+    ambiente["eventos"].write_text("".join(json.dumps(x) + "\n" for x in linhas))
+    r = subprocess.run(
+        [sys.executable, str(HOOK), "--stats"],
+        capture_output=True,
+        text=True,
+        env=ambiente["env"],
+        timeout=20,
+        check=False,
+    )
+    resumo = json.loads(r.stdout)
+    assert resumo["sinteticos"] == 2
+    assert resumo["eventos"] == 1
+    assert resumo["would_avoid"] == 0
+    assert resumo["por_estado"] == {"aprovado": 1}
 
 
 def _bash(comando: str, cwd: str = "/home/u/projects/analise") -> dict:
@@ -179,7 +230,8 @@ def test_bash_nao_emite_updated_input_nem_bloqueia(ambiente: dict, tmp_path: Pat
     existente = tmp_path / "recalcula_tarifa.py"
     existente.write_text(PROGRAMA)
     ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
-        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}])
+        [{"file_path": str(existente), "symbol_name": "recalcula tarifa"}]
+    )
     corpo = PROGRAMA.replace("ajuste_3", "correcao_3")
     r = _rodar(ambiente, _bash(f"cat <<'PY' > /tmp/x/zzz_unico.py\n{corpo}\nPY\n"))
     assert r.returncode == 0

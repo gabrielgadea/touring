@@ -1,4 +1,5 @@
 """Federation contract (P2): project wins by name, no copy, a broken index is inaferivel, cwd walk-up."""
+
 from __future__ import annotations
 
 import json
@@ -25,22 +26,30 @@ def _indice(raiz: Path, entradas: list[dict], versao: int = federacao.VERSAO) ->
 
 
 def _entrada(caminho: str, conteudo: str = PROGRAMA, proposito: str = "calcula o ajuste") -> dict:
-    return {"caminho": caminho, "proposito": proposito, "familia": "processo",
-            "simhash": simhash.hex64(simhash.simhash64(conteudo, distintos=True)),
-            "linhas": recuperar.linhas_substantivas(conteudo),
-            "termos": sorted(recuperar.termos_de(caminho, proposito))}
+    return {
+        "caminho": caminho,
+        "proposito": proposito,
+        "familia": "processo",
+        "simhash": simhash.hex64(simhash.simhash64(conteudo, distintos=True)),
+        "linhas": recuperar.linhas_substantivas(conteudo),
+        "termos": sorted(recuperar.termos_de(caminho, proposito)),
+    }
 
 
 def test_projeto_vence_por_nome() -> None:
     projeto = [recuperar.Candidato(id="projeto:a/probe.py", nome="probe.py", origem="projeto")]
-    globais = [recuperar.Candidato(id="global:probe.py", nome="probe.py", origem="global"),
-               recuperar.Candidato(id="global:dump.py", nome="dump.py", origem="global")]
+    globais = [
+        recuperar.Candidato(id="global:probe.py", nome="probe.py", origem="global"),
+        recuperar.Candidato(id="global:dump.py", nome="dump.py", origem="global"),
+    ]
     assert [c.id for c in federacao.federar(projeto, globais)] == ["projeto:a/probe.py", "global:dump.py"]
 
 
 def test_homonimos_na_mesma_fonte_ficam() -> None:
-    projeto = [recuperar.Candidato(id="projeto:a/probe.py", nome="probe.py"),
-               recuperar.Candidato(id="projeto:b/probe.py", nome="probe.py")]
+    projeto = [
+        recuperar.Candidato(id="projeto:a/probe.py", nome="probe.py"),
+        recuperar.Candidato(id="projeto:b/probe.py", nome="probe.py"),
+    ]
     assert len(federacao.federar(projeto)) == 2
 
 
