@@ -1,0 +1,51 @@
+{
+ "congelado_em": "2026-10-31T19:45:12.624994+00:00",
+ "regra": "Held-out 20261031: instrumentos congelados antes do diagnostico/construcao; adjudicador obrigatoriamente no mesmo sha do 20261013f.",
+ "arquivos": {
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/adjudica_rotulo.py": "fabc36c9e470c3598c35d869ac26e96714b101f60dab963f74b0a9a9e76fca4c",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py": "cc4516d0c008d3fad41659ed3d8a506417c19d0aa24f85454e3aad25e7d87891",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/test_estado_no_instante_v0d.py": "bb8f19b498398e3663fc69e82f446d80db52ee0ebf64eb279a7716a0e3771e69",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py": "e6713e59b798571280ff66abd1ed2fb23f932766ac15f2b68c6c088f4f8eff38",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/exclusoes_disjunto.py": "e2c76d00c6b3c6df57d60bcc8464bff10b785b73b1fb5333517e50ffa79fe52e",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/verificar_sobreposicao.py": "972cf5ee67f3661417dd181f6c5278c53189f4323e6d9f7274f0712f324c43d3",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_adjudica_rotulo.py": "8eed8f856976dbfbb8dfd43448e80354b2f170d5ca1ffecbe8f54ea12e297093",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/mutantes_estado_no_instante.py": "f7301d221de1a40f40fcd6a28f4d0049ab2311e75fb8cec8647125fc5e391db6",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/test_construir_disjunto_ho13.py": "eb3fcb90689b24619a53306083fe68ac595ba7eeb55ae564cf9c3b1697aa85bc",
+  "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py": "554adfbe564d979ee964c7f453b596367dbad4f8a92a84c9c5eeb0aea2d10552"
+ },
+ "mudaram_desde_o_20261013": {
+  "estado_no_instante_v0d.py": [
+   "e90a8514627d",
+   "cc4516d0c008"
+  ],
+  "test_estado_no_instante_v0d.py": [
+   "bb1f108fb8a0",
+   "bb8f19b49839"
+  ],
+  "construir_disjunto.py": [
+   "f04f8cdf9909",
+   "e6713e59b798"
+  ],
+  "mutantes_estado_no_instante.py": [
+   "044b82eb646f",
+   "f7301d221de1"
+  ],
+  "test_construir_disjunto_ho13.py": [
+   "88c7964212d7",
+   "eb3fcb90689b"
+  ]
+ },
+ "adjudicador_igual_ao_20261013": true,
+ "dependencias_registradas_nao_exigidas": {
+  "corpus_v0d.py": "98fb0941e8fb14e90f7dc681762fb27d03368316d11c94f4fe33daa61d0a08a9",
+  "corpus_v5_inline_neg.py": "f676b1f439ebd87c1be9d98ae044679bc51b006e5bc855bac164612b05a1a313",
+  "juiz_motor_vgp.py (de outra sessao em edicao; o juiz nao roda neste held-out)": "6c8a31b02075da1ea5e617669c40ad6b2effc4a255dbe6f3b40fc26ac6acf61f"
+ },
+ "mudaram_desde_o_20261013f": {
+  "confere_selo.py": [
+   "fed3c847630f374677c41142b00d845433e63508e896fef55f6a16c6c854f34f",
+   "554adfbe564d979ee964c7f453b596367dbad4f8a92a84c9c5eeb0aea2d10552"
+  ]
+ },
+ "adjudicador_igual_ao_20261013f": true
+}
