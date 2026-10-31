@@ -83,14 +83,16 @@ pub trait Adaptador: Sync {
 /// A check that crosses languages and so belongs to none of the adapters (the CDN pin of an
 /// html `<script src>` and of a JS `import 'https://…'`; the CSS class of html and of JSX).
 /// It runs after the adapter of each language in [`Transversal::langs`], on the same content.
-/// Returning no findings is NOT an `allow` claim: the adapter's verdict stands.
+/// Returning no findings is NOT an `allow` claim: what it could not measure comes back in
+/// [`Verificacao::nao_medido`], and the motor joins that reason to the adapter's.
 pub trait Transversal: Sync {
     /// Name for diagnostics.
     fn nome(&self) -> &'static str;
     /// The `lang` values this check runs for.
     fn langs(&self) -> &'static [&'static str];
-    /// Findings over `input.content`, with their [`Alvo`](super::politica::Alvo).
-    fn verificar(&self, input: &CheckInput) -> Vec<Finding>;
+    /// Findings over `input.content`, with their [`Alvo`](super::politica::Alvo), plus the reason
+    /// for whatever stayed unmeasured ([`Verificacao::nao_medido`]).
+    fn verificar(&self, input: &CheckInput) -> Verificacao;
 }
 
 /// The registry: ONE line per language (trait objects — the set is open and each adapter lives in
@@ -567,15 +569,15 @@ mod tests {
         fn langs(&self) -> &'static [&'static str] {
             &["falso"]
         }
-        fn verificar(&self, _: &CheckInput) -> Vec<Finding> {
-            vec![Finding::candidato(
+        fn verificar(&self, _: &CheckInput) -> Verificacao {
+            Verificacao::medido(vec![Finding::candidato(
                 "cdn",
                 "x",
                 3,
                 Alvo::Externo,
                 "404".into(),
                 Vec::new(),
-            )]
+            )])
         }
     }
 
@@ -591,6 +593,71 @@ mod tests {
         assert_eq!(v, "deny", "cdn 404 (alvo externo) nega pela política comum");
         assert_eq!(fs.len(), 1);
         assert_eq!(fs[0].classe, "cdn");
+    }
+
+    /// Transversal que só se abstém: não acha nada e diz por quê.
+    struct SoAbstem(&'static str);
+    impl Transversal for SoAbstem {
+        fn nome(&self) -> &'static str {
+            "abstem"
+        }
+        fn langs(&self) -> &'static [&'static str] {
+            &["falso"]
+        }
+        fn verificar(&self, _: &CheckInput) -> Verificacao {
+            Verificacao::nao_medido(self.0)
+        }
+    }
+
+    #[test]
+    fn transversal_que_nao_mediu_faz_o_veredito_sair_unknown_com_o_motivo_dele() {
+        let input = entrada("/home/u/proj/a.xyz", "limpo", "falso");
+        // adaptador limpo + transversal que se abstém: nunca `allow`
+        let (v, fs, motivo) = julgar(
+            &input,
+            &Falso("falso", Vec::new()),
+            &[&SoAbstem("folha remota fora do cache")],
+            Contexto::Escrita,
+        );
+        assert_eq!(v, "unknown");
+        assert!(fs.is_empty());
+        assert_eq!(motivo.as_deref(), Some("folha remota fora do cache"));
+        // a abstenção convive com o achado de outro transversal: o achado decide, o motivo fica
+        let (v, fs, motivo) = julgar(
+            &input,
+            &Falso("falso", Vec::new()),
+            &[&Marca, &SoAbstem("folha remota fora do cache")],
+            Contexto::Escrita,
+        );
+        assert_eq!(v, "deny");
+        assert_eq!(fs.len(), 1);
+        assert_eq!(motivo.as_deref(), Some("folha remota fora do cache"));
+    }
+
+    #[test]
+    fn motivos_do_adaptador_e_dos_transversais_se_juntam_na_ordem_sem_perder_nenhum() {
+        let input = entrada("/home/u/proj/a.xyz", "ilegivel", "falso");
+        let (v, _, motivo) = julgar(
+            &input,
+            &Falso("falso", Vec::new()),
+            &[&SoAbstem("um"), &Marca, &SoAbstem("dois")],
+            Contexto::Escrita,
+        );
+        assert_eq!(v, "deny");
+        assert_eq!(motivo.as_deref(), Some("parse falhou; um; dois"));
+    }
+
+    #[test]
+    fn transversal_que_mediu_tudo_nao_acrescenta_motivo() {
+        let input = entrada("/home/u/proj/a.xyz", "limpo", "falso");
+        let (v, _, motivo) = julgar(
+            &input,
+            &Falso("falso", Vec::new()),
+            &[&Marca],
+            Contexto::Escrita,
+        );
+        assert_eq!(v, "deny");
+        assert_eq!(motivo, None);
     }
 
     #[test]

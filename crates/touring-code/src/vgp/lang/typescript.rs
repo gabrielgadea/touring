@@ -1,14 +1,49 @@
-//! TypeScript adapter (VTS) — STUB: registered, answers `unknown` until its body is written.
+//! The TypeScript adapter (VTS), and the engine its two siblings share.
 //!
-//! This file is the ONLY thing the VTS phase edits: replace [`TypeScript::verificar`] with the
-//! real checks (build findings with [`Finding::candidato`](crate::vgp::Finding::candidato) and an
-//! [`Alvo`](crate::vgp::politica::Alvo); never set a severity, `check` decides it) and delete the
-//! stub test below. The registry line in `super::REGISTRO` already exists.
+//! `.ts`/`.mts`/`.cts` parse with `LANGUAGE_TYPESCRIPT` (NOT `ast::Lang::TypeScript`, which is TSX
+//! for everything and breaks the `<T>expr` cast); [`super::tsx::Tsx`] and
+//! [`super::javascript::JavaScript`] run the same pipeline over their own grammar.
 //!
-//! Parse with `super::parse("typescript", ...)` (`LANGUAGE_TYPESCRIPT`), NOT `ast::Lang::TypeScript` (TSX for everything, which breaks the `<T>expr` cast).
+//! The adapter MEASURES and `vgp::check` decides: each finding carries the [`Alvo`](crate::vgp::politica::Alvo) it is about —
+//! a builtin member table (`Externo`), a symbol of the PROJECT (`Projeto`), or something the motor
+//! could only partly see (`Incerto`) — and the severity policy does the rest.
+//!
+//! Layout (one concern per file, like `lang/python/`):
+//!
+//! | file | concern |
+//! |---|---|
+//! | `projeto` | disk + overlays, `tsconfig`/`jsconfig`, module resolution |
+//! | `modulos` | what a module exports/declares, cached per check |
+//! | `decls` | owned summaries of declarations and type expressions |
+//! | `escopo` | lexical scope analysis: identifiers nothing binds |
+//! | `globais` | runtime globals table + bounded search of the project's other sources |
+//! | `tipos` | type expression → closed member set |
+//! | `inferencia` | type of a receiver expression, only when provable |
+//! | `analise` | the checks `import` · `nome` · `componente` · `atributo` · `kwarg` |
+//! | `jsx` | the `prop` check |
+//! | `tabelas` | GENERATED closed tables (globals, builtin members, React attributes) |
+//!
+//! Grammar field/node names come from `tree-sitter-typescript` 0.23.2 and `tree-sitter-javascript`
+//! 0.25.0; module resolution follows the TypeScript handbook (Modules › Reference).
 
 use super::{Adaptador, Verificacao};
 use crate::vgp::CheckInput;
+
+mod analise;
+mod decls;
+mod escopo;
+mod globais;
+mod inferencia;
+mod jsdoc;
+mod jsx;
+mod modulos;
+mod projeto;
+mod tabelas;
+mod tipos;
+mod util;
+
+#[cfg(test)]
+mod testes;
 
 /// The `typescript` adapter registered in `super::REGISTRO`.
 pub struct TypeScript;
@@ -18,32 +53,12 @@ impl Adaptador for TypeScript {
         "typescript"
     }
 
-    fn verificar(&self, _input: &CheckInput) -> Verificacao {
-        Verificacao::nao_implementado("typescript")
+    fn verificar(&self, input: &CheckInput) -> Verificacao {
+        analise::verificar("typescript", input)
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::vgp::{CheckInput, check};
-    use std::collections::HashMap;
-
-    #[test]
-    fn stub_responde_unknown_com_motivo_nunca_allow() {
-        let out = check(&CheckInput {
-            path: "/tmp/a.ts".into(),
-            content: "qualquer coisa".into(),
-            project_root: "/tmp".into(),
-            disk: None,
-            overlays: HashMap::new(),
-            lang: "typescript".into(),
-        });
-        assert_eq!(out.verdict, "unknown");
-        assert!(out.findings.is_empty());
-        assert_eq!(out.lang, "typescript");
-        assert_eq!(
-            out.motivo.as_deref(),
-            Some("adaptador typescript ainda não implementado")
-        );
-    }
+/// The shared pipeline, for the sibling adapters (`tsx`, `javascript`): same checks, own grammar.
+pub(super) fn verificar_fonte(lang: &'static str, input: &CheckInput) -> Verificacao {
+    analise::verificar(lang, input)
 }
