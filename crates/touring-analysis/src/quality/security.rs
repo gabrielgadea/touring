@@ -31,7 +31,14 @@ pub struct SecurityReport {
     pub antipattern_hits: Vec<(String, usize)>,
     /// Vulnerability matches from touring-offensive patterns.
     pub vuln_matches: Vec<VulnMatch>,
+    /// Findings that are REPORTED but never SCORED: a tainted DOM sink in JS/TS
+    /// (`el.innerHTML = location.hash`, [`super::dom_sinks`]). They are not in
+    /// `vuln_matches`, so they move neither `combined_score` nor any block decision —
+    /// the F2.1 gate is P0 and a false positive here would freeze every Write/Edit.
+    /// Promotion into `vuln_matches` is a separate decision (plan 2026-10-31-f21inner).
+    pub advisories: Vec<VulnMatch>,
     /// Combined quality score in [0.0, 1.0]: 0.4 * antipattern_score + 0.6 * vuln_score.
+    /// Advisories do not enter it.
     pub combined_score: f32,
     /// Language identifier used for analysis.
     pub lang: String,
@@ -79,6 +86,8 @@ impl SecurityAnalyzer {
         // function on 25/09/2026 — S51 pushed its cyclomatic complexity to 17).
         let mut vuln_matches = self.candidate_matches(source, lang);
         retain_exploitable(source, lang, &mut vuln_matches);
+        // 2c. D-4 (31/10/2026): tainted DOM sinks are advisories — reported, never scored.
+        let advisories = super::dom_sinks::detect(source, lang);
 
         // 3. Combined scoring
         let antipattern_score = if antipattern_hits.is_empty() {
@@ -97,6 +106,7 @@ impl SecurityAnalyzer {
         SecurityReport {
             antipattern_hits,
             vuln_matches,
+            advisories,
             combined_score,
             lang: lang.to_string(),
         }
