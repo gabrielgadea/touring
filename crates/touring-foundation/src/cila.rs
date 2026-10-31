@@ -45,6 +45,14 @@ pub const INJECTION_DUPLICATE_RATIO_CEIL: f64 = 0.05;
 /// parece saudável aqui ainda pode não estar comprando nada.
 pub const INJECTION_FOLLOW_RATIO_FLOOR: f64 = 0.60;
 
+/// Menor denominador sobre o qual um piso de adesão julga (I-1, 31/10/2026).
+///
+/// Abaixo dele a razão é publicada, mas o veredito é "não medido", nunca FAIL: a régua
+/// reprovou com `must_emitted = 6` um número que o corpus de 6.000 MUSTs pôs em 0,094, e
+/// o mesmo n=6 poderia ter aprovado. Mesmo valor do piso de amostra dos braços do
+/// code mode (`cli_suggester::ARM_MIN_SAMPLE` = 20), pela mesma razão.
+pub const ADHERENCE_MIN_SAMPLE: u64 = 20;
+
 #[inline]
 /// Resolve a CILA token budget given an env-var key prefix and default values.
 ///

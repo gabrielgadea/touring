@@ -477,6 +477,12 @@ fn journal_cuts(sink: Option<&Path>, level: InjectionLevel, site: &str, cuts: &[
     if cuts.is_empty() {
         return;
     }
+    // The live counter counts every cut, journal or not: a sink-less process
+    // (no HOME) still cut those bytes from the window.
+    crate::gate_metrics::record_injection_suppressed(
+        cuts.len() as u64,
+        cuts.iter().map(|c| c.bytes as u64).sum(),
+    );
     if let Some(path) = sink {
         let _ = injection_journal::record(path, level.as_str(), site, cuts);
     }
@@ -817,6 +823,34 @@ mod tests {
         );
         assert_eq!(v["decision"], json!("block"));
         assert_eq!(v["reason"], json!("gate falhou"));
+    }
+
+    #[test]
+    fn um_corte_soma_no_contador_vivo_mesmo_sem_diario() {
+        // I-2: `touring gate-metrics -j` mostra o que ESTE processo cortou. Sem
+        // sink (processo sem HOME) o corte ainda saiu da janela e conta. Delta
+        // `>=` porque o contador é global e outros testes cortam em paralelo.
+        let snap = || crate::gate_metrics_snapshot::GateMetricsSnapshot::capture();
+        let before = snap();
+        let text = envelope("[TOURING SUGGEST · x]\n  MUST touring ast meta a.rs");
+        let out = apply_at(InjectionLevel::NoAdvisory, SITE_VERDICT, &text, None);
+        assert_ne!(out.as_ref(), text, "o sermão foi cortado");
+        let after = snap();
+        assert!(
+            after.injection_suppressed_blocks_count > before.injection_suppressed_blocks_count,
+            "o corte precisa contar"
+        );
+        assert!(
+            after.injection_suppressed_bytes_count > before.injection_suppressed_bytes_count,
+            "os bytes cortados precisam contar"
+        );
+        // `full` não corta nada e não conta nada pelo próprio caminho.
+        let full = apply_at(InjectionLevel::Full, SITE_VERDICT, &text, None);
+        assert_eq!(full.as_ref(), text);
+        assert!(
+            !after.injection_level.is_empty(),
+            "o nível vigente é publicado"
+        );
     }
 
     #[test]

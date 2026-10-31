@@ -778,6 +778,14 @@ pub struct GateMetrics {
     pub native_injection_resisted_count: AtomicU64,
     /// N5 — terceira via: `touring run`/`touring exec` escolhido (sandbox).
     pub native_injection_code_route_count: AtomicU64,
+    /// I-2 (31/10/2026) — blocks the injection policy cut IN THIS PROCESS since
+    /// boot (one per family cut, the unit of `injection_journal::Cut`). The
+    /// journal stays the canonical cross-process record (`touring kpi` →
+    /// `context_budget.injection_suppressed`); this is the live counter
+    /// `touring gate-metrics -j` can show without reading a file.
+    pub injection_suppressed_blocks_count: AtomicU64,
+    /// I-2 — bytes behind `injection_suppressed_blocks_count`.
+    pub injection_suppressed_bytes_count: AtomicU64,
     /// P2 — rotas oferecidas com a apresentação `native` em vigor (o denominador do braço).
     pub code_mode_arm_offered_native_count: AtomicU64,
     /// P2 — rotas OFERECIDAS em `native` que o modelo de fato tomou (o numerador).
@@ -1110,6 +1118,8 @@ impl Default for GateMetrics {
             native_injection_followed_count: AtomicU64::new(0),
             native_injection_resisted_count: AtomicU64::new(0),
             native_injection_code_route_count: AtomicU64::new(0),
+            injection_suppressed_blocks_count: AtomicU64::new(0),
+            injection_suppressed_bytes_count: AtomicU64::new(0),
             code_mode_arm_offered_native_count: AtomicU64::new(0),
             code_mode_arm_followed_native_count: AtomicU64::new(0),
             code_mode_arm_offered_both_count: AtomicU64::new(0),
@@ -1529,6 +1539,16 @@ impl GateEvent {
 /// and read back by `touring kpi` / S-7.2 promote-demote.
 pub fn record_gate_event(gate: GateId, event: GateEvent) {
     global().gate_events[gate as usize][event as usize].fetch_add(1, Ordering::Relaxed);
+}
+
+/// I-2 (31/10/2026) — record what the injection policy cut: `blocks` family
+/// cuts carrying `bytes`. Called by `injection_policy` next to the journal write.
+pub fn record_injection_suppressed(blocks: u64, bytes: u64) {
+    let m = global();
+    m.injection_suppressed_blocks_count
+        .fetch_add(blocks, Ordering::Relaxed);
+    m.injection_suppressed_bytes_count
+        .fetch_add(bytes, Ordering::Relaxed);
 }
 
 /// W3 S-3.3 — record one G4 observation (read without a prior locate).

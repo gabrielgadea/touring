@@ -642,6 +642,16 @@ pub struct GateMetricsSnapshot {
     /// N5 — terceira via (touring run/exec).
     #[serde(default)]
     pub native_injection_code_route_count: u64,
+    /// I-2 — family cuts the injection policy made in this process since boot.
+    #[serde(default)]
+    pub injection_suppressed_blocks_count: u64,
+    /// I-2 — bytes behind `injection_suppressed_blocks_count`.
+    #[serde(default)]
+    pub injection_suppressed_bytes_count: u64,
+    /// I-2 — the injection level this process resolves for a request with no
+    /// override (`TOURING_HOOK_INJECTION`, default `full`).
+    #[serde(default)]
+    pub injection_level: String,
     /// P2 — denominador do braço `native`: rotas oferecidas sob essa apresentação.
     #[serde(default)]
     pub code_mode_arm_offered_native_count: u64,
@@ -1097,6 +1107,15 @@ impl GateMetricsSnapshot {
             native_injection_code_route_count: m
                 .native_injection_code_route_count
                 .load(Ordering::Relaxed),
+            injection_suppressed_blocks_count: m
+                .injection_suppressed_blocks_count
+                .load(Ordering::Relaxed),
+            injection_suppressed_bytes_count: m
+                .injection_suppressed_bytes_count
+                .load(Ordering::Relaxed),
+            injection_level: crate::injection_policy::level_from_env()
+                .as_str()
+                .to_string(),
             code_mode_arm_offered_native_count: m
                 .code_mode_arm_offered_native_count
                 .load(Ordering::Relaxed),

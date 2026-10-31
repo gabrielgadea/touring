@@ -64,6 +64,11 @@ pub struct FamilyStats {
     pub cross_session_duplicate_bytes: u64,
     /// The blocks behind `cross_session_duplicate_bytes`.
     pub cross_session_duplicate_blocks: u64,
+    /// Bytes of blocks that fail the payload half of the "So what?" invariant
+    /// ([`touring_foundation::so_what::violation`]: empty, or no named target) — I-4.
+    pub so_what_violation_bytes: u64,
+    /// The blocks behind `so_what_violation_bytes`.
+    pub so_what_violation_blocks: u64,
 }
 
 /// Per-tool accounting for the largest single share of the window (tool results,
@@ -125,6 +130,11 @@ pub struct ContextBudgetAggregate {
     /// Of those, how many the next Bash call actually ran — an UPPER bound on
     /// the nudge's effect, since the model may have run it regardless.
     pub must_followed: u64,
+    /// Of `must_emitted`, the MUST blocks a gate emitted while DENYING the call
+    /// (family `code-mode-deny`). That is the coercion channel: the outcome of a
+    /// deny is the deny itself, so these never enter the persuasion ratio's
+    /// denominator (I-1 defect (b), `ANALISE-CONSOLIDADA.md` §7).
+    pub must_denied: u64,
     /// Tool calls the assistant made — the declared proxy denominator for TpCD.
     pub tool_calls: u64,
     /// The same accounting, split by emitter (see [`attributed_family`]).
@@ -163,6 +173,7 @@ impl ContextBudgetAggregate {
         self.user_bytes += s.user_bytes;
         self.must_emitted += s.must_emitted;
         self.must_followed += s.must_followed;
+        self.must_denied += s.must_denied;
         self.tool_calls += s.tool_calls;
         for (name, f) in &s.by_family {
             let e = self.by_family.entry(name.clone()).or_default();
@@ -174,6 +185,8 @@ impl ContextBudgetAggregate {
             e.cross_session_duplicate_blocks += f.cross_session_duplicate_blocks;
             e.propositions += f.propositions;
             e.zero_proposition_blocks += f.zero_proposition_blocks;
+            e.so_what_violation_bytes += f.so_what_violation_bytes;
+            e.so_what_violation_blocks += f.so_what_violation_blocks;
         }
         for (name, t) in &s.by_tool {
             let e = self.by_tool.entry(name.clone()).or_default();
@@ -549,6 +562,31 @@ pub fn aggregate_lines<'a>(
     aggregate_session_lines(lines, agg, seen, None);
 }
 
+/// The family a gate's DENY reason is attributed to (`injection_family`'s
+/// `[G<n> …]` pattern). Its `MUST` lines are the coercion channel.
+const DENY_FAMILY: &str = "code-mode-deny";
+
+/// Count a block's `MUST` and arm the follow check — unless the block is a
+/// deny's remedy. A deny is coercion, not persuasion: the call it carries was
+/// blocked, so "did the next Bash run it?" says nothing about the nudge (I-1
+/// defect (b)). Counted in `must_denied`, never armed.
+fn note_must(
+    text: &str,
+    family: &str,
+    agg: &mut ContextBudgetAggregate,
+    pending_must: &mut Option<String>,
+) {
+    let Some(target) = must_target(text) else {
+        return;
+    };
+    agg.must_emitted += 1;
+    if family == DENY_FAMILY {
+        agg.must_denied += 1;
+    } else {
+        *pending_must = Some(target);
+    }
+}
+
 /// Account one injected block: its family, its propositions, and whether it is a
 /// repeat — in the session (`seen`) or only across sessions (`project_seen`).
 fn record_injection(
@@ -557,20 +595,24 @@ fn record_injection(
     agg: &mut ContextBudgetAggregate,
     seen: &mut BTreeMap<u64, u64>,
     project_seen: Option<&mut BTreeMap<u64, u64>>,
+    pending_must: &mut Option<String>,
 ) {
     let len = text.len() as u64;
     let props = count_propositions(text);
+    let family = attributed_family(text, emitter);
     agg.injected_bytes += len;
     agg.injected_blocks += 1;
-    let entry = agg
-        .by_family
-        .entry(attributed_family(text, emitter).to_string())
-        .or_default();
+    note_must(text, family, agg, pending_must);
+    let entry = agg.by_family.entry(family.to_string()).or_default();
     entry.bytes += len;
     entry.blocks += 1;
     entry.propositions += props;
     if props == 0 {
         entry.zero_proposition_blocks += 1;
+    }
+    if touring_foundation::so_what::violation(text).is_some() {
+        entry.so_what_violation_bytes += len;
+        entry.so_what_violation_blocks += 1;
     }
     let hash = hash_of(text);
     let count = seen.entry(hash).or_insert(0);
@@ -623,11 +665,8 @@ pub fn aggregate_session_lines<'a>(
                 agg,
                 seen,
                 project_seen.as_deref_mut(),
+                &mut pending_must,
             );
-            if let Some(target) = must_target(&text) {
-                agg.must_emitted += 1;
-                pending_must = Some(target);
-            }
             continue;
         }
 
@@ -734,6 +773,154 @@ fn round3(v: f64) -> f64 {
     (v * 1000.0).round() / 1000.0
 }
 
+/// The persuasion channel's adherence, judged only over a sample that can carry
+/// a verdict (I-1, 31/10/2026).
+///
+/// Two defects of the old `followed / emitted`: (a) it failed `n = 6` at 0,5
+/// where the 6.000-MUST corpus measured 0,094 — a verdict over a handful is
+/// noise dressed as a ruler; (b) its denominator mixed in the MUSTs a gate
+/// carried while DENYING, whose outcome is the deny, so a working gate lowered
+/// the "persuasion" number (`ANALISE-CONSOLIDADA.md` §7).
+struct FollowVerdict {
+    /// MUSTs of the persuasion channel: emitted minus the deny remedies.
+    sample: u64,
+    /// `followed / sample`, `None` with no sample (absence, never 0.0).
+    ratio: Option<f64>,
+}
+
+impl FollowVerdict {
+    fn of(agg: &ContextBudgetAggregate) -> Self {
+        let sample = agg.must_emitted.saturating_sub(agg.must_denied);
+        let ratio = (sample > 0).then(|| round3(agg.must_followed as f64 / sample as f64));
+        Self { sample, ratio }
+    }
+
+    /// The sample is large enough for the floor to judge.
+    fn measured(&self) -> bool {
+        self.ratio.is_some() && self.sample >= touring_foundation::cila::ADHERENCE_MIN_SAMPLE
+    }
+
+    /// The ruler names it published without judging: a number over too small a sample.
+    fn not_measured(&self) -> Vec<&'static str> {
+        if self.ratio.is_some() && !self.measured() {
+            vec!["injection_follow_ratio"]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// Measured AND below the floor — the only way this ruler fails.
+    fn fails(&self) -> bool {
+        self.measured()
+            && self
+                .ratio
+                .is_some_and(|r| r < touring_foundation::cila::INJECTION_FOLLOW_RATIO_FLOOR)
+    }
+}
+
+/// Gates whose `Followed` is written in the same breath as `Emitted` because the
+/// hook REWROTE the command (`cli_suggester`: G2 pipe-exit and G8 loop rewrite;
+/// `hook_rewrite_applied_count`: "emitted == followed by construction"). Their
+/// adherence is the rewrite, not the model, so they stay out of the nudge ratio.
+const REWRITE_GATES: &[&str] = &["g2_pipe_exit", "g8_loop_rewrite"];
+
+/// `nudge_follow_ratio` (I-1, Wave 2 of the ruler): adherence of the PERMISSION
+/// channel measured over its whole population — every time a code-mode gate
+/// spoke — instead of over the handful of MUST lines a few transcripts carry.
+///
+/// A gate speaks two ways: an advisory (`emitted`) or a deny (`denied`); after
+/// either, `followed` counts the next call adopting the canonical route. The
+/// denominator is therefore `emitted + denied` — the old `followed / emitted`
+/// left the denies out and read 450 % on `g3_edit_sem_read` (emitted 2, denied
+/// 9). Rewrite gates are excluded ([`REWRITE_GATES`]). Below
+/// `ADHERENCE_MIN_SAMPLE` spoken events the number is shown, not judged.
+/// The population is the daemon's counters since its boot, and says so.
+#[must_use]
+pub fn nudge_follow(gate_events: &BTreeMap<String, BTreeMap<String, u64>>) -> Value {
+    let get = |e: &BTreeMap<String, u64>, k: &str| e.get(k).copied().unwrap_or(0);
+    let mut followed = 0u64;
+    let mut spoken = 0u64;
+    let mut per_gate = serde_json::Map::new();
+    for (gate, e) in gate_events {
+        if REWRITE_GATES.contains(&gate.as_str()) {
+            continue;
+        }
+        let (f, s) = (get(e, "followed"), get(e, "emitted") + get(e, "denied"));
+        followed += f;
+        spoken += s;
+        per_gate.insert(
+            gate.clone(),
+            json!({"followed": f, "spoken": s,
+                   "ratio": (s > 0).then(|| round3(f as f64 / s as f64))}),
+        );
+    }
+    let ratio = (spoken > 0).then(|| round3(followed as f64 / spoken as f64));
+    let measured = ratio.is_some() && spoken >= touring_foundation::cila::ADHERENCE_MIN_SAMPLE;
+    json!({
+        "nudge_follow_ratio": ratio,
+        "verdict": if measured { "measured" } else { "not_measured" },
+        "followed": followed,
+        "spoken": spoken,
+        "min_sample": touring_foundation::cila::ADHERENCE_MIN_SAMPLE,
+        "excluded_rewrite_gates": REWRITE_GATES,
+        "population": "code-mode gate events of this daemon since its boot",
+        "per_gate": per_gate,
+    })
+}
+
+/// A family whose content is FACT about the code — the list the injection
+/// policy keeps under `no-advisory` ([`touring_foundation::injection_policy::FACT_FAMILIES`]),
+/// so the ruler and the switch can never disagree on what a fact is.
+fn is_fact_family(name: &str) -> bool {
+    touring_foundation::injection_policy::FACT_FAMILIES.contains(&name)
+}
+
+/// Bytes of a family that were NOT a repeat of a block already in the window.
+fn unique_bytes(f: &FamilyStats) -> u64 {
+    f.bytes.saturating_sub(f.duplicate_bytes)
+}
+
+fn kb(bytes: u64) -> f64 {
+    round3(bytes as f64 / 1024.0)
+}
+
+/// I-4 — how much of the injected window fails the payload half of the "So
+/// what?" invariant, measured by the ONE predicate
+/// ([`touring_foundation::so_what::violation`]). A measurement in shadow: nothing
+/// is cut for it. `null` share with nothing injected (absence, never 0.0).
+fn so_what_summary(agg: &ContextBudgetAggregate) -> Value {
+    let bytes: u64 = agg
+        .by_family
+        .values()
+        .map(|f| f.so_what_violation_bytes)
+        .sum();
+    let blocks: u64 = agg
+        .by_family
+        .values()
+        .map(|f| f.so_what_violation_blocks)
+        .sum();
+    json!({
+        "violation_bytes": bytes,
+        "violation_blocks": blocks,
+        "violation_share": (agg.injected_bytes > 0).then(|| round3(bytes as f64 / agg.injected_bytes as f64)),
+        "predicate": "touring_foundation::so_what::violation (empty | no named target)",
+        "enforced": false,
+    })
+}
+
+/// `fact_kb` (I-1 defect (c)): the fact channel had no unit — the ruler counted
+/// propositions, and the families that carry facts about the code read as 0.
+/// KB of non-repeated bytes over the fact families: an UPPER bound on knowledge
+/// delivered (unique is not yet useful — that is the "So what?" invariant, I-4).
+fn fact_kb_total(agg: &ContextBudgetAggregate) -> f64 {
+    kb(agg
+        .by_family
+        .iter()
+        .filter(|(name, _)| is_fact_family(name))
+        .map(|(_, f)| unique_bytes(f))
+        .sum())
+}
+
 /// The payload, from the pure aggregate. Testable without a filesystem.
 #[must_use]
 pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
@@ -754,8 +941,7 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
     // A floor over zero emissions would read as a failure of adherence when it
     // is an absence of data — `null`, never 0.0 (the `ratio_absent_reads_as_null`
     // rule this file's neighbours already follow).
-    let follow_ratio =
-        (agg.must_emitted > 0).then(|| round3(agg.must_followed as f64 / agg.must_emitted as f64));
+    let follow = FollowVerdict::of(agg);
 
     let families: BTreeMap<String, Value> = agg
         .by_family
@@ -774,6 +960,10 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
                     // The density the injection invariant asks for, in the unit a
                     // reader can act on: propositions per kilobyte of window.
                     "propositions_per_kb": if f.bytes == 0 { 0.0 } else { round3(f.propositions as f64 * 1024.0 / f.bytes as f64) },
+                    // `null` for an advisory family: the fact unit does not apply.
+                    "fact_kb": if is_fact_family(name) { json!(kb(unique_bytes(f))) } else { Value::Null },
+                    "so_what_violation_bytes": f.so_what_violation_bytes,
+                    "so_what_violation_blocks": f.so_what_violation_blocks,
                 }),
             )
         })
@@ -811,11 +1001,10 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
     if dup_ratio > touring_foundation::cila::INJECTION_DUPLICATE_RATIO_CEIL {
         failing.push("duplicate_injection_ratio");
     }
-    if let Some(r) = follow_ratio
-        && r < touring_foundation::cila::INJECTION_FOLLOW_RATIO_FLOOR
-    {
+    if follow.fails() {
         failing.push("injection_follow_ratio");
     }
+    let not_measured = follow.not_measured();
 
     json!({
         "available": available,
@@ -839,10 +1028,17 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
         "duplicate_injection_ratio": round3(dup_ratio),
         "duplicate_injection_ratio_ceil": touring_foundation::cila::INJECTION_DUPLICATE_RATIO_CEIL,
         "duplicate_blocks": agg.duplicate_blocks,
-        "injection_follow_ratio": follow_ratio,
+        "injection_follow_ratio": follow.ratio,
         "injection_follow_ratio_floor": touring_foundation::cila::INJECTION_FOLLOW_RATIO_FLOOR,
+        // The denominator the ratio is over (MUSTs minus the deny remedies) and
+        // the sample floor below which it is published but never judged.
+        "injection_follow_ratio_sample": follow.sample,
+        "injection_follow_ratio_min_sample": touring_foundation::cila::ADHERENCE_MIN_SAMPLE,
         "must_emitted": agg.must_emitted,
         "must_followed": agg.must_followed,
+        "must_denied": agg.must_denied,
+        "fact_kb": fact_kb_total(agg),
+        "so_what": so_what_summary(agg),
         // TpCD (Eixo 4) with a DECLARED proxy for "consolidated action": one tool
         // call. It is a proxy and is named as one — a real correct-decision count
         // needs an outcome the transcript does not carry.
@@ -861,6 +1057,9 @@ pub fn budget_from_aggregate(agg: &ContextBudgetAggregate) -> Value {
         "by_family": families,
         "status": if !available { "STUB" } else if failing.is_empty() { "PASS" } else { "FAIL" },
         "failing": failing,
+        // Rulers with a number but too small a sample to judge — neither PASS
+        // nor FAIL. A PASS with entries here passed only the rulers it measured.
+        "not_measured": not_measured,
     })
 }
 
@@ -1041,10 +1240,14 @@ pub fn session_summary(session_id: &str, s: &ContextBudgetAggregate) -> Value {
         "duplicate_blocks",
         "must_emitted",
         "must_followed",
+        "must_denied",
         "injection_follow_ratio",
+        "injection_follow_ratio_sample",
+        "fact_kb",
         "tool_calls",
         "status",
         "failing",
+        "not_measured",
     ] {
         row[key] = full[key].clone();
     }
@@ -1339,12 +1542,13 @@ mod tests {
     /// it had not done.
     #[test]
     fn each_ceiling_fails_on_its_own_violation_and_none_on_a_clean_aggregate() {
+        // 20 MUSTs: exactly the sample floor, so the follow ruler JUDGES here.
         let base = ContextBudgetAggregate {
             user_turns: 10,
             injected_bytes: 1000,
             injected_blocks: 5,
-            must_emitted: 4,
-            must_followed: 4,
+            must_emitted: 20,
+            must_followed: 20,
             ..Default::default()
         };
         let clean = budget_from_aggregate(&base);
@@ -1369,7 +1573,7 @@ mod tests {
         );
 
         let ignored = budget_from_aggregate(&ContextBudgetAggregate {
-            must_followed: 1, // 0,25 < piso 0,60
+            must_followed: 5, // 0,25 < piso 0,60
             ..base.clone()
         });
         assert_eq!(
@@ -1377,20 +1581,223 @@ mod tests {
             json!(["injection_follow_ratio"]),
             "{ignored}"
         );
+        assert_eq!(ignored["not_measured"], json!([]), "{ignored}");
     }
 
-    /// The synthetic transcript end-to-end: a 1-in-3 byte-identical repeat and a
-    /// MUST followed once out of twice are BOTH over their rulers, and the
-    /// per-turn ceiling is correctly NOT among them.
+    /// I-1 defect (a): the ruler failed n=6 at 0,5 where 6.000 MUSTs read 0,094.
+    /// Below the floor the ratio is SHOWN and named in `not_measured`, never a FAIL
+    /// — and never a PASS of that ruler either.
+    #[test]
+    fn a_follow_ratio_below_the_sample_floor_is_shown_but_not_judged() {
+        let small = budget_from_aggregate(&ContextBudgetAggregate {
+            user_turns: 10,
+            injected_bytes: 1000,
+            injected_blocks: 6,
+            must_emitted: 6,
+            must_followed: 3,
+            ..Default::default()
+        });
+        assert_eq!(small["injection_follow_ratio"], 0.5, "{small}");
+        assert_eq!(small["injection_follow_ratio_sample"], 6);
+        assert_eq!(small["failing"], json!([]), "{small}");
+        assert_eq!(small["not_measured"], json!(["injection_follow_ratio"]));
+        // One MUST short of the floor still does not judge; at the floor it does.
+        let edge = |emitted: u64| {
+            budget_from_aggregate(&ContextBudgetAggregate {
+                user_turns: 10,
+                injected_bytes: 1000,
+                injected_blocks: 6,
+                must_emitted: emitted,
+                ..Default::default()
+            })
+        };
+        let floor = touring_foundation::cila::ADHERENCE_MIN_SAMPLE;
+        assert_eq!(edge(floor - 1)["failing"], json!([]));
+        assert_eq!(edge(floor)["failing"], json!(["injection_follow_ratio"]));
+    }
+
+    /// I-1 defect (b): a deny's MUST is coercion — its outcome is the deny — so it
+    /// leaves the persuasion denominator. 20 followed of 25 emitted with 5 denies
+    /// is 20/20, not the 0,8 the old formula reported.
+    #[test]
+    fn deny_remedies_leave_the_persuasion_denominator() {
+        let v = budget_from_aggregate(&ContextBudgetAggregate {
+            user_turns: 10,
+            injected_bytes: 1000,
+            injected_blocks: 25,
+            must_emitted: 25,
+            must_denied: 5,
+            must_followed: 20,
+            ..Default::default()
+        });
+        assert_eq!(v["injection_follow_ratio"], 1.0, "{v}");
+        assert_eq!(v["injection_follow_ratio_sample"], 20);
+        assert_eq!(v["must_denied"], 5);
+        assert_eq!(v["failing"], json!([]), "{v}");
+    }
+
+    /// Through the real transcript path: a `[G<n> …]` deny carrying a MUST is
+    /// counted in `must_denied` and never armed, so the Bash after it — which
+    /// runs exactly the remedy — is NOT credited as persuasion.
+    #[test]
+    fn a_deny_block_in_the_transcript_is_counted_apart_and_never_followed() {
+        let inj = |text: &str| {
+            let inner = json!({"hookSpecificOutput": {"additionalContext": text}}).to_string();
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string()
+        };
+        let bash = |cmd: &str| {
+            json!({"type": "assistant", "message": {"content": [
+                {"type": "tool_use", "name": "Bash", "input": {"command": cmd}}
+            ]}})
+            .to_string()
+        };
+        let agg = run(&[
+            inj("[G7 re-inspeção] negado\n  MUST touring run --file x.py\n"),
+            bash("touring run --file x.py"),
+            inj("[TOURING SUGGEST]\n  MUST touring doctor -j\n"),
+            bash("touring doctor -j"),
+        ]);
+        assert_eq!(agg.must_emitted, 2);
+        assert_eq!(agg.must_denied, 1, "the deny's MUST is coercion");
+        assert_eq!(agg.must_followed, 1, "only the advisory is persuasion");
+        assert_eq!(budget_from_aggregate(&agg)["injection_follow_ratio"], 1.0);
+    }
+
+    /// I-1 defect (c): `fact_kb` is KB of NON-repeated bytes over the policy's
+    /// FACT families; an advisory family carries `null`, not 0.
+    #[test]
+    fn fact_kb_counts_unique_bytes_of_fact_families_only() {
+        let mut agg = ContextBudgetAggregate {
+            user_turns: 1,
+            injected_bytes: 6144,
+            injected_blocks: 3,
+            ..Default::default()
+        };
+        agg.by_family.insert(
+            "pre-edit".into(),
+            FamilyStats {
+                bytes: 3072,
+                blocks: 2,
+                duplicate_bytes: 1024,
+                ..Default::default()
+            },
+        );
+        agg.by_family.insert(
+            "touring-suggest".into(),
+            FamilyStats {
+                bytes: 3072,
+                blocks: 1,
+                ..Default::default()
+            },
+        );
+        assert!(touring_foundation::injection_policy::FACT_FAMILIES.contains(&"pre-edit"));
+        assert!(!touring_foundation::injection_policy::FACT_FAMILIES.contains(&"touring-suggest"));
+        let v = budget_from_aggregate(&agg);
+        assert_eq!(v["fact_kb"], 2.0, "(3072 - 1024) / 1024 — {v}");
+        assert_eq!(v["by_family"]["pre-edit"]["fact_kb"], 2.0);
+        assert!(v["by_family"]["touring-suggest"]["fact_kb"].is_null());
+    }
+
+    /// I-4 through the real transcript path: `[generic]` (empty) and a number
+    /// about nothing nameable (no target) count as So-what violations; a block
+    /// naming a file does not. Shadow: nothing is cut.
+    #[test]
+    fn so_what_violations_are_measured_per_family_and_in_total() {
+        let inj = |text: &str| {
+            let inner = json!({"hookSpecificOutput": {"additionalContext": text}}).to_string();
+            json!({"type": "attachment", "attachment": {"type": "hook_success", "stdout": inner}})
+                .to_string()
+        };
+        let empty = "[generic]";
+        let no_target = "Similar command failed recently (similarity=68%)";
+        let named = "HOTSPOT: crates/touring-cli/src/cli/kpi.rs blast 12";
+        let agg = run(&[inj(empty), inj(no_target), inj(named)]);
+        let v = budget_from_aggregate(&agg);
+        let expect = (empty.len() + no_target.len()) as u64;
+        assert_eq!(v["so_what"]["violation_bytes"], expect, "{v}");
+        assert_eq!(v["so_what"]["violation_blocks"], 2);
+        assert_eq!(v["so_what"]["enforced"], false);
+        let total = (empty.len() + no_target.len() + named.len()) as f64;
+        assert_eq!(
+            v["so_what"]["violation_share"],
+            round3(expect as f64 / total)
+        );
+        let fam_sum: u64 = v["by_family"]
+            .as_object()
+            .expect("families")
+            .values()
+            .map(|f| f["so_what_violation_bytes"].as_u64().unwrap_or(0))
+            .sum();
+        assert_eq!(fam_sum, expect, "families add up to the total");
+        assert!(
+            budget_from_aggregate(&ContextBudgetAggregate::default())["so_what"]["violation_share"]
+                .is_null()
+        );
+    }
+
+    /// `nudge_follow`: denominator = emitted + denied, rewrite gates excluded, and
+    /// a population under the floor is `not_measured`.
+    #[test]
+    fn nudge_follow_counts_denies_in_the_denominator_and_drops_rewrite_gates() {
+        let ev = |e: u64, f: u64, d: u64| -> BTreeMap<String, u64> {
+            [
+                ("emitted", e),
+                ("followed", f),
+                ("denied", d),
+                ("bypassed", 0),
+            ]
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v))
+            .collect()
+        };
+        let mut g: BTreeMap<String, BTreeMap<String, u64>> = BTreeMap::new();
+        g.insert("g3_edit_sem_read".into(), ev(2, 4, 9)); // the 450 % of §7
+        g.insert("g7_reinspect".into(), ev(6, 0, 4));
+        g.insert("g2_pipe_exit".into(), ev(4, 4, 0)); // rewrite: excluded
+        g.insert("g8_loop_rewrite".into(), ev(2, 2, 0)); // rewrite: excluded
+        let v = nudge_follow(&g);
+        assert_eq!(v["spoken"], 21, "{v}"); // 2+9 + 6+4
+        assert_eq!(v["followed"], 4);
+        assert_eq!(v["nudge_follow_ratio"], round3(4.0 / 21.0));
+        assert_eq!(
+            v["per_gate"]["g3_edit_sem_read"]["ratio"],
+            round3(4.0 / 11.0)
+        );
+        assert!(v["per_gate"]["g2_pipe_exit"].is_null());
+        assert_eq!(v["verdict"], "measured");
+        g.remove("g7_reinspect");
+        assert_eq!(nudge_follow(&g)["verdict"], "not_measured"); // 11 < 20
+        assert!(nudge_follow(&BTreeMap::new())["nudge_follow_ratio"].is_null());
+        // Every excluded label is a real gate label: a rename would silently
+        // re-admit the rewrite into the ratio.
+        let labels: Vec<&str> = touring_foundation::gate_metrics::GateId::all()
+            .iter()
+            .map(|g| g.label())
+            .collect();
+        for r in REWRITE_GATES {
+            assert!(labels.contains(r), "{r} is not a GateId label");
+        }
+    }
+
+    /// The deny family the ruler keys on must be a family the taxonomy produces.
+    #[test]
+    fn the_deny_family_is_the_one_the_taxonomy_attributes_to_a_gate_deny() {
+        assert_eq!(
+            attributed_family("[G7 re-inspeção] negado", None),
+            DENY_FAMILY
+        );
+    }
+
+    /// The synthetic transcript end-to-end: a 1-in-3 byte-identical repeat is over
+    /// its ruler, the per-turn ceiling is correctly NOT, and the MUST followed once
+    /// out of twice is shown but NOT judged — n=2 is below the sample floor.
     #[test]
     fn the_synthetic_transcript_fails_exactly_the_rulers_it_violates() {
         let v = budget_from_aggregate(&run(&synthetic()));
         assert_eq!(v["available"], true);
-        assert_eq!(
-            v["failing"],
-            json!(["duplicate_injection_ratio", "injection_follow_ratio"]),
-            "{v}"
-        );
+        assert_eq!(v["failing"], json!(["duplicate_injection_ratio"]), "{v}");
+        assert_eq!(v["not_measured"], json!(["injection_follow_ratio"]), "{v}");
         assert_eq!(v["injection_follow_ratio"], 0.5);
         assert_eq!(v["must_emitted"], 2);
     }
