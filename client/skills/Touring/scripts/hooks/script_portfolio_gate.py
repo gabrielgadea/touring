@@ -83,9 +83,7 @@ PLANO_ATIVO_VERSAO = 1
 def is_ephemeral(path: str) -> bool:
     """Destino efêmero: morre com a sessão (tmpfs, cache, scratchpad)."""
     low = path.lower()
-    return low.startswith(("/tmp", "/var/tmp")) or any(
-        h in low for h in EPHEMERAL_HINTS
-    )
+    return low.startswith(("/tmp", "/var/tmp")) or any(h in low for h in EPHEMERAL_HINTS)
 
 
 def keywords_of(basename: str, head: str) -> list[str]:
@@ -109,9 +107,7 @@ def manifest_candidates(keys: list[str]) -> list[dict]:
         return []
     out = []
     for e in entries:
-        hay = " ".join(
-            str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")
-        ).lower()
+        hay = " ".join(str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")).lower()
         hits = sum(1 for k in keys if k.lower() in hay)
         if hits:
             out.append(
@@ -141,9 +137,7 @@ def tantivy_candidates(query: str) -> list[dict]:
     for r in rows if isinstance(rows, list) else []:
         fp = str(r.get("file_path", ""))
         if fp and Path(fp).suffix.lower() in SCRIPT_EXTS:
-            out.append(
-                {"path": fp, "why": str(r.get("symbol_name", ""))[:80], "hits": 1}
-            )
+            out.append({"path": fp, "why": str(r.get("symbol_name", ""))[:80], "hits": 1})
     return out[:3]
 
 
@@ -179,20 +173,14 @@ def stats() -> int:
     aparecem só como ``sinteticos`` — a sombra do P5 mede escrita real, não a própria medição.
     """
     try:
-        todos = [
-            json.loads(linha)
-            for linha in EVENTS.read_text().splitlines()
-            if linha.strip()
-        ]
+        todos = [json.loads(linha) for linha in EVENTS.read_text().splitlines() if linha.strip()]
     except (OSError, json.JSONDecodeError):
         print("sem eventos")
         return 0
     rows = [r for r in todos if not str(r.get("file", "")).startswith(SINTETICOS)]
     n = len(rows)
     com_cand = sum(1 for r in rows if r.get("n_candidates"))
-    evit = sum(
-        1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado"
-    )
+    evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
     por_estado: dict[str, int] = {}
     for r in rows:
         chave = r.get("estado", "legado")
@@ -235,15 +223,8 @@ _PALAVRA_ESTADO = {
 
 
 def _contexto(v, basename: str, ephemeral: bool) -> str:
-    lista = " · ".join(
-        f"{cid} ({sinal}{'' if d is None else f', {d} bits'})"
-        for cid, sinal, d in v.candidatos
-    )
-    destino = (
-        "destino EFÊMERO (morre com a sessão)"
-        if ephemeral
-        else "basename genérico recriado entre sessões"
-    )
+    lista = " · ".join(f"{cid} ({sinal}{'' if d is None else f', {d} bits'})" for cid, sinal, d in v.candidatos)
+    destino = "destino EFÊMERO (morre com a sessão)" if ephemeral else "basename genérico recriado entre sessões"
     return (
         f"[PORTFOLIO · consulta-antes-de-criar · {v.estado}] {basename}: {destino}. "
         f"{_PALAVRA_ESTADO.get(v.estado, v.estado)} — {v.motivo}. Candidatos: {lista}. "
@@ -301,9 +282,7 @@ def _heredoc():
 def _absoluto(path: str, cwd: str | None) -> str:
     """A heredoc target as written (``~/x.py``, ``x.py``) resolved against the command's cwd; ``$VAR`` stays."""
     p = os.path.expanduser(path)
-    return (
-        p if os.path.isabs(p) or not cwd or p.startswith("$") else os.path.join(cwd, p)
-    )
+    return p if os.path.isabs(p) or not cwd or p.startswith("$") else os.path.join(cwd, p)
 
 
 def _gatilhos(payload: dict) -> list[tuple[str, str, bool, bool, str]]:
@@ -348,12 +327,7 @@ def plano_ativo(cwd: str | None) -> tuple[Path | None, str | None]:
                 f"plano_ativo versao inesperada (esperava {PLANO_ATIVO_VERSAO})",
             )
         bundle = dados.get("bundle")
-        if (
-            not isinstance(bundle, str)
-            or not bundle
-            or Path(bundle).is_absolute()
-            or ".." in Path(bundle).parts
-        ):
+        if not isinstance(bundle, str) or not bundle or Path(bundle).is_absolute() or ".." in Path(bundle).parts:
             return (
                 None,
                 "plano_ativo.bundle invalido (esperava caminho relativo sem '..')",
@@ -381,11 +355,7 @@ def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | N
     v, erro = _consultar_seguro(path, content, cwd)
     extra = _destino(path, cwd) if ephemeral else {}
     log_event({**_evento(path, ephemeral, generic, v, erro, origem), **extra})
-    linhas = (
-        [_contexto(v, Path(path).name, ephemeral)]
-        if v is not None and v.candidatos
-        else []
-    )
+    linhas = [_contexto(v, Path(path).name, ephemeral)] if v is not None and v.candidatos else []
     if "destino_sugerido" in extra:
         linhas.append(
             f"[PORTFOLIO · plano ativo] grave o script em {extra['destino_sugerido']} (diagnostics/ do plano declarado "

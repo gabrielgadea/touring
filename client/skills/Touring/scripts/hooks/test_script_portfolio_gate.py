@@ -18,9 +18,7 @@ from pathlib import Path
 import pytest
 
 HOOK = Path(__file__).resolve().parent / "script_portfolio_gate.py"
-SCRIPT = (
-    "import json\n# baixa a proveniencia das fontes\nprint(json.dumps({'ok': True}))\n"
-)
+SCRIPT = "import json\n# baixa a proveniencia das fontes\nprint(json.dumps({'ok': True}))\n"
 
 
 @pytest.fixture
@@ -46,9 +44,7 @@ def ambiente(tmp_path: Path) -> dict:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     falso = bin_dir / "touring"
-    falso.write_text(
-        '#!/bin/sh\nprintf \'%s\' "$TOURING_FALSO_SAIDA"\nexit "${TOURING_FALSO_RC:-0}"\n'
-    )
+    falso.write_text('#!/bin/sh\nprintf \'%s\' "$TOURING_FALSO_SAIDA"\nexit "${TOURING_FALSO_RC:-0}"\n')
     falso.chmod(0o755)
     env = {k: v for k, v in os.environ.items() if not k.startswith("TOURING_")}
     env.update(
@@ -65,9 +61,7 @@ def ambiente(tmp_path: Path) -> dict:
     }
 
 
-def _rodar(
-    amb: dict, payload: object, **extra: str
-) -> subprocess.CompletedProcess[str]:
+def _rodar(amb: dict, payload: object, **extra: str) -> subprocess.CompletedProcess[str]:
     entrada = payload if isinstance(payload, str) else json.dumps(payload)
     return subprocess.run(
         [sys.executable, str(HOOK)],
@@ -156,14 +150,10 @@ def test_basename_generico_dispara_fora_do_efemero(ambiente: dict) -> None:
     assert evento["ephemeral"] is False
 
 
-PROGRAMA = "\n".join(
-    f"linha_{i} = calcular(valor_{i}, base) + ajuste_{i}" for i in range(12)
-)
+PROGRAMA = "\n".join(f"linha_{i} = calcular(valor_{i}, base) + ajuste_{i}" for i in range(12))
 
 
-def test_copia_editada_achada_pelo_tantivy_e_reprovada(
-    ambiente: dict, tmp_path: Path
-) -> None:
+def test_copia_editada_achada_pelo_tantivy_e_reprovada(ambiente: dict, tmp_path: Path) -> None:
     existente = tmp_path / "recalcula_tarifa.py"
     existente.write_text(PROGRAMA)
     ambiente["env"]["TOURING_FALSO_SAIDA"] = json.dumps(
@@ -206,9 +196,7 @@ def test_manifest_nao_curto_circuita_mais(ambiente: dict, tmp_path: Path) -> Non
 
 def test_stats_conta_por_estado_e_legado(ambiente: dict) -> None:
     ambiente["eventos"].parent.mkdir(parents=True, exist_ok=True)
-    ambiente["eventos"].write_text(
-        json.dumps({"n_candidates": 1, "would_avoid": True}) + "\n"
-    )
+    ambiente["eventos"].write_text(json.dumps({"n_candidates": 1, "would_avoid": True}) + "\n")
     _rodar(ambiente, _write("/tmp/x/zzz_unico.py", "valor = 1\n"))
     r = subprocess.run(
         [sys.executable, str(HOOK), "--stats"],
@@ -258,23 +246,16 @@ def _bash(comando: str, cwd: str = "/home/u/projects/analise") -> dict:
 
 def test_bash_heredoc_dispara_como_write(ambiente: dict) -> None:
     # P3: the same script written through `cat > … <<EOF` reaches the same decision as a Write.
-    r = _rodar(
-        ambiente, _bash(f"cat > /tmp/x/fetch_proveniencia.py <<'PY'\n{SCRIPT}PY\n")
-    )
+    r = _rodar(ambiente, _bash(f"cat > /tmp/x/fetch_proveniencia.py <<'PY'\n{SCRIPT}PY\n"))
     assert r.returncode == 0
-    assert (
-        "fetch_proveniencia.py"
-        in json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
-    )
+    assert "fetch_proveniencia.py" in json.loads(r.stdout)["hookSpecificOutput"]["additionalContext"]
     (evento,) = _eventos(ambiente)
     assert evento["origem"] == "Bash.heredoc"
     assert evento["file"] == "/tmp/x/fetch_proveniencia.py"
     assert "content" not in evento
 
 
-def test_bash_nao_emite_updated_input_nem_bloqueia(
-    ambiente: dict, tmp_path: Path
-) -> None:
+def test_bash_nao_emite_updated_input_nem_bloqueia(ambiente: dict, tmp_path: Path) -> None:
     # The touring-hook already rewrites Bash commands: a second rewriter would be last-write-wins.
     existente = tmp_path / "recalcula_tarifa.py"
     existente.write_text(PROGRAMA)
@@ -285,9 +266,7 @@ def test_bash_nao_emite_updated_input_nem_bloqueia(
     r = _rodar(ambiente, _bash(f"cat <<'PY' > /tmp/x/zzz_unico.py\n{corpo}\nPY\n"))
     assert r.returncode == 0
     saida = json.loads(r.stdout)["hookSpecificOutput"]
-    assert (
-        "reprovado" in saida["additionalContext"]
-    )  # control: the case did reach the strongest verdict
+    assert "reprovado" in saida["additionalContext"]  # control: the case did reach the strongest verdict
     assert set(saida) == {"hookEventName", "additionalContext"}
     assert "updatedInput" not in r.stdout
     assert "permissionDecision" not in r.stdout
@@ -350,15 +329,11 @@ def test_latencia_mediana_do_processo_cabe_no_orcamento(ambiente: dict) -> None:
 def _plano(corpo: object, tmp_path: Path) -> str:
     projeto = tmp_path / "proj"
     (projeto / ".claude").mkdir(parents=True)
-    (projeto / ".claude" / "plano_ativo.json").write_text(
-        corpo if isinstance(corpo, str) else json.dumps(corpo)
-    )
+    (projeto / ".claude" / "plano_ativo.json").write_text(corpo if isinstance(corpo, str) else json.dumps(corpo))
     return str(projeto)
 
 
-def test_write_efemero_vai_para_diagnostics_com_conteudo_identico(
-    ambiente: dict, tmp_path: Path
-) -> None:
+def test_write_efemero_vai_para_diagnostics_com_conteudo_identico(ambiente: dict, tmp_path: Path) -> None:
     # Shadow: the hook SUGGESTS the destination; it never rewrites the input, so the content is untouched.
     cwd = _plano({"versao": 1, "bundle": "docs/plans/2026-10-31-x"}, tmp_path)
     r = _rodar(ambiente, {**_write("/tmp/x/zzz_unico.py", "valor = 1\n"), "cwd": cwd})
@@ -400,9 +375,7 @@ def test_sem_plano_ativo_nao_redireciona(ambiente: dict, tmp_path: Path) -> None
         {"versao": 1, "bundle": "/abs"},
     ],
 )
-def test_plano_ativo_invalido_so_avisa_e_registra(
-    ambiente: dict, tmp_path: Path, corpo: object
-) -> None:
+def test_plano_ativo_invalido_so_avisa_e_registra(ambiente: dict, tmp_path: Path, corpo: object) -> None:
     cwd = _plano(corpo, tmp_path)
     r = _rodar(ambiente, {**_write("/tmp/x/zzz_unico.py", "valor = 1\n"), "cwd": cwd})
     assert r.returncode == 0
