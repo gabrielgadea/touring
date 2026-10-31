@@ -1,0 +1,11 @@
+  ok   reconstrucao
+  ok   Edit negado fora do snapshot
+  ok   Edit que nao casa marca quebrado
+  ok   dobra de projeto ignora o disco
+  ok   id determinista
+  ok   programa inline de heredoc
+  ok   programa inline de -c
+  ok   sem programa ⇒ None
+  ok   dois programas ⇒ None ambíguo
+  ok   shell aninhado: o Python de dentro
+  ok   --saida aponta C e o default é o vivo
