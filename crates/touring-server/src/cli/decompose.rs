@@ -73,7 +73,10 @@ enum DecomposeCmd {
         /// Legacy positional status (deprecated; prefer `--status=<value>`).
         #[arg(hide = true)]
         legacy_status: Option<String>,
-        /// New status (pending|in_progress|completed|failed).
+        /// New status: pending|in_progress|completed|blocked|failed|cancelled|skipped
+        /// (`done`/`complete` = completed). `failed` = it ran and broke; `cancelled` = it no
+        /// longer applies (obsolete, out of plan) — a cancelled dependency never releases its
+        /// dependents; `skipped` = deliberately not run, and it does release them.
         #[arg(long)]
         status: Option<String>,
         /// Comma-separated dependency list.
