@@ -408,11 +408,17 @@ LISTA** (`corpus_rust.py:277` e `:320`) — o corpus é que é velho.
 | o corpus regenerado (`corpus_rust.py --n 40 --negativos 200`) | **160 positivos** (4 classes × 40) + 200 negativos |
 | o juiz de Rust sanidade sobre o corpus regenerado | **não crasha**: recall 80/160 · 0,500 · falso deny **0/200** · p95 0,4 ms · 360 chamadas — a única pendência é o limite superior de 95 % (n=200 < 299: **não provado por estatística**, como declarado) |
 
-**O que NÃO foi feito, e por quê**: o corpus em disco
-(`~/.claude/touring/vgp/corpus_rust`) **não foi substituído** — o gerador de
-hoje produz 160 positivos e o corpus em disco tem 80: são corpora
+**O que foi feito, por decisão da coordenadora**: o corpus em disco
+(`~/.claude/touring/vgp/corpus_rust`) **não foi substituído nem apagado** — o
+gerador de hoje produz 160 positivos e o de disco tem 80: são corpora
 **diferentes** (o gerador ganhou classes), e trocar o corpus mudaria os
-números do V-6/V-7 sem que a comparação com o ANTES/DEPOIS valesse mais. A
-substituição é decisão da coordenadora (o caminho é `corpus_rust.py --n … --
-saida ~/.claude/touring/vgp/corpus_rust`); o regenerado está em
-`/tmp/corpus_rust_novo`, e o juiz já mediu sobre ele.
+números do V-6/V-7 sem que a comparação com o ANTES/DEPOIS valesse mais. O
+regenerado foi gravado como **corpus NOVO e versionado**:
+
+| | |
+|---|---|
+| corpus | `~/.claude/touring/vgp/corpus_rust_20261031/` (160 positivos + 200 negativos) |
+| selo | `~/.claude/touring/vgp/corpus_rust_20261031.selo.json` — **INTACTO** (`confere_selo.py --corpus … --selo …` → rc=0, `sha_tree 182cc617c09cec34`, 723 arquivos, 365 509 bytes) |
+| README | `corpus_rust_20261031/README.md` — gerador, parâmetros (`--n 40 --negativos 200`), por que existe e a **não comparabilidade** dos números entre os dois corpora |
+
+Os juiz passam a apontar para o corpus novo.
