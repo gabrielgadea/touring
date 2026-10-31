@@ -703,7 +703,14 @@ impl<'a> Resolver<'a> {
     }
 
     /// Overlay content first (the entry's instant), then disk.
+    ///
+    /// V-4 (31/10/2026): only what is INSIDE the allowed roots is read. The proposed
+    /// content chooses the path (`#[path = "…"]`), and an absolute path or a `../..`
+    /// put the read outside the project.
     fn ler(&self, p: &Path) -> Option<String> {
+        if !crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz], p) {
+            return None;
+        }
         if let Some(c) = self.overlays.get(p.to_string_lossy().as_ref()) {
             return Some(c.clone());
         }
@@ -1059,12 +1066,24 @@ impl<'a> Resolver<'a> {
             return Vec::new();
         };
         if let Some(p) = path_attr {
+            // V-4 (31/10/2026): an ABSOLUTE `#[path]` does not concatenate — in the
+            // `Path::join` it REPLACES the base, so the CONTENT would choose the file
+            // to read (`#[path = "/etc/passwd"]`). Only a relative piece is accepted,
+            // and the file it names must stay inside the project root.
+            if !crate::vgp::lang::caminho::derivado_aceitavel(p) {
+                return Vec::new();
+            }
             let relativo_a = if trail.is_empty() {
                 file.parent().map(Path::to_path_buf)
             } else {
                 Some(base)
             };
-            return relativo_a.map(|d| vec![d.join(p)]).unwrap_or_default();
+            return relativo_a
+                .map(|d| vec![d.join(p)])
+                .unwrap_or_default()
+                .into_iter()
+                .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz], c))
+                .collect();
         }
         vec![
             base.join(format!("{seg}.rs")),
