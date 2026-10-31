@@ -1497,9 +1497,44 @@ fn proc_busy_ms(pid: u32) -> Option<u64> {
 /// distinguishes a wall-clock expiry from a CPU busy-time expiry so the model
 /// can pick the right correction (less work vs. more waiting headroom).
 ///
+/// V-10 (31/10/2026) — a lição de um timeout de parede, em UMA redação.
+///
+/// O sandbox escreve essa lição no stderr que devolve
+/// (`timeout_outcome_with_cause`), e o consumidor que tem que MOSTRÁ-la ao
+/// modelo (o `failure.message` do motor) precisa mostrar as MESMAS palavras:
+/// duas redações divergem, e a que diverge é justamente a que o modelo lê.
+/// Medido no binário 30.4.101 (31/10): com o filho escrevendo no stderr antes
+/// de o relógio estourar, `failure.message` era a linha do filho e o
+/// orçamento de 30000ms sumia do campo.
+pub fn timeout_teach_message(timeout_ms: u64) -> String {
+    format!(
+        "timeout: process exceeded the {timeout_ms}ms wall-clock budget and was killed \
+         (exit_code -2 is the timeout sentinel). Reduce the work per run, or \
+         raise the budget with `--timeout-ms <N>` (max 600000)."
+    )
+}
+
+/// V-10 (31/10/2026) — a lição de um timeout de CPU ociosa, em UMA redação
+/// (a mesma regra de fonte única de [`timeout_teach_message`]).
+pub fn timeout_busy_teach_message(busy_ms: u64, compute_ms: u64) -> String {
+    format!(
+        "timeout: process consumed {busy_ms}ms of CPU busy time, over the {compute_ms}ms \
+         compute budget, and was killed (exit_code -2 is the timeout sentinel). A hot \
+         loop or heavy computation — reduce the work per run; waiting on I/O \
+         does not consume this budget."
+    )
+}
+
 /// OUT-1 — the partial stdout/stderr captured before the kill ride along:
 /// the sentinel used to arrive empty-handed, so a run that printed 90% of its
 /// result before expiring taught the retry nothing.
+///
+/// V-10 (31/10/2026) — o stderr do timeout é `stderr parcial do filho + "\n" +
+/// lição`.
+///
+/// A ordem é o que permite a lição ser recuperada: ela é a ÚLTIMA linha, e a
+/// PRIMEIRA é do filho. Quem lê a PRIMEIRA perde o orçamento — foi o defeito
+/// medido no V0e (39 das 606 falhas eram mensagens que deviam teach a rota).
 fn timeout_outcome_with_cause(
     config: &SandboxConfig,
     cause: TimeoutCause,
@@ -1511,20 +1546,10 @@ fn timeout_outcome_with_cause(
         // model (or human) reading the result had no way to tell a timeout
         // from a crash. The message teaches the correction.
         let stderr = match cause {
-            TimeoutCause::Wall => format!(
-                "timeout: process exceeded the {}ms wall-clock budget and was killed \
-                 (exit_code -2 is the timeout sentinel). Reduce the work per run, or \
-                 raise --timeout-ms (max 600000).",
-                config.timeout_ms
-            ),
-            TimeoutCause::Busy(busy) => format!(
-                "timeout: process consumed {}ms of CPU busy time, over the {}ms compute \
-                 budget, and was killed (exit_code -2 is the timeout sentinel). A hot \
-                 loop or heavy computation — reduce the work per run; waiting on I/O \
-                 does not consume this budget.",
-                busy,
-                config.compute_ms.unwrap_or(0)
-            ),
+            TimeoutCause::Wall => timeout_teach_message(config.timeout_ms),
+            TimeoutCause::Busy(busy) => {
+                timeout_busy_teach_message(busy, config.compute_ms.unwrap_or(0))
+            }
         };
         // OUT-1 — salvage: hash/store/summarize what WAS printed, and lead the
         // stderr with the child's own partial stderr before the teach message.
@@ -2000,6 +2025,53 @@ pub fn cleanup_tee(retention_secs: u64) -> std::io::Result<u64> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// V-10 (31/10/2026) — a lição do timeout nomeia o orçamento e a correção.
+    ///
+    /// O V0e mediu 35 timeouts de `touring run`, TODOS sem `--timeout-ms` e
+    /// todos no default de 30 s: a mensagem não dizia qual orçamento tinha
+    /// estourado nem como levantar o teto.
+    #[test]
+    fn a_licao_do_timeout_nomeia_o_orcamento_e_a_correcao() {
+        let m = timeout_teach_message(30_000);
+        assert!(m.contains("30000ms"), "o orçamento sumiu: {m}");
+        assert!(m.contains("--timeout-ms"), "a correção sumiu: {m}");
+        assert!(m.contains("600000"), "o teto sumiu: {m}");
+    }
+
+    /// V-10 (31/10/2026) — o stderr do timeout é o do FILHO primeiro e a lição
+    /// por último.
+    ///
+    /// A ordem é o contrato: quem lê a última linha acha a lição (com o
+    /// orçamento), quem lê a primeira acha só o trabalho parcial da criança.
+    /// Foi exatamente essa inversão que fez o `failure.message` perder o
+    /// orçamento no V0e.
+    #[test]
+    fn o_stderr_do_timeout_e_o_do_filho_e_a_licao() {
+        let mut config = SandboxConfig::default();
+        config.fallback_on_timeout = true;
+        config.timeout_ms = 30_000;
+        let r = timeout_outcome_with_cause(
+            &config,
+            TimeoutCause::Wall,
+            b"saida parcial".to_vec(),
+            b"trabalho parcial do filho".to_vec(),
+        )
+        .expect("com fallback_on_timeout o timeout tem resultado");
+        assert_eq!(r.exit_code, -2);
+        let linhas: Vec<&str> = r.stderr.lines().collect();
+        assert_eq!(
+            linhas.first().copied(),
+            Some("trabalho parcial do filho"),
+            "a primeira linha é do filho: {}",
+            r.stderr
+        );
+        let licao = linhas.last().copied().unwrap_or_default();
+        assert!(
+            licao.contains("30000ms") && licao.contains("--timeout-ms"),
+            "a última linha é a lição: {licao}"
+        );
+    }
 
     // ── SEC-04 (2026-06-13) — credential opt-out partition ────────────────
     // `TOURING_SANDBOX_NO_CREDENTIALS` keeps ONLY `BASELINE_ENV`. This proves the

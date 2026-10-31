@@ -1229,15 +1229,74 @@ if __name__ == "__main__":
     }
 }
 
+/// V-10 (31/10/2026) — o que a falha precisa saber para ENSINAR a rota.
+///
+/// O `failure.message` é o campo que o modelo LÊ (no V0e: 39 das 606 falhas
+/// eram mensagens que deviam teach a rota e não teach). A rota depende de
+/// três fatos que o resultado cru do sandbox não carrega: o orçamento
+/// aplicado, a linguagem do programa e de onde veio o corpo.
+struct FailureContext<'a> {
+    /// O orçamento de parede que o motor aplicou (`config.timeout_ms`).
+    timeout_ms: u64,
+    /// A linguagem como o chamador a escreveu — a rota a teach é por linguagem.
+    lang: &'a str,
+    /// De onde veio o corpo (`--code` inline, `--file` ou `--stdin`).
+    source: Option<&'a RunSource>,
+}
+
+/// V-10 (31/10/2026) — a lição do timeout é a ÚLTIMA linha do stderr.
+///
+/// O CEG compõe o stderr do timeout como `stderr parcial do filho + "\n" +
+/// lição` (`sandbox_executor.rs::timeout_outcome_with_cause`), então a
+/// ÚLTIMA linha é a lição e a PRIMEIRA é do filho. Medido no binário 30.4.101
+/// (31/10): com o filho escrevendo stderr antes de estourar o relógio,
+/// `failure.message` era 'trabalho parcial do filho' — o orçamento de 30000ms
+/// e a correção `--timeout-ms <N>` sumiam do campo que o modelo lê.
+///
+/// A checagem por "timeout" não é decorativa: se a redação mudar, o motor
+/// reescreve a lição com o orçamento que ELE aplicou — o orçamento fica
+/// SEMPRE no campo que o modelo lê.
+fn timeout_teach_line(stderr: &str) -> Option<&str> {
+    let last = stderr.lines().rev().find(|l| !l.trim().is_empty())?;
+    if last.to_lowercase().contains("timeout") {
+        Some(last)
+    } else {
+        None
+    }
+}
+
 /// The one failure a finished sandbox run reports, in the order the model
 /// should correct them: timeout, cut output, a file cut at the file-size cap,
 /// death by a signal, a non-zero exit. `None` for a clean run.
 fn run_failure(
     r: &touring_hooks::sandbox_executor::SandboxResult,
-    first_stderr_line: String,
+    stderr: &str,
+    ctx: &FailureContext<'_>,
 ) -> Option<RunFailure> {
+    let first_stderr_line = stderr
+        .lines()
+        .find(|l| !l.trim().is_empty())
+        .unwrap_or("")
+        .to_string();
     let (kind, message) = if r.exit_code == -2 {
-        (RunFailureKind::Timeout, first_stderr_line)
+        // V-10 (31/10/2026): a lição do timeout é a ÚLTIMA linha do stderr —
+        // o CEG compõe `stderr parcial do filho + "\n" + lição`
+        // (`sandbox_executor.rs::timeout_outcome_with_cause`), então a
+        // PRIMEIRA linha é do FILHO. Pegar a primeira era perder o orçamento:
+        // medido no binário 30.4.101, com o filho escrevendo stderr antes de
+        // estourar o relógio, `failure.message` era 'trabalho parcial do
+        // filho' e o orçamento de 30000ms sumia do campo que o modelo lê.
+        //
+        // Quando a lição não está no stderr, o MOTOR a reescreve com o
+        // orçamento que ELE aplicou — a redação é a do CEG (fonte única).
+        (
+            RunFailureKind::Timeout,
+            timeout_teach_line(stderr)
+                .map(str::to_owned)
+                .unwrap_or_else(|| {
+                    touring_hooks::sandbox_executor::timeout_teach_message(ctx.timeout_ms)
+                }),
+        )
     } else if r.was_truncated || r.stderr_truncated {
         (
             RunFailureKind::OutputLimit,
@@ -1261,10 +1320,14 @@ fn run_failure(
             killed_by(signal, &first_stderr_line),
         )
     } else if r.exit_code != 0 {
-        (
-            RunFailureKind::Exception,
-            silent_exit(r.exit_code, first_stderr_line),
-        )
+        // V-10 (31/10/2026): um corpo que o shell não parseou tem uma CORREÇÃO
+        // concreta (o corpo inline, não o programa) — e ela só pode ser
+        // ensinada quando a assinatura está no stderr do shell.
+        let mut message = silent_exit(r.exit_code, first_stderr_line);
+        if let Some(route) = shell_syntax_route(ctx, stderr) {
+            message.push_str(&route);
+        }
+        (RunFailureKind::Exception, message)
     } else {
         return None;
     };
@@ -1315,6 +1378,105 @@ fn silent_exit(exit_code: i32, first_stderr_line: String) -> String {
     }
 }
 
+/// V-10 (31/10/2026) — a assinatura de um programa que o SHELL não parseou.
+///
+/// Medido no binário 30.4.101 (31/10/2026): `touring run --lang bash --code
+/// 'echo "oi'` → rc=2 e stderr `bash: -c: line 1: unexpected EOF while
+/// looking for matching `"'`.
+///
+/// Cuidado com a OUTRA camada: quando as aspas quebram no shell do CHAMADOR
+/// (stderr `bash: -c: line 1: unexpected EOF while looking for matching `''`,
+/// com aspa SIMPLES), o `touring` NUNCA CHEGA A RODAR — nenhuma mensagem do
+/// produto alcança esse caso. Por isso a assinatura exige o prefixo do shell:
+/// sem ele, um programa que só imprimiu "syntax error" no próprio output
+/// receberia uma rota que não é dele.
+fn is_shell_syntax_error(stderr: &str) -> bool {
+    let shell_reports = stderr.contains("bash: -c:")
+        || stderr.contains("/bin/bash:")
+        || stderr.contains("sh: -c:")
+        || stderr.contains("/bin/sh:");
+    shell_reports
+        && (stderr.contains("unexpected EOF while looking for matching")
+            || stderr.contains("unexpected end of file while looking for matching")
+            || stderr.contains("syntax error"))
+}
+
+/// V-10 (31/10/2026) — a rota de um corpo que o shell não parseou.
+///
+/// O que FUNCIONA (medido no binário 30.4.101, 31/10): `touring run --lang
+/// bash --file prog.sh` → rc=0 e stdout "oi de um arquivo" — o corpo de um
+/// arquivo não é reinterpretado pelo shell do chamador.
+///
+/// O que NÃO entra na rota: `--args '[…]'` — para bash ela é NO-OP (medido:
+/// `printf "%s|" "$@"` imprimiu `|`, não os argumentos) e, de todo modo,
+/// `--args` nunca foi uma correção de aspas: argumento não é corpo.
+fn shell_syntax_route(ctx: &FailureContext<'_>, stderr: &str) -> Option<String> {
+    if !is_shell_syntax_error(stderr) {
+        return None;
+    }
+    match ctx.source.map(|s| s.kind) {
+        // O corpo já veio de um arquivo: `--file` seria a MESMA rota, e uma
+        // rota que não muda nada não é uma rota — o arquivo é que está
+        // quebrado.
+        Some("file") => Some(
+            "\ncorrection: the body came from a FILE and the shell could not parse it — the \
+             file has unbalanced quotes; fix the file and re-run the SAME file."
+                .to_string(),
+        ),
+        Some("stdin") => Some(
+            "\ncorrection: the body came from STDIN and the shell could not parse it — the \
+             program's quotes are unbalanced; fix the body and re-run."
+                .to_string(),
+        ),
+        _ => Some(format!(
+            "\ncorrection: the inline body did not reach the shell intact (nested quotes) — \
+             write the program to a file and run the file: `touring run --lang {lang} \
+             --file {exemplo}` — a file body is not re-parsed by the caller's shell.",
+            lang = ctx.lang,
+            exemplo = exemplo_de_arquivo(ctx.lang),
+        )),
+    }
+}
+
+/// O nome de exemplo do arquivo da rota (o corpo é o mesmo texto).
+///
+/// A tabela espelha os apelidos de `parse_language` — a rota ensina um
+/// comando que o chamador pode colar, e um `.txt` para uma linguagem que
+/// tem nome próprio seria um consejo que nao serve.
+fn exemplo_de_arquivo(lang: &str) -> &'static str {
+    const TABELA: &[(&str, &str)] = &[
+        ("py", "prog.py"),
+        ("python", "prog.py"),
+        ("sh", "prog.sh"),
+        ("bash", "prog.sh"),
+        ("shell", "prog.sh"),
+        ("js", "prog.js"),
+        ("javascript", "prog.js"),
+        ("bun", "prog.js"),
+        ("node", "prog.js"),
+        ("ts", "prog.ts"),
+        ("typescript", "prog.ts"),
+        ("rb", "prog.rb"),
+        ("ruby", "prog.rb"),
+        ("go", "prog.go"),
+        ("golang", "prog.go"),
+        ("pl", "prog.pl"),
+        ("perl", "prog.pl"),
+        ("r", "prog.R"),
+        ("rlang", "prog.R"),
+        ("ex", "prog.exs"),
+        ("elixir", "prog.exs"),
+        ("php", "prog.php"),
+        ("rs", "prog.rs"),
+        ("rust", "prog.rs"),
+    ];
+    let l = lang.to_lowercase();
+    TABELA
+        .iter()
+        .find(|(apelido, _)| *apelido == l)
+        .map_or("prog.txt", |(_, arquivo)| *arquivo)
+}
+
 /// W0 d0 + W1 d3/S-1.1 — turn the raw sandbox result into the adapter's view:
 /// `(stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure)`.
 ///
@@ -1325,6 +1487,7 @@ fn silent_exit(exit_code: i32, first_stderr_line: String) -> String {
 #[allow(clippy::type_complexity)]
 fn derive_run_outcome(
     result: std::result::Result<touring_hooks::sandbox_executor::SandboxResult, SandboxError>,
+    ctx: &FailureContext<'_>,
 ) -> (
     String,
     String,
@@ -1341,13 +1504,7 @@ fn derive_run_outcome(
                 Vec::new()
             };
             let stdout_str = String::from_utf8_lossy(&stdout_bytes).to_string();
-            let first_stderr_line = r
-                .stderr
-                .lines()
-                .find(|l| !l.trim().is_empty())
-                .unwrap_or("")
-                .to_string();
-            let failure = run_failure(&r, first_stderr_line);
+            let failure = run_failure(&r, &r.stderr, ctx);
             let stored = r.stored_path.as_ref().map(|p| p.display().to_string());
             (
                 stdout_str,
@@ -1495,8 +1652,17 @@ pub async fn ctx_execute_impl(
     let duration_ms = start.elapsed().as_millis() as u64;
     // B1 — what the run left in its private tmp (0 on a spawn/timeout error).
     let tmp_bytes = result.as_ref().map(|r| r.tmp_bytes).unwrap_or(0);
+    // V-10 (31/10/2026) — a falha precisa saber o orçamento, a linguagem e a
+    // origem do corpo para ENSINAR a rota: o `failure.message` é o campo que
+    // o modelo lê (no V0e, 39 das 606 falhas eram mensagens que deviam teach
+    // a rota e não teach).
+    let failure_ctx = FailureContext {
+        timeout_ms: timeout,
+        lang: &language,
+        source: tunables.as_ref().and_then(|t| t.source.as_ref()),
+    };
     let (stdout, stderr, exit_code, sandbox_stderr_truncated, stored_path, failure) =
-        derive_run_outcome(result);
+        derive_run_outcome(result, &failure_ctx);
     let (env_stdout, env_stderr) = inline_caps();
     // QW-2 — o pedido por chamada (flags do `touring run`) vence a env var.
     let (max_stdout, max_stderr) = (
@@ -1675,11 +1841,29 @@ mod run_failure_tests {
         }
     }
 
+    /// V-10 (31/10/2026) — um run que morre deixando stderr.
+    fn finished_with_stderr(exit_code: i32, stderr: &str) -> SandboxResult {
+        SandboxResult {
+            stderr: stderr.to_string(),
+            ..finished(exit_code, None, &[])
+        }
+    }
+
+    /// V-10 (31/10/2026) — o contexto padrão da falha: o orçamento default
+    /// (30000ms, o do motor) e um corpo inline.
+    fn ctx_padrao() -> FailureContext<'static> {
+        FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: None,
+        }
+    }
+
     /// 18/09/2026 (analise): `sqlite3 … .backup` died at the file-size cap, the
     /// script went on to `echo $?`, and the envelope read success.
     #[test]
     fn a_file_cut_at_the_cap_fails_a_run_that_exited_zero() {
-        let f = run_failure(&finished(0, None, &["big.bin"]), String::new())
+        let f = run_failure(&finished(0, None, &["big.bin"]), "", &ctx_padrao())
             .expect("a truncated file is not green");
         assert!(matches!(f.kind, RunFailureKind::OutputLimit));
         for part in ["SIGXFSZ", "256 MiB", "big.bin", "153"] {
@@ -1689,11 +1873,12 @@ mod run_failure_tests {
 
     #[test]
     fn a_death_by_signal_names_the_signal_and_its_cap() {
-        let kill = run_failure(&finished(-1, Some(9), &[]), String::new()).expect("failure");
+        let kill = run_failure(&finished(-1, Some(9), &[]), "", &ctx_padrao()).expect("failure");
         assert!(matches!(kill.kind, RunFailureKind::Exception));
         assert!(kill.message.contains("SIGKILL") && kill.message.contains("memory cap"));
 
-        let term = run_failure(&finished(-1, Some(15), &[]), "Terminated".into()).expect("failure");
+        let term = run_failure(&finished(-1, Some(15), &[]), "Terminated", &ctx_padrao())
+            .expect("failure");
         assert!(
             term.message.contains("signal 15") && term.message.contains("Terminated"),
             "{}",
@@ -1703,9 +1888,143 @@ mod run_failure_tests {
 
     #[test]
     fn a_clean_run_has_no_failure_and_a_silent_exit_still_teaches() {
-        assert!(run_failure(&finished(0, None, &[]), String::new()).is_none());
-        let silent = run_failure(&finished(1, None, &[]), String::new()).expect("failure");
+        assert!(run_failure(&finished(0, None, &[]), "", &ctx_padrao()).is_none());
+        let silent = run_failure(&finished(1, None, &[]), "", &ctx_padrao()).expect("failure");
         assert!(silent.message.contains("no match"), "{}", silent.message);
+    }
+
+    /// V-10 (31/10/2026) — o orçamento tem de estar no campo que o MODELO LÊ.
+    ///
+    /// O caso medido no binário 30.4.101 (31/10): o filho escreve no stderr
+    /// ANTES de o relógio estourar, e o `failure.message` ficava com a linha do
+    /// filho — o orçamento de 30000ms e a correção `--timeout-ms <N>` sumiam
+    /// do campo que o modelo lê. O fixture monta o stderr como o sandbox o
+    /// monta (o do filho + a lição) e usa a REDAÇÃO REAL do CEG
+    /// (`timeout_teach_message`): se a redação mudar, o teste muda junto.
+    #[test]
+    fn o_timeout_no_message_nomeia_o_orcamento_e_a_correcao() {
+        let teach = touring_hooks::sandbox_executor::timeout_teach_message(30_000);
+        let stderr = format!("trabalho parcial do filho\n{teach}");
+        let f = run_failure(&finished_with_stderr(-2, &stderr), &stderr, &ctx_padrao())
+            .expect("o timeout é uma falha");
+        assert!(matches!(f.kind, RunFailureKind::Timeout));
+        assert!(
+            f.message.contains("30000ms"),
+            "o orçamento sumiu: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("--timeout-ms"),
+            "a correção sumiu: {}",
+            f.message
+        );
+        assert!(
+            !f.message.contains("trabalho parcial"),
+            "a linha do filho roubou o campo: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — sem lição no stderr, o MOTOR escreve a lição com o
+    /// orçamento que ELE aplicou: o orçamento está sempre no campo que o
+    /// modelo lê.
+    #[test]
+    fn o_timeout_sem_licao_no_stderr_reescreve_a_licao_com_o_orcamento_aplicado() {
+        let stderr = "trabalho parcial do filho\n";
+        let f = run_failure(&finished_with_stderr(-2, stderr), stderr, &ctx_padrao())
+            .expect("o timeout é uma falha");
+        assert!(matches!(f.kind, RunFailureKind::Timeout));
+        assert!(
+            f.message.contains("30000ms"),
+            "o orçamento sumiu: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("--timeout-ms"),
+            "a correção sumiu: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — a rota do shell que quebrou, com o stderr REAL.
+    ///
+    /// Medido no binário 30.4.101 (31/10): `touring run --lang bash --code
+    /// 'echo "oi'` → rc=2 e stderr
+    /// `bash: -c: line 1: unexpected EOF while looking for matching `"'`.
+    /// A rota ensinada é a que FUNCIONA (medida no mesmo binário):
+    /// `touring run --lang bash --file prog.sh` → rc=0.
+    #[test]
+    fn a_sintaxe_do_shell_ensina_a_rota_do_arquivo() {
+        const STDERR_REAL: &str =
+            "bash: -c: line 1: unexpected EOF while looking for matching `\"'";
+        let source = RunSource {
+            kind: "inline",
+            path: None,
+        };
+        let ctx = FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: Some(&source),
+        };
+        let f = run_failure(&finished_with_stderr(2, STDERR_REAL), STDERR_REAL, &ctx)
+            .expect("a falha existe");
+        assert!(matches!(f.kind, RunFailureKind::Exception));
+        assert!(f.message.contains("--file"), "a rota sumiu: {}", f.message);
+        assert!(
+            f.message.contains("touring run --lang bash --file prog.sh"),
+            "a rota não é copiável: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — um corpo que já veio de um ARQUIVO não pode receber
+    /// a rota do arquivo: seria a mesma rota, e uma rota que não muda nada não
+    /// é uma rota.
+    #[test]
+    fn um_corpo_que_veio_de_arquivo_nao_ensina_a_rota_do_arquivo() {
+        const STDERR_REAL: &str =
+            "bash: -c: line 1: unexpected EOF while looking for matching `\"'";
+        let source = RunSource {
+            kind: "file",
+            path: Some("/tmp/prog.sh".to_string()),
+        };
+        let ctx = FailureContext {
+            timeout_ms: 30_000,
+            lang: "bash",
+            source: Some(&source),
+        };
+        let f = run_failure(&finished_with_stderr(2, STDERR_REAL), STDERR_REAL, &ctx)
+            .expect("a falha existe");
+        assert!(
+            !f.message.contains("--file"),
+            "rota que não muda nada: {}",
+            f.message
+        );
+        assert!(
+            f.message.contains("FILE"),
+            "a origem não foi nomeada: {}",
+            f.message
+        );
+    }
+
+    /// V-10 (31/10/2026) — controle NEGATIVO: a rota do shell só entra quando a
+    /// assinatura está no stderr do shell. Um `command not found` do próprio
+    /// shell e um `SyntaxError` do Python são falhas comuns — ganhar a rota do
+    /// shell seria ensinar a coisa errada.
+    #[test]
+    fn uma_falha_comum_nao_ganha_a_rota_do_shell() {
+        for stderr in [
+            "bash: -c: line 1: rg: command not found",
+            "Traceback (most recent call last):\n  File \"x.py\", line 1\nSyntaxError: invalid syntax",
+        ] {
+            let f = run_failure(&finished_with_stderr(1, stderr), stderr, &ctx_padrao())
+                .expect("a falha existe");
+            assert!(
+                !f.message.contains("--file"),
+                "rota inventada para {stderr:?}: {}",
+                f.message
+            );
+        }
     }
 }
 
@@ -2065,4 +2384,5 @@ mod tests {
             found
         );
     }
+
 }
