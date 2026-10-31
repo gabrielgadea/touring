@@ -1,0 +1,10 @@
+[Unit]
+Description=AB34: tenta o reset todo dia às 00:10; só age depois do último dia do calendário (antes disso recusa), então a extensão do calendário o mantém parado
+
+[Timer]
+OnCalendar=*-*-* 00:10:00
+Persistent=true
+Unit=ab34-reset.service
+
+[Install]
+WantedBy=timers.target

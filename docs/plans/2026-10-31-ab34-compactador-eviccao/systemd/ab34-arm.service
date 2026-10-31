@@ -1,0 +1,15 @@
+[Unit]
+Description=AB34 (3.4): aplica a célula do dia (compactador no daemon, evicção no settings.json), verifica e registra; de hora em hora é o batimento
+
+[Service]
+Type=oneshot
+# O daemon nasce de `daemon-ctl restart` num scope próprio (systemd-run --user --scope);
+# KillMode=process garante que ele sobreviva ao fim desta unit mesmo na rota direta.
+KillMode=process
+# Exit 4 = o calendário diz que não há nada a armar agora (antes do dia 0 ou depois do fim):
+# estado esperado, não falha. Exit 2 (entrada inválida) e 3 (não verificado) continuam falhando.
+SuccessExitStatus=4
+WorkingDirectory=/home/gabrielgadea/projects/touring
+Environment=PATH=/home/gabrielgadea/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStartPre=/bin/mkdir -p /home/gabrielgadea/.claude/touring/ab34
+ExecStart=/bin/sh -c 'date "+%%F %%T %%z ab34-arm.service" >>/home/gabrielgadea/.claude/touring/ab34/arm.log; /usr/bin/python3 /home/gabrielgadea/projects/touring/docs/plans/2026-10-31-ab34-compactador-eviccao/ab34_arm.py arm --yes >>/home/gabrielgadea/.claude/touring/ab34/arm.log 2>&1'
