@@ -474,6 +474,33 @@ mod reuse_tests {
     }
 }
 
+/// T-1 (31/10/2026) — a linha malformada do journal é CONTADA e EXPOSTA no
+/// KPI.
+///
+/// Pulada em silêncio, ela escondia a corrupção (400 linhas no journal real,
+/// medidas em 31/10/2026) e o denominador de `runs_total` ficava menor sem
+/// ninguém saber: o KPI dizia "31 execuções" quando o journal tinha 32 linhas.
+#[cfg(test)]
+mod adherence_tests {
+    use super::adherence_from_lines;
+
+    #[test]
+    fn malformed_journal_lines_are_counted_not_skipped() {
+        let linhas = [
+            r#"{"ts":1,"language":"bash","exit_code":0}"#,
+            "NOT JSON",
+            r#"{"ts":2,"language":"bash","exit_code":0}"#,
+            "TAMBEM NAO",
+        ];
+        let v = adherence_from_lines(linhas.iter().copied());
+        assert_eq!(
+            v["runs_total"], 2,
+            "só as linhas válidas entram no denominador"
+        );
+        assert_eq!(v["malformed_lines"], 2, "as linhas ruins são CONTADAS");
+    }
+}
+
 /// F6 — aggregate per-canonical-hook stats from the post-tool-use mirror.
 /// Returns `(used, total)` where `total = 8` mirrors `HookName::ALL.len()`.
 /// Fail-open: missing file → `(0, 8)` (consistent with the gate).
@@ -708,8 +735,13 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
     let mut by_lang: std::collections::BTreeMap<String, u64> = Default::default();
     let mut wasted = 0u64;
     let mut prev_fail: Option<(u64, String)> = None;
+    // T-1 (31/10/2026): a linha que NÃO parseia é CONTADA e EXPOSTA. Pulada
+    // em silêncio, ela escondia a corrupção do journal — e o denominador de
+    // `runs_total` ficava menor sem ninguém saber.
+    let mut malformed_lines = 0u64;
     for line in lines {
         let Ok(v) = serde_json::from_str::<Value>(line) else {
+            malformed_lines += 1;
             continue;
         };
         total += 1;
@@ -754,7 +786,8 @@ pub(crate) fn adherence_from_lines<'a>(lines: impl Iterator<Item = &'a str>) -> 
         "by_failure_kind": by_kind,
         "by_language": by_lang,
         "source": "run_journal.jsonl",
-        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy)",
+        "malformed_lines": malformed_lines,
+        "note": "wasted = run da mesma linguagem <120s após uma falha (proxy); malformed_lines = linhas do journal que não parsearam (escrita concorrente) — contadas, nunca puladas em silêncio",
     })
 }
 

@@ -1705,8 +1705,8 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
     let journal = std::path::Path::new(&home).join(".claude/touring/run_journal.jsonl");
     let simhash = code_simhash_v2(user_code);
     // só v2 contra v2: as linhas do journal anteriores ao v2 não têm o campo e não casam
-    let priors = find_prior_similar(&journal, "code_simhash_v2", simhash, SIMHASH_V2_TAU);
-    let best = priors.first()?;
+    let busca = find_prior_similar(&journal, "code_simhash_v2", simhash, SIMHASH_V2_TAU);
+    let best = busca.priors.first()?;
     let rota_harvest = best.harvest.as_deref().map(|s| {
         format!("a execução anterior já virou snippet: reutilize com `touring memory recall '{s}'` e rode com --file")
     });
@@ -1724,7 +1724,11 @@ fn repeat_gate_verdict(user_code: &str) -> Option<serde_json::Value> {
                 "--allow-repeat confirma a repetição por-comando (jornalizado)",
             ],
             "porque": "a recriação inline é o desperdício medido em 27/10/2026: 81% dos 41.923 scripts nasceram efêmeros/inline e a duplicata exata era só 1% — a recriação real é por semelhança",
-        }
+        },
+        // T-1 (31/10/2026): as linhas da cauda que NÃO parsearam contam no
+        // payload — a leitura parcial do journal é o sintoma, e o gate tem de
+        // poder dizer que a viu (antes, o prior sumia em silêncio).
+        "journal_malformed_lines": busca.malformed_lines,
     }))
 }
 
