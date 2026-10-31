@@ -112,6 +112,10 @@ pub mod schema;
 pub mod schema_guard;
 pub mod security;
 pub mod shared;
+/// The "So what?" invariant as ONE executable predicate over any injected block
+/// (I-4, 31/10/2026) — measured by `touring kpi` → `context_budget`, never enforced
+/// here.
+pub mod so_what;
 /// Synthetic sessions (test-harness ids) — observed, never learned from.
 pub mod synthetic_session;
 /// The lifecycle vocabulary of a DAG task — the scaffold stages a mirrored

@@ -236,6 +236,18 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     // tentativa de calibra-lo era fe. Ausencia exibida; varredura limitada DIZ
     // que foi limitada (`capped`).
     out["context_budget"] = super::context_budget::context_budget(&rt.project_root);
+    // I-1/I-2 (31/10/2026) — the permission channel's adherence over the whole
+    // gate population, and the injection level and cuts of THIS daemon. The
+    // transcript ruler above cannot see either: a gate event never reaches the
+    // transcript as such, and a cut is by definition what did not.
+    let gate_snap = crate::shared::gate_metrics::GateMetricsSnapshot::capture();
+    out["context_budget"]["nudge_follow"] =
+        super::context_budget::nudge_follow(&gate_snap.gate_events);
+    out["context_budget"]["injection_level"] = json!(gate_snap.injection_level);
+    out["context_budget"]["injection_suppressed_blocks_count"] =
+        json!(gate_snap.injection_suppressed_blocks_count);
+    out["context_budget"]["injection_suppressed_bytes_count"] =
+        json!(gate_snap.injection_suppressed_bytes_count);
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
