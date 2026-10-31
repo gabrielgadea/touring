@@ -1,0 +1,24 @@
+{
+ "session": "j14-hot-1975388-1793480923757582574",
+ "corpus": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/hot_smoke",
+ "metodo": "duas chamadas consecutivas por entrada no shim; a 1ª aquece e a 2ª mede; elapsed_ms da sombra VGP (L1+L2), p95 por posto mais próximo; trace comprova a rota",
+ "denominador": {
+  "entradas_esperadas": 4,
+  "chamadas_hook_esperadas_com_aquecimento": 8,
+  "medidas_com_sombra": 4,
+  "medidas_com_camada2": 4,
+  "ignoradas_antes_da_chamada": 0,
+  "rotas": {
+   "daemon": 8
+  }
+ },
+ "p50_motor_ms": 41.164761,
+ "p95_motor_ms": 46.218009,
+ "p95_wall_shim_ms": 144.524,
+ "timeouts_camada2": 0,
+ "camada2_sem_veredito": 0,
+ "limitacao": "o hook não aceita --overlay/--disk-file: mesmas entradas, paths, roots e conteúdos, mas sem replay dos overlays nem do disco histórico do juiz; o comando inline é reconstruído do snapshot integral",
+ "valido": true,
+ "veredito": "OK",
+ "ignorados": []
+}
