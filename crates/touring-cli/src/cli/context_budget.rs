@@ -2588,7 +2588,7 @@ mod tests {
     /// sem sessão (o processo de teste não é um hook), logo como `unattributed`.
     #[test]
     fn test_policy_cut_reaches_the_kpi_through_the_real_writer() {
-        use touring_foundation::injection_policy::{InjectionLevel, SITE_EMIT_CORE, apply_at};
+        use touring_foundation::injection_policy::{InjectionLevel, SITE_EMIT_RUNTIME, apply_at};
         let root = Path::new("/home/x/proj");
         let home = home_with_sessions(root, &["sess-a"]);
         let sink = touring_foundation::injection_journal::journal_path_in(home.path());
@@ -2598,7 +2598,7 @@ mod tests {
         .to_string();
         let _ = apply_at(
             InjectionLevel::NoAdvisory,
-            SITE_EMIT_CORE,
+            SITE_EMIT_RUNTIME,
             &envelope,
             Some(&sink),
         );
