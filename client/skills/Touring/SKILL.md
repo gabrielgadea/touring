@@ -147,6 +147,7 @@ Operational depth (consult on demand):
 | Topic | File |
 |-------|------|
 | **CLI por tier (TIER 1-9), cheatsheet, scripts Layer-3, doutrina de enriquecimento, subagent pool, melhores praticas, janela de contexto e o grafo ADW** | [references/touring-cli-e-contexto.md](references/touring-cli-e-contexto.md) |
+| **Portfólio de scripts** — hook "consultar antes de criar", 4 estados do veredito, índice do projeto, `--stats`, `plano_ativo.json`, regra `diagnostics/` | [references/portfolio-scripts.md](references/portfolio-scripts.md) |
 | Workflows by category + TACO phases + TDG action table | [references/workflows.md](references/workflows.md) |
 | 6 subagent pool, delegation, prompt templates | [references/agents.md](references/agents.md) |
 | **Symbol Verification Table** (Wave TRM 2026-05-02 constitutional) — schema per role + anti-padrões + cross-role consequence chain | [references/symbol_verification.md](references/symbol_verification.md) |
