@@ -138,6 +138,14 @@ o próprio CLI) → primitiva real de leitura arbitrária.
   symlink para fora → não lido; `..` que fica dentro → lido; venv declarado →
   lido; raiz vazia → nada lido; alvo relativo → recusado.
 
+**A comparação da raiz que não existe (revisão de segurança)**: quando a raiz de
+projeto **não existe em disco** (um projeto virtual — os testes do HTML usam
+`/home/u/proj`), a comparação é **lexical** (os `..` resolvidos, sem symlink) e
+não canonical. Isso é seguro por construção: a leitura só acontece se o
+arquivo **existir**, e nada sob uma raiz que não existe existe — não há symlink
+para escapar. A comparação canonical (a que pega symlink) é a usada sempre que
+a raiz existe, que é o caso de produção.
+
 Aplicado em (a lista da coordenadora):
 
 | adaptador | o que foi aplicado |
