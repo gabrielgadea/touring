@@ -339,6 +339,35 @@ mod tests {
         );
     }
 
+    /// T-5: a handler registered as a VALUE through its path is a use — the
+    /// registry shape that left 31 CLI handlers as false orphans. A bare
+    /// identifier argument stays out (it is usually a local), and so does a
+    /// path that is only a type in a `let` annotation.
+    #[test]
+    fn a_function_passed_by_path_as_a_value_is_a_use() {
+        let src = r#"
+fn register(m: &mut Map) {
+    m.insert("cli-ast-tdg", crate::cli_handlers::cli_ast_tdg);
+    run_with(handlers::cli_bench_run, 3);
+    let local_value = 1;
+    consume(local_value);
+    let t: std::path::PathBuf = Default::default();
+}
+"#;
+        let names = extract_method_calls(src, Lang::Rust);
+        for want in ["cli_ast_tdg", "cli_bench_run"] {
+            assert!(
+                names.contains(&want.to_string()),
+                "expected {want} in {names:?}"
+            );
+        }
+        assert!(
+            !names.contains(&"local_value".to_string()),
+            "a bare argument is not a function use: {names:?}"
+        );
+        assert!(!names.contains(&"PathBuf".to_string()), "{names:?}");
+    }
+
     #[test]
     fn extracts_field_method_call() {
         let src = r#"

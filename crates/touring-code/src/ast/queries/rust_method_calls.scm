@@ -37,6 +37,15 @@
 (call_expression
   function: (identifier) @free_fn)
 
+;; T-5 (31/10/2026): a function passed as a VALUE through its path — the handler
+;; registry's `m.insert("cli-ast-tdg", crate::cli_handlers::cli_ast_tdg)`. Nothing
+;; above sees it because nothing CALLS it here; measured: 31 of 147 function orphans
+;; were referenced only this way. Only the qualified form: a bare identifier in
+;; argument position is far more often a local variable than a function.
+(arguments
+  (scoped_identifier
+    name: (identifier) @fn_value))
+
 ;; Generic free call: parse::<T>(x)
 (call_expression
   function: (generic_function
