@@ -661,6 +661,7 @@ fn strip_strings_and_comments(src: &str) -> String {
             .or_else(|| blank_block_comment(bytes, i, &mut out))
             .or_else(|| blank_raw_string(bytes, i, &mut out))
             .or_else(|| blank_normal_string(bytes, i, &mut out))
+            .or_else(|| blank_hash_comment(bytes, i, &mut out))
             .unwrap_or_else(|| {
                 out.push(bytes[i]);
                 1
@@ -668,6 +669,37 @@ fn strip_strings_and_comments(src: &str) -> String {
         i += consumed;
     }
     String::from_utf8_lossy(&out).into_owned()
+}
+
+/// Blank a `#` line comment (Python, shell, YAML, TOML) to end of line.
+///
+/// A projeção que blanka `//` e deixa `#` é INCONSISTENTE: o detector é
+/// multilíngue, e um comentário em Python era lido como CÓDIGO — o `:` de um
+/// padrão documentado (`# "token": "…"`) virava delimitador de código, e a
+/// regra de atribuição disparava dentro de um COMENTÁRIO (medido em 31/10/2026:
+/// o censo do workspace foi de 0,985/0 bloqueios para 0,000/1 blocker por causa
+/// de um comentário que DOCUMENTA o padrão).
+///
+/// O `#` só abre comentário no início da linha (depois de espaços) ou precedido
+/// de espaço em branco — a convenção de Python, shell e YAML. `x=1#c` (que o
+/// Python aceita) fica como estava: esta é a correção de um furo, não uma
+/// mudança de política.
+///
+/// A varredura de LITERAL continua lendo a linha CRUA (regra 3): um token
+/// colado num comentário é vazamento de verdade e continua bloqueando.
+fn blank_hash_comment(bytes: &[u8], start: usize, out: &mut Vec<u8>) -> Option<usize> {
+    if bytes[start] != b'#' {
+        return None;
+    }
+    if start > 0 && !matches!(bytes[start - 1], b' ' | b'\t') {
+        return None;
+    }
+    let mut j = start;
+    while j < bytes.len() && bytes[j] != b'\n' {
+        out.push(b' ');
+        j += 1;
+    }
+    Some(j - start)
 }
 
 /// Blank a `//` line comment to end of line; `None` if `start` is not `//`.
@@ -1142,6 +1174,10 @@ fn line_strong_rule(line: &str, code: &str) -> Option<&'static str> {
             return Some("secret-named-assignment");
         }
     }
+    // (2c) T-3 (31/10/2026): a ligação NESTED no lado direito.
+    if nested_secret_binding(line, code) {
+        return Some("secret-named-assignment");
+    }
     // (3) generic high-entropy literal anywhere on the line → strong.
     if extract_quoted(line)
         .iter()
@@ -1205,6 +1241,74 @@ fn lhs_code<'a>(lhs: &'a str, line: &str, code: &'a str) -> &'a str {
 /// VALUE inside the LHS (`{"command": "pwd"}`) is blank in the projection.
 fn binds_secret(lhs: &str, line: &str, code: &str) -> bool {
     names_secret(assigned_name(lhs)) || names_secret(lhs_code(lhs, line, code))
+}
+
+/// O lado direito LIGA um nome secreto? (T-3, 31/10/2026)
+///
+/// A MESMA leitura do split de topo, aplicada a cada delimitador de código do
+/// lado direito: o nome ligado (o predicado de 29/10) E um valor forte.
+///
+/// `cfg = connect(password="…")` e `creds = {"api_key": "…"}` — o nome do
+/// segredo está no lado DIREITO de outra atribuição, e o split de topo punha
+/// o LHS em `cfg` / `creds`: o nome do segredo nunca chegava a ser nome.
+fn binds_secret_nested(rhs: &str, rhs_code: &str) -> bool {
+    for (pos, _) in rhs_code.match_indices(['=', ':']) {
+        // `==` e `=>` NÃO são ligação: o nome do lado esquerdo de uma
+        // COMPARAÇÃO não liga nada (`v["token"] == "…"` — o `"token"` é uma
+        // CHAVE lida, não um binding; com `==` tratado como `=` a linha
+        // bloqueava, medido no censo de 31/10/2026).
+        //
+        // Os DOIS `=` do `==` são pulados: o scanner acha cada caractere, e
+        // pular só o primeiro deixava o segundo virar delimitador.
+        if rhs_code.as_bytes()[pos] == b'='
+            && (matches!(rhs_code.as_bytes().get(pos + 1), Some(b'=') | Some(b'>'))
+                || (pos > 0 && rhs_code.as_bytes()[pos - 1] == b'='))
+        {
+            continue;
+        }
+        let antes = &rhs[..pos];
+        let depois = &rhs[pos + 1..];
+        if !binds_secret(antes, rhs, rhs_code) {
+            continue;
+        }
+        let strong = if depois.trim_start().starts_with('"') {
+            !is_shell_expansion(depois)
+                && extract_quoted(depois)
+                    .iter()
+                    .any(|l| !l.is_empty() && !is_readable_placeholder(l) && !is_version_spec(l))
+        } else {
+            looks_like_secret_value_named(depois)
+        };
+        if strong {
+            return true;
+        }
+    }
+    false
+}
+
+/// A linha LIGA um nome secreto no LADO DIREITO de outra atribuição?
+///
+/// T-3 (31/10/2026): o split de topo corta no PRIMEIRO `=`, e o nome do
+/// segredo cai no lado direito — `cfg = connect(password="…")` e
+/// `creds = {"api_key": "…"}` nunca chegaram a ser nomes (o gap que o próprio
+/// teste de 29/10 registrava).
+///
+/// A disciplina é a do split de topo (29/10/2026): a POSIÇÃO do delimitador vem
+/// da projeção sem strings (um literal não é delimitador, e uma string não é
+/// nome); o NOME e o VALOR leem a linha crua (a chave `"api_key"` mora DENTRO
+/// de um literal).
+fn nested_secret_binding(line: &str, code: &str) -> bool {
+    if code.len() != line.len() {
+        return false; // projeção desalinhada: sem posição confiável
+    }
+    let Some((_, rhs)) = split_at_code_delimiter(line, code) else {
+        return false;
+    };
+    let ini = line.len() - rhs.len();
+    let Some(rhs_code) = code.get(ini..) else {
+        return false;
+    };
+    binds_secret_nested(rhs, rhs_code)
 }
 
 /// A destructuring LHS (strings already blanked): `let (a, b)`, `let [a, b]`,
@@ -1583,11 +1687,19 @@ mod tests {
         let fp = "    dict(_use(2, \"Bash\", {\"command\": \"pwd\"}), timestamp=\"2026-11-01T23:59:59Z\"),\n";
         assert_eq!(scan_text(fp).rule, None, "{fp}");
         // The name right before the delimiter still blocks, in every binding form.
-        // (Known gap, older than this test: `cfg = connect(password="…")` and
-        // `creds = {"api_key": "…"}` split at the FIRST `=`, so the secret name is
-        // never the LHS.)
+        // T-3 (31/10/2026): o gap que este teste REGISTRAVA — o nome do
+        // segredo no lado DIREITO de outra atribuição (`cfg = connect(password=
+        // "…")`, `creds = {"api_key": "…"}`) — fecha com a leitura aninhada, e
+        // sem reabrir o bypass de destructuring (29/10): o nome ligado é lido
+        // pela MESMA projeção sem strings, e o valor pela linha crua.
         for real in [
             "connect(host, password=\"hunter2value\")\n",
+            "cfg = connect(password=\"hunter2value\")\n",
+            "creds = {\"api_key\": \"hunter2value\"}\n",
+            // T-3: um `#` DENTRO de uma string não abre comentário — o resto
+            // da linha continua sendo código (e o segredo continua
+            // bloqueando).
+            "url = \"a#b\"; password = \"hunter2value\"\n",
             "{\"api_key\": \"hunter2value\"}\n",
             "data[\"token\"] = \"hunter2value\"\n",
             "let token: String = \"hunter2value\".into();\n",
@@ -1609,8 +1721,39 @@ mod tests {
         for clean in [
             "scopes = [\"read\", \"write\"]\n",
             "let (a, b) = (\"hunter2value\", \"x\");\n",
+            // T-3: o nome aninhado SEM valor forte não bloqueia — o mesmo
+            // padrão do split de topo (o valor é o que fecha a regra).
+            "cfg = connect(password=\"your_password_here\")\n",
+            "cfg = connect(timeout=\"30\")\n",
+            // `==` é comparação, não ligação: o nome do lado esquerdo de uma
+            // comparação não liga nada (o `"token"` é uma chave lida).
+            "assert v[\"token\"] == \"adj_minimax.jsonl\"\n",
         ] {
             assert_eq!(scan_text(clean).rule, None, "{clean}");
+        }
+    }
+
+    /// T-3 (31/10/2026) — um COMENTÁRIO é documento, não código.
+    ///
+    /// A projeção blankava `//` e `/* */` mas não `#`: um comentário Python que
+    /// DOCUMENTA o padrão (`# "token": "…"`) tinha o `:` virado delimitador de
+    /// código, e a regra de atribuição disparava dentro do comentário (medido:
+    /// o censo do workspace foi de 0,985/0 bloqueios para 0,000/1 blocker).
+    ///
+    /// Um literal colado num comentário continua sendo vazamento — a varredura
+    /// de literal lê a linha CRUA, e o que muda é só a POSIÇÃO dos delimitadores.
+    #[test]
+    fn a_hash_comment_nao_e_codigo() {
+        for clean in [
+            "# {\"api_key\": \"hunter2value\"}\n",
+            "# token = \"hunter2value\"\n",
+            "x = 1  # password = \"hunter2value\"\n",
+        ] {
+            let s = score(clean);
+            assert!(
+                s.value > 0.0,
+                "um comentário não é código — não pode bloquear: {clean} ({s:?})"
+            );
         }
     }
 

@@ -1047,8 +1047,7 @@ mod journal_v2_tests {
             return;
         }
 
-        let dir =
-            std::env::temp_dir().join(format!("touring-journal-race-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("touring-journal-race-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).expect("mkdir");
         let exe = std::env::current_exe().expect("current_exe");

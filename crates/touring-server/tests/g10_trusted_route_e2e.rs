@@ -209,8 +209,11 @@ fn o_e2e_nao_escreve_no_journal_real() {
     assert_eq!(rc, 0, "o run tem de passar: {saida}");
 
     // (1) o journal TEMPORÁRIO recebeu o registro — o mecanismo está em jogo.
-    let temp = std::fs::read_to_string(tmp.path().join("home-temp/.claude/touring/run_journal.jsonl"))
-        .expect("o journal temporário recebeu o registro");
+    let temp = std::fs::read_to_string(
+        tmp.path()
+            .join("home-temp/.claude/touring/run_journal.jsonl"),
+    )
+    .expect("o journal temporário recebeu o registro");
     assert!(
         temp.lines().any(|l| !l.trim().is_empty()),
         "o run não journalou no HOME temporário"
