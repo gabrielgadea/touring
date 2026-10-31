@@ -160,6 +160,15 @@ dele pode descartá-los. Os denominadores de C-A1-1 e C-A1-3 passam a ser os byt
 famílias. C-A1-4 continua sobre o total do KPI, agora com a **decomposição Touring × harness**
 explícita no relatório.
 
+> **D-6 — decisão do Gabriel em 31/10/2026, opção (b).** A S-4 (26/10) expandiu a taxonomia para 18
+> marcadores + 10 padrões; medido em 31/10, as 6 famílias de E1.1 cobrem 164.090 B (20,7%) de um
+> universo em que 17 famílias são do Touring. As 6 seguem sendo a **definição do dataset congelado**
+> (nada é re-extraído nem re-congelado) e todo relatório de A1 passa a declarar **os dois
+> denominadores** sobre o mesmo corte: E1.1 e a taxonomia S-4 (toda família menos `plugin-hook`,
+> `generic-noise` e `other`). Código: `scripts/r3_a1_kpi.py` (`NON_TOURING_FAMILIES`,
+> `is_touring_by_taxonomy`) e `scripts/r3_replay_a1.py` (`denominadores`); teste
+> `test_d6_os_dois_denominadores_sao_declarados_sobre_o_mesmo_corte`.
+
 **E1.2 — A2, o baseline é um detector de 1ª ocorrência, não um classificador de 3 classes.**
 `classify_route_outcome` é chamado em cada Bash seguinte e, ao devolver `None`, **não consome a
 oferta** (`cli_suggester.rs:4885-4886`); só devolve `Some` para `touring run `/`touring exec ` (valor

@@ -29,25 +29,25 @@ O **harm-check (C-A1-2)** é julgado por DOOS adjudicadores cross-vendor
 ainda espera o Gabriel. Então `harm` fica `null` e o gate não fecha o braço B-D —
 o pacote de adjudicação é uma entrega separada (`r3_adjudication_a1.py`).
 """
+
 from __future__ import annotations
 
 import argparse
 import hashlib
 import json
 import os
-import re
 import statistics as st
 import sys
 import time
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
-import r3_a1_kpi as kpi  # noqa: E402
-import r3_extract_a1_blocks as ex  # noqa: E402
-import r3_event_schema as schema  # noqa: E402
+import r3_a1_kpi as kpi
+import r3_event_schema as schema
+import r3_extract_a1_blocks as ex
 
 CORPUS = Path(os.environ.get("R3_CORPUS", "~/.claude/touring/r3-data")).expanduser()
 # Cada replay grava no SEU subdiretório. Compartilhar um só diretório é o
@@ -55,7 +55,9 @@ CORPUS = Path(os.environ.get("R3_CORPUS", "~/.claude/touring/r3-data")).expandus
 # lugar, e o `find` de um achava os artefatos do outro. Nenhum replay APAGA nada —
 # `mkdir(exist_ok=True)` só cria — mas a separação torna isso impossível por
 # construção, e o teste de regressão vigia.
-_RAIZ = Path(os.environ.get("R3_REPLAY_OUT", "~/.claude/touring/r3-replay")).expanduser()
+_RAIZ = Path(
+    os.environ.get("R3_REPLAY_OUT", "~/.claude/touring/r3-replay")
+).expanduser()
 SAIDA = _RAIZ / "a1"
 QID = "a1_discard"
 PREFIXO_QUESTAO = "r3_"
@@ -67,14 +69,16 @@ FAMILIAS_TOURING = set(kpi.TOURING_FAMILIES)
 def carregar_blocos() -> list[dict]:
     """Os blocos do dataset congelado, cada um com um `block_id` POSICIONAL.
 
-    O id é a posição na lista do dataset — o dataset é congelado por hash, então a
-    posição é ESTÁVEL entre execuções, e não depende de nenhuma contagem durante o
-    replay. Isso mata de uma vez a classe de bug em que dois blocos do mesmo turno
-   recebiam o mesmo texto (o `_ORDEM` global consumia a ordem numa passagem e a
-    seguinte recebia a do vizinho).
+     O id é a posição na lista do dataset — o dataset é congelado por hash, então a
+     posição é ESTÁVEL entre execuções, e não depende de nenhuma contagem durante o
+     replay. Isso mata de uma vez a classe de bug em que dois blocos do mesmo turno
+    recebiam o mesmo texto (o `_ORDEM` global consumia a ordem numa passagem e a
+     seguinte recebia a do vizinho).
     """
     p = CORPUS / "a1_blocks.jsonl"
-    blocos = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    blocos = [
+        json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()
+    ]
     # `block_id` = (session, turno, posição DENTRO do turno) — a mesma chave que o
     # índice de transcripts usa, calculada sobre a MESMA lista na MESMA ordem. Um
     # id global por índice de arquivo não casaria: o índice reseta `seq` a cada
@@ -121,6 +125,7 @@ def particao_de(blocos: list[dict]) -> dict[tuple[str, int], str]:
     MESMA regra — dois cortes divergentes fariam o replay medir outra população.
     """
     import r3_freeze_dataset as fz
+
     fora = fz.dividir_dataset(blocos)
     mapa: dict[tuple[str, int], str] = {}
     for part, chaves in fora.items():
@@ -159,7 +164,10 @@ def indexar_texto() -> dict[tuple[str, int], str]:
                 seq = 0
                 continue
             att = rec.get("attachment")
-            if not isinstance(att, dict) or att.get("type") not in ex.R3_ATTACHMENT_TYPES:
+            if (
+                not isinstance(att, dict)
+                or att.get("type") not in ex.R3_ATTACHMENT_TYPES
+            ):
                 continue
             for text in ex._texts_do_attachment(att):
                 textos[(sess, turno, seq)] = text
@@ -169,7 +177,7 @@ def indexar_texto() -> dict[tuple[str, int], str]:
 
 # ──────────────────────────────────────────── cache de predições (orçamento de API)
 
-VERSAO_CACHE = 1   # mude a gramática/pergunta e o cache invalida por construção
+VERSAO_CACHE = 1  # mude a gramática/pergunta e o cache invalida por construção
 
 
 def _chave_cache(arm: str, chave: str, spec: str) -> str:
@@ -179,7 +187,9 @@ def _chave_cache(arm: str, chave: str, spec: str) -> str:
     de devolver a predição da pergunta antiga — o re-run sem mudança de entrada
     tem de dar 0 chamadas, e o re-run com a pergunta mudada tem de dar N.
     """
-    return f"{VERSAO_CACHE}|{arm}|{chave}|{hashlib.sha256(spec.encode()).hexdigest()[:10]}"
+    return (
+        f"{VERSAO_CACHE}|{arm}|{chave}|{hashlib.sha256(spec.encode()).hexdigest()[:10]}"
+    )
 
 
 def carregar_cache(caminho: Path) -> dict:
@@ -192,7 +202,7 @@ def carregar_cache(caminho: Path) -> dict:
         try:
             r = json.loads(l)
         except ValueError:
-            continue          # cache truncado: descarta a linha, não o arquivo
+            continue  # cache truncado: descarta a linha, não o arquivo
         out[r["cache_key"]] = r["pred"]
     return out
 
@@ -200,10 +210,14 @@ def carregar_cache(caminho: Path) -> dict:
 def _registrar_cache(caminho: Path, cache_key: str, pred: dict) -> None:
     caminho.parent.mkdir(parents=True, exist_ok=True)
     with open(caminho, "a", encoding="utf-8") as f:
-        f.write(json.dumps({"cache_key": cache_key, "pred": pred}, ensure_ascii=False) + "\n")
+        f.write(
+            json.dumps({"cache_key": cache_key, "pred": pred}, ensure_ascii=False)
+            + "\n"
+        )
 
 
 # ─────────────────────────────────────────────────────────────── B-D (regra)
+
 
 def _eh_exempt(bloco: dict, texto: str) -> bool:
     """EXEMPT = família `code-mode-deny` OU marcador da lista congelada.
@@ -230,32 +244,51 @@ def braço_regra(blocos: list[dict], textos: dict) -> dict:
         exempt = _eh_exempt(b, texto)
         # duplicata exata: MESMO texto visto há ≤5 turnos (S-3)
         hist = vistos.get(texto) if texto else None
-        dup = bool(hist) and any(abs(t - b["turno"]) <= ex.DUPLICATE_WINDOW_TURNS for t in hist)
+        dup = bool(hist) and any(
+            abs(t - b["turno"]) <= ex.DUPLICATE_WINDOW_TURNS for t in hist
+        )
         if texto:
             vistos[texto].append(b["turno"])
         zero_prop = b["propositions"] == 0
         descarta = (not exempt) and (dup or zero_prop)
-        veredito[chave] = {"descarta": descarta, "exempt": exempt,
-                           "dup": dup, "zero_prop": zero_prop, **b}
+        veredito[chave] = {
+            "descarta": descarta,
+            "exempt": exempt,
+            "dup": dup,
+            "zero_prop": zero_prop,
+            **b,
+        }
     return veredito
 
 
 # ────────────────────────────────────────────────── B-L / B-J (modelos)
 
+
 def _evento_bloco(b: dict, texto: str) -> dict:
-    return {"v": 1, "kind": "a1_block", "use_case": "a1_relevance", "ts_ms": 0,
-            "session_hash": schema.hash_session(b["session"]),
-            "hook": b["attachment_type"], "family": b["family"], "bytes": b["bytes"]}
+    return {
+        "v": 1,
+        "kind": "a1_block",
+        "use_case": "a1_relevance",
+        "ts_ms": 0,
+        "session_hash": schema.hash_session(b["session"]),
+        "hook": b["attachment_type"],
+        "family": b["family"],
+        "bytes": b["bytes"],
+    }
 
 
-def braço_laya(blocos: list[dict], textos: dict, verbose: bool = True,
-                cache_path: Path | None = None) -> dict:
+def braço_laya(
+    blocos: list[dict],
+    textos: dict,
+    verbose: bool = True,
+    cache_path: Path | None = None,
+) -> dict:
     """B-L: Laya BASE zero-shot em CPU, dentro do processo. Zero-shot = sem τ calibrado."""
     import laya
+
     spec_q = "discard-block"
     cache = carregar_cache(cache_path) if cache_path else {}
-    faltando = [b for b in blocos
-                if _chave_cache("B-L", id_de(b), spec_q) not in cache]
+    faltando = [b for b in blocos if _chave_cache("B-L", id_de(b), spec_q) not in cache]
     out = {}
     if not faltando:
         if verbose:
@@ -266,27 +299,46 @@ def braço_laya(blocos: list[dict], textos: dict, verbose: bool = True,
         ev = _evento_bloco(b, texto_de(textos, b))
         t0 = time.perf_counter()
         try:
-            r = agent.decide(schema.redact_for_jev(ev),
-                             questions={QID: {
-                                 "type": "noul",
-                                 "instructions": "Is this injected block useless to the agent? Answer yes only if discarding it changes nothing."}},
-                             return_details=True)
-            pred = {"p_discard": _prob(r, QID), "latency_ms": (time.perf_counter() - t0) * 1000}
+            r = agent.decide(
+                schema.redact_for_jev(ev),
+                questions={
+                    QID: {
+                        "type": "noul",
+                        "instructions": "Is this injected block useless to the agent? Answer yes only if discarding it changes nothing.",
+                    }
+                },
+                return_details=True,
+            )
+            pred = {
+                "p_discard": _prob(r, QID),
+                "latency_ms": (time.perf_counter() - t0) * 1000,
+            }
             out[id_de(b)] = pred
             if cache_path:
-                _registrar_cache(cache_path, _chave_cache("B-L", id_de(b), spec_q), pred)
+                _registrar_cache(
+                    cache_path, _chave_cache("B-L", id_de(b), spec_q), pred
+                )
         except Exception as e:  # noqa: BLE001 — falha do braço é dado, não crash
             out[id_de(b)] = {"erro": f"{type(e).__name__}: {str(e)[:70]}"}
     if verbose:
         lat = [v["latency_ms"] for v in out.values() if "latency_ms" in v]
-        print(f"    B-L: {len(out)} predições, mediana {st.median(lat):.0f} ms" if lat else "    B-L: 0")
+        print(
+            f"    B-L: {len(out)} predições, mediana {st.median(lat):.0f} ms"
+            if lat
+            else "    B-L: 0"
+        )
     return out
 
 
-def braço_jev(blocos: list[dict], textos: dict, verbose: bool = True,
-              cache_path: Path | None = None) -> dict:
+def braço_jev(
+    blocos: list[dict],
+    textos: dict,
+    verbose: bool = True,
+    cache_path: Path | None = None,
+) -> dict:
     """B-J: Jev API, SÓ features redigidas."""
     import jev_client
+
     out = {}
     restantes = ORCAMENTO_API
     chamadas = 0
@@ -310,14 +362,24 @@ def braço_jev(blocos: list[dict], textos: dict, verbose: bool = True,
         try:
             r = jev_client.system_one(
                 state=payload,
-                questions={QID: {
-                    "type": "noul",
-                    "instructions": "Is this injected block useless to the agent? Answer yes only if discarding it changes nothing."}},
-                model="jev-1.13.0", timeout=20.0)
-            pred = {"p_discard": _prob(r, QID), "latency_ms": (time.perf_counter() - t0) * 1000}
+                questions={
+                    QID: {
+                        "type": "noul",
+                        "instructions": "Is this injected block useless to the agent? Answer yes only if discarding it changes nothing.",
+                    }
+                },
+                model="jev-1.13.0",
+                timeout=20.0,
+            )
+            pred = {
+                "p_discard": _prob(r, QID),
+                "latency_ms": (time.perf_counter() - t0) * 1000,
+            }
             out[id_de(b)] = pred
             if cache_path:
-                _registrar_cache(cache_path, _chave_cache("B-J", id_de(b), spec_q), pred)
+                _registrar_cache(
+                    cache_path, _chave_cache("B-J", id_de(b), spec_q), pred
+                )
             restantes -= 1
         except Exception as e:  # noqa: BLE001
             out[id_de(b)] = {"erro": f"{type(e).__name__}: {str(e)[:70]}"}
@@ -351,13 +413,18 @@ def _prob(corpo, qid: str) -> float:
 
 # ──────────────────────────────────────────────────────────────── métricas
 
+
 def metricas(blocos, part, veredito=None, preds=None, tau=0.6, textos_ref=None) -> dict:
     """Bytes do universo Touring, em `test`, e o que o braço economiza/retém.
 
     O denominador é o bytes Touring na partição `test` (E1.1) — `other` é do
     harness e nenhum gate do Touring pode descartá-lo.
     """
-    universo = [b for b in blocos if b.get("is_touring_family") and part.get((b["session"], b["turno"])) == "test"]
+    universo = [
+        b
+        for b in blocos
+        if b.get("is_touring_family") and part.get((b["session"], b["turno"])) == "test"
+    ]
     total = sum(b["bytes"] for b in universo)
     if veredito is None or textos_ref is None:
         return {"bytes_totais": total, "n_blocos": len(universo)}
@@ -371,10 +438,14 @@ def metricas(blocos, part, veredito=None, preds=None, tau=0.6, textos_ref=None) 
     out = {
         "bytes_totais": total,
         "bytes_mantidos": sum(b["bytes"] for b in mantidos),
-        "bytes_saved": round(1 - sum(b["bytes"] for b in mantidos) / total, 4) if total else 0.0,
+        "bytes_saved": round(1 - sum(b["bytes"] for b in mantidos) / total, 4)
+        if total
+        else 0.0,
         "n_blocos": len(universo),
         "n_exempt": len(exempt),
-        "exempt_retained": round(1 - len(exempt_descartados) / len(exempt), 4) if exempt else 1.0,
+        "exempt_retained": round(1 - len(exempt_descartados) / len(exempt), 4)
+        if exempt
+        else 1.0,
     }
     if preds:
         acertos = tot = 0
@@ -392,6 +463,31 @@ def metricas(blocos, part, veredito=None, preds=None, tau=0.6, textos_ref=None) 
     return out
 
 
+def denominadores(blocos: list[dict], part: dict, m_bd: dict) -> dict:
+    """D-6 (b): o corte do braço sobre os DOIS denominadores, na partição `test`.
+
+    E1.1 é a definição do dataset (as 6 famílias); a taxonomia S-4 conta todo bloco
+    que a régua atribui ao Touring (`kpi.is_touring_by_taxonomy`). Os bytes cortados
+    são os mesmos — o braço só decide sobre E1.1 —, o que muda é sobre quanto se divide:
+    um bloco fora de E1.1 e dentro da taxonomia é um bloco que ninguém cortou.
+    """
+    test = [b for b in blocos if part.get((b["session"], b["turno"])) == "test"]
+    e1 = m_bd["bytes_totais"]
+    cortado = e1 - m_bd.get("bytes_mantidos", e1)
+    s4 = sum(
+        b["bytes"]
+        for b in test
+        if kpi.is_touring_by_taxonomy(b.get("family", kpi.OTHER))
+    )
+    return {
+        "e1_1": {"bytes": e1, "bytes_saved": round(cortado / e1, 4) if e1 else 0.0},
+        "taxonomia_s4": {
+            "bytes": s4,
+            "bytes_saved": round(cortado / s4, 4) if s4 else 0.0,
+        },
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--so-regra", action="store_true", help="só B0 e B-D, sem modelo")
@@ -402,26 +498,45 @@ def main() -> int:
     part = particao_de(blocos)
     textos = indexar_texto()
     n_test = sum(1 for b in blocos if part.get((b["session"], b["turno"])) == "test")
-    print(f"blocos: {len(blocos)} | transcripts indexados: {len(textos)} | em `test`: {n_test}")
+    print(
+        f"blocos: {len(blocos)} | transcripts indexados: {len(textos)} | em `test`: {n_test}"
+    )
     faltando = sum(1 for b in blocos if not texto_de(textos, b))
-    print(f"  sem texto reextraído: {faltando} ({100.0 * faltando / max(1, len(blocos)):.1f}%)")
+    print(
+        f"  sem texto reextraído: {faltando} ({100.0 * faltando / max(1, len(blocos)):.1f}%)"
+    )
 
     universo = [b for b in blocos if b.get("is_touring_family")]
     # A partição `test` é o DENOMINADOR (E1.1 + o gate mede sobre ela): os braços
     # são pontuados só nos blocos de `test`. Filtrar por partição — e não por
     # posição na lista — é o que evita `n_comparavel = 0` com agreement `None`,
     # que o gate leria como "o braço não respondeu" em vez de "sem medida".
-    test_blocks = [b for b in universo if part.get((b["session"], b["turno"])) == "test"]
+    test_blocks = [
+        b for b in universo if part.get((b["session"], b["turno"])) == "test"
+    ]
     veredito = braço_regra(universo, textos)
     m_bd = metricas(universo, part, veredito, textos_ref=textos)
-    print(f"\nB-D (regra, partição test):")
+    print("\nB-D (regra, partição test):")
     print(f"  bytes_saved      = {m_bd['bytes_saved']:.4f}  (piso C-A1-1 = 0,25)")
     print(f"  exempt_retained  = {m_bd['exempt_retained']:.4f}  (piso = 1,00)")
-    print(f"  bytes/turno (universo Touring) = {m_bd['bytes_totais'] / max(1, n_test):.0f}")
+    print(
+        f"  bytes/turno (universo Touring) = {m_bd['bytes_totais'] / max(1, n_test):.0f}"
+    )
+    # D-6 (b): o MESMO corte, declarado também sobre o denominador da taxonomia S-4.
+    den = denominadores(blocos, part, m_bd)
+    m_bd["denominadores"] = den
+    print(
+        f"  denominador E1.1 (6 famílias, dataset congelado) = {den['e1_1']['bytes']} B "
+        f"→ bytes_saved {den['e1_1']['bytes_saved']:.4f}"
+    )
+    print(
+        f"  denominador taxonomia S-4 (declarado, D-6)       = {den['taxonomia_s4']['bytes']} B "
+        f"→ bytes_saved {den['taxonomia_s4']['bytes_saved']:.4f}"
+    )
 
     arms = {"B-D": {**m_bd, "harm": None}}
     if not args.so_regra:
-        amostra = test_blocks[:args.max_blocos] if args.max_blocos else test_blocks
+        amostra = test_blocks[: args.max_blocos] if args.max_blocos else test_blocks
         print(f"\n  amostra dos braços: {len(amostra)} blocos de `test`")
         print(f"\nB-L (Laya base zero-shot, CPU) em {len(amostra)} blocos:")
         bl = braço_laya(amostra, textos, cache_path=SAIDA / "cache-a1.jsonl")
@@ -430,20 +545,24 @@ def main() -> int:
         for nome, pr in (("B-L", bl), ("B-J", bj)):
             m = metricas(amostra, part, veredito, pr, textos_ref=textos)
             lat = [v["latency_ms"] for v in pr.values() if "latency_ms" in v]
-            m["latency_p95_ms"] = round(st.quantiles(lat, n=20)[-1], 2) if len(lat) >= 20 else None
+            m["latency_p95_ms"] = (
+                round(st.quantiles(lat, n=20)[-1], 2) if len(lat) >= 20 else None
+            )
             m["n_predicoes"] = len(pr)
             m["n_erros"] = sum(1 for v in pr.values() if "erro" in v)
             arms[nome] = m
-            print(f"  {nome}: agreement_com_bd={m['agreement_com_bd']} "
-                  f"(n={m['n_comparavel']}) bytes_saved={m['bytes_saved']:.4f}")
+            print(
+                f"  {nome}: agreement_com_bd={m['agreement_com_bd']} "
+                f"(n={m['n_comparavel']}) bytes_saved={m['bytes_saved']:.4f}"
+            )
 
     results = {
         "use_case": "a1_relevance",
         "arms": arms,
         "harm_gold_insufficient": True,
         "nota": "C-A1-2 (harm) é julgado por DOIS adjudicadores cross-vendor e um "
-                "deles depende do Gabriel: harm fica null e o gate não fecha o B-D. "
-                "O pacote de adjudicação é entregue à parte (r3_adjudication_a1.py).",
+        "deles depende do Gabriel: harm fica null e o gate não fecha o B-D. "
+        "O pacote de adjudicação é entregue à parte (r3_adjudication_a1.py).",
         "braco_labels": {
             "B0": "nada descartado (status quo)",
             "B-D": "regra determinística: 0 proposições não-EXEMPT + duplicata na janela de 5 turnos",
@@ -454,13 +573,19 @@ def main() -> int:
         "split": "temporal 60/20/20 por sessão (mesma regra do S-4)",
     }
     SAIDA.mkdir(parents=True, exist_ok=True)
-    (SAIDA / "results-a1.json").write_text(json.dumps(results, ensure_ascii=False, indent=1),
-                                          encoding="utf-8")
+    (SAIDA / "results-a1.json").write_text(
+        json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     (SAIDA / "bd-verdict.jsonl").write_text(
-        "\n".join(json.dumps({"block_id": k, **v}, ensure_ascii=False)
-                  for k, v in veredito.items()) + "\n", encoding="utf-8")
-    print(f"\n-> {SAIDA/'results-a1.json'}")
-    print(f"-> {SAIDA/'bd-verdict.jsonl'} (veredito da regra por bloco, auditável)")
+        "\n".join(
+            json.dumps({"block_id": k, **v}, ensure_ascii=False)
+            for k, v in veredito.items()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"\n-> {SAIDA / 'results-a1.json'}")
+    print(f"-> {SAIDA / 'bd-verdict.jsonl'} (veredito da regra por bloco, auditável)")
     return 0
 
 
