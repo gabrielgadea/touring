@@ -78,16 +78,22 @@ def pool_inline(corte: str, exc: dict[str, set[str]]) -> tuple[dict[str, list[di
     """O universo inline/tmp anterior ao corte, sem o que o vivo e o temporal ja contem. {estrato: [registros]}."""
     todos = v5.universo()
     motivos: Counter = Counter()
-    vistos, janela = set(), []
-    for r in sorted(todos, key=lambda r: (r["ts"], r["session"], r["tool_use_id"])):
-        if r["ts"] > corte:
+    por_id: dict[str, dict] = {}
+    for r in todos:
+        uid = r["tool_use_id"]
+        anterior = por_id.get(uid)
+        if anterior is None or (r["ts"] and (not anterior["ts"] or r["ts"] < anterior["ts"])):
+            por_id[uid] = r
+    motivos["tool_use_id duplicado (pai/subagente)"] = len(todos) - len(por_id)
+    janela = []
+    for r in sorted(por_id.values(), key=lambda r: (r["ts"], r["session"], r["tool_use_id"])):
+        if not r["ts"]:
+            motivos["ts_ausente"] += 1
+        elif r["ts"] > corte:
             motivos["depois do corte"] += 1
         elif r["tool_use_id"] in exc["tool_use_ids"]:
             motivos["tool_use_id ja no vivo/temporal"] += 1
-        elif r["tool_use_id"] in vistos:
-            motivos["tool_use_id duplicado (pai/subagente)"] += 1
         else:
-            vistos.add(r["tool_use_id"])
             janela.append(r)
     dentro, tmp, fora = v5.monta(janela)
     pool: dict[str, list[dict]] = {e: [] for e in (*ESTRATOS, "tmp_escrito_e_executado")}
@@ -238,10 +244,11 @@ def ajustar_arquivo(corte: str, exc: dict[str, set[str]], quotas: dict[str, int]
             todos, cont = universo(indice)
             d = {"filtrados": todos, "contagens": cont, "wall_s": round(time.monotonic() - t0, 1)}
             CACHE.write_text(json.dumps(d), encoding="utf-8")
-        ate = [k for k in d["filtrados"] if k.rsplit("@", 1)[1] <= corte]
+        com_ts = [k for k in d["filtrados"] if k.rsplit("@", 1)[1]]
+        ate = [k for k in com_ts if k.rsplit("@", 1)[1] <= corte]
         STATE["filtrados"] = ate
         return ate, {**d["contagens"], "candidatos_de_toda_a_historia": len(d["filtrados"]), "candidatos_ate_o_corte": len(ate),
-                     "corte": corte}
+                     "ts_ausente": len(d["filtrados"]) - len(com_ts), "corte": corte}
 
     def sorteia(ids: list[str], seed: int, n: int, reconhece) -> tuple[list[str], list[str], dict]:
         indice, rng = STATE["indice"], random.Random(seed)

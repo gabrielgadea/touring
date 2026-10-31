@@ -791,16 +791,20 @@ def universo_negativos(indice: dict) -> tuple[list[str], dict]:
     report says how many were seen, how many survived, and why the rest did not."""
     vistos: set[str] = set()
     filtrados: set[str] = set()
+    sem_ts = 0
     for arq, registros in indice.items():
         vistos.add(arq)
         # `_edicoes` recebe a LISTA de registros: passar um registro dict faz o `for rec in
         # registros` iterar as CHAVES (strings), e `replay._contents` levanta AttributeError.
         tempos = sorted(_edicoes(registros).get(arq, []))
         for i, ts in enumerate(tempos):
+            if not ts:
+                sem_ts += 1
+                continue
             fim = tempos[i + 1] if i + 1 < len(tempos) else "9" * 30
             if not _erro_nomeia(registros, arq, fim):
                 filtrados.add(f"{arq}@{ts}")
-    return sorted(filtrados), {"vistos": len(vistos), "candidatos": len(filtrados)}
+    return sorted(filtrados), {"vistos": len(vistos), "candidatos": len(filtrados), "ts_ausente": sem_ts}
 
 
 # --------------------------------------------------------------------------- main
