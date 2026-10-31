@@ -34,7 +34,14 @@ import time
 from pathlib import Path
 
 SCRIPT_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".rb", ".pl", ".bash"}
-EPHEMERAL_HINTS = ("/tmp/", "/var/tmp/", "/.cache/", "/scratchpad", "/tool-results/", "/pytest-of-")
+EPHEMERAL_HINTS = (
+    "/tmp/",
+    "/var/tmp/",
+    "/.cache/",
+    "/scratchpad",
+    "/tool-results/",
+    "/pytest-of-",
+)
 # Basenames genéricos medidos como campeões de recriação (mineracao 27/10, >=3 sessões).
 GENERIC_BASENAMES = {
     "probe.py",
@@ -67,12 +74,18 @@ EVENTS = Path.home() / ".claude" / "touring" / "portfolio_gate" / "events.jsonl"
 #: Path prefixes of the measurement instruments (latencia_hook_portfolio.py, auditar_plano_por_execucao.py).
 SINTETICOS = ("/tmp/medicao-latencia-hook/", "/tmp/auditoria-portfolio/")
 STOPWORDS = {"the", "and", "for", "with", "def", "import", "from", "print", "return"}
+#: Declared active plan (decision of Gabriel, 31/10/2026): ``<project>/.claude/plano_ativo.json`` =
+#: ``{"versao": 1, "bundle": "docs/plans/<dir>"}``, searched upward from the event cwd (like ``federacao.achar_indice``).
+PLANO_ATIVO_REL = Path(".claude") / "plano_ativo.json"
+PLANO_ATIVO_VERSAO = 1
 
 
 def is_ephemeral(path: str) -> bool:
     """Destino efêmero: morre com a sessão (tmpfs, cache, scratchpad)."""
     low = path.lower()
-    return low.startswith(("/tmp", "/var/tmp")) or any(h in low for h in EPHEMERAL_HINTS)
+    return low.startswith(("/tmp", "/var/tmp")) or any(
+        h in low for h in EPHEMERAL_HINTS
+    )
 
 
 def keywords_of(basename: str, head: str) -> list[str]:
@@ -96,10 +109,18 @@ def manifest_candidates(keys: list[str]) -> list[dict]:
         return []
     out = []
     for e in entries:
-        hay = " ".join(str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")).lower()
+        hay = " ".join(
+            str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")
+        ).lower()
         hits = sum(1 for k in keys if k.lower() in hay)
         if hits:
-            out.append({"path": str(PORTFOLIO / e.get("path", "")), "why": e.get("purpose", ""), "hits": hits})
+            out.append(
+                {
+                    "path": str(PORTFOLIO / e.get("path", "")),
+                    "why": e.get("purpose", ""),
+                    "hits": hits,
+                }
+            )
     out.sort(key=lambda c: -c["hits"])
     return out[:3]
 
@@ -120,7 +141,9 @@ def tantivy_candidates(query: str) -> list[dict]:
     for r in rows if isinstance(rows, list) else []:
         fp = str(r.get("file_path", ""))
         if fp and Path(fp).suffix.lower() in SCRIPT_EXTS:
-            out.append({"path": fp, "why": str(r.get("symbol_name", ""))[:80], "hits": 1})
+            out.append(
+                {"path": fp, "why": str(r.get("symbol_name", ""))[:80], "hits": 1}
+            )
     return out[:3]
 
 
@@ -156,14 +179,20 @@ def stats() -> int:
     aparecem só como ``sinteticos`` — a sombra do P5 mede escrita real, não a própria medição.
     """
     try:
-        todos = [json.loads(linha) for linha in EVENTS.read_text().splitlines() if linha.strip()]
+        todos = [
+            json.loads(linha)
+            for linha in EVENTS.read_text().splitlines()
+            if linha.strip()
+        ]
     except (OSError, json.JSONDecodeError):
         print("sem eventos")
         return 0
     rows = [r for r in todos if not str(r.get("file", "")).startswith(SINTETICOS)]
     n = len(rows)
     com_cand = sum(1 for r in rows if r.get("n_candidates"))
-    evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
+    evit = sum(
+        1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado"
+    )
     por_estado: dict[str, int] = {}
     for r in rows:
         chave = r.get("estado", "legado")
@@ -206,8 +235,15 @@ _PALAVRA_ESTADO = {
 
 
 def _contexto(v, basename: str, ephemeral: bool) -> str:
-    lista = " · ".join(f"{cid} ({sinal}{'' if d is None else f', {d} bits'})" for cid, sinal, d in v.candidatos)
-    destino = "destino EFÊMERO (morre com a sessão)" if ephemeral else "basename genérico recriado entre sessões"
+    lista = " · ".join(
+        f"{cid} ({sinal}{'' if d is None else f', {d} bits'})"
+        for cid, sinal, d in v.candidatos
+    )
+    destino = (
+        "destino EFÊMERO (morre com a sessão)"
+        if ephemeral
+        else "basename genérico recriado entre sessões"
+    )
     return (
         f"[PORTFOLIO · consulta-antes-de-criar · {v.estado}] {basename}: {destino}. "
         f"{_PALAVRA_ESTADO.get(v.estado, v.estado)} — {v.motivo}. Candidatos: {lista}. "
@@ -265,7 +301,9 @@ def _heredoc():
 def _absoluto(path: str, cwd: str | None) -> str:
     """A heredoc target as written (``~/x.py``, ``x.py``) resolved against the command's cwd; ``$VAR`` stays."""
     p = os.path.expanduser(path)
-    return p if os.path.isabs(p) or not cwd or p.startswith("$") else os.path.join(cwd, p)
+    return (
+        p if os.path.isabs(p) or not cwd or p.startswith("$") else os.path.join(cwd, p)
+    )
 
 
 def _gatilhos(payload: dict) -> list[tuple[str, str, bool, bool, str]]:
@@ -286,12 +324,74 @@ def _gatilhos(payload: dict) -> list[tuple[str, str, bool, bool, str]]:
     return [] if alvo is None else [(*alvo, "Write")]
 
 
+def plano_ativo(cwd: str | None) -> tuple[Path | None, str | None]:
+    """The declared ``diagnostics/`` directory of the active plan, as ``(directory, error)``.
+
+    Both ``None`` = no declaration (the hook only warns). The nearest ``plano_ativo.json`` decides: an
+    unreadable one, a wrong ``versao`` or an unsafe ``bundle`` (absolute, ``..``) yields ``(None, reason)`` —
+    never a guess at "the most recent plan", never an exception.
+    """
+    if not cwd:
+        return None, None
+    atual = Path(cwd).resolve()
+    for pasta in (atual, *atual.parents):
+        arq = pasta / PLANO_ATIVO_REL
+        if not arq.is_file():
+            continue
+        try:
+            dados = json.loads(arq.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return None, f"plano_ativo ilegivel ({type(exc).__name__})"
+        if not isinstance(dados, dict) or dados.get("versao") != PLANO_ATIVO_VERSAO:
+            return (
+                None,
+                f"plano_ativo versao inesperada (esperava {PLANO_ATIVO_VERSAO})",
+            )
+        bundle = dados.get("bundle")
+        if (
+            not isinstance(bundle, str)
+            or not bundle
+            or Path(bundle).is_absolute()
+            or ".." in Path(bundle).parts
+        ):
+            return (
+                None,
+                "plano_ativo.bundle invalido (esperava caminho relativo sem '..')",
+            )
+        return pasta / bundle / "diagnostics", None
+    return None, None
+
+
+def _destino(path: str, cwd: str | None) -> dict:
+    """Extra event fields for an ephemeral target: ``destino_sugerido`` or ``plano_ativo_erro`` (both optional)."""
+    if os.environ.get("TOURING_PORTFOLIO_REDIRECT_DISABLED"):
+        return {}
+    try:
+        pasta, erro = plano_ativo(cwd)
+    except Exception as exc:  # fail-open: the declaration never takes the hook down
+        return {"plano_ativo_erro": f"plano_ativo: {type(exc).__name__}"}
+    if pasta is not None:
+        return {"destino_sugerido": str(pasta / Path(path).name)}
+    return {"plano_ativo_erro": erro} if erro else {}
+
+
 def _avaliar(alvo: tuple[str, str, bool, bool, str], cwd: str | None) -> str | None:
     """Consult, record the event, and return the context line when there are candidates."""
     path, content, ephemeral, generic, origem = alvo
     v, erro = _consultar_seguro(path, content, cwd)
-    log_event(_evento(path, ephemeral, generic, v, erro, origem))
-    return _contexto(v, Path(path).name, ephemeral) if v is not None and v.candidatos else None
+    extra = _destino(path, cwd) if ephemeral else {}
+    log_event({**_evento(path, ephemeral, generic, v, erro, origem), **extra})
+    linhas = (
+        [_contexto(v, Path(path).name, ephemeral)]
+        if v is not None and v.candidatos
+        else []
+    )
+    if "destino_sugerido" in extra:
+        linhas.append(
+            f"[PORTFOLIO · plano ativo] grave o script em {extra['destino_sugerido']} (diagnostics/ do plano declarado "
+            f"em .claude/plano_ativo.json) — o que nasce em destino efêmero morre com a sessão."
+        )
+    return "\n".join(linhas) or None
 
 
 def main() -> int:
@@ -330,7 +430,14 @@ def _consultar_seguro(path: str, content: str, cwd: str | None):
         return None, f"recuperar: {type(exc).__name__}"
 
 
-def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None, origem: str = "Write") -> dict:
+def _evento(
+    path: str,
+    ephemeral: bool,
+    generic: bool,
+    v,
+    erro: str | None,
+    origem: str = "Write",
+) -> dict:
     base = {
         "ts": int(time.time()),
         "file": path,
@@ -340,7 +447,14 @@ def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None, orig
         "origem": origem,
     }
     if v is None:
-        return {**base, "estado": "inaferivel", "motivo": erro, "n_candidates": 0, "would_avoid": False, "top": []}
+        return {
+            **base,
+            "estado": "inaferivel",
+            "motivo": erro,
+            "n_candidates": 0,
+            "would_avoid": False,
+            "top": [],
+        }
     return {
         **base,
         "estado": v.estado,
