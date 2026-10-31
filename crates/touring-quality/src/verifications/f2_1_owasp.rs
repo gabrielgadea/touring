@@ -551,6 +551,56 @@ mod tests {
         }
     }
 
+    /// Inert constant `javascript:` URLs (the real lines of 16 captured HTML pages)
+    /// pass F2.1; data flow and payloads keep failing it.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn an_inert_constant_javascript_url_passes_but_data_flow_and_payloads_fail() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let score = |name: &str, body: &str| {
+            let path = dir.path().join(name);
+            std::fs::write(&path, body).expect("write");
+            F2_1_Owasp.measure(&path).expect("measure")
+        };
+        let page = "<!DOCTYPE html>\n<html><body>\n\
+            <a href=\"javascript:;\" class=\"link-contraste\" id=\"alto_contraste_id\">Contraste</a>\n\
+            <a href=\"javascript:;\" id=\"voltar\" class=\"float-right\" onclick=\"window.close()\">Voltar</a>\n\
+            <a href=\"javascript:void(0)\" class=\"contrast-event\">x</a>\n\
+            <a href=\"javascript:void(0);\">x</a>\n\
+            <a href=\"javascript:history.back()\">Página Anterior</a>\n\
+            <a href=\"javascript:history.back(-1);\">x</a>\n\
+            <a href=\"javascript:history.forward(1);\">x</a>\n\
+            <a href=\"javascript:history.go(-1);\">x</a>\n\
+            <a href=\"javascript:window.history.back();\">x</a>\n\
+            <a href=\"javascript:this.print();\">Imprimir</a>\n\
+            </body></html>\n";
+        let (value, evidence) = score("page.html", page);
+        assert_eq!(value, 1.0, "inert constant URLs must pass: {evidence}");
+        let (value, evidence) = score(
+            "widget.py",
+            "def link(name):\n    return f'<a href=\"javascript:void(0)\">{name}</a>'\n",
+        );
+        assert_eq!(
+            value, 1.0,
+            "an inert URL in a generated page must pass: {evidence}"
+        );
+        for (name, body) in [
+            (
+                "alert.html",
+                "<a href=\"javascript:alert(document.cookie)\">x</a>\n",
+            ),
+            (
+                "two.html",
+                "<a href=\"javascript:void(0);alert(1)\">x</a>\n",
+            ),
+            ("concat.js", "location = 'javascript:' + x;\n"),
+            ("flow.py", "html = f'<a href=\"javascript:{x}\">go</a>'\n"),
+        ] {
+            let (value, evidence) = score(name, body);
+            assert!(value < 0.5, "{name} must still fail: {evidence}");
+        }
+    }
+
     #[cfg(feature = "workspace-integration")]
     #[test]
     fn the_security_scan_reads_shell_and_shebangs() {
