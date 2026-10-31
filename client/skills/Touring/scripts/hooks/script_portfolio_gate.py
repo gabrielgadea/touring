@@ -64,6 +64,8 @@ GENERIC_BASENAMES = {
 PORTFOLIO = Path.home() / ".claude" / "scripts-portfolio"
 MANIFEST = PORTFOLIO / "MANIFEST.json"
 EVENTS = Path.home() / ".claude" / "touring" / "portfolio_gate" / "events.jsonl"
+#: Path prefixes of the measurement instruments (latencia_hook_portfolio.py, auditar_plano_por_execucao.py).
+SINTETICOS = ("/tmp/medicao-latencia-hook/", "/tmp/auditoria-portfolio/")
 STOPWORDS = {"the", "and", "for", "with", "def", "import", "from", "print", "return"}
 
 
@@ -150,12 +152,15 @@ def stats() -> int:
     """Resumo do events.jsonl: volume, candidatos e, desde a P1 (28/10/2026), a contagem por estado do veredito.
 
     Eventos anteriores à P1 não têm ``estado``: entram como ``legado`` (visíveis, nunca somados a um estado).
+    Eventos de medição (``SINTETICOS``: corpos do corpus disparados por instrumento) ficam fora dos totais e
+    aparecem só como ``sinteticos`` — a sombra do P5 mede escrita real, não a própria medição.
     """
     try:
-        rows = [json.loads(linha) for linha in EVENTS.read_text().splitlines() if linha.strip()]
+        todos = [json.loads(linha) for linha in EVENTS.read_text().splitlines() if linha.strip()]
     except (OSError, json.JSONDecodeError):
         print("sem eventos")
         return 0
+    rows = [r for r in todos if not str(r.get("file", "")).startswith(SINTETICOS)]
     n = len(rows)
     com_cand = sum(1 for r in rows if r.get("n_candidates"))
     evit = sum(1 for r in rows if r.get("would_avoid") or r.get("estado") == "reprovado")
@@ -171,6 +176,7 @@ def stats() -> int:
                 "would_avoid": evit,
                 "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
                 "por_estado": por_estado,
+                "sinteticos": len(todos) - n,
             },
             ensure_ascii=False,
         )

@@ -1,4 +1,5 @@
 """Contract of the single portfolio decision: the four veredito_gate/1 states, independent of the tau chosen."""
+
 from __future__ import annotations
 
 import json
@@ -63,7 +64,8 @@ def test_corpo_curto_nunca_reprova() -> None:
 
 def test_proposito_sozinho_aconselha_mas_nao_reprova() -> None:
     v = recuperar.decidir(
-        "baixar_proveniencia.py", "# baixa a proveniencia das fontes oficiais\n" + OUTRO,
+        "baixar_proveniencia.py",
+        "# baixa a proveniencia das fontes oficiais\n" + OUTRO,
         [_c("a", PROGRAMA, "fetch_proveniencia.py", "baixa a proveniencia das fontes oficiais")],
     )
     assert v.estado == "aprovado"
@@ -82,7 +84,26 @@ def test_fonte_manifest_ausente_e_vazia_e_ilegivel_levanta(tmp_path: Path) -> No
 def test_cli_exit_deriva_do_estado(tmp_path: Path) -> None:
     alvo = tmp_path / "notas.md"
     alvo.write_text("texto")
-    r = subprocess.run([sys.executable, str(AQUI / "recuperar.py"), "--arquivo", str(alvo)],
-                       capture_output=True, text=True, timeout=30, check=False)
+    r = subprocess.run(
+        [sys.executable, str(AQUI / "recuperar.py"), "--arquivo", str(alvo)],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
     assert r.returncode == 0
     assert json.loads(r.stdout)["estado"] == "nao_aplicavel"
+
+
+def test_tantivy_com_cwd_removido_nao_vira_inaferivel(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Defect of 28/10/2026: a session directory removed before the hook ran made subprocess.run(cwd=…) raise
+    # FileNotFoundError, and the whole tantivy source read as failed. The search needs no cwd.
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    falso = bin_dir / "touring"
+    falso.write_text("#!/bin/sh\nprintf '[]'\n")
+    falso.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{bin_dir}:/usr/bin:/bin")
+    removido = tmp_path / "sessao_que_sumiu"
+    assert not removido.exists()
+    assert recuperar.fonte_tantivy("calcular ajuste base", cwd=str(removido)) == []

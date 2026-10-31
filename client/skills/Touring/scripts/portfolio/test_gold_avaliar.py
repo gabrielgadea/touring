@@ -1,4 +1,5 @@
 """Gold set and evaluator contracts (Phase 0): deterministic split, no time leak, unscored is not zero."""
+
 from __future__ import annotations
 
 import gzip
@@ -57,14 +58,21 @@ def test_manifesto_confere_o_hash(tmp_path: Path) -> None:
 
 def test_biblioteca_so_tem_o_que_existia_antes_e_em_outra_sessao() -> None:
     q = _item("q", "s1", "2026-10-02", PROGRAMA)
-    itens = [q, _item("antes", "s2", "2026-10-01", PROGRAMA), _item("depois", "s2", "2026-10-03", PROGRAMA),
-             _item("mesma", "s1", "2026-10-01", PROGRAMA)]
+    itens = [
+        q,
+        _item("antes", "s2", "2026-10-01", PROGRAMA),
+        _item("depois", "s2", "2026-10-03", PROGRAMA),
+        _item("mesma", "s1", "2026-10-01", PROGRAMA),
+    ]
     assert [i.id for i in gold.biblioteca_de(q, itens)] == ["antes"]
 
 
 def test_rotulos_pelas_faixas_declaradas() -> None:
-    itens = [_item("base", "s1", "1", PROGRAMA), _item("copia", "s2", "2", PROGRAMA),
-             _item("diferente", "s3", "3", OUTRO)]
+    itens = [
+        _item("base", "s1", "1", PROGRAMA),
+        _item("copia", "s2", "2", PROGRAMA),
+        _item("diferente", "s3", "3", OUTRO),
+    ]
     r = gold.rotular(itens)
     assert r["base"].classe == "sem_biblioteca"
     assert r["copia"].classe == "tem_equivalente"
@@ -80,8 +88,12 @@ def test_mutacoes_sao_deterministicas_e_preservam_o_programa() -> None:
 
 
 def _gold_doc(itens: list[gold.Item]) -> dict:
-    return {"rotulos": {i: {"classe": r.classe, "equivalentes": list(r.equivalentes), "metodo": r.metodo,
-                            "particao": "held_out"} for i, r in gold.rotular(itens).items()}}
+    return {
+        "rotulos": {
+            i: {"classe": r.classe, "equivalentes": list(r.equivalentes), "metodo": r.metodo, "particao": "held_out"}
+            for i, r in gold.rotular(itens).items()
+        }
+    }
 
 
 def test_avaliador_conta_falha_como_unscored() -> None:
@@ -103,8 +115,11 @@ def test_inaferivel_e_unscored_nunca_aprovado() -> None:
 
 
 def test_simhash_acerta_copia_e_nao_alarma_programa_distinto() -> None:
-    itens = [_item("base", "s1", "1", PROGRAMA), _item("copia", "s2", "2", PROGRAMA),
-             _item("diferente", "s3", "3", OUTRO)]
+    itens = [
+        _item("base", "s1", "1", PROGRAMA),
+        _item("copia", "s2", "2", PROGRAMA),
+        _item("diferente", "s3", "3", OUTRO),
+    ]
     rel = avaliar.avaliar(avaliar.recuperador_simhash(), itens, _gold_doc(itens))
     assert rel["geral"]["tp"] == 1
     assert rel["geral"].get("fp_alarme", 0) == 0
