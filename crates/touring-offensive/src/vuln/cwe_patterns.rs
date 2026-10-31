@@ -555,36 +555,57 @@ fn is_inert_constant_url(input: &str, at: usize) -> bool {
     !value_continues(b, end) && is_inert_url_body(body)
 }
 
-/// The value that ends at `end` CONTINUES: the constant is concatenated (`+`, `%`,
-/// `.format(`, an adjacent literal) — the data that reaches the URL is then not in
-/// the constant, and the constant is not inert.
+/// The value that ends at `end` CONTINUES: the data that reaches the URL is not in
+/// the constant — a concatenation (`+`, `%`, `.format(`), an adjacent literal, a
+/// comment or a line continuation in between.
 ///
-/// The adjacent literal of Python (`"…" f"…"`) is an IDENTIFIER (the prefix of the
-/// literal) followed by a quote; the HTML attribute that follows a value is an
-/// identifier followed by `=`. That one character tells the two apart.
+/// When the next token is a statement boundary (`;`, `,`, `)`, `]`, `}`, `>`), the
+/// end of the input, or another attribute (`nome=`), the value ENDED: the constant
+/// is the whole value.
+///
+/// Anything else is NOT understood, and the conservative answer is that the value
+/// continues: a scanner that fails OPEN (a sink missed) is worse than one that
+/// reports too much.
 fn value_continues(b: &[u8], end: usize) -> bool {
     let Some(corte) = b.get(end..) else {
         return false;
     };
     let Some(pos) = corte.iter().position(|c| !c.is_ascii_whitespace()) else {
-        return false;
+        return false; // the end of the input: the value ended
     };
     let i = end + pos;
     let first = b[i];
     if matches!(first, b'+' | b'%' | b'.' | b'"' | b'\'') {
         return true;
     }
+    // the statement ended (or the tag did): the constant is the whole value
+    if matches!(first, b';' | b',' | b')' | b']' | b'}' | b'>') {
+        return false;
+    }
+    if first == b'/' {
+        // `//` or `/*`: a comment — the value may continue past it.
+        // `/` before `>`: the tag ends — the value ended.
+        return !matches!(b.get(i + 1).copied(), Some(b'>'));
+    }
     if first.is_ascii_alphabetic() || first == b'_' {
+        // an identifier: the prefix of a literal (an adjacent literal — the value
+        // continues) or the name of the next attribute (the value ended)
         let mut j = i;
         while b
             .get(j)
-            .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+            .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-'))
         {
             j += 1;
         }
-        return matches!(b.get(j).copied(), Some(b'"') | Some(b'\''));
+        return match b.get(j).copied() {
+            Some(b'"') | Some(b'\'') => true, // an adjacent literal
+            Some(b'=') => false,              // the next attribute: the value ended
+            _ => true,                        // not understood: the value may continue
+        };
     }
-    false
+    // not understood (a line continuation, a backtick, an operator…): the value
+    // may continue — the sink is reported, never missed
+    true
 }
 
 /// `body` (a `javascript:` URL's script, blanks ignored, one trailing `;` allowed) is

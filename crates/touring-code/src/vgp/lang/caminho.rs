@@ -17,7 +17,14 @@
 //! canonicalization of that ancestor that resolves the `..` and exposes the symlink
 //! that leaves the root (the lexical normalization does not catch symlinks).
 
+use std::cell::RefCell;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+
+thread_local! {
+    /// The canonical form of the roots, per thread (the roots do not move).
+    static CANONICOS: RefCell<HashMap<PathBuf, Option<PathBuf>>> = RefCell::new(HashMap::new());
+}
 
 /// Is `alvo` inside SOME of the allowed roots?
 ///
@@ -43,13 +50,24 @@ pub fn derivado_aceitavel(derivado: &str) -> bool {
 }
 
 fn dentro_de_uma(raiz: &Path, alvo: &Path) -> bool {
-    let Some(raiz_canon) = raiz.canonicalize().ok() else {
+    let Some(raiz_canon) = canonico_da_raiz(raiz) else {
         return false;
     };
     match canonico_do_prefixo_existente(alvo) {
         Some(c) => c.starts_with(&raiz_canon) && c != raiz_canon,
         None => false,
     }
+}
+
+/// The canonical form of a root, remembered: the same root is asked about on
+/// every read, and the canonicalization walks the whole path.
+fn canonico_da_raiz(raiz: &Path) -> Option<PathBuf> {
+    CANONICOS.with(|c| {
+        let mut m = c.borrow_mut();
+        m.entry(raiz.to_path_buf())
+            .or_insert_with(|| raiz.canonicalize().ok())
+            .clone()
+    })
 }
 
 /// The canonical target: the nearest existing prefix, canonicalized, with the rest
@@ -59,8 +77,11 @@ fn canonico_do_prefixo_existente(alvo: &Path) -> Option<PathBuf> {
     let mut atual = alvo.to_path_buf();
     let mut resto: Vec<std::ffi::OsString> = Vec::new();
     loop {
-        if let Ok(c) = atual.canonicalize() {
-            let mut saida = c;
+        // `symlink_metadata` is ONE syscall; `canonicalize` walks the whole path
+        // (and fails on the last component) — it is the walk up to the deepest
+        // existing ancestor that costs.
+        if atual.symlink_metadata().is_ok() {
+            let mut saida = atual.canonicalize().ok()?;
             for comp in resto.iter().rev() {
                 if comp == ".." {
                     saida.pop();
