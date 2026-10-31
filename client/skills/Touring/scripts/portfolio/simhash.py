@@ -24,9 +24,12 @@ Usage:
     python3 simhash.py <file>            # prints the 16-hex simhash
     python3 simhash.py --hamming A B     # distance between two hex hashes
 """
+
 from __future__ import annotations
 
+import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 FNV_OFFSET = 0xCBF29CE484222325
@@ -37,36 +40,21 @@ TAU_FORTE = 10
 TAU_FRACO = 20
 
 
-def _palavra(ch: str) -> bool:
-    """Rust ``c.is_alphanumeric() || c == '_'`` (parity checked by the vectors, incl. non-ASCII)."""
-    return ch == "_" or ch.isalnum()
-
-
-def _split_inclusive(linha: str) -> list[str]:
-    """Rust ``split_inclusive(pred)``: each piece ends WITH the separator that closed it."""
-    pedacos: list[str] = []
-    inicio = 0
-    for i, ch in enumerate(linha):
-        if not _palavra(ch):
-            pedacos.append(linha[inicio : i + 1])
-            inicio = i + 1
-    if inicio < len(linha):
-        pedacos.append(linha[inicio:])
-    return pedacos
+#: Rust ``split_inclusive(|c| !(c.is_alphanumeric() || c == '_'))``: each piece ends WITH the separator
+#: that closed it, plus the trailing run. In CPython's ``sre`` a ``\\w`` is exactly ``ch.isalnum() or
+#: ch == "_"`` (checked over every code point by ``diagnostics/paridade_simhash_otimizado.py``).
+_PEDACO = re.compile(r"\w*\W|\w+\Z")
+#: For each byte value, the bit positions it sets - the vote counts bytes instead of looping 64 bits.
+_BITS_DO_BYTE = tuple(tuple(b for b in range(8) if v >> b & 1) for v in range(256))
 
 
 def tokens(codigo: str) -> list[str]:
     """The normalized token stream the Rust function hashes."""
-    saida: list[str] = []
-    for bruta in codigo.split("\n"):
-        linha = bruta.strip()
-        if not linha or linha.startswith(("#", "//")):
-            continue
-        for pedaco in _split_inclusive(linha):
-            t = pedaco.strip()
-            if t:
-                saida.append(t)
-    return saida
+    linhas = (bruta.strip() for bruta in codigo.split("\n"))
+    # One findall over the kept lines: "\n" is a non-word char, so no piece crosses a line, and the "\n"
+    # glued to a line's last piece is removed by the same strip that Rust's per-line split never needed.
+    texto = "\n".join(linha for linha in linhas if linha and not linha.startswith(("#", "//")))
+    return [t for pedaco in _PEDACO.findall(texto) if (t := pedaco.strip())]
 
 
 def _fnv1a(dados: bytes, h: int = FNV_OFFSET) -> int:
@@ -75,15 +63,30 @@ def _fnv1a(dados: bytes, h: int = FNV_OFFSET) -> int:
     return h
 
 
-def simhash64(codigo: str, *, distintos: bool = False) -> int:
+def _votar(hashes: list[int]) -> int:
+    """Bit ``b`` is set when more hashes have it at 1 than at 0 (Rust: ``v[b] += ±1``, then ``v[b] > 0``).
+
+    Counting per byte column turns 64 Python steps per hash into one C-level ``Counter`` pass per column.
+    """
+    buf = b"".join(h.to_bytes(8, "little") for h in hashes)
+    uns = [0] * 64
+    for coluna in range(8):
+        for valor, n in Counter(buf[coluna::8]).items():
+            for b in _BITS_DO_BYTE[valor]:
+                uns[8 * coluna + b] += n
+    total = len(hashes)
+    return sum(1 << bit for bit in range(64) if 2 * uns[bit] > total)
+
+
+def simhash64(codigo: str, *, distintos: bool = True) -> int:
     """Port of ``code_simhash``; returns the unsigned 64-bit value.
 
-    ``distintos=False`` (default) is the Rust function bit for bit: every shingle votes as many times as it
-    occurs. ``distintos=True`` lets each DISTINCT shingle vote once. Measured 28/10/2026 on the frozen corpus:
-    decorative lines (``print("─" * 60)``, ``====``) tokenize into dozens of identical shingles that outvote
-    the rest of the program, so unrelated scripts collided at distance 0 (``capa_invariant.py`` ×
-    ``s64_warmer.py``, Jaccard 0.066). The set form removes that domination and tracks shingle-set Jaccard.
-    The Rust gate has the same defect until it adopts the same change; parity tests cover the default only.
+    ``distintos=True`` (default since 29/10/2026) is the Rust ``code_simhash_v2`` bit for bit: each DISTINCT
+    shingle votes once. ``distintos=False`` is the Rust ``code_simhash`` (v1): every shingle votes as many
+    times as it occurs. Measured 28/10/2026 on the frozen corpus: decorative lines (``print("─" * 60)``,
+    ``====``) tokenize into dozens of identical shingles that outvote the rest of the program, so unrelated
+    scripts collided at distance 0 under v1 (``capa_invariant.py`` × ``s64_warmer.py``, Jaccard 0.066).
+    Both modes are checked against the binary by ``test_simhash.py`` (``vetores_rust.json``).
     """
     toks = tokens(codigo)
     if len(toks) < 3:
@@ -92,14 +95,8 @@ def simhash64(codigo: str, *, distintos: bool = False) -> int:
             h = _fnv1a(t.encode("utf-8"), h)
         return h
     shingles = ["".join(toks[i : i + 3]) for i in range(len(toks) - 2)]
-    if distintos:
-        shingles = sorted(set(shingles))
-    v = [0] * 64
-    for s in shingles:
-        h = _fnv1a(s.encode("utf-8"))
-        for bit in range(64):
-            v[bit] += 1 if (h >> bit) & 1 else -1
-    return sum(1 << bit for bit in range(64) if v[bit] > 0)
+    vistos = {s: _fnv1a(s.encode("utf-8")) for s in set(shingles)}
+    return _votar(list(vistos.values()) if distintos else [vistos[s] for s in shingles])
 
 
 def hex64(valor: int) -> str:

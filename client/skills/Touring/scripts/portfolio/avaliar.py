@@ -118,7 +118,7 @@ def recuperador_simhash(tau: int = simhash.TAU_FORTE) -> Recuperador:
 
     def h(i: gold_mod.Item) -> int:
         if i.id not in cache:
-            cache[i.id] = simhash.simhash64(i.content)
+            cache[i.id] = simhash.simhash64(i.content, distintos=False)  # the v1 baseline the tau was calibrated on
         return cache[i.id]
 
     def rec(q: gold_mod.Item, bib: list[gold_mod.Item]) -> Veredito:

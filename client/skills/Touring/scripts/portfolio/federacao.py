@@ -19,6 +19,7 @@ and must never re-read thousands of files. A missing index means the project doe
 simply not consulted); a present but unreadable or wrong-version index RAISES, so the caller can answer
 ``inaferivel`` instead of pretending the project has nothing.
 """
+
 from __future__ import annotations
 
 import json
@@ -63,12 +64,18 @@ def fonte_projeto(indice: Path) -> list[Candidato]:
     for e in dados["entradas"]:
         rel = str(e["caminho"])
         # string ops, not Path: two Path objects per entry cost ~40 ms over 7 893 entries (measured 28/10/2026)
-        out.append(Candidato(
-            id=f"projeto:{rel}", nome=rel.rsplit("/", 1)[-1], caminho=f"{raiz}/{rel}",
-            proposito=str(e.get("proposito", ""))[:200], origem="projeto",
-            hash_pre=int(e["simhash"], 16) if e.get("simhash") else None,
-            linhas_pre=e.get("linhas"), termos_pre=frozenset(e.get("termos", ())),
-        ))
+        out.append(
+            Candidato(
+                id=f"projeto:{rel}",
+                nome=rel.rsplit("/", 1)[-1],
+                caminho=f"{raiz}/{rel}",
+                proposito=str(e.get("proposito", ""))[:200],
+                origem="projeto",
+                hash_pre=int(e["simhash"], 16) if e.get("simhash") else None,
+                linhas_pre=e.get("linhas"),
+                termos_pre=frozenset(e.get("termos", ())),
+            )
+        )
     return out
 
 
