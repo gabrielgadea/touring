@@ -50,13 +50,36 @@ pub fn derivado_aceitavel(derivado: &str) -> bool {
 }
 
 fn dentro_de_uma(raiz: &Path, alvo: &Path) -> bool {
-    let Some(raiz_canon) = canonico_da_raiz(raiz) else {
-        return false;
-    };
-    match canonico_do_prefixo_existente(alvo) {
-        Some(c) => c.starts_with(&raiz_canon) && c != raiz_canon,
-        None => false,
+    match canonico_da_raiz(raiz) {
+        Some(raiz_canon) => match canonico_do_prefixo_existente(alvo) {
+            Some(c) => c.starts_with(&raiz_canon) && c != raiz_canon,
+            None => false,
+        },
+        // The root does not exist on disk (a virtual project — the tests use
+        // `/home/u/proj`): the comparison is LEXICAL, because there is nothing to
+        // canonicalize. And there is no symlink to escape: nothing under a root
+        // that does not exist exists either.
+        None => {
+            let raiz_norm = normaliza(raiz);
+            let alvo_norm = normaliza(alvo);
+            alvo_norm.starts_with(&raiz_norm) && alvo_norm != raiz_norm
+        }
     }
+}
+
+/// The path with its `..` resolved (lexically — no symlink is followed).
+fn normaliza(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for comp in p.components() {
+        match comp {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            outro => out.push(outro.as_os_str()),
+        }
+    }
+    out
 }
 
 /// The canonical form of a root, remembered: the same root is asked about on
