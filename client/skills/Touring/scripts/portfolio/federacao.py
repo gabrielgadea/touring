@@ -29,7 +29,7 @@ from pathlib import Path
 AQUI = Path(__file__).resolve().parent
 sys.path.insert(0, str(AQUI))
 
-from recuperar import Candidato
+from recuperar import Candidato, Registro
 
 INDICE_REL = Path(".claude") / "portfolio" / "indice.json"
 VERSAO = 1
@@ -51,8 +51,8 @@ def achar_indice(cwd: str | None) -> Path | None:
     return None
 
 
-def fonte_projeto(indice: Path) -> list[Candidato]:
-    """Candidates of one project index; raises ``IndiceInvalido`` instead of returning an empty list."""
+def fonte_projeto(indice: Path) -> list[Registro]:
+    """The entries of one project index; raises ``IndiceInvalido`` instead of returning an empty list."""
     try:
         dados = json.loads(indice.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
@@ -63,15 +63,13 @@ def fonte_projeto(indice: Path) -> list[Candidato]:
     out = []
     for e in dados["entradas"]:
         rel = str(e["caminho"])
+        sim = e.get("simhash")
         # string ops, not Path: two Path objects per entry cost ~40 ms over 7 893 entries (measured 28/10/2026)
         out.append(
-            Candidato(
-                id=f"projeto:{rel}",
-                nome=rel.rsplit("/", 1)[-1],
+            Registro(
                 caminho=f"{raiz}/{rel}",
-                proposito=str(e.get("proposito", ""))[:200],
-                origem="projeto",
-                hash_pre=int(e["simhash"], 16) if e.get("simhash") else None,
+                rel=rel,
+                hash_pre=int(sim, 16) if sim else None,
                 linhas_pre=e.get("linhas"),
                 termos_pre=frozenset(e.get("termos", ())),
             )
@@ -79,7 +77,7 @@ def fonte_projeto(indice: Path) -> list[Candidato]:
     return out
 
 
-def federar(*fontes: list[Candidato]) -> list[Candidato]:
+def federar(*fontes: list[Candidato | Registro]) -> list[Candidato | Registro]:
     """Merge sources in precedence order; a name already offered by a higher source drops the lower one."""
     vistos: set[str] = set()
     out: list[Candidato] = []
