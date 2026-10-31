@@ -56,6 +56,27 @@ Tudo no código-fonte; **o binário vivo só muda no próximo release** (30.4.10
 | **T-5** | Wiring: função passada como VALOR pelo caminho (`m.insert("cli-x", crate::h::cli_x)`) conta como uso; 31 de 147 órfãos de função eram só isso. Identificador nu fica de fora (variável local) | `1a5d047d`; touring-code 974/974; efeito vivo pede release + `index rebuild` |
 | **V-11 + 3.9** | As faixas do wrapper (17/10) já separavam arquivo de diretório na fonte; prova AO VIVO: com o lock real ocupado, o gate P0 nega em 0,12 s e libera o limpo em 0,11 s, 0 fail-open; mutante pré-faixas reprova (allow em 3,05 s, 2 fail-opens) | `73921140` (`diagnostics/v11-prova-contencao/`) |
 | **3.10** | Default do `simhash.py` já é `distintos=True` (a analise usa o do skill Touring, não tem cópia) | `3b9119c1` |
+| **D-7** | Staging do Premium Refactor fora do main (snapshot `safety/2026-10-31-premium-staging`); `validate_phase5` check 8 valida os workflows promovidos. **Achado**: o F1.3 de `scripts/` vai a 0,425 (duplicação REAL 17,1% combinada) — o 0,451 era o modo per-crate medindo 436 LOC de 62 mil | `1237fe99` |
+| **D-6 (b)** | Replay A1 declara os 2 denominadores (E1.1 e taxonomia S-4); ruff 21→0 nos 3 arquivos (F821 real) | `1e76ac30`; r3 375/375 |
+| **D-2** | 8 worktrees removidos: int97 (limpo); ecc-{val,hk,mem,py,qa}, r98, onda1 com snapshot em `safety/2026-10-31-wt-*`; não rastreados do onda1 em `~/.claude/touring/worktree-snapshots/touring-wt-onda1-untracked-2026-10-31.tar.zst` (2075/2075 conferidos). Restam o principal + 15 do VGP (esperam o INTADAPT) | `git worktree list` = 16 |
+| **D-3** | `SECURITY_REVIEW_MODEL=claude-opus-5-5` no `env` do `~/.claude/settings.json` (default era `claude-opus-4-7`) | settings.json válido |
+| **D-1** | Chave `AIza…` rotacionada pelo Gabriel | resposta de 31/10 |
+
+### Decisões do Gabriel em 31/10 (AskUserQuestion)
+
+T-6 tantivy: **adiar**. 3.3: **manter full e medir** com a régua corrigida após o 30.4.102. D-6: **(b)**. D-7:
+**aposentar o staging**. D-2: **medir e remover os limpos**. 3.4: **A/B completo agora**, **antes** do A3
+(3.11 fica ativo, entra depois), **release só na virada do dia** durante o A/B. D-5: **manter aceito**. D-3, D-4,
+3.11: **ativos**. D-1: **feito**.
+
+### Em curso (retomada)
+
+- **V-3** — touring-8e (Kimi): conserto do `ts` vazio por TDD e held-out **20261031b** já selado (`b4ef21c8`); falta J14 + quente×frio. Brief no transcript desta sessão; relatório para touring-00.
+- **V-10** — touring-65 (MiniMax): `-c` alias de `--code`, orçamento no `failure.message` do timeout, rota `--file/--args` no erro de sintaxe do bash. Depois: **V-4 INTADAPT** (patches em `docs/plans/2026-10-08-vgp-motor-base/diagnostics/int-adapt/patches/`).
+- **V-8 SEM2** → touring-8e depois do V-3.
+- **3.4** — desenhando o pré-registro: compactador lido do env do DAEMON (`result_compactor.rs:114`, troca exige `touring daemon-ctl restart` na virada), mod de evicção lido do env da SESSÃO (`register.ts:80`, mod ainda não instalado em `~/.claude/mods`).
+- **Release 30.4.102** depois de V-10 + V-3, na virada de um dia do A/B.
+- **D-4 F21INNER** (plano próprio) e **D-7b** (deduplicar `scripts/`, F1.3 0,425) a abrir.
 
 ---
 
