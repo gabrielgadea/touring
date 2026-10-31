@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -78,6 +79,9 @@ STOPWORDS = {"the", "and", "for", "with", "def", "import", "from", "print", "ret
 #: ``{"versao": 1, "bundle": "docs/plans/<dir>"}``, searched upward from the event cwd (like ``federacao.achar_indice``).
 PLANO_ATIVO_REL = Path(".claude") / "plano_ativo.json"
 PLANO_ATIVO_VERSAO = 1
+#: The bundle value reaches the model's context: one level under docs/plans, a closed alphabet, a length cap.
+BUNDLE_RE = re.compile(r"docs/plans/[A-Za-z0-9._-]+")
+BUNDLE_MAX = 120
 
 
 def is_ephemeral(path: str) -> bool:
@@ -327,12 +331,18 @@ def plano_ativo(cwd: str | None) -> tuple[Path | None, str | None]:
                 f"plano_ativo versao inesperada (esperava {PLANO_ATIVO_VERSAO})",
             )
         bundle = dados.get("bundle")
-        if not isinstance(bundle, str) or not bundle or Path(bundle).is_absolute() or ".." in Path(bundle).parts:
-            return (
-                None,
-                "plano_ativo.bundle invalido (esperava caminho relativo sem '..')",
-            )
-        return pasta / bundle / "diagnostics", None
+        if not isinstance(bundle, str) or len(bundle) > BUNDLE_MAX or not BUNDLE_RE.fullmatch(bundle):
+            return None, "plano_ativo.bundle invalido (esperava docs/plans/<nome>, um nivel, [A-Za-z0-9._-])"
+        if set(bundle.rsplit("/", 1)[1]) == {"."}:
+            return None, "plano_ativo.bundle invalido (nome so de pontos)"
+        raiz = pasta.resolve()
+        try:
+            alvo = (raiz / bundle).resolve()
+        except (OSError, RuntimeError):
+            return None, "plano_ativo.bundle nao resolve"
+        if not alvo.is_relative_to(raiz):
+            return None, "plano_ativo.bundle escapa da raiz do projeto"
+        return alvo / "diagnostics", None
     return None, None
 
 
@@ -345,6 +355,8 @@ def _destino(path: str, cwd: str | None) -> dict:
     except Exception as exc:  # fail-open: the declaration never takes the hook down
         return {"plano_ativo_erro": f"plano_ativo: {type(exc).__name__}"}
     if pasta is not None:
+        if not Path(path).name.isprintable():  # a basename with control characters never reaches the context
+            return {"plano_ativo_erro": "basename com caracteres de controle"}
         return {"destino_sugerido": str(pasta / Path(path).name)}
     return {"plano_ativo_erro": erro} if erro else {}
 
