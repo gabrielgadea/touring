@@ -61,6 +61,8 @@ Tudo no código-fonte; **o binário vivo só muda no próximo release** (30.4.10
 | **D-2** | 8 worktrees removidos: int97 (limpo); ecc-{val,hk,mem,py,qa}, r98, onda1 com snapshot em `safety/2026-10-31-wt-*`; não rastreados do onda1 em `~/.claude/touring/worktree-snapshots/touring-wt-onda1-untracked-2026-10-31.tar.zst` (2075/2075 conferidos). Restam o principal + 15 do VGP (esperam o INTADAPT) | `git worktree list` = 16 |
 | **D-3** | `SECURITY_REVIEW_MODEL=claude-opus-5-5` no `env` do `~/.claude/settings.json` (default era `claude-opus-4-7`) | settings.json válido |
 | **D-1** | Chave `AIza…` rotacionada pelo Gabriel | resposta de 31/10 |
+| **V-10** (touring-65) | Destinos (b) do V0e: `-c` alias de `--code`; o timeout nomeia orçamento + `--timeout-ms` no `failure.message` (o motor lia a 1ª linha do stderr, a lição ficava na última); corpo que o bash não parseia ensina `--file` (`--args` é no-op em bash, medido). Censo corrigido: (b)=54, não 39. Limites: `--brief` não carrega `failure`; aspas quebradas no shell do CHAMADOR nunca chegam ao produto | `acbde526`, `739a352d`; server 1696 + ceg 613 verdes |
+| **3.4 mecanismo** (subagente) | Bundle `docs/plans/2026-10-31-ab34-compactador-eviccao/`: fatorial 2×2 por dia (compactador × evicção), 8 dias, semente 20261105, `ab34_arm.py` + timers + runbook do mod; **nada armado**. Daemon herda o env de quem o spawna (`daemon_spawn.rs:185-214`): o `arm` reinicia com a flag e relê `/proc/<pid>/environ`. Antes do dia 0: release 30.4.102, pré-voo P1 (o transcript grava a saída compactada?) depois do V-3 quente, instalar o mod e pré-voo P3 | `ee600b85` (recommit de `fa8b6ed5`, que um `reset --soft` alheio tirou do histórico); 150 testes, 14 mutantes |
 
 ### Decisões do Gabriel em 31/10 (AskUserQuestion)
 
