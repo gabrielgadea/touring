@@ -178,6 +178,11 @@ pub mod design_patterns;
 /// Markdown without code blocks. Source: `/vale-cli/vale` (Medium
 /// reputation) + rustdoc doctests; backs the F3.12 dimension.
 pub mod doc_accuracy;
+/// DOM XSS sinks (`innerHTML`, `insertAdjacentHTML`, `document.write`,
+/// `dangerouslySetInnerHTML`) fed by untrusted data — intra-function taint over JS/TS
+/// (D-4 "F21INNER"). Fed to [`security::SecurityAnalyzer::analyze`] as ADVISORIES:
+/// reported, never scored, never blocking.
+pub(crate) mod dom_sinks;
 /// Type-1 (exact, modulo whitespace) block clone detection (jscpd/CPD-style):
 /// runs of consecutive meaningful production lines recurring verbatim; backs the
 /// F1.3 dimension.
@@ -268,11 +273,6 @@ pub mod polyglot_semantic;
 /// `eval`/`exec` (CWE-95) and SQL assembled inside `execute` (CWE-89). Fed to
 /// [`security::SecurityAnalyzer::analyze`] before its region filter.
 pub(crate) mod python_sinks;
-/// DOM XSS sinks (`innerHTML`, `insertAdjacentHTML`, `document.write`,
-/// `dangerouslySetInnerHTML`) fed by untrusted data — intra-function taint over JS/TS
-/// (D-4 "F21INNER"). Fed to [`security::SecurityAnalyzer::analyze`] as ADVISORIES:
-/// reported, never scored, never blocking.
-pub(crate) mod dom_sinks;
 pub mod quality_finding;
 pub mod readme;
 pub mod rust_semantic;
