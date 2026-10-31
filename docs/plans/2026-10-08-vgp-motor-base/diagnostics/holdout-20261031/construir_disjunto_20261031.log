@@ -1,0 +1,28 @@
+hw-slot: aguardando — temp 94C > 88C
+16:55:56 corte: 2026-10-09T18:14:31.894Z | vivo sha_tree: 60ebf06bd598fd95 | exclusoes: {'ids': 4705, 'tool_use_ids': 2444, 'shas': 4741, 'comandos': 2475}
+16:55:56 cotas de projeto (mistura do vivo escalada): {'touring': 72, 'analise': 518, 'simulador-urna-rs-2026': 4, '.claude': 6} | teto por arquivo: 18 | teto por sessao: 18
+<snap>:15: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:18: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+<snap>:19: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+16:56:43 pool inline/tmp: {'c': 2083, 'heredoc': 2350, 'touring_run': 616, 'tmp_escrito_e_executado': 4} | cabe sob o teto de sessao: {'c': 1064, 'heredoc': 1002, 'touring_run': 204, 'tmp_escrito_e_executado': 4} | excluidos por chave: {'tool_use_id duplicado (pai/subagente)': 73, 'tool_use_id ja no vivo/temporal': 1529, 'depois do corte': 14911, 'conteudo ja no vivo/temporal': 37}
+17:01:35 ARQUIVO ok: {"aceitos": 600, "n": 600, "por_projeto": {"touring": 72, "analise": 518, ".claude": 6, "simulador-urna-rs-2026": 4}, "cotas": {"touring": 72, "analise": 518, "simulador-urna-rs-2026": 4, ".claude": 6}, "rejeicoes": {"conteudo nao reconstroi": 491, "conteudo ja visto (vivo/temporal/amostra)": 37, "estado incompleto: submódulo importado não reconstrói no instante": 78, "id ja no vivo/temporal": 1208, "estado incompleto: módulo importado não reconstrói no instante": 40, "estado incompleto: módulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 53, "estado incompleto: submódulo do fecho transitivo (profundidade ≥ 2) não reconstrói no instante": 20, "estado incompleto: __init
+-> /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261031/entradas_inline_neg.jsonl (534 linhas) · snaps em /home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261031/snap_inline_neg
+   snaps que NAO compilam: 0 []
+17:01:45 INLINE ok: {'c': (200, 200), 'heredoc': (200, 200), 'touring_run': (130, 200), 'tmp_escrito_e_executado': (4, 100)}
+Traceback (most recent call last):
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py", line 402, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/instrumentos-2026-10-09/construir_disjunto.py", line 378, in main
+    meta["estado_no_instante"] = eni.construir(saida)
+                                 ~~~~~~~~~~~~~^^^^^^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py", line 360, in construir
+    (None, motivo_sem) if motivo_sem else estado_negativo(e, indice, destino)
+                                          ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py", line 253, in estado_negativo
+    antes = corpus_v0d._conteudo_depois(e["path"], instante_anterior(e["ts"]), indice)
+                                                   ~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_no_instante_v0d.py", line 46, in instante_anterior
+    t = datetime.fromisoformat(ts.replace("Z", "+00:00")) - timedelta(milliseconds=1)
+        ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid isoformat string: ''

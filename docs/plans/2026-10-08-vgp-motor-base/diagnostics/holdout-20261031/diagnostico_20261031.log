@@ -1,0 +1,8 @@
+hw-slot: aguardando — temp 95C > 88C
+16:43:12 corte: 2026-10-09T18:14:31.894Z | vivo sha_tree: 60ebf06bd598fd95 | exclusoes: {'ids': 4705, 'tool_use_ids': 2444, 'shas': 4741, 'comandos': 2475}
+16:43:12 cotas de projeto (mistura do vivo escalada): {'touring': 72, 'analise': 518, 'simulador-urna-rs-2026': 4, '.claude': 6} | teto por arquivo: 18 | teto por sessao: 18
+<snap>:15: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:18: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+<snap>:19: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+16:44:02 pool inline/tmp: {'c': 2083, 'heredoc': 2350, 'touring_run': 616, 'tmp_escrito_e_executado': 4} | cabe sob o teto de sessao: {'c': 1064, 'heredoc': 1002, 'touring_run': 204, 'tmp_escrito_e_executado': 4} | excluidos por chave: {'tool_use_id duplicado (pai/subagente)': 73, 'tool_use_id ja no vivo/temporal': 1529, 'depois do corte': 14854, 'conteudo ja no vivo/temporal': 37}
+ARQUIVO CONGELADO MUDOU antes de construir: {'/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/confere_selo.py': ('fed3c847630f374677c41142b00d845433e63508e896fef55f6a16c6c854f34f', '554adfbe564d979ee964c7f453b596367dbad4f8a92a84c9c5eeb0aea2d10552')}

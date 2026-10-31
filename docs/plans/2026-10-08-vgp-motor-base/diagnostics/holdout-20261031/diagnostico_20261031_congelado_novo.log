@@ -1,0 +1,8 @@
+hw-slot: aguardando — temp 95C > 88C
+16:46:46 corte: 2026-10-09T18:14:31.894Z | vivo sha_tree: 60ebf06bd598fd95 | exclusoes: {'ids': 4705, 'tool_use_ids': 2444, 'shas': 4741, 'comandos': 2475}
+16:46:46 cotas de projeto (mistura do vivo escalada): {'touring': 72, 'analise': 518, 'simulador-urna-rs-2026': 4, '.claude': 6} | teto por arquivo: 18 | teto por sessao: 18
+<snap>:15: SyntaxWarning: "\|" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\|"? A raw string is also an option.
+<snap>:18: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+<snap>:19: SyntaxWarning: "\$" is an invalid escape sequence. Such sequences will not work in the future. Did you mean "\\$"? A raw string is also an option.
+16:48:11 pool inline/tmp: {'c': 2083, 'heredoc': 2350, 'touring_run': 616, 'tmp_escrito_e_executado': 4} | cabe sob o teto de sessao: {'c': 1064, 'heredoc': 1002, 'touring_run': 204, 'tmp_escrito_e_executado': 4} | excluidos por chave: {'tool_use_id duplicado (pai/subagente)': 73, 'tool_use_id ja no vivo/temporal': 1529, 'depois do corte': 14881, 'conteudo ja no vivo/temporal': 37}
+16:53:12 DIAGNOSTICO arquivo: candidatos ate o corte: 9017 | por projeto: {'analise': 7621, 'touring': 1149, '.claude': 220, 'latina': 2, 'simulador-urna-rs-2026': 23, 'touring-wt-roteamento': 2} | cabe sob o teto de arquivo: {'analise': 6690, 'touring': 1098, '.claude': 220, 'latina': 2, 'simulador-urna-rs-2026': 23, 'touring-wt-roteamento': 2} | {'vistos': 4860, 'candidatos': 15124, 'candidatos_de_toda_a_historia': 15124, 'candidatos_ate_o_corte': 9017, 'corte': '2026-10-09T18:14:31.894Z'}
