@@ -79,15 +79,17 @@ OK=1
 [ $RC -ne 0 ] && echo "$OUT" | grep -q "bin/touring" && [ ! -d "$TH7/toolchains/9.9.9" ] && OK=0
 check "7. non-toolchain tarball refused + no partial left" $OK
 
-# 8. Staged workflows are valid YAML + promotion README present (git boundary)
+# 8. The promoted workflows are valid YAML. The staged copies under
+# scripts/touring_premium_refactor_2026/staging/ were retired on 31/10/2026 (D-7,
+# snapshot in branch safety/2026-10-31-premium-staging); the live ones had already
+# been promoted to .github/workflows/ and had diverged from the staged copies.
 OK=0
-for f in "$WS/scripts/touring_premium_refactor_2026/staging/w13-github-workflows/release-plz.yml" \
-         "$WS/scripts/touring_premium_refactor_2026/staging/w13-github-workflows/docs-rs-mirror.yml" \
+for f in "$WS/.github/workflows/release-plz.yml" \
+         "$WS/.github/workflows/docs-rs-mirror.yml" \
          "$WS/.github/workflows/release.yml"; do
   python3 -c "import yaml,sys; yaml.safe_load(open('$f'))" 2>/dev/null || OK=1
 done
-[ -f "$WS/scripts/touring_premium_refactor_2026/staging/w13-github-workflows/PROMOTION-README.md" ] || OK=1
-check "8. release.yml + staged workflows parse as YAML; PROMOTION-README present" $OK
+check "8. release.yml + release-plz.yml + docs-rs-mirror.yml parse as YAML" $OK
 
 # 9. release.yml packages the SAME layout the installer expects (bin/)
 RY=$(cat "$WS/.github/workflows/release.yml")
