@@ -12,6 +12,7 @@ Used by: ``hooks/script_portfolio_gate.py`` (Bash matcher, P3) and the analise i
 
     python3 heredoc.py < comando.txt      # prints [[path, n_bytes], …]
 """
+
 from __future__ import annotations
 
 import json

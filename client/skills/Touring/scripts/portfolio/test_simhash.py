@@ -3,9 +3,11 @@
 Every assertion is POSITIVE: the vectors were produced by ``touring run`` itself
 (``gerar_vetores_rust.py``), so a green run means the Python and the Rust hash agree bit for bit.
 """
+
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -22,14 +24,32 @@ CAMPEOES = Path.home() / "projects/touring/docs/plans/2026-10-27-portfolio-scrip
 
 @pytest.mark.parametrize("vetor", VETORES, ids=[v["nome"] for v in VETORES])
 def test_simhash_paridade_com_o_binario(vetor: dict) -> None:
-    assert simhash.hex64(simhash.simhash64(vetor["codigo"])) == vetor["simhash_rust"]
+    assert simhash.hex64(simhash.simhash64(vetor["codigo"], distintos=False)) == vetor["simhash_rust"]
 
 
 @pytest.mark.parametrize("vetor", VETORES, ids=[v["nome"] for v in VETORES])
 def test_simhash_v2_paridade_com_o_binario(vetor: dict) -> None:
     # 30.4.100+: the binary journals code_simhash_v2 (one vote per distinct shingle); the port's
-    # distintos=True must match it bit for bit, the same way the default matches v1.
+    # distintos=True must match it bit for bit, the same way distintos=False matches v1.
     assert simhash.hex64(simhash.simhash64(vetor["codigo"], distintos=True)) == vetor["simhash_rust_v2"]
+
+
+def test_default_e_o_v2() -> None:
+    # Step (b), 29/10/2026: the default is the banner-robust v2; v1 must be asked for by name.
+    v = next(v for v in VETORES if v["nome"] == "reguas_repetidas")
+    assert simhash.hex64(simhash.simhash64(v["codigo"])) == v["simhash_rust_v2"] != v["simhash_rust"]
+
+
+def test_classe_de_palavra_da_regex_e_a_do_rust_no_bmp() -> None:
+    # The tokenizer regex relies on sre's \w being exactly ch.isalnum() or "_" (Rust is_alphanumeric
+    # || '_', proven by the vectors); the full 0x110000 sweep lives in diagnostics/paridade_simhash_otimizado.py.
+    w = re.compile(r"\w")
+    discordam = [
+        hex(cp)
+        for cp in range(0x10000)
+        if not 0xD800 <= cp <= 0xDFFF and bool(w.match(chr(cp))) != (chr(cp) == "_" or chr(cp).isalnum())
+    ]
+    assert discordam == []
 
 
 def test_vetores_trazem_os_dois_modos() -> None:
@@ -47,8 +67,16 @@ def test_vetores_distinguem_v1_de_v2() -> None:
 def test_vetores_cobrem_as_bordas_declaradas() -> None:
     # The parity only means something if the divergence-prone cases are in the set.
     nomes = {v["nome"] for v in VETORES}
-    for borda in ("crlf", "acentos_nfd", "form_feed_e_vt", "separador_de_linha_unicode",
-                  "nbsp_meio_da_linha", "um_token_so", "so_comentarios", "escrita_cjk"):
+    for borda in (
+        "crlf",
+        "acentos_nfd",
+        "form_feed_e_vt",
+        "separador_de_linha_unicode",
+        "nbsp_meio_da_linha",
+        "um_token_so",
+        "so_comentarios",
+        "escrita_cjk",
+    ):
         assert borda in nomes, borda
 
 
@@ -56,7 +84,7 @@ def test_vetor_adulterado_reprova() -> None:
     # Control: one changed bit in the expected value must be caught, or the parity test is blind.
     v = VETORES[0]
     adulterado = f"{int(v['simhash_rust'], 16) ^ 1:016x}"
-    assert simhash.hex64(simhash.simhash64(v["codigo"])) != adulterado
+    assert simhash.hex64(simhash.simhash64(v["codigo"], distintos=False)) != adulterado
 
 
 def test_simhash_separa_programas_e_aproxima_copia_editada() -> None:
@@ -74,7 +102,7 @@ PROG_B = BANNER * 4 + "\n".join(f"for linha in arquivo_{i}:\n    escrever(linha.
 def test_banners_colidem_no_modo_rust_e_se_separam_no_modo_distinto() -> None:
     # The defect measured on the frozen corpus, reproduced: two unrelated programs that share only
     # decorative lines. Rust-weighted votes collapse them; distinct shingles keep them apart.
-    rust = simhash.hamming(simhash.simhash64(PROG_A), simhash.simhash64(PROG_B))
+    rust = simhash.hamming(simhash.simhash64(PROG_A, distintos=False), simhash.simhash64(PROG_B, distintos=False))
     distinto = simhash.hamming(simhash.simhash64(PROG_A, distintos=True), simhash.simhash64(PROG_B, distintos=True))
     assert rust <= simhash.TAU_FORTE < distinto
 
@@ -100,7 +128,7 @@ def test_menos_de_tres_tokens_e_identidade_nao_semelhanca() -> None:
 def test_campeoes_reais_ficam_longe_entre_si() -> None:
     # The τ=10 calibration said distinct champions sit >= 20 bits apart; check it on the port.
     hashes = {
-        p.name: simhash.simhash64(json.loads(p.read_text(encoding="utf-8"))["content"])
+        p.name: simhash.simhash64(json.loads(p.read_text(encoding="utf-8"))["content"], distintos=False)
         for p in sorted(CAMPEOES.glob("*.json"))
     }
     nomes = sorted(hashes)

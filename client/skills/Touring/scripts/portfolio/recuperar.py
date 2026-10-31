@@ -18,6 +18,7 @@ Decision rule (calibrated on the TRAIN half of the frozen gold, reported on held
 Usage:
     python3 recuperar.py --arquivo <script> [--cwd <dir>]     # JSON verdict; exit 0/1/2 by the contract
 """
+
 from __future__ import annotations
 
 import argparse
@@ -205,7 +206,9 @@ def decidir(
     if falhas:
         return Veredito("inaferivel", fracos, f"fonte(s) sem resposta: {', '.join(falhas)}", falhas)
     curto = linhas_substantivas(conteudo) < params.piso_linhas
-    return Veredito("aprovado", fracos, "corpo curto demais para afirmar equivalência" if curto else "nada acima do limiar")
+    return Veredito(
+        "aprovado", fracos, "corpo curto demais para afirmar equivalência" if curto else "nada acima do limiar"
+    )
 
 
 # ---- sources (IO lives here, never in ``decidir``) -------------------------------------------------
@@ -226,8 +229,16 @@ def fonte_manifest(manifest: Path = MANIFEST) -> list[Candidato]:
     out = []
     for e in json.loads(manifest.read_text(encoding="utf-8")).get("scripts", []):
         p = raiz / e.get("path", "")
-        out.append(Candidato(id=f"global:{e.get('path', '')}", nome=p.name, caminho=str(p), conteudo=_ler(p),
-                             proposito=str(e.get("purpose", "")), origem="global"))
+        out.append(
+            Candidato(
+                id=f"global:{e.get('path', '')}",
+                nome=p.name,
+                caminho=str(p),
+                conteudo=_ler(p),
+                proposito=str(e.get("purpose", "")),
+                origem="global",
+            )
+        )
     return out
 
 
@@ -246,8 +257,14 @@ def _candidato_tantivy(row: dict, base: Path) -> Candidato | None:
     if not fp or Path(fp).suffix.lower() not in SCRIPT_EXTS:
         return None
     p = Path(fp) if Path(fp).is_absolute() else base / fp
-    return Candidato(id=f"tantivy:{fp}", nome=p.name, caminho=str(p), conteudo=_ler(p),
-                     proposito=str(row.get("symbol_name", ""))[:200], origem="tantivy")
+    return Candidato(
+        id=f"tantivy:{fp}",
+        nome=p.name,
+        caminho=str(p),
+        conteudo=_ler(p),
+        proposito=str(row.get("symbol_name", ""))[:200],
+        origem="tantivy",
+    )
 
 
 def fonte_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -> list[Candidato]:
@@ -256,7 +273,11 @@ def fonte_tantivy(consulta: str, cwd: str | None = None, timeout: float = 2.5) -
         return []
     r = subprocess.run(
         ["touring", "tantivy", "search", consulta, "5"],
-        capture_output=True, text=True, timeout=timeout, check=False, cwd=_diretorio_existente(cwd),
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+        check=False,
+        cwd=_diretorio_existente(cwd),
     )
     if r.returncode != 0:
         raise RuntimeError(f"tantivy rc={r.returncode}")

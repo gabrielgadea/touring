@@ -23,6 +23,7 @@ seriam evitadas (`would_avoid`: candidato com mesmo basename OU mesma finalidade
 Kill switch humano: `TOURING_PORTFOLIO_GATE_DISABLED=1`.
 CLI: `--stats` resume o events.jsonl (base para o critério de promoção, à la prose gate).
 """
+
 from __future__ import annotations
 
 import json
@@ -36,10 +37,29 @@ SCRIPT_EXTS = {".py", ".sh", ".js", ".mjs", ".ts", ".rb", ".pl", ".bash"}
 EPHEMERAL_HINTS = ("/tmp/", "/var/tmp/", "/.cache/", "/scratchpad", "/tool-results/", "/pytest-of-")
 # Basenames genéricos medidos como campeões de recriação (mineracao 27/10, >=3 sessões).
 GENERIC_BASENAMES = {
-    "probe.py", "probe2.py", "dump.py", "fetch.py", "build.py", "show.py", "final.py",
-    "ver.py", "verifica.py", "recalc.py", "mutantes.py", "mutar.py", "mutacao.py",
-    "extrai.py", "links.py", "run.sh", "rodar.sh", "final.sh", "s1.py", "b1.py",
-    "estrutura.py", "ctx.py", "sonda2.py",
+    "probe.py",
+    "probe2.py",
+    "dump.py",
+    "fetch.py",
+    "build.py",
+    "show.py",
+    "final.py",
+    "ver.py",
+    "verifica.py",
+    "recalc.py",
+    "mutantes.py",
+    "mutar.py",
+    "mutacao.py",
+    "extrai.py",
+    "links.py",
+    "run.sh",
+    "rodar.sh",
+    "final.sh",
+    "s1.py",
+    "b1.py",
+    "estrutura.py",
+    "ctx.py",
+    "sonda2.py",
 }
 PORTFOLIO = Path.home() / ".claude" / "scripts-portfolio"
 MANIFEST = PORTFOLIO / "MANIFEST.json"
@@ -74,9 +94,7 @@ def manifest_candidates(keys: list[str]) -> list[dict]:
         return []
     out = []
     for e in entries:
-        hay = " ".join(
-            str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")
-        ).lower()
+        hay = " ".join(str(e.get(k, "")) for k in ("slug", "purpose", "domain", "tags")).lower()
         hits = sum(1 for k in keys if k.lower() in hay)
         if hits:
             out.append({"path": str(PORTFOLIO / e.get("path", "")), "why": e.get("purpose", ""), "hits": hits})
@@ -89,7 +107,9 @@ def tantivy_candidates(query: str) -> list[dict]:
     try:
         p = subprocess.run(
             ["touring", "tantivy", "search", query, "3"],
-            capture_output=True, text=True, timeout=2.5,
+            capture_output=True,
+            text=True,
+            timeout=2.5,
         )
         rows = json.loads(p.stdout) if p.returncode == 0 else []
     except (OSError, subprocess.TimeoutExpired, json.JSONDecodeError):
@@ -104,10 +124,16 @@ def tantivy_candidates(query: str) -> list[dict]:
 
 def emit(payload: dict) -> None:
     """Resposta PreToolUse canônica; sombra nunca sai != 0."""
-    print(json.dumps({"hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "additionalContext": payload["context"],
-    }}))
+    print(
+        json.dumps(
+            {
+                "hookSpecificOutput": {
+                    "hookEventName": "PreToolUse",
+                    "additionalContext": payload["context"],
+                }
+            }
+        )
+    )
 
 
 def log_event(event: dict) -> None:
@@ -137,13 +163,18 @@ def stats() -> int:
     for r in rows:
         chave = r.get("estado", "legado")
         por_estado[chave] = por_estado.get(chave, 0) + 1
-    print(json.dumps({
-        "eventos": n,
-        "com_candidato": com_cand,
-        "would_avoid": evit,
-        "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
-        "por_estado": por_estado,
-    }, ensure_ascii=False))
+    print(
+        json.dumps(
+            {
+                "eventos": n,
+                "com_candidato": com_cand,
+                "would_avoid": evit,
+                "pct_evitaveis": round(100 * evit / n, 1) if n else 0.0,
+                "por_estado": por_estado,
+            },
+            ensure_ascii=False,
+        )
+    )
     return 0
 
 
@@ -265,7 +296,7 @@ def main() -> int:
     ``tantivy_candidates``) fica neste módulo só como linha de base do avaliador (``portfolio/avaliar.py``).
 
     Desde a P3 (28/10/2026) também o Bash: heredoc ``cat`` que cria script vigiado. No Bash o hook só emite
-    contexto — nunca ``updatedInput`` nem negação: o ``touring-hook`` já reescreve comandos Bash, e dois
+    contexto — nunca reescreve a entrada nem nega: o ``touring-hook`` já reescreve comandos Bash, e dois
     reescritores no mesmo PreToolUse se sobrescrevem (o último vence).
     """
     if os.environ.get("TOURING_PORTFOLIO_GATE_DISABLED"):
@@ -294,13 +325,25 @@ def _consultar_seguro(path: str, content: str, cwd: str | None):
 
 
 def _evento(path: str, ephemeral: bool, generic: bool, v, erro: str | None, origem: str = "Write") -> dict:
-    base = {"ts": int(time.time()), "file": path, "basename": Path(path).name,
-            "ephemeral": ephemeral, "generic_name": generic, "origem": origem}
+    base = {
+        "ts": int(time.time()),
+        "file": path,
+        "basename": Path(path).name,
+        "ephemeral": ephemeral,
+        "generic_name": generic,
+        "origem": origem,
+    }
     if v is None:
         return {**base, "estado": "inaferivel", "motivo": erro, "n_candidates": 0, "would_avoid": False, "top": []}
-    return {**base, "estado": v.estado, "motivo": v.motivo, "fontes_falhas": list(v.fontes_falhas),
-            "n_candidates": len(v.candidatos), "would_avoid": v.estado == "reprovado",
-            "top": [f"{cid[-80:]}|{sinal}|{d}" for cid, sinal, d in v.candidatos]}
+    return {
+        **base,
+        "estado": v.estado,
+        "motivo": v.motivo,
+        "fontes_falhas": list(v.fontes_falhas),
+        "n_candidates": len(v.candidatos),
+        "would_avoid": v.estado == "reprovado",
+        "top": [f"{cid[-80:]}|{sinal}|{d}" for cid, sinal, d in v.candidatos],
+    }
 
 
 if __name__ == "__main__":
