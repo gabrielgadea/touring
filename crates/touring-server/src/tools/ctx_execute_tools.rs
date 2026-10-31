@@ -485,15 +485,100 @@ fn journal_run(
         code_simhash,
         code_simhash_v2,
     );
-    use std::io::Write;
-    if let Ok(mut f) = std::fs::OpenOptions::new()
+    append_journal_record(&journal, &record);
+    prior
+}
+
+/// Acrescenta UM registro ao journal — UMA escrita, o registro inteiro.
+///
+/// Duas chamadas (o corpo e o `\n`) deixavam DOIS escritores emendarem entre
+/// elas: medido em 31/10/2026 no journal real — 400 linhas inválidas em
+/// 47.102, 99 delas com 2+ `run_id` (ids 1 ms apartados). Com `O_APPEND` e o
+/// registro inteiro numa SÓ chamada, o kernel posiciona no fim e escreve o
+/// bloco de uma vez.
+///
+/// Acima do `PIPE_BUF` a garantia POSIX não cobre o tamanho: aí o `flock`
+/// exclusivo serializa os escritores (mesmo padrão do lock do daemon).
+fn append_journal_record(path: &std::path::Path, record: &serde_json::Value) {
+    let Ok(mut linha) = serde_json::to_string(record) else {
+        return;
+    };
+    linha.push('\n');
+    let bytes = linha.as_bytes();
+    let Ok(mut f) = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(&journal)
-    {
-        let _ = writeln!(f, "{record}");
+        .open(path)
+    else {
+        return;
+    };
+    use std::io::Write;
+    if bytes.len() > PIPE_BUF {
+        // Acima do PIPE_BUF a garantia POSIX de atomicidade não cobre o
+        // tamanho: o flock exclusivo serializa os escritores.
+        let _guard = JournalLock::acquire(&f);
+        let _ = f.write_all(bytes);
+        return;
     }
-    prior
+    // Até o PIPE_BUF: UMA chamada de escrita (o registro e o `\n` no mesmo
+    // buffer) — `write` e NÃO `write_all`: `write_all` pode emitir VÁRIAS
+    // syscalls quando a escrita é parcial, e cada syscall é um ponto de
+    // emendo.
+    match f.write(bytes) {
+        Ok(n) if n == bytes.len() => {}
+        Ok(n) => {
+            // Escrita parcial: o resto vai sob flock — senão o registro fica
+            // cortado no meio e a linha vira lixo.
+            let _guard = JournalLock::acquire(&f);
+            let _ = f.write_all(&bytes[n..]);
+        }
+        Err(_) => {}
+    }
+}
+
+/// `PIPE_BUF` — o limite em que o POSIX garante que uma escrita em arquivo
+/// regular com `O_APPEND` é atômica entre escritores (Linux: 4096).
+const PIPE_BUF: usize = 4096;
+
+// flock(2) — declarado localmente (o mesmo padrão do lock do daemon, em
+// `crates/touring-dispatch/src/daemon.rs`) para não puxar `libc` como
+// dependência nova.
+const LOCK_EX: std::os::raw::c_int = 2;
+const LOCK_UN: std::os::raw::c_int = 8;
+
+unsafe extern "C" {
+    fn flock(fd: std::os::unix::io::RawFd, operation: std::os::raw::c_int) -> std::os::raw::c_int;
+}
+
+/// O lock exclusivo do journal. Fail-open: se o `flock` falhar, a escrita
+/// segue — o journal nunca bloqueia uma run (observabilidade não trava o
+/// trabalho).
+///
+/// Guarda o FD, não o `&File`: o guard precisa conviver com a escrita
+/// mutável no mesmo arquivo.
+struct JournalLock {
+    fd: std::os::unix::io::RawFd,
+}
+
+impl JournalLock {
+    fn acquire(file: &std::fs::File) -> Self {
+        let fd = std::os::unix::io::AsRawFd::as_raw_fd(file);
+        // SAFETY: `flock(2)` com um fd válido; o retorno é apenas observado.
+        let rc = unsafe { flock(fd, LOCK_EX) };
+        if rc != 0 {
+            tracing::debug!("journal: flock falhou; a escrita segue sem lock");
+        }
+        Self { fd }
+    }
+}
+
+impl Drop for JournalLock {
+    fn drop(&mut self) {
+        // SAFETY: idem — liberar o lock (o SO também libera no close do fd).
+        unsafe {
+            flock(self.fd, LOCK_UN);
+        }
+    }
 }
 
 /// P2-v2 (27/10/2026, ordem do Gabriel: "é preciso um critério por semelhança") —
@@ -597,33 +682,59 @@ pub(crate) struct PriorSimilar {
 /// `campo` nomeia a versão do hash (`"code_simhash"` ou `"code_simhash_v2"`):
 /// só se compara v2 com v2 — uma linha antiga, sem o campo, não casa nada, em
 /// vez de comparar dois hashes de votações diferentes (acordo de 28/10/2026).
+/// O resultado da busca de precedentes: os priors E as linhas malformadas que
+/// a cauda tinha.
+///
+/// T-1 (31/10/2026): a linha malformada é CONTADA e EXPOSTA. Pulada em
+/// silêncio, ela esconde que o journal está corrompido — e a leitura parcial
+/// (um prior que não voltou) parece "não havia precedente".
+#[derive(Debug, Default)]
+pub(crate) struct PriorSearch {
+    /// Precedentes dentro do τ, do mais perto ao mais longe.
+    pub priors: Vec<PriorSimilar>,
+    /// Linhas da cauda que não parsearam.
+    pub malformed_lines: u64,
+}
+
+/// P2-v2 (27/10/2026, ordem do Gabriel: "é preciso um critério por semelhança")
+/// — os precedentes no journal que casam com o SimHash do corpo atual: o que
+/// o gate de recriação usa para dizer "isto aqui já rodou".
+///
+/// `campo` nomeia a versão do hash (`"code_simhash"` ou `"code_simhash_v2"`):
+/// só se compara v2 com v2 — uma linha antiga, sem o campo, não casa nada, em
+/// vez de comparar dois hashes de votações diferentes (acordo de 28/10/2026).
 pub(crate) fn find_prior_similar(
     journal: &std::path::Path,
     campo: &str,
     simhash: u64,
     tau: u32,
-) -> Vec<PriorSimilar> {
+) -> PriorSearch {
     let marca = format!("\"{campo}\"");
     use std::io::{Read, Seek, SeekFrom};
     let Ok(mut f) = std::fs::File::open(journal) else {
-        return Vec::new();
+        return PriorSearch::default();
     };
     let len = f.metadata().map(|m| m.len()).unwrap_or(0);
     if f.seek(SeekFrom::Start(len.saturating_sub(512 * 1024)))
         .is_err()
     {
-        return Vec::new();
+        return PriorSearch::default();
     }
     let mut buf = Vec::new();
     if f.read_to_end(&mut buf).is_err() {
-        return Vec::new();
+        return PriorSearch::default();
     }
     let Ok(text) = String::from_utf8(buf) else {
-        return Vec::new(); // cauda cortou um char no meio — a próxima run reconta
+        return PriorSearch::default(); // cauda cortou um char no meio — a próxima run reconta
     };
     let mut out = Vec::new();
+    let mut malformed_lines = 0u64;
     for line in text.lines().filter(|l| l.contains(&marca)) {
         let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            // T-1 (31/10/2026): CONTADA, não pulada em silêncio — uma cauda
+            // corrompida por escrita concorrente é o sintoma, e o gate precisa
+            // poder dizer que a viu.
+            malformed_lines += 1;
             continue;
         };
         let Some(h) = v
@@ -650,7 +761,10 @@ pub(crate) fn find_prior_similar(
         }
     }
     out.sort_by_key(|p| p.dist);
-    out
+    PriorSearch {
+        priors: out,
+        malformed_lines,
+    }
 }
 
 /// P2 (27/10/2026) — stable identity of the program body for the recurrence
@@ -873,14 +987,103 @@ mod journal_v2_tests {
             "{{\"run_id\":\"run-longe\",\"code_simhash\":\"{longe:016x}\",\"harvest\":null}}\n"
         ));
         std::fs::write(&journal, s).expect("write");
-        let achados = find_prior_similar(&journal, "code_simhash", h, 10);
+        let busca = find_prior_similar(&journal, "code_simhash", h, 10);
+        let achados = &busca.priors;
         assert_eq!(achados.len(), 1, "só o similar casa: {achados:?}");
         assert_eq!(achados[0].run_id, "run-perto");
         assert_eq!(achados[0].harvest.as_deref(), Some("meu-snippet"));
         assert!(achados[0].dist <= 10);
+        assert_eq!(
+            busca.malformed_lines, 0,
+            "a fixture é válida: nenhuma linha malformada"
+        );
         assert!(
-            find_prior_similar(&dir.join("nao-existe.jsonl"), "code_simhash", h, 10).is_empty(),
+            find_prior_similar(&dir.join("nao-existe.jsonl"), "code_simhash", h, 10)
+                .priors
+                .is_empty(),
             "fail-open: journal ausente = sem priors"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// T-1 (31/10/2026) — o journal NÃO pode ser corrompido por concorrência.
+    ///
+    /// O defeito: o registro era escrito em DUAS chamadas (o corpo e o `\n`),
+    /// e dois processos emendavam entre elas — 400 linhas inválidas em
+    /// 47.102 no journal real, 99 delas com 2+ `run_id` (ids 1 ms apartados).
+    ///
+    /// O teste re-executa o próprio binário de teste em N PROCESSOS (o modo
+    /// filho é o MESMO teste, com a variável de ambiente que o faz só
+    /// escrever — é o que impede a recursão). Cada processo anexa M
+    /// registros; o journal final tem de ter ZERO linhas inválidas e N×M
+    /// registros.
+    #[test]
+    fn journal_append_is_atomic_across_processes() {
+        const FILHOS: usize = 12;
+        const POR_FILHO: usize = 250;
+
+        // Modo filho: só escreve e sai.
+        if let Ok(dir) = std::env::var("TOURING_JOURNAL_RACE_DIR") {
+            let journal_path = std::path::PathBuf::from(dir).join("run_journal.jsonl");
+            for i in 0..POR_FILHO {
+                append_journal_record(
+                    &journal_path,
+                    &serde_json::json!({
+                        "run_id": format!("run-corrida-{i}"),
+                        "language": "bash",
+                        "ts": i,
+                        "exit_code": 0,
+                        "duration_ms": 1,
+                        "failure_kind": serde_json::Value::Null,
+                        "bytes_elided": 0,
+                        "code_hash_stdout_bytes": 0,
+                        "code_hash": "abc",
+                        "code_simhash": "0000000000000000",
+                        "code_simhash_v2": "0000000000000000",
+                        "prior": 0,
+                    }),
+                );
+            }
+            return;
+        }
+
+        let dir =
+            std::env::temp_dir().join(format!("touring-journal-race-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let exe = std::env::current_exe().expect("current_exe");
+        let mut filhos = Vec::new();
+        for _ in 0..FILHOS {
+            let mut c = std::process::Command::new(&exe);
+            c.env("TOURING_JOURNAL_RACE_DIR", &dir);
+            c.arg("journal_append_is_atomic_across_processes");
+            c.arg("--nocapture");
+            c.arg("--test-threads=1");
+            filhos.push(c.spawn().expect("spawn do filho"));
+        }
+        for mut f in filhos {
+            assert!(f.wait().expect("wait do filho").success(), "o filho falhou");
+        }
+
+        let path = dir.join("run_journal.jsonl");
+        let conteudo = std::fs::read_to_string(&path).expect("lê o journal");
+        let mut invalidas = 0u64;
+        let mut total = 0u64;
+        for line in conteudo.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            total += 1;
+            if serde_json::from_str::<serde_json::Value>(line).is_err() {
+                invalidas += 1;
+            }
+        }
+        assert_eq!(invalidas, 0, "linhas inválidas no journal: {invalidas}");
+        assert_eq!(
+            total,
+            (FILHOS * POR_FILHO) as u64,
+            "registros: {total} (esperado {})",
+            FILHOS * POR_FILHO
         );
         let _ = std::fs::remove_dir_all(&dir);
     }
@@ -993,10 +1196,15 @@ if __name__ == "__main__":
             ),
         )
         .expect("write");
-        let achados = find_prior_similar(&journal, "code_simhash_v2", h, SIMHASH_V2_TAU);
+        let busca = find_prior_similar(&journal, "code_simhash_v2", h, SIMHASH_V2_TAU);
+        let achados = &busca.priors;
         assert_eq!(achados.len(), 1, "só a linha v2 casa: {achados:?}");
         assert_eq!(achados[0].run_id, "run-v2");
         assert_eq!(achados[0].dist, 0);
+        assert_eq!(
+            busca.malformed_lines, 0,
+            "a fixture é válida: nenhuma linha malformada"
+        );
         let _ = std::fs::remove_dir_all(&dir);
     }
 

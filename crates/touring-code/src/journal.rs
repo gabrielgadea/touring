@@ -192,6 +192,15 @@ pub struct JournalAggregate {
     /// N6: runs whose program had a similar block on the ladder at run time
     /// (the library OFFERED something — the coverage measure discovery needs).
     pub hinted_runs: u64,
+    /// Linhas do journal que NÃO parsearam (escrita concorrente emendada,
+    /// arquivo truncado no meio).
+    ///
+    /// T-1 (31/10/2026): CONTADAS e EXPOSTAS. Puladas em silêncio, elas
+    /// escondem a corrupção do denominador — e um registro que se perdeu
+    /// parece um registro que nunca existiu.
+    pub malformed_lines: u64,
+    /// A posição (0-based) da PRIMEIRA linha malformada — onde olhar.
+    pub malformed_first_line: Option<u64>,
 }
 
 /// Per-language breakdown of journal runs. Cheap to compute (one pass).
@@ -246,12 +255,19 @@ pub fn read_journal(path: &Path) -> Result<JournalAggregate, JournalError> {
 /// their position. Lines that fail to parse are skipped and counted in
 /// `Malformed` errors at the FIRST malformed position — the parser is
 /// fail-soft (a single bad line does not abort a 10k-line journal).
+///
+/// T-1 (31/10/2026): TODAS as linhas malformadas são CONTADAS
+/// (`malformed_lines`) e a primeira é localiza (`malformed_first_line`) — o
+/// aggregate EXPÕE a corrupção em vez de absorvê-la. Antes, só a primeira
+/// posição era lembrada e só quando NADA parseava ela chegava ao chamador.
 pub fn read_journal_iter<I>(iter: I) -> Result<JournalAggregate, JournalError>
 where
     I: IntoIterator<Item = (usize, std::io::Result<String>)>,
 {
     let mut all_entries: Vec<JournalEntry> = Vec::new();
     let mut first_err: Option<(usize, serde_json::Error)> = None;
+    let mut malformed_lines = 0u64;
+    let mut malformed_first_line: Option<u64> = None;
 
     for (line_no, line_res) in iter {
         let line = match line_res {
@@ -265,6 +281,10 @@ where
         match serde_json::from_str::<JournalEntry>(trimmed) {
             Ok(entry) => all_entries.push(entry),
             Err(e) => {
+                malformed_lines += 1;
+                if malformed_first_line.is_none() {
+                    malformed_first_line = Some(line_no as u64);
+                }
                 if first_err.is_none() {
                     first_err = Some((line_no, e));
                 }
@@ -283,7 +303,10 @@ where
     }
     // All lines empty / no parseable entries fall through to the empty aggregate.
 
-    Ok(aggregate(&all_entries))
+    let mut agg = aggregate(&all_entries);
+    agg.malformed_lines = malformed_lines;
+    agg.malformed_first_line = malformed_first_line;
+    Ok(agg)
 }
 
 /// One-pass aggregate over collected entries.
@@ -366,6 +389,11 @@ fn aggregate(entries: &[JournalEntry]) -> JournalAggregate {
         harvested_runs,
         brief_runs,
         orchestrate_runs,
+        // T-1 (31/10/2026): os contadores são preenchidos pelo LEITOR
+        // (`read_journal_iter`), que é quem viu as linhas — o agregador só
+        // conta entradas.
+        malformed_lines: 0,
+        malformed_first_line: None,
         total_tmp_bytes,
         hinted_runs,
     }
@@ -517,6 +545,29 @@ mod tests {
         let agg = read_journal_iter(lines_iter(s))
             .expect("malformed-line journal must skip and return valid entry");
         assert_eq!(agg.total_entries, 1);
+    }
+
+    /// T-1 (31/10/2026) — a linha ruim é CONTADA e EXPOSTA.
+    ///
+    /// Antes, só a PRIMEIRA posição era lembrada, e só quando NADA parseava
+    /// ela chegava ao chamador: num journal de 47 mil linhas com 400
+    /// corrompidas (medido no journal real), a corrupção era invisível — e
+    /// um registro que se perdeu parece um registro que nunca existiu.
+    #[test]
+    fn malformed_lines_are_counted_and_exposed() {
+        let s = r#"{"ts":1,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":10,"code_hash_stdout_bytes":0,"bytes_elided":0}
+NOT JSON
+{"ts":2,"language":"bash","exit_code":0,"failure_kind":null,"duration_ms":20,"code_hash_stdout_bytes":0,"bytes_elided":0}
+TAMBEM NAO JSON"#;
+        let agg = read_journal_iter(lines_iter(s))
+            .expect("journal com linhas ruins ainda agrega as linhas boas");
+        assert_eq!(agg.total_entries, 2, "as linhas válidas entram");
+        assert_eq!(agg.malformed_lines, 2, "as linhas ruins são CONTADAS");
+        assert_eq!(
+            agg.malformed_first_line,
+            Some(1),
+            "a primeira linha ruim é localizada"
+        );
     }
 
     #[test]
