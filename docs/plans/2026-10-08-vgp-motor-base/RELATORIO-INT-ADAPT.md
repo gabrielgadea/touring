@@ -34,6 +34,8 @@ própria regra do F21K**.
 | `684f44da` | V-4: **a contenção de caminho** — o conteúdo não escolhe o arquivo lido (§2.2) |
 | `23898b3d` | V-4: a URL root-relative do HTML é o SERVIDOR, não o disco (§2.2) |
 | `99063384` | V-5: a regra passa a falhar para o lado certo; a contenção, para o lado rápido (§4, §5) |
+| `baf8164a` | V-4: uma raiz de projeto que **não existe** no disco não pode cegar o adaptador (§5) |
+| `1eca7d46` | V-4: a busca do HTML sobe **até a raiz do projeto**, e os 2 testes por adaptador que faltavam (Rust `#[path]`, Python) (§2.2) |
 
 ## 2. Os patches: aplicação e conflitos
 
@@ -172,12 +174,24 @@ como uma **raiz DECLARADA** do adaptador (o contrato fica) e fechou o que era
 o vazamento sério: a **listagem** de diretório e o **eco** de um caminho
 resolvido fora das raízes.
 
-**O que sobra, declarado**: o *existence oracle* — o adaptador responde se um
-`src` **absoluto** existe (1 bit por referência). É o contrato do adaptador (o
-seu próprio teste exige que o caminho absoluto conte) e fechá-lo custa o recall
-do HTML: **2 542 das 8 791 referências** do corpus do HTML são root-relative.
-A escolha é da coordenadora; o número está medido aqui para que a escolha seja
-informada.
+**A coordenadora decidiu (31/10): aplicar a regra aprovada também aqui.** A
+busca de `/x` sobe por ancestrais e raízes web **só até a raiz do projeto**,
+nunca acima dela; uma raiz web declarada é um diretório **dentro** da raiz; e
+as root-relative **não são desligadas** (continuam resolvendo e reportando).
+O commit `1eca7d46` aplica isso:
+
+- a raiz do **sistema de arquivos** saiu da lista de candidatas (deixar a busca
+  chegar a raiz do disco é o que deixava o CONTEÚDO sondar a máquina — o
+  *existence oracle*);
+- os ancestrais param na raiz do projeto (quando o documento vive fora dela,
+  a raiz é a única candidata);
+- o caminho **absoluto** que o próprio documento escreve é tentado, mas só
+  quando está dentro das raízes — assim o `src` absoluto do projeto continua
+  contando, e o que está fora é recusado.
+
+A medição do recall depois dessa mudança (a aposta da coordenadora: perde
+quase nada, porque as raízes web legítimas ficam dentro do projeto) está na
+§6 — e os ids perdidos, se houver, são nomeados ali.
 
 ## 2.3 O main tinha andado 6 commits — e um deles tocava o que o f21k toca
 
