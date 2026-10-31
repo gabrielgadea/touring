@@ -22,6 +22,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import bisect
 import json
 import os
 import re
@@ -223,11 +224,17 @@ def _top(heap: list[tuple], item: tuple, k: int = 10) -> None:
 
     ``sorted`` is stable, so the old code broke ties by candidate order; the key carries the order
     so the bounded heap breaks them the same way.
+
+    The heap stays SORTED (hence ``heap[-1]`` is the worst) and the insertion is a
+    ``bisect.insort`` — a memmove — instead of a re-sort: sorting on EVERY one of the 7 973
+    insertions cost more than the dicts the cut removed (measured 31/10/2026: the first version of
+    this helper re-sorted per insertion and the whole cut gained only 4,5 ms).
     """
-    heap.append(item)
-    heap.sort()
-    if len(heap) > k:
+    if len(heap) < k:
+        bisect.insort(heap, item)
+    elif item < heap[-1]:
         heap.pop()
+        bisect.insort(heap, item)
 
 
 def _sinais(conteudo: str, cands: list, piso: int, alvo: set[str], k: int = 10) -> tuple[int | None, list, list]:
