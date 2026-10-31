@@ -55,8 +55,7 @@
 //!
 //! ```text
 //! SITE_DAEMON_FORWARD  touring-hooks/main.rs      forward_daemon_output (rota daemon, no CLIENTE)
-//! SITE_EMIT_RUNTIME    touring-hook-runtime       HookResponse::emit    (rota standalone)
-//! SITE_EMIT_CORE       touring-hooks-core         HookResponse::emit    (tipo canônico)
+//! SITE_EMIT_RUNTIME    touring-hooks-core         HookResponse::emit    (o enum único desde o I-3, 31/10)
 //! SITE_VERDICT         touring-hook-runtime       verdict.rs            (avisos coláveis)
 //! SITE_STANDALONE      touring-hooks/main.rs      prompt-enhance, task-validation
 //! ```
@@ -457,11 +456,11 @@ pub fn filter_output(level: InjectionLevel, text: &str) -> String {
 /// (`forward_daemon_output`).
 pub const SITE_DAEMON_FORWARD: &str = "daemon-forward";
 
-/// Sítio: `HookResponse::emit` do `touring-hook-runtime` (rota standalone).
+/// Sítio: `HookResponse::emit` (rota standalone). Desde o I-3 (31/10/2026) o
+/// enum é um só, em `touring-hooks-core`; o rótulo `emit-runtime` ficou porque
+/// era o do emissor que de fato rodava. O antigo `emit-core` não tinha chamador
+/// e foi removido; linhas antigas do diário ainda podem trazê-lo.
 pub const SITE_EMIT_RUNTIME: &str = "emit-runtime";
-
-/// Sítio: `HookResponse::emit` do `touring-hooks-core` (o tipo canônico).
-pub const SITE_EMIT_CORE: &str = "emit-core";
 
 /// Sítio: a montagem do veredito (`verdict.rs`) — os avisos de gates que
 /// viajam colados na razão do deny ou no contexto.
@@ -1205,7 +1204,7 @@ mod tests {
         let dir = tempfile::tempdir().expect("tempdir");
         let sink = injection_journal::journal_path_in(dir.path());
         let input = real_deny(SERMON);
-        let out = apply_at(InjectionLevel::Full, SITE_EMIT_CORE, &input, Some(&sink));
+        let out = apply_at(InjectionLevel::Full, SITE_EMIT_RUNTIME, &input, Some(&sink));
         assert!(matches!(out, Cow::Borrowed(s) if std::ptr::eq(s, input.as_str())));
         assert!(!sink.exists(), "Full não escreve diário");
     }
@@ -1240,7 +1239,7 @@ mod tests {
             "systemMessage": "Contexto em 63% — a autocompactação dispara aos 65%.",
         })
         .to_string();
-        let out = apply_at(InjectionLevel::Off, SITE_EMIT_CORE, &input, None);
+        let out = apply_at(InjectionLevel::Off, SITE_EMIT_RUNTIME, &input, None);
         assert_eq!(out, "{}");
     }
 
@@ -1314,7 +1313,7 @@ mod tests {
         let input = real_deny(SERMON);
         let out = apply_at(
             InjectionLevel::NoAdvisory,
-            SITE_EMIT_CORE,
+            SITE_EMIT_RUNTIME,
             &input,
             Some(&sink),
         );
@@ -1370,7 +1369,7 @@ mod tests {
         for _ in 0..n {
             std::hint::black_box(apply_at(
                 InjectionLevel::Full,
-                SITE_EMIT_CORE,
+                SITE_EMIT_RUNTIME,
                 std::hint::black_box(&input),
                 Some(&sink),
             ));
@@ -1390,7 +1389,7 @@ mod tests {
         for _ in 0..n {
             std::hint::black_box(apply_at(
                 InjectionLevel::NoAdvisory,
-                SITE_EMIT_CORE,
+                SITE_EMIT_RUNTIME,
                 std::hint::black_box(&input),
                 Some(&sink),
             ));
