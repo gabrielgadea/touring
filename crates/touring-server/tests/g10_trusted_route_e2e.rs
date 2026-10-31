@@ -96,10 +96,20 @@ fn roda(projeto: &Path, comando: &str) -> (i32, String) {
         bin_dir.display(),
         std::env::var("PATH").unwrap_or_default()
     );
+    // T-2 (31/10/2026): HOME TEMPORÁRIO.
+    //
+    // O `touring run` journala em `$HOME/.claude/touring/run_journal.jsonl` — o
+    // caminho vem do HOME (não existe variável de ambiente para o path do
+    // journal), então sem isto o e2e escreve no journal REAL do usuário. O
+    // `TOURING_REPEAT_GATE=off` (28/10, `b6f747c8`) só desligava o gate de
+    // repetição: o REGISTRO continuava indo para o arquivo de verdade.
+    let home = projeto.join("home-temp");
+    std::fs::create_dir_all(&home).expect("HOME temporário");
     let out = Command::new("bash")
         .arg("-c")
         .arg(comando)
         .current_dir(projeto)
+        .env("HOME", &home)
         .env("PATH", path)
         .env("TOURING_DAEMON_SOCKET", projeto.join("sem-daemon.sock"))
         .env("TOURING_DAEMON_SOCK", projeto.join("sem-daemon.sock"))
@@ -165,6 +175,66 @@ fn o_comando_que_o_deny_do_g10_nomeia_executa_e_escreve() {
             "> Estado 09/10 22:38 (o relógio da máquina; eu tinha escrito «10/10 ~00:30» — errado):"
         ),
         "o comando nomeado FEZ a ação (a substituição do caso real): {depois}"
+    );
+}
+
+/// T-2 (31/10/2026) — o e2e NÃO pode escrever no journal real.
+///
+/// O `touring run` journala em `$HOME/.claude/touring/run_journal.jsonl`, e o
+/// caminho vem do HOME (não existe variável de ambiente para ele). Com o HOME
+/// real herdado, cada rodada do e2e escrevia no journal do usuário — e o
+/// `TOURING_REPEAT_GATE=off` (28/10, `b6f747c8`) só desligava o gate, não a
+/// escrita.
+///
+/// A prova é de CONTEÚDO, não de mtime: o journal real é COMPARTILHADO (outra
+/// sessão pode escrever nele no mesmo instante), então comparar mtime/tamanho
+/// seria instável. O que tem de ser verdade é: as linhas do NOSSO run estão no
+/// journal TEMPORÁRIO e NENHUMA delas no journal real.
+#[test]
+fn o_e2e_nao_escreve_no_journal_real() {
+    let tmp = projeto();
+    let journal_real = std::env::var("HOME")
+        .map(|h| Path::new(&h).join(".claude/touring/run_journal.jsonl"))
+        .unwrap_or_else(|_| Path::new("/nonexistent/run_journal.jsonl").to_path_buf());
+    let antes = std::fs::read(&journal_real).unwrap_or_default();
+    let meta_antes = std::fs::metadata(&journal_real)
+        .ok()
+        .map(|m| (m.len(), m.modified().ok()));
+
+    // O `run_id` do registro é único por execução, então cada linha nossa é
+    // única — a prova por conteúdo não pode acusar o journal real por
+    // coincidência (dois runs do MESMO programa, no mesmo segundo, com a mesma
+    // duração, ainda teriam `run_id` diferente).
+    let (rc, saida) = roda(tmp.path(), "touring run --lang python --code 'print(1)'");
+    assert_eq!(rc, 0, "o run tem de passar: {saida}");
+
+    // (1) o journal TEMPORÁRIO recebeu o registro — o mecanismo está em jogo.
+    let temp = std::fs::read_to_string(tmp.path().join("home-temp/.claude/touring/run_journal.jsonl"))
+        .expect("o journal temporário recebeu o registro");
+    assert!(
+        temp.lines().any(|l| !l.trim().is_empty()),
+        "o run não journalou no HOME temporário"
+    );
+
+    // (2) NENHUMA das nossas linhas está no journal real.
+    let depois = std::fs::read(&journal_real).unwrap_or_default();
+    for linha in temp.lines().filter(|l| !l.trim().is_empty()) {
+        assert!(
+            !depois.windows(linha.len()).any(|w| w == linha.as_bytes()),
+            "o e2e escreveu no journal real: {linha}"
+        );
+    }
+
+    // (3) os números pedidos (tamanho/mtime), para o relatório.
+    let meta_depois = std::fs::metadata(&journal_real)
+        .ok()
+        .map(|m| (m.len(), m.modified().ok()));
+    eprintln!(
+        "journal real: bytes {} -> {} | mtime {:?} -> {:?}",
+        antes.len(),
+        depois.len(),
+        meta_antes.map(|m| m.1),
+        meta_depois.map(|m| m.1),
     );
 }
 
