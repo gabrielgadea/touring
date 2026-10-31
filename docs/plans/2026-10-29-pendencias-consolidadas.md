@@ -38,6 +38,25 @@ Tamanho: S (horas) · M (1 dia) · L (vários dias) · XL (semana+). Prioridade:
 | **V-1 P0B2** (touring-7e, revisada pela touring-cb; o caso PIL voltou uma vez porque a fixture não tinha a forma real do Pillow): abstenção com evidência positiva nas raízes do venv | `3675ed2c`; 191+2+1 testes, 15 com pyright real, teste contra o `Image.py` instalado, 3 mutantes mortos; DAG `P0B2` → completed |
 | **V-2 JUIZ-TIMEOUT** (touring-c1, revisada pela touring-cb): pré-registro, juiz com `INCONCLUSIVO` (exit 3), classe `medida` no `hw-slot` | `69d824a6`, `c59840bd`; 19/19 cenários, 4 mutantes mortos, `test_hw_slot.py` 34 passed; DAG `JUIZ-TIMEOUT` → completed |
 
+## Feito em 31/10 (meta do Gabriel: "resolva tudo de pendencias-consolidadas.md")
+
+Tudo no código-fonte; **o binário vivo só muda no próximo release** (30.4.102).
+
+| Item | O quê | Evidência |
+|---|---|---|
+| **I-1** | Régua: piso de amostra (`ADHERENCE_MIN_SAMPLE`=20, abaixo dele `not_measured`, nunca FAIL); MUST de deny de gate fora do denominador (`must_denied`); `fact_kb` sobre as `FACT_FAMILIES`; `nudge_follow_ratio` sobre os `gate_events` (emitted+denied; G2/G8 de reescrita fora) | `4b250401`; cli `context_budget` 39 + kpi verdes, 733/733 lib, clippy 0 |
+| **I-2** | `injection_level` + `injection_suppressed_{blocks,bytes}_count` no `gate-metrics` e no `kpi` | `4b250401`; teste `um_corte_soma_no_contador_vivo_mesmo_sem_diario` |
+| **I-3** (subagente Sonnet, revisado aqui) | `HookResponse` único em `touring-hooks-core`: ganhou `ContextWithUpdatedToolOutput`; o `emit` do runtime (trace + dedupe + sítio `emit-runtime`) virou o canônico; 13 goldens byte-exatos do enum antigo; `SITE_EMIT_CORE` sem emissor removido | `7523df7e`, `0cd05d5e`; core 544 + runtime 559 + handlers 814 + dispatch, `check --workspace` 0 |
+| **I-4** | `touring_foundation::so_what::violation` — o "So what?" como UM predicado (vazio / sem alvo nomeado), medido em SOMBRA por família e no total (`context_budget.so_what`); não corta nada — silenciar é a decisão 3.3 | `4b250401`; 5 testes do predicado + 1 da régua |
+| **I-5** | Taxonomia residual: no scan vivo de 31/10, `other` = **0 B de 1.070.962 B** injetados (23 famílias); nada a reduzir | `touring kpi -j` → `context_budget.by_family` |
+| **T-1** (touring-65) | Journal: uma escrita por registro (+flock acima do PIPE_BUF); linha ruim CONTADA e exposta (aggregate, KPI, gate). Real: 400/47.150 inválidas históricas; 0 em 12 processos × 250 | `3948939b` |
+| **T-2** (touring-65) | e2e g10 com HOME temporário; prova por conteúdo (journal real 13.437.983 → 13.437.983 B) | `32bb8561` |
+| **T-3** (touring-65) | F2.4: `cfg = connect(password="…")` e `creds = {"api_key": "…"}` bloqueiam; `#` vira comentário na projeção; `==` não é ligação. Censo 0,985 → 0,986, 0 bloqueios | `521be247` |
+| **T-4** | `cancelled` sempre existiu; o help escondia. Help com os 7 estados; 6 obsoletos do DAG VGP `failed` → `cancelled` | `c7ff3b42`; DAG: 6 cancelled, 0 failed |
+| **T-5** | Wiring: função passada como VALOR pelo caminho (`m.insert("cli-x", crate::h::cli_x)`) conta como uso; 31 de 147 órfãos de função eram só isso. Identificador nu fica de fora (variável local) | `1a5d047d`; touring-code 974/974; efeito vivo pede release + `index rebuild` |
+| **V-11 + 3.9** | As faixas do wrapper (17/10) já separavam arquivo de diretório na fonte; prova AO VIVO: com o lock real ocupado, o gate P0 nega em 0,12 s e libera o limpo em 0,11 s, 0 fail-open; mutante pré-faixas reprova (allow em 3,05 s, 2 fail-opens) | `73921140` (`diagnostics/v11-prova-contencao/`) |
+| **3.10** | Default do `simhash.py` já é `distintos=True` (a analise usa o do skill Touring, não tem cópia) | `3b9119c1` |
+
 ---
 
 ## 1. Agora — código e testes, permitidos no congelamento
