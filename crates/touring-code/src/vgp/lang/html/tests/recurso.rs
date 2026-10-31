@@ -4,6 +4,24 @@ use std::collections::HashMap;
 
 use super::*;
 
+/// V-4 (31/10/2026): a referência RELATIVA que sai das raízes permitidas não é um
+/// arquivo faltando — a classe se abstém, e o caminho não é ecoado.
+#[test]
+fn uma_referencia_fora_das_raizes_e_recusada_sem_o_caminho() {
+    let s = Site::novo();
+    let v = s.mede(
+        "index.html",
+        &pagina("<img src=\"../../../../etc/passwd\">"),
+    );
+    assert!(v.achados.is_empty(), "achados inesperados: {:?}", v.achados);
+    let motivo = v.nao_medido.expect("a classe se abstém");
+    assert!(motivo.contains("raízes permitidas"), "{motivo}");
+    assert!(
+        !motivo.contains("passwd"),
+        "o caminho não é ecoado: {motivo}"
+    );
+}
+
 #[test]
 fn recurso_relativo_inexistente_e_achado_com_linha_e_nunca_nega() {
     let s = Site::novo();
