@@ -9,6 +9,7 @@ ESTRUTURA que só é verdadeira quando o bug não está lá.
 2. o texto é por BLOCO, não por turno;
 3. o casamento do dataset com o índice tem PISO, não igualdade frouxa.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,8 +21,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import r3_extract_a1_blocks as ex  # noqa: E402
-import r3_replay_a1 as ra  # noqa: E402
+import r3_replay_a1 as ra
 
 # Um turno com DOIS blocos — o caso que a chave (session, turno) achata.
 BLOCO_A = "TOURING SUGGEST · a — MUST touring index find Foo"
@@ -31,14 +31,30 @@ BLOCO_B = "TOURING SUGGEST · b — MUST touring run --lang bash"
 def _dataset_com_irmaos() -> list[dict]:
     """Dois blocos no MESMO turno, como o dataset real tem (8.837 de 13.825)."""
     return [
-        {"session": "aaaa1111", "turno": 7, "family": "touring-suggest",
-         "attachment_type": "hook_success", "bytes": 100, "propositions": 1,
-         "is_touring_family": True, "is_exempt": False, "is_duplicate": False,
-         "head": BLOCO_A[:40]},
-        {"session": "aaaa1111", "turno": 7, "family": "touring-suggest",
-         "attachment_type": "hook_success", "bytes": 120, "propositions": 1,
-         "is_touring_family": True, "is_exempt": False, "is_duplicate": False,
-         "head": BLOCO_B[:40]},
+        {
+            "session": "aaaa1111",
+            "turno": 7,
+            "family": "touring-suggest",
+            "attachment_type": "hook_success",
+            "bytes": 100,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+            "head": BLOCO_A[:40],
+        },
+        {
+            "session": "aaaa1111",
+            "turno": 7,
+            "family": "touring-suggest",
+            "attachment_type": "hook_success",
+            "bytes": 120,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+            "head": BLOCO_B[:40],
+        },
     ]
 
 
@@ -106,7 +122,11 @@ def test_casamento_do_dataset_com_o_indice_tem_piso() -> None:
     blocos = []
     textos = {}
     for i in range(1000):
-        b = {"session": f"s{i//10:04d}", "turno": i % 10, "block_id": f"s{i//10:04d}:{i%10}:0"}
+        b = {
+            "session": f"s{i // 10:04d}",
+            "turno": i % 10,
+            "block_id": f"s{i // 10:04d}:{i % 10}:0",
+        }
         blocos.append(b)
         if i < 995:
             textos[(b["session"], b["turno"], 0)] = f"texto {i}"
@@ -126,9 +146,19 @@ def test_casamento_do_dataset_com_o_indice_tem_piso() -> None:
 def test_regra_nao_descarta_bloque_exempt() -> None:
     """Um único EXEMPT descartado invalida o braço (CRITERIOS §1) — o teste é a
     defesa, e é o que o gate mede como `exempt_retained`."""
-    blocos = [{"session": "aaaa1111", "turno": 1, "family": "code-mode-deny",
-               "block_id": "aaaa1111:1:0", "bytes": 500, "propositions": 0,
-               "is_touring_family": True, "is_exempt": True, "is_duplicate": False}]
+    blocos = [
+        {
+            "session": "aaaa1111",
+            "turno": 1,
+            "family": "code-mode-deny",
+            "block_id": "aaaa1111:1:0",
+            "bytes": 500,
+            "propositions": 0,
+            "is_touring_family": True,
+            "is_exempt": True,
+            "is_duplicate": False,
+        }
+    ]
     textos = {("aaaa1111", 1, 0): "[CODE MODE · rajada] MUST touring run"}
     veredito = ra.braço_regra(blocos, textos)
     v = veredito["aaaa1111:1:0"]
@@ -139,9 +169,19 @@ def test_regra_nao_descarta_bloque_exempt() -> None:
 
 def test_regra_descarta_zero_proposicao_nao_exempt() -> None:
     """O outro lado: 0 proposições e não-EXEMPT É descartável (é a regra)."""
-    blocos = [{"session": "aaaa1111", "turno": 1, "family": "touring-suggest",
-               "block_id": "aaaa1111:1:0", "bytes": 500, "propositions": 0,
-               "is_touring_family": True, "is_exempt": False, "is_duplicate": False}]
+    blocos = [
+        {
+            "session": "aaaa1111",
+            "turno": 1,
+            "family": "touring-suggest",
+            "block_id": "aaaa1111:1:0",
+            "bytes": 500,
+            "propositions": 0,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+        }
+    ]
     textos = {("aaaa1111", 1, 0): "TOURING SUGGEST · x"}
     v = ra.braço_regra(blocos, textos)["aaaa1111:1:0"]
     assert v["descarta"] is True and v["exempt"] is False
@@ -151,12 +191,28 @@ def test_universo_de_a1_exclui_a_familia_other() -> None:
     """E1.1: `other` é do harness (listagem de skills, buffer REMEMBER) e nenhum
     gate do Touring pode descartá-lo — o denominador são as 6 famílias do Touring."""
     blocos = [
-        {"session": "s", "turno": 1, "family": "touring-suggest", "block_id": "s:1:0",
-         "bytes": 100, "propositions": 1, "is_touring_family": True, "is_exempt": False,
-         "is_duplicate": False},
-        {"session": "s", "turno": 2, "family": "other", "block_id": "s:2:0",
-         "bytes": 90000, "propositions": 0, "is_touring_family": False, "is_exempt": False,
-         "is_duplicate": False},
+        {
+            "session": "s",
+            "turno": 1,
+            "family": "touring-suggest",
+            "block_id": "s:1:0",
+            "bytes": 100,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+        },
+        {
+            "session": "s",
+            "turno": 2,
+            "family": "other",
+            "block_id": "s:2:0",
+            "bytes": 90000,
+            "propositions": 0,
+            "is_touring_family": False,
+            "is_exempt": False,
+            "is_duplicate": False,
+        },
     ]
     part = {("s", 1): "test", ("s", 2): "test"}
     m = ra.metricas(blocos, part, None)
@@ -167,6 +223,7 @@ def test_universo_de_a1_exclui_a_familia_other() -> None:
 
 # ─────────────────────────────────────────────── cache (o gasto de API)
 
+
 def test_re_run_sem_mudanca_da_zero_chamadas(tmp_path: Path, monkeypatch) -> None:
     """Re-run sem mudança de entrada tem de dar 0 chamadas de API.
 
@@ -175,10 +232,19 @@ def test_re_run_sem_mudanca_da_zero_chamadas(tmp_path: Path, monkeypatch) -> Non
     reprovar, porque a chamada viria.
     """
     cache = tmp_path / "cache.jsonl"
-    bloco = {"session": "aaaa1111", "turno": 1, "family": "touring-suggest",
-             "block_id": "aaaa1111:1:0", "bytes": 100, "propositions": 1,
-             "attachment_type": "hook_success", "head": "TOURING SUGGEST x",
-             "is_touring_family": True, "is_exempt": False, "is_duplicate": False}
+    bloco = {
+        "session": "aaaa1111",
+        "turno": 1,
+        "family": "touring-suggest",
+        "block_id": "aaaa1111:1:0",
+        "bytes": 100,
+        "propositions": 1,
+        "attachment_type": "hook_success",
+        "head": "TOURING SUGGEST x",
+        "is_touring_family": True,
+        "is_exempt": False,
+        "is_duplicate": False,
+    }
     textos = {("aaaa1111", 1, 0): "TOURING SUGGEST · x"}
 
     chamadas = {"n": 0}
@@ -190,11 +256,14 @@ def test_re_run_sem_mudanca_da_zero_chamadas(tmp_path: Path, monkeypatch) -> Non
     monkeypatch.setattr(ra, "_prob", lambda corpo, qid: 0.42)
     monkeypatch.setattr("time.perf_counter", lambda: 0.0)
     import jev_client
+
     monkeypatch.setattr(jev_client, "system_one", _fake_api)
 
     # 1ª rodada: escreve no cache
     ra.braço_jev([bloco], textos, verbose=False, cache_path=cache)
-    assert chamadas["n"] == 1, f"a 1ª rodada deveria chamar 1 vez, chamou {chamadas['n']}"
+    assert chamadas["n"] == 1, (
+        f"a 1ª rodada deveria chamar 1 vez, chamou {chamadas['n']}"
+    )
     assert cache.exists(), "o cache não foi gravado"
 
     # 2ª rodada: MESMA entrada, 0 chamadas
@@ -216,6 +285,7 @@ def test_mudar_a_pergunta_invalida_o_cache(tmp_path: Path, monkeypatch) -> None:
 
     monkeypatch.setattr("time.perf_counter", lambda: 0.0)
     import jev_client
+
     monkeypatch.setattr(jev_client, "system_one", _fake_api)
 
     ck_a = ra._chave_cache("B-J", "x", "pergunta-antiga")
@@ -236,12 +306,16 @@ def test_cache_truncado_nao_derruba_a_execucao(tmp_path: Path) -> None:
     """Um cache com linha truncada descarta a LINHA, não o arquivo — o mesmo
     tratamento que o extrator dá a transcript malformado."""
     c = tmp_path / "cache.jsonl"
-    c.write_text('{"cache_key": "1", "pred": {"p_discard": 0.3}}\n{"cache_key": ', encoding="utf-8")
+    c.write_text(
+        '{"cache_key": "1", "pred": {"p_discard": 0.3}}\n{"cache_key": ',
+        encoding="utf-8",
+    )
     cache = ra.carregar_cache(c)
     assert cache == {"1": {"p_discard": 0.3}}, f"o cache inteiro foi perdido: {cache}"
 
 
 # ─────────────────────────── a saída de um replay não é a do outro (S-7/S-6)
+
 
 def test_replay_nao_apaga_a_saida_do_outro(tmp_path: Path, monkeypatch) -> None:
     """Rodar o A1 não pode remover artefatos do A2 — e vice-versa.
@@ -261,6 +335,7 @@ def test_replay_nao_apaga_a_saida_do_outro(tmp_path: Path, monkeypatch) -> None:
     não foi tocado.
     """
     import r3_replay_a2 as a2
+
     # o caminho REAL, antes de qualquer troca: é contra ele que a escrita é medida
     real_a1, real_a2 = ra.SAIDA, a2.SAIDA
     antes = _assinatura_da_saida(real_a1) | _assinatura_da_saida(real_a2)
@@ -273,12 +348,16 @@ def test_replay_nao_apaga_a_saida_do_outro(tmp_path: Path, monkeypatch) -> None:
 
     saida_a1.mkdir(parents=True, exist_ok=True)
     saida_a2.mkdir(parents=True, exist_ok=True)
-    (saida_a1 / "results-a1.json").write_text('{"use_case":"a1_relevance"}', encoding="utf-8")
-    (saida_a2 / "results-a2.json").write_text('{"use_case":"a2_outcome"}', encoding="utf-8")
+    (saida_a1 / "results-a1.json").write_text(
+        '{"use_case":"a1_relevance"}', encoding="utf-8"
+    )
+    (saida_a2 / "results-a2.json").write_text(
+        '{"use_case":"a2_outcome"}', encoding="utf-8"
+    )
 
     # rodar o A1 de verdade (só a regra, sem modelo) no SANDBOX
-    monkeypatch.setattr(ra, "carregar_blocos", lambda: [])
-    monkeypatch.setattr(ra, "indexar_texto", lambda: {})
+    monkeypatch.setattr(ra, "carregar_blocos", list)
+    monkeypatch.setattr(ra, "indexar_texto", dict)
     monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
     try:
         ra.main()
@@ -292,7 +371,7 @@ def test_replay_nao_apaga_a_saida_do_outro(tmp_path: Path, monkeypatch) -> None:
     depois = _assinatura_da_saida(real_a1) | _assinatura_da_saida(real_a2)
     assert depois == antes, (
         "a suíte alterou o diretório de saida REAL:\n"
-        f"  antes={ {k: v[0][:8] for k, v in before.items()} }\n"
+        f"  antes={ {k: v[0][:8] for k, v in antes.items()} }\n"
         f"  depois={ {k: v[0][:8] for k, v in depois.items()} }"
     )
 
@@ -304,16 +383,22 @@ def _assinatura_da_saida(d: Path) -> dict:
     arquivo é sobrescrito com sucesso e o assert do teste continua verde.
     """
     import hashlib
+
     if not d.exists():
         return {}
     out = {}
     for p in sorted(d.rglob("*")):
         if p.is_file():
-            out[str(p)] = (hashlib.sha256(p.read_bytes()).hexdigest(), p.stat().st_mtime)
+            out[str(p)] = (
+                hashlib.sha256(p.read_bytes()).hexdigest(),
+                p.stat().st_mtime,
+            )
     return out
 
 
-def test_a_saida_real_esta_preservada_quando_a_constante_e_trocada(tmp_path: Path, monkeypatch) -> None:
+def test_a_saida_real_esta_preservada_quando_a_constante_e_trocada(
+    tmp_path: Path, monkeypatch
+) -> None:
     """Trocando `SAIDA` (e não `_RAIZ`), nada do diretório real muda.
 
     Este é o teste-guarda: se alguém voltar a redirecionar por `_RAIZ`, a
@@ -326,8 +411,8 @@ def test_a_saida_real_esta_preservada_quando_a_constante_e_trocada(tmp_path: Pat
     if not antes:
         pytest.skip("sem saida real para preservar (ainda nao houve replay)")
     monkeypatch.setattr(ra, "SAIDA", tmp_path / "a1")
-    monkeypatch.setattr(ra, "carregar_blocos", lambda: [])
-    monkeypatch.setattr(ra, "indexar_texto", lambda: {})
+    monkeypatch.setattr(ra, "carregar_blocos", list)
+    monkeypatch.setattr(ra, "indexar_texto", dict)
     monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
     try:
         ra.main()
@@ -343,6 +428,7 @@ def test_cache_only_aborta_em_vez_de_chamar_a_api(monkeypatch) -> None:
     `jev_journal.jsonl` tem de ficar igual antes e depois.
     """
     import r3_replay_a2 as a2
+
     chamadas = {"n": 0}
 
     def _fake(*args, **kwargs):
@@ -350,15 +436,25 @@ def test_cache_only_aborta_em_vez_de_chamar_a_api(monkeypatch) -> None:
         return {a2.QID: {"type": "noul", "noul": 0.4}}
 
     import jev_client
+
     monkeypatch.setattr(jev_client, "system_one", _fake)
     monkeypatch.setattr(jev_client, "_read_cache", lambda p: {})
 
-    ev = {"session_hash": "abc", "kind": "a2_offer_closed", "use_case": "a2_outcome",
-          "mode": "code", "closed_by": "consumed", "cmd_heads": ["ls"],
-          "baseline_value": 1.0}
-    out = a2.braço_jev([ev], verbose=False,
-                       cache_path=Path(os.devnull).parent / "nao-existe.jsonl",
-                       cache_only=True)
+    ev = {
+        "session_hash": "abc",
+        "kind": "a2_offer_closed",
+        "use_case": "a2_outcome",
+        "mode": "code",
+        "closed_by": "consumed",
+        "cmd_heads": ["ls"],
+        "baseline_value": 1.0,
+    }
+    out = a2.braço_jev(
+        [ev],
+        verbose=False,
+        cache_path=Path(os.devnull).parent / "nao-existe.jsonl",
+        cache_only=True,
+    )
     assert chamadas["n"] == 0, f"cache_only chamou a API {chamadas['n']}x"
     assert "CACHE_MISS" in out[0].get("erro", ""), (
         f"o cache miss tem de ser declarado: {out[0]}"
@@ -366,6 +462,7 @@ def test_cache_only_aborta_em_vez_de_chamar_a_api(monkeypatch) -> None:
 
 
 # ─────── os 3 bugs, testados contra o CÓDIGO REAL (não contra uma recópia)
+
 
 def test_dataset_real_da_block_id_distinta_para_irmaos_do_turno() -> None:
     """BUG 1, contra `carregar_blocos()` de verdade.
@@ -376,14 +473,19 @@ def test_dataset_real_da_block_id_distinta_para_irmaos_do_turno() -> None:
     dois `block_id` distintos.
     """
     import tempfile
+
     blocos = _dataset_com_irmaos()
     with tempfile.TemporaryDirectory() as d:
         c = Path(d) / "a1_blocks.jsonl"
-        c.write_text("\n".join(json.dumps(b, ensure_ascii=False) for b in blocos) + "\n",
-                     encoding="utf-8")
+        c.write_text(
+            "\n".join(json.dumps(b, ensure_ascii=False) for b in blocos) + "\n",
+            encoding="utf-8",
+        )
         p = Path(d) / "corpus"
         p.mkdir()
-        (p / "a1_blocks.jsonl").write_text(c.read_text(encoding="utf-8"), encoding="utf-8")
+        (p / "a1_blocks.jsonl").write_text(
+            c.read_text(encoding="utf-8"), encoding="utf-8"
+        )
         antigo = ra.CORPUS
         try:
             ra.CORPUS = p
@@ -404,16 +506,31 @@ def test_indice_real_da_texto_distinto_por_bloco() -> None:
     guarde os DOIS textos em posições diferentes.
     """
     import tempfile
+
     # o formato REAL: `attachment` com `type: hook_success` e o texto em `stdout`
     # como JSON de `hookSpecificOutput.additionalContext` — é o que
     # `ex._texts_do_attachment` lê (context_budget.rs:218-251).
     def _att(tipo, texto):
-        return json.dumps({"type": "attachment", "attachment": {
-            "type": tipo,
-            "stdout": json.dumps({"hookSpecificOutput": {"additionalContext": texto}})}})
+        return json.dumps(
+            {
+                "type": "attachment",
+                "attachment": {
+                    "type": tipo,
+                    "stdout": json.dumps(
+                        {"hookSpecificOutput": {"additionalContext": texto}}
+                    ),
+                },
+            }
+        )
+
     linhas = [
-        json.dumps({"timestamp": "2026-09-01T10:00:00Z", "type": "user",
-                    "message": {"content": "oi"}}),
+        json.dumps(
+            {
+                "timestamp": "2026-09-01T10:00:00Z",
+                "type": "user",
+                "message": {"content": "oi"},
+            }
+        ),
         _att("hook_success", BLOCO_A),
         _att("hook_success", BLOCO_B),
     ]
@@ -443,21 +560,48 @@ def test_block_id_real_usa_posicao_ENTRE_irmaos_nao_por_arquivo() -> None:
     SEGUNDO turno — a posição global continuaria, a do turno reinicia.
     """
     import tempfile
+
     blocos = [
-        {"session": "aaaa1111", "turno": 7, "family": "touring-suggest",
-         "attachment_type": "hook_success", "bytes": 10, "propositions": 1,
-         "is_touring_family": True, "is_exempt": False, "is_duplicate": False},
-        {"session": "aaaa1111", "turno": 7, "family": "touring-suggest",
-         "attachment_type": "hook_success", "bytes": 20, "propositions": 1,
-         "is_touring_family": True, "is_exempt": False, "is_duplicate": False},
-        {"session": "aaaa1111", "turno": 9, "family": "touring-suggest",
-         "attachment_type": "hook_success", "bytes": 30, "propositions": 1,
-         "is_touring_family": True, "is_exempt": False, "is_duplicate": False},
+        {
+            "session": "aaaa1111",
+            "turno": 7,
+            "family": "touring-suggest",
+            "attachment_type": "hook_success",
+            "bytes": 10,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+        },
+        {
+            "session": "aaaa1111",
+            "turno": 7,
+            "family": "touring-suggest",
+            "attachment_type": "hook_success",
+            "bytes": 20,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+        },
+        {
+            "session": "aaaa1111",
+            "turno": 9,
+            "family": "touring-suggest",
+            "attachment_type": "hook_success",
+            "bytes": 30,
+            "propositions": 1,
+            "is_touring_family": True,
+            "is_exempt": False,
+            "is_duplicate": False,
+        },
     ]
     with tempfile.TemporaryDirectory() as d:
         p = Path(d)
         (p / "a1_blocks.jsonl").write_text(
-            "\n".join(json.dumps(b, ensure_ascii=False) for b in blocos) + "\n", encoding="utf-8")
+            "\n".join(json.dumps(b, ensure_ascii=False) for b in blocos) + "\n",
+            encoding="utf-8",
+        )
         antigo = ra.CORPUS
         try:
             ra.CORPUS = p
@@ -480,26 +624,71 @@ def test_cache_only_nao_chama_a_api_mesmo_com_o_jev_cache_cheio(monkeypatch) -> 
     braço tem de devolver a predição do cache e não chamar a rede — se o
     `if cache_only and jev_cache` sumir, a chamada acontece e o teste reprova.
     """
-    import r3_replay_a2 as a2
     import jev_client
+    import r3_replay_a2 as a2
+
     chamadas = {"n": 0}
 
     def _fake(*a, **k):
         chamadas["n"] += 1
         return {a2.QID: {"type": "noul", "noul": 0.4}}
 
-    ev = {"session_hash": "abc", "kind": "a2_offer_closed", "use_case": "a2_outcome",
-          "mode": "code", "closed_by": "consumed", "cmd_heads": ["ls"],
-          "baseline_value": 1.0}
-    perguntas = {a2.QID: {
-        "type": "noul",
-        "instructions": "Did the agent follow the recommended route after the nudge?"}}
+    ev = {
+        "session_hash": "abc",
+        "kind": "a2_offer_closed",
+        "use_case": "a2_outcome",
+        "mode": "code",
+        "closed_by": "consumed",
+        "cmd_heads": ["ls"],
+        "baseline_value": 1.0,
+    }
+    perguntas = {
+        a2.QID: {
+            "type": "noul",
+            "instructions": "Did the agent follow the recommended route after the nudge?",
+        }
+    }
     chave = jev_client._cache_key(a2.payload_of(ev), perguntas, "jev-1.13.0")
     monkeypatch.setattr(jev_client, "system_one", _fake)
-    monkeypatch.setattr(jev_client, "_read_cache",
-                        lambda p: {chave: {a2.QID: {"type": "noul", "noul": 0.77}}})
-    out = a2.braço_jev([ev], verbose=False,
-                       cache_path=Path(os.devnull).parent / "inexistente.jsonl",
-                       cache_only=True)
-    assert chamadas["n"] == 0, f"cache_only chamou a API apesar do cache cheio ({chamadas['n']}x)"
+    monkeypatch.setattr(
+        jev_client,
+        "_read_cache",
+        lambda p: {chave: {a2.QID: {"type": "noul", "noul": 0.77}}},
+    )
+    out = a2.braço_jev(
+        [ev],
+        verbose=False,
+        cache_path=Path(os.devnull).parent / "inexistente.jsonl",
+        cache_only=True,
+    )
+    assert chamadas["n"] == 0, (
+        f"cache_only chamou a API apesar do cache cheio ({chamadas['n']}x)"
+    )
     assert out[0].get("p_followed") == 0.77, f"a predição do cache não voltou: {out[0]}"
+
+
+def test_d6_os_dois_denominadores_sao_declarados_sobre_o_mesmo_corte() -> None:
+    """D-6 (b, 31/10/2026): o corte é o mesmo; muda só o denominador. Um bloco de família
+    do Touring fora das 6 de E1.1 (`pre-edit`) entra no denominador S-4 e não é cortado;
+    `plugin-hook`, `generic-noise` e `other` ficam fora dos dois; `train` não conta."""
+
+    def b(fam: str, n: int, turno: int = 1) -> dict:
+        return {"session": "s", "turno": turno, "family": fam, "bytes": n}
+
+    blocos = [
+        b("touring-suggest", 100),
+        b("pre-edit", 300),
+        b("plugin-hook", 50),
+        b("generic-noise", 9),
+        b("other", 40),
+        b("touring-suggest", 999, turno=2),
+    ]
+    part = {("s", 1): "test", ("s", 2): "train"}
+    m_bd = {"bytes_totais": 100, "bytes_mantidos": 50}  # o braço cortou 50 B de E1.1
+    den = ra.denominadores(blocos, part, m_bd)
+    assert den["e1_1"] == {"bytes": 100, "bytes_saved": 0.5}
+    assert den["taxonomia_s4"] == {"bytes": 400, "bytes_saved": 0.125}
+    assert not ra.kpi.is_touring_by_taxonomy("plugin-hook")
+    assert ra.kpi.is_touring_by_taxonomy("pre-edit")
+    # As 6 de E1.1 são subconjunto da taxonomia S-4: o denominador declarado nunca é menor.
+    assert all(ra.kpi.is_touring_by_taxonomy(f) for f in ra.kpi.TOURING_FAMILIES)

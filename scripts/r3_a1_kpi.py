@@ -40,6 +40,7 @@ idêntico, o que é o mesmo predicado com outra função de hash (o Rust usa has
 `str`; o Python, o próprio texto). A DUPLICATA é a mesma, o número de COLISÕES é
 que difere — e colisão de 64-bit em 566 blocos é evento raro, não measurement.
 """
+
 from __future__ import annotations
 
 import json
@@ -61,19 +62,33 @@ from pathlib import Path
 # três com o FONTE (nome, ordem, agulhas e padrão).
 FAMILY_TABLE: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("code-mode-contract", ("CODE MODE — contrato",)),
-    ("code-mode-deny", ("CODE MODE", "G7 re-inspe", "G10 write", "G1 rajada", "G11 ", "G3 edit")),
+    (
+        "code-mode-deny",
+        ("CODE MODE", "G7 re-inspe", "G10 write", "G1 rajada", "G11 ", "G3 edit"),
+    ),
     ("touring-suggest", ("TOURING SUGGEST",)),
     ("loop-outer", ("LOOP RESUME", "work-outer", "explore-ledger", "OUTER ·")),
-    ("session-start", (
-        "Touring Knowledge", "ATZILUTH", "SCOUT PERP", "TOURING (slim)", "Painel",
-        "Session intelligence", "Touring: collecting session intelligence",
-        "Touring: initializing cognitive engine",
-    )),
+    (
+        "session-start",
+        (
+            "Touring Knowledge",
+            "ATZILUTH",
+            "SCOUT PERP",
+            "TOURING (slim)",
+            "Painel",
+            "Session intelligence",
+            "Touring: collecting session intelligence",
+            "Touring: initializing cognitive engine",
+        ),
+    ),
     ("prompt-enhance", ("PROMPT ENHANCEMENT",)),
     ("past-lessons", ("lições de erros passados", "Similar command failed")),
     ("post-tool-echo", ("temporal: reliability", "last fail:", "post-tool-batch")),
     ("evidence-guard", ("EVIDENCE GUARD",)),
-    ("debug-stdout", ("[EVENT_READER]", "[POST_QUALITY_GATE", "Hook execution started")),
+    (
+        "debug-stdout",
+        ("[EVENT_READER]", "[POST_QUALITY_GATE", "Hook execution started"),
+    ),
     ("plugin-hook", ("[SUGESTÃO DE SKILL",)),
     ("pre-write", ("code-workflow", "rust-workflow")),
     ("pre-edit", ("HOTSPOT:", "wiring_predict:", "callers:", "related docs:")),
@@ -86,15 +101,21 @@ FAMILY_TABLE: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 #: Os padrões de conteúdo — as formas sem marcador próprio (o payload que o
 #: orçamento do turno stripped, a razão de deny do gate, o programa fundido).
-FAMILY_PATTERNS: tuple[tuple[str, tuple["re.Pattern[str]", ...]], ...] = (
+FAMILY_PATTERNS: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = (
     ("code-mode-deny", (re.compile(r"\[G\d+\s"),)),
     ("session-contract", (re.compile(r"MUST\s+touring doctor -j"),)),
-    ("pipefail-evidence", (re.compile(r"exited 0, but its output shows errors after a pipe"),)),
+    (
+        "pipefail-evidence",
+        (re.compile(r"exited 0, but its output shows errors after a pipe"),),
+    ),
     ("generic-noise", (re.compile(r"^\[generic\]"),)),
     ("context-monitor", (re.compile(r"Contexto em \d+%"),)),
     ("compaction-gaps", (re.compile(r"\[COMPACTA[ÇC][ÃA]O"),)),
     ("delegation-nudge", (re.compile(r"\[M3 delega"),)),
-    ("failure-echo", (re.compile(r"⚡ last fail:"), re.compile(r"failed \(exit \d+\):"))),
+    (
+        "failure-echo",
+        (re.compile(r"⚡ last fail:"), re.compile(r"failed \(exit \d+\):")),
+    ),
     ("quality-gate", (re.compile(r"\[E\d+\s"),)),
     ("touring-suggest", (re.compile(r"(?m)^\s*(?:MUST|SHOULD|MAY)\s+\S"),)),
 )
@@ -113,12 +134,30 @@ OTHER = "other"  # o catch-all da régua (injection_family.rs:41-50)
 # dataset (E1.1 + S-4 do plano r3): decisão do Gabriel, não uma troca silenciosa
 # de lista — e um denominador furado é pior do que um denominador declarado.
 TOURING_FAMILIES = (
-    "touring-suggest", "code-mode-deny", "loop-outer",
-    "session-start", "post-tool-echo", "past-lessons",
+    "touring-suggest",
+    "code-mode-deny",
+    "loop-outer",
+    "session-start",
+    "post-tool-echo",
+    "past-lessons",
 )
 
-MAX_TRANSCRIPTS = 3   # :40
-MAX_BYTES = 48 * 1024 * 1024   # :42
+# D-6 (decisão do Gabriel, 31/10/2026 — opção (b)): as 6 famílias acima seguem sendo a
+# DEFINIÇÃO do dataset congelado (E1.1; nada é re-extraído nem re-congelado), e todo
+# relatório passa a declarar TAMBÉM o denominador da taxonomia S-4: toda família que a
+# régua atribui ao Touring. Fora dele ficam só as três que o Touring não emite —
+# `plugin-hook` (hooks de outros plugins), `generic-noise` (o `[generic]` sem conteúdo)
+# e `other` (o catch-all). Dois números declarados, nenhum trocado em silêncio.
+NON_TOURING_FAMILIES = ("plugin-hook", "generic-noise", OTHER)
+
+
+def is_touring_by_taxonomy(family: str) -> bool:
+    """O bloco é do Touring pela taxonomia S-4 (o denominador declarado do D-6)."""
+    return family not in NON_TOURING_FAMILIES
+
+
+MAX_TRANSCRIPTS = 3  # :40
+MAX_BYTES = 48 * 1024 * 1024  # :42
 
 # `hook_contexts` — :218-251: SÓ `hook_success` (`:222`).
 HOOK_ATTACHMENT_TYPE = "hook_success"
@@ -195,7 +234,7 @@ def count_propositions(text: str) -> int:
     n = 0
     for line in text.split("\n"):
         t = line.lstrip()
-        if t.startswith("MUST") or t.startswith("SHOULD") or t.startswith("MAY"):
+        if t.startswith(("MUST", "SHOULD", "MAY")):
             n += 1
     return n
 
@@ -276,7 +315,7 @@ def agregar(paths: list[Path]) -> dict:
     n_transcripts = 0
 
     for p in paths:
-        if bytes_scanned >= MAX_BYTES:      # :909-910
+        if bytes_scanned >= MAX_BYTES:  # :909-910
             capped = True
             break
         try:
@@ -296,11 +335,17 @@ def agregar(paths: list[Path]) -> dict:
                 props = count_propositions(text)
                 total_bytes += ln
                 total_blocks += 1
-                e = fam.setdefault(familia, {
-                    "blocks": 0, "bytes": 0, "propositions": 0,
-                    "zero_proposition_blocks": 0,
-                    "duplicate_bytes": 0, "duplicate_blocks": 0,
-                })
+                e = fam.setdefault(
+                    familia,
+                    {
+                        "blocks": 0,
+                        "bytes": 0,
+                        "propositions": 0,
+                        "zero_proposition_blocks": 0,
+                        "duplicate_bytes": 0,
+                        "duplicate_blocks": 0,
+                    },
+                )
                 e["bytes"] += ln
                 e["blocks"] += 1
                 e["propositions"] += props
