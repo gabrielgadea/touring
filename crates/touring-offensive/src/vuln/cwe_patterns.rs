@@ -545,15 +545,46 @@ fn is_inert_constant_url(input: &str, at: usize) -> bool {
             .iter()
             .position(|&c| c.is_ascii_whitespace() || matches!(c, b'>' | b'"' | b'\''))
             .unwrap_or(tail.len());
-        (&tail[..close], body_start + close)
+        // The delimiter ENDS the value: what the check below reads is what comes
+        // AFTER it (a blank, `>`, a quote). Pointing at the delimiter itself made
+        // the delimiter look like a continuation (`s = "x=javascript:;"`).
+        (&tail[..close], (body_start + close + 1).min(b.len()))
     } else {
         return false;
     };
-    let goes_on = b[end..]
-        .iter()
-        .find(|c| !c.is_ascii_whitespace())
-        .is_some_and(|&c| matches!(c, b'+' | b'%' | b'.' | b'"' | b'\''));
-    !goes_on && is_inert_url_body(body)
+    !value_continues(b, end) && is_inert_url_body(body)
+}
+
+/// The value that ends at `end` CONTINUES: the constant is concatenated (`+`, `%`,
+/// `.format(`, an adjacent literal) — the data that reaches the URL is then not in
+/// the constant, and the constant is not inert.
+///
+/// The adjacent literal of Python (`"…" f"…"`) is an IDENTIFIER (the prefix of the
+/// literal) followed by a quote; the HTML attribute that follows a value is an
+/// identifier followed by `=`. That one character tells the two apart.
+fn value_continues(b: &[u8], end: usize) -> bool {
+    let Some(corte) = b.get(end..) else {
+        return false;
+    };
+    let Some(pos) = corte.iter().position(|c| !c.is_ascii_whitespace()) else {
+        return false;
+    };
+    let i = end + pos;
+    let first = b[i];
+    if matches!(first, b'+' | b'%' | b'.' | b'"' | b'\'') {
+        return true;
+    }
+    if first.is_ascii_alphabetic() || first == b'_' {
+        let mut j = i;
+        while b
+            .get(j)
+            .is_some_and(|c| c.is_ascii_alphanumeric() || *c == b'_')
+        {
+            j += 1;
+        }
+        return matches!(b.get(j).copied(), Some(b'"') | Some(b'\''));
+    }
+    false
 }
 
 /// `body` (a `javascript:` URL's script, blanks ignored, one trailing `;` allowed) is
