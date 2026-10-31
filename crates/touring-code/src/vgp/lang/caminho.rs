@@ -61,6 +61,11 @@ fn dentro_de_uma(raiz: &Path, alvo: &Path) -> bool {
         // that does not exist exists either.
         None => {
             let raiz_norm = normaliza(raiz);
+            if raiz_norm.as_os_str().is_empty() {
+                // an empty root matches EVERY path (`Path::starts_with("")` is
+                // true for any path) — it is not a root
+                return false;
+            }
             let alvo_norm = normaliza(alvo);
             alvo_norm.starts_with(&raiz_norm) && alvo_norm != raiz_norm
         }

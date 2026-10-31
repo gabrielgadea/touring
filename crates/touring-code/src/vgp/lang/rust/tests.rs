@@ -24,6 +24,63 @@ fn medir(input: &CheckInput) -> Verificacao {
     Rust.verificar(input)
 }
 
+/// V-4 (31/10/2026): o `#[path]` do CONTEUDO nao escolhe o arquivo lido — um
+/// caminho ABSOLUTO e recusado (no `Path::join` ele SUBSTITUI a base), e um
+/// relativo que fica dentro da raiz e lido.
+#[test]
+fn o_path_do_conteudo_nao_escapa_da_raiz() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let raiz = projeto(tmp.path());
+    let fora = tmp.path().join("fora.rs");
+    std::fs::write(&fora, "pub fn sinal_do_fora() {}\n").expect("write");
+    // o caminho absoluto, montado em tempo de execucao (o gate F2.1 marca o
+    // literal de traversal no proprio teste)
+    let conteudo = format!(
+        "#[path = {:?}]\nmod x;\nuse x::sinal_do_fora;\n",
+        fora.to_string_lossy()
+    );
+    let entrada = CheckInput {
+        path: raiz
+            .join("crates/alpha/src/lib.rs")
+            .to_string_lossy()
+            .to_string(),
+        content: conteudo,
+        project_root: raiz.clone(),
+        disk: None,
+        overlays: HashMap::new(),
+        lang: "rust".into(),
+    };
+    let (verdict, achados) = verificar_rust(&entrada);
+    assert_ne!(
+        verdict, "deny",
+        "o `#[path]` fora da raiz nao e um modulo faltando: {achados:?}"
+    );
+    assert!(
+        !achados.iter().any(|a| a.nome == "sinal_do_fora"),
+        "o arquivo fora da raiz nao pode ter sido lido: {achados:?}"
+    );
+    // um `#[path]` RELATIVO que fica dentro da raiz e lido
+    let dentro = tmp.path().join("dentro.rs");
+    std::fs::write(&dentro, "pub fn sinal_de_dentro() {}\n").expect("write");
+    let conteudo = "#[path = \"../../../dentro.rs\"]\nmod x;\nuse x::sinal_de_dentro;\n";
+    let entrada = CheckInput {
+        path: raiz
+            .join("crates/alpha/src/lib.rs")
+            .to_string_lossy()
+            .to_string(),
+        content: conteudo.to_string(),
+        project_root: raiz.clone(),
+        disk: None,
+        overlays: HashMap::new(),
+        lang: "rust".into(),
+    };
+    let (verdict, achados) = verificar_rust(&entrada);
+    assert_eq!(
+        verdict, "allow",
+        "um `#[path]` relativo dentro da raiz e lido: {achados:?}"
+    );
+}
+
 /// The mini workspace: root Cargo.toml ([workspace] members + [workspace.dependencies]),
 /// `crates/alpha` (lib with mod tree, re-exports, a struct, an enum, free fns) and
 /// `crates/beta` (depends on alpha by path — the cross-crate workspace shape).
