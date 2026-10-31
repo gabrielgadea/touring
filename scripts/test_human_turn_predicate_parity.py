@@ -39,8 +39,11 @@ REPO = Path(__file__).resolve().parent.parent
 RUST = REPO / "crates/touring-cli/src/cli/context_budget.rs"
 PY_MIRROR = REPO / "client/skills/loop-engineering/scripts/hooks/loop_turn_record.py"
 
+# `pub` OPCIONAL: no executor a constante é privada (`const`, sem `pub`) — e o
+# guard exigia `pub`, então ele deixou de guardar, EM SILÊNCIO: a lista mudou e
+# ninguém foi avisado. O predicado é o mesmo; o que mudou foi a visibilidade.
 _RUST_ARRAY = re.compile(
-    r"pub const NON_HUMAN_TURN_MARKERS:\s*\[&str;\s*\d+\]\s*=\s*\[(?P<body>.*?)\];",
+    r"(?:pub\s+)?const NON_HUMAN_TURN_MARKERS:\s*\[&str;\s*\d+\]\s*=\s*\[(?P<body>.*?)\];",
     re.S,
 )
 
