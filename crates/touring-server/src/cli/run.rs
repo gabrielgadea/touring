@@ -631,7 +631,14 @@ struct RunCli {
     lang: String,
 
     /// Inline code body (mutually exclusive with --file / --stdin)
-    #[arg(long, conflicts_with_all = ["file", "stdin"])]
+    ///
+    /// V-10 (31/10/2026): `-c` é o alias curto de `--code`. No V0e
+    /// (`docs/plans/2026-10-08-vgp-motor-base/diagnostics/V0e-fora-de-gate.md`),
+    /// 4 das 220 falhas de `touring run` eram `touring run --lang python -c '…'`
+    /// respondendo `error: unexpected argument '-c' found` — o modelo esquecia
+    /// a rota e a falha vinha sem correção nenhuma. Medido no binário
+    /// 30.4.101: `touring run --lang python -c 'print(1)'` → rc=2, sem rodar.
+    #[arg(short = 'c', long, conflicts_with_all = ["file", "stdin"])]
     code: Option<String>,
 
     /// Read the code body from a file
@@ -2577,6 +2584,27 @@ mod tests {
         assert_eq!(cli.lang, "python");
         assert_eq!(cli.code.as_deref(), Some("print(1)"));
         assert!(!cli.brief);
+    }
+
+    /// V-10 (31/10/2026) — `-c` é o alias curto de `--code`.
+    ///
+    /// No V0e, 4 das 220 falhas de `touring run` foram `touring run --lang
+    /// python -c '…'`, e a CLI respondeu `error: unexpected argument '-c'
+    /// found` (medido no binário 30.4.101: rc=2, o programa não rodou). O
+    /// modelo esquecia a rota e a falha vinha sem correção nenhuma.
+    #[test]
+    fn o_alias_curto_c_carrega_o_mesmo_corpo() {
+        let curto = RunCli::try_parse_from(["run", "--lang", "python", "-c", "print(1)"])
+            .expect("`-c` é aceito");
+        assert_eq!(curto.lang, "python");
+        assert_eq!(curto.code.as_deref(), Some("print(1)"));
+
+        // O alias NÃO abre uma porta nova: `-c` continua exclusivo de
+        // `--file`/`--stdin`, como `--code` é.
+        assert!(
+            RunCli::try_parse_from(["run", "--lang", "python", "-c", "x", "--file", "y"]).is_err(),
+            "`-c` e `--file` são mutuamente exclusivos"
+        );
     }
 
     #[test]
