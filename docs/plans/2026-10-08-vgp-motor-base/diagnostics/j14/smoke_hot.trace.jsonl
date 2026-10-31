@@ -1,0 +1,8 @@
+{"elapsed_ms":1616,"exit_reason":"daemon-json","hook":"pre-write","pid":1975389,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":373,"stdin_state":"ok","ts_ms":1793480925384}
+{"elapsed_ms":131,"exit_reason":"daemon-json","hook":"pre-write","pid":1975415,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":368,"stdin_state":"ok","ts_ms":1793480925529}
+{"elapsed_ms":45,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975490,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":313,"stdin_state":"ok","ts_ms":1793480925587}
+{"elapsed_ms":40,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975502,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":308,"stdin_state":"ok","ts_ms":1793480925641}
+{"elapsed_ms":41,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975577,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":346,"stdin_state":"ok","ts_ms":1793480925693}
+{"elapsed_ms":43,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975588,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":341,"stdin_state":"ok","ts_ms":1793480925749}
+{"elapsed_ms":41,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975663,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":345,"stdin_state":"ok","ts_ms":1793480925801}
+{"elapsed_ms":43,"exit_reason":"daemon-json","hook":"pre-bash","pid":1975674,"ppid":1975388,"route":"daemon","session_id":"j14-hot-1975388-1793480923757582574","stdin_bytes":340,"stdin_state":"ok","ts_ms":1793480925858}

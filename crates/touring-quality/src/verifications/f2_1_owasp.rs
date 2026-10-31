@@ -10,6 +10,11 @@
 //! `regex.exec(...)`) and a false-negative one (missed `execSync(\`…${x}…\`)`).
 //! Without the feature, a clearly-labelled substring fallback remains so the
 //! crate stays standalone-buildable.
+//!
+//! D-4 (31/10/2026): the engine also reports ADVISORIES — a tainted DOM sink in JS/TS
+//! (`el.innerHTML = location.hash`, `touring_analysis::quality::dom_sinks`). They are
+//! named in the evidence and carried in [`OwaspScan::advisories`], but they never enter
+//! the score and never block: the gate is P0, and promotion is a separate decision.
 
 use crate::DimId;
 use crate::verifications::Verification;
@@ -92,8 +97,13 @@ pub struct OwaspScan {
     pub lang: String,
     /// Every match, in input order.
     pub matches: Vec<OwaspMatch>,
-    /// The F2.1 score: `1 - sum(severity)/10`, clamped to `[0, 1]`.
+    /// The F2.1 score: `1 - sum(severity)/10`, clamped to `[0, 1]`. Advisories do not enter it.
     pub score: f32,
+    /// Findings REPORTED but never SCORED or blocking: a tainted DOM sink in JS/TS
+    /// (`el.innerHTML = location.hash`). Warn-only by design (D-4, 31/10/2026) — the
+    /// gate is P0, so a false positive here would freeze every Write/Edit; promotion
+    /// is Gabriel's decision after the census (plan `2026-10-31-f21inner`).
+    pub advisories: Vec<OwaspMatch>,
     /// Why the registry did NOT run on this text (allowlisted harness, detector own
     /// source, attack-fixture pragma, engine not built) -- `None` when it ran.
     pub not_scanned: Option<String>,
@@ -105,6 +115,7 @@ impl OwaspScan {
             lang: lang.to_string(),
             matches: Vec::new(),
             score: 1.0,
+            advisories: Vec::new(),
             not_scanned: Some(reason.into()),
         }
     }
@@ -187,6 +198,17 @@ fn owasp_matches(raw: &str, target: &Path) -> OwaspScan {
             })
             .collect(),
         score,
+        advisories: report
+            .advisories
+            .iter()
+            .map(|v| OwaspMatch {
+                pattern: v.pattern_name.clone(),
+                cwe_id: v.cwe_id,
+                severity: v.severity,
+                span: v.span,
+                line: line_of(raw, v.span.0),
+            })
+            .collect(),
         not_scanned: None,
     }
 }
@@ -212,16 +234,17 @@ fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
     // exactly what happened three times on 2026-08-02, all false positives.
     // Vulnerability matches are code patterns, not credentials, so quoting the
     // line is safe here (contrast F2.4, which must redact).
+    let note = advisory_note(raw, &scan.advisories);
     let evidence = match scan.matches.first() {
         None => format!(
-            "OWASP/CWE (SecurityAnalyzer, {} patterns): 0 vulnerability match(es), score={value:.3}",
+            "OWASP/CWE (SecurityAnalyzer, {} patterns): 0 vulnerability match(es), score={value:.3}{note}",
             scan.lang
         ),
         Some(first) => {
             let (line, excerpt) = crate::verifications::locate_span(raw, first.span, false);
             format!(
                 "OWASP/CWE (SecurityAnalyzer, {} patterns): {} vulnerability match(es), \
-                 score={value:.3}; first: {} (CWE-{}) at line {line} — `{excerpt}`",
+                 score={value:.3}; first: {} (CWE-{}) at line {line} — `{excerpt}`{note}",
                 scan.lang,
                 scan.matches.len(),
                 first.pattern,
@@ -230,6 +253,22 @@ fn analyze_owasp(raw: &str, target: &Path) -> (f32, String) {
         }
     };
     (value, evidence)
+}
+
+/// The evidence suffix naming the advisories (reported, NOT scored), empty when there are
+/// none. Vulnerability matches quote code, not credentials, so quoting the line is safe.
+#[cfg(feature = "workspace-integration")]
+fn advisory_note(raw: &str, advisories: &[OwaspMatch]) -> String {
+    let Some(first) = advisories.first() else {
+        return String::new();
+    };
+    let (line, excerpt) = crate::verifications::locate_span(raw, first.span, false);
+    format!(
+        "; advisory (NOT scored, warn only): {} {} (CWE-{}) at line {line} — `{excerpt}`",
+        advisories.len(),
+        first.pattern,
+        first.cwe_id,
+    )
 }
 
 /// Fallback (no `workspace-integration`): coarse substring sinks. Explicitly
@@ -724,12 +763,106 @@ mod tests {
         assert_eq!(OwaspScan::tier_of(1.0), "P2", "score 0.90 passes");
     }
 
+    // ---- 31/10/2026 (D-4): a tainted DOM sink is an advisory, never a score ------------
+
+    #[cfg(feature = "workspace-integration")]
+    const TAINTED_SINK_JS: &str = "function render(el, html) {\n  el.innerHTML = html;\n}\n";
+    #[cfg(feature = "workspace-integration")]
+    const JS_URL_HIT: &str = "var x = 1;\nlocation = 'javascript:' + x;\n";
+
+    #[cfg(feature = "workspace-integration")]
+    fn write_js(content: &str) -> NamedTempFile {
+        let mut f = tempfile::Builder::new()
+            .suffix(".js")
+            .tempfile()
+            .expect("create temp");
+        f.write_all(content.as_bytes()).expect("write");
+        f
+    }
+
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn a_tainted_dom_sink_is_an_advisory_that_neither_scores_nor_blocks() {
+        let f = write_js(TAINTED_SINK_JS);
+        let scan = owasp_scan(TAINTED_SINK_JS, f.path());
+        assert!(scan.not_scanned.is_none(), "{scan:?}");
+        assert_eq!(scan.advisories.len(), 1, "{scan:?}");
+        let advisory = &scan.advisories[0];
+        assert_eq!(
+            (advisory.pattern.as_str(), advisory.cwe_id, advisory.line),
+            ("DomXss", 79, 2)
+        );
+        assert!(
+            scan.matches.is_empty(),
+            "an advisory is not a vulnerability match: {scan:?}"
+        );
+        assert_eq!(scan.score, 1.0);
+        assert!(!scan.blocks());
+        let (value, evidence) = F2_1_Owasp.measure(f.path()).expect("measure");
+        assert_eq!(value, 1.0, "{evidence}");
+        assert!(
+            evidence.contains("advisory (NOT scored, warn only): 1 DomXss (CWE-79) at line 2"),
+            "{evidence}"
+        );
+        let gate = F2_1_Owasp.check(f.path()).expect("gate");
+        assert!(gate.status == crate::DimStatus::Pass);
+    }
+
+    /// The census promise as an invariant: a file with a REAL P0 hit scores the same with
+    /// and without a tainted sink beside it, and blocks the same.
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn advisories_never_move_the_score_of_a_file_that_also_has_a_real_hit() {
+        let real = write_js(JS_URL_HIT);
+        let both_src = format!("{JS_URL_HIT}{TAINTED_SINK_JS}");
+        let both = write_js(&both_src);
+        let alone = owasp_scan(JS_URL_HIT, real.path());
+        let with_advisory = owasp_scan(&both_src, both.path());
+        assert!(alone.blocks() && alone.advisories.is_empty(), "{alone:?}");
+        assert_eq!(with_advisory.advisories.len(), 1, "{with_advisory:?}");
+        assert_eq!(with_advisory.score, alone.score);
+        assert_eq!(with_advisory.matches.len(), alone.matches.len());
+        assert!(with_advisory.blocks());
+        let (value, evidence) = F2_1_Owasp.measure(both.path()).expect("measure");
+        assert!(
+            value < 0.5 && evidence.contains("advisory (NOT scored"),
+            "{evidence}"
+        );
+    }
+
+    #[cfg(feature = "workspace-integration")]
+    #[test]
+    fn a_sanitized_or_constant_sink_leaves_no_advisory_and_the_evidence_unchanged() {
+        for src in [
+            "function r(el, html) { el.innerHTML = DOMPurify.sanitize(html); }\n",
+            "el.innerHTML = '<b>fixed</b>';\n",
+        ] {
+            let f = write_js(src);
+            let scan = owasp_scan(src, f.path());
+            assert!(
+                scan.advisories.is_empty() && scan.matches.is_empty(),
+                "{src}: {scan:?}"
+            );
+            let (value, evidence) = F2_1_Owasp.measure(f.path()).expect("measure");
+            assert_eq!(value, 1.0, "{evidence}");
+            assert!(!evidence.contains("advisory"), "{evidence}");
+        }
+        // The same tainted line in Python is not a DOM sink: the arm reads JS/TS only.
+        let py = write_py("el.innerHTML = location.hash\n");
+        assert!(
+            owasp_scan("el.innerHTML = location.hash\n", py.path())
+                .advisories
+                .is_empty()
+        );
+    }
+
     #[test]
     fn blocks_is_the_fail_line_of_the_dimension() {
         let at = |score: f32| OwaspScan {
             lang: "python".into(),
             matches: Vec::new(),
             score,
+            advisories: Vec::new(),
             not_scanned: None,
         };
         assert!(at(0.49).blocks());

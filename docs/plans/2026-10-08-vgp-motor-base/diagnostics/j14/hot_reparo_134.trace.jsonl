@@ -1,0 +1,2 @@
+{"elapsed_ms":217,"exit_reason":"daemon-json","hook":"pre-write","pid":2909344,"ppid":2909342,"route":"daemon","session_id":"j14-hot-2909342-1793484330187870079","stdin_bytes":11561,"stdin_state":"ok","ts_ms":1793484330418}
+{"elapsed_ms":170,"exit_reason":"daemon-json","hook":"pre-write","pid":2909363,"ppid":2909342,"route":"daemon","session_id":"j14-hot-2909342-1793484330187870079","stdin_bytes":11556,"stdin_state":"ok","ts_ms":1793484330603}

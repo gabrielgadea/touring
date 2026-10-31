@@ -1,0 +1,8 @@
+hw-slot: aguardando — temp 92C > 88C
+recall de símbolo · arquivo 11/13 · inline 21/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 13]} | falsos deny 1 em {'arquivo': 600, 'inline': 400} | avisos em negativos 50 | p95 64.8 ms | chamadas 1064 | não classificados 0 | defeito de corpus (snap não compila) 0
+timeouts da camada 2: 0/1064 · taxa 0.00% · patamar 20% · sinal nao_aplicavel
+  falso deny (arquivo): 0/600 · taxa 0.000% · limite_superior_95 0.50% (teto 1%; o n=600 admite até 1 falso(s))
+  falso deny (inline): 1/400 · taxa 0.250% · limite_superior_95 1.18% (teto 1%; o n=400 admite até 0 falso(s)) · LIMITE ACIMA DO TETO
+  PENDENTE: falso deny (inline) limite superior 95% 1.18% > 1% (1/400, taxa 0.250%) — com n=400 o teto admite no máximo 0 falso(s)
+veredito: NÃO PRONTO
+[instrumentado] 1064 veredictos do motor gravados em /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14/a6b9a550_v2.porid.json
