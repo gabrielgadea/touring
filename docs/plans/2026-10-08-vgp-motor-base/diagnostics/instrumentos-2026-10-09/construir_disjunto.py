@@ -248,7 +248,7 @@ def ajustar_arquivo(corte: str, exc: dict[str, set[str]], quotas: dict[str, int]
         ate = [k for k in com_ts if k.rsplit("@", 1)[1] <= corte]
         STATE["filtrados"] = ate
         return ate, {**d["contagens"], "candidatos_de_toda_a_historia": len(d["filtrados"]), "candidatos_ate_o_corte": len(ate),
-                     "ts_ausente": len(d["filtrados"]) - len(com_ts), "corte": corte}
+                     "ts_ausente": d["contagens"].get("ts_ausente", 0) + len(d["filtrados"]) - len(com_ts), "corte": corte}
 
     def sorteia(ids: list[str], seed: int, n: int, reconhece) -> tuple[list[str], list[str], dict]:
         indice, rng = STATE["indice"], random.Random(seed)

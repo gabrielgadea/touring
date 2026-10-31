@@ -60,10 +60,10 @@ def test_barreira_do_cache_nao_deixa_ts_vazio_atravessar_o_corte(monkeypatch, tm
         "universo_negativos",
         lambda _indice: (
             [f"/p/a.py@{DEPOIS}", "/p/a.py@", f"/p/a.py@{ANTES}"],
-            {"vistos": 1, "candidatos": 3},
+            {"vistos": 1, "candidatos": 3, "ts_ausente": 2},
         ),
     )
     cd.ajustar_arquivo(CORTE, VAZIO, {}, 18, False)
     filtrados, contagens = cd.c0.universo_negativos({})
     assert filtrados == [f"/p/a.py@{ANTES}"]
-    assert contagens["ts_ausente"] == 1
+    assert contagens["ts_ausente"] == 3
