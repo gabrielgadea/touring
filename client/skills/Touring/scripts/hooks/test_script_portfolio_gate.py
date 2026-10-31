@@ -420,3 +420,18 @@ def test_bundle_symlink_para_fora_nao_sugere(ambiente: dict, tmp_path: Path) -> 
     fora.mkdir()
     (Path(cwd) / "docs" / "plans" / "atalho").symlink_to(fora)
     _sem_sugestao(ambiente, cwd)
+
+
+def test_diagnostics_symlink_para_fora_nao_sugere(ambiente: dict, tmp_path: Path) -> None:
+    """O `diagnostics` era anexado DEPOIS da checagem do bundle: um symlink ali
+    punha o destino devolvido fora da raiz (achado de 31/10/2026).
+
+    O bundle continua validado — o que falhava era o caminho que SAI daqui.
+    """
+    cwd = _plano({"versao": 1, "bundle": "docs/plans/x"}, tmp_path)
+    planos = Path(cwd) / "docs" / "plans" / "x"
+    planos.mkdir(parents=True)
+    fora = tmp_path / "fora"
+    fora.mkdir()
+    (planos / "diagnostics").symlink_to(fora)
+    _sem_sugestao(ambiente, cwd)
