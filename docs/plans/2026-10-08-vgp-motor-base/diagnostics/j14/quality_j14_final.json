@@ -1,0 +1,451 @@
+{
+  "scope_kind": "repo",
+  "root": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14",
+  "file_count": 5,
+  "total_loc": 534,
+  "dimensions": {
+    "F1_1": {
+      "value": 0.75979406,
+      "status": "Warn",
+      "evidence": "LOC-weighted over 5 files: 0.760 (worst consolidar_reparo_quente.py=0.650, p10=0.650)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_2": {
+      "value": 0.8895938,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 5 files: 0.890 (worst medir_daemon_quente.py=0.812, p10=0.812)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F1.3: duplication ratio=0.0% (0 dup / 427 meaningful lines, 0 clone block(s)) (polyglot: python+shell) — score=1.000 (touring-analysis analyze_duplication, Type-1 block clones); Type-2 (token-normalized): 0 clone region(s), +0 line(s) Type-1 cannot see → combined=0.0% (scored on its OWN band: <15% healthy, 15-30% warn, 30-50% pay-down; F1.3 = min(type1_band, combined_band))",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_4": {
+      "value": 0.92909175,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.929 (worst consolidar_reparo_quente.py=0.880, p10=0.880) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_5": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 5 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_6": {
+      "value": 0.85,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.850 (worst consolidar_reparo_quente.py=0.850, p10=0.850) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_7": {
+      "value": 0.8,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.800 (worst consolidar_reparo_quente.py=0.800, p10=0.800) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_8": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "dependency hygiene: legacy extern-crate=0, deep relative re-imports=0; acyclicity is crate-scoped; score=1.000 [not crate-scoped — local hygiene only]",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 2 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_9": {
+      "value": 0.9874477,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.987 (worst consolidar_reparo_quente.py=0.974, p10=0.974) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_10": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_11": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F1_12": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_1": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted (fail-closed: no file fails) over 5 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_2": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "worst-of 4 files: consolidar_reparo_quente.py = 1.000 · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "worst-of 4 files: consolidar_reparo_quente.py = 1.000 · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_4": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted (fail-closed: no file fails) over 5 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_5": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F2.5: 0 dependency CVEs in the resolved tree | 21 non-blocking informational (unmaintained/unsound — see F4.5): bincode@1.3.3 (RUSTSEC-2025-0141, unmaintained), dirs@6.0.0 (RUSTSEC-2020-0053, unmaintained), event-listener@5.4.1 (RUSTSEC-2026-0221, unsound) (+18 more)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_6": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "Config Security (OWASP A05, ConfigSecurityAnalyzer): 0 misconfigurations, score=1.000",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 3 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_7": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_8": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_9": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_10": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_11": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_12": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F2_13": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_1": {
+      "value": 0.6656904,
+      "status": "Warn",
+      "evidence": "coverage-ratio≈LOC-weighted over 4 files: 0.666 (worst medir_daemon_quente.py=0.500, p10=0.500) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_2": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.3: 0 pyramid-shape gap(s) over 539 lines (rust) — score=1.000 (touring-analysis analyze_test_pyramid: large-suite-no-e2e / e2e-heavy-no-unit / e2e-no-pytest / e2e-no-assertion)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_4": {
+      "value": 0.9824267,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.982 (worst test_medir_daemon_quente.py=0.907, p10=0.907) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_5": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_6": {
+      "value": 0.98552877,
+      "status": "Pass",
+      "evidence": "F3.6: 2 security-test gap(s) over 539 lines (rust) — score=0.986 (touring-analysis analyze_sec_tests: no-authn-test / no-authz-test / no-input-validation-test / positive-only-security-test / no-dast-in-ci); top: file handles auth (token/cookie/login/password) but has no test_auth*/test_login*/test_jwt* test — controls untested (1x)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_7": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.7: 0 perf-test gap(s) over 539 lines (rust) — score=1.000 (touring-analysis analyze_perf_tests: no-criterion-bench / no-pytest-benchmark / no-fastcheck-perf)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 6 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_8": {
+      "value": 0.64853555,
+      "status": "Warn",
+      "evidence": "coverage-ratio≈LOC-weighted over 4 files: 0.649 (worst test_medir_daemon_quente.py=0.200, p10=0.200) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_9": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "coverage-ratio≈LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_10": {
+      "value": 0.9997913,
+      "status": "Pass",
+      "evidence": "F3.10: 1 arch-doc gap(s) over 8627 lines (rust) — score=1.000 (touring-analysis analyze_arch_doc: missing-madr-status / missing-madr-context / missing-madr-decision / missing-madr-consequences / no-mermaid-diagram); top: no ```mermaid architecture diagram in file (consider C4 / sequence / flow) (1x)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_11": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.11: 0 README completeness gap(s) over 35 lines — score=1.000 (touring-analysis analyze_readme: missing required README section (title/description/install/usage/contributing/tests/license))",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_12": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F3_13": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "F3.13: 0 changelog gap(s) over 7013 lines — score=1.000 (touring-analysis analyze_changelog: missing [Unreleased] / missing versioned section / missing ### Added-Changed-Fixed sub-heading / missing Keep-a-Changelog link / missing SemVer link)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_1": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 5 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000)",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_2": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_3": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "worst-of 4 files: consolidar_reparo_quente.py = 1.000 · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_4": {
+      "value": 1.0,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 1.000 (worst consolidar_reparo_quente.py=1.000, p10=1.000) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_5": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.5: not a Cargo project — dependency-health scan does not apply (excluded from composite; npm/pip/go manifest backends are future work)",
+      "suggestions": [
+        "Edit tool --path /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_6": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.6: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 5)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_7": {
+      "value": 0.9,
+      "status": "Pass",
+      "evidence": "FF4_7: 4 CI/CD Pipeline smell(s) over 1148 lines (rust) -- score=0.900          (touring-analysis analyze_cicd: see header for detector catalog); top: `actions/checkout` without `persist-credentials: false` in a job that can write (the token stays in .git/config for every later step) (4x); at job `sync-architecture` line 501",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_8": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.8: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_9": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.9: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_10": {
+      "value": 0.9648536,
+      "status": "Pass",
+      "evidence": "LOC-weighted over 4 files: 0.965 (worst consolidar_reparo_quente.py=0.928, p10=0.928) · 1 inapplicable file(s) left out",
+      "suggestions": [],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_11": {
+      "value": 1.0,
+      "status": "NotApplicable",
+      "evidence": "[N/A] F4.11: no matching artifact in scope (conditional artifact — does not apply to this project type; excluded from composite)",
+      "suggestions": [
+        "Edit tool --path /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 --pattern '<gap>' --replacement '<fix>' (see ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    },
+    "F4_12": {
+      "value": 0.99332094,
+      "status": "Pass",
+      "evidence": "FF4_12: 1 Environment Management smell(s) over 539 lines (rust) -- score=0.993          (touring-analysis analyze_env: see header for detector catalog); top: no `figment` / `config` / `dotenvy` reference (no structured config layer) (1x)",
+      "suggestions": [
+        "touring-quality score --format json /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/j14 (preventive — score is Pass; consult ~/.claude/rust/docs/2026-06-21-quality-remediation-patterns.md Pattern 7 for hardening patterns)"
+      ],
+      "latency_ms": 0,
+      "truncated": false
+    }
+  },
+  "composite": 0.9604593,
+  "tier": "Diamond",
+  "blockers": [],
+  "warnings": [
+    "F1_1",
+    "F3_1",
+    "F3_8"
+  ],
+  "schema_version": 1
+}

@@ -307,6 +307,30 @@ def _gatilhos(payload: dict) -> list[tuple[str, str, bool, bool, str]]:
     return [] if alvo is None else [(*alvo, "Write")]
 
 
+def _destino_de_diagnostics(raiz: Path, bundle: str) -> tuple[Path | None, str | None]:
+    """O ``diagnostics/`` do bundle declarado, se ele ficar dentro da raiz.
+
+    O caminho FINAL e validado, nao so o bundle: o ``diagnostics`` era anexado
+    depois da checagem, e um symlink ali punha o destino devolvido fora da raiz
+    (o ``b15eafe1`` validava o bundle, nao o caminho que sai daqui).
+
+    A recusa nao ecoa o caminho — a mensagem diz a razao, nao o alvo.
+    """
+    try:
+        alvo = (raiz / bundle).resolve()
+    except (OSError, RuntimeError):
+        return None, "plano_ativo.bundle nao resolve"
+    if not alvo.is_relative_to(raiz):
+        return None, "plano_ativo.bundle escapa da raiz do projeto"
+    try:
+        destino = (alvo / "diagnostics").resolve()
+    except (OSError, RuntimeError):
+        return None, "plano_ativo.bundle nao resolve"
+    if not destino.is_relative_to(raiz):
+        return None, "plano_ativo.bundle escapa da raiz do projeto"
+    return destino, None
+
+
 def plano_ativo(cwd: str | None) -> tuple[Path | None, str | None]:
     """The declared ``diagnostics/`` directory of the active plan, as ``(directory, error)``.
 
@@ -336,13 +360,10 @@ def plano_ativo(cwd: str | None) -> tuple[Path | None, str | None]:
         if set(bundle.rsplit("/", 1)[1]) == {"."}:
             return None, "plano_ativo.bundle invalido (nome so de pontos)"
         raiz = pasta.resolve()
-        try:
-            alvo = (raiz / bundle).resolve()
-        except (OSError, RuntimeError):
-            return None, "plano_ativo.bundle nao resolve"
-        if not alvo.is_relative_to(raiz):
-            return None, "plano_ativo.bundle escapa da raiz do projeto"
-        return alvo / "diagnostics", None
+        destino, erro = _destino_de_diagnostics(raiz, bundle)
+        if destino is None:
+            return None, erro
+        return destino, None
     return None, None
 
 

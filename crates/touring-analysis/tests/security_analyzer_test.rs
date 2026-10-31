@@ -658,3 +658,79 @@ fn an_inert_constant_javascript_url_is_not_a_sink_but_data_flow_and_payloads_are
         );
     }
 }
+
+// ── D-4 (31/10/2026): tainted DOM sinks are ADVISORIES, never scored ─────────────────
+//
+// `el.innerHTML = html` with `html` a parameter holds no payload for the registry to
+// match, so it scored 1.000. The code judge now reports it — as an advisory that never
+// enters `vuln_matches` or the score (the F2.1 gate is P0).
+
+const TAINTED_DOM_SINK: &str = "function render(el, html) {\n  el.innerHTML = html;\n}\n";
+const CLEAN_DOM_SINK: &str = "function render(el, html) {\n  el.innerHTML = '<b>x</b>';\n}\n";
+
+#[test]
+fn a_tainted_dom_sink_is_an_advisory_and_never_a_vuln_match() {
+    let analyzer = SecurityAnalyzer::new();
+    for lang in ["javascript", "typescript"] {
+        let report = analyzer.analyze(TAINTED_DOM_SINK, lang);
+        assert!(
+            report.vuln_matches.is_empty(),
+            "{lang}: an advisory must not be a vulnerability match: {:?}",
+            report.vuln_matches
+        );
+        assert_eq!(
+            report.advisories.len(),
+            1,
+            "{lang}: {:?}",
+            report.advisories
+        );
+        let advisory = &report.advisories[0];
+        assert_eq!(
+            (advisory.pattern_name.as_str(), advisory.cwe_id),
+            ("DomXss", 79)
+        );
+        assert_eq!(
+            &TAINTED_DOM_SINK[advisory.span.0..advisory.span.1],
+            "innerHTML"
+        );
+        // The score is the score of the same program with the taint cleared.
+        let clean = analyzer.analyze(CLEAN_DOM_SINK, lang);
+        assert!(
+            clean.advisories.is_empty(),
+            "{lang}: {:?}",
+            clean.advisories
+        );
+        assert_eq!(report.combined_score, clean.combined_score, "{lang}");
+    }
+}
+
+#[test]
+fn an_advisory_leaves_the_real_xss_finding_and_its_score_untouched() {
+    let analyzer = SecurityAnalyzer::new();
+    let real = "var x = 1;\nlocation = 'javascript:' + x;\n";
+    let both = format!("{real}{TAINTED_DOM_SINK}");
+    let alone = analyzer.analyze(real, "javascript");
+    let with_advisory = analyzer.analyze(&both, "javascript");
+    assert!(
+        alone.vuln_matches.iter().any(|m| m.pattern_name == "XSS"),
+        "{:?}",
+        alone.vuln_matches
+    );
+    assert!(alone.advisories.is_empty());
+    assert_eq!(with_advisory.advisories.len(), 1);
+    assert_eq!(with_advisory.vuln_matches.len(), alone.vuln_matches.len());
+    assert_eq!(with_advisory.combined_score, alone.combined_score);
+}
+
+#[test]
+fn the_dom_sink_arm_reads_only_the_js_family() {
+    let analyzer = SecurityAnalyzer::new();
+    for lang in ["python", "rust", "go", "shell", "html"] {
+        let report = analyzer.analyze(TAINTED_DOM_SINK, lang);
+        assert!(
+            report.advisories.is_empty(),
+            "{lang}: {:?}",
+            report.advisories
+        );
+    }
+}

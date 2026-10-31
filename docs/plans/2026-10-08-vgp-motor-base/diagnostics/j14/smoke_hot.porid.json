@@ -1,0 +1,61 @@
+{
+ "session": "j14-hot-1975388-1793480923757582574",
+ "por_id": {
+  "j14-hot-1975388-1793480923757582574:medida:0:file": {
+   "i": 0,
+   "id": "file",
+   "hook": "pre-write",
+   "rc": 0,
+   "wall_ms": 144.524,
+   "elapsed_ms": 46.218009,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  },
+  "j14-hot-1975388-1793480923757582574:medida:1:c": {
+   "i": 1,
+   "id": "c",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 53.152,
+   "elapsed_ms": 38.158324,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  },
+  "j14-hot-1975388-1793480923757582574:medida:2:heredoc": {
+   "i": 2,
+   "id": "heredoc",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 55.329,
+   "elapsed_ms": 41.164761,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  },
+  "j14-hot-1975388-1793480923757582574:medida:3:touring_run": {
+   "i": 3,
+   "id": "touring_run",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 56.606,
+   "elapsed_ms": 41.21957,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  }
+ }
+}
