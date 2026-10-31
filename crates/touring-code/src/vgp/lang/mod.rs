@@ -27,6 +27,7 @@ use tree_sitter::{Language, Parser, Tree};
 
 use super::{CheckInput, Finding};
 
+pub mod caminho;
 pub mod cdn;
 pub mod classe_css;
 pub mod css;

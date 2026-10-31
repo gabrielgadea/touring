@@ -199,13 +199,18 @@ pub(super) fn resolver_pacote(alvo: &str, dir: &Path, raiz: &Path) -> Option<Pat
     if let Some(resto) = alvo.strip_prefix("@/") {
         return [raiz.join("src").join(resto), raiz.join(resto)]
             .into_iter()
+            // V-4 (31/10/2026): the alias is CONTENT — a `..` that leaves the
+            // project root is not a file of the project.
+            .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], c))
             .find(|c| c.is_file());
     }
     let sem_til = alvo.strip_prefix('~').unwrap_or(alvo);
     let mut atual = dir.to_path_buf();
     for _ in 0..MAX_NIVEIS_ACIMA {
         let candidato = atual.join("node_modules").join(sem_til);
-        if candidato.is_file() {
+        // V-4 (31/10/2026): the package name is CONTENT — it may not leave the roots.
+        if crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], &candidato) && candidato.is_file()
+        {
             return Some(candidato);
         }
         if atual == raiz || !atual.pop() {
@@ -213,7 +218,8 @@ pub(super) fn resolver_pacote(alvo: &str, dir: &Path, raiz: &Path) -> Option<Pat
         }
     }
     let da_raiz = raiz.join("node_modules").join(sem_til);
-    da_raiz.is_file().then_some(da_raiz)
+    (crate::vgp::lang::caminho::dentro_das_raizes(&[raiz], &da_raiz) && da_raiz.is_file())
+        .then_some(da_raiz)
 }
 
 #[cfg(test)]

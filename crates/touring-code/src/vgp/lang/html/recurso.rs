@@ -95,9 +95,17 @@ pub(super) fn verificar(input: &CheckInput, doc: &Documento, saida: &mut Saida) 
         return;
     }
     for (escrito, grupo) in agrupar(&referencias) {
-        if let Resolucao::Ausente { alvo, resolvido } = disco.resolver(escrito) {
-            let vizinhos = disco.vizinhos(&resolvido);
-            saida.achado(achado(escrito, &grupo, alvo, &resolvido, vizinhos));
+        match disco.resolver(escrito) {
+            Resolucao::Ausente { alvo, resolvido } => {
+                let vizinhos = disco.vizinhos(&resolvido);
+                saida.achado(achado(escrito, &grupo, alvo, &resolvido, vizinhos));
+            }
+            // V-4 (31/10/2026): a reference outside the allowed roots is NOT a
+            // missing file — the class abstains, and the reason names no path.
+            Resolucao::Fora => {
+                saida.nao_medido("referência fora das raízes permitidas");
+            }
+            Resolucao::Existe => {}
         }
     }
 }
@@ -257,7 +265,14 @@ fn agrupar(referencias: &[Referencia]) -> Vec<(&str, Vec<&Referencia>)> {
 /// How a reference resolves.
 enum Resolucao {
     Existe,
-    Ausente { alvo: Alvo, resolvido: PathBuf },
+    Ausente {
+        alvo: Alvo,
+        resolvido: PathBuf,
+    },
+    /// V-4 (31/10/2026): the reference names a path OUTSIDE the allowed roots. The
+    /// content does not choose what the analyzer reads, and the refusal names the
+    /// reason, never the path.
+    Fora,
 }
 
 /// The file system as the document sees it.
@@ -319,10 +334,22 @@ impl<'a> Disco<'a> {
         if let Some(rel) = escrito.strip_prefix('/') {
             return self.resolver_da_raiz(rel, &variantes);
         }
+        let mut fora = false;
         for v in &variantes {
-            if self.existe(&self.base.join(v)) {
+            let alvo = self.base.join(v);
+            // V-4 (31/10/2026): the `href`/`src` of the CONTENT does not choose the
+            // file that is read — a target outside the allowed roots is refused (it
+            // is not a missing file either).
+            if !self.permitido(&alvo) {
+                fora = true;
+                continue;
+            }
+            if self.existe(&alvo) {
                 return Resolucao::Existe;
             }
+        }
+        if fora {
+            return Resolucao::Fora;
         }
         Resolucao::Ausente {
             alvo: Alvo::Projeto,
@@ -339,6 +366,11 @@ impl<'a> Disco<'a> {
         ) else {
             return Vizinhos::default();
         };
+        // V-4 (31/10/2026): listing a directory is a READ of the filesystem — only a
+        // directory inside the allowed roots is listed.
+        if !self.permitido(dir) {
+            return Vizinhos::default();
+        }
         let lista = self
             .listagens
             .entry(dir.to_path_buf())
@@ -361,6 +393,7 @@ impl<'a> Disco<'a> {
     /// dropped after ONE check, shared by every reference that starts with it.
     fn resolver_da_raiz(&mut self, rel: &str, variantes: &[String]) -> Resolucao {
         let raizes = self.raizes_candidatas();
+        let mut fora = false;
         for v in variantes {
             let v = v.trim_start_matches('/');
             let (primeiro, resto) = v.split_once('/').unwrap_or((v, ""));
@@ -368,10 +401,20 @@ impl<'a> Disco<'a> {
                 if !resto.is_empty() && !self.existe(&raiz.join(primeiro)) {
                     continue;
                 }
-                if self.existe(&raiz.join(v)) {
+                let alvo = raiz.join(v);
+                // V-4 (31/10/2026): a target outside the allowed roots is refused —
+                // it is not a missing file, and the refusal names no path.
+                if !self.permitido(&alvo) {
+                    fora = true;
+                    continue;
+                }
+                if self.existe(&alvo) {
                     return Resolucao::Existe;
                 }
             }
+        }
+        if fora {
+            return Resolucao::Fora;
         }
         Resolucao::Ausente {
             alvo: Alvo::Incerto,
@@ -379,7 +422,20 @@ impl<'a> Disco<'a> {
         }
     }
 
+    /// The roots a reference may resolve inside: the project root and the document's
+    /// own directory (the document is the subject of the check). A target outside
+    /// them is refused — the CONTENT does not choose what the analyzer reads.
+    fn permitido(&self, p: &Path) -> bool {
+        crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz, self.dir_doc.as_path()], p)
+    }
+
     /// Every directory a root-relative URL may be served from.
+    ///
+    /// V-4 (31/10/2026): the filesystem root IS one of them — a root-relative URL
+    /// (`/x`) names a path on the SERVER, and the adapter's contract is to count
+    /// the absolute paths the document writes. What changed is not the resolution
+    /// but the ANSWER: a target outside the allowed roots is refused (see
+    /// [`Disco::permitido`]), never reported as a missing file.
     fn raizes_candidatas(&self) -> Vec<PathBuf> {
         let mut raizes = Vec::new();
         for a in self.ancestrais() {

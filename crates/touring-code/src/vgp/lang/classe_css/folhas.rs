@@ -344,13 +344,20 @@ fn e_url_absoluta(alvo: &str) -> bool {
 /// The files a local `href` may name: root-relative (`/x.css`) tries the usual web roots,
 /// anything else is relative to the document's directory.
 fn candidatos_locais(limpo: &str, base: &Path, raiz: &Path) -> Vec<PathBuf> {
-    match limpo.strip_prefix('/') {
+    let candidatos = match limpo.strip_prefix('/') {
         Some(abs) => RAIZES_WEB
             .iter()
             .map(|d| normaliza_caminho(&raiz.join(d).join(abs)))
             .collect(),
         None => vec![normaliza_caminho(&base.join(limpo))],
-    }
+    };
+    // V-4 (31/10/2026): the CONTENT names the target — only what is inside the
+    // allowed roots (the project root and the document's own directory) is a
+    // candidate. A `..` that leaves them is not a file of the project.
+    candidatos
+        .into_iter()
+        .filter(|c| crate::vgp::lang::caminho::dentro_das_raizes(&[raiz, base], c))
+        .collect()
 }
 
 /// Why a target cannot even be looked up on the disk, if so.

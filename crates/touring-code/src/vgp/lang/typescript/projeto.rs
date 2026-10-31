@@ -235,7 +235,15 @@ impl<'a> Projeto<'a> {
             return Resolvido::Fora(fora);
         }
         if eh_relativo(limpo) {
-            return match self.provar_caminho(&normalizar(&dir_de.join(limpo))) {
+            let alvo = normalizar(&dir_de.join(limpo));
+            // V-4 (31/10/2026): the allowed roots are the project root AND the
+            // directory of the file being checked (a fragment in `/tmp` resolves
+            // its imports next to itself). A `../..` that leaves both is not a file
+            // of the project — and the refusal names the reason, never the path.
+            if !crate::vgp::lang::caminho::dentro_das_raizes(&[self.raiz, dir_de], &alvo) {
+                return Resolvido::Fora("caminho fora das raízes permitidas".into());
+            }
+            return match self.provar_caminho(&alvo) {
                 Some(f) => Resolvido::Arquivo(f),
                 None => Resolvido::Inexistente,
             };
