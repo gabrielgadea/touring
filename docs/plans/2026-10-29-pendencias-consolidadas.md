@@ -76,6 +76,22 @@ T-6 tantivy: **adiar**. 3.3: **manter full e medir** com a régua corrigida apó
 (3.11 fica ativo, entra depois), **release só na virada do dia** durante o A/B. D-5: **manter aceito**. D-3, D-4,
 3.11: **ativos**. D-1: **feito**.
 
+### Decisões do Gabriel em 01/11 (AskUserQuestion)
+
+D-2: **snapshot e remoção só dos VGP integrados** (vhtml, vl0, vrs, vrs2, vtransv, vts, adapt) — FEITO 01/11:
+branches `safety/2026-11-01-wt-{vhtml,vl0,vrs,vrs2,vtransv,vts,adapt}` com o WIP e worktrees removidos; os
+demais (f21, frag, p0b, p0bd, roteamento, semeado, tiers) **ficam e devem ter o trabalho concluído segundo os
+objetivos originais** (mapeamento em curso). D-8: **construir o adjudicador html** (touring-a4, depois da
+re-rotulação js/tsx/ts). D-7b: **deduplicar agora** — 73% do duplicado (3.648/4.986 linhas) está em
+`scripts/touring_premium_refactor_2026/` (15 `validate_W*.py`, `w5/w6/w7_rewrite_crate_paths.py`); subagente
+em worktree isolado, aceite = F1.3 ≥ 0,80 + testes verdes + saída idêntica.
+
+**V-3 J15** (touring-45, `1cb454b2`): 30.4.102 **NÃO PRONTO** — v2 PRONTO (0/600, 0/400); V3 1/600 deny de
+mérito (`10607309d143`, atributo `calculate_irr` em `kazuba_agents.rust_bridge`) contra 0 na base; p95 QUENTE
+337,3 ms (passa); controle 8fd0efb0 V3 INCONCLUSIVO (49% timeouts); selo depois INTACTO. Em apuração: o
+estado reconstruído tinha o atributo (falso deny do motor) ou o rótulo do held-out está errado (defeito de
+adjudicação)?
+
 ### Em curso (retomada)
 
 - **V-3** — touring-8e (Kimi): conserto do `ts` vazio por TDD e held-out **20261031b** já selado (`b4ef21c8`); falta J14 + quente×frio. Brief no transcript desta sessão; relatório para touring-00.
