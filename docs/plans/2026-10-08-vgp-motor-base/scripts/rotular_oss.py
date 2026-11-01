@@ -302,34 +302,71 @@ def elegivel(caminho: str) -> tuple:
     return True, ""
 
 
-def pares_do_repo(repo: Path, max_commits: int) -> list:
-    """Pares (commit, caminho, antes, depois) de commits M, mais os de A (criacao)."""
-    log = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(repo),
-            "log",
-            f"--max-count={max_commits}",
-            f"--before=@{int(time.mktime((2026, 10, 9, 23, 0, 0, 0, 0, 0)))}",
-            "--diff-filter=MA",
-            "--raw",
-            "--no-abbrev",
-            "--pretty=format:@@@%H",
-        ],
-        capture_output=True,
-        text=True,
-        timeout=600,
-        check=False,
-    ).stdout
-    saida = []
-    atual = None
-    # A DATA do commit entra na chave canonica da selecao. Ela e lida do MESMO log (um
-    # `git show -s --format=%ct` por commit, cacheado em `datas`), e nao um por par.
-    datas: dict = {}
+def git_show_em_lote(repo: Path, specs: list[str]) -> list[str]:
+    """O conteudo de N especificacoes `rev:caminho` em UM processo so.
+
+    MEDIDO em 01/11 (V-8): `git show` por par sao DOIS spawns por par (e o pai do commit, mais
+    um) — 17.670 pares em mc=600 sao ~50.000 spawns, e a coleta chegou a ser o gargalo do lote:
+    1,5 h dos 2,4 h de coleta eram de repos cujas linguagens ja estavam cheias (o
+    `por_lang >= alvo` so e conferido DEPOIS da coleta). O `git cat-file --batch` devolve o MESMO
+    blob (o `git show rev:path` E um `cat-file blob`) — e o teste compara byte a byte.
+
+    O `cat-file --batch` responde, por especificacao, `<oid> SP <tipo> SP <tamanho> LF` + o
+    conteudo + LF; e `<spec> SP missing LF` quando o objeto nao existe. O que o `git show`
+    devolveria vazio (o arquivo nao existe no commit) vem aqui como `missing`.
+    """
+    if not specs:
+        return []
+    proc = subprocess.Popen(
+        ["git", "-C", str(repo), "cat-file", "--batch"],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    entrada = ("\n".join(specs) + "\n").encode("utf-8")
+    bruto, _ = proc.communicate(entrada)
+    saida: list[str] = []
+    pos = 0
+    for _ in specs:
+        fim = bruto.find(b"\n", pos)
+        if fim < 0:
+            saida.append("")
+            break
+        cabecalho = bruto[pos:fim].decode("utf-8", "replace").split()
+        pos = fim + 1
+        if len(cabecalho) < 3 or cabecalho[1] == "missing":
+            saida.append("")
+            continue
+        try:
+            n = int(cabecalho[2])
+        except ValueError:
+            saida.append("")
+            continue
+        saida.append(bruto[pos : pos + n].decode("utf-8", "replace"))
+        pos += n + 1  # o LF que separa as respostas
+    return saida
+
+
+def candidatos_do_log(log: str) -> tuple[list, list]:
+    """Do log cru: os pares candidatos e as especificacoes de conteudo.
+
+    MEDIDO em 01/11 (V-8): o pai e a DATA de cada commit saem do MESMO log (`%P` e `%ct`), entao
+    nao ha um `git rev-parse` por par. E um defeito que o numero expoe: o `datas` NUNCA era
+    preenchido no codigo antigo, de modo que o `data_commit` era sempre 0 e a "ordem canonica"
+    era ALFABETICA por caminho — o docstring prometia a data do commit na chave de ordem.
+    """
+    candidatos: list = []
+    specs: list[str] = []
+    atual = ""
+    pai = ""
+    data = 0
     for ln in log.splitlines():
         if ln.startswith("@@@"):
-            atual = ln[3:].strip()
+            p = ln[3:].split()
+            atual = p[0].strip() if p else ""
+            pais = p[1].split() if len(p) > 1 else []
+            pai = pais[0] if pais else ""
+            data = int(p[2]) if len(p) > 2 and p[2].isdigit() else 0
             continue
         if not atual or not ln.startswith(":"):
             continue
@@ -341,26 +378,49 @@ def pares_do_repo(repo: Path, max_commits: int) -> list:
         ok, _ = elegivel(caminho)
         if not ok:
             continue
-        pai = subprocess.run(
-            ["git", "-C", str(repo), "rev-parse", f"{atual}^"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout.strip()
-        depois = subprocess.run(
-            ["git", "-C", str(repo), "show", f"{atual}:{caminho}"],
-            capture_output=True,
-            text=True,
-            check=False,
-        ).stdout
+        i_depois = len(specs)
+        specs.append(f"{atual}:{caminho}")
+        i_antes = None
+        if partes[4] == "M" and pai:
+            i_antes = len(specs)
+            specs.append(f"{pai}:{caminho}")
+        candidatos.append((atual, data, caminho, partes[4], i_depois, i_antes))
+    return candidatos, specs
+
+
+def pares_do_repo(repo: Path, max_commits: int) -> list:
+    """Pares (commit, caminho, antes, depois) de commits M, mais os de A (criacao).
+
+    MEDIDO em 01/11 (V-8): a coleta era 3 spawns por par (`rev-parse` do pai + 2 `git show`) e
+    o pai e a DATA saem do MESMO log agora, em uma chamada so. O conteudo de todos os pares vem
+    em UM `git cat-file --batch` — o mesmo blob, byte a byte (o teste compara).
+    """
+    log = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "log",
+            f"--max-count={max_commits}",
+            f"--before=@{int(time.mktime((2026, 10, 9, 23, 0, 0, 0, 0, 0)))}",
+            "--diff-filter=MA",
+            "--raw",
+            "--no-abbrev",
+            "--pretty=format:@@@%H %P %ct",
+        ],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        check=False,
+    ).stdout
+    candidatos, specs = candidatos_do_log(log)
+    conteudos = git_show_em_lote(repo, specs)
+    saida = []
+    for atual, data, caminho, operacao, i_depois, i_antes in candidatos:
+        depois = conteudos[i_depois] if i_depois < len(conteudos) else ""
         antes = (
-            subprocess.run(
-                ["git", "-C", str(repo), "show", f"{pai}:{caminho}"],
-                capture_output=True,
-                text=True,
-                check=False,
-            ).stdout
-            if partes[4] == "M"
+            conteudos[i_antes]
+            if i_antes is not None and i_antes < len(conteudos)
             else ""
         )
         if not depois:
@@ -373,14 +433,14 @@ def pares_do_repo(repo: Path, max_commits: int) -> list:
                 "commit": atual,
                 # A data entra na CHAVE DE ORDEM da selecao; sem ela, dois commits do mesmo
                 # arquivo em dias diferentes valeriam o mesmo posto.
-                "data_commit": datas.get(atual, 0),
+                "data_commit": data,
                 "caminho": caminho,
                 "antes": antes,
                 "depois": depois,
                 # `M` = modificacao, tem antes e depois, e o DELTA se calcula.
                 # `A` = criacao, `antes` e string vazia por construcao, e nao ha delta.
                 # O juiz precisa saber a diferença para nao passar um `--disk-file` inexistente.
-                "operacao": partes[4],
+                "operacao": operacao,
             }
         )
     return saida
@@ -675,7 +735,7 @@ def ident_do_par(nome_repo: str, par: dict) -> str:
 
 def filtra_pares_excluidos(
     nome_repo: str, pares: list, excluidos: set | None
-) -> tuple[list, list]:
+) -> tuple[list, list, dict]:
     """A POPULACAO sem os pares que um corpus anterior ja rotulou.
 
     MEDIDO em 01/11 (V-8): sem isto a camada nova repetiria a anterior par a par -- o
@@ -697,7 +757,8 @@ def filtra_pares_excluidos(
             fora.append(p)
         else:
             mantidos.append(p)
-    return mantidos, fora
+    por_lang = dict(Counter(EXT_LANG[Path(p["caminho"]).suffix] for p in fora))
+    return mantidos, fora, por_lang
 
 
 def ids_excluidos(dirs: list, ignorar: Path | None = None) -> tuple[set, dict]:
@@ -886,9 +947,9 @@ def classifica_um(
             print(f"!! DIVERGENCIA no retestemunho: {nome_repo}/{par['caminho']}")
             print(f"   LS : {div['ls']}")
             print(f"   tsc: {div['tsc']}")
-            print("LOTE PARADO (a dividao e do oraculo, nao do item)")
+            print("PAR EXCLUIDO do lote (a dividao e do oraculo, nao do item)")
+            stats["reteste_divergente"] += 1
             return {
-                "parado": True,
                 "divergencia": {"repo": nome_repo, "caminho": par["caminho"], **div},
             }
         stats["reteste_coincide" if div is None else "reteste_indisponivel"] += 1
@@ -1167,11 +1228,9 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
     # ordem canonica resolve as duas coisas: independe do lote e nao depende de sorte.
     pares = ordem_canonica(pares)
     # A DISJUNCAO tira da POPULACAO os pares que um corpus anterior ja rotulou (V-8, 01/11).
-    pares, descartados = filtra_pares_excluidos(nome_repo, pares, excluidos)
+    pares, descartados, excluidos_por_lang = filtra_pares_excluidos(nome_repo, pares, excluidos)
     relatorio["pares_excluidos_ja_usados"] = len(descartados)
-    relatorio["excluidos_por_lang"] = dict(
-        Counter(EXT_LANG[Path(p["caminho"]).suffix] for p in descartados)
-    )
+    relatorio["excluidos_por_lang"] = excluidos_por_lang
     ordem = list(range(len(pares)))
     marcados = {i for i in range(0, len(ordem), RETEST_A_CADA)}
     # MEDIDO em 09/10: o teto era calculado sobre `alvo` (300), dando 9, e o lote parava em 319
@@ -1182,6 +1241,9 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
     # (200+ commits, tsx e ts misturados) `3% de 1217` dava 36, nao 3. `teto_de()` e chamado
     # DENTRO do laco, por par, com o n da linguagem daquele par -- e nao calculado uma vez.
     stats: Counter = Counter()
+    # As divergencias entre o adjudicador e o `tsc` (V-8, 01/11): cada uma EXCLUI o par e o
+    # lote continua. A lista vai para o relatorio do repo e para o selo.
+    divergencias: list = []
     # MEDIDO em 10/10 (lote `v4`): os contadores do teto vinham de ZERO a cada execucao, enquanto
     # os ids eram lidos do disco. Num lote retomado o teto media um n que nao incluía o ja
     # gravado, e `packages/excalidraw/types.ts` fechou com 12 entradas (6,28%) contra um teto
@@ -1236,6 +1298,17 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
                 idx in marcados,
             )
             if parou:
+                # MEDIDO em 01/11 (V-8): a divergencia entre o adjudicador e o `tsc` EXCLUI o
+                # par — que e o item suspeito — e o lote CONTINUA. Antes o desfecho era parar o
+                # LOTE INTEIRO, e o efeito medido foi nenhum corpus: o `excalidraw` diverge em
+                # `manager.tsx` (o LS acusa TS2307 de um modulo que o `tsc` resolve) e o lote
+                # morreu com 218 entradas. Parar tudo e o mais conservador possible, mas um
+                # corpus que nao existe nao prova nada: a divergencia e do ORACULO, e ela ja
+                # tira do corpus justamente o par em que o oraculo discorda do compilador de
+                # referencia. O que nao pode e o par entrar.
+                if parou.get("divergencia"):
+                    divergencias.append(parou["divergencia"])
+                    continue
                 return parou
     finally:
         lsc.fecha()
@@ -1245,6 +1318,8 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
                 v for k, v in stats.items() if not k.startswith("reteste")
             ),
             "retestes": sum(v for k, v in stats.items() if k.startswith("reteste")),
+            "divergencias": divergencias,
+            "n_divergencias": len(divergencias),
             "stats": dict(stats),
         }
     )
