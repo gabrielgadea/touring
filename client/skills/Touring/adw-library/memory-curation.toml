@@ -15,6 +15,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). veredito 'manter' ficou obsoleto: run real completed 28/08 + parametrizado (memory_dir/sample).
 curation = "generic"
+goals = ["Amostrar as N memórias mais antigas (`sample`) de `memory_dir`", "Verificar cada claim contra o código de hoje (Read/Grep/Glob), jamais pela plausibilidade", "Entregar um veredito `stale|valid|resolved` por memória, com a evidência `arquivo:linha`"]
+non_goals = ["Aplicar as correções — o flow entrega veredito; editar memória é ato da sessão com o humano", "Memórias de preferência do usuário (type: user/feedback) — não têm contraparte em código"]
+open_questions = ["A amostragem é por antiguidade (`ls -tr | head -N`), então memórias recentes e já stale ficam de fora até envelhecerem — vale um segundo critério, como uso recente?"]
+verification = "O gate `quorum_gate` conta ao menos uma linha `FACT=<slug>=<stale|valid|resolved>` com evidência por memória amostrada e o run termina `completed` com o fecho persistido."
 intent = "Impedir que memórias envelhecidas guiem decisões: amostrar as mais antigas, verificar cada claim no código de hoje e entregar veredito por memória"
 class = "review"
 when_to_use = [

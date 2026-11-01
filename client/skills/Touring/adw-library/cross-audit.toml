@@ -19,6 +19,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global TACO-cross-audit.
 curation = "generic"
+goals = ["Auditar uma árvore contra o propósito documentado com evidência determinística (`harmony_map` e `scan_debt`)", "Submeter o veredito do auditor ao gate `verdict_gate` e a um painel cego de críticos", "Provar os invariantes por execução (`prove_invariants`) e entregar o report OKF datado em `<target>/docs/audits/`"]
+non_goals = ["Auditar 1 arquivo — `touring adw run audit` já cobre", "Aplicar as correções: o flow julga e propõe, editar código é ato da sessão com o humano"]
+open_questions = ["`test_timeout` é o único limite da prova E2E — que valor cobre um alvo grande sem deixar a prova pendurar o run?"]
+verification = "O `verdict_gate` aceita a saída do auditor (linhas `FACT=` por alvo e `VERDICT=PASS`), o painel de críticos aprova e o report `docs/audits/cross-audit-<data>.md` existe em disco; o run termina `completed`."
 intent = "Auditar uma árvore contra o propósito documentado com evidência determinística (wiring/debt/testes) e entregar o report datado em docs/audits/"
 class = "review"
 when_to_use = [

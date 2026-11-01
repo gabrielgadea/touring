@@ -22,6 +22,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 2 runs, fixpoint generico (var medida).
 curation = "generic"
+goals = ["Provar o frescor de um artefato por MEDIDA repetida (`METRIC=` igual em leituras consecutivas), nunca por rótulo ou versão declarada", "Convergir em fixpoint: `stable_rounds = 2` leituras idênticas da medida"]
+non_goals = ["Estado que muda legitimamente entre leituras (logs vivos, contadores) — o fixpoint nunca estabiliza", "Aceitar rótulo de versão como evidência de frescor"]
+open_questions = ["`max_iters = 6` basta para artefatos que demoram a assentar (índice reconstruindo, cache aquecendo)? Esgotar as rodadas sem repetir a medida não passa por `relatar`"]
+verification = "O loop `medir_loop` sai por `fixpoint` (a mesma medida em 2 leituras consecutivas, aresta `on_stable`) e o run passa pelo nó `relatar`; completar sem passar por `relatar` não prova frescor."
 intent = "provar frescor de um artefato por medida repetida (fixpoint), nunca por rótulo/versão declarada"
 class = "review"
 when_to_use = "suspeita de artefato stale: binário antigo, cache, índice defasado, espelho divergente"

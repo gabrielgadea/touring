@@ -15,6 +15,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: o meta-ADW curador da library.
 curation = "generic"
+goals = ["Dar a cada spec local sem etiqueta de curadoria um veredito por evidência (promover, etiquetar ou manter) com razão em até 15 palavras", "Garantir que a library inteira linta sem erro antes de qualquer propagação", "Persistir a rodada de curadoria na memória (fecho phase-close) para a próxima partir do veredito anterior"]
+non_goals = ["Criar spec novo — isso é `touring adw new` com prior-art", "Promover ou editar qualquer spec: o agente propõe e o humano decide no gate `aprovar`", "Fabricar evidência: promover exige run completed citado no inventário"]
+open_questions = ["Quantos runs completados, e em quantos projetos distintos, bastam para promover? O flow exige run completed citado e generalidade verificada pelo agente, mas não fixa um piso numérico"]
+verification = "`lint_all` sai 0 (library inteira sem erro), todo spec local sem etiqueta recebe uma linha `FACT=<spec>=<promover|etiquetar|manter>` com razão, o triage fecha com `VERDICT=PASS` e a aprovação humana é registrada no gate `aprovar`."
 intent = "Manter a biblioteca ADW curada por evidência: o que rodou e presta sobe (promote), o que é local/demo é etiquetado, e tudo linta"
 class = "review"
 when_to_use = [

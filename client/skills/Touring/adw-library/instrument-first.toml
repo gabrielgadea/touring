@@ -22,6 +22,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 3 runs, parametrizado (verificador/good/bad).
 curation = "generic"
+goals = ["Calibrar o verificador (`control-pack`: a entrada good deve passar e a bad deve reprovar) antes de qualquer medição", "Só então executar a medição real, como `probe` com `FACT=` endereçável"]
+non_goals = ["Verificador já calibrado nesta sessão", "Julgamento humano de texto livre — um control sintético não se aplica", "Consertar um verificador que não sabe reprovar: o flow para em `__fail__`"]
+open_questions = ["Um único par good/bad basta para considerar o verificador calibrado, ou a classe de entradas pede mais de um par?"]
+verification = "O `control-pack` passa (good aceito, bad rejeitado) e o probe `medir` termina com exit 0 emitindo os `FACT=`; um verificador que aceita o bad leva o run a `__fail__` antes da medição."
 intent = "garantir que o verificador sabe reprovar antes de qualquer medição ou veredito"
 class = "fix"
 when_to_use = "antes de usar um verificador/gate novo ou recém-alterado; antes de medições que decidirão algo"

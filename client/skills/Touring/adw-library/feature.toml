@@ -22,6 +22,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
+goals = ["Build a capability that does not exist yet: recall and prior art, SOTA scout, a plan with a declared write-set, a conflict check, then the implementation", "Accept the implementation only through `verify_cmd` and the 50-dimension quality gate", "Check the declared write-set against other sessions before writing"]
+non_goals = ["A one-line change — the pipeline costs more than the work; use chore", "An active incident, where the scout and plan steps are time you do not have — use hotfix", "Starting without a declared write-set: it is a required input"]
+open_questions = ["The scout and the plan run on the `sota` tier — is that cost justified for small features, or should small ones route to chore?"]
+verification = "`conflict_check` reports no clash for the declared write-set, `verify_cmd` exits 0, the q50 quality gate passes and the run ends `completed` carrying prior art, plan and gate verdict."
 intent = "Build a new capability end to end: prior art, SOTA scout, plan, conflict check, then a verified implementation"
 class = "create"
 when_to_use = [

@@ -18,6 +18,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global loop-engineering.
 curation = "generic"
+goals = ["Encerrar um loop só quando três juízes dizem sim por exit code: `judge_attest`, `loop_converged` e `loop_doc_link_gate`", "Falhar fechado: qualquer juiz que reprove, ou que não consiga rodar, termina o flow em `__fail__`", "Persistir o fechamento no fim (close.persist)"]
+non_goals = ["Rodar no meio de uma fase — o Stop hook já roda loop_converged por conta própria", "Julgar tarefa sem DAG e sem bundle — não há o que julgar", "Autoavaliação: o veredito é o exit code, nunca a leitura do agente"]
+open_questions = ["Os três juízes rodam em série e o primeiro que reprova esconde os demais — vale um modo que rode os três e liste todas as pendências de uma vez?"]
+verification = "`judge_attest.py`, `loop_converged.py --task <task> --scope <scope> --bundle <bundle>` e `loop_doc_link_gate.py --bundle <bundle>` saem 0 em sequência; o run termina `completed` somente nesse caso."
 intent = "Encerrar um loop apenas quando os três juízes dizem sim por exit code: juiz de record intacto, cláusulas de convergência atendidas, bundle documentado sem links quebrados"
 class = "review"
 when_to_use = [

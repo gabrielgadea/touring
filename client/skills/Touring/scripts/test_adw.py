@@ -9,6 +9,7 @@ Acceptance (plan 2026-07-19, F0):
      + class_d_divergence (Law L3: verdict ≠ narrative).
 """
 
+import hashlib
 import json
 import os
 import re
@@ -4520,3 +4521,1024 @@ def test_a_clean_run_still_credits_its_memories(monkeypatch):
 def test_the_suite_never_deposits_into_the_real_learning_store(root):
     """Regression for the autouse fixture: a full execute() must not reach the CLI."""
     assert adw.deposit_run_outcome is not _REAL_DEPOSIT
+
+
+# ── goldfish wave (01/11/2026): E1-E8 ─────────────────────────────────────────
+# Ideas from google/elephant-goldfish-model (Apache-2.0): a reviewer that did not
+# read did not review; a contradiction edits no file; the executor, not the prose,
+# decides whether a node counts as having run.
+
+
+def _scripted_agent(monkeypatch, outputs):
+    """Patch the headless transport. `outputs` is a list (successive calls) or a
+    dict keyed by node name; every prompt the runner built is recorded."""
+    state = {"i": 0, "prompts": [], "nodes": []}
+
+    def fake(spec, node, journal, prompt, record, cwd=None, results=None, variables=None):
+        state["prompts"].append(prompt)
+        state["nodes"].append(node.name)
+        if isinstance(outputs, dict):
+            out = outputs[node.name]
+        else:
+            out = outputs[min(state["i"], len(outputs) - 1)]
+        state["i"] += 1
+        return adw.ExecResult(exit_code=0, output=out)
+
+    monkeypatch.setattr(adw, "_agent_claude", fake)
+    return state
+
+
+def _run_agent(raw, tmp_path, monkeypatch, output, results=None, variables=None, name="a"):
+    _scripted_agent(monkeypatch, [output])
+    node = adw.Node(name=name, type="agent", raw={"prompt": "go", **raw})
+    journal = adw.Journal(tmp_path)
+    result = adw.run_agent_node(node, None, journal, results or {}, variables or {},
+                                False, False, cwd=tmp_path)
+    return result, journal
+
+
+def _events(journal, kind):
+    return [e for e in journal.events if e["event"] == kind]
+
+
+def _agent_spec(root, name, extra="", persona="", others=""):
+    body = """
+[adw]
+name = "@NAME@"
+entry = "a"
+[node.a]
+type = "agent"
+driver = "claude"
+prompt = "Review the artifact."
+on_pass = "__end__"
+on_fail = "__fail__"
+@EXTRA@
+@PERSONA@
+@OTHERS@
+"""
+    write_spec(root, name, body.replace("@NAME@", name).replace("@EXTRA@", extra)
+               .replace("@PERSONA@", persona).replace("@OTHERS@", others))
+    return adw.load_spec(root, name)
+
+
+GOLDFISH_PERSONA = """
+[node.a.persona]
+role = "fresh-reader"
+isolation = "goldfish"
+stance = "reject_by_default"
+emits = "VERDICT=PASS|REJECT"
+"""
+
+
+# E1 — persona isolation = "goldfish" (EGM .claude-plugin/agents/*.md:5-8)
+
+
+def test_goldfish_persona_compiles_to_omit_claude_md_and_read_only_tools():
+    persona = {"role": "fresh-reader", "isolation": "goldfish", "stance": "reject_by_default"}
+    role, definition = adw.compile_agent_definition(persona, {}, {})
+    assert role == "fresh-reader"
+    assert definition["omitClaudeMd"] is True
+    assert definition["tools"] == ["Read", "Grep", "Glob"]
+
+
+def test_goldfish_reaches_the_cli_inside_the_agents_json(tmp_path):
+    node = adw.Node(name="a", type="agent", raw={"persona": {
+        "role": "fresh-reader", "isolation": "goldfish"}})
+    cmd = adw._claude_cmd(node, adw.Journal(tmp_path), "judge")
+    payload = json.loads(_flag_value(cmd, "--agents"))
+    assert payload["fresh-reader"]["omitClaudeMd"] is True
+    assert payload["fresh-reader"]["tools"] == ["Read", "Grep", "Glob"]
+
+
+def test_goldfish_keeps_the_tools_the_persona_or_the_node_declares():
+    _, from_persona = adw.compile_agent_definition(
+        {"role": "r", "isolation": "goldfish", "tools": ["Read"]}, {}, {})
+    assert from_persona["tools"] == ["Read"]
+    _, from_node = adw.compile_agent_definition(
+        {"role": "r", "isolation": "goldfish"}, {}, {}, node_tools=["Read", "Grep"])
+    assert from_node["tools"] == ["Read", "Grep"]
+
+
+def test_a_persona_without_isolation_compiles_exactly_as_before():
+    _, definition = adw.compile_agent_definition({"role": "r", "stance": "x"}, {}, {})
+    assert set(definition) == {"description", "prompt"}
+
+
+@pytest.mark.parametrize("tool", ["Edit", "Write", "MultiEdit", "NotebookEdit", "Bash", "Bash(git *)"])
+def test_lint_goldfish_with_a_mutating_tool_is_an_error(root, tool):
+    spec = _agent_spec(root, "gf1", extra=f'allowed_tools = ["Read", "{tool}"]',
+                       persona=GOLDFISH_PERSONA)
+    errors, _ = adw.lint_spec(spec)
+    assert any("goldfish" in e and "contradição" in e and tool.split("(")[0] in e
+               for e in errors), errors
+
+
+def test_lint_goldfish_persona_tools_are_held_to_the_same_rule(root):
+    persona = GOLDFISH_PERSONA + 'tools = ["Read", "Write"]\n'
+    errors, _ = adw.lint_spec(_agent_spec(root, "gf2", extra='allowed_tools = ["Read"]',
+                                          persona=persona))
+    assert any("goldfish" in e and "Write" in e for e in errors), errors
+
+
+def test_lint_goldfish_read_only_node_is_clean(root):
+    spec = _agent_spec(root, "gf3", extra='allowed_tools = ["Read", "Grep"]',
+                       persona=GOLDFISH_PERSONA)
+    errors, warnings = adw.lint_spec(spec)
+    assert errors == [] and not any("allowed_tools" in w for w in warnings), (errors, warnings)
+
+
+def test_lint_goldfish_without_declared_tools_gets_no_missing_tools_warning(root):
+    """The goldfish default (Read/Grep/Glob) IS a declared policy."""
+    _, warnings = adw.lint_spec(_agent_spec(root, "gf4", persona=GOLDFISH_PERSONA))
+    assert not any("no allowed_tools" in w for w in warnings), warnings
+
+
+def test_lint_unknown_persona_isolation_is_an_error(root):
+    persona = GOLDFISH_PERSONA.replace('"goldfish"', '"aquarium"')
+    errors, _ = adw.lint_spec(_agent_spec(root, "gf5", persona=persona))
+    assert any("isolation" in e and "goldfish" in e for e in errors), errors
+
+
+# E6 — tools = "none" (EGM skills/egm-resolve/SKILL.md:132-134)
+
+
+def test_tools_none_sends_an_empty_tools_flag_and_no_allowed_tools(tmp_path):
+    node = adw.Node(name="a", type="agent", raw={"tools": "none"})
+    cmd = adw._claude_cmd(node, adw.Journal(tmp_path), "judge")
+    assert _flag_value(cmd, "--tools") == ""
+    assert "--allowedTools" not in cmd
+
+
+def test_without_tools_none_the_cli_has_no_tools_flag(tmp_path):
+    node = adw.Node(name="a", type="agent", raw={"allowed_tools": ["Read"]})
+    cmd = adw._claude_cmd(node, adw.Journal(tmp_path), "judge")
+    assert "--tools" not in cmd and "--allowedTools" in cmd
+
+
+def test_lint_tools_none_with_allowed_tools_is_an_error(root):
+    spec = _agent_spec(root, "t1", extra='tools = "none"\nallowed_tools = ["Read"]')
+    errors, _ = adw.lint_spec(spec)
+    assert any("tools" in e and "allowed_tools" in e for e in errors), errors
+
+
+def test_lint_tools_accepts_only_none(root):
+    errors, _ = adw.lint_spec(_agent_spec(root, "t2", extra='tools = "all"'))
+    assert any('tools = "none"' in e for e in errors), errors
+
+
+def test_lint_tools_none_alone_is_clean_and_not_warned_as_missing(root):
+    errors, warnings = adw.lint_spec(_agent_spec(root, "t3", extra='tools = "none"'))
+    assert errors == [] and not any("no allowed_tools" in w for w in warnings), (errors, warnings)
+
+
+# E2 — must_read + READ-RECEIPT (EGM docs/claude.md:61-62)
+
+
+#
+# The proof of reading is a LINE CHALLENGE (the runner draws a non-empty line k per path,
+# the agent quotes it) — not a sha256: a goldfish has no Bash to compute one.
+
+LINES = "# Plan\n\nalpha one\n  beta   two  \n\n\ngamma three\ndelta four\nepsilon five\n"
+
+
+def _challenge(path: Path, run_dir: Path, node="a", declared=None):
+    """(k, text) the runner draws for `path` in the run whose dir is `run_dir`."""
+    return adw.line_challenge(path, run_dir.name, node, declared or str(path))
+
+
+def _receipt(path: Path, run_dir: Path, node="a", declared=None) -> str:
+    declared = declared or str(path)
+    k, text = _challenge(path, run_dir, node, declared)
+    return f"READ {declared} line {k}: {text}"
+
+
+def test_must_read_appends_the_line_challenge_to_the_prompt(tmp_path, monkeypatch):
+    doc = tmp_path / "design.md"
+    doc.write_text(LINES)
+    state = _scripted_agent(monkeypatch, ["ok"])
+    node = adw.Node(name="a", type="agent", raw={"prompt": "Review.", "must_read": [str(doc)]})
+    adw.run_agent_node(node, None, adw.Journal(tmp_path), {}, {}, False, False, cwd=tmp_path)
+    prompt = state["prompts"][0]
+    k, text = _challenge(doc, tmp_path)
+    assert prompt.startswith("Review.")
+    assert "READ <path> line <k>: <exact text of line k>" in prompt
+    assert f"{doc} → line {k}" in prompt, "the prompt names k for each path"
+    assert text not in prompt, "the prompt names k, never the line itself"
+
+
+def test_the_line_challenge_is_deterministic_and_counts_only_non_empty_lines(tmp_path):
+    doc = tmp_path / "a.md"
+    doc.write_text(LINES)  # 6 non-empty lines among 9
+    non_empty = ["# Plan", "alpha one", "beta two", "gamma three", "delta four", "epsilon five"]
+    seen = set()
+    for i in range(60):
+        k, text = adw.line_challenge(doc, f"run-{i}", "a", str(doc))
+        assert 1 <= k <= len(non_empty) and text == non_empty[k - 1]
+        assert adw.line_challenge(doc, f"run-{i}", "a", str(doc)) == (k, text)
+        seen.add(k)
+    assert len(seen) > 1, "the draw must depend on the run"
+    other = {adw.line_challenge(doc, "run-0", n, str(doc))[0] for n in "abcdefgh"}
+    assert len(other) > 1, "and on the node"
+
+
+def test_the_line_challenge_formula_is_the_documented_one(tmp_path):
+    doc = tmp_path / "a.md"
+    doc.write_text("one\ntwo\nthree\n")
+    seed = hashlib.sha256(f"r1|n1|{doc}".encode()).hexdigest()[:8]
+    k = 1 + int(seed, 16) % 3
+    assert adw.line_challenge(doc, "r1", "n1", str(doc)) == (k, ["one", "two", "three"][k - 1])
+
+
+def test_an_empty_or_missing_file_has_no_challenge(tmp_path):
+    (tmp_path / "e.md").write_text("\n  \n\t\n")
+    assert adw.line_challenge(tmp_path / "e.md", "r", "a", "e.md") is None
+    assert adw.line_challenge(tmp_path / "ghost.md", "r", "a", "ghost.md") is None
+
+
+def test_must_read_passes_when_every_quote_matches(tmp_path, monkeypatch):
+    doc, other = tmp_path / "a.md", tmp_path / "b.md"
+    doc.write_text(LINES)
+    other.write_text("beta\ngamma\n")
+    output = f"{_receipt(doc, tmp_path)}\n{_receipt(other, tmp_path)}\nVERDICT=PASS"
+    result, journal = _run_agent({"must_read": [str(doc), str(other)]}, tmp_path,
+                                 monkeypatch, output)
+    assert result.exit_code == 0 and result.output == output
+    assert _events(journal, "read_receipt_failed") == []
+
+
+def test_must_read_compares_after_strip_and_whitespace_collapse(tmp_path, monkeypatch):
+    doc = tmp_path / "a.md"
+    doc.write_text("  alpha    one  \n   beta two\n")
+    k, _ = _challenge(doc, tmp_path)
+    quoted = ["alpha one", "beta   two  "][k - 1]
+    result, _ = _run_agent({"must_read": [str(doc)]}, tmp_path, monkeypatch,
+                           f"READ {doc} line {k}:    {quoted}   ")
+    assert result.exit_code == 0, result.output
+
+
+def test_must_read_resolves_templated_and_relative_paths(tmp_path, monkeypatch):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "plan.md").write_text(LINES)
+    receipt = _receipt(tmp_path / "docs" / "plan.md", tmp_path, declared="docs/plan.md")
+    result, _ = _run_agent({"must_read": ["docs/{{vars.name}}.md"]}, tmp_path, monkeypatch,
+                           receipt, variables={"name": "plan"})
+    assert result.exit_code == 0, result.output
+
+
+def test_must_read_missing_receipt_means_the_node_did_not_run(tmp_path, monkeypatch):
+    doc, other = tmp_path / "a.md", tmp_path / "b.md"
+    doc.write_text(LINES)
+    other.write_text("beta\ngamma\n")
+    result, journal = _run_agent({"must_read": [str(doc), str(other)]}, tmp_path, monkeypatch,
+                                 f"{_receipt(doc, tmp_path)}\nJá revisei tudo.")
+    assert result.exit_code != 0
+    assert str(other) in result.output
+    assert "READ <caminho> line <k>: <texto exato da linha k>" in result.output, \
+        "a falha precisa ENSINAR o formato do recibo"
+    ev = _events(journal, "read_receipt_failed")
+    assert len(ev) == 1 and ev[0]["missing"] == [str(other)] and ev[0]["mismatched"] == []
+    assert ev[0]["challenges"][str(other)] == _challenge(other, tmp_path)[0]
+
+
+def test_must_read_wrong_text_is_refused_as_invented(tmp_path, monkeypatch):
+    doc = tmp_path / "a.md"
+    doc.write_text(LINES)
+    k, _ = _challenge(doc, tmp_path)
+    result, journal = _run_agent({"must_read": [str(doc)]}, tmp_path, monkeypatch,
+                                 f"READ {doc} line {k}: uma linha que eu inventei")
+    assert result.exit_code != 0
+    ev = _events(journal, "read_receipt_failed")[0]
+    assert ev["mismatched"] == [str(doc)] and ev["missing"] == []
+
+
+def test_must_read_right_text_for_the_wrong_line_number_is_mismatched(tmp_path, monkeypatch):
+    doc = tmp_path / "a.md"
+    doc.write_text(LINES)
+    k, text = _challenge(doc, tmp_path)
+    wrong_k = k % 6 + 1
+    result, journal = _run_agent({"must_read": [str(doc)]}, tmp_path, monkeypatch,
+                                 f"READ {doc} line {wrong_k}: {text}")
+    assert result.exit_code != 0
+    assert _events(journal, "read_receipt_failed")[0]["mismatched"] == [str(doc)]
+
+
+def test_must_read_of_a_file_that_does_not_exist_fails_closed(tmp_path, monkeypatch):
+    ghost = tmp_path / "ghost.md"
+    result, journal = _run_agent({"must_read": [str(ghost)]}, tmp_path, monkeypatch,
+                                 f"READ {ghost} line 1: tanto faz")
+    assert result.exit_code != 0
+    ev = _events(journal, "read_receipt_failed")[0]
+    assert ev["missing"] == [str(ghost)] and ev["unreadable"] == [str(ghost)]
+
+
+def test_must_read_of_an_empty_file_is_unreadable_not_provable(tmp_path, monkeypatch):
+    empty = tmp_path / "empty.md"
+    empty.write_text("\n\n   \n")
+    result, journal = _run_agent({"must_read": [str(empty)]}, tmp_path, monkeypatch,
+                                 f"READ {empty} line 1: ")
+    assert result.exit_code != 0 and "vazios" in result.output
+    assert _events(journal, "read_receipt_failed")[0]["unreadable"] == [str(empty)]
+
+
+def test_must_read_failure_routes_through_on_fail_in_a_real_run(root, tmp_path, monkeypatch):
+    doc = tmp_path / "doc.md"
+    doc.write_text("alpha")
+    _scripted_agent(monkeypatch, ["Li o documento, prometo."])
+    write_spec(root, "mr", """
+[adw]
+name = "mr"
+entry = "a"
+[node.a]
+type = "agent"
+prompt = "Review {{vars.doc}}"
+must_read = ["{{vars.doc}}"]
+allowed_tools = ["Read"]
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "mr"), root, variables={"doc": str(doc)})
+    assert outcome.status == "failed"
+    events = adw.Journal(adw.runs_dir(root) / outcome.run_id).events
+    assert any(e["event"] == "read_receipt_failed" for e in events)
+
+
+def test_contracts_do_not_judge_a_synthesized_stub(root, tmp_path):
+    """`adw test` walks graphs that never ran: a stub cannot hold a receipt, and the
+    walk is already reported as synthesized — it must not fail every contract node."""
+    doc = tmp_path / "doc.md"
+    doc.write_text("alpha")
+    write_spec(root, "syn", """
+[adw]
+name = "syn"
+entry = "a"
+[node.a]
+type = "agent"
+prompt = "Review."
+must_read = ["@DOC@"]
+findings_contract = true
+allowed_tools = ["Read"]
+on_pass = "__end__"
+on_fail = "__fail__"
+""".replace("@DOC@", str(doc)))
+    outcome = adw.execute(adw.load_spec(root, "syn"), root, force_mock=True)
+    assert outcome.status == "completed" and outcome.synthesized == ["a"]
+
+
+def test_lint_must_read_shape_and_node_type(root):
+    errors, _ = adw.lint_spec(_agent_spec(root, "mr1", extra='must_read = "design.md"'))
+    assert any("must_read" in e and "lista" in e for e in errors), errors
+    errors, _ = adw.lint_spec(_agent_spec(root, "mr2", extra='must_read = ["ok.md", ""]'))
+    assert any("must_read" in e for e in errors), errors
+    write_spec(root, "mr3", """
+[adw]
+name = "mr3"
+entry = "a"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+must_read = ["x.md"]
+""")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "mr3"))
+    assert any("must_read" in e and "agent" in e for e in errors), errors
+
+
+def test_lint_must_read_is_clean_for_a_goldfish_and_for_a_read_only_agent(root):
+    """The proof is a quoted line, so any agent that can Read can give it: no warning and
+    no error for a read-only node, nor for a goldfish (which has no Bash by definition)."""
+    for name, extra, persona in (
+        ("mr4", 'must_read = ["x.md"]\nallowed_tools = ["Read", "Grep"]', ""),
+        ("mr5", 'must_read = ["x.md"]', GOLDFISH_PERSONA),
+        ("mr7", 'must_read = ["x.md"]\nallowed_tools = ["Read"]', GOLDFISH_PERSONA),
+    ):
+        errors, warnings = adw.lint_spec(_agent_spec(root, name, extra=extra, persona=persona))
+        assert not any("must_read" in m or "sha256" in m for m in errors + warnings), (
+            name, errors, warnings)
+
+
+def test_must_read_paths_count_as_data_reads_of_other_nodes(root):
+    spec = _agent_spec(root, "mr6", extra='must_read = ["{{nodes.src.summary}}"]',
+                       others='[node.src]\ntype = "code"\ncommand = ["echo", "x"]\nidempotent = true')
+    assert "src" in adw.node_data_reads(spec.node("a"))
+
+
+# E3 — findings_contract (EGM agents/synthesizer.md:42-62)
+
+
+def _finding(sev, scope="intro", why="a meta nunca é dita"):
+    return f"FINDING severity={sev} scope={scope} :: {why}"
+
+
+def test_findings_contract_passes_with_only_nits_and_journals_the_counts(tmp_path, monkeypatch):
+    out = f"{_finding('nit')}\n{_finding('nit', 'fim', 'curto')}"
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch, out)
+    assert result.exit_code == 0 and result.output == out
+    ev = _events(journal, "findings_checked")[-1]
+    assert (ev["blockers"], ev["majors"], ev["nits"]) == (0, 0, 2)
+    assert ev["passed"] is True and ev["max_major"] == 0
+
+
+def test_findings_none_line_is_an_explicit_clean_signal(tmp_path, monkeypatch):
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch,
+                                 "Revisei o texto.\nFINDINGS=NONE")
+    assert result.exit_code == 0
+    assert _events(journal, "findings_checked")[-1]["passed"] is True
+
+
+def test_a_blocker_fails_the_node_but_keeps_the_findings_readable(tmp_path, monkeypatch):
+    out = f"{_finding('blocker')}\n{_finding('nit', 'fim', 'curto')}"
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch, out)
+    assert result.exit_code != 0 and result.contract_failure == "findings"
+    assert _finding("blocker") in result.output, "o autor precisa ler os achados originais"
+    ev = _events(journal, "findings_checked")[-1]
+    assert ev["passed"] is False and ev["reason"] == "blockers" and ev["blockers"] == 1
+
+
+def test_majors_are_tolerated_up_to_max_major(tmp_path, monkeypatch):
+    out = f"{_finding('major')}\n{_finding('major', 'meio', 'vago')}"
+    strict, _ = _run_agent({"findings_contract": True}, tmp_path, monkeypatch, out)
+    assert strict.exit_code != 0
+    loose, journal = _run_agent({"findings_contract": True, "max_major": 2}, tmp_path,
+                                monkeypatch, out)
+    assert loose.exit_code == 0 and _events(journal, "findings_checked")[-1]["max_major"] == 2
+    over, _ = _run_agent({"findings_contract": True, "max_major": 1}, tmp_path, monkeypatch, out)
+    assert over.exit_code != 0
+
+
+@pytest.mark.parametrize("line", [
+    "FINDING severity=critical scope=intro :: x",      # unknown severity
+    "FINDING severity=Blocker scope=intro :: x",       # severity is lowercase
+    "FINDING scope=intro :: x",                        # no severity
+    "FINDING severity=major scope=intro",              # no rationale
+    "FINDING severity=major scope=intro ::   ",        # empty rationale
+    "FINDING major intro x",                           # not key=value at all
+])
+def test_a_malformed_finding_line_fails_closed_and_teaches_the_grammar(tmp_path, monkeypatch, line):
+    out = f"{_finding('nit')}\n{line}"
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch, out)
+    assert result.exit_code != 0 and result.contract_failure == "contract"
+    assert "severity=<blocker|major|nit>" in result.output and line.strip()[:20] in result.output
+    ev = _events(journal, "findings_checked")[-1]
+    assert ev["passed"] is False and ev["reason"] == "malformed" and ev["malformed"] == 1
+
+
+def test_a_declared_contract_with_no_lines_and_no_none_marker_is_not_a_pass(tmp_path, monkeypatch):
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch,
+                                 "Tudo certo por aqui, nada a reportar.")
+    assert result.exit_code != 0 and result.contract_failure == "contract"
+    assert "FINDINGS=NONE" in result.output
+    assert _events(journal, "findings_checked")[-1]["reason"] == "absent_signal"
+
+
+def test_findings_none_next_to_findings_is_a_contradiction(tmp_path, monkeypatch):
+    out = f"FINDINGS=NONE\n{_finding('major')}"
+    result, journal = _run_agent({"findings_contract": True}, tmp_path, monkeypatch, out)
+    assert result.exit_code != 0 and result.contract_failure == "contract"
+    assert _events(journal, "findings_checked")[-1]["reason"] == "contradiction"
+
+
+def test_findings_prompt_suffix_declares_the_same_grammar_the_parser_enforces(tmp_path, monkeypatch):
+    state = _scripted_agent(monkeypatch, ["FINDINGS=NONE"])
+    node = adw.Node(name="a", type="agent", raw={"prompt": "Review.", "findings_contract": True})
+    adw.run_agent_node(node, None, adw.Journal(tmp_path), {}, {}, False, False, cwd=tmp_path)
+    assert "FINDING severity=<blocker|major|nit> scope=<text> :: <rationale>" in state["prompts"][0]
+    assert "FINDINGS=NONE" in state["prompts"][0]
+
+
+def test_findings_blocker_routes_to_on_fail_in_a_real_run(root, monkeypatch):
+    _scripted_agent(monkeypatch, {"rev": _finding("blocker"), "fix": "consertado"})
+    write_spec(root, "fr", """
+[adw]
+name = "fr"
+entry = "rev"
+[node.rev]
+type = "agent"
+prompt = "Review."
+findings_contract = true
+allowed_tools = ["Read"]
+on_pass = "__end__"
+on_fail = "fix"
+[node.fix]
+type = "agent"
+prompt = "Fix: {{nodes.rev.summary}}"
+allowed_tools = ["Read"]
+on_pass = "__end__"
+""")
+    outcome = adw.execute(adw.load_spec(root, "fr"), root)
+    assert [s["node"] for s in outcome.steps] == ["rev", "fix"] and outcome.status == "completed"
+
+
+def test_lint_findings_contract_shape(root):
+    write_spec(root, "fc1", """
+[adw]
+name = "fc1"
+entry = "a"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+findings_contract = true
+""")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "fc1"))
+    assert any("findings_contract" in e and "agent" in e for e in errors), errors
+    errors, _ = adw.lint_spec(_agent_spec(root, "fc2", extra="max_major = 1"))
+    assert any("max_major" in e and "findings_contract" in e for e in errors), errors
+    errors, _ = adw.lint_spec(_agent_spec(root, "fc3",
+                                          extra="findings_contract = true\nmax_major = -1"))
+    assert any("max_major" in e for e in errors), errors
+    errors, _ = adw.lint_spec(_agent_spec(root, "fc4",
+                                          extra='findings_contract = "yes"'))
+    assert any("findings_contract" in e and "booleano" in e for e in errors), errors
+
+
+# E4 — churn_limit on a loop (EGM skills/egm-review-loop/SKILL.md:151-173)
+
+
+def test_a_finding_fingerprint_ignores_case_spacing_and_punctuation_but_not_severity_or_scope():
+    a = adw.parse_findings(_finding("major", "Sec 2", "Claim has no evidence.")).findings[0]
+    b = adw.parse_findings(_finding("major", "sec 2", "  claim   HAS no evidence ")).findings[0]
+    assert a.fingerprint == b.fingerprint
+    other_sev = adw.parse_findings(_finding("nit", "Sec 2", "Claim has no evidence.")).findings[0]
+    other_scope = adw.parse_findings(_finding("major", "Sec 3", "Claim has no evidence.")).findings[0]
+    assert len({a.fingerprint, other_sev.fingerprint, other_scope.fingerprint}) == 3
+
+
+def test_churn_is_a_finding_that_vanishes_and_comes_back():
+    a = _finding("major", "sec2", "claim has no evidence")
+    tracker = adw.ChurnTracker(limit=1)
+    assert tracker.observe(a) == 0              # first sighting
+    assert tracker.observe("FINDINGS=NONE") == 0  # fixed
+    assert tracker.observe(a) == 1              # came back: churn #1
+    assert tracker.events == 1 and not tracker.exceeded
+    tracker.observe("FINDINGS=NONE")
+    tracker.observe(a)
+    assert tracker.events == 2 and tracker.exceeded
+
+
+def test_a_finding_that_persists_or_never_returns_is_not_churn():
+    a, b = _finding("major", "s1", "x"), _finding("major", "s2", "y")
+    tracker = adw.ChurnTracker(limit=0)
+    for out in (a, a, a, b, "FINDINGS=NONE", "FINDINGS=NONE"):
+        tracker.observe(out)
+    assert tracker.events == 0 and not tracker.exceeded
+
+
+def _churn_spec(root, limit="churn_limit = 1", max_iters=8):
+    write_spec(root, "ch", """
+[adw]
+name = "ch"
+entry = "lp"
+[node.lp]
+type = "loop"
+body = "rev"
+max_iters = @ITERS@
+@LIMIT@
+on_pass = "done"
+on_dry = "done"
+on_fail = "bad"
+[node.rev]
+type = "agent"
+driver = "claude"
+prompt = "Review and fix."
+allowed_tools = ["Read"]
+findings_contract = true
+max_major = 5
+[node.done]
+type = "code"
+command = ["bash", "-c", "echo done"]
+idempotent = true
+on_pass = "__end__"
+[node.bad]
+type = "code"
+command = ["bash", "-c", "echo bad"]
+idempotent = true
+on_pass = "__fail__"
+""".replace("@ITERS@", str(max_iters)).replace("@LIMIT@", limit))
+    return adw.load_spec(root, "ch")
+
+
+A_ROUND = _finding("major", "sec2", "claim has no evidence") + "\nNEW_FINDINGS=1"
+NONE_ROUND = "FINDINGS=NONE\nNEW_FINDINGS=1"
+
+
+def test_the_loop_exits_via_on_fail_when_churn_events_exceed_the_limit(root, monkeypatch):
+    state = _scripted_agent(monkeypatch, [A_ROUND, NONE_ROUND, A_ROUND, NONE_ROUND, A_ROUND,
+                                          NONE_ROUND])
+    outcome = adw.execute(_churn_spec(root, "churn_limit = 1"), root)
+    assert outcome.status == "failed" and len(state["prompts"]) == 5
+    assert any(s["node"] == "bad" for s in outcome.steps)
+    events = adw.Journal(adw.runs_dir(root) / outcome.run_id).events
+    exceeded = [e for e in events if e["event"] == "loop_churn_exceeded"]
+    assert len(exceeded) == 1 and exceeded[0]["reason"] == "churn"
+    assert exceeded[0]["churn_events"] == 2 and exceeded[0]["churn_limit"] == 1
+
+
+def test_churn_limit_zero_exits_on_the_first_reappearance(root, monkeypatch):
+    state = _scripted_agent(monkeypatch, [A_ROUND, NONE_ROUND, A_ROUND, NONE_ROUND])
+    outcome = adw.execute(_churn_spec(root, "churn_limit = 0"), root)
+    assert outcome.status == "failed" and len(state["prompts"]) == 3
+
+
+def test_a_loop_without_churn_runs_to_its_own_predicate(root, monkeypatch):
+    dry = "FINDINGS=NONE\nNEW_FINDINGS=0"
+    state = _scripted_agent(monkeypatch, [A_ROUND, NONE_ROUND, dry, dry])
+    outcome = adw.execute(_churn_spec(root, "churn_limit = 1"), root)
+    assert outcome.status == "completed" and len(state["prompts"]) == 4
+    events = adw.Journal(adw.runs_dir(root) / outcome.run_id).events
+    assert not any(e["event"] == "loop_churn_exceeded" for e in events)
+
+
+def test_a_loop_body_with_findings_does_not_end_the_loop_by_itself(root, monkeypatch):
+    """Findings are the loop's INPUT, not its failure: a blocker in round 1 must not
+    exit via on_fail — only a structural contract failure (malformed/absent) does."""
+    dry = "FINDINGS=NONE\nNEW_FINDINGS=0"
+    blocker = _finding("blocker", "s1", "x") + "\nNEW_FINDINGS=1"
+    state = _scripted_agent(monkeypatch, [blocker, dry, dry])
+    outcome = adw.execute(_churn_spec(root, "churn_limit = 3"), root)
+    assert outcome.status == "completed" and len(state["prompts"]) == 3
+
+
+def test_a_malformed_loop_body_does_end_the_loop_via_on_fail(root, monkeypatch):
+    _scripted_agent(monkeypatch, ["sem nenhum sinal\nNEW_FINDINGS=1"])
+    outcome = adw.execute(_churn_spec(root, "churn_limit = 3"), root)
+    assert outcome.status == "failed" and any(s["node"] == "bad" for s in outcome.steps)
+
+
+def test_lint_churn_limit_needs_a_findings_contract_body_and_a_sane_value(root):
+    _, _ = adw.lint_spec(_churn_spec(root, "churn_limit = 1"))
+    assert adw.lint_spec(adw.load_spec(root, "ch"))[0] == []
+    _churn_spec(root, "churn_limit = -1")
+    assert any("churn_limit" in e for e in adw.lint_spec(adw.load_spec(root, "ch"))[0])
+    _churn_spec(root, 'churn_limit = "many"')
+    assert any("churn_limit" in e for e in adw.lint_spec(adw.load_spec(root, "ch"))[0])
+    spec = _churn_spec(root, "churn_limit = 1")
+    spec.node("rev").raw.pop("findings_contract")
+    errors, _ = adw.lint_spec(spec)
+    assert any("churn_limit" in e and "findings_contract" in e for e in errors), errors
+
+
+def test_lint_churn_limit_outside_a_loop_is_an_error(root):
+    errors, _ = adw.lint_spec(_agent_spec(root, "cl1", extra="churn_limit = 2"))
+    assert any("churn_limit" in e and "loop" in e for e in errors), errors
+
+
+# E5 — triage_of (EGM skills/egm-resolve/SKILL.md:56-82)
+
+
+TWO_FINDINGS = {"rev": {"summary": _finding("major", "s1", "x") + "\n" + _finding("nit", "s2", "y"),
+                        "full_ref": "", "omitted_bytes": 0}}
+
+
+def _triage(tmp_path, monkeypatch, output, results=None):
+    return _run_agent({"triage_of": "rev", "on_escalate": "human"}, tmp_path, monkeypatch,
+                      output, results=results or TWO_FINDINGS, name="tri")
+
+
+def test_triage_passes_when_every_finding_has_exactly_one_disposition(tmp_path, monkeypatch):
+    out = "DISPOSITION 1 FIX :: reescrever o parágrafo\nDISPOSITION 2 DECLINE :: só estilo"
+    result, journal = _triage(tmp_path, monkeypatch, out)
+    assert result.exit_code == 0 and result.escalate is False
+    ev = _events(journal, "triage_checked")[-1]
+    assert ev["passed"] is True and ev["findings"] == 2
+    assert ev["dispositions"] == {"FIX": 1, "DECLINE": 1}
+
+
+@pytest.mark.parametrize("out, needle", [
+    ("DISPOSITION 1 FIX :: ok", "2"),                                   # finding 2 untriaged
+    ("DISPOSITION 1 FIX :: a\nDISPOSITION 1 CONTEST :: b\nDISPOSITION 2 FIX :: c", "duplic"),
+    ("DISPOSITION 1 FIX :: a\nDISPOSITION 2 DECLINE", "motivo"),         # DECLINE needs a reason
+    ("DISPOSITION 1 CONTEST ::   \nDISPOSITION 2 FIX :: c", "motivo"),   # CONTEST needs a reason
+    ("DISPOSITION 1 FIX :: a\nDISPOSITION 2 FIX :: b\nDISPOSITION 3 FIX :: c", "3"),  # out of range
+    ("DISPOSITION 1 FIX :: a\nDISPOSITION 2 MAYBE :: b", "MAYBE"),       # not in the vocabulary
+])
+def test_triage_fails_closed_on_a_broken_disposition_set(tmp_path, monkeypatch, out, needle):
+    result, journal = _triage(tmp_path, monkeypatch, out)
+    assert result.exit_code != 0 and result.contract_failure == "contract"
+    assert needle in result.output
+    assert "DISPOSITION <n> CONTEST|ESCALATE|FIX|DECLINE :: <motivo>" in result.output
+    assert _events(journal, "triage_checked")[-1]["passed"] is False
+
+
+def test_triage_escalate_follows_on_escalate_without_failing(tmp_path, monkeypatch):
+    out = "DISPOSITION 1 ESCALATE :: convenção do time\nDISPOSITION 2 FIX :: y"
+    result, journal = _triage(tmp_path, monkeypatch, out)
+    assert result.exit_code == 0 and result.escalate is True
+    assert _events(journal, "triage_checked")[-1]["dispositions"]["ESCALATE"] == 1
+
+
+def test_triage_with_a_reviewer_that_never_ran_fails_closed(tmp_path, monkeypatch):
+    result, _ = _triage(tmp_path, monkeypatch, "DISPOSITION 1 FIX :: a", results={})
+    assert result.exit_code != 0 and "rev" in result.output
+
+
+def test_triage_of_zero_findings_needs_no_dispositions(tmp_path, monkeypatch):
+    clean = {"rev": {"summary": "FINDINGS=NONE", "full_ref": "", "omitted_bytes": 0}}
+    result, _ = _triage(tmp_path, monkeypatch, "Nada a triar.", results=clean)
+    assert result.exit_code == 0 and result.escalate is False
+
+
+def test_triage_reads_the_reviewer_from_full_ref_when_the_summary_was_cut(tmp_path, monkeypatch):
+    full = tmp_path / "rev.out"
+    findings = [_finding("nit", f"s{i}", f"why {i}") for i in range(1, 4)]
+    full.write_text("\n".join(findings))
+    cut = {"rev": {"summary": findings[0], "full_ref": str(full), "omitted_bytes": 99}}
+    out = "\n".join(f"DISPOSITION {i} FIX :: ok" for i in range(1, 4))
+    result, journal = _triage(tmp_path, monkeypatch, out, results=cut)
+    assert result.exit_code == 0 and _events(journal, "triage_checked")[-1]["findings"] == 3
+
+
+TRIAGE_FLOW = """
+[adw]
+name = "tf"
+entry = "rev"
+[node.rev]
+type = "agent"
+prompt = "Review."
+findings_contract = true
+allowed_tools = ["Read"]
+on_pass = "__end__"
+on_fail = "tri"
+[node.tri]
+type = "agent"
+prompt = "Triage: {{nodes.rev.summary}}"
+triage_of = "rev"
+allowed_tools = ["Read"]
+on_escalate = "human"
+on_pass = "apply"
+on_fail = "__fail__"
+[node.apply]
+type = "code"
+command = ["bash", "-c", "echo applied"]
+idempotent = true
+on_pass = "__end__"
+[node.human]
+type = "code"
+command = ["bash", "-c", "echo escalated-to-a-person"]
+idempotent = true
+on_pass = "__end__"
+"""
+
+
+def test_an_escalated_triage_routes_to_on_escalate_in_a_real_run(root, monkeypatch):
+    _scripted_agent(monkeypatch, {"rev": _finding("blocker", "s1", "x"),
+                                  "tri": "DISPOSITION 1 ESCALATE :: convenção do time"})
+    write_spec(root, "tf", TRIAGE_FLOW)
+    outcome = adw.execute(adw.load_spec(root, "tf"), root)
+    names = [s["node"] for s in outcome.steps]
+    assert names == ["rev", "tri", "human"] and outcome.status == "completed"
+    events = adw.Journal(adw.runs_dir(root) / outcome.run_id).events
+    assert any(e["event"] == "escalated" and e["node"] == "tri" for e in events)
+    assert not any(e["event"] == "retry_limit_exceeded" for e in events), "ESCALATE gasta retry"
+
+
+def test_a_clean_triage_routes_to_on_pass_in_a_real_run(root, monkeypatch):
+    _scripted_agent(monkeypatch, {"rev": _finding("blocker", "s1", "x"),
+                                  "tri": "DISPOSITION 1 FIX :: reescrever"})
+    write_spec(root, "tf", TRIAGE_FLOW)
+    outcome = adw.execute(adw.load_spec(root, "tf"), root)
+    assert [s["node"] for s in outcome.steps] == ["rev", "tri", "apply"]
+
+
+def test_lint_triage_of_shape(root):
+    flow = TRIAGE_FLOW
+    write_spec(root, "tf", flow)
+    errors, _ = adw.lint_spec(adw.load_spec(root, "tf"))
+    assert errors == [], errors
+    write_spec(root, "tf", flow.replace('on_escalate = "human"\n', ""))
+    assert any("triage_of" in e and "on_escalate" in e
+               for e in adw.lint_spec(adw.load_spec(root, "tf"))[0])
+    write_spec(root, "tf", flow.replace('triage_of = "rev"', 'triage_of = "ghost"'))
+    assert any("triage_of" in e and "ghost" in e
+               for e in adw.lint_spec(adw.load_spec(root, "tf"))[0])
+    write_spec(root, "tf", flow.replace("findings_contract = true\n", ""))
+    assert any("triage_of" in e and "findings_contract" in e
+               for e in adw.lint_spec(adw.load_spec(root, "tf"))[0])
+    write_spec(root, "tf", flow.replace('prompt = "Triage: {{nodes.rev.summary}}"',
+                                        'prompt = "Triage."'))
+    assert adw.lint_spec(adw.load_spec(root, "tf"))[0] == [], "the runner injects the findings"
+
+
+def test_the_triage_prompt_carries_the_numbered_findings_it_will_be_checked_against(tmp_path, monkeypatch):
+    state = _scripted_agent(monkeypatch, ["DISPOSITION 1 FIX :: a\nDISPOSITION 2 DECLINE :: b"])
+    node = adw.Node(name="tri", type="agent", raw={
+        "prompt": "Triage.", "triage_of": "rev", "on_escalate": "human"})
+    adw.run_agent_node(node, None, adw.Journal(tmp_path), TWO_FINDINGS, {}, False, False,
+                       cwd=tmp_path)
+    prompt = state["prompts"][0]
+    assert "1. [major] s1 :: x" in prompt and "2. [nit] s2 :: y" in prompt
+    assert "DISPOSITION <n> CONTEST|ESCALATE|FIX|DECLINE" in prompt
+
+
+def test_triage_of_counts_as_a_data_read_of_the_triaged_node(root):
+    write_spec(root, "tf", TRIAGE_FLOW)
+    assert "rev" in adw.node_data_reads(adw.load_spec(root, "tf").node("tri"))
+
+
+def test_lint_triage_of_on_a_non_agent_is_an_error(root):
+    write_spec(root, "tf2", """
+[adw]
+name = "tf2"
+entry = "a"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+triage_of = "a"
+""")
+    errors, _ = adw.lint_spec(adw.load_spec(root, "tf2"))
+    assert any("triage_of" in e and "agent" in e for e in errors), errors
+
+
+# E8 — output_schema (EGM skills/egm-bootstrap/references/worker-return.schema.json)
+
+
+SCHEMA = {"required": ["verdict", "score"], "types": {"verdict": "str", "score": "float"}}
+
+
+def _schema_run(tmp_path, monkeypatch, output, schema=None):
+    return _run_agent({"output_schema": schema or SCHEMA}, tmp_path, monkeypatch, output)
+
+
+def test_output_schema_passes_on_the_last_json_object(tmp_path, monkeypatch):
+    out = 'Resultado:\n{"verdict": 1}\ncorrigindo\n```json\n{"verdict": "ok", "score": 0.9}\n```'
+    result, _ = _schema_run(tmp_path, monkeypatch, out)
+    assert result.exit_code == 0 and result.output == out
+
+
+def test_output_schema_judges_the_LAST_object_not_the_first(tmp_path, monkeypatch):
+    out = '{"verdict": "ok", "score": 1}\ndepois mudei de ideia: {"verdict": "ok"}'
+    result, _ = _schema_run(tmp_path, monkeypatch, out)
+    assert result.exit_code != 0 and "score" in result.output
+
+
+def test_output_schema_ignores_objects_nested_in_the_last_one(tmp_path, monkeypatch):
+    out = '{"verdict": "ok", "score": 1, "detail": {"verdict": 7}}'
+    result, _ = _schema_run(tmp_path, monkeypatch, out)
+    assert result.exit_code == 0
+
+
+def test_output_schema_names_the_missing_and_the_mistyped_keys(tmp_path, monkeypatch):
+    result, journal = _schema_run(tmp_path, monkeypatch, '{"verdict": 5}')
+    assert result.exit_code != 0 and result.contract_failure == "contract"
+    assert "score" in result.output, "a chave ausente precisa estar nomeada"
+    assert "verdict" in result.output and "str" in result.output, "o tipo errado também"
+    ev = _events(journal, "output_schema_failed")[0]
+    assert ev["missing"] == ["score"] and ev["mistyped"] == ["verdict"]
+
+
+def test_output_schema_does_not_confuse_bool_with_a_number(tmp_path, monkeypatch):
+    result, _ = _schema_run(tmp_path, monkeypatch, '{"verdict": "ok", "score": true}')
+    assert result.exit_code != 0 and "score" in result.output
+    ints, _ = _schema_run(tmp_path, monkeypatch, '{"verdict": "ok", "score": 1}')
+    assert ints.exit_code == 0, "int satisfaz float"
+
+
+def test_output_schema_without_any_json_fails_closed(tmp_path, monkeypatch):
+    result, journal = _schema_run(tmp_path, monkeypatch, "Tudo certo, nota 10, aprovado.")
+    assert result.exit_code != 0 and "JSON" in result.output
+    assert _events(journal, "output_schema_failed")[0]["reason"] == "no_json_object"
+
+
+@pytest.mark.parametrize("typename, good, bad", [
+    ("int", "3", '"3"'), ("float", "0.5", '"x"'), ("bool", "false", "0"),
+    ("list", "[1]", "{}"), ("dict", "{}", "[]"), ("str", '"s"', "1"),
+])
+def test_output_schema_supports_the_six_declared_types(tmp_path, monkeypatch, typename, good, bad):
+    schema = {"required": ["k"], "types": {"k": typename}}
+    ok, _ = _schema_run(tmp_path, monkeypatch, '{"k": ' + good + "}", schema)
+    assert ok.exit_code == 0, (typename, ok.output)
+    nope, _ = _schema_run(tmp_path, monkeypatch, '{"k": ' + bad + "}", schema)
+    assert nope.exit_code != 0, typename
+
+
+def test_output_schema_declared_in_toml_reaches_the_runner(root, monkeypatch):
+    _scripted_agent(monkeypatch, ['{"verdict": "ok"}'])
+    write_spec(root, "os", """
+[adw]
+name = "os"
+entry = "a"
+[node.a]
+type = "agent"
+prompt = "Return JSON."
+allowed_tools = ["Read"]
+output_schema = { required = ["verdict", "score"], types = { score = "float" } }
+on_pass = "__end__"
+on_fail = "__fail__"
+""")
+    spec = adw.load_spec(root, "os")
+    assert adw.lint_spec(spec)[0] == []
+    assert adw.execute(spec, root).status == "failed"
+
+
+def test_lint_output_schema_shape(root):
+    cases = {
+        "os1": ('output_schema = "verdict"', "output_schema"),
+        "os2": ('output_schema = { required = "verdict" }', "required"),
+        "os3": ('output_schema = { types = { k = "decimal" } }', "decimal"),
+        "os4": ('output_schema = { required = ["k"], shape = 1 }', "shape"),
+        "os5": ("output_schema = {}", "vazio"),
+    }
+    for name, (line, needle) in cases.items():
+        errors, _ = adw.lint_spec(_agent_spec(root, name, extra=line))
+        assert any("output_schema" in e and needle in e for e in errors), (name, errors)
+    write_spec(root, "os6", """
+[adw]
+name = "os6"
+entry = "a"
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+output_schema = { required = ["k"] }
+""")
+    assert any("output_schema" in e and "agent" in e
+               for e in adw.lint_spec(adw.load_spec(root, "os6"))[0])
+
+
+# E7 — [purpose] goals / non_goals / open_questions / verification
+# (EGM skills/egm-draft/references/design_doc.md)
+
+
+PURPOSE_BASE = """
+[adw]
+name = "@NAME@"
+entry = "a"
+[purpose]
+intent = "do the thing"
+when_not_to_use = "when not needed"
+class = "fix"
+@PURPOSE@
+[node.a]
+type = "code"
+command = ["true"]
+idempotent = true
+"""
+
+
+def _purpose(root, name, lines):
+    write_spec(root, name, PURPOSE_BASE.replace("@NAME@", name).replace("@PURPOSE@", lines))
+    return adw.lint_spec(adw.load_spec(root, name))
+
+
+def test_purpose_design_fields_pass_clean_when_well_typed(root):
+    errors, warnings = _purpose(root, "pd1", """
+curation = "generic"
+goals = ["fix the bug"]
+non_goals = ["refactor around it"]
+open_questions = ["does it reproduce on CI?"]
+verification = "the failing test passes and the full suite stays green"
+""")
+    assert errors == [] and not any("goals" in w or "verification" in w for w in warnings), (errors, warnings)
+
+
+@pytest.mark.parametrize("lines, needle", [
+    ('goals = "fix it"', "goals"),
+    ('non_goals = [1, 2]', "non_goals"),
+    ('open_questions = ["ok", ""]', "open_questions"),
+    ('verification = ["a", "b"]', "verification"),
+    ('verification = "   "', "verification"),
+])
+def test_purpose_design_type_errors_are_errors_not_warnings(root, lines, needle):
+    errors, _ = _purpose(root, "pd2", lines)
+    assert any("[purpose]" in e and needle in e for e in errors), errors
+
+
+def test_a_generic_flow_without_goals_or_verification_is_warned(root):
+    errors, warnings = _purpose(root, "pd3", 'curation = "generic"')
+    assert errors == []
+    assert any("goals" in w for w in warnings) and any("verification" in w for w in warnings)
+
+
+def test_only_generic_curation_is_held_to_goals_and_verification(root):
+    for cur in ("local", "hold"):
+        _, warnings = _purpose(root, "pd4", f'curation = "{cur}"')
+        assert not any("goals" in w or "verification" in w for w in warnings), (cur, warnings)
+
+
+def test_a_warning_for_the_missing_half_names_only_what_is_missing(root):
+    _, warnings = _purpose(root, "pd5", 'curation = "generic"\ngoals = ["a"]')
+    assert any("verification" in w for w in warnings) and not any("`goals`" in w for w in warnings)
+
+
+def test_every_generic_library_flow_declares_goals_and_verification():
+    """E7: the four fields are filled from each flow's OWN content — a generic flow is
+    the one other projects instantiate blind, so the contract must be readable first."""
+    lib = adw.library_dir()
+    if not lib.exists():
+        pytest.skip("biblioteca central ausente nesta maquina")
+    pobres, total = [], 0
+    for f in sorted(lib.glob("*.toml")):
+        data = tomllib.loads(f.read_text())
+        purpose = data.get("purpose") or {}
+        if "adw" not in data or purpose.get("curation") != "generic":
+            continue
+        total += 1
+        for key in ("goals", "non_goals", "open_questions"):
+            if not isinstance(purpose.get(key), list):
+                pobres.append(f"{f.stem}:{key}")
+        if not purpose.get("goals"):
+            pobres.append(f"{f.stem}:goals-vazio")
+        if not str(purpose.get("verification", "")).strip():
+            pobres.append(f"{f.stem}:verification")
+    assert total >= 10, f"so {total} flows genericos examinados"
+    assert not pobres, "campos de design ausentes: " + ", ".join(pobres)

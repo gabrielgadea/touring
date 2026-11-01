@@ -16,6 +16,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global TACO-skilling.
 curation = "generic"
+goals = ["Minerar o uso real da skill (`mine_transcripts`) e medir a higiene atual (`quality_gate`)", "Diagnosticar o sinal e rotear cada lição ao destino certo (skill.md, reference, script, memory ou gotcha)", "Propor o diff concreto — sem aplicá-lo"]
+non_goals = ["Aplicar os diffs: editar skill viva é ato da sessão com o humano (never apply blind)", "Criar skill nova — skilling-pack/CREATE cobre; aqui só refinamento por evidência"]
+open_questions = ["Quantas sessões que ativaram a skill são o mínimo para o sinal minerado valer? A saída do minerador é cortada em 3.600 bytes e o flow não declara piso"]
+verification = "O gate `verdict_gate` conta um `FACT=` por lição minerada com destino roteado e `VERDICT=PASS` na saída do agente; o run termina `completed` com o fecho persistido."
 intent = "Melhorar uma skill pela evidência do seu uso real: minerar sessões, diagnosticar o sinal, rotear cada lição ao destino certo e propor o diff concreto"
 class = "fix"
 when_to_use = [

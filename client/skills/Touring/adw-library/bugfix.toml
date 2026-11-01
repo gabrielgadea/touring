@@ -15,6 +15,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
+goals = ["Fix one reproducible defect, fed by institutional recall, a diagnosis evidence map and known pitfalls for the area", "Accept the fix only when the caller's `verify_cmd` passes, then the 50-dimension quality gate", "Persist the lesson of the fix (close.persist)"]
+non_goals = ["Production incidents where speed beats thoroughness — use hotfix, then bugfix for the real cause", "Building something that does not exist yet — use feature", "Fixing without a command that proves the fix: verify_cmd is a required input"]
+open_questions = ["How many gate rejections should the fixer absorb before escalating? `verify` loops back to `fix` and only the runner's retry budget (max_retries, default 3) ends it"]
+verification = "`verify_cmd` exits 0 on the fixed tree, the q50 quality gate passes and the run ends `completed` with the fix, the recall and the diagnosis in its journal."
 intent = "Fix a reproducible bug with institutional memory feeding the fixer and a gate that verifies the result"
 class = "fix"
 when_to_use = [

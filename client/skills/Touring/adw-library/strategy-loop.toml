@@ -21,6 +21,10 @@ budget_tokens = 0
 intent = "Run the deterministic OUTER prefix of loop-engineering: arm the marker, recall, diagnose, explore until dry, report the evidence"
 class = "create"
 curation = "generic"
+goals = ["Arm the OUTER marker so the Stop hook demands the OUTER artifacts", "Recall institutional memory and diagnose the scope in parallel", "Explore until a round comes back dry, leaving a CCE ledger, and report the evidence manifest"]
+non_goals = ["Writing the strategy synthesis — the session writes it; this run deliberately does not", "A conversational question, where the whole OUTER is overhead"]
+open_questions = ["Are `max_iters = 4` and `dry_rounds = 2` enough to drain a broad scope? A scope that never goes dry leaves the explore loop after 4 rounds"]
+verification = "The OUTER marker is armed, an OKF diagnostic and a CCE ledger exist on disk, and `loop_outer_gate.py --json` reports the evidence; the run reaches `__end__`."
 when_to_use = [
   "starting substantive work that owes a diagnostic doc and a CCE ledger on disk",
   "you want the OUTER artifacts produced by code rather than by narration",

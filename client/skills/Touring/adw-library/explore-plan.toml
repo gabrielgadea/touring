@@ -16,6 +16,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: explore+plan_refine genericos.
 curation = "generic"
+goals = ["Explore a foggy topic with `touring explore` until the round comes back dry (NEW_FINDINGS=0 for dry_rounds consecutive rounds), leaving a CCE ledger on disk", "Refine the plan document to a plateau (`plan_refine.py`) when one is supplied", "Stop at a human gate that decides act or wait"]
+non_goals = ["Planning work that is already specified — it burns rounds for nothing", "Unattended runs: it pauses at a human gate by design", "Executing the plan"]
+open_questions = ["Are `max_iters = 4` and `dry_rounds = 2` the right budget for topics with many lenses? A topic that never goes dry leaves the loop after 4 rounds and proceeds to refine_plan"]
+verification = "The CCE ledger of `touring explore` exists on disk with the last rounds reporting `NEW_FINDINGS=0`, `refine_plan` ran (or reported it skipped for lack of a plan doc) and the human gate `act_or_wait` recorded a decision."
 intent = "Explore a foggy topic until the round comes back dry, refine a plan to plateau, then let a human decide act or wait"
 class = "create"
 when_to_use = [

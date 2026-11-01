@@ -14,6 +14,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: workflow light generico.
 curation = "generic"
+goals = ["Do one small scoped task with a single light-tier agent", "Reuse prior art from the portfolio when it genuinely fits (evidence, not a constraint)", "Accept the change through exactly one verification gate (`verify_cmd`)"]
+non_goals = ["Work needing diagnosis, prior art or an API decision — use bugfix or feature", "Anything touching more files than the author can name in advance", "A second verification layer: one gate by design"]
+open_questions = ["Where is the line between a chore and a feature? The flow has no size guard — the boundary is the author's judgement"]
+verification = "The `verify` gate (the caller's `verify_cmd`) exits 0 after the light agent's change and the run ends `completed`."
 intent = "Do one small scoped task with a single light agent and exactly one verification gate"
 class = "fix"
 when_to_use = [

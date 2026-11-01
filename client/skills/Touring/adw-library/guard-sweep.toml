@@ -15,6 +15,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: 3 runs, padrao scripts/test_*.py vale em qualquer repo.
 curation = "generic"
+goals = ["Descobrir todos os guards (`scripts/test_*.py`) e rodar 100% deles", "Reportar os guards falhando e os vazios (coleta zero: o guard não guarda nada)", "Listar os guards fora do CI com evidência"]
+non_goals = ["Rodar a suíte de UM guard específico — chame o pytest direto", "Repos sem guards em scripts/ — não há o que varrer", "Consertar guards: o flow denuncia, não edita"]
+open_questions = ["A descoberta cobre só `scripts/test_*.py` — guards em outros diretórios ou em outras linguagens ficam fora da varredura; vale ampliar o padrão?"]
+verification = "`FACT=guards_falhando=0` e `FACT=guards_vazios=0` (o gate `run_all` sai 0), com o total descoberto em `FACT=guards_total` e os guards fora do CI listados pelo nó `discover`."
 intent = "Provar que toda proteção declarada executa: descobrir guards, rodar todos, e listar os órfãos de CI com evidência"
 class = "review"
 when_to_use = [

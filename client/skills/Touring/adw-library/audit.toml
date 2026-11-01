@@ -14,6 +14,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: masters touring parametrizados, sem arquivo do repo.
 curation = "generic"
+goals = ["Collect deterministic security, blast-radius and quality evidence for ONE file (touring audit, blast, read) before anyone edits it", "Run the 50-dimension quality gate over the same target", "Hand back one ranked findings report (severity, evidence, action) synthesized only from that evidence"]
+non_goals = ["Auditing a whole crate or workspace — the flow is scoped to a single target", "Deciding whether a change is correct — that is a gate, not an audit", "Editing the audited file"]
+open_questions = ["Should a hard security finding stop the flow? Every collection step continues on failure (on_fail leads to the next step) and only the synthesis reports it"]
+verification = "Done when the q50 quality gate passes, the synthesize node returns the ranked findings report and `close.persist` stores the round — the run ends `completed`."
 intent = "Audit one file with deterministic evidence — security, blast radius and quality — before anyone edits it"
 class = "review"
 when_to_use = [

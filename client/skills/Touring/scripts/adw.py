@@ -20,7 +20,11 @@ Subcommands:
 Spec: .touring/adw/<name>.toml — [adw] name/entry/budget_tokens, [node.X] typed
   code  : command[] + timeout_ms + retries + idempotent + sandbox
   agent : driver(claude|mock) + prompt + tier + allowed_tools + skill + budget_usd +
-          max_turns(reserved) + session(fresh|resume_on_fail)
+          max_turns(reserved) + session(fresh|resume_on_fail) + tools("none").
+          Goldfish contracts (the EXECUTOR judges the output, not the prose):
+          persona.isolation("goldfish") · must_read[] (READ receipts) ·
+          findings_contract + max_major · triage_of (+ on_escalate) · output_schema.
+          A loop may add `churn_limit = N` over a findings_contract body.
   gate  : same as code; a FAIL right after a success-narrating agent → Class-D.
           With `verdict_contract = true` the gate speaks PASS|REJECT|ESCALATE and
           MUST declare `on_escalate`; an unparseable verdict reads as REJECT.
@@ -55,8 +59,9 @@ import subprocess
 import sys
 import time
 import tomllib
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 # ── constants ─────────────────────────────────────────────────────────────────
@@ -179,7 +184,18 @@ PERSONA_SECTIONS: tuple[tuple[str, str, str], ...] = (
     ("emits", "OUTPUT",
      "Your final line MUST match this contract exactly, with nothing after it: {v}"),
 )
-PERSONA_FIELDS = {name for name, _, _ in PERSONA_SECTIONS} | {"role", "description", "prompt"}
+#: E1 (01/11/2026) — `isolation = "goldfish"` marks a persona as a fresh, stateless
+#: reader (EGM .claude-plugin/agents/*.md:5-8: `tools: [Read, Grep, Glob]` +
+#: `omitClaudeMd: true`); `tools` is the persona's own tool list for the `--agents`
+#: definition. Neither is a prompt section: they shape the agent, not what it is told.
+ISOLATION_GOLDFISH = "goldfish"
+ISOLATIONS = (ISOLATION_GOLDFISH,)
+GOLDFISH_DEFAULT_TOOLS = ("Read", "Grep", "Glob")
+#: A contradiction edits no file (EGM resources/execution_instructions.md:29-34): a
+#: goldfish reader holding any of these is a reader that can also write.
+GOLDFISH_FORBIDDEN_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"})
+PERSONA_FIELDS = ({name for name, _, _ in PERSONA_SECTIONS}
+                  | {"role", "description", "prompt", "isolation", "tools"})
 # A persona holding this stance IS a critic, and the lint holds it to a critic's
 # structure: a parseable verdict, and a context it did not help build.
 CRITIC_STANCE = "reject_by_default"
@@ -200,9 +216,24 @@ def compile_persona(persona: dict) -> str:
     return "\n\n".join(parts)
 
 
-def compile_agent_definition(persona: dict, results: dict,
-                             variables: dict) -> tuple[str, dict[str, str]]:
-    """(role, definition) for `--agents` — persona fields resolve {{vars}}/{{nodes}} too."""
+def _definition_tools(resolved: dict, node_tools: list[str] | None) -> list[str] | None:
+    """The `tools` list of an `--agents` definition: persona's own, else the node's
+    declared ones, else (goldfish only) Read/Grep/Glob. None = leave the key out."""
+    own = resolved.get("tools")
+    if own:
+        return [own] if isinstance(own, str) else list(own)
+    if resolved.get("isolation") != ISOLATION_GOLDFISH:
+        return None
+    return list(node_tools) if node_tools else list(GOLDFISH_DEFAULT_TOOLS)
+
+
+def compile_agent_definition(persona: dict, results: dict, variables: dict,
+                             node_tools: list[str] | None = None) -> tuple[str, dict]:
+    """(role, definition) for `--agents` — persona fields resolve {{vars}}/{{nodes}} too.
+
+    E1: `isolation = "goldfish"` adds `"omitClaudeMd": true` (the reader does not
+    inherit the project's CLAUDE.md — EGM .claude-plugin/agents/*.md:8) and always
+    carries a `tools` restriction: the persona's, the node's, or Read/Grep/Glob."""
     resolved = {
         k: ([render_template(str(x), results, variables) for x in v]
             if isinstance(v, (list, tuple)) else render_template(str(v), results, variables))
@@ -211,7 +242,13 @@ def compile_agent_definition(persona: dict, results: dict,
     role = str(resolved["role"]).strip()
     description = str(resolved.get("description", "")).strip() or (
         f"{role} — {resolved.get('stance', 'declared in-flow')}")
-    return role, {"description": description, "prompt": compile_persona(resolved)}
+    definition: dict = {"description": description, "prompt": compile_persona(resolved)}
+    if resolved.get("isolation") == ISOLATION_GOLDFISH:
+        definition["omitClaudeMd"] = True
+    tools = _definition_tools(resolved, node_tools)
+    if tools is not None:
+        definition["tools"] = tools
+    return role, definition
 
 
 # ── spec model ────────────────────────────────────────────────────────────────
@@ -658,14 +695,22 @@ def _interpolable_strings(node: Node) -> list[str]:
                 out.extend(str(v) for v in value)
             else:
                 out.append(str(value))
+    must_read = raw.get("must_read")  # E2 — rendered by `_declared_paths`
+    if isinstance(must_read, (list, tuple)):
+        out.extend(str(p) for p in must_read)
     return out
 
 
 def node_data_reads(node: Node) -> set[str]:
-    """The node names whose output this node interpolates."""
+    """The node names whose output this node interpolates.
+
+    A triage (`triage_of`, E5) reads the output of the node it triages — the runner
+    hands it that node's numbered findings — so that is a data edge too."""
     found: set[str] = set()
     for text in _interpolable_strings(node):
         found.update(NODE_REF_RE.findall(text))
+    if node.raw.get("triage_of"):
+        found.add(str(node.raw["triage_of"]))
     return found
 
 
@@ -1267,7 +1312,7 @@ def _lint_node(node: Node, names: set[str], errors: list[str], warnings: list[st
             errors.append(f"agent `{node.name}`: unknown driver `{driver}`")
         if driver == "claude" and not node.raw.get("prompt"):
             errors.append(f"agent `{node.name}`: missing prompt")
-        if not node.raw.get("allowed_tools"):
+        if not _declares_tool_policy(node):
             warnings.append(f"agent `{node.name}`: no allowed_tools — driver runs fail-closed default")
         for skill in skill_binding(node):
             status = skill_status(skill)
@@ -1812,6 +1857,233 @@ def _lint_sweep_declares_floor(spec: Spec, errors: list[str]) -> None:
                 f"sem piso declarado COVERAGE=0/0 contaria como cobertura completa")
 
 
+# ── lint: the goldfish wave (01/11/2026) — E1 · E2 · E3 · E4 · E5 · E6 · E7 · E8 ──
+# Every new field is validated HERE, at author time, because a typo'd contract that
+# the runner silently ignores is a node that looks constrained and is not.
+
+
+def _as_list(value) -> list:
+    if value is None:
+        return []
+    return list(value) if isinstance(value, (list, tuple)) else [value]
+
+
+def _tool_head(tool) -> str:
+    """`Bash(git *)` → `Bash`: a scoped permission is still that tool."""
+    return str(tool).split("(", 1)[0].strip()
+
+
+def _persona_dict(node: Node) -> dict:
+    persona = node.raw.get("persona")
+    return persona if isinstance(persona, dict) else {}
+
+
+def _declared_tools(node: Node) -> list:
+    """Every tool the node or its persona declares (allowed_tools ∪ persona.tools)."""
+    return [*_as_list(node.raw.get("allowed_tools")), *_as_list(_persona_dict(node).get("tools"))]
+
+
+def _declares_tool_policy(node: Node) -> bool:
+    """Is the tool surface of this agent stated (so 'no allowed_tools' is not a gap)?
+
+    Three ways to state it: `allowed_tools`, `tools = "none"`, or a goldfish persona
+    (whose default IS Read/Grep/Glob)."""
+    return bool(node.raw.get("allowed_tools") or node.raw.get("tools") == TOOLS_NONE
+                or _persona_dict(node).get("isolation") == ISOLATION_GOLDFISH)
+
+
+def _lint_goldfish(node: Node, errors: list[str]) -> None:
+    """E1 — a goldfish reader that can also write is not a goldfish."""
+    persona = _persona_dict(node)
+    isolation = persona.get("isolation")
+    if node.type != "agent" or isolation is None:
+        return
+    if isolation not in ISOLATIONS:
+        errors.append(f"agent `{node.name}`: persona isolation = {isolation!r} desconhecida — o "
+                      f"único valor é \"goldfish\" (leitor fresco: sem CLAUDE.md, só Read/Grep/Glob)")
+        return
+    bad = sorted({_tool_head(t) for t in _declared_tools(node)} & GOLDFISH_FORBIDDEN_TOOLS)
+    if bad:
+        errors.append(
+            f"agent `{node.name}`: persona isolation = \"goldfish\" com {bad} em "
+            f"allowed_tools/tools — contradição: não edita arquivo quem se declara goldfish "
+            f"(EGM resources/execution_instructions.md:29-34). Tire essas ferramentas (o "
+            f"goldfish lê com Read/Grep/Glob) ou remova a isolation do persona")
+
+
+def _lint_tools_field(node: Node, errors: list[str]) -> None:
+    """E6 — `tools = "none"`: no tool at all, so nothing may also be allowed."""
+    if "tools" not in node.raw:
+        return
+    tools = node.raw["tools"]
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: `tools` só vale em nó agent (type é `{node.type}`)")
+    elif tools != TOOLS_NONE:
+        errors.append(f"agent `{node.name}`: tools = {tools!r} — o único valor é tools = "
+                      f"\"none\" (a chamada não recebe ferramenta alguma); para um conjunto "
+                      f"de ferramentas use `allowed_tools`")
+    elif node.raw.get("allowed_tools") or skill_binding(node):
+        errors.append(f"agent `{node.name}`: tools = \"none\" contradiz allowed_tools/skill — "
+                      f"\"nenhuma ferramenta\" e \"estas ferramentas\" não coexistem; apague um "
+                      f"dos dois (uma skill também precisa da ferramenta Skill)")
+
+
+def _lint_must_read(node: Node, errors: list[str]) -> None:
+    """E2 — `must_read` is a list of paths on an agent node. No tool-surface warning: the
+    proof is a line the agent quotes, so any agent that can Read (a goldfish included) can
+    produce it."""
+    if "must_read" not in node.raw:
+        return
+    paths = node.raw["must_read"]
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: must_read só vale em nó agent (type é `{node.type}`)")
+    elif (not isinstance(paths, list) or not paths
+            or not all(isinstance(p, str) and p.strip() for p in paths)):
+        errors.append(f"agent `{node.name}`: must_read deve ser uma lista não vazia de caminhos "
+                      f"(strings não vazias, aceitam {{{{vars.x}}}}) — recebeu {paths!r}")
+
+
+def _lint_findings_contract(node: Node, errors: list[str]) -> None:
+    """E3 — `findings_contract` (bool) and its `max_major` (int ≥ 0), on an agent node."""
+    contract, max_major = node.raw.get("findings_contract"), node.raw.get("max_major")
+    if contract is None and max_major is None:
+        return
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: findings_contract/max_major só valem em nó agent "
+                      f"(type é `{node.type}`)")
+        return
+    if contract is not None and not isinstance(contract, bool):
+        errors.append(f"agent `{node.name}`: findings_contract deve ser booleano, "
+                      f"recebeu {contract!r}")
+    if max_major is None:
+        return
+    if isinstance(max_major, bool) or not isinstance(max_major, int) or max_major < 0:
+        errors.append(f"agent `{node.name}`: max_major deve ser um inteiro >= 0, "
+                      f"recebeu {max_major!r}")
+    if contract is not True:
+        errors.append(f"agent `{node.name}`: max_major sem `findings_contract = true` não faz "
+                      f"nada — declare o contrato ou remova o limite")
+
+
+def _lint_triage(spec: Spec, node: Node, errors: list[str]) -> None:
+    """E5 — `triage_of` points at a findings_contract agent and needs `on_escalate`."""
+    target = node.raw.get("triage_of")
+    if target is None:
+        return
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: triage_of só vale em nó agent (type é `{node.type}`)")
+        return
+    reviewer = spec.nodes.get(str(target))
+    if reviewer is None:
+        errors.append(f"agent `{node.name}`: triage_of → nó desconhecido `{target}`")
+    elif not reviewer.raw.get("findings_contract"):
+        errors.append(f"agent `{node.name}`: triage_of → `{target}` não declara findings_contract "
+                      f"— sem achados numerados e parseáveis não há o que triar")
+    escalate = node.raw.get("on_escalate")
+    if escalate is None:
+        errors.append(f"agent `{node.name}`: triage_of exige `on_escalate` — um ESCALATE sem "
+                      f"destino é uma rejeição com outro nome (e gasta o retry que deveria "
+                      f"poupar)")
+    elif escalate not in spec.nodes and escalate not in TERMINALS:
+        errors.append(f"agent `{node.name}`: on_escalate → nó desconhecido `{escalate}`")
+
+
+def _lint_output_schema(node: Node, errors: list[str]) -> None:
+    """E8 — `output_schema = { required = [...], types = { key = "str|int|..." } }`."""
+    if "output_schema" not in node.raw:
+        return
+    schema = node.raw["output_schema"]
+    where = f"agent `{node.name}`: output_schema"
+    if node.type != "agent":
+        errors.append(f"node `{node.name}`: output_schema só vale em nó agent "
+                      f"(type é `{node.type}`)")
+    elif not isinstance(schema, dict):
+        errors.append(f"{where} deve ser uma tabela `{{ required = [...], types = {{...}} }}`, "
+                      f"recebeu {schema!r}")
+    else:
+        _lint_output_schema_body(schema, where, errors)
+
+
+def _lint_output_schema_body(schema: dict, where: str, errors: list[str]) -> None:
+    unknown = sorted(set(schema) - OUTPUT_SCHEMA_KEYS)
+    if unknown:
+        errors.append(f"{where}: chave(s) desconhecida(s) {unknown} — use `required` e `types`")
+    required, types = schema.get("required", []), schema.get("types", {})
+    if not isinstance(required, list) or not all(isinstance(k, str) and k for k in required):
+        errors.append(f"{where}: `required` deve ser uma lista de nomes de chave (strings)")
+    if not isinstance(types, dict):
+        errors.append(f"{where}: `types` deve ser uma tabela chave → tipo")
+        return
+    for key, typename in types.items():
+        if typename not in SCHEMA_TYPES:
+            errors.append(f"{where}: tipo `{typename}` da chave `{key}` desconhecido — "
+                          f"use um de {sorted(SCHEMA_TYPES)}")
+    if not unknown and not required and not types:
+        errors.append(f"{where} vazio não valida nada — declare `required` e/ou `types`")
+
+
+def _lint_churn(spec: Spec, node: Node, errors: list[str]) -> None:
+    """E4 — `churn_limit` belongs to a loop whose body emits findings to fingerprint."""
+    if "churn_limit" not in node.raw:
+        return
+    if node.type != "loop":
+        errors.append(f"node `{node.name}`: churn_limit só vale em nó loop (type é `{node.type}`)")
+        return
+    limit = node.raw["churn_limit"]
+    if isinstance(limit, bool) or not isinstance(limit, int) or limit < 0:
+        errors.append(f"loop `{node.name}`: churn_limit deve ser um inteiro >= 0 (reaparições "
+                      f"toleradas antes de sair por on_fail), recebeu {limit!r}")
+    body = spec.nodes.get(str(node.raw.get("body")))
+    if body is None or body.type != "agent" or not body.raw.get("findings_contract"):
+        errors.append(f"loop `{node.name}`: churn_limit exige que o corpo seja um nó agent com "
+                      f"`findings_contract = true` — sem achados parseáveis não há o que "
+                      f"fingerprintar")
+
+
+def _lint_agent_contracts(spec: Spec, node: Node, errors: list[str]) -> None:
+    _lint_goldfish(node, errors)
+    _lint_tools_field(node, errors)
+    _lint_must_read(node, errors)
+    _lint_findings_contract(node, errors)
+    _lint_triage(spec, node, errors)
+    _lint_output_schema(node, errors)
+    _lint_churn(spec, node, errors)
+
+
+PURPOSE_LIST_FIELDS = ("goals", "non_goals", "open_questions")
+
+
+def _lint_purpose_design(spec: Spec, errors: list[str], warnings: list[str]) -> None:
+    """E7 — `[purpose]` goals / non_goals / open_questions / verification (EGM
+    skills/egm-draft/references/design_doc.md: Goals, Non-Goals, Open Questions).
+
+    A TYPE error is an error (a string where a list belongs is read one letter at a
+    time by anything that iterates it). A generic flow without `goals` or `verification`
+    is only a WARNING: it still runs, but it is the flow other projects instantiate
+    blind, so what it is for and how it proves it is done must be readable up front."""
+    purpose = spec.purpose
+    if not purpose:
+        return
+    for key in PURPOSE_LIST_FIELDS:
+        value = purpose.get(key)
+        if value is not None and not (isinstance(value, list) and all(
+                isinstance(v, str) and v.strip() for v in value)):
+            errors.append(f"[purpose]: `{key}` deve ser uma lista de strings não vazias, "
+                          f"recebeu {value!r}")
+    verification = purpose.get("verification")
+    if verification is not None and not (isinstance(verification, str) and verification.strip()):
+        errors.append(f"[purpose]: `verification` deve ser uma string não vazia (como o fluxo "
+                      f"prova que terminou), recebeu {verification!r}")
+    if purpose.get("curation") != "generic":
+        return
+    if not purpose.get("goals"):
+        warnings.append("[purpose]: fluxo `curation = \"generic\"` sem `goals` — quem o instancia "
+                        "sem conhecer o repo precisa ler primeiro o que ele pretende alcançar")
+    if not purpose.get("verification"):
+        warnings.append("[purpose]: fluxo `curation = \"generic\"` sem `verification` — diga em "
+                        "uma frase como o fluxo prova que terminou (artefato, não narrativa)")
+
+
 def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     """Return (errors, warnings). Errors make `adw lint` exit non-zero."""
     errors: list[str] = []
@@ -1820,6 +2092,7 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     for node in spec.nodes.values():
         _lint_node(node, names, errors, warnings)
         _lint_persona(node, errors, warnings)
+        _lint_agent_contracts(spec, node, errors)
         _lint_readonly_claim(node, errors, warnings)
         if node.type == "parallel":
             _lint_parallel(spec, node, errors, warnings)
@@ -1827,6 +2100,7 @@ def lint_spec(spec: Spec) -> tuple[list[str], list[str]]:
     _lint_cycles(spec, errors)
     _lint_gate_feedback(spec, warnings)
     _lint_purpose(spec, errors, warnings)
+    _lint_purpose_design(spec, errors, warnings)
     _lint_budget(spec, errors)
     _lint_fake_waiting(spec, warnings)
     _lint_dead_node(spec, warnings)
@@ -1854,6 +2128,7 @@ class Journal:
 
     def __init__(self, run_path: Path):
         self.path = run_path / "journal.jsonl"
+        self.run_id = run_path.name  # the run dir IS the run id (`runs_dir/<run_id>`)
         self._seq = 0
         self.events: list[dict] = []
         if self.path.is_file():
@@ -2014,6 +2289,15 @@ class ExecResult:
     #: `adw test` walked this node with no recording to replay. Reported by name,
     #: never silent: a synthesized walk is not evidence that the agent behaves.
     synthesized: bool = False
+    #: E3/E5 — the executor judged an agent's output against the node's own contract.
+    #: "findings" = a LEGITIMATE negative (blockers/majors reported: the review worked);
+    #: "contract" = a structural breach (no receipt, malformed/absent signal, bad
+    #: schema, broken triage) — the node did not count as run. A loop treats the first
+    #: as input and the second as failure.
+    contract_failure: str | None = None
+    #: E5 — a triage found a DISPOSITION ESCALATE: the node routes via `on_escalate`
+    #: without spending a retry (the same edge a gate's VERDICT=ESCALATE takes).
+    escalate: bool = False
 
 
 def parse_verdict(output: str, exit_code: int) -> str:
@@ -2230,6 +2514,9 @@ def _agent_mock(spec: Spec, node: Node, synthesize: bool = False) -> ExecResult:
 #: into the transcript corpus the KPIs read. TokenEconomizer passes both flags on every
 #: side call (plugin/sidecall.py:140-161). `mcp`: "none" (default: strict, empty config),
 #: "inherit" (the old behaviour) or a path to a JSON config holding only what the node needs.
+#: E6 — `tools = "none"`: a headless call that reasons over text already in its prompt and
+#: touches nothing (`claude -p --tools ""`; EGM skills/egm-resolve/SKILL.md:132-134).
+TOOLS_NONE = "none"
 MCP_NONE = "none"
 MCP_INHERIT = "inherit"
 EMPTY_MCP_CONFIG = json.dumps({"mcpServers": {}})
@@ -2271,13 +2558,17 @@ def _claude_cmd(node: Node, journal: Journal, prompt: str,
     cmd = ["claude", "-p", skill_prompt_prefix(node) + prompt, "--output-format", "json"]
     persona = node.raw.get("persona")
     if persona:
-        role, definition = compile_agent_definition(persona, results or {}, variables or {})
+        role, definition = compile_agent_definition(
+            persona, results or {}, variables or {},
+            node_tools=[str(t) for t in node.raw.get("allowed_tools") or []])
         cmd += ["--agents", json.dumps({role: definition}, ensure_ascii=False), "--agent", role]
     tier = node.raw.get("tier", "")
     if tier:
         cmd += ["--model", tier_models().get(tier, tier)]
     tools = skill_tools(node)
-    if tools:
+    if node.raw.get("tools") == TOOLS_NONE:
+        cmd += ["--tools", ""]  # E6: the call gets NO tools at all (EGM egm-resolve:132-134)
+    elif tools:
         cmd += ["--allowedTools", *tools]
     budget_usd = node.raw.get("budget_usd")
     if budget_usd:
@@ -2340,11 +2631,12 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
     return result
 
 
-def run_agent_node(
+def _run_agent_driver(
     node: Node, spec: Spec, journal: Journal, results: dict, variables: dict,
     force_mock: bool, record: bool, cwd: Path | None = None,
-    feedback: str | None = None,
+    feedback: str | None = None, prompt_suffix: str = "",
 ) -> ExecResult:
+    """One agent invocation through its driver (with transport retry) — no contracts."""
     driver = "mock" if force_mock else node.raw.get("driver", "claude")
     prompt = render_template(node.raw.get("prompt", ""), results, variables)
     if feedback:
@@ -2352,6 +2644,7 @@ def run_agent_node(
         # `adw-retry-sem-feedback-do-gate`): o veredito/saída do gate REPROVADOR
         # entra verbatim no prompt do retry.
         prompt = f"{prompt}\n\n[gate feedback]\n{feedback}"
+    prompt += prompt_suffix  # the contracts' grammar, derived from the SAME constants the checkers use
     if driver == "mock":
         # Synthesis belongs to `adw test` alone. A spec that DECLARES
         # driver = "mock" is asking for one specific recording, and inventing it
@@ -2373,6 +2666,541 @@ def run_agent_node(
         journal.append("agent_transport_retry", node=node.name, attempt=attempt,
                        exit_code=result.exit_code)
         time.sleep(min(2 ** attempt, 10))
+
+
+# ── goldfish contracts (01/11/2026): E2 · E3 · E5 · E8 ────────────────────────
+# Source: google/elephant-goldfish-model (Apache-2.0). One principle — the EXECUTOR,
+# not the agent's prose, decides whether a node counts as having run (D8) — applied
+# four ways: proof of reading, a typed findings list, a disposition per finding, a
+# typed return. Each contract is declared on the node, journaled, and fails CLOSED:
+# an absent signal is never a pass (Law L2). The grammar the agent is TOLD (the
+# prompt suffix) and the grammar the checker ENFORCES share these constants, so the
+# prompt never promises what the executor does not apply.
+
+FINDING_SEVERITIES = ("blocker", "major", "nit")
+#: EGM agents/synthesizer.md:42-62 — findings grouped Blocker / Major / Nit.
+FINDING_RE = re.compile(r"^FINDING severity=(" + "|".join(FINDING_SEVERITIES)
+                        + r") scope=(\S.*?)[ \t]+::[ \t]+(\S.*?)[ \t]*$")
+FINDING_PREFIX_RE = re.compile(r"^FINDING\b")
+FINDINGS_NONE_RE = re.compile(r"^FINDINGS=NONE[ \t]*$")
+FINDING_GRAMMAR = f"FINDING severity=<{'|'.join(FINDING_SEVERITIES)}> scope=<text> :: <rationale>"
+#: EGM skills/egm-resolve/SKILL.md:56-82 — CONTEST / ESCALATE / PROPOSE FIX / DECLINE.
+DISPOSITIONS = ("CONTEST", "ESCALATE", "FIX", "DECLINE")
+DISPOSITION_RE = re.compile(
+    r"^DISPOSITION (\d+) (" + "|".join(DISPOSITIONS) + r")(?:[ \t]*::[ \t]*(.*?))?[ \t]*$")
+DISPOSITION_PREFIX_RE = re.compile(r"^DISPOSITION\b")
+DISPOSITION_GRAMMAR = f"DISPOSITION <n> {'|'.join(DISPOSITIONS)} :: <motivo>"
+#: Verdicts that must justify themselves: a contest must be checkable, a decline reasoned.
+DISPOSITIONS_NEEDING_REASON = frozenset({"CONTEST", "DECLINE"})
+#: EGM docs/claude.md:61-62 — "a reviewer who did not read did not review". The proof is a
+#: LINE CHALLENGE (the runner picks a line, the agent quotes it), not a hash: a goldfish
+#: reader has no Bash, so it cannot compute a sha256 — but any agent with Read can quote a line.
+READ_RECEIPT_RE = re.compile(r"^READ (.+?) line (\d+):[ \t]*(.*?)[ \t]*$", re.MULTILINE)
+RECEIPT_GRAMMAR = "READ <caminho> line <k>: <texto exato da linha k>"
+#: EGM skills/egm-bootstrap/references/worker-return.schema.json — a typed worker return.
+SCHEMA_TYPES = {"str": (str,), "int": (int,), "float": (int, float), "bool": (bool,),
+                "list": (list,), "dict": (dict,)}
+OUTPUT_SCHEMA_KEYS = frozenset({"required", "types"})
+
+
+@dataclass(frozen=True)
+class Finding:
+    """One reviewer finding; `fingerprint` is its identity across rounds (E4)."""
+
+    severity: str
+    scope: str
+    rationale: str
+
+    @property
+    def fingerprint(self) -> str:
+        canon = "|".join((self.severity, _normalize(self.scope), _normalize(self.rationale)))
+        return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:12]
+
+
+def _normalize(text: str) -> str:
+    """Case-, spacing- and punctuation-insensitive form: the same complaint reworded
+    only in style is still the same finding."""
+    return re.sub(r"\W+", " ", text.lower()).strip()
+
+
+@dataclass
+class ParsedFindings:
+    findings: list[Finding] = field(default_factory=list)
+    malformed: list[str] = field(default_factory=list)
+    none_declared: bool = False
+
+    def counts(self) -> dict[str, int]:
+        return {sev: sum(1 for f in self.findings if f.severity == sev)
+                for sev in FINDING_SEVERITIES}
+
+
+def parse_findings(output: str) -> ParsedFindings:
+    """Read `FINDING …` / `FINDINGS=NONE` lines. A line that starts like a finding but
+    does not match the grammar is MALFORMED — never silently dropped."""
+    parsed = ParsedFindings()
+    for line in (output or "").splitlines():
+        line = line.rstrip()
+        if FINDINGS_NONE_RE.match(line):
+            parsed.none_declared = True
+        elif FINDING_PREFIX_RE.match(line):
+            found = FINDING_RE.match(line)
+            if found:
+                parsed.findings.append(Finding(*found.groups()))
+            else:
+                parsed.malformed.append(line)
+    return parsed
+
+
+@dataclass
+class ContractFailure:
+    """A node output that breaks (or legitimately negates) the node's own contract."""
+
+    kind: str  # "contract" — structural breach · "findings" — a legitimate negative
+    message: str
+
+
+def _tally(counts: dict[str, int]) -> str:
+    return f"{counts['blocker']} blocker, {counts['major']} major, {counts['nit']} nit"
+
+
+def _findings_reason(parsed: ParsedFindings, counts: dict[str, int], max_major: int) -> str | None:
+    if parsed.malformed:
+        return "malformed"
+    if parsed.none_declared and parsed.findings:
+        return "contradiction"
+    if not parsed.findings and not parsed.none_declared:
+        return "absent_signal"
+    if counts["blocker"]:
+        return "blockers"
+    if counts["major"] > max_major:
+        return "majors"
+    return None
+
+
+def _findings_message(node: Node, reason: str, parsed: ParsedFindings,
+                      counts: dict[str, int], max_major: int) -> str:
+    head = f"CONTRATO findings_contract do nó `{node.name}`: "
+    teach = (f"Cada achado é UMA linha, exatamente `{FINDING_GRAMMAR}` (severity em "
+             f"minúsculas; scope e motivo não vazios, separados por ` :: `). Sem achados, "
+             f"emita a linha `FINDINGS=NONE`. Sinal ausente não é aprovação.")
+    if reason == "malformed":
+        bad = "\n".join(f"  - «{line}»" for line in parsed.malformed)
+        return f"{head}{len(parsed.malformed)} linha(s) FINDING malformada(s):\n{bad}\n{teach}"
+    if reason == "contradiction":
+        return (f"{head}`FINDINGS=NONE` junto de {len(parsed.findings)} achado(s) — o nó "
+                f"afirma duas coisas incompatíveis. Escolha uma. {teach}")
+    if reason == "absent_signal":
+        return (f"{head}nenhuma linha FINDING e nenhum `FINDINGS=NONE` — o silêncio não "
+                f"vale como revisão limpa, então o nó falha fechado. {teach}")
+    return (f"{head}{_tally(counts)} (limite max_major={max_major}). A revisão funcionou; "
+            f"o artefato não passou — corrija os achados abaixo, mantidos na saída original, "
+            f"e rode de novo.")
+
+
+def _check_findings(node: Node, output: str, journal: Journal) -> ContractFailure | None:
+    parsed = parse_findings(output)
+    counts = parsed.counts()
+    max_major = int(node.raw.get("max_major", 0))
+    reason = _findings_reason(parsed, counts, max_major)
+    journal.append("findings_checked", node=node.name, blockers=counts["blocker"],
+                   majors=counts["major"], nits=counts["nit"],
+                   malformed=len(parsed.malformed), max_major=max_major,
+                   passed=reason is None, reason=reason)
+    if reason is None:
+        return None
+    kind = "findings" if reason in ("blockers", "majors") else "contract"
+    return ContractFailure(kind, _findings_message(node, reason, parsed, counts, max_major))
+
+
+# ── E4: churn — a finding that vanishes and comes back ────────────────────────
+
+
+class ChurnTracker:
+    """Counts findings that DISAPPEAR and then REAPPEAR across loop rounds (EGM
+    skills/egm-review-loop/SKILL.md:151-173: "an applied fix does not settle a
+    finding; if a later reviewer raises the same issue, the fix failed or a later
+    edit reintroduced it"). A finding present in consecutive rounds is not churn —
+    it is simply still open; one never seen again is simply fixed."""
+
+    def __init__(self, limit: int | None):
+        self.limit = limit
+        self.events = 0
+        self._ever: set[str] = set()
+        self._last: set[str] = set()
+
+    def observe(self, output: str) -> int:
+        """Feed one round's output; returns the churn events that round added."""
+        now = {f.fingerprint for f in parse_findings(output).findings}
+        reappeared = (now - self._last) & self._ever
+        self.events += len(reappeared)
+        self._ever |= now
+        self._last = now
+        return len(reappeared)
+
+    @property
+    def exceeded(self) -> bool:
+        return self.limit is not None and self.events > self.limit
+
+
+# ── E2: must_read ─────────────────────────────────────────────────────────────
+
+
+def _declared_paths(node: Node, results: dict, variables: dict) -> list[str]:
+    return [render_template(str(p), results, variables) for p in node.raw.get("must_read") or []]
+
+
+def _resolve_declared(path: str, cwd: Path | None) -> Path:
+    candidate = Path(path).expanduser()
+    return candidate if candidate.is_absolute() else (cwd or Path.cwd()) / candidate
+
+
+def _squash(text: str) -> str:
+    """strip() plus internal whitespace collapsed — the form a quoted line is compared in."""
+    return " ".join(text.split())
+
+
+def line_challenge(path: Path, run_id: str, node_name: str, declared: str) -> tuple[int, str] | None:
+    """The line the agent must quote to prove it read `path`: (k, text of line k), or None
+    when the file is unreadable or empty (nothing to quote).
+
+    Deterministic — k = 1 + int(sha256(f"{run_id}|{node}|{declared}")[:8], 16) % n, counting
+    only NON-EMPTY lines — so the runner can state k in the prompt and recompute it at the
+    check, yet an agent cannot know it before the run exists. `declared` is the rendered
+    path exactly as the node declares it."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    lines = [ln for ln in text.split("\n") if ln.strip()]
+    if not lines:
+        return None
+    seed = hashlib.sha256(f"{run_id}|{node_name}|{declared}".encode()).hexdigest()[:8]
+    k = 1 + int(seed, 16) % len(lines)
+    return k, _squash(lines[k - 1])
+
+
+def _receipt_challenges(node: Node, results: dict, variables: dict, cwd: Path | None,
+                        run_id: str) -> list[tuple[str, tuple[int, str] | None]]:
+    """(declared path, its challenge or None) for every `must_read` path of the node."""
+    return [(raw, line_challenge(_resolve_declared(raw, cwd), run_id, node.name, raw))
+            for raw in _declared_paths(node, results, variables)]
+
+
+def _emitted_receipts(output: str, cwd: Path | None) -> dict[str, tuple[int, str]]:
+    """normalized path → (k, squashed text) the agent claimed; the last claim per path wins."""
+    return {os.path.normpath(str(_resolve_declared(m.group(1), cwd))): (int(m.group(2)), _squash(m.group(3)))
+            for m in READ_RECEIPT_RE.finditer(output or "")}
+
+
+def _check_read_receipt(node: Node, output: str, journal: Journal, cwd: Path | None,
+                        results: dict, variables: dict) -> ContractFailure | None:
+    """E2 — did the agent PROVE it read every `must_read` path? (EGM docs/claude.md:61-62:
+    "a reviewer who did not read did not review".)
+
+    The proof is a LINE CHALLENGE, not a hash: for each path the runner picks a non-empty
+    line k (`line_challenge`) and the agent must answer `READ <path> line <k>: <exact text>`.
+    A sha256 would be impossible for a goldfish reader — it holds only Read/Grep/Glob and
+    has no Bash — whereas any agent that can Read can quote a line. Compared after
+    strip() + whitespace collapse on both sides. No claim = missing; wrong k or wrong text
+    = mismatched; an unreadable or EMPTY file has nothing to quote = unreadable (a spec bug)."""
+    receipts = _emitted_receipts(output, cwd)
+    missing: list[str] = []
+    mismatched: list[str] = []
+    unreadable: list[str] = []
+    challenges: dict[str, int] = {}
+    for raw, challenge in _receipt_challenges(node, results, variables, cwd, journal.run_id):
+        claim = receipts.get(os.path.normpath(str(_resolve_declared(raw, cwd))))
+        if challenge is None:
+            missing.append(raw)
+            unreadable.append(raw)
+            continue
+        challenges[raw] = challenge[0]
+        if claim is None:
+            missing.append(raw)
+        elif claim != challenge:
+            mismatched.append(raw)
+    if not missing and not mismatched:
+        return None
+    journal.append("read_receipt_failed", node=node.name, missing=missing,
+                   mismatched=mismatched, unreadable=unreadable, challenges=challenges)
+    parts = [(f"CONTRATO must_read do nó `{node.name}`: o nó NÃO conta como executado — "
+              f"quem não leu não revisou.")]
+    if missing:
+        parts.append(f"Sem recibo: {', '.join(missing)}.")
+    if unreadable:
+        parts.append(f"Inexistentes, ilegíveis ou vazios no disco — nada a citar (corrija o spec): "
+                     f"{', '.join(unreadable)}.")
+    if mismatched:
+        parts.append(f"Recibo com linha ou texto errado (leu outra versão ou inventou): "
+                     f"{', '.join(mismatched)}.")
+    parts.append(f"Para cada arquivo emita `{RECEIPT_GRAMMAR}`: k é a linha NÃO VAZIA que o prompt "
+                 f"sorteou para aquele arquivo e o texto é a linha exata (espaços nas pontas e "
+                 f"repetidos são ignorados).")
+    return ContractFailure("contract", " ".join(parts))
+
+
+# ── E8: output_schema ─────────────────────────────────────────────────────────
+
+
+def last_json_object(text: str) -> dict | None:
+    """The LAST top-level JSON object in `text` (prose and fences around it are fine).
+    Objects nested inside an earlier object are skipped — they are its content."""
+    decoder = json.JSONDecoder()
+    found: dict | None = None
+    pos = text.find("{")
+    while pos >= 0:
+        try:
+            obj, end = decoder.raw_decode(text, pos)
+        except ValueError:
+            pos = text.find("{", pos + 1)
+            continue
+        found = obj
+        pos = text.find("{", end)
+    return found
+
+
+def _type_ok(value, typename: str) -> bool:
+    if typename in ("int", "float") and isinstance(value, bool):
+        return False  # True is an int to Python; it is not a number to a schema
+    return isinstance(value, SCHEMA_TYPES[typename])
+
+
+def _schema_breaches(obj: dict, required: list[str],
+                     types: dict[str, str]) -> tuple[list[str], list[str]]:
+    """(missing keys, mistyped keys) of one JSON object against the schema."""
+    missing = [k for k in required if k not in obj]
+    mistyped = [k for k, t in types.items() if k in obj and not _type_ok(obj[k], t)]
+    return missing, mistyped
+
+
+def _schema_why(obj: dict | None, missing: list[str], mistyped: list[str],
+                types: dict[str, str]) -> str:
+    if obj is None:
+        return "nenhum objeto JSON na saída"
+    bits = [f"chave ausente `{k}`" for k in missing]
+    bits += [f"`{k}` com tipo errado (esperado {types[k]}, veio {type(obj[k]).__name__})"
+             for k in mistyped]
+    return "; ".join(bits)
+
+
+def _check_output_schema(node: Node, output: str, journal: Journal) -> ContractFailure | None:
+    schema = node.raw.get("output_schema") or {}
+    required = [str(k) for k in schema.get("required") or []]
+    types = {str(k): str(t) for k, t in (schema.get("types") or {}).items()}
+    obj = last_json_object(output or "")
+    if obj is None:
+        missing, mistyped = list(required), []
+    else:
+        missing, mistyped = _schema_breaches(obj, required, types)
+        if not missing and not mistyped:
+            return None
+    journal.append("output_schema_failed", node=node.name,
+                   reason="no_json_object" if obj is None else "schema_mismatch",
+                   missing=missing, mistyped=mistyped)
+    return ContractFailure(
+        "contract",
+        f"CONTRATO output_schema do nó `{node.name}`: {_schema_why(obj, missing, mistyped, types)}. "
+        f"Termine a resposta com UM objeto JSON válido (chaves obrigatórias {required}, tipos "
+        f"{types}); vale o ÚLTIMO objeto de nível superior.")
+
+
+# ── E5: triage_of ─────────────────────────────────────────────────────────────
+
+
+def _node_full_output(results: dict, name: str) -> str | None:
+    """The whole stored output of a finished node (summary alone is cut at 2 000 bytes)."""
+    artifact = results.get(name)
+    if not artifact:
+        return None
+    ref = artifact.get("full_ref")
+    if ref:
+        try:
+            return Path(ref).read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            pass
+    return str(artifact.get("summary", ""))
+
+
+def parse_dispositions(output: str) -> tuple[list[tuple[int, str, str]], list[str]]:
+    """(rows of (n, verdict, reason), malformed lines)."""
+    rows: list[tuple[int, str, str]] = []
+    malformed: list[str] = []
+    for line in (output or "").splitlines():
+        line = line.rstrip()
+        if not DISPOSITION_PREFIX_RE.match(line):
+            continue
+        found = DISPOSITION_RE.match(line)
+        if found:
+            rows.append((int(found.group(1)), found.group(2), (found.group(3) or "").strip()))
+        else:
+            malformed.append(line)
+    return rows, malformed
+
+
+def _triage_problems(n_findings: int, rows: list[tuple[int, str, str]],
+                     malformed: list[str]) -> list[str]:
+    problems = [f"linha malformada: «{line}»" for line in malformed]
+    per_finding = Counter(n for n, _, _ in rows)
+    for n, verdict, reason in rows:
+        if not 1 <= n <= n_findings:
+            problems.append(f"achado {n} fora do intervalo (o nó triado tem {n_findings}, "
+                            f"numerados de 1 a {n_findings})")
+        if verdict in DISPOSITIONS_NEEDING_REASON and not reason:
+            problems.append(f"achado {n}: {verdict} exige motivo não vazio — "
+                            f"um contest tem de ser verificável")
+    problems += [f"achado {n} com {c} dispositions (duplicada) — exatamente uma por achado"
+                 for n, c in sorted(per_finding.items()) if c > 1]
+    problems += [f"achado {n} sem disposition" for n in range(1, n_findings + 1)
+                 if n not in per_finding]
+    return problems
+
+
+def _check_triage(node: Node, output: str, journal: Journal,
+                  results: dict) -> tuple[ContractFailure | None, bool]:
+    """(failure, escalate): every finding of `triage_of` needs exactly one disposition."""
+    target = str(node.raw["triage_of"])
+    reviewed = _node_full_output(results, target)
+    if reviewed is None:
+        journal.append("triage_checked", node=node.name, triage_of=target, findings=None,
+                       passed=False, reason="reviewer_missing")
+        return ContractFailure(
+            "contract",
+            f"CONTRATO triage_of do nó `{node.name}`: o nó `{target}` ainda não produziu "
+            f"saída — não há achados para triar. Ordene o grafo para que `{target}` rode antes."
+        ), False
+    n_findings = len(parse_findings(reviewed).findings)
+    rows, malformed = parse_dispositions(output)
+    problems = _triage_problems(n_findings, rows, malformed)
+    tally = Counter(verdict for _, verdict, _ in rows)
+    journal.append("triage_checked", node=node.name, triage_of=target, findings=n_findings,
+                   dispositions=dict(tally), passed=not problems, problems=len(problems))
+    if problems:
+        listed = "\n".join(f"  - {p}" for p in problems)
+        return ContractFailure(
+            "contract",
+            f"CONTRATO triage_of do nó `{node.name}` ({n_findings} achado(s) em `{target}`):\n"
+            f"{listed}\nEmita UMA linha por achado, na ordem em que foram reportados: "
+            f"`{DISPOSITION_GRAMMAR}` (CONTEST e DECLINE exigem motivo)."), False
+    return None, tally.get("ESCALATE", 0) > 0
+
+
+# ── applying the contracts ────────────────────────────────────────────────────
+
+AGENT_CONTRACT_FIELDS = ("must_read", "output_schema", "findings_contract", "triage_of")
+
+
+def has_agent_contract(node: Node) -> bool:
+    return node.type == "agent" and any(node.raw.get(k) for k in AGENT_CONTRACT_FIELDS)
+
+
+def _first_contract_failure(node: Node, output: str, journal: Journal, results: dict,
+                            variables: dict, cwd: Path | None) -> tuple[ContractFailure | None, bool]:
+    """Checkers run in a fixed order; the first breach wins (fail-closed, one lesson)."""
+    if node.raw.get("must_read"):
+        failure = _check_read_receipt(node, output, journal, cwd, results, variables)
+        if failure:
+            return failure, False
+    if node.raw.get("output_schema"):
+        failure = _check_output_schema(node, output, journal)
+        if failure:
+            return failure, False
+    if node.raw.get("findings_contract"):
+        failure = _check_findings(node, output, journal)
+        if failure:
+            return failure, False
+    if node.raw.get("triage_of"):
+        return _check_triage(node, output, journal, results)
+    return None, False
+
+
+def apply_agent_contracts(node: Node, result: ExecResult, journal: Journal, results: dict,
+                          variables: dict, cwd: Path | None) -> ExecResult:
+    """Judge an agent's output against the node's own contract; a breach makes the node
+    NOT count as run (exit 1, an output that teaches, original text kept below).
+
+    Two results never reach a contract: a transport failure (already a failure), and a
+    synthesized stub (`adw test` walks graphs that never ran — a stub cannot hold a
+    receipt, and the walk is already reported as synthesized)."""
+    if result.exit_code != 0 or result.synthesized or not has_agent_contract(node):
+        return result
+    failure, escalate = _first_contract_failure(node, result.output, journal, results,
+                                                variables, cwd)
+    if failure is not None:
+        body = f"{failure.message}\n\n--- saída original do agente ---\n{result.output}"
+        return replace(result, exit_code=1, output=body, contract_failure=failure.kind)
+    return replace(result, escalate=True) if escalate else result
+
+
+def _numbered_findings(results: dict, target: str) -> str:
+    """The findings of `target`, numbered by the SAME parse the triage check counts with —
+    so the `n` the author writes can never drift from the `n` the executor expects."""
+    reviewed = _node_full_output(results, target)
+    if reviewed is None:
+        return ""
+    return "\n".join(f"{i}. [{f.severity}] {f.scope} :: {f.rationale}"
+                     for i, f in enumerate(parse_findings(reviewed).findings, start=1))
+
+
+def _receipt_instruction(challenges: list[tuple[str, tuple[int, str] | None]]) -> str:
+    """The READ-RECEIPT block: one drawn line per file (the k, never its text)."""
+    listed = "\n".join(
+        f"- {path} → line {chosen[0]}" if chosen else f"- {path} → (unreadable or empty — "
+        f"nothing to quote; this will fail until the spec is fixed)"
+        for path, chosen in challenges)
+    return ("[READ-RECEIPT]\nRead each file below IN FULL with your Read tool before you answer. "
+            "Then, as the FIRST lines of your answer, emit one receipt line per file, exactly:\n"
+            "READ <path> line <k>: <exact text of line k>\n"
+            "k is the line drawn for that file below, counting only NON-EMPTY lines; quote it "
+            "verbatim (leading, trailing and repeated spaces are ignored). A missing or wrong "
+            "receipt means this node did not run: your answer will not count.\n"
+            f"Files:\n{listed}")
+
+
+def contract_prompt_suffix(node: Node, results: dict, variables: dict,
+                           run_id: str = "", cwd: Path | None = None) -> str:
+    """What the agent is TOLD about each contract it is held to (same constants as the checkers)."""
+    parts: list[str] = []
+    challenges = _receipt_challenges(node, results, variables, cwd, run_id)
+    if challenges:
+        parts.append(_receipt_instruction(challenges))
+    if node.raw.get("findings_contract"):
+        parts.append(
+            f"[FINDINGS CONTRACT]\nReport every finding on its own line, exactly:\n{FINDING_GRAMMAR}\n"
+            "severity is lowercase; scope and rationale are non-empty, separated by ' :: '. "
+            "If you found nothing, emit exactly one line: FINDINGS=NONE. Never emit both. "
+            "Silence is not a pass.")
+    if node.raw.get("triage_of"):
+        target = str(node.raw["triage_of"])
+        parts.append(
+            f"[TRIAGE CONTRACT]\nThe findings of node `{target}` are numbered 1..n in "
+            f"the order they were reported. For EACH finding emit exactly one line:\n"
+            f"{DISPOSITION_GRAMMAR}\n"
+            "CONTEST and DECLINE need a non-empty reason (a contest must be checkable: cite "
+            "evidence the reviewer could read). ESCALATE hands the finding to a person. "
+            "Never emit two lines for the same n.")
+        numbered = _numbered_findings(results, target)
+        if numbered:
+            parts.append(f"[FINDINGS TO TRIAGE — node `{target}`]\n{numbered}")
+    schema = node.raw.get("output_schema")
+    if schema:
+        parts.append(
+            "[OUTPUT SCHEMA]\nEnd your answer with ONE JSON object — the LAST top-level JSON "
+            f"object is the one judged. Required keys: {list(schema.get('required') or [])}. "
+            f"Types: {dict(schema.get('types') or {})}. A missing or mistyped key fails the node.")
+    return "".join(f"\n\n{p}" for p in parts)
+
+
+def run_agent_node(
+    node: Node, spec: Spec, journal: Journal, results: dict, variables: dict,
+    force_mock: bool, record: bool, cwd: Path | None = None,
+    feedback: str | None = None,
+) -> ExecResult:
+    """Run one agent node: its driver, then the contracts the node declared (E2/E3/E5/E8)."""
+    result = _run_agent_driver(node, spec, journal, results, variables, force_mock, record,
+                               cwd=cwd, feedback=feedback,
+                               prompt_suffix=contract_prompt_suffix(
+                                   node, results, variables, journal.run_id, cwd))
+    return apply_agent_contracts(node, result, journal, results, variables, cwd)
 
 
 # ── runner ────────────────────────────────────────────────────────────────────
@@ -2615,6 +3443,16 @@ def _agent_journal_fields(node: Node) -> dict:
     return campos
 
 
+def _node_verdict(node: Node, result: ExecResult) -> str | None:
+    """The three-way verdict a node speaks, or None for a plain pass/fail node.
+
+    A gate under `verdict_contract` speaks it by text; an agent whose triage found a
+    DISPOSITION ESCALATE (E5) takes the same escalation edge — no retry is spent."""
+    if node.type == "gate" and node.raw.get("verdict_contract", False):
+        return parse_verdict(result.output, result.exit_code)
+    return ESCALATE if result.escalate else None
+
+
 def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
     """Execute one non-loop node; returns the next node, or None on human pause."""
     ctx.journal.append("node_started", node=node.name, exec_key=exec_key, type=node.type,
@@ -2649,9 +3487,7 @@ def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
     if result.synthesized:
         ctx.outcome.synthesized.append(node.name)
     ctx.spent_usd += result.cost_usd
-    verdict = None
-    if node.type == "gate" and node.raw.get("verdict_contract", False):
-        verdict = parse_verdict(result.output, result.exit_code)
+    verdict = _node_verdict(node, result)
     passed = verdict == PASS if verdict is not None else result.exit_code == 0
     class_d = _track_class_d(ctx, node, exec_key, result, passed)
     nxt = _next_edge(ctx, node, exec_key, passed, verdict)
@@ -3086,6 +3922,82 @@ def _zte_bypass(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult | None:
     )
 
 
+def _stored_output(artifact_path: Path) -> str:
+    """The whole stored output of a finished exec — `full_ref` when the summary was cut,
+    so a resumed loop round reads the same text the live round did."""
+    if not artifact_path.is_file():
+        return ""
+    artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    ref = artifact.get("full_ref")
+    if ref and Path(ref).is_file():
+        return Path(ref).read_text(encoding="utf-8", errors="replace")
+    return artifact["summary"]
+
+
+def _run_loop_body(
+    node: Node, body: Node, exec_key: str, spec: Spec, journal: Journal, run_path: Path,
+    results: dict, variables: dict, force_mock: bool, record: bool, outcome: RunOutcome,
+    predicate: str,
+) -> tuple[str, str | None]:
+    """Execute a loop's body once. Returns (output, early) — `early` is the edge the LOOP
+    takes when the body failed outright, else None.
+
+    A body whose failure is a LEGITIMATE negative (`contract_failure == "findings"`:
+    blockers/majors reported by a findings_contract reviewer) is the loop's INPUT, not
+    its failure; only a structural breach (no receipt, malformed/absent signal, bad
+    schema) leaves the loop."""
+    root = run_path.parent.parent.parent
+    journal.append("node_started", node=body.name, exec_key=exec_key, type=body.type,
+                   **_agent_journal_fields(body))
+    if body.type == "agent":
+        result = run_agent_node(body, spec, journal, results, variables,
+                                force_mock, record, cwd=root)
+    elif body.type == "control":
+        result = run_control_node(body, results, variables, cwd=root)
+    elif body.type == "probe":
+        result = run_probe_node(body, results, variables, cwd=root)
+    else:
+        result = run_code_node(body, results, variables, cwd=root)
+    store_result(run_path, exec_key, result.output)
+    results[body.name] = {"summary": result.output[:SUMMARY_LIMIT],
+                          "omitted_bytes": 0, "full_ref": ""}
+    if body.type == "probe":
+        attach_probe_facts(results, body.name, result.output, journal, run_path.name, exec_key)
+    journal.append("node_completed", node=body.name, exec_key=exec_key,
+                   exit_code=result.exit_code,
+                   verdict="pass" if result.exit_code == 0 else "fail",
+                   next=node.name, session_id=result.session_id, class_d=False,
+                   node_hash=node_fingerprint(body))
+    outcome.steps.append({"node": body.name, "exec_key": exec_key,
+                          "exit_code": result.exit_code})
+    if (result.exit_code != 0 and predicate != "calibrated"
+            and result.contract_failure != "findings"):
+        # `calibrated` ESPERA rodadas reprovadas — um control que falha é
+        # exatamente o que o loop re-tenta; os demais predicados leem um
+        # corpo falho como falha do loop.
+        return result.output, node.on_fail
+    return result.output, None
+
+
+def _loop_churn_exceeded(churn: ChurnTracker, node: Node, exec_key: str,
+                         journal: Journal, output: str) -> bool:
+    """E4 — feed the round's findings to the tracker; True when churn events > churn_limit.
+
+    The reason is journaled (`loop_churn_exceeded`, reason `churn`) so a loop that left
+    through `on_fail` says WHY it left: the fixes are not holding."""
+    if churn.limit is None:
+        return False
+    added = churn.observe(output)
+    if added:
+        journal.append("loop_churn", loop=node.name, body_exec=exec_key, reappeared=added,
+                       churn_events=churn.events, churn_limit=churn.limit)
+    if not churn.exceeded:
+        return False
+    journal.append("loop_churn_exceeded", loop=node.name, body_exec=exec_key, reason="churn",
+                   churn_events=churn.events, churn_limit=churn.limit)
+    return True
+
+
 def run_loop(
     node: Node, spec: Spec, journal: Journal, run_path: Path, results: dict,
     variables: dict, visits: dict, completed: dict, force_mock: bool, record: bool,
@@ -3110,48 +4022,21 @@ def run_loop(
     last_metric: float | None = None
     stable = 0
     prev_m: int | None = None
+    churn = ChurnTracker(node.raw.get("churn_limit"))  # E4 — inert unless the loop declares a limit
     for _ in range(max_iters):
         exec_key = f"{body.name}#{visits.get(body.name, 0)}"
         visits[body.name] = visits.get(body.name, 0) + 1
         if replayable(completed, exec_key, body, journal):
-            output = ""
-            artifact_path = run_path / f"{exec_key}.json"
-            if artifact_path.is_file():
-                output = json.loads(artifact_path.read_text(encoding="utf-8"))["summary"]
+            output = _stored_output(run_path / f"{exec_key}.json")
             outcome.steps.append({"node": body.name, "exec_key": exec_key, "replayed": True})
         else:
-            journal.append("node_started", node=body.name, exec_key=exec_key, type=body.type,
-                           **_agent_journal_fields(body))
-            if body.type == "agent":
-                result = run_agent_node(body, spec, journal, results, variables,
-                                        force_mock, record, cwd=run_path.parent.parent.parent)
-            elif body.type == "control":
-                result = run_control_node(body, results, variables,
-                                          cwd=run_path.parent.parent.parent)
-            elif body.type == "probe":
-                result = run_probe_node(body, results, variables,
-                                        cwd=run_path.parent.parent.parent)
-            else:
-                result = run_code_node(body, results, variables, cwd=run_path.parent.parent.parent)
-            store_result(run_path, exec_key, result.output)
-            results[body.name] = {"summary": result.output[:SUMMARY_LIMIT],
-                                  "omitted_bytes": 0, "full_ref": ""}
-            if body.type == "probe":
-                attach_probe_facts(results, body.name, result.output, journal,
-                                   run_path.name, exec_key)
-            journal.append("node_completed", node=body.name, exec_key=exec_key,
-                           exit_code=result.exit_code,
-                           verdict="pass" if result.exit_code == 0 else "fail",
-                           next=node.name, session_id=result.session_id, class_d=False,
-                           node_hash=node_fingerprint(body))
-            outcome.steps.append({"node": body.name, "exec_key": exec_key,
-                                  "exit_code": result.exit_code})
-            if result.exit_code != 0 and predicate != "calibrated":
-                # `calibrated` ESPERA rodadas reprovadas — um control que falha é
-                # exatamente o que o loop re-tenta; os demais predicados leem um
-                # corpo falho como falha do loop.
-                return node.on_fail
-            output = result.output
+            output, early = _run_loop_body(node, body, exec_key, spec, journal, run_path,
+                                           results, variables, force_mock, record, outcome,
+                                           predicate)
+            if early is not None:
+                return early
+        if _loop_churn_exceeded(churn, node, exec_key, journal, output):
+            return node.on_fail
 
         if predicate == "fixpoint":
             found = METRIC_ANY_RE.search(output or "")

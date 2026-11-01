@@ -14,6 +14,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: kit base parametrizado.
 curation = "generic"
+goals = ["Stop the bleeding of a production incident with the smallest change that does", "Prove it with the caller's minimal `verify_cmd` gate", "Record the debt the agent knowingly took, for the follow-up ticket"]
+non_goals = ["Root-causing — it skips scout and memory on purpose; run bugfix afterwards for the real fix", "Planned work of any kind", "Paying the debt: that is the follow-up ticket"]
+open_questions = ["Who owns the follow-up bugfix? The flow reports the agent's debt notes but opens no ticket"]
+verification = "The `verify` gate exits 0, the `report` node prints the gate output and the agent's debt notes, and the run ends `completed`."
 intent = "Stop the bleeding during an incident: a workhorse agent straight in, the smallest gate that proves it, and a report"
 class = "fix"
 when_to_use = [

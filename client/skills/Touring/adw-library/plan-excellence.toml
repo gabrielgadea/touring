@@ -18,6 +18,10 @@ budget_tokens = 0
 # Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
 # de infra deste repo; hold = aguardando evidencia). criterio 28/08: depende so dos scripts da skill global taco-planning.
 curation = "generic"
+goals = ["Coletar ground truth verificado (`ground_truth.json`) antes de escrever uma linha do plano", "Autorar `plan.md` sob o craft taco-planning, a partir do scaffold", "Aceitar o plano só com `gap_detector --fail-on P0` e `plan_validator` saindo 0, e entregar o score das 9 dimensões"]
+non_goals = ["Tarefa L0-L1 trivial — o overhead do pipeline não paga", "Executar o plano — o flow autora e valida; a execução é da sessão ou de outro ADW"]
+open_questions = ["Há um piso de score nas 9 dimensões que deva reprovar o plano, além dos gates de gaps P0 e de estrutura?"]
+verification = "`gap_detector --fail-on P0` e `plan_validator` saem 0 sobre `<bundle>/plan.md` (gate `gates`), o `ground_truth.json` existe no bundle e o nó `score` emite o score 9-dim; o run termina `completed`."
 intent = "Produzir um plano Pln2 com ground truth verificado, zero gaps P0 e estrutura validada por exit code — nunca um plano de plausibilidade"
 class = "create"
 when_to_use = [
