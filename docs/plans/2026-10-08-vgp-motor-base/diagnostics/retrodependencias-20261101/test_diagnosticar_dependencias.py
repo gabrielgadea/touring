@@ -3,23 +3,30 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import diagnosticar_dependencias as d
 
 
-def test_classe_veredito_distingue_deny_nao_deny_e_unknown():
-    assert d.classe_veredito({"verdict": "deny"}) == "deny"
-    assert d.classe_veredito({"verdict": "allow"}) == "nao_deny"
-    assert d.classe_veredito({"verdict": "warn"}) == "nao_deny"
-    assert d.classe_veredito({"camada2": "unknown: prazo"}) == "unknown"
-    assert d.classe_veredito({"_erro": "falha"}) == "unknown"
+def test_classe_veredito_distingue_merito_timeout_e_outros_unknown():
+    def l2(verdict, motivo=None):
+        return {"resultado": {"verdict": verdict, "motivo": motivo}}
+
+    assert d.classe_veredito({"verdict": "allow"}, l2("deny")) == "deny"
+    assert d.classe_veredito({"verdict": "deny"}, l2("allow")) == "deny"
+    assert d.classe_veredito({"verdict": "allow"}, l2("allow")) == "nao_deny"
+    assert d.classe_veredito({"verdict": "allow"}, l2("unknown", "prazo de 30000 ms")) == "inconclusivo_timeout"
+    assert d.classe_veredito({"verdict": "allow"}, l2("unknown", "servidor morreu")) == "unknown_outro"
+    assert d.classe_veredito({"_erro": "x"}, l2("allow")) == "unknown_outro"
+    assert d.classe_veredito({"_erro": "falha"}, l2("allow")) == "unknown_outro"
 
 
 def test_resumir_separa_mudancas_direcionadas_e_indeterminados():
     registros = [
         {"id": "a", "balde": "arquivo", "dependencias": 2, "dependencias_alteradas": 1, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "deny", "veredito_historico": "nao_deny"},
         {"id": "b", "balde": "inline", "dependencias": 3, "dependencias_alteradas": 2, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "nao_deny", "veredito_historico": "deny"},
-        {"id": "c", "balde": "arquivo", "dependencias": 1, "dependencias_alteradas": 1, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "deny", "veredito_historico": "unknown"},
+        {"id": "c", "balde": "arquivo", "dependencias": 1, "dependencias_alteradas": 1, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "deny", "veredito_historico": "unknown_outro"},
         {"id": "d", "balde": "inline", "dependencias": 1, "dependencias_alteradas": 0, "inconclusivo_reconstrucao": True},
     ]
     r = d.resumir(registros)
@@ -29,7 +36,7 @@ def test_resumir_separa_mudancas_direcionadas_e_indeterminados():
     assert r["entradas_com_dependencia_alterada"] == 3
     assert r["inconclusivo_reconstrucao"] == 1
     assert r["comparacoes_motor"] == 3
-    assert r["unknown_historico"] == 1
+    assert r["unknown_outro_historico"] == 1
     assert r["mudanca_veredito_efetivo"] == 2
     assert r["deny_para_nao_deny"] == 1
     assert r["nao_deny_para_deny"] == 1
@@ -44,9 +51,9 @@ def test_resumir_sem_dependencias_alteradas():
 
 
 def test_resumir_conta_unknown_atual_sem_o_contar_como_mudanca():
-    registros = [{"id": "a", "balde": "inline", "dependencias": 1, "dependencias_alteradas": 1, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "unknown", "veredito_historico": "deny"}]
+    registros = [{"id": "a", "balde": "inline", "dependencias": 1, "dependencias_alteradas": 1, "inconclusivo_reconstrucao": False, "overlays": [{}], "veredito_atual": "unknown_outro", "veredito_historico": "deny"}]
     r = d.resumir(registros)
-    assert r["unknown_atual"] == 1
+    assert r["unknown_outro_atual"] == 1
     assert r["mudanca_veredito_efetivo"] == 0
     assert r["sem_mudanca_conhecida"] == 0
 
@@ -77,3 +84,16 @@ def test_entradas_le_arquivo_e_inline(monkeypatch, tmp_path):
 
 def test_selftest_do_instrumento():
     assert d.selftest() == 0
+
+
+def test_l2_sem_servidor_devolve_unknown_json_estruturado(monkeypatch, tmp_path):
+    if not d.ORCAMENTO.exists():
+        pytest.skip("instrumento externo ainda não compilado")
+    (tmp_path / "snap").mkdir()
+    (tmp_path / "snap/x.py").write_text("print(1)\n")
+    monkeypatch.setattr(d, "CORPUS", tmp_path)
+    e = {"id": "sem_servidor", "project_root": str(tmp_path), "path": "<string>", "snap": "snap/x.py"}
+    saida = d._l2(e, [], {})
+    assert "_erro" not in saida
+    assert saida["resultado"]["verdict"] == "unknown"
+    assert "no pyright-langserver" in saida["resultado"]["motivo"]
