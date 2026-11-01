@@ -49,8 +49,8 @@ MUTANTES = (
     (
         "m2",
         "sem os pacotes ancestrais",
-        '        if init.is_file():\n            out[init] = "direto" if alvo else "ancestral"\n',
-        '        if init.is_file() and alvo:\n            out[init] = "direto"\n',
+        '        if init.is_file() or init in historicos:\n            out[init] = "direto" if alvo else "ancestral"\n',
+        '        if (init.is_file() or init in historicos) and alvo:\n            out[init] = "direto"\n',
     ),
     ("m3", "relativo sem o __init__ do pacote corrente", "        if nivel:  # o pacote corrente", "        if False:  # o pacote corrente"),
     (
@@ -60,7 +60,7 @@ MUTANTES = (
         'm["conteudo"] is None and False and (profundidade_maxima is None',
     ),
     ("m5", "overlays_e_faltas esconde a falta", "            faltas.append(str(mod))\n", "            pass\n"),
-    ("m6", "sem a 2a base (dir do script)", "else [raiz, arquivo.parent]", "else [raiz]"),
+    ("m6", "sem a 2a base (dir do script)", "else [raiz, arquivo.parent, *fontes]", "else [raiz]"),
     ("m7", "aceita modulo fora da raiz", "            if raiz not in f.parents or f == arquivo.resolve():\n", "            if f == arquivo.resolve():\n"),
     ("m8", "volta a regra antiga", "    return list(modulos_tipados(entrada, texto))\n", "    return modulos_do_projeto_legado(entrada, texto)\n"),
     (

@@ -32,6 +32,7 @@ import json
 import math
 import sys
 from collections import Counter
+from functools import lru_cache
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -122,7 +123,53 @@ def importacoes(texto: str) -> list[tuple[str, int, tuple[str, ...]]]:
     return out
 
 
-def _arquivos_do_caminho(base: Path, partes: list[str]) -> dict[Path, str]:
+@lru_cache(maxsize=32)
+def _fontes_locais(raiz: str) -> tuple[Path, ...]:
+    """Raízes locais usuais de um monorepo, se existirem na árvore atual."""
+    r = Path(raiz)
+    fontes = [r / "src", r / "python"]
+    for pacote in sorted(r.glob("packages/*")):
+        fontes += [pacote / "src", pacote / "python"]
+    return tuple(dict.fromkeys(p.resolve() for p in fontes if p.is_dir()))
+
+
+@lru_cache(maxsize=512)
+def _modulos_versionados(raiz: str, ts: str) -> tuple[frozenset[Path], tuple[Path, ...]]:
+    """Arquivos e raízes de código que existiam no Git em `ts`, inclusive os já apagados hoje."""
+    if not ts:
+        return frozenset(), ()
+    root = corpus_v0d._git_root(str(Path(raiz) / "__inline__.py"))
+    if root is None:
+        return frozenset(), ()
+    rev = corpus_v0d._git(root, "rev-list", "-1", f"--before={ts}", "HEAD")
+    if rev.returncode or not rev.stdout.strip():
+        return frozenset(), ()
+    tree = corpus_v0d._git(root, "ls-tree", "-r", "--name-only", rev.stdout.strip())
+    if tree.returncode:
+        return frozenset(), ()
+    arquivos: set[Path] = set()
+    fontes: set[Path] = set()
+    for rel in tree.stdout.splitlines():
+        if not rel.endswith(".py"):
+            continue
+        partes = Path(rel).parts
+        arquivos.add((root / rel).resolve())
+        if partes[0] in ("src", "python"):
+            fontes.add((root / partes[0]).resolve())
+        if len(partes) >= 3 and partes[0] == "packages" and partes[2] in ("src", "python"):
+            fontes.add((root.joinpath(*partes[:3])).resolve())
+    return frozenset(arquivos), tuple(sorted(fontes))
+
+
+def _contexto_local(raiz: Path, ts: str) -> tuple[frozenset[Path], tuple[Path, ...]]:
+    historicos, fontes_git = _modulos_versionados(str(raiz), ts)
+    fontes = tuple(dict.fromkeys((*_fontes_locais(str(raiz)), *fontes_git)))
+    return historicos, fontes
+
+
+def _arquivos_do_caminho(
+    base: Path, partes: list[str], historicos: frozenset[Path] = frozenset()
+) -> dict[Path, str]:
     """O que carregar `a.b.c` sob `base` põe no projeto: o `__init__.py` de cada pacote do caminho (o último, se pacote,
     é o módulo em si) e o `c.py` final. Tipo: `ancestral` (pacote no meio do caminho) | `direto` (o alvo)."""
     out: dict[Path, str] = {}
@@ -131,30 +178,42 @@ def _arquivos_do_caminho(base: Path, partes: list[str]) -> dict[Path, str]:
         atual = atual / parte
         alvo = i == len(partes) - 1
         init = atual / "__init__.py"
-        if init.is_file():
+        if init.is_file() or init in historicos:
             out[init] = "direto" if alvo else "ancestral"
         modulo = atual.with_suffix(".py")
-        if alvo and modulo.is_file():
+        if alvo and (modulo.is_file() or modulo in historicos):
             out[modulo] = "direto"
     return out
 
 
-def _arquivos_do_import(modulo: str, nivel: int, nomes: tuple[str, ...], arquivo: Path, raiz: Path) -> dict[Path, str]:
-    """TODO módulo do projeto que um import carrega, na primeira base em que algo resolve (a mesma ordem de antes: a
-    raiz do projeto, depois o diretório do script; relativo: o pacote do arquivo). `from pkg import mod` → o `pkg` E
-    o `pkg/mod.py` (ou `pkg/mod/__init__.py`): é o submódulo que o código usa, não o `__init__`."""
+def _arquivos_do_import(
+    modulo: str,
+    nivel: int,
+    nomes: tuple[str, ...],
+    arquivo: Path,
+    raiz: Path,
+    historicos: frozenset[Path] = frozenset(),
+    fontes: tuple[Path, ...] = (),
+) -> dict[Path, str]:
+    """TODO módulo local que um import carrega, na primeira base em que algo resolve. Além da raiz e do
+    diretório do script, cobre `src`, `python` e `packages/*/{src,python}`; o conjunto do Git em `ts` permite
+    resolver módulos já apagados. `from pkg import mod` inclui o pacote e o submódulo."""
     partes = [p for p in modulo.split(".") if p]
-    bases = [arquivo.parent.joinpath(*[".."] * (nivel - 1)).resolve()] if nivel else [raiz, arquivo.parent]
+    bases = (
+        [arquivo.parent.joinpath(*[".."] * (nivel - 1)).resolve()]
+        if nivel
+        else [raiz, arquivo.parent, *fontes]
+    )
     for base in bases:
         achados: dict[Path, str] = {}
         if nivel:  # o pacote corrente roda o próprio __init__ ao importar qualquer irmão
             init = base / "__init__.py"
-            if init.is_file():
+            if init.is_file() or init in historicos:
                 achados[init] = "direto" if not partes else "ancestral"
         if partes:
-            achados |= _arquivos_do_caminho(base, partes)
+            achados |= _arquivos_do_caminho(base, partes, historicos)
         for nome in nomes:
-            for f, _ in _arquivos_do_caminho(base.joinpath(*partes), [nome]).items():
+            for f, _ in _arquivos_do_caminho(base.joinpath(*partes), [nome], historicos).items():
                 achados[f] = "submodulo"
         if achados:
             return achados
@@ -165,10 +224,13 @@ def modulos_tipados(entrada: dict, texto: str) -> dict[Path, str]:
     """{arquivo do projeto: tipo} de TODO módulo que a entrada importa — `direto` | `ancestral` | `submodulo`.
     Só entra o que mora sob a raiz do projeto e não é o próprio arquivo."""
     raiz, arquivo = _raiz_e_arquivo(entrada)
+    historicos, fontes = _contexto_local(raiz, entrada["ts"])
     prioridade = {"submodulo": 0, "direto": 1, "ancestral": 2}
     out: dict[Path, str] = {}
     for modulo, nivel, nomes in importacoes(texto):
-        for f, tipo in _arquivos_do_import(modulo, nivel, nomes, arquivo, raiz).items():
+        for f, tipo in _arquivos_do_import(
+            modulo, nivel, nomes, arquivo, raiz, historicos, fontes
+        ).items():
             f = f.resolve()
             if raiz not in f.parents or f == arquivo.resolve():
                 continue

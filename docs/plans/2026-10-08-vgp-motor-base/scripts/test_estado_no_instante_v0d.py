@@ -11,6 +11,7 @@ O modulo sob teste vem de `$ESTADO_MODULO` (o mutante roda sobre uma COPIA); sem
 import importlib.util
 import json
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -443,3 +444,79 @@ def test_construir_grava_o_fecho_no_manifesto_e_o_oraculo_fecha(raiz_fecho, monk
 
 def test_selftest_do_modulo_continua_passando():
     assert eni.selftest() == 0
+
+
+# --------------------------------------------------------------------------- fecho local pelo Git no instante
+
+
+def _commit(raiz: Path, data: str):
+    env = {**os.environ, "GIT_AUTHOR_DATE": data, "GIT_COMMITTER_DATE": data}
+    subprocess.run(["git", "-C", str(raiz), "add", "."], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(raiz), "commit", "-m", "estado", "--no-gpg-sign"], check=True, capture_output=True, env=env)
+
+
+def _dep(raiz: Path, nucleo: str):
+    base = raiz / "packages/demo/src/demo"
+    (base / "__init__.py").parent.mkdir(parents=True, exist_ok=True)
+    (base / "__init__.py").write_text("")
+    (base / "core.py").write_text(nucleo)
+
+
+@pytest.fixture
+def raiz_git(tmp_path: Path) -> Path:
+    r = tmp_path / "projgit"
+    r.mkdir()
+    subprocess.run(["git", "-C", str(r), "init", "-q"], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(r), "config", "user.name", "Teste"], check=True)
+    subprocess.run(["git", "-C", str(r), "config", "user.email", "teste@example.invalid"], check=True)
+    return r
+
+
+def _overlay_git(raiz: Path, importacao: str):
+    e = {**inline(raiz), "ts": "2026-10-02T00:00:00.000Z"}
+    destino = raiz / "corpus/estado_no_instante"
+    destino.mkdir(parents=True)
+    over, faltas = eni.overlays_e_faltas(e, importacao, {}, destino)
+    por_rel = {str(Path(o["path"]).resolve().relative_to(raiz.resolve())): o for o in over}
+    return por_rel, faltas, destino
+
+
+def test_git_src_conserva_simbolo_que_a_dependencia_perdeu_depois(raiz_git):
+    antigo = "def valor():\n    return 'antigo'\n"
+    _dep(raiz_git, antigo)
+    _commit(raiz_git, "2026-10-01T00:00:00Z")
+    _dep(raiz_git, "def outro():\n    return 'novo'\n")
+    _commit(raiz_git, "2026-10-03T00:00:00Z")
+    over, faltas, destino = _overlay_git(raiz_git, "from demo.core import valor\n")
+    assert faltas == []
+    texto = (destino.parent / over["packages/demo/src/demo/core.py"]["file"]).read_text()
+    assert texto == antigo
+
+
+def test_git_src_nao_importa_simbolo_que_a_dependencia_ganhou_depois(raiz_git):
+    antigo = "def valor():\n    return 'antigo'\n"
+    _dep(raiz_git, antigo)
+    _commit(raiz_git, "2026-10-01T00:00:00Z")
+    _dep(raiz_git, antigo + "def ganhou_depois():\n    return 'novo'\n")
+    _commit(raiz_git, "2026-10-03T00:00:00Z")
+    over, faltas, destino = _overlay_git(raiz_git, "from demo.core import ganhou_depois\n")
+    assert faltas == []
+    texto = (destino.parent / over["packages/demo/src/demo/core.py"]["file"]).read_text()
+    assert texto == antigo and "ganhou_depois" not in texto
+
+
+def test_git_src_dependencia_fora_do_historico_e_inconclusiva(raiz_git):
+    (raiz_git / "README").write_text("base")
+    _commit(raiz_git, "2026-10-01T00:00:00Z")
+    _dep(raiz_git, "def atual_e_nao_versionado():\n    pass\n")
+    e = {**inline(raiz_git), "ts": "2026-10-02T00:00:00.000Z"}
+    ok, motivo = eni.estado_completo(e, "from demo.core import atual_e_nao_versionado\n", {})
+    assert ok is False and motivo.startswith("estado incompleto: ")
+
+
+def test_git_src_controle_sem_dependencia_local_permanece_vazio(raiz_git):
+    (raiz_git / "README").write_text("base")
+    _commit(raiz_git, "2026-10-01T00:00:00Z")
+    e = {**inline(raiz_git), "ts": "2026-10-02T00:00:00.000Z"}
+    assert eni.fecho_transitivo(e, "import os\n", {}) == []
+    assert eni.estado_completo(e, "import os\n", {}) == (True, "ok")
