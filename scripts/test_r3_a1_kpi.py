@@ -17,8 +17,8 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import r3_a1_kpi as kpi  # noqa: E402
-import r3_extract_a1_blocks as ex  # noqa: E402
+import r3_a1_kpi as kpi
+import r3_extract_a1_blocks as ex
 
 
 def _attachment(tipo: str, texto: str) -> str:
@@ -116,6 +116,11 @@ def _corpo_const(src: str, nome: str) -> str:
         if c == '"' or (c == "r" and src[pos + 1] in '"#'):
             _, pos = _le_string(src, pos)
             continue
+        # A comment is not code: a `[` inside `// …` used to open a depth the
+        # array never closed (01/11/2026, a comment naming `[PORTFOLIO ·`).
+        if src.startswith("//", pos) or src.startswith("/*", pos):
+            pos = _pula_ws(src, pos)
+            continue
         if c == "[":
             profundidade += 1
         elif c == "]":
@@ -197,6 +202,20 @@ def _tabelas_rust() -> dict:
         assert str(claim).startswith("Claim::"), claim
         emissores.append((it[0][1], it[1][1], claim == "Claim::Owns"))
     return {"marcadores": marcadores, "padroes": padroes, "emissores": emissores}
+
+
+def test_corpo_const_skips_brackets_inside_comments() -> None:
+    """A `[` in a comment must not move the array depth (01/11/2026)."""
+    src = (
+        'pub const T: &[(&str, &[&str])] = &[\n'
+        '    // a comment naming [PORTFOLIO · that never closes\n'
+        '    /* and a block one: [ [ */\n'
+        '    ("a", &["x", "[y"]),\n'
+        '];\n'
+    )
+    corpo = _corpo_const(src, "T")
+    assert '("a", &["x", "[y"])' in corpo
+    assert corpo.rstrip().endswith("),")
 
 
 def test_the_port_mirrors_the_canonical_taxonomy() -> None:
@@ -372,7 +391,7 @@ def _geracao_do_binario() -> tuple[bool, str]:
     declarada, e a presença não depende do que há nos transcripts.
     """
     try:
-        p = subprocess.run(["touring", "--version"], capture_output=True, text=True, timeout=30)
+        p = subprocess.run(["touring", "--version"], capture_output=True, text=True, timeout=30, check=False)
     except OSError as exc:
         return False, f"o binário `touring` não respondeu: {exc}"
     m = re.search(r"git:\s+([0-9a-f]{7,40})", p.stdout + p.stderr)
@@ -382,18 +401,18 @@ def _geracao_do_binario() -> tuple[bool, str]:
     rel = str(REGUA.relative_to(REPO))
     tac = subprocess.run(
         ["git", "log", "-1", "--format=%H", "--", rel],
-        capture_output=True, text=True, cwd=REPO,
+        capture_output=True, text=True, cwd=REPO, check=False,
     ).stdout.strip()
     if not tac:
         return False, "a régua não tem commit conhecido neste repositório"
     if subprocess.run(
         ["git", "cat-file", "-e", sha + "^{commit}"],
-        capture_output=True, text=True, cwd=REPO,
+        capture_output=True, text=True, cwd=REPO, check=False,
     ).returncode != 0:
         return False, f"a geração do binário ({sha[:8]}) não pôde ser verificada neste repositório"
     if subprocess.run(
         ["git", "merge-base", "--is-ancestor", tac, sha],
-        capture_output=True, text=True, cwd=REPO,
+        capture_output=True, text=True, cwd=REPO, check=False,
     ).returncode == 0:
         return True, ""
     return False, (
