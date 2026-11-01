@@ -146,6 +146,41 @@ scripts/rotular_oss.py --alvo 1200 --teto-concentracao 0.03 --max-commits 1000 \
 - camadas anteriores guardadas para o registro: `-parcial1a-divergencia`, `-parcial2a-teto`,
   `-parcial3a-2processos`, `-parcial4a-alvo450`.
 
+### 2.1 O CAMINHO DE FECHAMENTO (um comando)
+
+```
+bash scripts/selar_e_conferir_camada_oss_20261101.sh
+```
+
+Ele: sela a camada (selo **fora** do corpus, formato do `confere_selo.py`), mede a **disjunção**
+contra o histórico inteiro de corporas (com a própria camada de fora da comparação), declara a
+classe `html` como **sem adjudicador** (o adjudicador desta camada é o do TypeScript: um `.html`
+não produz diagnóstico, e um negativo vazio não mede falso deny — item D-8), **confere** o selo
+com `confere_selo.py` e **imprime a tabela por classe** que o §5.6 do `RELATORIO-V8-SEM2.md`
+precisa.
+
+**Já provado** sobre a camada em andamento: `confere_selo.py` → **INTACTO** (rc=0), disjunção
+**DISJUNTA**, rc=0 nos dois.
+
+### 2.2 O ritmo medido e o que falta
+
+| classe | n | negativos | taxa |
+|---|---:|---:|---:|
+| typescript | 209 | 135 | 65 % |
+| tsx | 192 | 80 | 42 % |
+| javascript | 18 | 18 | 100 % |
+| html | 2 | 2 | — |
+
+Ritmo: **~5-9 entradas/min** (o gargalo é o delta do adjudicador mais o retestemunho com `tsc` a
+cada 50). Para os **299 negativos** por classe, o `typescript` precisa de ~+150 negativos (≈ +230
+entradas, ≈ 45 min) e o `tsx` de ~+220 (≈ +520 entradas). O `javascript` só cresce quando o
+lote sai dos repos de TS (a ordem é excalidraw → zod → date-fns → … → express/dom-examples) — e
+a **taxa de 100 % de negativos** do javascript é medida.
+
+**A camada é selável a qualquer momento** (o selo externo é sobre o que está em disco), então um
+fim de sessão antecipado não perde o trabalho: basta rodar o comando acima e escrever o §5.6
+com a tabela que ele imprime.
+
 ## 3. O PLANO do adjudicador html (D-8, decidido pelo Gabriel em 01/11) — **antes do código**
 
 **`docs/plans/2026-10-08-vgp-motor-base/PLANO-ADJUDICADOR-HTML.md`**
