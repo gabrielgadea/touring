@@ -19,11 +19,24 @@ import pytest
 
 import adw
 
+#: The real deposit, captured before the autouse fixture replaces it, for the tests
+#: that exercise it against a captured `subprocess.run`.
+_REAL_DEPOSIT = adw.deposit_run_outcome
+
 
 @pytest.fixture(autouse=True)
 def _no_activity(monkeypatch):
     """Silence the best-effort activity mirror during tests."""
     monkeypatch.setattr(adw, "activity_append", lambda *a, **k: None)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_learning_deposit(monkeypatch):
+    """Every `execute()` ends in `deposit_run_outcome`, which ran the REAL
+    `touring learning reward` (the live QTable) and `touring memory credit
+    --all-pending` (every pending memory case of the person's real store) with
+    the verdict of a TEST run (found 01/11/2026 with B10). Tests never deposit."""
+    monkeypatch.setattr(adw, "deposit_run_outcome", lambda *a, **k: None)
 
 
 @pytest.fixture()
@@ -4463,3 +4476,47 @@ def test_every_shipped_flow_carries_a_curation_label():
         "flows sem etiqueta de curadoria (adicione curation = "
         '"generic|local|hold" no [purpose]): ' + ", ".join(sem_etiqueta))
     assert not invalida, "curation fora do vocabulario generic|local|hold: " + ", ".join(invalida)
+
+
+# ── B10 (01/11/2026): a confounded run teaches the memory nothing ─────────────
+
+
+def _captured_deposit(monkeypatch, outcome):
+    calls = []
+    monkeypatch.setattr(adw.subprocess, "run", lambda cmd, **k: calls.append(cmd))
+    _REAL_DEPOSIT("flow", outcome)
+    return calls
+
+
+def _credit_calls(calls):
+    return [c for c in calls if c[:3] == ["touring", "memory", "credit"]]
+
+
+@pytest.mark.parametrize("outcome, reason", [
+    (adw.RunOutcome(status="completed", run_id="r", synthesized=["agent_a"]), "synthesized"),
+    (adw.RunOutcome(status="aborted", run_id="r"), "aborted"),
+    (adw.RunOutcome(status="failed", run_id="r",
+                    steps=[{"node": "a", "exit_code": 124}]), "timeout"),
+])
+def test_a_confounded_run_credits_no_memory(monkeypatch, outcome, reason):
+    """harness2 keeps 'confounded' apart from helped/hurt (core/prompts.py:1105-1160).
+    A mocked agent, a run cut before its verdict or a node killed by the clock says
+    nothing about the memories the agents recalled, so they are neither credited nor
+    debited."""
+    assert adw.run_effect(outcome) == ("confounded", reason)
+    assert _credit_calls(_captured_deposit(monkeypatch, outcome)) == []
+
+
+def test_a_clean_run_still_credits_its_memories(monkeypatch):
+    ok = adw.RunOutcome(status="completed", run_id="r", steps=[{"node": "a", "exit_code": 0}])
+    assert adw.run_effect(ok) == ("helped", None)
+    credit = _credit_calls(_captured_deposit(monkeypatch, ok))
+    assert credit and credit[0][-1] == "1.000"
+    bad = adw.RunOutcome(status="failed", run_id="r", steps=[{"node": "a", "exit_code": 1}])
+    assert adw.run_effect(bad) == ("hurt", None)
+    assert _credit_calls(_captured_deposit(monkeypatch, bad))[0][-1] == "0.000"
+
+
+def test_the_suite_never_deposits_into_the_real_learning_store(root):
+    """Regression for the autouse fixture: a full execute() must not reach the CLI."""
+    assert adw.deposit_run_outcome is not _REAL_DEPOSIT

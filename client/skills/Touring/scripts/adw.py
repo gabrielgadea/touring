@@ -2101,7 +2101,7 @@ def run_code_node(node: Node, results: dict, variables: dict,
                 output = proc.stdout + (("\n" + proc.stderr) if proc.stderr.strip() else "")
             result = ExecResult(exit_code=proc.returncode, output=output)
         except subprocess.TimeoutExpired:
-            result = ExecResult(exit_code=124, output=f"timeout after {timeout_s:.0f}s")
+            result = ExecResult(exit_code=TIMEOUT_EXIT, output=f"timeout after {timeout_s:.0f}s")
         if result.exit_code == 0 or attempt >= retries:
             return result
         attempt += 1
@@ -2313,7 +2313,7 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s,
                               cwd=cwd, env=env, check=False)
     except subprocess.TimeoutExpired:
-        return ExecResult(exit_code=124, output=f"agent timeout after {timeout_s:.0f}s")
+        return ExecResult(exit_code=TIMEOUT_EXIT, output=f"agent timeout after {timeout_s:.0f}s")
     session_id = None
     output = proc.stdout
     cost = 0.0
@@ -2442,6 +2442,28 @@ def _resume_state(
 RUN_OUTCOME_REWARD = {"completed": 1.0, "failed": 0.0, "aborted": 0.0}
 
 
+#: Exit code of a node killed by its own timeout (`_agent_claude`, code nodes).
+TIMEOUT_EXIT = 124
+
+
+def run_effect(outcome: RunOutcome) -> tuple[str, str | None]:
+    """What a finished run can teach the memory: helped | hurt | confounded (B10, 01/11/2026).
+
+    harness2 keeps "confounded" apart from helped/hurt (core/prompts.py:1105-1160). A run is
+    confounded when its verdict does not reflect the agents' work: a synthesized (mocked)
+    agent never ran, an aborted run was cut before its verdict, and a node killed by the
+    clock failed on the environment. Crediting the recalled memories with such a verdict
+    taught the store a correlation that was never there. (harness2's fourth class, "no
+    observed effect", needs a counterfactual this runner does not have.)"""
+    if outcome.synthesized:
+        return "confounded", "synthesized"
+    if outcome.status == "aborted":
+        return "confounded", "aborted"
+    if any(s.get("exit_code") == TIMEOUT_EXIT for s in outcome.steps):
+        return "confounded", "timeout"
+    return ("helped" if outcome.status == "completed" else "hurt"), None
+
+
 def deposit_run_outcome(spec_name: str, outcome: RunOutcome) -> None:
     """Feed a finished run back into the learning substrate. Fail-open, always.
 
@@ -2462,10 +2484,10 @@ def deposit_run_outcome(spec_name: str, outcome: RunOutcome) -> None:
     value = RUN_OUTCOME_REWARD.get(outcome.status)
     if value is None:  # waiting_human and any future status: the run is not over
         return
-    for cmd in (
-        ["touring", "learning", "reward", f"adw:run:{spec_name}", f"{value:.3f}"],
-        ["touring", "memory", "credit", "--all-pending", "--reward", f"{value:.3f}"],
-    ):
+    cmds = [["touring", "learning", "reward", f"adw:run:{spec_name}", f"{value:.3f}"]]
+    if run_effect(outcome)[0] != "confounded":
+        cmds.append(["touring", "memory", "credit", "--all-pending", "--reward", f"{value:.3f}"])
+    for cmd in cmds:
         try:
             subprocess.run(cmd, capture_output=True, timeout=30, check=False)
         except (subprocess.TimeoutExpired, OSError):
