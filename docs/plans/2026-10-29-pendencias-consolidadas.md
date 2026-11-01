@@ -87,7 +87,13 @@ roteamento (114/114; `sync-client-skills --check` CLEAN, 396 arquivos) e semeado
 sem código a portar; **fica** — 5 scripts têm o caminho dele fixo e a V-6/V-9 podem reexecutá-los). Só o
 **tiers** (decisão B: tier é espaço de nome; remove `maintain_tiers`/`TierPolicy`/`TierMaintenanceReport`/
 `MemoryTier::priority` e o passo 4 inerte do TD loop) estava ausente → porte em curso num worktree isolado,
-gate com os 22 dependentes reversos). D-8: **construir o adjudicador html** (touring-a4, depois da
+gate com os 22 dependentes reversos) → **FEITO 01/11** (`fffbe192`, merge de `c113ec7c`): fmt, clippy
+`-D warnings`, 4.010 testes 0 falhas, `e2e_r1_to_r20` 22, `cargo check --workspace` rc 0; mutante M2
+(`scan_prefix`) morto. Achado aberto: `MemoryStore::list_tier` (`touring-server/src/memory_store.rs:417`)
+devolve SEMPRE vazio (`search("*")` não tokeniza) e tem zero chamadores — decidir remover (REGRA #0) ou
+consertar com `scan_prefix` (que pularia a sanitização C6 do `search`).
+**Achado do J15 (touring-45):** a CLI não expõe o orçamento da camada 2 do VGP (`--timeout-ms` não o altera);
+a comparação retroativa precisou de instrumento externo com `PyrightSession::with_budget(30s)`. D-8: **construir o adjudicador html** (touring-a4, depois da
 re-rotulação js/tsx/ts). D-7b: **deduplicar agora** — 73% do duplicado (3.648/4.986 linhas) está em
 `scripts/touring_premium_refactor_2026/` (15 `validate_W*.py`, `w5/w6/w7_rewrite_crate_paths.py`); subagente
 em worktree isolado, aceite = F1.3 ≥ 0,80 + testes verdes + saída idêntica.
