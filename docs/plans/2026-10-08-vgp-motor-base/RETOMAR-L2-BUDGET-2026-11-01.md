@@ -2,12 +2,12 @@
 
 ## Estado fechado
 
-- J15: `6fec8958`; perícia do falso deny: `8014e346`.
-- Reconstrutor Git local: `16192943` (RED 3→GREEN 4; 56 testes; 23/23 mutantes).
-- Held-out `20261101c`: `35d6e1c7`, selo `b5a819f38c57d227`; 971 entradas, 1.439 overlays, zero incompletos e sobreposição zero. **Não julgar antes do J16, após o release de 04/11.**
-- Orçamento no produto (env, flag, veredito, sombra e juiz): `04aee323`.
-- Retroativo final pelo produto: `ded923cf` — 119 alteradas, 109 comparadas; **104 mérito×mérito = 103 estáveis + 1 deny→não-deny**, zero timeouts e 5 `unknown_outro` por ausência de pyright. Controle `10607309d143` passa por mérito com 30.000 ms nos dois lados.
-- Patches `wasmtime` 36.0.19→36.0.20 e 48.0.7→48.0.8 exigidos pelo gate F2.5: `170f1759`.
+- J15: `e1da77ff`; perícia do falso deny: `45e6e534`.
+- Reconstrutor Git local: `8d166db3` (RED 3→GREEN 4; 56 testes; 23/23 mutantes).
+- Held-out `20261101c`: `0cddb990`, selo `b5a819f38c57d227`; 971 entradas, 1.439 overlays, zero incompletos e sobreposição zero. **Não julgar antes do J16, após o release de 04/11.**
+- Orçamento no produto (env, flag, veredito, sombra e juiz): `751b0c62`.
+- Retroativo final pelo produto: `6b632274` — 119 alteradas, 109 comparadas; **104 mérito×mérito = 103 estáveis + 1 deny→não-deny**, zero timeouts e 5 `unknown_outro` por ausência de pyright. Controle `10607309d143` passa por mérito com 30.000 ms nos dois lados.
+- Patches `wasmtime` 36.0.19→36.0.20 e 48.0.7→48.0.8 exigidos pelo gate F2.5: `c5777156`.
 - DAG `task_1793550203045418497`: `finalized`, subtarefa `orcamento-l2` completed, qualidade 0,95.
 
 ## Implementação entregue

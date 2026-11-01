@@ -14,7 +14,7 @@ tags: ["#kind:report", "#domain:vgp", "#status:measured"]
 
 Medição de sensibilidade da reconstrução, sem novo veredito de release, sem reclassificação da verdade dos rótulos e sem reescrever J14/J15. População: 600 entradas de arquivo + 400 inline.
 
-O resolvedor `16192943` reconstruiu os módulos locais pelo Git no `ts`. A comparação final executou **os dois lados pelo caminho do produto**, com camada 1 do binário 30.4.102 e camada 2 com `--l2-budget-ms 30000`. O campo `l2_budget_ms` foi conferido em todas as 109 comparações. O binário debug foi compilado no `target/` normal de desenvolvimento, sem release e sem deploy.
+O resolvedor `8d166db3` reconstruiu os módulos locais pelo Git no `ts`. A comparação final executou **os dois lados pelo caminho do produto**, com camada 1 do binário 30.4.102 e camada 2 com `--l2-budget-ms 30000`. O campo `l2_budget_ms` foi conferido em todas as 109 comparações. O binário debug foi compilado no `target/` normal de desenvolvimento, sem release e sem deploy.
 
 ## Dependências alteradas
 
