@@ -109,7 +109,7 @@ a comparação retroativa precisou de instrumento externo com `PyrightSession::w
 | CLI sem orçamento da camada 2 do VGP | delegado à touring-45 (config única + env + flag + `l2_budget_ms` no veredito) | — |
 | JSONDecodeError do instrumento retroativo (5 casos) | delegado à touring-45 | — |
 | `proc-macro-error2` future-incompat | **externo**: 2.0.1 é a última versão, vem do `leptos`; nada a corrigir no repositório | — |
-| `origin/main` 624 commits atrás (fez o isolamento de subagentes partir de agosto) | **decisão do Gabriel**: atualizar a `main` = push no repositório público |  — | D-8: **construir o adjudicador html** (touring-a4, depois da
+| `origin/main` 624 commits atrás (fez o isolamento de subagentes partir de agosto) | **FEITO 01/11** (Gabriel: "Atualizar a main"): auditoria de conteúdo achou 3 BLOCK (chave AIza real, prompts de transcritos, memória da analise) + REVIEW; Gabriel mandou tirar BLOCK + scripts eleitorais + corpus literal do VGP + backups ANTT → `filter-branch` só no range local (66 caminhos, 453 commits preservados, 0 restantes, árvore difere só pelas deleções); branch e `main` publicadas em `b98ce8c8` sem force. Snapshot local `safety/2026-11-01-pre-scrub` (NUNCA publicar). Pendente do Gabriel: confirmar revogação da chave AIza do `queries.json`; os 151 `.db` de estado seguem no histórico público antigo | `b98ce8c8` | D-8: **construir o adjudicador html** (touring-a4, depois da
 re-rotulação js/tsx/ts). D-7b: **deduplicar agora** — 73% do duplicado (3.648/4.986 linhas) está em
 `scripts/touring_premium_refactor_2026/` (15 `validate_W*.py`, `w5/w6/w7_rewrite_crate_paths.py`); subagente
 em worktree isolado, aceite = F1.3 ≥ 0,80 + testes verdes + saída idêntica.
