@@ -9,7 +9,7 @@ memória carrega facetas `#facet:value` consultáveis.
 
 | Módulo | Papel |
 |---|---|
-| `rlm` | Store SQLite canônico (`memory_entries`), tiers, schema + migrações idempotentes |
+| `rlm` | Store SQLite canônico (`memory_entries`), tiers, schema + migrações idempotentes. O tier é **namespace** e faz parte do endereço (`get` filtra `key` E `tier`; a chave é a PK, então regravar em outro tier MOVE a linha): nada move entrada entre tiers por conta própria. Uso/calor é sinal à parte (`access_count`, `accessed_at`, crédito) |
 | `tags` | **Hashtag library**: 7 facetas (kind/purpose/lang/domain/process/artifact/status), parser+linter, DDL single-source (`TAG_TABLES_DDL`), helpers SQL compartilhados, link graph tipado (REGRA #17) |
 | `codetag` | Scanner de `#tags:` em código → snippet memories (value = o bloco ancorado); tombstones quando a âncora some |
 | `moc` | Comunidades emergentes (label propagation determinístico) + Maps of Content em OKF markdown |
