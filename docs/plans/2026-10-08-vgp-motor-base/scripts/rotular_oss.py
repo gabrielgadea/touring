@@ -44,7 +44,48 @@ SAIDA = Path.home() / ".claude/touring/vgp/corpus_holdout_web_20261012/oss"
 # O nome nao pode ser `LS`: a classe `LS` abaixo sombrearia a constante (medido em 09/10 --
 # o `node` recebia "<class '__main__.LS'>" e morria com MODULE_NOT_FOUND).
 ORACULO_LS = Path.home() / ".claude/touring/vgp/oss/oraculo_ls.js"
-TSC = Path("/home/gabrielgadea/projects/analise/frontend/node_modules/.bin/tsc")
+# O `tsc` do retestemunho NAO e um caminho fixo. MEDIDO em 01/11: o caminho absoluto desta
+# maquina (`.../projects/analise/frontend/node_modules/.bin/tsc`) estava VERSIONADO num repo
+# PUBLICO -- um caminho com o nome do usuario nao tem porque estar no historico, e a reescrita
+# de 01/11 nao pegou esse. A resolucao e por ambiente e acontece NA HORA DE USAR (nunca na
+# importacao: os testes importam este modulo numa maquina sem `tsc`).
+_TSC_CACHE: Path | None = None
+
+
+def _tsc(repo: Path | None = None) -> Path:
+    """Resolve o `tsc` do retestemunho: 1) `TOURING_TSC`; 2) `tsc` no PATH; 3) o do repo.
+
+    Sem nenhum dos tres, PARA COM MENSAGEM. Silenciar o retestemunho faria a DELTA do `tsc`
+    virar "confirmacao vazia" -- a mesma armadilha do segundo formato de saida nao parseado
+    (medido em 09/10 no zod: 598 erros emitidos, 0 casando, e o oraculo de referencia passava
+    a confirmar nada).
+    """
+    env = os.environ.get("TOURING_TSC")
+    if env:
+        # O ambiente MANDA sobre o cache: quem chama pode trocar o `tsc` entre rodadas, e um
+        # cache que escondesse a troca seria um "resolvedor" que resolve o Path errado.
+        p = Path(env)
+        if not p.exists():
+            raise SystemExit(f"TOURING_TSC aponta para {p}, que nao existe")
+        return p
+    global _TSC_CACHE
+    if _TSC_CACHE is not None:
+        return _TSC_CACHE
+    achado = shutil.which("tsc")
+    if achado:
+        _TSC_CACHE = Path(achado)
+        return _TSC_CACHE
+    if repo is not None:
+        local = repo / "node_modules" / ".bin" / "tsc"
+        if local.exists():
+            return local
+    raise SystemExit(
+        "tsc nao encontrado: exporte TOURING_TSC=<caminho do tsc> (ex.: "
+        "`$(npm root -g)/typescript/bin/tsc`) ou tenha o typescript no PATH. Sem o `tsc` o "
+        "retestemunho nao roda, e a DELTA viraria confirmacao vazia."
+    )
+
+
 RETEST_A_CADA = 50
 SEMENTE = 20261009
 # O `tsc` tem dois formatos de saida. MEDIDO em 09/10: o zod emite o segundo, e um parser que
@@ -670,7 +711,7 @@ def delta_do_tsc(
             alvo.unlink(missing_ok=True)
             alvo.write_text(texto, encoding="utf-8")
             r = subprocess.run(
-                [str(TSC), "--noEmit", "-p", "."],
+                [str(_tsc(repo)), "--noEmit", "-p", "."],
                 cwd=repo,
                 capture_output=True,
                 text=True,

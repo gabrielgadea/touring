@@ -279,3 +279,48 @@ desconhecido, então conteúdo não confiável que reproduza o marcador polui a 
 família `plugin-hook` (que era o item I-5). O `attributed_family` já prefere o emissor quando
 ele tem `Claim::Owns` ✓; o resíduo é só o caminho do emissor desconhecido. **Isso é do item
 I-4/I-5 (outra sessão), não do V-8** — fica aqui registrado para não se "corrigir" ao contrário.
+
+## 8. A PARADA DE COMMIT DURANTE A REESCRITA — liberada em 01/11
+
+**Linha do tempo**: 13:04 (meus 2 commits) → a coordenadora pediu a parada (o Gabriel aprovou
+reescrever o histórico local: **66 caminhos** com conteúdo privado saíram — prompts de transcritos,
+memória da analise, scripts eleitorais, corpus literal do VGP, backups ANTT) → 15:0x (outras
+sessões commitaram em cima) → **reescrita concluída**: `feat/2026-09-16-shell-quality-wiring-python`
+= `main` = `origin/main` = **`b98ce8c8`**, as duas publicadas no GitHub.
+
+**Todos os hashes do range não publicado mudaram.** Os meus dois commits agora são **`ee5a9fde`**
+(RELATORIO §5.6) e **`ddb46e90`** (resumo do topo) — ambos em `origin/main`. O conteúdo dos
+arquivos segue íntegro (verificado: §5.6, `RESUMO FINAL` e o `sha_tree e298fe3b6fe48d58` estão nos
+arquivos).
+
+**Commits liberados.** Com a liberação, foram para o branch nesta sessão: o **vazamento do caminho
+absoluto do `tsc`** (§8.1), o `pre_bash.rs` **órfão** (§8.2) e esta §8. Nada foi enviado ao
+remoto — as branches já publicadas são `main` e a de trabalho.
+
+### 8.1 O vazamento que a reescrita NÃO pegou
+
+`scripts/rotular_oss.py:47` tinha `TSC = Path("/home/gabrielgadea/projects/analise/frontend/
+node_modules/.bin/tsc")` — o caminho absoluto desta máquina, **versionado num repo público**, e
+ele **continua no `origin/main`** depois da reescrita. Um caminho com o nome do usuário não tem
+porque estar no histórico. O `tsc` não precisa de caminho fixo: agora ele é resolvido por
+`TOURING_TSC`, pelo `PATH`, ou pelo `node_modules/.bin/tsc` do próprio repo — e **falha alto**
+quando não acha, porque silenciar o retestemunho faria a DELTA do `tsc` virar confirmação vazia
+(a armadilha medida em 09/10 no zod: 598 erros emitidos, 0 casando, e o oráculo de referência
+passava a confirmar nada). Teste novo: `scripts/test_rotular_oss_tsc.py` (**6/6**).
+
+### 8.2 O `pre_bash.rs` órfão — **não era meu**
+
+Resposta à coordenadora: **não é meu**. Evidência: mtime **14:03:39**, o último commit que toca
+esse arquivo é de **27/10**, e a alteração é o teste do **motor JS** (trilho F2.1/F2.6,
+`8ddbcbb5` de 15:03) — o meu escopo é o corpus VGP e a memória. A sessão dona **não está mais
+viva** (vivas: `touring-d1`, `touring-45` e esta), então a alteração ficou **órfã** no working
+tree, sem ninguém que a commitasse. **Teste verde**: `cargo test -p touring-hook-handlers
+--features pre-hooks,post-hooks vgp_execucao_tests::` → **11 passed, 0 failed**, incluindo
+`node_mede_o_script_e_o_motor_js_nega_nome_indefinido`. Commitado para não se perder — a
+coordenadora pode reverter se discordar.
+
+### 8.3 O que a coordenadora pediu e eu cumpro
+
+A branch `int/2026-10-31-intadapt` do worktree `touring-wt-intadapt` **não** é publicada (aponta
+para hashes antigos e já está integrada), e o snapshot `safety/2026-11-01-pre-scrub` **nunca** vai
+ao remoto. Não mexi em nenhum dos dois.
