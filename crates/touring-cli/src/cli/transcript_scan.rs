@@ -32,6 +32,16 @@ pub const KPI_CAPS: ScanCaps = ScanCaps {
     max_bytes: 48 * 1024 * 1024,
 };
 
+/// The caps of the SHADOW sections (`family_gate`, `lesson_lifecycle`): they count over many
+/// sessions — a fact is confirmed by distinct sessions, a follow ratio needs n — so three
+/// transcripts say nothing. Wider than [`KPI_CAPS`], still bounded so a `touring kpi` call stays
+/// cheap, and still REPORTED (`capped`, `skipped_by_cap`): a partial walk reads as partial. The
+/// full-history numbers come from the `shadow_probe` example, which lifts the caps.
+pub const SHADOW_CAPS: ScanCaps = ScanCaps {
+    max_transcripts: 24,
+    max_bytes: 128 * 1024 * 1024,
+};
+
 /// One transcript (one Claude Code session — its file name is the session id) after the walk.
 #[derive(Debug)]
 pub struct SessionScan<T> {
@@ -351,6 +361,29 @@ pub(crate) mod fixtures {
     /// never shares one.
     pub fn tool_use(name: &str, input: Value) -> Value {
         json!([{"type": "tool_use", "id": format!("tu-{name}-{input}"), "name": name, "input": input}])
+    }
+
+    /// An assistant record that calls one tool under an explicit id (the id a result points at).
+    pub fn assistant_call(id: &str, name: &str, input: Value) -> String {
+        json!({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": id, "name": name, "input": input}
+        ]}})
+        .to_string()
+    }
+
+    /// A user record carrying the result of the call `id`; `content` is a string or a block list.
+    pub fn call_result(id: &str, is_error: bool, content: Value) -> String {
+        json!({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": id, "is_error": is_error, "content": content}
+        ]}})
+        .to_string()
+    }
+
+    /// The same record with a top-level `timestamp` (what dates a session).
+    pub fn stamped(line: &str, timestamp: &str) -> String {
+        let mut rec: Value = serde_json::from_str(line).unwrap_or(Value::Null);
+        rec["timestamp"] = json!(timestamp);
+        rec.to_string()
     }
 
     /// A human user turn (string content).

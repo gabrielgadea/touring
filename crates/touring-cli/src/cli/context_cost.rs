@@ -736,8 +736,14 @@ fn constants_json() -> Value {
     })
 }
 
-/// What the walk covered, shared by both sections.
-fn scan_meta(sessions: usize, bytes: u64, capped: bool, skipped: usize, malformed: u64) -> Value {
+/// What the walk covered — shared by every section that walks the transcripts.
+pub(crate) fn scan_meta(
+    sessions: usize,
+    bytes: u64,
+    capped: bool,
+    skipped: usize,
+    malformed: u64,
+) -> Value {
     json!({
         "available": true,
         "unit": "project",
@@ -749,7 +755,8 @@ fn scan_meta(sessions: usize, bytes: u64, capped: bool, skipped: usize, malforme
     })
 }
 
-fn merge(into: &mut Value, extra: Value) {
+/// Add the keys of the object `extra` to the object `into`.
+pub(crate) fn merge(into: &mut Value, extra: Value) {
     if let (Some(dst), Value::Object(src)) = (into.as_object_mut(), extra) {
         dst.extend(src);
     }

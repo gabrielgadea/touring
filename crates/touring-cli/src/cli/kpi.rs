@@ -255,6 +255,12 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     let (cost, surface) = super::context_cost::context_cost_and_surface(&rt.project_root);
     out["context_cost"] = cost;
     out["surface_usage"] = surface;
+    // B2/B1 (01/11/2026) — SHADOW sections over the same transcripts: the
+    // follow ratio per injection family with the recommended level, and the
+    // error-resolution lessons by distinct sessions. Nothing here writes a
+    // policy or a memory; a missing input is displayed, never zero.
+    out["family_gate"] = super::family_gate::family_gate(&rt.project_root);
+    out["lesson_lifecycle"] = super::lesson_lifecycle::lesson_lifecycle(&rt.project_root);
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),

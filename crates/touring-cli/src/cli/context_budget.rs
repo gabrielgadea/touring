@@ -579,15 +579,40 @@ fn note_must(
     agg: &mut ContextBudgetAggregate,
     pending_must: &mut Option<String>,
 ) {
-    let Some(target) = must_target(text) else {
+    let Some(req) = must_request(text, family) else {
         return;
     };
     agg.must_emitted += 1;
-    if family == DENY_FAMILY {
+    if req.denied {
         agg.must_denied += 1;
     } else {
-        *pending_must = Some(target);
+        *pending_must = Some(req.target);
     }
+}
+
+/// What a block asks of the next Bash call. The ONE reading of "this block carries a `MUST`":
+/// [`note_must`] counts with it, and the per-family follow ruler (`family_gate`, B2) attributes
+/// with it, so the global ratio and the per-family ones cannot drift apart.
+pub(crate) struct MustRequest {
+    /// The first `MUST <target>` of the block.
+    pub(crate) target: String,
+    /// The block is a gate's deny remedy — coercion, never armed (I-1 defect (b)).
+    pub(crate) denied: bool,
+}
+
+/// The `MUST` a block carries, or `None` when it carries none.
+pub(crate) fn must_request(text: &str, family: &str) -> Option<MustRequest> {
+    Some(MustRequest {
+        target: must_target(text)?,
+        denied: family == DENY_FAMILY,
+    })
+}
+
+/// Did `command` do what `target` asked? The whole two-word target, else its head — the rule
+/// the 04/09 measurement used, kept verbatim so the baseline and the KPI are the same number.
+pub(crate) fn must_followed_by(target: &str, command: &str) -> bool {
+    let head = target.split_whitespace().next().unwrap_or(target);
+    command.contains(target) || command.contains(head)
 }
 
 /// Account one injected block: its family, its propositions, and whether it is a
@@ -743,11 +768,7 @@ pub fn aggregate_session_lines<'a>(
                             .pointer("/input/command")
                             .and_then(Value::as_str)
                             .unwrap_or_default();
-                        // Match the whole two-word target, else its head — the
-                        // same rule the 04/09 measurement used, kept verbatim so
-                        // the baseline and the KPI are the same number.
-                        let head = target.split_whitespace().next().unwrap_or(&target);
-                        if cmd.contains(&target) || cmd.contains(head) {
+                        if must_followed_by(&target, cmd) {
                             agg.must_followed += 1;
                         }
                     }
