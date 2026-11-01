@@ -134,6 +134,9 @@ pub struct CheckOutput {
     /// `"unknown: <motivo>"` (the L1 findings still stand). Absent when L2 ran or was not asked.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub camada2: Option<String>,
+    /// Effective layer-2 budget, so a verdict always says which deadline produced it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub l2_budget_ms: Option<u64>,
     /// Why the motor could not measure (parse failure, adapter not implemented, no adapter for
     /// the language). Present whenever something went unmeasured, even beside findings.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -181,6 +184,7 @@ pub fn check_em(input: &CheckInput, contexto: Contexto) -> CheckOutput {
         elapsed_ms: t0.elapsed().as_secs_f64() * 1000.0,
         findings,
         camada2: None,
+        l2_budget_ms: None,
         motivo,
     }
 }

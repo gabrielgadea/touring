@@ -244,6 +244,8 @@ struct SombraLine<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     camada2: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    l2_budget_ms: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     motivo: Option<String>,
 }
 
@@ -257,6 +259,8 @@ pub struct SombraExtra {
     pub elapsed_ms: f64,
     /// Set when the extra layer could not measure: logged as motivo, L1 verdict untouched.
     pub camada2_motivo: Option<String>,
+    /// Effective budget used by the extra layer.
+    pub l2_budget_ms: Option<u64>,
 }
 
 /// The whole shadow operation for one hook check: run the motor, append the line, return the
@@ -303,11 +307,13 @@ pub fn sombra_check_em(
             elapsed_ms: 0.0,
             findings: Vec::new(),
             camada2: None,
+            l2_budget_ms: None,
             motivo: Some(MOTIVO_FALHA_INTERNA.to_string()),
         });
     let mut camadas = vec![1u8];
     if let Some(extra) = extra {
         camadas.push(2);
+        out.l2_budget_ms = extra.l2_budget_ms;
         out.elapsed_ms += extra.elapsed_ms;
         fundir_findings(&mut out.findings, extra.findings);
         out.camada2 = extra.camada2_motivo.map(|m| format!("unknown: {m}"));
@@ -344,6 +350,7 @@ pub fn sombra_check_em(
             })
             .collect(),
         camada2: out.camada2.clone(),
+        l2_budget_ms: out.l2_budget_ms,
         motivo: (out.verdict == "unknown").then(|| {
             out.motivo
                 .clone()

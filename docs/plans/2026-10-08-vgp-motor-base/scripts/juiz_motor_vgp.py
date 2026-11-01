@@ -1167,6 +1167,15 @@ def linha_falso_deny(b: str, t: dict, exigido: bool) -> str:
     )
 
 
+def _args_com_orcamento(arg_motor: list[str], orcamento: int | None) -> list[str]:
+    out = list(arg_motor)
+    if orcamento is not None:
+        if orcamento <= 0:
+            raise SystemExit("--l2-budget-ms espera inteiro > 0")
+        out += ["--l2-budget-ms", str(orcamento)]
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Juiz do motor VGP contra o corpus V0d")
     ap.add_argument("--touring", default=shutil.which("touring") or "touring")
@@ -1175,6 +1184,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--json", type=Path)
     ap.add_argument("--arg-motor", action="append", default=[])
     ap.add_argument("--p95-ms", type=float, default=LIMIAR_P95_MS)
+    ap.add_argument("--l2-budget-ms", type=int, help="orçamento da camada 2 em ms (default do motor: 1000 ou TOURING_VGP_L2_BUDGET_MS)")
     ap.add_argument(
         "--base",
         type=Path,
@@ -1189,7 +1199,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     if a.selftest:
         return selftest()
-    ARGS_MOTOR[:] = a.arg_motor
+    ARGS_MOTOR[:] = _args_com_orcamento(a.arg_motor, a.l2_budget_ms)
     LIMIAR_P95["ms"] = a.p95_ms
     touring = [a.touring]
     if ausente := motor_ausente(touring):
