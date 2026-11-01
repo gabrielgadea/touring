@@ -1626,7 +1626,6 @@ crates/touring-intelligence/src/rl/memory/rlm.rs::GraphMeta
 crates/touring-intelligence/src/rl/memory/rlm.rs::MEMORY_ENTRIES_DDL
 crates/touring-intelligence/src/rl/memory/rlm.rs::MemoryMatch
 crates/touring-intelligence/src/rl/memory/rlm.rs::RichMemoryEntry
-crates/touring-intelligence/src/rl/memory/rlm.rs::TierMaintenanceReport
 crates/touring-intelligence/src/rl/memory/rlm.rs::get
 crates/touring-intelligence/src/rl/memory/rlm.rs::new
 crates/touring-intelligence/src/rl/memory/rlm.rs::stats
