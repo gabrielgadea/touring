@@ -51,15 +51,24 @@ import json
 import sys
 import time
 import unicodedata
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from lib_touring import (  # noqa: E402
-    add_common_args, emit_error, emit_kv, emit_result, emit_section, emit_table,
-    grep_fallback, mark_degraded, parse_definitions, touring_run,
+from lib_touring import (
+    add_common_args,
+    emit_error,
+    emit_kv,
+    emit_result,
+    emit_section,
+    emit_table,
+    grep_fallback,
+    mark_degraded,
+    parse_definitions,
+    touring_run,
 )
 
 LEDGER_DIRNAME = ".touring-explore"
@@ -175,7 +184,7 @@ def stored_epoch(value: Any) -> float | None:
     if isinstance(value, str):
         try:
             return (datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
-                    .replace(tzinfo=timezone.utc).timestamp())
+                    .replace(tzinfo=UTC).timestamp())
         except ValueError:
             return None
     return None
@@ -351,9 +360,27 @@ LENS_FNS: dict[str, Callable[..., LensSweep]] = {
 
 # === round + convergence ===================================================
 
+def _is_own_ledger(finding: dict[str, Any], ledger_path: Path | None) -> bool:
+    """Is this raw-grep hit a line of the campaign's own ledger file? (B7, 01/11/2026)
+
+    The ledger holds the topic, so with `--ledger` inside the scope and not git-ignored
+    the antistaleness grep found the ledger's own lines and every later round counted
+    them as new: one real campaign had 22 of 36 findings echoing the ledger itself.
+    The default ledger dir is git-ignored, which is why this only showed with --ledger."""
+    if ledger_path is None or finding.get("kind") != "grep-hit":
+        return False
+    hit = str(finding.get("key", "")).split(":", 1)[0]
+    try:
+        return Path(hit).expanduser().resolve() == ledger_path.resolve()
+    except OSError:
+        return False
+
+
 def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
-              timeout: float) -> dict[str, Any]:
-    """One full sweep of every automated lens; dedupe against the ENTIRE ledger."""
+              timeout: float, ledger_path: Path | None = None) -> dict[str, Any]:
+    """One full sweep of every automated lens; dedupe against the ENTIRE ledger.
+
+    `ledger_path` is the campaign's own ledger file; a grep hit inside it is dropped."""
     topic = ledger["topic"]
     round_no = len(ledger["rounds"]) + 1
     seen = set(ledger["findings"].keys())
@@ -369,7 +396,7 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
         fresh = 0
         echoes = 0
         for f in sweep.findings:
-            if f["id"] in seen:
+            if f["id"] in seen or _is_own_ledger(f, ledger_path):
                 continue
             f["round"] = round_no
             # Self-echo suppression (2026-08-29): a memory stored AFTER the
@@ -672,14 +699,14 @@ def apply_mutations(ledger: dict[str, Any], args) -> tuple[bool, str | None]:
 
 
 def execute_rounds(ledger: dict[str, Any], scope: Path, args,
-                   run: Runner) -> tuple[bool, bool]:
+                   run: Runner, ledger_path: Path | None = None) -> tuple[bool, bool]:
     """Run the requested rounds. Returns (mutated, degraded_any)."""
     degraded_any = False
     mutated = False
     budget = (args.max_rounds - len(ledger["rounds"])) if args.until_dry \
         else min(args.rounds, args.max_rounds - len(ledger["rounds"]))
     while budget > 0:
-        entry = run_round(ledger, scope, run, args.timeout)
+        entry = run_round(ledger, scope, run, args.timeout, ledger_path=ledger_path)
         degraded_any |= entry["degraded"]
         mutated = True
         budget -= 1
@@ -705,7 +732,7 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
     degraded_any = False
     rounds_before = len(ledger["rounds"])
     if not args.status:
-        ran, degraded_any = execute_rounds(ledger, scope, args, run)
+        ran, degraded_any = execute_rounds(ledger, scope, args, run, ledger_path=lpath)
         mutated = mutated or ran
 
     verdict = convergence(ledger, args.dry_rounds, args.max_rounds)

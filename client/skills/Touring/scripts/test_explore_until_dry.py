@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import explore_until_dry as ex  # noqa: E402
+import explore_until_dry as ex
 
 
 class FakeResult:
@@ -85,6 +85,22 @@ def test_round_dedupes_against_full_ledger(scope):
     r2 = ex.run_round(ledger, scope, run, 5.0)
     assert r1["new_findings"] > 0
     assert r2["new_findings"] == 0          # identical sweep → fully deduped
+
+
+def test_antistaleness_never_reads_the_campaigns_own_ledger(scope):
+    """B7 (01/11/2026): with `--ledger` inside the scope and not git-ignored, the raw
+    grep found the ledger's OWN lines (it holds the topic) and every round after the
+    first write counted them as new — 22 of 36 findings in one real campaign were the
+    ledger echoing itself. The control file proves the lens still greps the scope."""
+    lpath = scope / "bundle" / "explore-ledger.json"
+    lpath.parent.mkdir()
+    lpath.write_text(json.dumps({"topic": "Alpha", "note": "Alpha everywhere"}), encoding="utf-8")
+    (scope / "notes.md").write_text("Alpha is mentioned here\n", encoding="utf-8")
+    ledger = fresh_ledger(scope)
+    ex.run_round(ledger, scope, make_runner(base_responses()), 5.0, ledger_path=lpath)
+    grep_keys = [f["key"] for f in ledger["findings"].values() if f["kind"] == "grep-hit"]
+    assert any("notes.md" in k for k in grep_keys), "control: the lens must still grep the scope"
+    assert not any("explore-ledger.json" in k for k in grep_keys), grep_keys
 
 
 # === self-echo suppression (2026-08-29) ====================================
