@@ -40,7 +40,8 @@ sync = _module()
 
 def run(*args: str) -> subprocess.CompletedProcess:
     return subprocess.run(
-        [sys.executable, str(SCRIPT), *args], capture_output=True, text=True, cwd=REPO
+        [sys.executable, str(SCRIPT), *args], capture_output=True, text=True, cwd=REPO,
+        check=False,  # callers assert on returncode themselves
     )
 
 
@@ -71,15 +72,24 @@ def test_no_generated_artifact_sits_in_the_mirror():
     Scoped to the MIRRORED areas: `client/` also hosts source trees this sync
     does not own (client/omarchy has its own live workstream whose test runs
     regenerate caches on disk mid-suite — observed 2026-08-23). On-disk junk
-    there is that workstream's `.gitignore` concern, not mirror drift."""
-    junk = [
-        f"{area}/{f.relative_to(REPO / 'client' / area).as_posix()}"
-        for area, _ in sync.AREAS
-        if (REPO / "client" / area).is_dir()
-        for f in (REPO / "client" / area).rglob("*")
-        if f.is_file() and sync.is_noise(f.relative_to(REPO / "client" / area))
-    ]
-    assert junk == [], f"generated artifacts in the mirror: {junk[:10]}"
+    there is that workstream's `.gitignore` concern, not mirror drift.
+
+    The question is what git would TAKE (tracked, or untracked and not ignored),
+    not what sits on disk (01/11/2026): any import of a mirrored module outside
+    the root conftest drops an ignored `__pycache__/` there, and the on-disk
+    version went red on a file git could never commit. The 2026-07-25 defect
+    was exactly the other kind: junk the `.gitignore` let through."""
+    junk = []
+    for area, _ in sync.AREAS:
+        root = REPO / "client" / area
+        if not root.is_dir():
+            continue
+        listed = subprocess.run(
+            ["git", "ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "."],
+            cwd=root, capture_output=True, text=True, check=True,
+        ).stdout.split("\0")
+        junk += [f"{area}/{p}" for p in listed if p and sync.is_noise(Path(p))]
+    assert junk == [], f"generated artifacts git would take into the mirror: {junk[:10]}"
 
 
 def test_runtime_state_can_never_be_mirrored_again():
