@@ -81,7 +81,13 @@ T-6 tantivy: **adiar**. 3.3: **manter full e medir** com a régua corrigida apó
 D-2: **snapshot e remoção só dos VGP integrados** (vhtml, vl0, vrs, vrs2, vtransv, vts, adapt) — FEITO 01/11:
 branches `safety/2026-11-01-wt-{vhtml,vl0,vrs,vrs2,vtransv,vts,adapt}` com o WIP e worktrees removidos; os
 demais (f21, frag, p0b, p0bd, roteamento, semeado, tiers) **ficam e devem ter o trabalho concluído segundo os
-objetivos originais** (mapeamento em curso). D-8: **construir o adjudicador html** (touring-a4, depois da
+objetivos originais** (mapeamento FEITO 01/11, por conteúdo e por patch: **6 de 7 já concluídos no HEAD** — f21 (F21+F21K,
+`f21k.patch` 226/231 linhas no HEAD, o resto superado), frag (1396/1398), p0b (577/578), p0bd (547/548),
+roteamento (114/114; `sync-client-skills --check` CLEAN, 396 arquivos) e semeado (substrato do corpus Rust,
+sem código a portar; **fica** — 5 scripts têm o caminho dele fixo e a V-6/V-9 podem reexecutá-los). Só o
+**tiers** (decisão B: tier é espaço de nome; remove `maintain_tiers`/`TierPolicy`/`TierMaintenanceReport`/
+`MemoryTier::priority` e o passo 4 inerte do TD loop) estava ausente → porte em curso num worktree isolado,
+gate com os 22 dependentes reversos). D-8: **construir o adjudicador html** (touring-a4, depois da
 re-rotulação js/tsx/ts). D-7b: **deduplicar agora** — 73% do duplicado (3.648/4.986 linhas) está em
 `scripts/touring_premium_refactor_2026/` (15 `validate_W*.py`, `w5/w6/w7_rewrite_crate_paths.py`); subagente
 em worktree isolado, aceite = F1.3 ≥ 0,80 + testes verdes + saída idêntica.
