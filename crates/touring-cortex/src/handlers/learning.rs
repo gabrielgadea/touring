@@ -1,7 +1,7 @@
 //! RL Learning Handlers — Reward emission + TD learning loop.
 //!
 //! - `RlRewardEmitterHandler`: PostToolUse (async) — compute and record RL reward
-//! - `TdLearningLoopHandler`: Stop (async) — TD(0) QTable update + tier promotion
+//! - `TdLearningLoopHandler`: Stop (async) — TD(0) QTable update
 
 use std::collections::HashMap;
 
@@ -135,17 +135,20 @@ impl Handler for RlRewardEmitterHandler {
 
 // ── H33: TdLearningLoop ──────────────────────────────────────────────
 
-/// TD(0) QTable update + tier promotion on session end.
+/// TD(0) QTable update on session end.
 ///
 /// 1. Query hook_events for session (last 2h)
 /// 2. Aggregate rewards per (state, action) pair
 /// 3. TD(0) update: Q(s,a) += α(r - Q(s,a))
-/// 4. Tier promotion: access_count thresholds (3→working, 10→ref, 50→core)
+///
+/// It deliberately does NOT touch `RlmMemory` tiers: a tier is part of an
+/// entry's address (`RlmMemory::get` filters on key AND tier, and the key is the
+/// primary key, so re-storing under another tier moves the row and the old
+/// address goes empty). How often an entry is used is a separate signal
+/// (`access_count`, `accessed_at`, credit) — see `MemoryTier`.
 pub struct TdLearningLoopHandler;
 
 const ALPHA: f64 = 0.1;
-const TIER_WORKING: i64 = 3;
-const TIER_REFERENCE: i64 = 10;
 
 // ── RL mapping — single source of truth in rl_mapping.rs ──
 use crate::rl_mapping::{event_to_state, tool_to_action};
@@ -215,30 +218,6 @@ impl Handler for TdLearningLoopHandler {
                 rusqlite::params![key, new_q],
             );
             updates += 1;
-        }
-
-        // 4. Tier promotion (via RlmMemory if available)
-        if let Some(ref rlm) = ctx.rlm {
-            use touring_intelligence::rl::memory::rlm::MemoryTier;
-
-            // Search ephemeral entries with high access
-            let entries = rlm
-                .search("", Some(MemoryTier::Ephemeral), 100)
-                .unwrap_or_default();
-            for entry in &entries {
-                if entry.access_count >= TIER_WORKING {
-                    let _ = rlm.store(&entry.key, MemoryTier::Working, &entry.value, None, None);
-                }
-            }
-
-            let entries = rlm
-                .search("", Some(MemoryTier::Working), 100)
-                .unwrap_or_default();
-            for entry in &entries {
-                if entry.access_count >= TIER_REFERENCE {
-                    let _ = rlm.store(&entry.key, MemoryTier::Reference, &entry.value, None, None);
-                }
-            }
         }
 
         // Log the learning event
@@ -327,5 +306,96 @@ mod tests {
         assert_eq!(h.name(), "td_learning_loop");
         assert_eq!(h.events(), &[HookEvent::Stop]);
         assert!(h.is_async());
+    }
+
+    // ── H33: a tier is an address, not a heat ladder ──────────────────
+
+    /// How many times each probe entry is read before the Stop pass runs —
+    /// above every access threshold the retired tier-promotion step used (3 and 10).
+    const HOT_READS: usize = 12;
+
+    /// `memory_entries.key` is the primary key and the store upserts on it, while
+    /// `RlmMemory::get` filters on `key AND tier`: re-storing a key under another
+    /// tier MOVES the row and the lookup at the old address comes back empty, with
+    /// no error. So the Stop-time learning pass must leave every entry in the tier
+    /// it was stored in, however often it was read.
+    #[test]
+    #[allow(clippy::arc_with_non_send_sync)]
+    fn td_learning_loop_never_moves_an_entry_between_tiers() {
+        use std::sync::Arc;
+
+        use tempfile::TempDir;
+        use touring_hooks::knowledge::FileKnowledgeDB;
+        use touring_intelligence::rl::evolution::LearningPersistence;
+        use touring_intelligence::rl::memory::rlm::{MemoryTier, RlmMemory};
+
+        let tmp = TempDir::new().unwrap();
+        let root = tmp.path().to_path_buf();
+
+        // The handler opens graph.db itself (`graph_db_canonical`); a missing
+        // parent directory would make it skip before the end of the pass.
+        let graph_db = touring_foundation::TouringConfig::graph_db_canonical(&root);
+        std::fs::create_dir_all(graph_db.parent().unwrap()).unwrap();
+        let persistence = LearningPersistence::new(&graph_db);
+        persistence.ensure_tables().unwrap();
+        persistence
+            .log_hook_event("PostToolUse", "Edit", "ok", 0.5)
+            .unwrap();
+
+        let rlm = Arc::new(RlmMemory::new(&tmp.path().join("rlm.db")).unwrap());
+        let probes = [
+            ("tier-probe:ephemeral", MemoryTier::Ephemeral),
+            ("tier-probe:working", MemoryTier::Working),
+        ];
+        for (key, tier) in probes {
+            rlm.store(key, tier, "tier probe value", None, None)
+                .unwrap();
+            for _ in 0..HOT_READS {
+                rlm.get(key, tier).unwrap();
+            }
+        }
+
+        let knowledge = Arc::new(FileKnowledgeDB::new(&tmp.path().join("k.db")).unwrap());
+        let mut ctx = CortexContext::from_input_full(
+            HookEvent::Stop,
+            serde_json::json!({}),
+            knowledge,
+            Some(Arc::clone(&rlm)),
+            None,
+            Some(Arc::new(persistence)),
+            root,
+        );
+        TdLearningLoopHandler.execute(&mut ctx);
+
+        // The pass really ran to its end (it wrote the Q-table row) — without
+        // this the assertions below would also hold for an early skip.
+        let q_rows: i64 = rusqlite::Connection::open(&graph_db)
+            .unwrap()
+            .query_row("SELECT COUNT(*) FROM learning_qtable", [], |r| r.get(0))
+            .unwrap();
+        assert!(
+            q_rows > 0,
+            "the TD(0) pass must have written its Q-table row"
+        );
+
+        for (key, tier) in probes {
+            assert_eq!(
+                rlm.get(key, tier).unwrap().as_deref(),
+                Some("tier probe value"),
+                "{key} must still be found at its original address ({})",
+                tier.as_str(),
+            );
+        }
+        for (key, other) in [
+            ("tier-probe:ephemeral", MemoryTier::Working),
+            ("tier-probe:working", MemoryTier::Reference),
+        ] {
+            assert_eq!(
+                rlm.get(key, other).unwrap(),
+                None,
+                "{key} must not have been relocated to {}",
+                other.as_str(),
+            );
+        }
     }
 }

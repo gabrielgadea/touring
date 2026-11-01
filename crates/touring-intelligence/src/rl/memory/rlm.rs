@@ -29,16 +29,29 @@ pub enum RlmError {
 /// Result type for RLM operations.
 pub type Result<T> = std::result::Result<T, RlmError>;
 
-/// Memory tier classification.
+/// Memory tier: a NAMESPACE that is part of an entry's address, not a heat ladder.
+///
+/// `memory_entries.key` is the primary key and the store upserts on it
+/// (`ON CONFLICT(key)`), while [`RlmMemory::get`] filters on `key AND tier`.
+/// Storing the same key under another tier therefore MOVES the row, and a lookup
+/// at the old address then comes back empty, with no error. Nothing in the crate
+/// moves an entry between tiers on its own — a caller that re-stores under a
+/// different tier (or the explicit `consolidate_memory` tool) is choosing a new
+/// address, knowingly.
+///
+/// How hot or how useful an entry is, is a separate signal (`access_count`,
+/// `accessed_at` and the credit/outcome columns). Using it to rank or retire
+/// entries is a future decision to be evaluated before it is wired — never done
+/// as a relocation between tiers.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum MemoryTier {
-    /// Short-lived memory, garbage-collected aggressively.
+    /// Namespace for short-lived notes; nothing expires it automatically.
     Ephemeral,
-    /// Session-scoped working memory.
+    /// Namespace for session-scoped working memory.
     Working,
-    /// Project-scoped reference memory.
+    /// Namespace for project-scoped reference memory.
     Reference,
-    /// Most persistent, highest-priority memory.
+    /// Namespace for the memory callers treat as permanent.
     Core,
 }
 
@@ -49,17 +62,6 @@ impl std::fmt::Display for MemoryTier {
 }
 
 impl MemoryTier {
-    /// Returns the retention priority (higher = more persistent).
-    #[must_use]
-    pub fn priority(&self) -> u8 {
-        match self {
-            Self::Ephemeral => 0,
-            Self::Working => 1,
-            Self::Reference => 2,
-            Self::Core => 3,
-        }
-    }
-
     /// Returns the canonical lowercase string name of the tier.
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -1269,116 +1271,6 @@ pub struct MemoryStats {
     pub tier_access_counts: std::collections::HashMap<String, i64>,
 }
 
-/// Tier promotion/demotion policy configuration.
-#[derive(Debug, Clone)]
-pub struct TierPolicy {
-    /// Promote Ephemeral -> Working after N accesses within window.
-    pub ephemeral_promote_accesses: i64,
-    /// Time window, in seconds, for counting Ephemeral promotion accesses.
-    pub ephemeral_promote_window_secs: i64,
-    /// Promote Working -> Reference after N accesses within window.
-    pub working_promote_accesses: i64,
-    /// Time window, in seconds, for counting Working promotion accesses.
-    pub working_promote_window_secs: i64,
-    /// Demote Core -> Reference after N seconds without access.
-    pub core_demote_secs: i64,
-    /// Demote Reference -> Working after N seconds without access.
-    pub reference_demote_secs: i64,
-    /// Delete Ephemeral entries older than N seconds.
-    pub ephemeral_ttl_secs: i64,
-}
-
-impl Default for TierPolicy {
-    fn default() -> Self {
-        Self {
-            ephemeral_promote_accesses: 3,
-            ephemeral_promote_window_secs: 86400, // 24h
-            working_promote_accesses: 10,
-            working_promote_window_secs: 604800, // 7 days
-            core_demote_secs: 2592000,           // 30 days
-            reference_demote_secs: 1209600,      // 14 days
-            ephemeral_ttl_secs: 172800,          // 48h
-        }
-    }
-}
-
-/// Report of tier maintenance operations.
-#[derive(Debug, Default)]
-pub struct TierMaintenanceReport {
-    /// Number of entries promoted from Ephemeral to Working.
-    pub promoted_ephemeral_to_working: usize,
-    /// Number of entries promoted from Working to Reference.
-    pub promoted_working_to_reference: usize,
-    /// Number of entries demoted from Core to Reference.
-    pub demoted_core_to_reference: usize,
-    /// Number of entries demoted from Reference to Working.
-    pub demoted_reference_to_working: usize,
-    /// Number of expired Ephemeral entries garbage-collected.
-    pub gc_ephemeral: usize,
-}
-
-impl RlmMemory {
-    /// Run tier maintenance: promote, demote, and garbage-collect.
-    /// Call once per session-start.
-    #[allow(clippy::field_reassign_with_default)] // fields assigned from SQL results, struct literal not practical
-    pub fn maintain_tiers(&self, policy: &TierPolicy) -> Result<TierMaintenanceReport> {
-        let now = Utc::now().timestamp();
-        let mut report = TierMaintenanceReport::default();
-
-        // 1. Promote Ephemeral -> Working (accessed enough within window)
-        report.promoted_ephemeral_to_working = self.conn.execute(
-            "UPDATE memory_entries SET tier = 'working'
-             WHERE tier = 'ephemeral'
-             AND access_count >= ?1
-             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
-            params![
-                policy.ephemeral_promote_accesses,
-                now,
-                policy.ephemeral_promote_window_secs
-            ],
-        )?;
-
-        // 2. Promote Working -> Reference (accessed enough within window)
-        report.promoted_working_to_reference = self.conn.execute(
-            "UPDATE memory_entries SET tier = 'reference'
-             WHERE tier = 'working'
-             AND access_count >= ?1
-             AND (?2 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) <= ?3",
-            params![
-                policy.working_promote_accesses,
-                now,
-                policy.working_promote_window_secs
-            ],
-        )?;
-
-        // 3. Demote Core -> Reference (stale)
-        report.demoted_core_to_reference = self.conn.execute(
-            "UPDATE memory_entries SET tier = 'reference'
-             WHERE tier = 'core'
-             AND (?1 - accessed_at) > ?2",
-            params![now, policy.core_demote_secs],
-        )?;
-
-        // 4. Demote Reference -> Working (stale)
-        report.demoted_reference_to_working = self.conn.execute(
-            "UPDATE memory_entries SET tier = 'working'
-             WHERE tier = 'reference'
-             AND (?1 - accessed_at) > ?2",
-            params![now, policy.reference_demote_secs],
-        )?;
-
-        // 5. GC expired Ephemeral entries
-        report.gc_ephemeral = self.conn.execute(
-            "DELETE FROM memory_entries
-             WHERE tier = 'ephemeral'
-             AND (?1 - CASE WHEN typeof(created_at) = 'integer' THEN created_at ELSE CAST(strftime('%s', created_at) AS INTEGER) END) > ?2",
-            params![now, policy.ephemeral_ttl_secs],
-        )?;
-
-        Ok(report)
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1961,14 +1853,31 @@ mod tests {
     }
 
     #[test]
-    fn maintain_tiers_succeeds_on_default_policy() {
+    fn tier_is_part_of_the_address_and_a_restore_under_another_tier_moves_the_row() {
         let (_d, mem) = fresh();
-        mem.store("m", MemoryTier::Ephemeral, "v", None, None)
+        mem.store("addr", MemoryTier::Working, "v1", None, None)
             .unwrap();
-        // A just-created entry with 0 accesses triggers no promotion under the
-        // default policy; the call must still succeed and report a zeroed move.
-        let report = mem.maintain_tiers(&TierPolicy::default()).unwrap();
-        assert_eq!(report.promoted_ephemeral_to_working, 0);
+        // The tier is part of the address: the same key at another tier is not found.
+        assert_eq!(
+            mem.get("addr", MemoryTier::Working).unwrap().as_deref(),
+            Some("v1")
+        );
+        assert_eq!(mem.get("addr", MemoryTier::Reference).unwrap(), None);
+
+        // The key is the primary key, so re-storing it under another tier RELOCATES
+        // the row and the old address goes empty: only a caller that means it may.
+        mem.store("addr", MemoryTier::Reference, "v2", None, None)
+            .unwrap();
+        assert_eq!(
+            mem.get("addr", MemoryTier::Reference).unwrap().as_deref(),
+            Some("v2")
+        );
+        assert_eq!(mem.get("addr", MemoryTier::Working).unwrap(), None);
+        assert_eq!(
+            mem.stats().unwrap().total_entries,
+            1,
+            "one row for the key, not a copy per tier"
+        );
     }
 
     #[test]
