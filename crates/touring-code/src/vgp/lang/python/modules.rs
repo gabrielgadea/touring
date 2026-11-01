@@ -245,7 +245,14 @@ impl<'a> Resolver<'a> {
             candidates.push(dir.join(&rel).join("__init__.py"));
         }
         candidates.extend(self.venv_candidates(&rel));
+        // V-4 (31/10/2026): a candidate outside the allowed roots is not a file of
+        // the project — and it is not reported as missing either (the class
+        // abstains: the refusal names the reason, never the path).
+        let raizes = self.raizes_permitidas(importer);
         for cand in candidates {
+            if !crate::vgp::lang::caminho::dentro_das_raizes(&raizes, &cand) {
+                continue;
+            }
             if let Some(info) = self.module_at(&cand) {
                 return Some(info);
             }
@@ -288,6 +295,10 @@ impl<'a> Resolver<'a> {
         if let Some(hit) = self.fs_cache.borrow().get(path) {
             return hit.clone();
         }
+        // V-4 (31/10/2026): only what is inside the allowed roots is read — the
+        // project root AND the `site-packages` the resolver itself declares (the venv
+        // it resolved through `pyvenv.cfg`). A path that only the CONTENT names is
+        // not a root.
         let c = std::fs::read_to_string(path)
             .ok()
             .filter(|s| !s.is_empty() || path.exists());
@@ -295,6 +306,21 @@ impl<'a> Resolver<'a> {
             .borrow_mut()
             .insert(path.to_path_buf(), c.clone());
         c
+    }
+
+    /// The roots a module may be read from: the project root, the `site-packages`
+    /// the resolver declares (the venv it resolved through `pyvenv.cfg`) and the
+    /// directory of the importer (a fragment in `/tmp` resolves its imports next
+    /// to itself).
+    fn raizes_permitidas(&self, importer: &str) -> Vec<PathBuf> {
+        let mut raizes = vec![self.root.to_path_buf()];
+        raizes.extend(self.site_packages());
+        if !crate::vgp::is_inline(importer)
+            && let Some(dir) = Path::new(importer).parent()
+        {
+            raizes.push(dir.to_path_buf());
+        }
+        raizes
     }
 
     /// `<root>/.venv/lib/python*/site-packages` directories (the installed env).

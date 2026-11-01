@@ -9,7 +9,7 @@
 //!
 //! | rule | finding | severity |
 //! |---|---|---|
-//! | P4 | class in [`CLASSES_CONSULTIVAS`] (`cdn_pin`, `classe_css`) | `warn`, whatever the target |
+//! | P4 | class in [`CLASSES_CONSULTIVAS`] (`cdn_pin`, `classe_css`, and the HTML reference classes `recurso`, `ancora`) | `warn`, whatever the target |
 //! | P1 | target [`Alvo::Externo`] (stdlib, closed builtin, installed third party, a CDN 404) | `deny`, in every bucket |
 //! | P2 | target [`Alvo::Projeto`] where the code runs now ([`roda_agora`]) | `deny` |
 //! | P3 | target [`Alvo::Projeto`] elsewhere, or [`Alvo::Incerto`] / [`Alvo::Fechado`] anywhere | `warn` |
@@ -52,8 +52,10 @@ pub enum Alvo {
 }
 
 /// Classes that only ever advise (§5.2): a class used by JS hooks is legitimate, a floating CDN
-/// pin is a recommendation — neither is an error the motor may deny.
-pub const CLASSES_CONSULTIVAS: &[&str] = &["cdn_pin", "classe_css"];
+/// pin is a recommendation, and a missing HTML file or id (`recurso`, `ancora`) is what the next
+/// write creates — the `index.html` goes out before the `style.css` it links. §5.1 reserves the
+/// "runs now" `deny` for SYMBOL classes, so none of these is an error the motor may deny.
+pub const CLASSES_CONSULTIVAS: &[&str] = &["cdn_pin", "classe_css", "recurso", "ancora"];
 
 /// WHEN the verdict is asked — the moment decides whether a file "runs now" (FRAG, 10/10/2026).
 ///
@@ -254,6 +256,36 @@ mod tests {
             assert_eq!(sev(classe, Alvo::Externo, true), "warn", "{classe}");
             assert_eq!(sev(classe, Alvo::Projeto, true), "warn", "{classe}");
         }
+    }
+
+    #[test]
+    fn p4_recurso_e_ancora_de_html_sao_consultivas_mesmo_onde_o_codigo_roda_agora() {
+        // spec §5.1: o `deny` de «roda agora» é das classes de SÍMBOLO; um arquivo ou id
+        // ausente em HTML é o que a próxima escrita cria (o `index.html` sai antes do
+        // `style.css`). Nomeadas aqui: o laço acima acompanha a lista e não detectaria a saída.
+        for classe in ["recurso", "ancora"] {
+            assert!(CLASSES_CONSULTIVAS.contains(&classe), "{classe}");
+            assert_eq!(sev(classe, Alvo::Projeto, true), "warn", "{classe}");
+            assert_eq!(sev(classe, Alvo::Projeto, false), "warn", "{classe}");
+        }
+        assert_eq!(
+            sev("nome", Alvo::Projeto, true),
+            "deny",
+            "a classe de símbolo segue negando onde roda agora"
+        );
+        let mut fs = vec![
+            achado("recurso", "falta.png", Alvo::Projeto),
+            achado("ancora", "capa", Alvo::Projeto),
+            achado("nome", "x", Alvo::Projeto),
+        ];
+        aplicar(
+            &mut fs,
+            "/tmp/a.html",
+            Path::new("/home/u/proj"),
+            Contexto::Execucao,
+        );
+        let sevs: Vec<&str> = fs.iter().map(|f| f.severidade.as_str()).collect();
+        assert_eq!(sevs, ["warn", "warn", "deny"]);
     }
 
     #[test]
