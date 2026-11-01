@@ -46,15 +46,16 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import re
 import shlex
 import subprocess
 import sys
-from concurrent.futures import ThreadPoolExecutor
 import time
 import tomllib
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -571,7 +572,7 @@ SKILL_PREAMBLE = (
     "re-derive it, and do not substitute your own method for it.")
 
 
-def skill_binding(node: "Node") -> list[str]:
+def skill_binding(node: Node) -> list[str]:
     """Skills this node binds, normalised to a list (empty when none)."""
     raw = node.raw.get("skill")
     if not raw:
@@ -605,7 +606,7 @@ def skill_status(name: str) -> str:
     return "disabled" if name in disabled_skills() else "ok"
 
 
-def skill_tools(node: "Node") -> list[str]:
+def skill_tools(node: Node) -> list[str]:
     """`allowed_tools` with `Skill` present whenever the node binds one."""
     tools = [str(t) for t in (node.raw.get("allowed_tools") or [])]
     if skill_binding(node) and SKILL_TOOL not in tools:
@@ -613,7 +614,7 @@ def skill_tools(node: "Node") -> list[str]:
     return tools
 
 
-def skill_prompt_prefix(node: "Node") -> str:
+def skill_prompt_prefix(node: Node) -> str:
     """Deterministic preamble — same node, same bytes (stable for tests/caching)."""
     names = skill_binding(node)
     if not names:
@@ -1880,6 +1881,47 @@ class Journal:
         return None
 
 
+# ── replay identity (B8, 01/11/2026) ──────────────────────────────────────────
+# The exec_key is `name#visit`: it says WHERE in the graph a node ran, not WHAT ran.
+# Before B8 a resume reused the artifact of any completed exec_key, so editing a
+# node's prompt or command and resuming carried the OLD output forward as the new
+# node's (harness2 has the same hole: cli/run_sweep.py:209-235). The fingerprint
+# of the node's definition is recorded with every completion and must match.
+
+def node_fingerprint(node: Node) -> str:
+    """Content identity of a node's definition: type, raw table and edges."""
+    canon = json.dumps({"type": node.type, "raw": node.raw, "on_pass": node.on_pass,
+                        "on_fail": node.on_fail, "on_dry": node.on_dry},
+                       sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+
+def spec_digest(spec: Spec) -> str:
+    """Identity of the whole spec as loaded (every node's fingerprint, in name order)."""
+    canon = json.dumps({"entry": spec.entry,
+                        "nodes": {n: node_fingerprint(spec.nodes[n]) for n in sorted(spec.nodes)}},
+                       sort_keys=True)
+    return hashlib.sha256(canon.encode("utf-8")).hexdigest()[:16]
+
+
+def replayable(completed: dict[str, dict], exec_key: str, node: Node, journal: Journal) -> bool:
+    """May this exec_key be skipped on resume? Only if it completed AND the node is unchanged.
+
+    A completion without a fingerprint (journal written before B8) cannot prove the node is
+    unchanged: absent signal is not a match (Law L2), so it re-runs. Every refusal is
+    journaled with its reason, so a resume that re-runs work says why."""
+    rec = completed.get(exec_key)
+    if rec is None:
+        return False
+    recorded, current = rec.get("node_hash"), node_fingerprint(node)
+    if recorded == current:
+        return True
+    journal.append("replay_refused", node=node.name, exec_key=exec_key,
+                   reason="node_changed" if recorded else "no_fingerprint",
+                   recorded=recorded, current=current)
+    return False
+
+
 # ── results store (Law L4) ────────────────────────────────────────────────────
 
 
@@ -1953,7 +1995,7 @@ def activity_append(action: str, payload: dict) -> None:
              "--payload", json.dumps(payload, ensure_ascii=False)],
             capture_output=True, timeout=ACTIVITY_TIMEOUT_S, check=False,
         )
-    except Exception:
+    except Exception:  # noqa: BLE001, S110 — fail-open: the mirror never fails the run
         pass  # mirror only; the journal is the source of truth
 
 
@@ -2050,7 +2092,7 @@ def run_code_node(node: Node, results: dict, variables: dict,
     while True:
         try:
             proc = subprocess.run(command, capture_output=True, text=True,
-                                  timeout=timeout_s, cwd=cwd)
+                                  timeout=timeout_s, cwd=cwd, check=False)
             if node.raw.get("sandbox", False):
                 output = sandbox_note + _unwrap_sandbox_output(proc.stdout, proc.stderr)
             else:
@@ -2120,7 +2162,7 @@ def run_control_node(node: Node, results: dict, variables: dict,
                for p in node.raw["command"]]
         try:
             proc = subprocess.run(cmd, capture_output=True, text=True,
-                                  timeout=timeout_s, cwd=cwd)
+                                  timeout=timeout_s, cwd=cwd, check=False)
             code = proc.returncode
             out = (proc.stdout + proc.stderr)[-400:]
         except subprocess.TimeoutExpired:
@@ -2155,8 +2197,8 @@ def _synthesized_mock(node: Node) -> ExecResult:
     to detect.
     """
     emits = str((node.raw.get("persona") or {}).get("emits", ""))
-    lines = [f"SYNTHESIZED MOCK for agent `{node.name}` — no recording to replay; "
-             f"the graph was walked, this agent's behaviour was NOT exercised."]
+    lines = [(f"SYNTHESIZED MOCK for agent `{node.name}` — no recording to replay; "
+             f"the graph was walked, this agent's behaviour was NOT exercised.")]
     if "VERDICT=" in emits:
         # The node's own contract says a downstream gate parses a verdict here.
         # Emitting nothing would stall every panel behind an ESCALATE and hide
@@ -2226,7 +2268,7 @@ def _agent_claude(spec: Spec, node: Node, journal: Journal, prompt: str, record:
     env = {**os.environ, "TOURING_WORK_OUTER_DISABLED": "1"}
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s,
-                              cwd=cwd, env=env)
+                              cwd=cwd, env=env, check=False)
     except subprocess.TimeoutExpired:
         return ExecResult(exit_code=124, output=f"agent timeout after {timeout_s:.0f}s")
     session_id = None
@@ -2357,7 +2399,7 @@ def _resume_state(
 RUN_OUTCOME_REWARD = {"completed": 1.0, "failed": 0.0, "aborted": 0.0}
 
 
-def deposit_run_outcome(spec_name: str, outcome: "RunOutcome") -> None:
+def deposit_run_outcome(spec_name: str, outcome: RunOutcome) -> None:
     """Feed a finished run back into the learning substrate. Fail-open, always.
 
     Until 2026-08-25 this did not exist: `adw.py` had exactly ONE reward call
@@ -2403,7 +2445,7 @@ def execute(
     completed, results, visits = _resume_state(journal, run_path, bool(resume_run))
 
     if not resume_run:
-        journal.append("run_started", adw=spec.name, run_id=run_id)
+        journal.append("run_started", adw=spec.name, run_id=run_id, spec_digest=spec_digest(spec))
     activity_append("task_started", {"adw": spec.name, "run": run_id, "resume": bool(resume_run)})
 
     ctx = _RunCtx(spec=spec, journal=journal, run_path=run_path, results=results,
@@ -2443,7 +2485,7 @@ def execute(
             exec_key = f"{node.name}#{visits.get(node.name, 0)}"
             visits[node.name] = visits.get(node.name, 0) + 1
 
-            if exec_key in completed:  # durable replay: skip, reuse recorded edge
+            if replayable(completed, exec_key, node, journal):  # durable replay: skip, reuse recorded edge
                 current = completed[exec_key].get("next", node.on_pass)
                 outcome.steps.append({"node": node.name, "exec_key": exec_key, "replayed": True})
                 continue
@@ -2553,6 +2595,7 @@ def _run_single_node(ctx: _RunCtx, node: Node, exec_key: str) -> str | None:
         exit_code=result.exit_code, verdict="pass" if passed else "fail",
         contract_verdict=verdict, cost_usd=round(result.cost_usd, 6),
         next=nxt, session_id=result.session_id, class_d=class_d,
+        node_hash=node_fingerprint(node),
     )
     activity_append(
         "task_completed" if passed else "error_occurred",
@@ -2706,7 +2749,7 @@ def run_parallel_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult:
         ctx.visits[branch] = ctx.visits.get(branch, 0) + 1
         plan.append((b_node, b_key))
 
-    pending = [(n, k) for n, k in plan if k not in ctx.completed]
+    pending = [(n, k) for n, k in plan if not replayable(ctx.completed, k, n, ctx.journal)]
     for b_node, b_key in pending:
         ctx.journal.append("node_started", node=b_node.name, exec_key=b_key,
                            type=b_node.type, parallel=node.name,
@@ -2719,7 +2762,7 @@ def run_parallel_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult:
             for future, b_key in futures.items():
                 try:
                     computed[b_key] = future.result()
-                except Exception as err:  # a branch that dies is a failed branch, not a dead run
+                except Exception as err:  # noqa: BLE001 — a branch that dies is a failed branch, not a dead run
                     computed[b_key] = ExecResult(exit_code=1, output=f"branch raised: {err!r}")
 
     outcomes: list[tuple[str, ExecResult]] = []
@@ -2734,7 +2777,8 @@ def run_parallel_node(ctx: _RunCtx, node: Node, exec_key: str) -> ExecResult:
                                exit_code=result.exit_code,
                                verdict="pass" if result.exit_code == 0 else "fail",
                                next=node.name, session_id=result.session_id,
-                               class_d=False, parallel=node.name)
+                               class_d=False, parallel=node.name,
+                               node_hash=node_fingerprint(b_node))
             ctx.outcome.steps.append({"node": b_node.name, "exec_key": b_key,
                                       "exit_code": result.exit_code, "parallel": node.name,
                                       "verdict": "pass" if result.exit_code == 0 else "fail"})
@@ -2852,7 +2896,7 @@ def _next_edge(ctx: _RunCtx, node: Node, exec_key: str, passed: bool,
     return nxt
 
 
-def _store_gate_rejection(ctx: "_RunCtx", node_name: str, veredito: str) -> None:
+def _store_gate_rejection(ctx: _RunCtx, node_name: str, veredito: str) -> None:
     """Persiste a reprovação como CASO ROTULADO NEGATIVO. Fail-open.
 
     O corpus de casos é quase constante: medido 26/08/2026, 209 de 225 memórias
@@ -2953,9 +2997,9 @@ def conformal_in(confidence: float) -> bool:
     """Ask the live conformal calibrator (KnowNo); anything but a clear IN is OUT."""
     try:
         proc = subprocess.run(["touring", "calibrate-confidence", f"{confidence:.3f}"],
-                              capture_output=True, text=True, timeout=30)
+                              capture_output=True, text=True, timeout=30, check=False)
         return "IN prediction set" in proc.stdout
-    except Exception:
+    except Exception:  # noqa: BLE001 — advisory probe, fail-open
         return False  # fail-closed: no calibrator, no bypass
 
 
@@ -3004,7 +3048,7 @@ def run_loop(
     for _ in range(max_iters):
         exec_key = f"{body.name}#{visits.get(body.name, 0)}"
         visits[body.name] = visits.get(body.name, 0) + 1
-        if exec_key in completed:
+        if replayable(completed, exec_key, body, journal):
             output = ""
             artifact_path = run_path / f"{exec_key}.json"
             if artifact_path.is_file():
@@ -3033,7 +3077,8 @@ def run_loop(
             journal.append("node_completed", node=body.name, exec_key=exec_key,
                            exit_code=result.exit_code,
                            verdict="pass" if result.exit_code == 0 else "fail",
-                           next=node.name, session_id=result.session_id, class_d=False)
+                           next=node.name, session_id=result.session_id, class_d=False,
+                           node_hash=node_fingerprint(body))
             outcome.steps.append({"node": body.name, "exec_key": exec_key,
                                   "exit_code": result.exit_code})
             if result.exit_code != 0 and predicate != "calibrated":
@@ -3642,7 +3687,7 @@ class OrderedStep(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         steps = getattr(namespace, "steps", None) or []
         steps.append(("use" if option_string == "--use" else "job", values))
-        setattr(namespace, "steps", steps)
+        namespace.steps = steps
         setattr(namespace, self.dest, [v for k, v in steps if k == self.dest[:3]])
 
 
@@ -3677,9 +3722,9 @@ def prior_art(intent: str) -> str:
     """Consult the capability portfolio by PURPOSE. Evidence, never a constraint."""
     try:
         probe = subprocess.run(["touring", "portfolio", intent, "--top", "5"],
-                               capture_output=True, text=True, timeout=90)
+                               capture_output=True, text=True, timeout=90, check=False)
         return (probe.stdout or probe.stderr or "").strip()[:2000]
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001 — advisory probe, fail-open
         return f"(portfolio unavailable: {err!r})"
 
 
@@ -3993,9 +4038,9 @@ def _conflict_probe(merged: list[str]) -> str:
     try:
         probe = subprocess.run(
             ["touring", "conflict-check", *(f"writes:{m}" for m in merged)],
-            capture_output=True, text=True, timeout=30)
+            capture_output=True, text=True, timeout=30, check=False)
         return probe.stdout.strip().splitlines()[0] if probe.stdout else ""
-    except Exception:
+    except Exception:  # noqa: BLE001 — advisory probe, fail-open
         return "conflict-check unavailable"
 
 

@@ -263,7 +263,8 @@ on_pass = "__end__"
     journal.append("node_started", node="one", exec_key="one#0", type="code")
     adw.store_result(run_path, "one#0", "one\n")
     journal.append("node_completed", node="one", exec_key="one#0", exit_code=0,
-                   verdict="pass", next="two", session_id=None, class_d=False)
+                   verdict="pass", next="two", session_id=None, class_d=False,
+                   node_hash=adw.node_fingerprint(spec.node("one")))
     journal.append("node_started", node="two", exec_key="two#0", type="code")
     # kill -9 here — no node_completed for two#0
 
@@ -273,6 +274,83 @@ on_pass = "__end__"
     rerun = [s for s in outcome.steps if s["node"] == "two"]
     assert rerun and rerun[0].get("replayed") is None  # two was re-executed live
     assert rerun[0]["verdict"] == "pass"
+
+
+TWO_NODES = """
+[adw]
+name = "{name}"
+entry = "one"
+[node.one]
+type = "code"
+command = ["bash", "-c", "echo {one}"]
+idempotent = true
+on_pass = "two"
+[node.two]
+type = "code"
+command = ["bash", "-c", "echo two"]
+idempotent = true
+on_pass = "__end__"
+"""
+
+
+def _killed_after_one(root, name, node_hash):
+    """A run killed after node `one` completed, with `node_hash` recorded (or absent)."""
+    run_id = f"{name}-1"
+    run_path = adw.runs_dir(root) / run_id
+    run_path.mkdir(parents=True)
+    journal = adw.Journal(run_path)
+    journal.append("run_started", adw=name, run_id=run_id)
+    journal.append("node_started", node="one", exec_key="one#0", type="code")
+    adw.store_result(run_path, "one#0", "one\n")
+    extra = {} if node_hash is None else {"node_hash": node_hash}
+    journal.append("node_completed", node="one", exec_key="one#0", exit_code=0,
+                   verdict="pass", next="two", session_id=None, class_d=False, **extra)
+    return run_id, run_path
+
+
+def test_resume_reruns_a_completed_node_whose_definition_changed(root):
+    """B8 (01/11/2026): the exec_key was `name#visit` only, so editing a node and
+    resuming reused the OLD node's artifact as if it were the new one's (harness2
+    has the same hole: cli/run_sweep.py:209-235)."""
+    write_spec(root, "edited", TWO_NODES.format(name="edited", one="one"))
+    old = adw.load_spec(root, "edited")
+    run_id, run_path = _killed_after_one(root, "edited", adw.node_fingerprint(old.node("one")))
+    write_spec(root, "edited", TWO_NODES.format(name="edited", one="ONE-EDITED"))
+    new = adw.load_spec(root, "edited")
+    assert adw.node_fingerprint(new.node("one")) != adw.node_fingerprint(old.node("one"))
+
+    outcome = adw.execute(new, root, resume_run=run_id)
+    assert outcome.status == "completed"
+    one = [s for s in outcome.steps if s["node"] == "one"]
+    assert one and one[0].get("replayed") is None, "an edited node must re-run on resume"
+    refused = [e for e in adw.Journal(run_path).events if e["event"] == "replay_refused"]
+    assert [e["reason"] for e in refused] == ["node_changed"]
+
+
+def test_resume_reruns_a_completion_without_fingerprint_and_says_why(root):
+    """Absent signal is not a match (Law L2): a journal written before B8 cannot
+    prove the node is unchanged, so the node re-runs and the journal says why."""
+    write_spec(root, "legacy", TWO_NODES.format(name="legacy", one="one"))
+    spec = adw.load_spec(root, "legacy")
+    run_id, run_path = _killed_after_one(root, "legacy", None)
+
+    outcome = adw.execute(spec, root, resume_run=run_id)
+    assert outcome.status == "completed"
+    assert next(s for s in outcome.steps if s["node"] == "one").get("replayed") is None
+    refused = [e for e in adw.Journal(run_path).events if e["event"] == "replay_refused"]
+    assert [e["reason"] for e in refused] == ["no_fingerprint"]
+
+
+def test_every_completion_records_the_fingerprint_and_run_started_the_spec_digest(root):
+    write_spec(root, "fresh", TWO_NODES.format(name="fresh", one="one"))
+    spec = adw.load_spec(root, "fresh")
+    outcome = adw.execute(spec, root)
+    events = adw.Journal(adw.runs_dir(root) / outcome.run_id).events
+    started = next(e for e in events if e["event"] == "run_started")
+    assert started["spec_digest"] == adw.spec_digest(spec)
+    done = {e["node"]: e for e in events if e["event"] == "node_completed"}
+    assert done["one"]["node_hash"] == adw.node_fingerprint(spec.node("one"))
+    assert done["two"]["node_hash"] == adw.node_fingerprint(spec.node("two"))
 
 
 # ── waiting_human: durable pause + approve on resume ──────────────────────────
@@ -307,7 +385,7 @@ on_pass = "__end__"
 def test_loop_node_dry_convergence(root):
     counter = root / "count.txt"
     counter.write_text("3 2 0 0 5")  # findings per round; dry_rounds=2 stops at 4th
-    write_spec(root, "lp", """
+    write_spec(root, "lp", f"""
 [adw]
 name = "lp"
 entry = "explore_loop"
@@ -319,14 +397,14 @@ dry_rounds = 2
 on_dry = "after"
 [node.probe]
 type = "code"
-command = ["bash", "-c", "n=$(cut -d' ' -f1 %s); sed -i 's/^[0-9]* //' %s; echo NEW_FINDINGS=$n"]
+command = ["bash", "-c", "n=$(cut -d' ' -f1 {counter}); sed -i 's/^[0-9]* //' {counter}; echo NEW_FINDINGS=$n"]
 idempotent = true
 [node.after]
 type = "code"
 command = ["bash", "-c", "echo converged"]
 idempotent = true
 on_pass = "__end__"
-""" % (counter, counter))
+""")
     outcome = adw.execute(adw.load_spec(root, "lp"), root)
     assert outcome.status == "completed"
     probes = [s for s in outcome.steps if s["node"] == "probe"]
@@ -1375,7 +1453,8 @@ on_fail = "__fail__"
 def test_every_shipped_writing_agent_can_actually_write():
     """Structural, over the whole library rather than one file: the defect was
     uniform, so the guard has to be too."""
-    import shutil, tempfile
+    import shutil
+    import tempfile
     lib = adw.library_dir()
     if not lib.is_dir():
         pytest.skip("library not installed")
@@ -1543,7 +1622,7 @@ def test_positional_values_reach_the_script_intact():
         adw.render_template(p, {}, {"topic": value})
         for p in ["bash", "-c", 'printf "%s" "$1"', "--", "{{vars.topic}}"]
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=30, check=False)
     assert proc.stdout == value, f"value mangled: {proc.stdout!r}"
 
 
@@ -2247,7 +2326,7 @@ def test_a_branch_that_raises_is_a_failed_branch_not_a_dead_run(root, monkeypatc
     monkeypatch.setattr(adw, "run_code_node", explode)
     outcome = adw.execute(adw.load_spec(root, "fan"), root)
     assert outcome.status == "completed"
-    sec = [s for s in outcome.steps if s["node"] == "sec"][0]
+    sec = next(s for s in outcome.steps if s["node"] == "sec")
     assert sec["exit_code"] == 1 and sec["verdict"] == "fail"
 
 
@@ -2269,7 +2348,7 @@ def test_resume_mid_fanout_never_reruns_a_completed_branch(root):
         adw.store_result(run_path, f"{done}#0", f"{done} already ran\n")
         journal.append("node_completed", node=done, exec_key=f"{done}#0", exit_code=0,
                        verdict="pass", next="lenses", session_id=None, class_d=False,
-                       parallel="lenses")
+                       parallel="lenses", node_hash=adw.node_fingerprint(spec.node(done)))
     journal.append("node_started", node="correct", exec_key="correct#0", type="code",
                    parallel="lenses")
     # kill -9 here: `correct` never completed
@@ -2323,7 +2402,7 @@ on_fail = "__fail__"
     assert outcome.class_d is True, "a gate FAIL after a narrating branch is a divergence"
     joined = [json.loads(l) for l in
               (adw.runs_dir(root) / outcome.run_id / "journal.jsonl").read_text().splitlines()]
-    join = [e for e in joined if e["event"] == "parallel_joined"][0]
+    join = next(e for e in joined if e["event"] == "parallel_joined")
     assert join["narrated_success"] == ["a1"], "the journal must name WHICH branch claimed success"
 
 
@@ -2748,7 +2827,7 @@ on_fail = "__fail__"
         write_recording(root, "gauntlet", node, f"reviewed\nVERDICT={verdict} + REASON=because")
     outcome = adw.execute(spec, root, force_mock=True)
     assert outcome.status == "failed", "2 rejections against a quorum of 2 must not pass"
-    quorum = [s for s in outcome.steps if s["node"] == "judge.quorum"][0]
+    quorum = next(s for s in outcome.steps if s["node"] == "judge.quorum")
     assert quorum["contract_verdict"] == adw.REJECT
     assert outcome.class_d is True, "the builder claimed success; the panel disagreed"
 
@@ -2773,7 +2852,7 @@ on_fail = "__fail__"
     for node in ("judge.correctness", "judge.security", "judge.reproducibility"):
         write_recording(root, "mute", node, "I had a look and it seems fine to me overall.")
     outcome = adw.execute(spec, root, force_mock=True)
-    quorum = [s for s in outcome.steps if s["node"] == "judge.quorum"][0]
+    quorum = next(s for s in outcome.steps if s["node"] == "judge.quorum")
     assert quorum["contract_verdict"] == adw.ESCALATE, quorum
 
 
@@ -2787,7 +2866,8 @@ def no_portfolio(monkeypatch):
 
 
 def _new(root: Path, name: str, *argv: str) -> tuple[int, dict]:
-    import io, contextlib
+    import contextlib
+    import io
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         code = adw.main(["--root", str(root), "new", name, *argv])
@@ -3558,7 +3638,7 @@ def _campaign(root, until, extra=None, monkeypatch=None):
 
         def fake_run(cmd, **kw):
             if cmd and cmd[0] == "touring":
-                class R:  # noqa: N801 — minimal stand-in
+                class R:
                     returncode = 0
                     stdout = ""
                     stderr = ""
@@ -3599,7 +3679,7 @@ def test_campaign_absent_metric_is_unknown_never_stagnation(root, monkeypatch):
     """FAIL-CLOSED: a predicate that emits NO metric must not trip stagnation —
     the same reading the loop node applies to an absent NEW_FINDINGS."""
     write_spec(root, "camp", CAMPAIGN_SPEC)
-    rc, out = _campaign(root, "false",
+    _rc, out = _campaign(root, "false",
                         extra=["--max-rounds", "4", "--stagnation-rounds", "2"],
                         monkeypatch=monkeypatch)
     assert out["status"] == "max_rounds", "absent metric must never count as stagnation"
@@ -3717,9 +3797,9 @@ def test_sandbox_unwrap_is_fail_open_on_a_broken_envelope():
 #: porque é o caso que escapou; um paráfrase testaria outra coisa.
 ARM_MARKER_COMMAND = [
     "bash", "-c",
-    "python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write "
+    ("python3 ~/.claude/skills/loop-engineering/scripts/hooks/loop_marker.py write "
     "--task OUTER --status outer --flow strategy-outer --scope \"$1\" "
-    "--bundle \"$2\" --cwd \"$1\"",
+    "--bundle \"$2\" --cwd \"$1\""),
     "--", "{{vars.scope}}", "{{vars.bundle}}",
 ]
 
@@ -3974,7 +4054,7 @@ on_fail = "__fail__"
 """)
     outcome = adw.execute(adw.load_spec(root, "ctl"), root)
     assert outcome.status == "failed"
-    passo = [s for s in outcome.steps if s["node"] == "calibra"][0]
+    passo = next(s for s in outcome.steps if s["node"] == "calibra")
     assert passo["exit_code"] == 1
 
 
@@ -3983,7 +4063,7 @@ def test_until_calibrated_retenta_ate_o_control_passar(root):
     # contador de invocações: o control roda o comando 2x por round (good+bad);
     # só a partir da 3ª invocação (= round 2) o verificador age honestamente.
     cnt = root / "cnt"
-    write_spec(root, "cal", """
+    write_spec(root, "cal", f"""
 [adw]
 name = "cal"
 entry = "lp"
@@ -3995,7 +4075,7 @@ predicate = "calibrated"
 on_calibrated = "after"
 [node.calibra]
 type = "control"
-command = ["bash", "-c", "c=$(cat %s 2>/dev/null || echo 0); c=$((c+1)); echo $c > %s; if [ $c -le 2 ]; then true; else test '{input}' = 'bom'; fi"]
+command = ["bash", "-c", "c=$(cat {cnt} 2>/dev/null || echo 0); c=$((c+1)); echo $c > {cnt}; if [ $c -le 2 ]; then true; else test '{{input}}' = 'bom'; fi"]
 good_input = "bom"
 bad_input = "ruim"
 [node.after]
@@ -4003,7 +4083,7 @@ type = "code"
 command = ["bash", "-c", "echo calibrado"]
 idempotent = true
 on_pass = "__end__"
-""" % (cnt, cnt))
+""")
     outcome = adw.execute(adw.load_spec(root, "cal"), root)
     assert outcome.status == "completed"
     assert len([s for s in outcome.steps if s["node"] == "calibra"]) == 2
@@ -4163,7 +4243,7 @@ def test_retry_recebe_o_feedback_do_gate_verbatim(root, monkeypatch):
 
     monkeypatch.setattr(adw, "_agent_claude", fake_claude)
     flag = root / "flag"
-    write_spec(root, "fb", """
+    write_spec(root, "fb", f"""
 [adw]
 name = "fb"
 entry = "eng"
@@ -4175,11 +4255,11 @@ on_pass = "g"
 on_fail = "__fail__"
 [node.g]
 type = "gate"
-command = ["bash", "-c", "if [ -f %s ]; then exit 0; else echo 'faltou o teste da paginacao'; touch %s; exit 1; fi"]
+command = ["bash", "-c", "if [ -f {flag} ]; then exit 0; else echo 'faltou o teste da paginacao'; touch {flag}; exit 1; fi"]
 idempotent = true
 on_pass = "__end__"
 on_fail = "eng"
-""" % (flag, flag))
+""")
     outcome = adw.execute(adw.load_spec(root, "fb"), root)
     assert outcome.status == "completed"
     assert len(prompts) == 2
