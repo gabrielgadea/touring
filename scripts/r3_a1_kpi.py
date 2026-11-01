@@ -89,7 +89,7 @@ FAMILY_TABLE: tuple[tuple[str, tuple[str, ...]], ...] = (
         "debug-stdout",
         ("[EVENT_READER]", "[POST_QUALITY_GATE", "Hook execution started"),
     ),
-    ("plugin-hook", ("[SUGESTÃO DE SKILL",)),
+    ("plugin-hook", ("[SUGESTÃO DE SKILL", "[PORTFOLIO ·")),
     ("pre-write", ("code-workflow", "rust-workflow")),
     ("pre-edit", ("HOTSPOT:", "wiring_predict:", "callers:", "related docs:")),
     ("pre-read", ("defs[", "📌 defs", "🪝 defs")),

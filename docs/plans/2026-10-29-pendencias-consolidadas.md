@@ -114,7 +114,7 @@ T-6 tantivy: **adiar**. 3.3: **manter full e medir** com a régua corrigida apó
 | I-2 | **Nível corrente no KPI** | P1 | S | Expor `injection_level` e `injection_suppressed_bytes_count`/`_blocks_count` no `kpi`/`gate-metrics` | 0 ocorrências de `injection_level` na CLI |
 | I-3 | **`HookResponse` duplicado** (§8.7 passo 0) | P2 | M (L3) | Remover o enum de `touring-hook-runtime` e reexportar o canônico | `crates/touring-hook-runtime/src/hook_runtime.rs:61` × `crates/touring-hooks-core/src/hook_response.rs:102` |
 | I-4 | **Invariante "So what?"** | P2 | L | Predicado único sobre o payload de todo injetor (hoje só declarado em `pre_read.rs:3-4`, com 1 teste); ~34% do contexto o viola | `ANALISE-CONSOLIDADA.md` §11.4 |
-| I-5 | **Taxonomia residual** | P3 | S | Reduzir os ~10,4% que caem em `other` | `round4/RELATORIO-RODADA-4.md:127` |
+| I-5 | ~~**Taxonomia residual**~~ **FEITO em 01/11**: medido sobre os 40 transcritos mais novos (mesma extração da régua, catch-all `raw-stdout` do espelho = `other`), o resíduo já era **0,87%** (8.096 B de 934.534 B), todo do `script_portfolio_gate` (`[PORTFOLIO ·`); o marcador entrou em `plugin-hook` — a família que o próprio gate pede à política — nas 3 cópias (Rust, espelho Python, port r3); remedido: **0,00%** (0 de 995.085 B) | P3 | S | Reduzir os ~10,4% que caem em `other` | `round4/RELATORIO-RODADA-4.md:127` |
 
 ### 1c. Transversais (achados de 27–29/10)
 

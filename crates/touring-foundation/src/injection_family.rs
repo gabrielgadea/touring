@@ -134,7 +134,11 @@ pub const FAMILY_MARKERS: &[(&str, &[&str])] = &[
             "Hook execution started",
         ],
     ),
-    ("plugin-hook", &["[SUGESTÃO DE SKILL"]),
+    // The PORTFOLIO header (no bracket here: `test_r3_a1_kpi` counts brackets in this array)
+    // — the script_portfolio_gate asks the policy as `plugin-hook`
+    // (`injection_allowed`), so the ruler counts it in the same family (I-5, 01/11/2026: it was
+    // the whole residual `other`, 8.096 B of 934.534 B over the 40 newest transcripts).
+    ("plugin-hook", &["[SUGESTÃO DE SKILL", "[PORTFOLIO ·"]),
     ("pre-write", &["code-workflow", "rust-workflow"]),
     (
         "pre-edit",
@@ -294,5 +298,22 @@ mod tests {
             attributed_family("texto sem marcador", Some("prose_integrity_gate.py")),
             "prose-integrity"
         );
+    }
+
+    /// I-5 (01/11/2026): the portfolio gate's block was the whole residual `other`. It asks the
+    /// policy as `plugin-hook`, so the ruler names it the same — from the text alone, because
+    /// its emitter mark (`python3 …/script_portfolio_gate.py`) is in no emitter row.
+    #[test]
+    fn o_bloco_do_portfolio_gate_e_plugin_hook() {
+        let block = "[PORTFOLIO · consulta-antes-de-criar · aprovado] x.py: grave em scripts/.";
+        assert_eq!(injection_family(block), "plugin-hook");
+        assert_eq!(
+            attributed_family(
+                block,
+                Some("python3 $HOME/.claude/skills/Touring/scripts/hooks")
+            ),
+            "plugin-hook"
+        );
+        assert_ne!(injection_family("PORTFOLIO sem colchete"), "plugin-hook");
     }
 }

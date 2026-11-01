@@ -173,7 +173,9 @@ FAMILY_MARKERS = (
     ("evidence-guard", ("EVIDENCE GUARD",)),
     # stdout cru de depuração: o bug que injeta 5,3 MB (9% da injeção) no modelo.
     ("debug-stdout", ("[EVENT_READER]", "[POST_QUALITY_GATE", "Hook execution started")),
-    ("plugin-hook", ("[SUGESTÃO DE SKILL",)),
+    # `[PORTFOLIO ·`: o script_portfolio_gate pede `allows("plugin-hook")`, então a régua
+    # o conta na mesma família (I-5, 01/11/2026).
+    ("plugin-hook", ("[SUGESTÃO DE SKILL", "[PORTFOLIO ·")),
     ("pre-write", ("code-workflow", "rust-workflow")),
     ("pre-edit", ("HOTSPOT:", "wiring_predict:", "callers:", "related docs:")),
     ("pre-read", ("defs[", "📌 defs", "🪝 defs")),
