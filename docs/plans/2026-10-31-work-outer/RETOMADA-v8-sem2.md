@@ -211,3 +211,31 @@ abstenção; as 4 causas de ruído de `warn` do Rust; e (agora resolvido) o adju
   `reset`, nunca `--amend`.
 - O disco está em ~88 %: cache de worktree que não se usa pode ser limpo com `cargo clean`
   dirigido.
+
+## 7. Security review de 01/11 — respondida com MEDIÇÃO (achado do item I-4/I-5, não desta sessão)
+
+O review automatizado apontou «Injection policy bypass / untrusted marker spoofing» em
+`crates/touring-foundation/src/injection_family.rs` e no espelho `client/hooks/injection_policy.py`:
+o marcador de texto (`[SUGESTÃO DE SKILL`, `[PORTFOLIO ·` → família `plugin-hook`) seria usado
+como prova de confiança.
+
+**Medido** (`allows_payload` do espelho Python, em `no-advisory`):
+
+| payload | `full` | `no-advisory` |
+|---|---|---|
+| com o marcador (spoofado) | permite | **CORTA** |
+| de fato (`pre-edit`) | permite | permite |
+| desconhecido | permite | permite |
+
+**O marcador de texto só CORTA; ele não concede permissão nenhuma.** E `allows("plugin-hook")`
+é decidido pelo **nome literal** da família (o hook perguntando por si), não por uma família
+derivada do texto de um chunk. **A correção sugerida pelo review abriria fail-open**: hoje um
+payload desconhecido passa e um com o marcador é cortado; tirando o match por texto, o payload
+com o marcador passaria como «desconhecido».
+
+**O resíduo real (menor, e de integridade de MEDIDA, não de privilégio)**: a **atribuição** da
+família — a régua do KPI e o motivo atribuído a um DENY — pode vir do TEXTO quando o emissor é
+desconhecido, então conteúdo não confiável que reproduza o marcador polui a **medição** da
+família `plugin-hook` (que era o item I-5). O `attributed_family` já prefere o emissor quando
+ele tem `Claim::Owns` ✓; o resíduo é só o caminho do emissor desconhecido. **Isso é do item
+I-4/I-5 (outra sessão), não do V-8** — fica aqui registrado para não se "corrigir" ao contrário.
