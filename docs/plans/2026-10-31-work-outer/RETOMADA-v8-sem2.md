@@ -131,16 +131,20 @@ com **um** processo, verificado por `ps` antes de continuar.
 O lote de re-rotulação (js/tsx/ts) está rodando:
 
 ```
-scripts/rotular_oss.py --alvo 450 --teto-concentracao 0.03 --max-commits 600 \
+scripts/rotular_oss.py --alvo 1200 --teto-concentracao 0.03 --max-commits 1000 \
   --saida ~/.claude/touring/vgp/oss_rotulado_20261101 --excluir-corpus ~/.claude/touring/vgp
 ```
 
+- **um processo só** — dois rotuladores no mesmo `--saida` corrompem a camada (§1.7);
 - saída: `~/.claude/touring/vgp/oss_rotulado_20261101/`
-- log: `~/.claude/touring/vgp/oss_rotulado_20261101.log` (+ `.log.err`)
-- **gargalo medido**: a coleta de pares é O(pares) com **2 spawns de `git` por par** (17 670 pares
-  em mc=600 ⇒ ~35 000 spawns). Em 01/11 ela levava 34 % da janela do `excalidraw` em 12 min.
-  Melhoria para o próximo lote: `git cat-file --batch` (1 processo para todos os blobs) — **não
-  foi aplicado agora**, para não mexer na extração de conteúdo com o lote em andamento.
+- log: `~/.claude/touring/vgp/oss_rotulado_20261101.log` (+ `.log.err`), runner em
+  `oss_rotulado_20261101.runner.log`;
+- **por que `--alvo 1200`**: o critério é sobre **NEGATIVOS** e a taxa de negativos medida nesta
+  camada é **26-40 %** (contra os 79 % da camada antiga) — um alvo de 450 *entradas* daria
+  ~120-180 negativos, longe dos 299. O alvo é um teto **artificial**; o que limita de verdade é a
+  população (pares elegíveis) e o teto de concentração;
+- camadas anteriores guardadas para o registro: `-parcial1a-divergencia`, `-parcial2a-teto`,
+  `-parcial3a-2processos`, `-parcial4a-alvo450`.
 
 ## 3. O PLANO do adjudicador html (D-8, decidido pelo Gabriel em 01/11) — **antes do código**
 
