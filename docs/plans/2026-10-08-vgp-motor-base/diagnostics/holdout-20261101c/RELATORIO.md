@@ -33,7 +33,7 @@ Corpus construído e selado **sem qualquer julgamento**. O J16 fica para depois 
 
 ## Regra aplicada
 
-O construtor `ab256a5b` congela o fecho de módulos locais pelo Git vigente no `ts`, incluindo `src/`, `python/` e `packages/*/{src,python}`. Dependências locais não reconstruíveis foram recusadas e contadas fora do denominador; nenhuma entrou no corpus. Pacotes de terceiros ficam fora da regra, como declarado no pré-registro.
+O construtor `16192943` congela o fecho de módulos locais pelo Git vigente no `ts`, incluindo `src/`, `python/` e `packages/*/{src,python}`. Dependências locais não reconstruíveis foram recusadas e contadas fora do denominador; nenhuma entrou no corpus. Pacotes de terceiros ficam fora da regra, como declarado no pré-registro.
 
 O verificador independente do fecho terminou com zero lacunas. Há 140 entradas com módulos no fecho (971 − 831 sem overlays), profundidade máxima 17.
 

@@ -2,7 +2,7 @@
 
 ## Description / Descrição
 
-Corpus novo para o J16, construído com o reconstrutor de `ab256a5b`: módulos locais são congelados pelo Git vigente no `ts`, incluindo `src/`, `python/` e `packages/*/{src,python}`. Entradas não reconstruíveis ficam fora do denominador. O corpus fica fora do repositório; aqui há somente scripts, hashes e agregados.
+Corpus novo para o J16, construído com o reconstrutor de `16192943`: módulos locais são congelados pelo Git vigente no `ts`, incluindo `src/`, `python/` e `packages/*/{src,python}`. Entradas não reconstruíveis ficam fora do denominador. O corpus fica fora do repositório; aqui há somente scripts, hashes e agregados.
 
 ## Install / Instalação
 
