@@ -143,6 +143,29 @@ bytes de prefixo cacheado custam ~1/10 (ADR-003).
   não credita nem debita; a memória deixa de aprender correlação espúria.
 - **Aceite:** num run marcado como confundido, nenhuma memória muda de score (teste).
 
+## B11 — Onda EGM no ADW (E1-E8) — EM EXECUÇÃO (01/11)
+
+Campos novos da Spec, cada um com lint, comportamento no runner e teste (detalhe em RELATORIO §Rodada 3):
+E1 `persona.isolation = "goldfish"` · E2 `must_read` com recibo sha256 · E3 `findings_contract`/`max_major` ·
+E4 `churn_limit` · E5 `triage_of` · E6 `tools = "none"` · E7 `[purpose]` `goals`/`non_goals`/`open_questions`/
+`verification` · E8 `output_schema`. Aceite: test_adw verde, ruff limpo, as 23 specs da biblioteca válidas, doc de
+referência da Spec atualizada. O efeito do `omitClaudeMd` exige um run ao vivo — depois de 08/11.
+
+## B12 — Skills só-manuais fora do anúncio (POTENCIALIZAR, depois de 08/11)
+
+- **Fato:** 327 skills anunciadas, 7 usadas pela tool `Skill` em 250 sessões; 1,93 MB de `skill_listing` (F4d).
+  O EGM marca as suas com `disable-model-invocation: true` (`skills/*/SKILL.md:4`), que tira a skill do anúncio ao
+  modelo e a mantém chamável por `/comando` (INFERÊNCIA 0,8 sobre o efeito no anúncio — confirmar na doc oficial).
+- **Entrega:** lista proposta (B3) das skills sem invocação pelo modelo em N sessões → Gabriel aprova → frontmatter.
+- **Aceite:** bytes de `skill_listing` por sessão caem; nenhuma skill marcada é chamada pelo modelo nas 2 semanas
+  seguintes sem o usuário pedir (falso positivo = 0).
+
+## B13 — Isolamento goldfish nos agentes críticos (INSPIRAR, depois de 08/11)
+
+`omitClaudeMd: true` + tools só-leitura no frontmatter dos agentes revisores (`~/.claude/agents/touring-auditor.md`
+e afins), como `.claude-plugin/agents/*.md:5-8`. Aceite: um run ao vivo mostra o revisor sem o CLAUDE.md no
+contexto e sem Edit/Write/Bash; os achados do revisor não caem de qualidade (amostra rotulada).
+
 ## Instrumento existente para B1-B4 (POTENCIALIZAR)
 
 `eval/swe_bench/harness.py` (junho/2026, `eval/swe_bench/README.md`) mede `resolved%` e custo em

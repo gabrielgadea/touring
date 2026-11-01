@@ -100,6 +100,37 @@ Assimetria seletor×juiz — o seletor lê 60k, o juiz lê inteiro (`benchmarks/
 rodando com `--dangerously-bypass-approvals-and-sandbox` (`substrate/codex.py:149-174`) → nosso CEG é a
 contenção que eles não têm.
 
+## Rodada 3 — google/elephant-goldfish-model@403d8881d620 (Apache-2.0), pedido do Gabriel
+
+**O modelo (FATO, `docs/designs/architecture.md:41-45`, `docs/designs/review.md:27-38`):** o *elefante* é o agente de
+contexto profundo que redige; o *goldfish* é um revisor novo, sem histórico, que lê só o alvo, as referências e o
+padrão. O humano decide, o goldfish acha (Blocker/Major/Nit), um sintetizador deduplica e o elefante faz a triagem.
+Motivo declarado: viés de confirmação e alucinação mascarada. **Sem medição de eficácia** no repositório
+(`docs/faq.md:39-46` admite; o "eval runner" citado em `tests.yml:16` não existe).
+
+**O que é enforcement de verdade (host/build) e o que é prosa:** o isolamento do revisor é do host —
+`tools: [Read, Grep, Glob]` + `omitClaudeMd: true` no frontmatter (`.claude-plugin/agents/*.md:5-8`; o campo existe
+no Claude Code 2.1.316, 22 ocorrências no binário) e `disable-model-invocation: true` nas skills
+(`skills/*/SKILL.md:4`). Convergência por "rodada limpa", cardinalidade de perguntas e o gate de >15 diretórios são
+prosa decidida pelo modelo (`egm-review-loop/SKILL.md:151-171`) — é aí que o ADW pode ser mais forte, com o runner
+como árbitro (Lei L2).
+
+| Mecanismo EGM (arq:linha) | Lacuna no ADW | Campo/ação | Verbo |
+|---|---|---|---|
+| Revisor goldfish só-leitura sem CLAUDE.md (`.claude-plugin/agents/*.md:5-8`) | crítico isolado só por `blind_to` | `persona.isolation = "goldfish"` (E1) | APROVEITAR ideia |
+| "Revisor que não leu não revisou" (`docs/claude.md:61-62`) | nada prova a leitura | `must_read` com recibo sha256 verificado pelo runner (E2) | INSPIRAR (mais forte que o original, que é prosa) |
+| Achados com severidade/escopo/motivo (`agents/synthesizer.md:42-62`) | só PASS/FAIL | `findings_contract`, `max_major` (E3) | INSPIRAR |
+| Convergência com churn, teto 5 (`skills/egm-review-loop/SKILL.md:151-173`) | loop sem churn | `churn_limit` (E4) — árbitro é o runner | INSPIRAR |
+| Triagem CONTEST/ESCALATE/FIX/DECLINE (`skills/egm-resolve/SKILL.md:56-82`) | autor não responde achado a achado | `triage_of` (E5) | INSPIRAR |
+| Escolha única com zero ferramentas (`skills/egm-resolve/SKILL.md:132-134`) | — | `tools = "none"` (E6) | INSPIRAR |
+| Design doc: Goals/Non-Goals/Open Questions/Verification Plan (`skills/egm-draft/references/design_doc.md`) | `[purpose]` com 3 campos | `goals`, `non_goals`, `open_questions`, `verification` (E7) | APERFEIÇOAR |
+| Retorno tipado de worker (`skills/egm-bootstrap/references/worker-return.schema.json`) | saída de agente em prosa | `output_schema` validado pelo runner (E8) | INSPIRAR |
+| `disable-model-invocation: true` (`skills/*/SKILL.md:4`) | 327 skills anunciadas, 7 usadas (F4d) | marcar as skills só-manuais (B12) | POTENCIALIZAR |
+| Sintetizador devolve só contagem + link (`docs/designs/synthesizer.md:104-110`) | hooks injetam conteúdo inteiro | padrão "contagem + ponteiro" nas famílias de injeção (dentro de B2) | INSPIRAR |
+
+**O que temos e o EGM não:** retomada durável com identidade de conteúdo (B8), orçamento por nó, journal fsync,
+verificação dentro do loop (VGP, gates P0) e veredito por código. O EGM declara convergência e leitura em prosa.
+
 ## Convergência da exploração
 
 `touring explore tokeneconomizer-harness2` convergiu em 9 rodadas (8 e 9 secas; lente `external`
