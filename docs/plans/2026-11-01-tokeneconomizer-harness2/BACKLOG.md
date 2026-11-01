@@ -196,3 +196,28 @@ paper (custo × Pass@1) em vez de só sessões reais. Usar exige a decisão do G
 - **Fase 2 (aviso):** no máximo 1 aviso por turno, carregando a lição da memória para o erro repetido.
   A/B por dia; regra: aceita se chamadas por turno longo caírem ≥ 10% sem aumento de retrabalho
   (mesmo arquivo reeditado no turno seguinte).
+
+### Resultado da fase 0 (01/11/2026) — REPROVADA
+
+Rótulo cego por LLM, não humano (o Gabriel delegou: "Não existe a menor possibilidade de rotular 40
+sessões, faça isso você"). Traços sem id de sessão nem campo do detector; 2 rotuladores por turno
+(sonnet + haiku) e arbitragem pelo orquestrador sob regra fixada antes da leitura (espiral = ≥ 8 chamadas
+seguidas falhando, negadas ou idênticas sem avanço). Números em `medicao/RESULTADOS.json` →
+`b4_fase0_rotulo`.
+
+| Variante | Precisão (Wilson 95%) | Recall reponderado |
+|---|---|---|
+| primária | 0,10 (0,03–0,30) | 0,36 |
+| inclui o laço ocioso do Stop hook | 0,20 (0,08–0,42) | 0,52 |
+| só ferramenta falhando | 0,10 (0,03–0,30) | 1,00 |
+
+- Reprova em toda variante: o teto do intervalo da precisão não chega a 0,7. 18 dos 20 turnos marcados
+  são trabalho produtivo com muitos erros resolvidos — o limiar (≥ 6 erros, ≥ 20% repetidos, churn de
+  edição) mede volume, não estagnação.
+- **Errata do instrumento:** a 1ª rodada cortava o meio dos turnos longos (14k caracteres) e escondia a
+  região marcada; sua precisão de 0,05 foi descartada e os 28 turnos cortados, re-rotulados completos.
+- **Achado:** o padrão preso dominante na amostra é o **laço ocioso do Stop hook** (respostas repetidas
+  "estado inalterado" a uma cobrança que não pode ser cumprida, com polling de `ReadNotifications`) — quase
+  sem chamada de ferramenta, portanto invisível a um detector de trajetória. Alvo melhor para a fase 1:
+  N continuações seguidas do Stop hook sem nenhuma escrita em disco.
+- Decisão: arquivar o limiar atual; a fase 1 não começa com ele.
