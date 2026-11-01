@@ -17,18 +17,18 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import re
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w2_centralize_workspace_deps"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+_ROOT, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.STAGING_DIR, sc.CRATES_DIR
 
 # Match `dep = "1.2"`, `dep = "1.2.3"`, `dep = { version = "1.2", ... }`
 SIMPLE_DEP_RE = re.compile(r'^\s*([a-zA-Z][a-zA-Z0-9_-]+)\s*=\s*"([^"]+)"\s*$')
@@ -38,18 +38,14 @@ COMPLEX_DEP_RE = re.compile(
 SECTION_RE = re.compile(r'^\s*\[(.+?)\]\s*$')
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w2_centralize_workspace_deps", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true",
                    help="DESTRUCTIVE — modify root Cargo.toml [workspace.dependencies].")
     p.add_argument("--strict", action="store_true",
                    help="Fail if multiple major versions detected.")
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_verbose(p)
 
 
 def parse_cargo_deps(cargo_path: Path) -> dict[str, list[tuple[str, str]]]:
@@ -208,7 +204,7 @@ def apply_to_root_cargo_toml(
         }
 
     # Build the block to insert.
-    ts = datetime.now(UTC).isoformat()
+    ts = sc.now_iso()
     block_lines = [
         "",
         f"# Auto-merged by w2_centralize_workspace_deps.py at {ts}",
@@ -277,7 +273,7 @@ def run(apply: bool, strict: bool) -> dict:
 
     return {
         "status": "OK",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "total_unique_deps": len(merged),
         "conflicts_count": len(conflicts),
         "proposal_file": str(proposal_path.relative_to(_ROOT)),
@@ -287,23 +283,16 @@ def run(apply: bool, strict: bool) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w2_centralize_workspace_deps, print its summary; the return value is the exit code."""
+    result = run(args.apply, args.strict)
+    sc.emit_json(result)
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args.apply, args.strict)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w2_centralize_workspace_deps."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

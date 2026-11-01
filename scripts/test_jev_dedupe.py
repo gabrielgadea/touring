@@ -22,7 +22,6 @@ Roda sem pytest e sem rede: `python3 test_jev_dedupe.py`.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 import sys
 import tempfile
@@ -31,15 +30,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import jev_dedupe as dd  # noqa: E402
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
-    if not ok:
-        FAILURES.append(name)
+import jev_dedupe as dd
+from script_testkit import check, finish
 
 
 def _entries(pairs: list[tuple[str, str]]) -> list[dict]:
@@ -72,7 +64,6 @@ def test_the_redundant_key_marks_the_scout_echo() -> None:
     legit = _entries([("vgp:create:a.rs:Sym", '{"symbol":"Sym","status":"verified"}'),
                       ("vgp:create:b.rs:Sym", '{"symbol":"Sym","status":"verified"}')])
     groups = dd.exact_groups(echo + legit)
-    by_stem = {g["key_stem"]: g for g in groups}
     check("the_redundant_key_marks_the_scout_echo",
           any(g["redundant_key"] and g["count"] == 5 for g in groups)
           and any(not g["redundant_key"] and g["count"] == 2 for g in groups),
@@ -179,8 +170,7 @@ def main() -> int:
         test_the_database_is_opened_read_only,
     ):
         test()
-    print(f"\n{len(FAILURES)} falha(s): {FAILURES}" if FAILURES else "\nTODOS OS TESTES PASSARAM")
-    return 1 if FAILURES else 0
+    return finish()
 
 
 if __name__ == "__main__":

@@ -17,30 +17,21 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
-import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w12_per_project_installer_scaffold"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _SKELETON_DIR = _STAGING_DIR / "w12-touring-init"
 _TEMPLATES_DIR = _STAGING_DIR / "w12-templates"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w12_per_project_installer_scaffold", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    p = sc.new_parser(_SCRIPT, __doc__)
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def emit_installer_cargo() -> Path:
@@ -49,7 +40,7 @@ def emit_installer_cargo() -> Path:
     cargo = _SKELETON_DIR / "Cargo.toml"
     cargo.write_text("\n".join([
         "# touring-init CLI installer (rustup-like)",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "",
         "[package]",
         'name = "touring-init"',
@@ -218,7 +209,7 @@ log_dir = ".touring/logs"
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scaffold installer + templates."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -231,7 +222,7 @@ def run(args: argparse.Namespace) -> dict:
     manifest = {
         "script": "w12_per_project_installer_scaffold",
         "wave": "W12", "subtask_refs": ["W12.1"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "supported_triples": [
             "x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu",
@@ -241,34 +232,24 @@ def run(args: argparse.Namespace) -> dict:
         "files_emitted": emitted,
     }
     json_path = args.output_dir / "w12-installer-manifest.json"
-    json_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    manifest["json_path"] = str(json_path.relative_to(_ROOT))
-    return manifest
+    return sc.write_json_report(json_path, manifest, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w12_per_project_installer_scaffold, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"],
+        "subcommands": result["subcommands"],
+        "files_emitted_count": len(result["files_emitted"]),
+        "json_path": result["json_path"],
+    })
+    return 0
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"],
-            "subcommands": result["subcommands"],
-            "files_emitted_count": len(result["files_emitted"]),
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w12_per_project_installer_scaffold."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

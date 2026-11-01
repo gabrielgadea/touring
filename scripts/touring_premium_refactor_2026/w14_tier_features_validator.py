@@ -14,18 +14,15 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import subprocess
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w14_tier_features_validator"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 
 # Tier ordering + size budgets (MB) — must increase monotonically
 TIERS = [
@@ -38,21 +35,16 @@ TIERS = [
 CARGO_TARGET = "touring-server"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w14_tier_features_validator", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--tier", type=str, default="",
                    help="Validate only one tier (default: all 4).")
     p.add_argument("--dry-run", action="store_true",
                    help="List commands without running cargo.")
     p.add_argument("--timeout", type=int, default=900,
                    help="Per-tier compile timeout (default 900s).")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def cargo_build_tier(tier: str, timeout: int, dry_run: bool,
@@ -67,7 +59,7 @@ def cargo_build_tier(tier: str, timeout: int, dry_run: bool,
     try:
         with log_path.open("wb") as out:
             proc = subprocess.run(cmd, cwd=_ROOT, stdout=out,
-                                   stderr=subprocess.STDOUT, timeout=timeout)
+                                   stderr=subprocess.STDOUT, timeout=timeout, check=False)
         return {"tier": tier, "command": " ".join(cmd),
                 "exit_code": proc.returncode,
                 "status": "OK" if proc.returncode == 0 else "FAIL",
@@ -92,7 +84,7 @@ def measure_binary_size(tier: str, budget_mb: int) -> dict:
              "size_bytes": size_bytes}
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Validate each tier."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     log_dir = _STAGING_DIR / "w14-tier-compile-log"
@@ -125,7 +117,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w14_tier_features_validator",
         "wave": "W14", "subtask_refs": ["W14.tier-validation"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": totals,
         "results": results,
         "tier_definitions": [{"tier": t, "budget_mb": b} for t, b in TIERS],
@@ -138,27 +130,20 @@ def run(args: argparse.Namespace) -> dict:
              "json_path": str(json_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w14_tier_features_validator, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "tier_definitions": result["tier_definitions"],
+        "json_path": result["json_path"],
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "tier_definitions": result["tier_definitions"],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w14_tier_features_validator."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

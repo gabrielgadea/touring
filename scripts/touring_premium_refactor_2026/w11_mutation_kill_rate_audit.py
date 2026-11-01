@@ -13,40 +13,32 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
 import subprocess
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+import script_common as sc
+
+_SCRIPT = "w11_mutation_kill_rate_audit"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _CACHE_DIR = _ROOT / ".touring-cache" / "mutation-test"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
 
-KILLED_RE = re.compile(r"caught:\s*(\d+)", re.I)
-MISSED_RE = re.compile(r"missed:\s*(\d+)", re.I)
-TIMEOUT_RE = re.compile(r"timeout:\s*(\d+)", re.I)
+KILLED_RE = re.compile(r"caught:\s*(\d+)", re.IGNORECASE)
+MISSED_RE = re.compile(r"missed:\s*(\d+)", re.IGNORECASE)
+TIMEOUT_RE = re.compile(r"timeout:\s*(\d+)", re.IGNORECASE)
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w11_mutation_kill_rate_audit", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--threshold", type=float, default=0.70)
     p.add_argument("--force", action="store_true")
     p.add_argument("--cache-only", action="store_true")
     p.add_argument("--crates", type=str, default="")
     p.add_argument("--timeout", type=int, default=1800)
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def parse_mutation_summary(output: str) -> dict:
@@ -81,7 +73,7 @@ def run_mutation_test(crate: str, timeout: int, force: bool) -> dict:
         cmd.append("--force")
     try:
         proc = subprocess.run(cmd, cwd=_ROOT, capture_output=True,
-                               timeout=timeout)
+                               timeout=timeout, check=False)
         if proc.returncode != 0:
             return {"crate": crate, "status": "FAIL",
                      "exit_code": proc.returncode}
@@ -118,7 +110,7 @@ def discover_crates() -> list[str]:
             if (c / "src").exists() and has_test_modules(c)]
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Audit kill rates."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -141,7 +133,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w11_mutation_kill_rate_audit",
         "wave": "W11", "subtask_refs": ["W11.3"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "threshold": args.threshold,
         "totals": {
             "crates_audited": len(crates),
@@ -160,29 +152,22 @@ def run(args: argparse.Namespace) -> dict:
              "json_path": str(json_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w11_mutation_kill_rate_audit, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "low_kill_top_3": [{"crate": r["crate"],
+                              "kill_rate": r.get("kill_rate")}
+                             for r in result["low_kill_rate_crates"][:3]],
+        "json_path": result["json_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "low_kill_top_3": [{"crate": r["crate"],
-                                  "kill_rate": r.get("kill_rate")}
-                                 for r in result["low_kill_rate_crates"][:3]],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w11_mutation_kill_rate_audit."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

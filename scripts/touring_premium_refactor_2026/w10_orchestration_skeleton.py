@@ -20,20 +20,15 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
-import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w10_orchestration_skeleton"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 _SKELETON_DIR = _STAGING_DIR / "w10-touring-orchestration"
 
 PATTERNS: dict[str, list[re.Pattern]] = {
@@ -46,42 +41,29 @@ PATTERNS: dict[str, list[re.Pattern]] = {
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w10_orchestration_skeleton", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--scan-only", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def scan_orchestration_code() -> dict[str, list[dict]]:
     """Scan workspace for orchestration patterns."""
     findings: dict[str, list[dict]] = defaultdict(list)
-    for crate_dir in sorted(_CRATES_DIR.glob("touring-*")):
-        src = crate_dir / "src"
-        if not src.exists():
-            continue
-        for rs in src.rglob("*.rs"):
-            try:
-                content = rs.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            hits: dict[str, int] = {}
-            for category, patterns in PATTERNS.items():
-                count = sum(len(p.findall(content)) for p in patterns)
-                if count > 0:
-                    hits[category] = count
-            if hits:
-                findings[crate_dir.name].append({
-                    "file": str(rs.relative_to(_ROOT)),
-                    "loc": sum(1 for _ in content.splitlines()),
-                    "pattern_hits": hits,
-                    "total_hits": sum(hits.values()),
-                })
+    for crate_dir, rs, content in sc.crate_rust_sources(_CRATES_DIR):
+        hits: dict[str, int] = {}
+        for category, patterns in PATTERNS.items():
+            count = sum(len(p.findall(content)) for p in patterns)
+            if count > 0:
+                hits[category] = count
+        if hits:
+            findings[crate_dir.name].append({
+                "file": str(rs.relative_to(_ROOT)),
+                "loc": sum(1 for _ in content.splitlines()),
+                "pattern_hits": hits,
+                "total_hits": sum(hits.values()),
+            })
     return {k: sorted(v, key=lambda x: -x["total_hits"])
              for k, v in findings.items()}
 
@@ -92,7 +74,7 @@ def emit_cargo() -> Path:
     cargo = _SKELETON_DIR / "Cargo.toml"
     cargo.write_text("\n".join([
         "# AUTO-GENERATED — W10.1 touring-orchestration skeleton",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "",
         "[package]",
         'name = "touring-orchestration"',
@@ -128,7 +110,7 @@ def emit_lib() -> Path:
     src = _SKELETON_DIR / "src"
     src.mkdir(parents=True, exist_ok=True)
     lib = src / "lib.rs"
-    lib.write_text("\n".join([
+    lib_lines = [
         '//! `touring-orchestration` — Layer 5 (Product) orchestration.',
         '//!',
         '//! Combines decompose (DAG), session (lifecycle), rl_bridge (reward).',
@@ -146,7 +128,8 @@ def emit_lib() -> Path:
         "",
         "pub use error::{OrchError, OrchResult};",
         "",
-    ]), encoding="utf-8")
+    ]
+    lib.write_text("\n".join(lib_lines), encoding="utf-8")
     return lib
 
 
@@ -208,7 +191,7 @@ pub type OrchResult<T> = Result<T, OrchError>;
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + emit."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -227,7 +210,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w10_orchestration_skeleton",
         "wave": "W10", "subtask_refs": ["W10.1"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "totals": {
             "crates_with_orch_code": len(findings),
@@ -239,33 +222,23 @@ def run(args: argparse.Namespace) -> dict:
         "skeleton_files_emitted": emitted,
     }
     json_path = args.output_dir / "w10-orchestration-extraction-targets.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    report["json_path"] = str(json_path.relative_to(_ROOT))
-    return report
+    return sc.write_json_report(json_path, report, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w10_orchestration_skeleton, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "skeleton_files_emitted_count": len(result["skeleton_files_emitted"]),
+        "json_path": result["json_path"],
+    })
+    return 0
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "skeleton_files_emitted_count": len(result["skeleton_files_emitted"]),
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w10_orchestration_skeleton."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

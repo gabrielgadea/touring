@@ -24,20 +24,16 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w5_storage_skeleton"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 _SKELETON_DIR = _STAGING_DIR / "w5-touring-storage"
 
 STORAGE_PATTERNS: dict[str, list[re.Pattern]] = {
@@ -47,48 +43,35 @@ STORAGE_PATTERNS: dict[str, list[re.Pattern]] = {
                  re.compile(r"\bSearcher::")],
     "rkyv": [re.compile(r"\brkyv::"),
               re.compile(r"#\[derive\(.*Archive.*\)\]")],
-    "checkpoint": [re.compile(r"checkpoint", re.I),
+    "checkpoint": [re.compile(r"checkpoint", re.IGNORECASE),
                     re.compile(r"serde_json::to_writer"),
                     re.compile(r"\.write_to_file")],
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w5_storage_skeleton", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--scan-only", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def scan_storage_code() -> dict[str, list[dict]]:
     """Scan workspace for files with storage patterns."""
     findings: dict[str, list[dict]] = defaultdict(list)
-    for crate_dir in sorted(_CRATES_DIR.glob("touring-*")):
-        src = crate_dir / "src"
-        if not src.exists():
-            continue
-        for rs in src.rglob("*.rs"):
-            try:
-                content = rs.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            pattern_hits: dict[str, int] = {}
-            for category, patterns in STORAGE_PATTERNS.items():
-                count = sum(len(p.findall(content)) for p in patterns)
-                if count > 0:
-                    pattern_hits[category] = count
-            if pattern_hits:
-                findings[crate_dir.name].append({
-                    "file": str(rs.relative_to(_ROOT)),
-                    "loc": sum(1 for _ in content.splitlines()),
-                    "pattern_hits": pattern_hits,
-                    "total_hits": sum(pattern_hits.values()),
-                })
+    for crate_dir, rs, content in sc.crate_rust_sources(_CRATES_DIR):
+        pattern_hits: dict[str, int] = {}
+        for category, patterns in STORAGE_PATTERNS.items():
+            count = sum(len(p.findall(content)) for p in patterns)
+            if count > 0:
+                pattern_hits[category] = count
+        if pattern_hits:
+            findings[crate_dir.name].append({
+                "file": str(rs.relative_to(_ROOT)),
+                "loc": sum(1 for _ in content.splitlines()),
+                "pattern_hits": pattern_hits,
+                "total_hits": sum(pattern_hits.values()),
+            })
     return {k: sorted(v, key=lambda x: -x["total_hits"])
              for k, v in findings.items()}
 
@@ -99,7 +82,7 @@ def emit_cargo_toml() -> Path:
     cargo = _SKELETON_DIR / "Cargo.toml"
     content = "\n".join([
         "# AUTO-GENERATED skeleton — touring-storage Cargo.toml",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "# W5.1 — Storage layer (Layer 2). Refine after W2.",
         "",
         "[package]",
@@ -145,7 +128,7 @@ def emit_lib_rs() -> Path:
     src_dir = _SKELETON_DIR / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
     lib = src_dir / "lib.rs"
-    content = "\n".join([
+    lib_lines = [
         "//! `touring-storage` — Layer 2 of new Touring architecture.",
         "//!",
         "//! Centralizes ALL persistence concerns previously scattered across",
@@ -180,7 +163,8 @@ def emit_lib_rs() -> Path:
         "    }",
         "}",
         "",
-    ])
+    ]
+    content = "\n".join(lib_lines)
     lib.write_text(content, encoding="utf-8")
     return lib
 
@@ -253,7 +237,7 @@ pub type StorageResult<T> = Result<T, StorageError>;
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + emit skeleton (unless --scan-only)."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -261,7 +245,7 @@ def run(args: argparse.Namespace) -> dict:
     extraction = {
         "script": "w5_storage_skeleton",
         "wave": "W5", "subtask_refs": ["W5.1"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": {
             "crates_with_storage_code": len(findings),
             "total_files": sum(len(v) for v in findings.values()),
@@ -297,32 +281,25 @@ def run(args: argparse.Namespace) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w5_storage_skeleton, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "top_5_extraction_targets": [
+            {"file": t["file"], "hits": t["total_hits"],
+             "patterns": list(t["pattern_hits"].keys())}
+            for t in result["top_15_extraction_targets"][:5]
+        ],
+        "skeleton_files_emitted_count": len(result["skeleton_files_emitted"]),
+        "json_path": result["json_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "top_5_extraction_targets": [
-                {"file": t["file"], "hits": t["total_hits"],
-                 "patterns": list(t["pattern_hits"].keys())}
-                for t in result["top_15_extraction_targets"][:5]
-            ],
-            "skeleton_files_emitted_count": len(result["skeleton_files_emitted"]),
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w5_storage_skeleton."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

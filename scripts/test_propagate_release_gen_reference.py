@@ -26,23 +26,16 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
-
-REPO = Path(__file__).resolve().parent.parent
-SCRIPT = REPO / "scripts" / "propagate-release.sh"
-
-
-def executable_lines() -> list[str]:
-    out = []
-    for raw in SCRIPT.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if line and not line.startswith("#"):
-            out.append(line)
-    return out
-
+from propagate_release_testlib import (
+    executable_lines,
+    fake_tree_with_script,
+    stub_s1a_gate,
+    write_canonical_workspace_manifest,
+    write_fake_touring,
+)
 
 # ── content invariants ───────────────────────────────────────────────────────
 
@@ -64,34 +57,17 @@ def _fake_tree() -> Path:
     """The same minimal shape the label-guard tests use: a workspace the
     script accepts and a fake binary declaring the right label, so every
     OTHER gate passes and only the reference check is in play."""
-    tmp = Path(tempfile.mkdtemp(prefix="genref-gate-"))
-    (tmp / "scripts").mkdir(parents=True)
-    shutil.copy(SCRIPT, tmp / "scripts" / "propagate-release.sh")
-    os.chmod(tmp / "scripts" / "propagate-release.sh", 0o755)
+    tmp = fake_tree_with_script("genref-gate-")
     # The S1a gate (r3, XA-13) has its own tests (test_propagate_release_s1a_gate.py); here it
     # is a stub that passes: this tree has no hw-slot and no crates to run the benchmark, and
     # the question under test is the reference check.
-    s1a = tmp / "scripts" / "r3-s1a-gate"
-    s1a.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    s1a.chmod(0o755)
+    stub_s1a_gate(tmp)
     # The rite's glob (2026-09-24) fails the gate on an EMPTY match — a fake
     # tree without a rite test dies blind before gen_reference even runs.
     (tmp / "scripts" / "test_propagate_release_dummy.py").write_text(
         "def test_dummy():\n    assert True\n", encoding="utf-8")
-    (tmp / "Cargo.toml").write_text(
-        '[workspace.package]\nversion = "0.0.0"\n[workspace]\nmembers = []\n',
-        encoding="utf-8")
-    bin_dir = tmp / "target" / "release"
-    bin_dir.mkdir(parents=True)
-    fake = bin_dir / "touring"
-    fake.write_text(
-        '#!/bin/sh\n'
-        'printf "touring 30.4.67\\n'
-        'b8e2e7e68faf69285011c1ffd5a17579630d9f4f\\n'
-        '2026-08-18\\n2026-09-24T04:12:23Z\\n'
-        'analysis-gate,async-memory,console,default,otlp,tantivy-fts\\n" >&2\n',
-        encoding="utf-8")
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    write_canonical_workspace_manifest(tmp)
+    write_fake_touring(tmp)
     return tmp
 
 
@@ -121,7 +97,7 @@ def _run(tmp: Path, gen_rc: int) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(tmp / "scripts" / "propagate-release.sh"), "30.4.67",
          "--skip-build", "--skip-freeze", "--no-default"],
-        capture_output=True, text=True, timeout=120, env=env,
+        capture_output=True, text=True, timeout=120, env=env, check=False,
     )
 
 

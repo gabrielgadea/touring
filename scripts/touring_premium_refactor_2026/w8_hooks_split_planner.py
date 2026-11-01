@@ -31,20 +31,17 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+import script_common as sc
+
+_SCRIPT = "w8_hooks_split_planner"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _HOOKS_SRC = _ROOT / "crates" / "touring-hooks" / "src"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
 
 EXPLICIT_MAP: dict[str, str] = {
     "lifecycle.rs": "touring-hooks-lifecycle",
@@ -135,7 +132,7 @@ RULES: list[tuple[str, re.Pattern | None, re.Pattern]] = [
                 r"daemon|circuit|telemetry|memory_store|"
                 r"knowledge|health_delta|dependency_cache|output_capture|"
                 r"branch_fs|compression|hook_response|integration_tests)",
-                re.I)),
+                re.IGNORECASE)),
     ("touring-hooks-lifecycle",
      re.compile(r"^(lifecycle|bidirectional|pipeline)$"),
      re.compile(r"\b(session|pre_read|post_read|pre_write|post_write|"
@@ -144,25 +141,25 @@ RULES: list[tuple[str, re.Pattern | None, re.Pattern]] = [
                 r"task_created|task_completed|subagent_stop|hook_memory|cortex|"
                 r"activity_hook|auto_save|prompt_enhance|team_hooks|pre_tool_use|"
                 r"pre_tool_validator|lifecycle)",
-                re.I)),
-    ("touring-hooks-cli", None, re.compile(r"^cli_|_cli\b", re.I)),
+                re.IGNORECASE)),
+    ("touring-hooks-cli", None, re.compile(r"^cli_|_cli\b", re.IGNORECASE)),
     ("touring-hooks-tools",
      re.compile(r"^(saga|wiring|suggesters)$"),
      re.compile(r"\b(tools_|decompose|file_tools|project_tools|scout|mpatch|"
                 r"audit|wiring|saga|suggester|repair|mutation|tasksfile|devrcfile|"
                 r"shadow|functional_wiring|sandbox|inferlets|wave5_workflow|"
-                r"hook_decompose)", re.I)),
+                r"hook_decompose)", re.IGNORECASE)),
     ("touring-hooks-prediction",
      re.compile(r"^(ann_memory)$"),
      re.compile(r"\b(layer7|predictor|classify|prediction|neural|ann_|"
                 r"semantic_classifier|classifier|tfidf|llm_judge|pii|"
-                r"compression)", re.I)),
+                r"compression)", re.IGNORECASE)),
     ("touring-hooks-rl", None,
      re.compile(r"\b(post_tool_rl|pre_tool_rl|learning|reward|aco_|rl_|"
-                r"agentic_rl|adaptive|bandit)", re.I)),
+                r"agentic_rl|adaptive|bandit)", re.IGNORECASE)),
     ("touring-hooks-infra", None,
      re.compile(r"\b(_bridge|bridge_|capnp_embed|callgraph_enrich|pipeline_)",
-                re.I)),
+                re.IGNORECASE)),
 ]
 
 FACADE_BUCKET = "touring-hooks-facade"
@@ -172,18 +169,13 @@ USE_CRATE_RE = re.compile(r"^\s*use\s+crate::(\w+)", re.MULTILINE)
 USE_SUPER_RE = re.compile(r"^\s*use\s+super::(\w+)", re.MULTILINE)
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w8_hooks_split_planner", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--emit-cargo", action="store_true")
     p.add_argument("--emit-evidence", action="store_true")
     p.add_argument("--strict-acyclic", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def classify_file(rs_file: Path, src_root: Path) -> tuple[str, str]:
@@ -334,11 +326,11 @@ def _render_markdown(plan: dict, bucket_summary: dict,
     cycles = plan["cycles"]
     md = [
         "# W8 — touring-hooks Split Plan (v5 — leaf invariant enforced)", "",
-        f"Total files: {plan['totals']['rs_files']} | "
-        f"LOC: {plan['totals']['total_loc']:,}",
+        (f"Total files: {plan['totals']['rs_files']} | "
+        f"LOC: {plan['totals']['total_loc']:,}"),
         f"Trivial cycles: **{cycles['trivial_pair_count']}**",
-        f"Real cycles: **{cycles['real_cycle_count']}** "
-        f"{'❌' if cycles['real_cycle_count'] else '✅'}",
+        (f"Real cycles: **{cycles['real_cycle_count']}** "
+        f"{'❌' if cycles['real_cycle_count'] else '✅'}"),
         f"Leaf violations remaining in shared: **{len(leaf_violations)}**",
         "",
         "## Bucket distribution",
@@ -361,7 +353,7 @@ def _render_markdown(plan: dict, bucket_summary: dict,
     return "\n".join(md) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """v5 classify + analyze + detect leaf violations."""
     if not _HOOKS_SRC.exists():
         return {"status": "MISSING_CRATE", "path": str(_HOOKS_SRC)}
@@ -379,7 +371,7 @@ def run(args: argparse.Namespace) -> dict:
         "script": "w8_hooks_split_planner", "version": "v5-leaf-enforced",
         "wave": "W8", "subtask_refs": ["W8.1", "W8.2", "W8.3", "W8.4",
                                           "W8.5", "W8.6", "W8.7"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": {
             "rs_files": len(rs_files),
             "total_loc": sum(c["loc"] for c in classifications),
@@ -424,36 +416,29 @@ def run(args: argparse.Namespace) -> dict:
     return plan
 
 
-def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        if result.get("status") == "MISSING_CRATE":
-            sys.stdout.write(json.dumps(result, indent=2) + "\n")
-            return 1
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "version": result.get("version"),
-            "totals": result["totals"],
-            "buckets": {b: info["total_loc"]
-                         for b, info in result["buckets"].items()},
-            "trivial_cycles": result["cycles"]["trivial_pair_count"],
-            "real_cycles": result["cycles"]["real_cycle_count"],
-            "leaf_violations_count": len(result["leaf_violations"]),
-            "plan_path": result["plan_path"],
-            "md_path": result["md_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 2 if result["status"] == "REAL_CYCLES_DETECTED" else 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w8_hooks_split_planner, print its summary; the return value is the exit code."""
+    result = run(args)
+    if result.get("status") == "MISSING_CRATE":
+        sc.emit_json(result, ensure_ascii=True)
         return 1
+    sc.emit_json({
+        "status": result["status"], "version": result.get("version"),
+        "totals": result["totals"],
+        "buckets": {b: info["total_loc"]
+                     for b, info in result["buckets"].items()},
+        "trivial_cycles": result["cycles"]["trivial_pair_count"],
+        "real_cycles": result["cycles"]["real_cycle_count"],
+        "leaf_violations_count": len(result["leaf_violations"]),
+        "plan_path": result["plan_path"],
+        "md_path": result["md_path"],
+    })
+    return 2 if result["status"] == "REAL_CYCLES_DETECTED" else 0
+
+
+def main() -> int:
+    """Entry point of w8_hooks_split_planner."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

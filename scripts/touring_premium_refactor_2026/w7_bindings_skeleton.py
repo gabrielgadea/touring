@@ -24,31 +24,23 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w7_bindings_skeleton"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _SKELETON_DIR = _STAGING_DIR / "w7-touring-bindings"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w7_bindings_skeleton", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--skip-pyproject", action="store_true")
     p.add_argument("--skip-package-json", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def emit_cargo_toml() -> Path:
@@ -57,7 +49,7 @@ def emit_cargo_toml() -> Path:
     cargo = _SKELETON_DIR / "Cargo.toml"
     content = "\n".join([
         "# AUTO-GENERATED — W7.1 touring-bindings skeleton",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "# Layer 5 (Product) bindings crate. Default features EMPTY by design.",
         "",
         "[package]",
@@ -136,7 +128,7 @@ def emit_src_files() -> list[Path]:
     paths: list[Path] = []
     # lib.rs — feature-gated module dispatch
     lib_rs = src / "lib.rs"
-    lib_rs.write_text("\n".join([
+    lib_lines = [
         '//! `touring-bindings` — Language bindings for Touring (W7).',
         '//!',
         '//! Build with EXACTLY ONE language feature: `bind-py`, `bind-ts-napi`,',
@@ -161,7 +153,8 @@ def emit_src_files() -> list[Path]:
         "/// Bindings crate version (semver-compatible with workspace).",
         'pub const VERSION: &str = env!("CARGO_PKG_VERSION");',
         "",
-    ]), encoding="utf-8")
+    ]
+    lib_rs.write_text("\n".join(lib_lines), encoding="utf-8")
     paths.append(lib_rs)
     # common.rs
     common = src / "common.rs"
@@ -275,7 +268,7 @@ def emit_pyproject() -> Path:
     """Emit pyproject.toml stub (maturin-friendly)."""
     _SKELETON_DIR.mkdir(parents=True, exist_ok=True)
     p = _SKELETON_DIR / "pyproject.toml"
-    p.write_text("\n".join([
+    pyproject_lines = [
         '[build-system]',
         'requires = ["maturin>=1.0,<2.0"]',
         'build-backend = "maturin"',
@@ -295,7 +288,8 @@ def emit_pyproject() -> Path:
         'features = ["bind-py"]',
         'module-name = "touring"',
         '',
-    ]), encoding="utf-8")
+    ]
+    p.write_text("\n".join(pyproject_lines), encoding="utf-8")
     return p
 
 
@@ -324,7 +318,7 @@ def emit_package_json() -> Path:
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Emit all skeleton artifacts."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -339,7 +333,7 @@ def run(args: argparse.Namespace) -> dict:
     manifest = {
         "script": "w7_bindings_skeleton",
         "wave": "W7", "subtask_refs": ["W7.1"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "features_planned": [
             "bind-py", "bind-ts-napi", "bind-wasm",
@@ -348,34 +342,24 @@ def run(args: argparse.Namespace) -> dict:
         "files_emitted": emitted,
     }
     json_path = args.output_dir / "w7-bindings-skeleton.json"
-    json_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    manifest["json_path"] = str(json_path.relative_to(_ROOT))
-    return manifest
+    return sc.write_json_report(json_path, manifest, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w7_bindings_skeleton, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"],
+        "features_planned": result["features_planned"],
+        "files_emitted_count": len(result["files_emitted"]),
+        "json_path": result["json_path"],
+    })
+    return 0
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"],
-            "features_planned": result["features_planned"],
-            "files_emitted_count": len(result["files_emitted"]),
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w7_bindings_skeleton."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

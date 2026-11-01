@@ -58,7 +58,7 @@ from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from jev_client import system_one  # noqa: E402
+from jev_client import system_one
 
 REPO = Path(__file__).resolve().parent.parent
 MEMORY_DB = Path(os.path.expanduser("~/projects/touring/.claude/touring/memory.db"))
@@ -70,33 +70,21 @@ REPORT_DIR = REPO / "docs/plans/2026-09-30-jev-harness-potencializacao/experimen
 # **[F] O vocabulário NÃO é copiado aqui.** Era uma tupla duplicada, e a S-5.7
 # (fix/report/audit no Rust) a deixou com 22 de 25. Uma única fonte agora:
 # `production_kind_values()` lê `Facet::Kind::seed_values()` do Rust.
-from jev_tags_sample import production_kind_values  # noqa: E402
+from jev_tags_sample import KIND_CRITERIA as SAMPLE_KIND_CRITERIA
+from jev_tags_sample import production_kind_values
 
 KIND_VALUES = production_kind_values()
 
+# Os critérios do backfill são os da amostra (`jev_tags_sample.KIND_CRITERIA`, na MESMA ordem de
+# chaves — a ordem entra no prompt) com cinco redações próprias, listadas abaixo. Assim as 17
+# definições idênticas moram num lugar só, como o vocabulário acima.
 KIND_CRITERIA = {
-    "snippet": "A reusable code fragment with a codetag, copy-pasteable as-is. Not a narrative.",
-    "doc": "Reference documentation about a system, module, or API. Describes; does not instruct.",
+    **SAMPLE_KIND_CRITERIA,
     "script": "An executable script or automation step. Not a plan to write one.",
-    "map": "A structural or dependency map of code. Not a sequence of work.",
-    "plan": "An intended sequence of steps for future work. Not a record of work done.",
-    "strategy": "A durable approach or routing policy, reusable across tasks. Not a one-off step.",
     "lesson": "A learned principle stated in the author's own words, generalizing beyond this incident.",
     "gotcha": "A specific trap that bites: an API quirk, a footgun, an order dependency. Concrete and narrow.",
     "decision": "A choice made between alternatives, with the reason. Not a plan for an unmade choice.",
-    "process": "How a procedure runs, mechanically. Not why it should.",
-    "module": "A unit of code structure. Not a lesson about it.",
-    "runbook": "Operational steps to recover or execute under failure. Not analysis.",
-    "insight": "A non-obvious realization about the domain. Not actionable procedure.",
     "outcome": "The recorded result of a command, run, or experiment, with status. Not interpretation.",
-    "case": "A worked example of one specific situation. Not a general rule.",
-    "observation": "A measured fact or number from instrumentation. Not an inference from it.",
-    "pattern": "A recurring shape recognized across multiple instances. Not a single instance.",
-    "reference": "A pointer to an external artifact, doc, or URL. Not content.",
-    "note": "A brief remark kept for later attention. Not a durable principle.",
-    "project": "State or identity of a project/loop/DAG. Not work within it.",
-    "followup": "An open item deferred for later action. Not the action itself.",
-    "text": "Free-form prose that fits no other kind. The residual class.",
 }
 
 # Um único SQL, com a lista de valores como parâmetros vinculados — sem
@@ -253,7 +241,7 @@ def write_one(key: str, kind: str) -> tuple[bool, str]:
     """
     proc = subprocess.run(
         ["touring", "memory", "tag", key, f"#kind:{kind}", "--source", "jev", "--json"],
-        capture_output=True, text=True, timeout=60,
+        capture_output=True, text=True, timeout=60, check=False,
     )
     return _interpret_write(proc)
 
@@ -295,7 +283,7 @@ def run_batch(target: list[dict], tau: dict, *, write: bool) -> list[dict]:
         flag = result["jev_kind"] or "SEM RESPOSTA"
         changed = bool(result["jev_kind"]) and result["jev_kind"] != memory["auto_kind"]
         linha = (f"  [{i:3}/{len(target)}] {str(memory['key'])[:44]:44} "
-                 f"{str(memory['auto_kind']):11} -> {flag:13} conf={result['confidence']}")
+                 f"{memory['auto_kind']!s:11} -> {flag:13} conf={result['confidence']}")
         if write and changed and _is_confident(memory, tau["tau"]):
             ok, motivo = write_one(memory["key"], result["jev_kind"])
             gravados.append({"key": memory["key"], "kind": result["jev_kind"],

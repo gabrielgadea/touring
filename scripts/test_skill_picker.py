@@ -21,7 +21,6 @@ Roda sem pytest e sem rede: `python3 test_skill_picker.py`.
 
 from __future__ import annotations
 
-import json
 import sys
 import tempfile
 from pathlib import Path
@@ -29,15 +28,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import skill_picker as sp  # noqa: E402
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
-    if not ok:
-        FAILURES.append(name)
+import skill_picker as sp
+from script_testkit import check, finish
 
 
 def _skill(key: str, description: str) -> sp.Skill:
@@ -60,7 +52,6 @@ def test_silent_when_below_threshold() -> None:
 
 def test_manual_override_bypasses_gate() -> None:
     """O override manual ignora o gate por definição — é o usuário falando."""
-    import argparse
 
     argv = ["--query", "qualquer", "--override", "recipe-gmail-send"]
     import contextlib
@@ -81,7 +72,6 @@ def test_gate_silent_without_a_jev_call() -> None:
 
     def spy(*args, **kwargs):
         calls.append(1)
-        return None
 
     out = sp.skill_picker("assunto sem nenhuma relacao com skills", tau=0.1, catalog=catalog, client=spy)
     check("test_gate_silent_without_a_jev_call",
@@ -183,7 +173,6 @@ def test_the_judge_path_runs_end_to_end() -> None:
         _skill("skill-deploy", "publicar uma versao em producao com rollback"),
         _skill("skill-refactor", "refatorar codigo preservando comportamento"),
     ]
-    seen = {}
 
     class FakeClient:
         """O mínimo que `TypeSafeClient` precisa: `system_one(state, questions, model)`."""
@@ -243,8 +232,7 @@ def main() -> int:
         test_the_real_catalog_has_no_duplicated_content,
     ):
         test()
-    print(f"\n{len(FAILURES)} falha(s): {FAILURES}" if FAILURES else "\nTODOS OS TESTES PASSARAM")
-    return 1 if FAILURES else 0
+    return finish()
 
 
 if __name__ == "__main__":

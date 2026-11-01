@@ -32,15 +32,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import jev_echo_cleanup as ec  # noqa: E402
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
-    if not ok:
-        FAILURES.append(name)
+import jev_echo_cleanup as ec
+from script_testkit import check, finish
 
 
 def make_db(tmp: Path, rows: list[tuple[str, str, int]]) -> Path:
@@ -195,7 +188,8 @@ def test_all_gates_open_lets_the_delete_through() -> None:
 def test_there_is_no_force_flag() -> None:
     """[F] Se existisse `--force`, a pré-condição seria um pedido, não uma
     garantia. Mudar a decisão é escrever outro comando — não passar uma flag."""
-    import io, contextlib
+    import contextlib
+    import io
     # A palavra "--force" aparece na DOCSTRING a dizer que NÃO existe — que é
     # o oposto de uma flag. Testar o texto seria testar a prosa; o que se
     # executa é o parser, com a flag proibida como argumento real.
@@ -297,9 +291,7 @@ def main() -> int:
         test_the_dump_round_trips,
     ):
         test()
-    print(f"\n{len(FAILURES)} falha(s): {FAILURES}" if FAILURES
-          else "\nTODOS OS TESTES PASSARAM")
-    return 1 if FAILURES else 0
+    return finish()
 
 
 if __name__ == "__main__":

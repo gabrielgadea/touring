@@ -17,20 +17,16 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w3_absorve_anemic_crates"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 PUB_ITEM_RE = re.compile(r"^\s*pub\s+(?:fn|struct|enum|trait|const|static|type)\s+\w+",
                           re.MULTILINE)
@@ -39,18 +35,13 @@ CARGO_DEP_RE = re.compile(r'^\s*([a-z][a-z0-9_-]+)\s*=', re.MULTILINE)
 ALLOW_LIST: set[str] = {"touring-types", "touring-protocol"}
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w3_absorve_anemic_crates", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--max-loc", type=int, default=500)
     p.add_argument("--max-pub", type=int, default=10)
     p.add_argument("--max-fan-in", type=int, default=2)
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def count_src_loc(crate: Path) -> int:
@@ -125,7 +116,7 @@ def audit_crate(crate_dir: Path, consumers: dict[str, set[str]]) -> dict:
     }
 
 
-def is_anemic(audit: dict, args: argparse.Namespace) -> bool:
+def is_anemic(audit: dict, args: sc.Namespace) -> bool:
     """Anemia heuristic."""
     return (
         audit["src_loc"] < args.max_loc
@@ -142,10 +133,10 @@ def propose_target(audit: dict) -> str | None:
     return audit["consumers"][0]
 
 
-def render_md(report: dict, args: argparse.Namespace) -> str:
+def render_md(report: dict, args: sc.Namespace) -> str:
     """Render markdown absorption plan."""
     lines = ["# W3.2 — Anemic Crate Absorption Plan", "",
-             f"Generated: {datetime.now(UTC).isoformat()}", "",
+             f"Generated: {sc.now_iso()}", "",
              "## Thresholds",
              f"- src_loc < {args.max_loc}",
              f"- pub_count < {args.max_pub}",
@@ -168,15 +159,15 @@ def render_md(report: dict, args: argparse.Namespace) -> str:
             f"- Consumers ({a['fan_in']}): {', '.join(a['consumers']) or '(none)'}",
             "- [ ] Copy `src/` into target crate as module",
             "- [ ] Remove from `workspace.members` in root Cargo.toml",
-            f"- [ ] Update consumers: `use {a['crate'].replace('-', '_')}::*` "
+            (f"- [ ] Update consumers: `use {a['crate'].replace('-', '_')}::*` "
             f"→ `use {target.replace('-', '_')}::"
-            f"{a['crate'].split('-')[-1]}::*`",
+            f"{a['crate'].split('-')[-1]}::*`"),
             "- [ ] cargo check --workspace passes", "",
         ])
     return "\n".join(lines) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + classify + propose."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -189,7 +180,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w3_absorve_anemic_crates",
         "wave": "W3", "subtask_refs": ["W3.2"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "thresholds": {"max_loc": args.max_loc, "max_pub": args.max_pub,
                         "max_fan_in": args.max_fan_in},
         "totals": {"audited": len(audits), "anemic": len(anemic),
@@ -206,31 +197,24 @@ def run(args: argparse.Namespace) -> dict:
              "md_path": str(md_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w3_absorve_anemic_crates, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "anemic_top_5": [
+            {"crate": a["crate"], "loc": a["src_loc"], "pub": a["pub_count"],
+             "target": a["proposed_absorption_target"]}
+            for a in result["anemic_crates"][:5]
+        ],
+        "json_path": result["json_path"], "md_path": result["md_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "anemic_top_5": [
-                {"crate": a["crate"], "loc": a["src_loc"], "pub": a["pub_count"],
-                 "target": a["proposed_absorption_target"]}
-                for a in result["anemic_crates"][:5]
-            ],
-            "json_path": result["json_path"], "md_path": result["md_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w3_absorve_anemic_crates."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

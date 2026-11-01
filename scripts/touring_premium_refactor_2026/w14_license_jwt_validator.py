@@ -16,30 +16,23 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
 import base64
 import json
-import logging
-import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w14_license_jwt_validator"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _TESTS_DIR = _STAGING_DIR / "w14-license-tests"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w14_license_jwt_validator", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    p = sc.new_parser(_SCRIPT, __doc__)
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def b64url(data: bytes) -> str:
@@ -158,9 +151,9 @@ def emit_rust_skeleton(cases: list[dict]) -> Path:
             "#[test]",
             f"fn test_{c['name']}() {{",
             f'    let jwt = include_str!("./{c["name"]}.jwt");',
-            f"    let result = validate_license(jwt, \"premium\");",
+            "    let result = validate_license(jwt, \"premium\");",
             f"    // Expected outcome: {outcome}",
-            f"    // TODO: assert!(matches!(result, ...));",
+            "    // TODO: assert!(matches!(result, ...));",
             "}",
             "",
         ])
@@ -168,7 +161,7 @@ def emit_rust_skeleton(cases: list[dict]) -> Path:
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Emit test cases + skeleton."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _TESTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -188,7 +181,7 @@ def run(args: argparse.Namespace) -> dict:
     return {
         "script": "w14_license_jwt_validator",
         "wave": "W14", "subtask_refs": ["W14.license"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "totals": {
             "test_cases": len(cases),
@@ -201,28 +194,21 @@ def run(args: argparse.Namespace) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w14_license_jwt_validator, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "test_case_names": result["test_case_names"],
+        "rust_skeleton": result["rust_skeleton"],
+        "json_path": result["json_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "test_case_names": result["test_case_names"],
-            "rust_skeleton": result["rust_skeleton"],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w14_license_jwt_validator."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

@@ -26,18 +26,16 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+import script_common as sc
+
+_SCRIPT = "w6_cortex_test_debt_repay"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _CORTEX_DIR = _ROOT / "crates" / "touring-cortex" / "src"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
 
 TEST_FN_RE = re.compile(r"#\[(?:test|tokio::test|cfg\(test\))\]")
 PUB_ITEM_RE = re.compile(r"^\s*pub\s+(?:fn|struct|enum|trait|const|static|type)\s+(\w+)",
@@ -78,12 +76,9 @@ def count_test_block_loc(content: str) -> int:
     return test_loc
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w6_cortex_test_debt_repay", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--file-gap-threshold", type=int, default=20,
                    help="Blocker fires if count of files with pub>3 and tests=0 ≥ this.")
     p.add_argument("--min-pub-for-priority", type=int, default=3,
@@ -96,9 +91,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Generate test stubs for priority files.")
     p.add_argument("--top-n", type=int, default=20,
                    help="Top-N priority modules to stub.")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def audit_file(path: Path) -> dict:
@@ -167,7 +160,7 @@ def emit_test_stub(file_audit: dict, target_dir: Path) -> Path:
     return stub_path
 
 
-def compute_decision(report: dict, args: argparse.Namespace) -> dict:
+def compute_decision(report: dict, args: sc.Namespace) -> dict:
     """Blocker decision matrix."""
     t = report["totals"]
     triggers: list[str] = []
@@ -192,7 +185,7 @@ def compute_decision(report: dict, args: argparse.Namespace) -> dict:
     }
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """3-metric audit + decision."""
     if not _CORTEX_DIR.exists():
         return {"status": "MISSING_CRATE", "path": str(_CORTEX_DIR)}
@@ -221,7 +214,7 @@ def run(args: argparse.Namespace) -> dict:
         "script": "w6_cortex_test_debt_repay",
         "version": "v2-refined-3metrics",
         "wave": "W6", "subtask_refs": ["W6.0"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": {
             "files_audited": len(audits),
             "total_src_loc": total_src_loc,
@@ -263,13 +256,13 @@ def run(args: argparse.Namespace) -> dict:
         "",
         "| Metric | Value | Target | Status |",
         "|--------|-------|--------|--------|",
-        f"| Pub-ratio (test_fns/pub_items) | {pub_ratio:.2%} | {args.target_pub_ratio:.2%} | "
-        f"{'🟢' if pub_ratio >= args.target_pub_ratio else '🔴'} |",
-        f"| LOC-ratio (test_loc/src_loc)   | {loc_ratio:.2%} | {args.target_loc_ratio:.2%} | "
-        f"{'🟢' if loc_ratio >= args.target_loc_ratio else '🔴'} |",
-        f"| File-gap (pub≥{args.min_pub_for_priority} & tests=0) | {file_gap} | "
+        (f"| Pub-ratio (test_fns/pub_items) | {pub_ratio:.2%} | {args.target_pub_ratio:.2%} | "
+        f"{'🟢' if pub_ratio >= args.target_pub_ratio else '🔴'} |"),
+        (f"| LOC-ratio (test_loc/src_loc)   | {loc_ratio:.2%} | {args.target_loc_ratio:.2%} | "
+        f"{'🟢' if loc_ratio >= args.target_loc_ratio else '🔴'} |"),
+        (f"| File-gap (pub≥{args.min_pub_for_priority} & tests=0) | {file_gap} | "
         f"<{args.file_gap_threshold} | "
-        f"{'🟢' if file_gap < args.file_gap_threshold else '🔴'} |",
+        f"{'🟢' if file_gap < args.file_gap_threshold else '🔴'} |"),
         "",
         f"## Top {args.top_n} priority modules",
         "",
@@ -296,35 +289,28 @@ def run(args: argparse.Namespace) -> dict:
     return report
 
 
-def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        if result.get("status") == "MISSING_CRATE":
-            print(json.dumps(result, indent=2, ensure_ascii=False))
-            return 1
-        print(json.dumps({
-            "status": result["status"],
-            "version": result.get("version"),
-            "totals": result["totals"],
-            "decision": result["decision"],
-            "top_priority_files": [p["file"] for p in result["priority_modules"][:5]],
-            "stubs_emitted_count": len(result["stubs_emitted"]),
-            "report_path": result["report_path"],
-            "priority_md_path": result["priority_md_path"],
-        }, indent=2, ensure_ascii=False))
-        return 0 if not result["decision"]["blocker_fires"] else 2
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w6_cortex_test_debt_repay, print its summary; the return value is the exit code."""
+    result = run(args)
+    if result.get("status") == "MISSING_CRATE":
+        sc.emit_json(result)
         return 1
+    sc.emit_json({
+        "status": result["status"],
+        "version": result.get("version"),
+        "totals": result["totals"],
+        "decision": result["decision"],
+        "top_priority_files": [p["file"] for p in result["priority_modules"][:5]],
+        "stubs_emitted_count": len(result["stubs_emitted"]),
+        "report_path": result["report_path"],
+        "priority_md_path": result["priority_md_path"],
+    })
+    return 0 if not result["decision"]["blocker_fires"] else 2
+
+
+def main() -> int:
+    """Entry point of w6_cortex_test_debt_repay."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

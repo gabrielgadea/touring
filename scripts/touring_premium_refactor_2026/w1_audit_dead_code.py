@@ -20,17 +20,18 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import re
-import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w1_audit_dead_code"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
+_ROOT, _CRATES_DIR = sc.ROOT, sc.CRATES_DIR
 _BASELINES_DIR = _ROOT / "docs" / "baselines"
 _WORKSPACE_CARGO = _ROOT / "Cargo.toml"
 
@@ -43,19 +44,14 @@ KNOWN_DEAD = {
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w1_audit_dead_code", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true",
                    help="DESTRUCTIVE — actually delete crates + update workspace.")
     p.add_argument("--crates", type=str, default="",
                    help="Comma-separated crate names. Default: KNOWN_DEAD list.")
-    p.add_argument("--output-dir", type=Path, default=_BASELINES_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _BASELINES_DIR)
 
 
 def count_loc(directory: Path, pattern: str = "*.rs") -> int:
@@ -149,7 +145,7 @@ def run(apply: bool, crate_list: list[str], output_dir: Path) -> dict:
         "script": "w1_audit_dead_code",
         "wave": "W1",
         "subtask_refs": ["W1.1", "W1.2"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "apply": apply,
         "total_audited": len(audits),
         "candidates_for_deletion": len(candidates),
@@ -163,33 +159,26 @@ def run(apply: bool, crate_list: list[str], output_dir: Path) -> dict:
     return report
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w1_audit_dead_code, print its summary; the return value is the exit code."""
+    crate_list = (args.crates.split(",") if args.crates
+                  else list(KNOWN_DEAD.keys()))
+    result = run(args.apply, crate_list, args.output_dir)
+    sc.emit_json({
+        "summary": {
+            "audited": result["total_audited"],
+            "candidates": result["candidates_for_deletion"],
+            "applied": args.apply,
+        },
+        "candidates": [a["crate"] for a in result["audits"]
+                       if a.get("candidate_for_deletion")],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        crate_list = (args.crates.split(",") if args.crates
-                      else list(KNOWN_DEAD.keys()))
-        result = run(args.apply, crate_list, args.output_dir)
-        print(json.dumps({
-            "summary": {
-                "audited": result["total_audited"],
-                "candidates": result["candidates_for_deletion"],
-                "applied": args.apply,
-            },
-            "candidates": [a["crate"] for a in result["audits"]
-                           if a.get("candidate_for_deletion")],
-        }, indent=2, ensure_ascii=False))
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w1_audit_dead_code."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

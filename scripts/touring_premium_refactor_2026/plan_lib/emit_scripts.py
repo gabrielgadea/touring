@@ -7,37 +7,44 @@ Extracted from generate_plan.py:4082-4664. ``emit_validator_py`` produces the
 """
 from __future__ import annotations
 
+import logging
+import textwrap
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from .dataclasses import Wave
+from .constants import _SCRIPTS_DIR
+from .data_waves import WAVES
+from .dataclasses import Subtask, Wave
+from .renderers.utilities import write_atomic
+
+LOGGER = logging.getLogger(__name__)
 
 # ─── Validator + cross-audit emitters ────────────────────────────────────────
 
 
+def _tdd_test_name(st: Subtask) -> str:
+    """The test name a subtask's ``tdd_red`` declares ('' when it declares none)."""
+    return st.tdd_red.split("(")[0].replace("def ", "").strip() if st.tdd_red else ""
+
+
 def emit_validator_py(wave: Wave) -> str:
-    """Emit a validate_WX.py for a wave."""
-    checks_str = ""
-    for st in wave.subtasks:
-        checks_str += textwrap.dedent(f"""
-            results.append(check_subtask(
-                check_id={st.id!r},
-                name={st.name!r},
-                validation={st.validation!r},
-                tdd_test={st.tdd_red.split('(')[0].replace('def ', '').strip()!r}
-                          if {bool(st.tdd_red)} else '',
-            ))
-        """)
-    # FIX 2026-05-23 (TACO cross-audit): re-indent checks_str to match the outer
-    # f''' context. The {checks_str} interpolation point in the template has 12
-    # spaces of leading whitespace; we must add 12 spaces to every line of
-    # checks_str so the post-substitution string has uniform 12-space indent on
-    # those lines. Without this, lines 2+ of checks_str start at column 0,
-    # polluting textwrap.dedent's common-whitespace calculation → output
-    # preserves 8-space leading on every line → IndentationError on every
-    # emitted validate_WX.py. Root cause of 15 broken validators (2026-05-23).
-    # The .lstrip(" ") on first line avoids doubling the 12-space prefix
-    # since the {checks_str} substitution already provides the leading indent.
-    checks_str = textwrap.indent(checks_str.lstrip("\n"), "            ").lstrip(" ")
+    """Emit a validate_WX.py for a wave.
+
+    The emitted file carries only what is wave-specific — id, name, gate and the subtask
+    table. The check stub, the two wave-level invariants, the report and the checkpoint
+    live once in ``validate_common.WaveValidator``; emitting them fifteen times is what
+    made the validators one 90-line clone family.
+    """
+    rows = "".join(
+        f"    ({st.id!r}, {st.name!r}, {st.validation!r}, {_tdd_test_name(st)!r}),\n"
+        for st in wave.subtasks
+    )
+    # The rows are interpolated into a dedent()ed template whose margin is 8 spaces and
+    # whose interpolation point sits at 12: re-indent every row to keep that margin (a
+    # row at column 0 would lower it and leave stray indentation in the output — the
+    # failure fixed on 2026-05-23, root cause of 15 broken validators). The first row is
+    # lstripped because the template already provides the leading 12 spaces.
+    rows = textwrap.indent(rows, "        ").lstrip(" ")
     return textwrap.dedent(f'''\
         #!/usr/bin/env python3
         """Validator for {wave.id}: {wave.name}.
@@ -49,113 +56,16 @@ def emit_validator_py(wave: Wave) -> str:
         ''' + "".join(f"          - {st.id}: {st.validation}\n" for st in wave.subtasks) + f'''        """
         from __future__ import annotations
 
-        import json
-        import subprocess
-        import sys
-        from datetime import UTC, datetime
-        from pathlib import Path
+        from validate_common import WaveValidator
 
-        _ROOT = Path(__file__).resolve().parents[2]
-        _CHECKPOINTS_DIR = _ROOT / ".claude" / "checkpoints"
         _WAVE_ID = {wave.id!r}
         _WAVE_NAME = {wave.name!r}
         _GATE = {wave.gate!r}
-
-
-        def check_subtask(check_id: str, name: str, validation: str, tdd_test: str) -> dict:
-            """Run a single subtask check. Returns a result dict."""
-            # TODO: implement real checks. Stub returns False with a clear "not implemented" note.
-            return {{
-                "check": check_id,
-                "name": name,
-                "validation": validation,
-                "tdd_test": tdd_test,
-                "passed": False,
-                "details": "Not yet implemented — replace stub with real check during {wave.id} execution.",
-            }}
-
-
-        def run_cargo_check_workspace() -> bool:
-            """Return True if `cargo check --workspace` exits 0."""
-            try:
-                r = subprocess.run(
-                    ["cargo", "check", "--workspace"],
-                    cwd=_ROOT, capture_output=True, timeout=600,
-                )
-                return r.returncode == 0
-            except Exception:  # noqa: BLE001
-                return False
-
-
-        def run_wiring_cycles_zero() -> bool:
-            """Return True if no cycles of depth >= 2 detected."""
-            try:
-                r = subprocess.run(
-                    ["touring", "wiring", "cycles", "--min-depth", "2", "--format", "json"],
-                    capture_output=True, timeout=60,
-                )
-                if r.returncode != 0:
-                    return False
-                data = json.loads(r.stdout.decode("utf-8") or "{{}}")
-                return int(data.get("cycle_count", 0)) == 0
-            except Exception:  # noqa: BLE001
-                return False
-
-
-        def validate() -> dict:
-            """Run all validation checks. Returns report dict."""
-            results: list[dict] = []
-            {checks_str}
-            # Wave-level invariants
-            cargo_ok = run_cargo_check_workspace()
-            cycles_ok = run_wiring_cycles_zero()
-
-            results.append({{
-                "check": "wave-invariant",
-                "name": "cargo check + wiring cycles zero",
-                "validation": "cargo check exit 0 + 0 new cycles",
-                "tdd_test": "",
-                "passed": cargo_ok and cycles_ok,
-                "details": f"cargo_check_ok={{cargo_ok}}, cycles_zero={{cycles_ok}}",
-            }})
-
-            passed = sum(1 for r in results if r["passed"])
-            total = len(results)
-            score = passed / total if total > 0 else 0.0
-            status = "PASS" if score >= 0.95 else "WARN" if score >= 0.70 else "FAIL"
-
-            return {{
-                "wave": _WAVE_ID,
-                "name": _WAVE_NAME,
-                "timestamp": datetime.now(UTC).isoformat(),
-                "checks_passed": passed,
-                "checks_total": total,
-                "score": round(score, 4),
-                "status": status,
-                "gate": _GATE,
-                "results": results,
-            }}
-
-
-        def main() -> None:
-            """Entry point. Prints report and saves checkpoint."""
-            report = validate()
-            print(f"\\n{{'='*60}}")
-            print(f"  {{_WAVE_ID}}: {{_WAVE_NAME}}")
-            print(f"  Score: {{report['score']:.4f}} ({{report['status']}})")
-            print(f"  Checks: {{report['checks_passed']}}/{{report['checks_total']}}")
-            print(f"{{'='*60}}\\n")
-            for r in report["results"]:
-                icon = "[PASS]" if r["passed"] else "[FAIL]"
-                print(f"  {{icon}} {{r['check']}}: {{r['name']}}")
-                if r["details"]:
-                    print(f"          {{r['details']}}")
-            cp = _CHECKPOINTS_DIR / f"touring_premium_{{_WAVE_ID}}_{{datetime.now(UTC).strftime('%Y%m%d')}}.json"
-            cp.parent.mkdir(parents=True, exist_ok=True)
-            cp.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-            print(f"\\n  Checkpoint: {{cp}}")
-            sys.exit(0 if report["status"] in ("PASS", "WARN") else 1)
-
+        _SUBTASKS = (
+            {rows}        )
+        _VALIDATOR = WaveValidator(_WAVE_ID, _WAVE_NAME, _GATE, _SUBTASKS)
+        validate = _VALIDATOR.validate
+        main = _VALIDATOR.main
 
         if __name__ == "__main__":
             main()
@@ -460,137 +370,38 @@ def emit_all_subscripts(force: bool = False, only_stubs: bool = True) -> list[Pa
 
 
 def emit_cross_audit_py() -> str:
-    """Emit cross_audit_e2e.py."""
-    wave_rows = ",\n        ".join(
-        f'("{ w.id }", "{ w.name }", { len(w.subtasks) }, "{ ",".join(w.depends_on) }", "{ w.rust_changes }")'
+    """Emit cross_audit_e2e.py: the wave table only.
+
+    The audit itself (import each ``validate_W<N>``, score the 10 weighted dimensions, print,
+    checkpoint, exit) is static and lives once in ``cross_audit_common``.
+    """
+    wave_rows = "".join(
+        f'    ("{w.id}", "{w.name}", {len(w.subtasks)}, "{",".join(w.depends_on)}", "{w.rust_changes}"),\n'
         for w in WAVES
     )
-    return textwrap.dedent(f'''\
-        #!/usr/bin/env python3
-        """Cross-audit E2E — touring-premium-refactor-2026.
-
-        Auto-generated by generate_plan.py — DO NOT edit manually.
-        Regenerate: python3 generate_plan.py --emit-cross-audit
-
-        Audits 15 waves against 10 weighted quality dimensions.
-        """
-        from __future__ import annotations
-
-        import importlib
-        import json
-        import sys
-        from datetime import UTC, datetime
-        from pathlib import Path
-
-        _ROOT = Path(__file__).resolve().parents[2]
-        _CHECKPOINTS_DIR = _ROOT / ".claude" / "checkpoints"
-        _SCRIPTS_DIR = Path(__file__).resolve().parent
-
-        DIMENSIONS = {{
-            "D1_functional": 2.0,
-            "D2_wiring": 1.5,
-            "D3_performance": 1.5,
-            "D4_coverage": 1.5,
-            "D5_mutation": 1.0,
-            "D6_api_stability": 1.5,
-            "D7_supply_chain": 1.0,
-            "D8_documentation": 1.0,
-            "D9_deployment": 1.5,
-            "D10_purpose": 2.0,
-        }}
-
-        VETO_THRESHOLD = 0.80
-        PASS_THRESHOLD = 0.95
-
-        WAVES_META: list[tuple[str, str, int, str, str]] = [
-            { wave_rows }
-        ]
-
-
-        def audit_waves() -> list[dict]:
-            """Audit each wave by importing its validate_WX module."""
-            sys.path.insert(0, str(_SCRIPTS_DIR))
-            results: list[dict] = []
-            for wid, name, nsubs, deps, rust in WAVES_META:
-                try:
-                    mod = importlib.import_module(f"validate_{{wid}}")
-                    report = mod.validate()
-                    score = float(report.get("score", 0.0))
-                    passed = report.get("status") in ("PASS", "WARN")
-                except Exception as e:  # noqa: BLE001
-                    score = 0.0
-                    passed = False
-                    report = {{"error": str(e)}}
-                results.append({{
-                    "wave": wid, "name": name,
-                    "depends_on": deps, "rust": rust,
-                    "subtasks": nsubs,
-                    "score": score, "passed": passed,
-                    "report": report,
-                }})
-            return results
-
-
-        def audit_dimensions(wave_results: list[dict]) -> dict[str, float]:
-            """Audit the 10 quality dimensions across all waves."""
-            # Average wave score by dim weight.
-            base = sum(r["score"] for r in wave_results) / max(1, len(wave_results))
-            return {{dim: round(base, 4) for dim in DIMENSIONS}}
-
-
-        def compute_composite(dims: dict[str, float]) -> float:
-            """Weighted composite score."""
-            total = sum(DIMENSIONS.values())
-            wsum = sum(dims.get(d, 0.0) * w for d, w in DIMENSIONS.items())
-            return round(wsum / total, 4)
-
-
-        def main() -> None:
-            """Run full cross-audit."""
-            print("\\n" + "=" * 60)
-            print("  CROSS-AUDIT E2E — touring-premium-refactor-2026")
-            print("=" * 60 + "\\n")
-
-            wr = audit_waves()
-            print("Wave Results:")
-            for r in wr:
-                icon = "[PASS]" if r["passed"] else "[FAIL]"
-                print(f"  {{icon}} {{r['wave']}}: {{r['name']}} (score={{r['score']:.4f}})")
-
-            dims = audit_dimensions(wr)
-            print("\\nDimension Scores:")
-            for d, s in dims.items():
-                w = DIMENSIONS[d]
-                icon = "[PASS]" if s >= VETO_THRESHOLD else "[VETO]"
-                print(f"  {{icon}} {{d}} (w={{w:.1f}}): {{s:.4f}}")
-
-            composite = compute_composite(dims)
-            veto = [d for d, s in dims.items() if s < VETO_THRESHOLD]
-            status = "PASS" if composite >= PASS_THRESHOLD and not veto else "FAIL"
-            print("\\n" + "=" * 60)
-            print(f"  COMPOSITE: {{composite:.4f}} ({{status}})")
-            if veto:
-                print(f"  VETO DIMENSIONS: {{', '.join(veto)}}")
-            print("=" * 60 + "\\n")
-
-            report = {{
-                "plan": "touring-premium-refactor-2026",
-                "timestamp": datetime.now(UTC).isoformat(),
-                "composite_score": composite,
-                "status": status,
-                "veto_dimensions": veto,
-                "dimension_scores": dims,
-                "wave_results": wr,
-            }}
-            cp = _CHECKPOINTS_DIR / f"touring_premium_cross_audit_{{datetime.now(UTC).strftime('%Y%m%d')}}.json"
-            cp.parent.mkdir(parents=True, exist_ok=True)
-            cp.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
-            print(f"  Checkpoint: {{cp}}\\n")
-            sys.exit(0 if status == "PASS" else 1)
-
-
-        if __name__ == "__main__":
-            main()
-        ''')
-
-
+    return (
+        "#!/usr/bin/env python3\n"
+        '"""Cross-audit E2E — touring-premium-refactor-2026.\n'
+        "\n"
+        "Auto-generated by generate_plan.py — DO NOT edit manually.\n"
+        "Regenerate: python3 generate_plan.py --emit-cross-audit\n"
+        "\n"
+        "Audits 15 waves against 10 weighted quality dimensions.\n"
+        '"""\n'
+        "from __future__ import annotations\n"
+        "\n"
+        "import cross_audit_common\n"
+        "\n"
+        "WAVES_META: list[tuple[str, str, int, str, str]] = [\n"
+        f"{wave_rows}"
+        "]\n"
+        "\n"
+        "\n"
+        "def main() -> None:\n"
+        '    """Run full cross-audit."""\n'
+        "    cross_audit_common.main(WAVES_META)\n"
+        "\n"
+        "\n"
+        'if __name__ == "__main__":\n'
+        "    main()\n"
+    )

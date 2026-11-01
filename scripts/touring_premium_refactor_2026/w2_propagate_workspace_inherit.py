@@ -11,19 +11,15 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w2_propagate_workspace_inherit"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 SIMPLE_DEP_RE = re.compile(r'^(\s*)([a-zA-Z][a-zA-Z0-9_-]+)\s*=\s*"([^"]+)"\s*$')
 COMPLEX_DEP_RE = re.compile(
@@ -32,18 +28,13 @@ COMPLEX_DEP_RE = re.compile(
 SECTION_RE = re.compile(r'^\s*\[(.+?)\]\s*$')
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w2_propagate_workspace_inherit", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true")
     p.add_argument("--workspace-deps", type=Path,
                    default=_STAGING_DIR / "w2-workspace-deps.toml")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def load_workspace_deps(path: Path) -> set[str]:
@@ -123,7 +114,7 @@ def apply_rewrites(cargo_path: Path, proposals: list[dict]) -> int:
     return len(proposals)
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + propose + optionally apply."""
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -140,7 +131,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w2_propagate_workspace_inherit",
         "wave": "W2", "subtask_refs": ["W2.3"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "apply": args.apply,
         "workspace_deps_count": len(workspace_deps),
         "totals": {
@@ -157,28 +148,21 @@ def run(args: argparse.Namespace) -> dict:
              "json_path": str(json_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w2_propagate_workspace_inherit, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "apply": result["apply"],
+        "totals": result["totals"],
+        "workspace_deps_loaded": result["workspace_deps_count"],
+        "json_path": result["json_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "apply": result["apply"],
-            "totals": result["totals"],
-            "workspace_deps_loaded": result["workspace_deps_count"],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w2_propagate_workspace_inherit."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

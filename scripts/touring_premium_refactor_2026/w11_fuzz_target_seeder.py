@@ -5,19 +5,14 @@ Scans for `pub fn parse`, `from_bytes`, `serialize` — high-value fuzz targets.
 """
 from __future__ import annotations
 
-import argparse
-import json
-import logging
 import re
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w11_fuzz_target_seeder"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 FUZZ_TARGET_PATTERNS = [
     re.compile(r"pub\s+fn\s+(parse\w*)\s*\("),
@@ -27,16 +22,11 @@ FUZZ_TARGET_PATTERNS = [
 ]
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w11_fuzz_target_seeder", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--emit-stubs", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def scan_fuzz_candidates() -> list[dict]:
@@ -78,7 +68,7 @@ def emit_stub(candidate: dict, out_dir: Path) -> Path:
     return p
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + emit stubs."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -91,7 +81,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w11_fuzz_target_seeder",
         "wave": "W11", "subtask_refs": ["W11.5"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "totals": {"candidates": len(candidates),
                     "stubs_emitted": len(emitted)},
@@ -99,34 +89,24 @@ def run(args: argparse.Namespace) -> dict:
         "stubs_emitted": emitted,
     }
     json_path = args.output_dir / "w11-fuzz-candidates.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    report["json_path"] = str(json_path.relative_to(_ROOT))
-    return report
+    return sc.write_json_report(json_path, report, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w11_fuzz_target_seeder, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "top_5": [c["function"]
+                   for c in result["top_20_candidates"][:5]],
+        "json_path": result["json_path"],
+    })
+    return 0
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "top_5": [c["function"]
-                       for c in result["top_20_candidates"][:5]],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w11_fuzz_target_seeder."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

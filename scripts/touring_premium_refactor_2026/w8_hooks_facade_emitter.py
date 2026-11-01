@@ -18,30 +18,22 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w8_hooks_facade_emitter"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w8_hooks_facade_emitter", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--plan", type=Path,
                    default=_DATA_DIR / "w8-hooks-split-plan.json")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def emit_facade_lib(buckets: list[str]) -> str:
@@ -80,7 +72,7 @@ def emit_facade_cargo(buckets: list[str]) -> str:
     deps_lines = [f'{sub} = {{ workspace = true }}' for sub in sub_crates]
     return "\n".join([
         "# AUTO-GENERATED — W8.6 façade [dependencies] section",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "# Replace existing [dependencies] in crates/touring-hooks/Cargo.toml",
         "",
         "[dependencies]",
@@ -89,7 +81,7 @@ def emit_facade_cargo(buckets: list[str]) -> str:
     ])
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Load plan + emit façade."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -105,7 +97,7 @@ def run(args: argparse.Namespace) -> dict:
     manifest = {
         "script": "w8_hooks_facade_emitter",
         "wave": "W8", "subtask_refs": ["W8.6"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "buckets_in_plan": buckets,
         "sub_crates_reexported": [b for b in buckets
@@ -115,29 +107,19 @@ def run(args: argparse.Namespace) -> dict:
         "cargo_toml_path": str(cargo_toml.relative_to(_ROOT)),
     }
     json_path = args.output_dir / "w8-facade-manifest.json"
-    json_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    manifest["json_path"] = str(json_path.relative_to(_ROOT))
-    return manifest
+    return sc.write_json_report(json_path, manifest, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w8_hooks_facade_emitter, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json(result)
+    return 0 if result.get("status") == "OK" else 1
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result.get("status") == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w8_hooks_facade_emitter."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

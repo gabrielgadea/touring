@@ -11,19 +11,16 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
 import subprocess
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w4_consumer_migrate"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 
 MODULE_MAP: dict[str, str] = {
     "touring_ast": "touring_code::ast",
@@ -39,20 +36,15 @@ CRATE_MAP: dict[str, str] = {
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w4_consumer_migrate", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true",
                    help="DESTRUCTIVE — perform actual rewrites.")
     p.add_argument("--crate", type=str, default="")
     p.add_argument("--map-file", type=Path,
                    default=_DATA_DIR / "w4-consumer-map.json")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def load_consumer_map(path: Path) -> dict:
@@ -66,7 +58,7 @@ def render_migration_script(consumer_map: dict) -> str:
     """Render idempotent bash script."""
     lines = ["#!/usr/bin/env bash",
              "# AUTO-GENERATED — W4.8 migration",
-             f"# Generated: {datetime.now(UTC).isoformat()}",
+             f"# Generated: {sc.now_iso()}",
              "set -euo pipefail", "",
              "echo 'Phase 1: Rewrite use statements...'", ""]
     details = consumer_map.get("details", {})
@@ -109,7 +101,7 @@ def apply_rewrites(consumer_map: dict, narrow_crate: str = "") -> dict:
                     proc = subprocess.run(
                         ["touring", "ast", "grep", str(abs_file), old_mod,
                          "--rewrite", new_mod, "--lang", "rust"],
-                        cwd=_ROOT, capture_output=True, timeout=60,
+                        cwd=_ROOT, capture_output=True, timeout=60, check=False,
                     )
                     (applied if proc.returncode == 0 else errors).append({
                         "file": f["file"], "old_mod": old_mod, "new_mod": new_mod,
@@ -128,7 +120,7 @@ def update_cargo_files(consumer_map: dict, narrow_crate: str = "") -> dict:
     updates: list[dict] = []
     details = consumer_map.get("details", {})
     consumer_crates: set[str] = set()
-    for _src, crates in details.items():
+    for crates in details.values():
         for crate_name in crates:
             if not narrow_crate or crate_name == narrow_crate:
                 consumer_crates.add(crate_name)
@@ -151,7 +143,7 @@ def update_cargo_files(consumer_map: dict, narrow_crate: str = "") -> dict:
     return {"cargo_updates": updates}
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Render script + optionally apply."""
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -168,7 +160,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w4_consumer_migrate",
         "wave": "W4", "subtask_refs": ["W4.8"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "apply": args.apply, "narrow_crate": args.crate,
         "script_path": str(script_path.relative_to(_ROOT)),
         "totals": {
@@ -179,34 +171,24 @@ def run(args: argparse.Namespace) -> dict:
         "status": "OK",
     }
     json_path = args.output_dir / "w4-migration-applied.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    report["json_path"] = str(json_path.relative_to(_ROOT))
-    return report
+    return sc.write_json_report(json_path, report, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w4_consumer_migrate, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "apply": result.get("apply", False),
+        "totals": result.get("totals", {}),
+        "script_path": result.get("script_path"),
+        "json_path": result.get("json_path"),
+    })
+    return 0 if result["status"] == "OK" else 1
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "apply": result.get("apply", False),
-            "totals": result.get("totals", {}),
-            "script_path": result.get("script_path"),
-            "json_path": result.get("json_path"),
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w4_consumer_migrate."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

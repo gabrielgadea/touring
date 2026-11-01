@@ -19,21 +19,20 @@ Outputs:
 """
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import logging
 import re
-import sys
 import uuid
-from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w13_sbom_generator"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
+_ROOT, _DATA_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.CRATES_DIR
 _LOCKFILE = _ROOT / "Cargo.lock"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
 
 # Cargo.lock format: [[package]] sections with name, version, source
 LOCK_PACKAGE_RE = re.compile(
@@ -43,18 +42,13 @@ LOCK_PACKAGE_RE = re.compile(
 )
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w13_sbom_generator", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--lockfile", type=Path, default=_LOCKFILE)
     p.add_argument("--emit-spdx", action="store_true",
                    help="Also emit SPDX 2.3 sidecar.")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def parse_lockfile(lockfile: Path) -> list[dict]:
@@ -93,7 +87,7 @@ def render_cyclonedx(packages: list[dict], serial: str) -> dict:
         "serialNumber": f"urn:uuid:{serial}",
         "version": 1,
         "metadata": {
-            "timestamp": datetime.now(UTC).isoformat(),
+            "timestamp": sc.now_iso(),
             "tools": [{"vendor": "touring", "name": "w13_sbom_generator",
                         "version": "0.1.0"}],
             "component": {
@@ -124,7 +118,7 @@ def render_spdx(packages: list[dict], serial: str) -> dict:
         "documentNamespace": f"https://touring.dev/sbom/{serial}",
         "name": "touring-sbom",
         "creationInfo": {
-            "created": datetime.now(UTC).isoformat(),
+            "created": sc.now_iso(),
             "creators": ["Tool: w13_sbom_generator-0.1.0"],
         },
         "packages": [
@@ -145,7 +139,7 @@ def render_spdx(packages: list[dict], serial: str) -> dict:
     }
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Parse lockfile + emit SBOM."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     packages = parse_lockfile(args.lockfile)
@@ -171,7 +165,7 @@ def run(args: argparse.Namespace) -> dict:
     return {
         "script": "w13_sbom_generator",
         "wave": "W13", "subtask_refs": ["W13.x"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "totals": {
             "packages": len(packages),
@@ -186,29 +180,22 @@ def run(args: argparse.Namespace) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w13_sbom_generator, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"],
+        "totals": result.get("totals", {}),
+        "sha256": result.get("sha256"),
+        "cyclonedx_path": result.get("cyclonedx_path"),
+        "spdx_path": result.get("spdx_path"),
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"],
-            "totals": result.get("totals", {}),
-            "sha256": result.get("sha256"),
-            "cyclonedx_path": result.get("cyclonedx_path"),
-            "spdx_path": result.get("spdx_path"),
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w13_sbom_generator."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

@@ -12,17 +12,16 @@ Exit code: 0 if all checks pass; 1 otherwise.
 """
 from __future__ import annotations
 
-import argparse
 import ast
-import json
-import logging
 import re
 import subprocess
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
+import script_common as sc
+
+_SCRIPT = "audit_session_scripts"
+
 _SELF = Path(__file__).resolve()
 _SCRIPTS_DIR = _SELF.parent
 
@@ -33,16 +32,12 @@ SECRET_PATTERN = re.compile(
 )
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="audit_session_scripts", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--strict", action="store_true",
                    help="Exit 1 on warnings (not only errors).")
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_verbose(p)
 
 
 def list_w_scripts() -> list[Path]:
@@ -101,7 +96,7 @@ def run_pytest() -> dict:
     try:
         proc = subprocess.run(
             [sys.executable, "-m", "pytest", str(tests_dir), "-q"],
-            cwd=_SCRIPTS_DIR, capture_output=True, timeout=120,
+            cwd=_SCRIPTS_DIR, capture_output=True, timeout=120, check=False,
         )
         output = proc.stdout.decode("utf-8", errors="replace")
         # Parse "N passed in X.XXs"
@@ -120,7 +115,7 @@ def run_pytest() -> dict:
         return {"status": "MISSING_PYTHON"}
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Audit all sub-scripts + run pytest."""
     scripts = list_w_scripts()
     audits = [audit_single(s) for s in scripts]
@@ -129,7 +124,7 @@ def run(args: argparse.Namespace) -> dict:
     pytest_result = run_pytest()
     report = {
         "script": "audit_session_scripts",
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": {
             "scripts_audited": len(scripts),
             "ok": sum(1 for a in audits if a["status"] == "OK"),
@@ -152,28 +147,21 @@ def run(args: argparse.Namespace) -> dict:
     return report
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run audit_session_scripts, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "pytest": result["pytest"],
+        "warn_samples": [a["file"] for a in result["warns"][:5]],
+        "errors": result["errors"],
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "pytest": result["pytest"],
-            "warn_samples": [a["file"] for a in result["warns"][:5]],
-            "errors": result["errors"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of audit_session_scripts."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

@@ -356,13 +356,7 @@ def test_replay_nao_apaga_a_saida_do_outro(tmp_path: Path, monkeypatch) -> None:
     )
 
     # rodar o A1 de verdade (só a regra, sem modelo) no SANDBOX
-    monkeypatch.setattr(ra, "carregar_blocos", list)
-    monkeypatch.setattr(ra, "indexar_texto", dict)
-    monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
-    try:
-        ra.main()
-    except SystemExit:
-        pass
+    _rodar_so_regra(monkeypatch)
 
     assert (saida_a2 / "results-a2.json").exists(), (
         "rodar o A1 APAGOU o results-a2.json do outro replay"
@@ -396,6 +390,40 @@ def _assinatura_da_saida(d: Path) -> dict:
     return out
 
 
+def _rodar_so_regra(monkeypatch) -> None:
+    """Roda `ra.main()` só com a regra (sem modelo nem corpus): o que se observa é a escrita."""
+    monkeypatch.setattr(ra, "carregar_blocos", list)
+    monkeypatch.setattr(ra, "indexar_texto", dict)
+    monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
+    try:
+        ra.main()
+    except SystemExit:
+        pass
+
+
+def _evento_a2() -> dict:
+    """O evento `a2_offer_closed` mínimo que os testes de `cache_only` dão ao braço A2."""
+    return {
+        "session_hash": "abc",
+        "kind": "a2_offer_closed",
+        "use_case": "a2_outcome",
+        "mode": "code",
+        "closed_by": "consumed",
+        "cmd_heads": ["ls"],
+        "baseline_value": 1.0,
+    }
+
+
+def _carregar_de(corpus: Path) -> list:
+    """`ra.carregar_blocos()` lendo `corpus`; `ra.CORPUS` volta ao valor antigo ao sair."""
+    antigo = ra.CORPUS
+    try:
+        ra.CORPUS = corpus
+        return ra.carregar_blocos()
+    finally:
+        ra.CORPUS = antigo
+
+
 def test_a_saida_real_esta_preservada_quando_a_constante_e_trocada(
     tmp_path: Path, monkeypatch
 ) -> None:
@@ -411,13 +439,7 @@ def test_a_saida_real_esta_preservada_quando_a_constante_e_trocada(
     if not antes:
         pytest.skip("sem saida real para preservar (ainda nao houve replay)")
     monkeypatch.setattr(ra, "SAIDA", tmp_path / "a1")
-    monkeypatch.setattr(ra, "carregar_blocos", list)
-    monkeypatch.setattr(ra, "indexar_texto", dict)
-    monkeypatch.setattr(sys, "argv", ["r3_replay_a1.py", "--so-regra"])
-    try:
-        ra.main()
-    except SystemExit:
-        pass
+    _rodar_so_regra(monkeypatch)
     assert _assinatura_da_saida(real) == antes, "a escrita foi para o diretorio REAL"
 
 
@@ -440,15 +462,7 @@ def test_cache_only_aborta_em_vez_de_chamar_a_api(monkeypatch) -> None:
     monkeypatch.setattr(jev_client, "system_one", _fake)
     monkeypatch.setattr(jev_client, "_read_cache", lambda p: {})
 
-    ev = {
-        "session_hash": "abc",
-        "kind": "a2_offer_closed",
-        "use_case": "a2_outcome",
-        "mode": "code",
-        "closed_by": "consumed",
-        "cmd_heads": ["ls"],
-        "baseline_value": 1.0,
-    }
+    ev = _evento_a2()
     out = a2.braço_jev(
         [ev],
         verbose=False,
@@ -486,12 +500,7 @@ def test_dataset_real_da_block_id_distinta_para_irmaos_do_turno() -> None:
         (p / "a1_blocks.jsonl").write_text(
             c.read_text(encoding="utf-8"), encoding="utf-8"
         )
-        antigo = ra.CORPUS
-        try:
-            ra.CORPUS = p
-            carregados = ra.carregar_blocos()
-        finally:
-            ra.CORPUS = antigo
+        carregados = _carregar_de(p)
     ids = [b["block_id"] for b in carregados]
     assert len(set(ids)) == 2, (
         f"o carregador REAL achatou dois blocos do mesmo turno em {len(set(ids))} id(s): {ids}"
@@ -602,12 +611,7 @@ def test_block_id_real_usa_posicao_ENTRE_irmaos_nao_por_arquivo() -> None:
             "\n".join(json.dumps(b, ensure_ascii=False) for b in blocos) + "\n",
             encoding="utf-8",
         )
-        antigo = ra.CORPUS
-        try:
-            ra.CORPUS = p
-            carregados = ra.carregar_blocos()
-        finally:
-            ra.CORPUS = antigo
+        carregados = _carregar_de(p)
     terceiro = carregados[2]["block_id"]
     assert terceiro.endswith(":0"), (
         f"o 3o bloco (1o do turno 9) tem block_id {terceiro!r}: a posição NÃO reinicia "
@@ -633,15 +637,7 @@ def test_cache_only_nao_chama_a_api_mesmo_com_o_jev_cache_cheio(monkeypatch) -> 
         chamadas["n"] += 1
         return {a2.QID: {"type": "noul", "noul": 0.4}}
 
-    ev = {
-        "session_hash": "abc",
-        "kind": "a2_offer_closed",
-        "use_case": "a2_outcome",
-        "mode": "code",
-        "closed_by": "consumed",
-        "cmd_heads": ["ls"],
-        "baseline_value": 1.0,
-    }
+    ev = _evento_a2()
     perguntas = {
         a2.QID: {
             "type": "noul",

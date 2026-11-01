@@ -32,7 +32,7 @@ LÊ `audit_sample.jsonl` e escreve só artefatos novos, em `~/.claude/touring/r3
 from __future__ import annotations
 
 import argparse
-import hashlib
+import contextlib
 import json
 import os
 import re
@@ -44,8 +44,8 @@ from pathlib import Path
 SCRIPTS = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPTS))
 
-import r3_b0 as b0  # noqa: E402
-import r3_event_schema as schema  # noqa: E402
+import r3_event_schema as schema
+import r3_replay_common as common
 
 CORPUS = Path(os.environ.get("R3_CORPUS", "~/.claude/touring/r3-data")).expanduser()
 # Cada replay grava no SEU subdiretório. Compartilhar um só diretório é o
@@ -125,12 +125,8 @@ def _prob_de_resposta(corpo, qid: str) -> float:
     """
     # `DecisionResult` (laya) e um objeto com `.values`/`.answers`; o Jev HTTP e
     # um dict. Os dois formatos, a mesma extracao.
-    for atr in ("answers", "values"):
-        sub = getattr(corpo, atr, None)
-        if isinstance(sub, dict) and qid in sub:
-            corpo = {qid: sub[qid]}
-            break
-    if not isinstance(corpo, dict):
+    corpo = common.corpo_da_resposta(corpo, qid)
+    if corpo is None:
         return 0.0
     # `system_one` devolve `{qid: {...}}` DIRECTO (medido), e o servidor HTTP
     # embrulha em `{"answers": {...}}`. Os dois formatos são aceitos porque o
@@ -139,15 +135,7 @@ def _prob_de_resposta(corpo, qid: str) -> float:
     ans = corpo.get(qid)
     if ans is None:
         ans = (corpo.get("answers") or {}).get(qid)
-    if isinstance(ans, (int, float)) and not isinstance(ans, bool):
-        return float(ans)
-    if not isinstance(ans, dict):
-        return 0.0
-    for chave in ("noul", "max_prob", "score"):
-        v = ans.get(chave)
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            return float(v)
-    return 0.0
+    return common.valor_da_resposta(ans)
 
 
 def braço_jev(eventos: list[dict], verbose: bool = True,
@@ -186,7 +174,7 @@ def braço_jev(eventos: list[dict], verbose: bool = True,
             continue
         if cache_only and jev_cache:
             # a mesma chave que jev_client._cache_key usaria para esta chamada
-            try:
+            with contextlib.suppress(Exception):  # espiada best-effort: qualquer falha cai no CACHE_MISS abaixo
                 import jev_client as _jc
                 kj = _jc._cache_key(payload_of(ev), {QID: {
                     "type": "noul",
@@ -195,8 +183,6 @@ def braço_jev(eventos: list[dict], verbose: bool = True,
                 if kj in jev_cache:
                     out.append(_norm_pred(jev_cache[kj], ev))
                     continue
-            except Exception:  # noqa: BLE001
-                pass
         if cache_only:
             # Modo cache_only: uma predicao que exigiria CHAMADA DE REDE aborta o
             # braço em vez de gastar cota. O cache do replay (cache-a2.jsonl) e o
@@ -204,7 +190,7 @@ def braço_jev(eventos: list[dict], verbose: bool = True,
             # que este replay controla.
             faltando_cache += 1
             out.append({"item": ev.get("session_hash"),
-                        "erro": f"CACHE_MISS (cache_only: sem chamada de rede)"})
+                        "erro": "CACHE_MISS (cache_only: sem chamada de rede)"})
             continue
         if restantes <= 0:
             if verbose:
@@ -267,6 +253,7 @@ def braço_laya(eventos: list[dict], verbose: bool = True) -> list[dict]:
     são ~25 s de modelo, o que é o que justifica o `hw-slot`.
     """
     import time as _time
+
     import laya
     verbose and print("    carregando convaiinnovations/laya em CPU (zero-shot, sem servidor)…")
     t0 = _time.perf_counter()
@@ -304,34 +291,12 @@ VERSAO_CACHE = 1   # mude a gramática/pergunta e o cache invalida por construç
 
 
 def _chave_cache(arm: str, chave: str, spec: str) -> str:
-    """A chave de uma predição: braço + item + VERSÃO da pergunta.
-
-    Inclui o `spec` (a pergunta) para que mudar a pergunta invalide o cache em vez
-    de devolver a predição da pergunta antiga — o re-run sem mudança de entrada
-    tem de dar 0 chamadas, e o re-run com a pergunta mudada tem de dar N.
-    """
-    return f"{VERSAO_CACHE}|{arm}|{chave}|{hashlib.sha256(spec.encode()).hexdigest()[:10]}"
+    """A chave de uma predição (ver `r3_replay_common.chave_cache`), com a VERSAO_CACHE deste replay."""
+    return common.chave_cache(VERSAO_CACHE, arm, chave, spec)
 
 
-def carregar_cache(caminho: Path) -> dict:
-    if not caminho.exists():
-        return {}
-    out = {}
-    for l in caminho.read_text(encoding="utf-8").splitlines():
-        if not l.strip():
-            continue
-        try:
-            r = json.loads(l)
-        except ValueError:
-            continue          # cache truncado: descarta a linha, não o arquivo
-        out[r["cache_key"]] = r["pred"]
-    return out
-
-
-def _registrar_cache(caminho: Path, cache_key: str, pred: dict) -> None:
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    with open(caminho, "a", encoding="utf-8") as f:
-        f.write(json.dumps({"cache_key": cache_key, "pred": pred}, ensure_ascii=False) + "\n")
+carregar_cache = common.carregar_cache
+_registrar_cache = common.registrar_cache
 
 
 # ──────────────────────────────────────────────────────────────── avaliação

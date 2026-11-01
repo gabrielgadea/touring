@@ -10,17 +10,14 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w5_consumer_migrate"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 
 # Storage modules being extracted → new touring_storage:: paths
 MODULE_MAP: dict[str, str] = {
@@ -31,26 +28,21 @@ MODULE_MAP: dict[str, str] = {
 }
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w5_consumer_migrate", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true",
                    help="DESTRUCTIVE — actually rewrite imports.")
     p.add_argument("--map-file", type=Path,
                    default=_DATA_DIR / "w5-storage-extraction-targets.json")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def render_script(targets: list[dict]) -> str:
     """Render idempotent ast-grep rewrite script."""
     lines = ["#!/usr/bin/env bash",
-             f"# AUTO-GENERATED — W5.x consumer migration",
-             f"# Generated: {datetime.now(UTC).isoformat()}",
+             "# AUTO-GENERATED — W5.x consumer migration",
+             f"# Generated: {sc.now_iso()}",
              "set -euo pipefail",
              ""]
     for t in targets:
@@ -65,7 +57,7 @@ def render_script(targets: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Render script + optionally apply."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -80,36 +72,26 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w5_consumer_migrate",
         "wave": "W5", "subtask_refs": ["W5.migrate"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK", "apply": args.apply,
         "targets_count": len(targets),
         "module_map": MODULE_MAP,
         "script_path": str(script_path.relative_to(_ROOT)),
     }
     json_path = args.output_dir / "w5-migration-applied.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    report["json_path"] = str(json_path.relative_to(_ROOT))
-    return report
+    return sc.write_json_report(json_path, report, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w5_consumer_migrate, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json(result)
+    return 0 if result["status"] == "OK" else 1
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w5_consumer_migrate."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

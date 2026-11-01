@@ -33,15 +33,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import jev_tags_backfill as bf  # noqa: E402
-
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
-    if not ok:
-        FAILURES.append(name)
+import jev_tags_backfill as bf
+from script_testkit import check, finish
 
 
 def test_no_writes_are_performed() -> None:
@@ -184,8 +177,7 @@ def main() -> int:
         test_the_database_is_opened_read_only,
     ):
         test()
-    print(f"\n{len(FAILURES)} falha(s): {FAILURES}" if FAILURES else "\nTODOS OS TESTES PASSARAM")
-    return 1 if FAILURES else 0
+    return finish()
 
 
 if __name__ == "__main__":

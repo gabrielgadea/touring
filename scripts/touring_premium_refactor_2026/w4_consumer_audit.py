@@ -21,18 +21,17 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
 import logging
 import re
 from collections import defaultdict
-from datetime import UTC, datetime
-from pathlib import Path
+
+import script_common as sc
+
+_SCRIPT = "w4_consumer_audit"
 
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
+_ROOT, _DATA_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.CRATES_DIR
 
 # 4 source crates that fuse into touring-code in W4
 SOURCE_CRATES: list[str] = [
@@ -48,21 +47,16 @@ def crate_to_module(crate_name: str) -> str:
     return crate_name.replace("-", "_")
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w4_consumer_audit", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--crate", type=str, default="",
                    help="Limit scan to one source crate (default: all 4).")
     p.add_argument("--markdown", action="store_true",
                    help="Also emit human-readable migration-checklist.md.")
     p.add_argument("--strict", action="store_true",
                    help="Fail if >50 distinct consumer files (anomaly check).")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def scan_consumers(source_crate: str) -> dict[str, list[dict]]:
@@ -134,7 +128,7 @@ def build_report(audits: dict[str, dict[str, list[dict]]]) -> dict:
         "script": "w4_consumer_audit",
         "wave": "W4",
         "subtask_refs": ["W4.7", "W4.8", "W4.9", "W4.10"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "total_consumer_files": total_files,
         "distinct_consumer_crates": sorted(all_consumer_crates),
         "consumers_per_source": consumers_per_src,
@@ -163,7 +157,7 @@ def render_markdown_checklist(report: dict) -> str:
     return "\n".join(lines)
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Full scan + emit JSON (+ optionally markdown)."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     sources = [args.crate] if args.crate else SOURCE_CRATES
@@ -188,31 +182,24 @@ def run(args: argparse.Namespace) -> dict:
     return report
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w4_consumer_audit, print its summary; the return value is the exit code."""
+    result = run(args)
+    # Print compact summary to stdout (full JSON in file)
+    sc.emit_json({
+        "status": result["status"],
+        "total_consumer_files": result["total_consumer_files"],
+        "distinct_consumer_crates": len(result["distinct_consumer_crates"]),
+        "consumers_per_source": result["consumers_per_source"],
+        "json_path": result["json_path"],
+        "markdown_path": result.get("markdown_path"),
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        # Print compact summary to stdout (full JSON in file)
-        print(json.dumps({
-            "status": result["status"],
-            "total_consumer_files": result["total_consumer_files"],
-            "distinct_consumer_crates": len(result["distinct_consumer_crates"]),
-            "consumers_per_source": result["consumers_per_source"],
-            "json_path": result["json_path"],
-            "markdown_path": result.get("markdown_path"),
-        }, indent=2, ensure_ascii=False))
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w4_consumer_audit."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

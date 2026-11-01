@@ -43,7 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
-import r3_a1_kpi as kpi  # noqa: E402
+import r3_a1_kpi as kpi
 
 PROJ = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring")
 OUT_DIR = Path("~/.claude/touring/r3-data").expanduser()
@@ -70,50 +70,6 @@ def is_exempt(text: str, family: str) -> bool:
     if family in EXEMPT_FAMILIES:
         return True
     return any(m in text for m in EXEMPT_MARKERS)
-
-
-def _json(line: str) -> dict | None:
-    """Uma linha do transcript parseada, ou None se estiver malformada.
-
-    Um journal truncado não pode virar "nenhuma oferta" em silêncio — nem derrubar
-    a extração inteira.
-    """
-    try:
-        rec = json.loads(line)
-    except ValueError:
-        return None
-    return rec if isinstance(rec, dict) else None
-
-
-def _bloco_de(session: str, turno: int, tipo: str, text: str, dup: bool) -> dict:
-    """UM bloco de injeção, já classificado. Puro — o `extract` só orquestra."""
-    familia = kpi.injection_family(text)
-    props = kpi.count_propositions(text)
-    return {
-        "session": session, "turno": turno, "attachment_type": tipo,
-        "family": familia,
-        "is_touring_family": familia in kpi.TOURING_FAMILIES,
-        "is_exempt": is_exempt(text, familia),
-        "is_duplicate": dup,
-        "bytes": len(text.encode("utf-8")),
-        "propositions": props,
-        "head": text.split("\n", 1)[0][:120],
-    }
-
-
-def _acumula(agg_kpi: dict, por_familia: dict, bloco: dict) -> None:
-    """Acumula UM bloco no agregado do KPI e no agregado por família."""
-    if bloco["attachment_type"] == kpi.HOOK_ATTACHMENT_TYPE:
-        agg_kpi["bytes"] += bloco["bytes"]
-        agg_kpi["blocks"] += 1
-    c = por_familia.setdefault(bloco["family"], Counter())
-    c["bytes"] += bloco["bytes"]
-    c["blocks"] += 1
-    c["propositions"] += bloco["propositions"]
-    if bloco["propositions"] == 0:
-        c["zero_prop"] += 1
-    if bloco["is_exempt"]:
-        c["exempt"] += 1
 
 
 def _json(line: str) -> dict | None:
@@ -306,9 +262,9 @@ def _kpi_context_budget() -> dict:
     PATH levanta `FileNotFoundError`, que é `OSError` e seria lido como "transcripts indisponíveis"."""
     try:
         p = subprocess.run(["touring", "kpi", "-j"], capture_output=True, text=True,
-                           timeout=180)
+                           timeout=180, check=False)
         return json.loads(p.stdout)["context_budget"]
-    except Exception as e:  # noqa: BLE001 — a falha é o dado, não uma exceção
+    except Exception as e:  # a falha é o dado, não uma exceção
         raise _KpiIndisponivel(e) from e
 
 
@@ -379,8 +335,7 @@ def main() -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
-        for b in blocos:
-            f.write(json.dumps(b, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(b, ensure_ascii=False) + "\n" for b in blocos)
     Path(args.resumo_out).write_text(json.dumps(resumo, ensure_ascii=False, indent=1),
                                      encoding="utf-8")
 

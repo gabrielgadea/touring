@@ -8,6 +8,23 @@ set -euo pipefail
 TARGET="target"
 DRY_RUN="${1:-}"
 
+# Remove (or, under --dry-run, only report) every binary path read from stdin.
+# Updates the caller's `count` and `freed` locals (bash dynamic scoping).
+prune_listed() {
+    local bin size
+    while IFS= read -r bin; do
+        ((count++)) || true
+        size=$(stat -c%s "$bin" 2>/dev/null || stat -f%z "$bin" 2>/dev/null || echo 0)
+        if [[ -n "$DRY_RUN" ]]; then
+            echo "[DRY-RUN] Would remove: $bin ($(numfmt --to=iec-i --suffix=B "$size"))"
+        else
+            rm -f "$bin"
+            ((freed += size)) || true
+            echo "Removed: $bin"
+        fi
+    done
+}
+
 # Find all touring-XXXXXXXXXXXXXXXX (hash-suffixed binaries) in deps/
 # Exclude the most recently modified one (current build)
 cleanup_duplicates() {
@@ -16,33 +33,11 @@ cleanup_duplicates() {
 
     # Find duplicate touring binaries (excluding the active one)
     # These are ~500MB each from incremental compiles with different flags/profiles
-    while IFS= read -r bin; do
-        ((count++)) || true
-        local size
-        size=$(stat -c%s "$bin" 2>/dev/null || stat -f%z "$bin" 2>/dev/null || echo 0)
-        if [[ -n "$DRY_RUN" ]]; then
-            echo "[DRY-RUN] Would remove: $bin ($(numfmt --to=iec-i --suffix=B "$size"))"
-        else
-            rm -f "$bin"
-            ((freed += size)) || true
-            echo "Removed: $bin"
-        fi
-    done < <(find "$TARGET" -path "*/deps/touring-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]" -type f 2>/dev/null | \
+    prune_listed < <(find "$TARGET" -path "*/deps/touring-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]" -type f 2>/dev/null | \
           sort -t/ -k1 | uniq -c | awk 'NR>1 && $1>1 {print $2}' || true)
 
     # Remove old touring_hooks binaries (same pattern)
-    while IFS= read -r bin; do
-        ((count++)) || true
-        local size
-        size=$(stat -c%s "$bin" 2>/dev/null || stat -f%z "$bin" 2>/dev/null || echo 0)
-        if [[ -n "$DRY_RUN" ]]; then
-            echo "[DRY-RUN] Would remove: $bin ($(numfmt --to=iec-i --suffix=B "$size"))"
-        else
-            rm -f "$bin"
-            ((freed += size)) || true
-            echo "Removed: $bin"
-        fi
-    done < <(find "$TARGET" -path "*/deps/touring_hooks-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]" -type f 2>/dev/null | \
+    prune_listed < <(find "$TARGET" -path "*/deps/touring_hooks-[a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9][a-f0-9]" -type f 2>/dev/null | \
           sort -t/ -k1 | uniq -c | awk 'NR>1 && $1>1 {print $2}' || true)
 
     # Report

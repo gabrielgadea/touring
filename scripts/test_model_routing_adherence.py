@@ -27,7 +27,7 @@ sys.path.insert(0, str(HERE))
 
 import model_routing_adherence as mra
 
-DESDE = dt.datetime(2026, 10, 8, tzinfo=dt.timezone.utc)
+DESDE = dt.datetime(2026, 10, 8, tzinfo=dt.UTC)
 CHAVES_DO_RELATORIO = {
     "janela",
     "chamadas_agent",
@@ -119,6 +119,17 @@ def _medir(raiz: Path, desde: dt.datetime = DESDE) -> dict:
     return mra.resumo(mra.varrer(raiz, desde))
 
 
+def _opus(msg_id: str, *chamadas: dict, **resto) -> dict:
+    """Turno do assistente principal (opus) que carrega as `chamadas` tool_use dadas."""
+    return _assistente("claude-opus-5-5", msg_id=msg_id, chamadas=chamadas, **resto)
+
+
+def _emitir(raiz: Path, alvo: Path, *extra: str) -> int:
+    """`mra.main` com `--emit`: o argv comum dos testes do contrato `external` do KPI."""
+    argv = ["--root", str(raiz), "--since", "2026-10-08", "--emit", str(alvo)]
+    return mra.main([*argv, *extra])
+
+
 # ── 1. contagem ─────────────────────────────────────────────────────────────
 
 
@@ -127,14 +138,11 @@ def test_conta_chamadas_por_model_pedido(tmp_path):
         tmp_path,
         "s1",
         [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=(
-                    _chamada("t1", "sonnet", "general-purpose"),
-                    _chamada("t2", "haiku", "Explore"),
-                    _chamada("t3", None, None),
-                ),
+            _opus(
+                "m1",
+                _chamada("t1", "sonnet", "general-purpose"),
+                _chamada("t2", "haiku", "Explore"),
+                _chamada("t3", None, None),
             )
         ],
     )
@@ -154,14 +162,11 @@ def test_nome_legado_task_conta_como_delegacao_e_outras_tools_nao(tmp_path):
         tmp_path,
         "s1",
         [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=(
-                    _chamada("t1", "sonnet", "Plan", nome="Task"),
-                    _chamada("t2", "haiku", "Explore", nome="Agent"),
-                    _chamada("t3", "haiku", "Explore", nome="Read"),
-                ),
+            _opus(
+                "m1",
+                _chamada("t1", "sonnet", "Plan", nome="Task"),
+                _chamada("t2", "haiku", "Explore", nome="Agent"),
+                _chamada("t3", "haiku", "Explore", nome="Read"),
             )
         ],
     )
@@ -175,18 +180,8 @@ def test_chamadas_por_dia_usam_utc(tmp_path):
         tmp_path,
         "s1",
         [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                ts=_ts("2026-10-12", "23:59:59"),
-                chamadas=(_chamada("t1", "haiku", "Explore"),),
-            ),
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m2",
-                ts="2026-10-13T00:00:01+00:00",
-                chamadas=(_chamada("t2", "haiku", "Explore"),),
-            ),
+            _opus("m1", _chamada("t1", "haiku", "Explore"), ts=_ts("2026-10-12", "23:59:59")),
+            _opus("m2", _chamada("t2", "haiku", "Explore"), ts="2026-10-13T00:00:01+00:00"),
         ],
     )
     assert _medir(tmp_path)["chamadas_agent"]["por_dia"] == {
@@ -324,7 +319,7 @@ def test_filtro_since_descarta_registro_anterior_a_janela(tmp_path):
     assert r["chamadas_agent"]["por_model_pedido"] == {"haiku": 1}
     assert r["tokens_por_familia"]["anthropic"]["total"] == 1
     assert (
-        _medir(tmp_path, dt.datetime(2026, 9, 1, tzinfo=dt.timezone.utc))[
+        _medir(tmp_path, dt.datetime(2026, 9, 1, tzinfo=dt.UTC))[
             "chamadas_agent"
         ]["total"]
         == 2
@@ -335,14 +330,7 @@ def test_since_e_inclusivo_na_meia_noite_utc(tmp_path):
     _principal(
         tmp_path,
         "s1",
-        [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                ts="2026-10-08T00:00:00.000Z",
-                usage=_usage(saida=3),
-            )
-        ],
+        [_opus("m1", ts="2026-10-08T00:00:00.000Z", usage=_usage(saida=3))],
     )
     assert _medir(tmp_path)["tokens_por_familia"]["anthropic"]["total"] == 3
 
@@ -352,18 +340,15 @@ def test_desajuste_busca_com_modelo_caro(tmp_path):
         tmp_path,
         "s1",
         [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=(
-                    _chamada("t1", "sonnet", "Explore"),
-                    _chamada("t2", "haiku", "Explore"),
-                    _chamada("t3", "opus", "touring-scouter"),
-                    _chamada("t4", "sonnet", "general-purpose"),
-                    _chamada("t5", None, "Explore"),
-                    _chamada("t6", "fable", "Explore"),
-                    _chamada("t7", "fable", "general-purpose"),
-                ),
+            _opus(
+                "m1",
+                _chamada("t1", "sonnet", "Explore"),
+                _chamada("t2", "haiku", "Explore"),
+                _chamada("t3", "opus", "touring-scouter"),
+                _chamada("t4", "sonnet", "general-purpose"),
+                _chamada("t5", None, "Explore"),
+                _chamada("t6", "fable", "Explore"),
+                _chamada("t7", "fable", "general-purpose"),
             )
         ],
     )
@@ -390,13 +375,7 @@ def test_sem_busca_decidivel_a_aderencia_e_none_nunca_zero(tmp_path):
     _principal(
         tmp_path,
         "s1",
-        [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=(_chamada("t1", "sonnet", "general-purpose"),),
-            )
-        ],
+        [_opus("m1", _chamada("t1", "sonnet", "general-purpose"))],
     )
     assert _medir(tmp_path)["aderencia_roteamento"]["valor"] is None
 
@@ -536,7 +515,7 @@ def test_arquivo_nao_tocado_desde_a_janela_e_ignorado_por_mtime(tmp_path):
         "velho",
         [_assistente("claude-opus-5-5", msg_id="v1", usage=_usage(saida=50))],
     )
-    os.utime(velho, (dt.datetime(2026, 1, 1, tzinfo=dt.timezone.utc).timestamp(),) * 2)
+    os.utime(velho, (dt.datetime(2026, 1, 1, tzinfo=dt.UTC).timestamp(),) * 2)
     _principal(
         tmp_path,
         "novo",
@@ -711,8 +690,8 @@ def test_since_invalido_sai_com_2(tmp_path, capsys):
 
 
 def test_since_padrao_e_meia_noite_utc_sete_dias_atras():
-    agora = dt.datetime(2026, 10, 17, 15, 30, tzinfo=dt.timezone.utc)
-    assert mra.desde_padrao(agora) == dt.datetime(2026, 10, 10, tzinfo=dt.timezone.utc)
+    agora = dt.datetime(2026, 10, 17, 15, 30, tzinfo=dt.UTC)
+    assert mra.desde_padrao(agora) == dt.datetime(2026, 10, 10, tzinfo=dt.UTC)
     assert mra.parse_since("2026-10-08") == DESDE
 
 
@@ -722,33 +701,16 @@ def test_emit_grava_o_contrato_external_do_kpi(tmp_path):
         raiz,
         "s1",
         [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=tuple(_chamada(f"h{i}", "haiku", "Explore") for i in range(8))
-                + (
-                    _chamada("c1", "sonnet", "Explore"),
-                    _chamada("c2", "opus", "touring-scouter"),
-                ),
+            _opus(
+                "m1",
+                *(_chamada(f"h{i}", "haiku", "Explore") for i in range(8)),
+                _chamada("c1", "sonnet", "Explore"),
+                _chamada("c2", "opus", "touring-scouter"),
             )
         ],
     )
     alvo = tmp_path / "kpi" / "external" / "touring.routing.adherence.json"
-    assert (
-        mra.main(
-            [
-                "--root",
-                str(raiz),
-                "--since",
-                "2026-10-08",
-                "--emit",
-                str(alvo),
-                "--min-n",
-                "10",
-            ]
-        )
-        == 0
-    )
+    assert _emitir(raiz, alvo, "--min-n", "10") == 0
     payload = json.loads(alvo.read_text(encoding="utf-8"))
     assert payload["value"] == 0.8  # 8 aderentes em 10 buscas decidíveis
     assert payload["n"] == 10
@@ -764,16 +726,10 @@ def test_emit_abaixo_do_minimo_grava_null_com_a_causa_nunca_zero(tmp_path):
     _principal(
         raiz,
         "s1",
-        [
-            _assistente(
-                "claude-opus-5-5",
-                msg_id="m1",
-                chamadas=(_chamada("c1", "sonnet", "Explore"),),
-            )
-        ],
+        [_opus("m1", _chamada("c1", "sonnet", "Explore"))],
     )
     alvo = tmp_path / "ext.json"
-    mra.main(["--root", str(raiz), "--since", "2026-10-08", "--emit", str(alvo)])
+    _emitir(raiz, alvo)
     payload = json.loads(alvo.read_text(encoding="utf-8"))
     assert (
         payload["value"] is None
@@ -785,18 +741,7 @@ def test_emit_sem_nenhuma_busca_decidivel_grava_null(tmp_path):
     raiz = tmp_path / "projects"
     raiz.mkdir()
     alvo = tmp_path / "ext.json"
-    mra.main(
-        [
-            "--root",
-            str(raiz),
-            "--since",
-            "2026-10-08",
-            "--emit",
-            str(alvo),
-            "--min-n",
-            "0",
-        ]
-    )
+    _emitir(raiz, alvo, "--min-n", "0")
     payload = json.loads(alvo.read_text(encoding="utf-8"))
     assert payload["value"] is None
     assert payload["detalhe"]
@@ -827,8 +772,8 @@ def test_commitment_do_kpi_declara_este_produtor_e_o_arquivo_do_proprio_id():
 # ── 6. registros de enforcement: o gate de modelo e o aviso de delegação ────
 
 #: Depois de todo fixture: nenhum aviso de 12/10 fica «pendente» (prazo de 10 min já vencido).
-AGORA = dt.datetime(2026, 10, 14, tzinfo=dt.timezone.utc)
-Z = dt.timezone.utc
+AGORA = dt.datetime(2026, 10, 14, tzinfo=dt.UTC)
+Z = dt.UTC
 
 
 def _gate(ts: object, why: object, allowed: object = True, **extra: object) -> dict:

@@ -18,17 +18,15 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import subprocess
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w1_fix_cycle1"
+
+_ROOT, _STAGING_DIR = sc.ROOT, sc.STAGING_DIR
 _FILE_TOOLS = _ROOT / "crates" / "touring-server" / "src" / "tools" / "file_tools.rs"
 _PROJECT_TOOLS = _ROOT / "crates" / "touring-server" / "src" / "tools" / "project_tools.rs"
 
@@ -36,18 +34,14 @@ CROSS_REF_RE = re.compile(r"\b(?:use\s+super::|use\s+crate::tools::)(\w+)")
 TYPE_USE_RE = re.compile(r"\b(?:super::|crate::tools::)(\w+)::(\w+)")
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w1_fix_cycle1", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--strategy", choices=["shared", "trait", "merge"],
                    default="shared", help="Mitigation strategy.")
     p.add_argument("--apply", action="store_true",
                    help="Generate the actual diff/patch (still requires manual cargo check).")
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_verbose(p)
 
 
 def analyze_cross_refs(path: Path) -> dict:
@@ -86,13 +80,13 @@ def diagnose() -> dict:
 
 def propose_fix_shared(diag: dict) -> str:
     """Propose extracting common types to tools/shared.rs."""
-    a_types = set((u["item"] for u in diag["file_tools"].get("type_usages", [])
-                   if u["module"] == "project_tools"))
-    b_types = set((u["item"] for u in diag["project_tools"].get("type_usages", [])
-                   if u["module"] == "file_tools"))
+    a_types = {u["item"] for u in diag["file_tools"].get("type_usages", [])
+                   if u["module"] == "project_tools"}
+    b_types = {u["item"] for u in diag["project_tools"].get("type_usages", [])
+                   if u["module"] == "file_tools"}
     candidates = sorted(a_types | b_types)
     body = "# Strategy: shared\n\n"
-    body += f"## Items to extract into crates/touring-server/src/tools/shared.rs:\n\n"
+    body += "## Items to extract into crates/touring-server/src/tools/shared.rs:\n\n"
     for c in candidates or ["(diagnose detected no concrete type refs; manual review)"]:
         body += f"  - {c}\n"
     body += "\n## Steps:\n"
@@ -140,7 +134,7 @@ def run(strategy: str, apply: bool) -> dict:
     return {
         "status": "OK",
         "strategy": strategy,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "cycle_evidence": diag["cycle_evidence"],
         "diagnosis_file": str(diag_path.relative_to(_ROOT)),
         "proposal_file": str(proposal_path.relative_to(_ROOT)),
@@ -150,23 +144,16 @@ def run(strategy: str, apply: bool) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w1_fix_cycle1, print its summary; the return value is the exit code."""
+    result = run(args.strategy, args.apply)
+    sc.emit_json(result)
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args.strategy, args.apply)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w1_fix_cycle1."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

@@ -30,8 +30,7 @@ Usage:
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+import rewrite_crate_paths_core as core
 
 # module -> cross-crate path map (intra-fusion deps only).
 # Keys are the OLD external crate path; values are the new crate-local path.
@@ -60,168 +59,28 @@ CROSS_CRATE: dict[str, dict[str, str]] = {
     },
 }
 
+# The four modules of the W6 fusion: a `crate::` already followed by any of them was
+# rewritten in a previous pass, so it is left alone (handles inter-module refs too).
+ALL_MODULES = ("reasoning", "rl", "ann", "index")
+
+
+def _is_prefixed(after: str, module: str) -> bool:
+    return after.startswith(f"{module}::") or any(after.startswith(f"{m}::") for m in ALL_MODULES)
+
+
+def _default_dir(module: str) -> str:
+    if module == "tests":
+        return "crates/touring-intelligence/tests"
+    return f"crates/touring-intelligence/src/{module}"
+
 
 def rewrite_source(text: str, module: str, cross: dict[str, str]) -> tuple[str, int]:
     """Return (new_text, num_rewrites). Only rewrites code-context tokens."""
-    crate_prefix = f"crate::{module}::"
-    out: list[str] = []
-    i = 0
-    n = len(text)
-    rewrites = 0
-
-    while i < n:
-        ch = text[i]
-
-        # Line comment — copy verbatim to end of line.
-        if ch == "/" and i + 1 < n and text[i + 1] == "/":
-            j = text.find("\n", i)
-            if j == -1:
-                j = n
-            out.append(text[i:j])
-            i = j
-            continue
-
-        # Block comment — copy verbatim to closing */.
-        if ch == "/" and i + 1 < n and text[i + 1] == "*":
-            j = text.find("*/", i + 2)
-            j = n if j == -1 else j + 2
-            out.append(text[i:j])
-            i = j
-            continue
-
-        # Raw string: r"...", r#"..."#, r##"..."##, ...
-        if ch == "r" and i + 1 < n and text[i + 1] in '"#':
-            k = i + 1
-            hashes = 0
-            while k < n and text[k] == "#":
-                hashes += 1
-                k += 1
-            if k < n and text[k] == '"':
-                closer = '"' + "#" * hashes
-                j = text.find(closer, k + 1)
-                j = n if j == -1 else j + len(closer)
-                out.append(text[i:j])
-                i = j
-                continue
-
-        # Regular string literal "..." with \-escapes.
-        if ch == '"':
-            j = i + 1
-            while j < n:
-                if text[j] == "\\":
-                    j += 2
-                    continue
-                if text[j] == '"':
-                    j += 1
-                    break
-                j += 1
-            out.append(text[i:j])
-            i = j
-            continue
-
-        # Char literal 'x' or '\n' — but NOT a lifetime ('a).
-        if ch == "'":
-            if i + 1 < n and (text[i + 1].isalpha() or text[i + 1] == "_"):
-                if i + 2 < n and text[i + 2] == "'":
-                    out.append(text[i : i + 3])  # char literal 'a'
-                    i += 3
-                    continue
-                # treat as lifetime — copy the tick only.
-                out.append(ch)
-                i += 1
-                continue
-            if i + 1 < n and text[i + 1] == "\\":
-                # escaped char literal '\n' '\'' '\\'
-                j = i + 2
-                while j < n and text[j] != "'":
-                    j += 1
-                j = min(j + 1, n)
-                out.append(text[i:j])
-                i = j
-                continue
-
-        # Cross-crate path rewrite (intra-fusion deps).
-        matched_cross = False
-        for src_path, dst_path in cross.items():
-            if text.startswith(src_path, i):
-                out.append(dst_path)
-                i += len(src_path)
-                rewrites += 1
-                matched_cross = True
-                break
-        if matched_cross:
-            continue
-
-        # Code context — check for `crate::` at this position.
-        if text.startswith("crate::", i):
-            after = text[i + 7:]
-            if after.startswith(f"{module}::"):
-                # Already prefixed (idempotent re-run) — emit as-is.
-                out.append("crate::")
-                i += 7
-                continue
-            # Also skip if it already has any of the 4 module prefixes
-            # (handles inter-module refs already rewritten in a previous pass).
-            already_prefixed = any(
-                after.startswith(f"{m}::")
-                for m in ("reasoning", "rl", "ann", "index")
-            )
-            if already_prefixed:
-                out.append("crate::")
-                i += 7
-                continue
-            out.append(crate_prefix)
-            i += 7
-            rewrites += 1
-            continue
-
-        out.append(ch)
-        i += 1
-
-    return "".join(out), rewrites
+    return core.rewrite_fused_source(text, module, cross, _is_prefixed)
 
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print(__doc__, file=sys.stderr)
-        return 2
-
-    module = sys.argv[1]
-    if module not in CROSS_CRATE:
-        print(
-            f"ERROR: unknown module '{module}' "
-            f"(expected one of {sorted(CROSS_CRATE)})",
-            file=sys.stderr,
-        )
-        return 2
-
-    src_dir = Path(
-        sys.argv[2]
-        if len(sys.argv) > 2
-        else (
-            f"crates/touring-intelligence/tests"
-            if module == "tests"
-            else f"crates/touring-intelligence/src/{module}"
-        )
-    )
-    if not src_dir.is_dir():
-        print(f"ERROR: {src_dir} not found — run from workspace root", file=sys.stderr)
-        return 2
-
-    cross = CROSS_CRATE[module]
-    total = 0
-    files_changed = 0
-    for path in sorted(src_dir.rglob("*.rs")):
-        original = path.read_text(encoding="utf-8")
-        new, count = rewrite_source(original, module, cross)
-        if count > 0:
-            path.write_text(new, encoding="utf-8")
-            files_changed += 1
-            total += count
-            print(f"  {path.relative_to(src_dir)}: {count} rewrites")
-
-    print(f"\nTOTAL [{module}]: {total} rewrites across {files_changed} files")
-    return 0
+    return core.run_fused_cli(__doc__, CROSS_CRATE, _default_dir, rewrite_source)
 
 
 if __name__ == "__main__":

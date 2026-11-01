@@ -27,21 +27,19 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import itertools
 import json
 import logging
 import re
 import subprocess
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w7_features_powerset_check"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 # Heuristic-extracted feature names from `[features]` section
 FEATURE_RE = re.compile(r"^([a-zA-Z][a-zA-Z0-9_-]+)\s*=", re.MULTILINE)
@@ -51,12 +49,9 @@ FEATURE_SECTION_RE = re.compile(r"^\s*\[features\]\s*$", re.MULTILINE)
 RESERVED = {"default", "_dev_only"}
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w7_features_powerset_check", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--crate", type=str, default="",
                    help="Limit check to one crate (default: all multi-feature crates).")
     p.add_argument("--max-cardinality", type=int, default=3,
@@ -65,9 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="List combinations without running cargo check.")
     p.add_argument("--timeout", type=int, default=600,
                    help="Per-check cargo check timeout (default: 600s).")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def extract_features(cargo_path: Path) -> list[str]:
@@ -120,7 +113,7 @@ def run_cargo_check(crate: str, feature_set: list[str],
                 "features": feature_set, "crate": crate}
     try:
         proc = subprocess.run(cmd, cwd=_ROOT, capture_output=True,
-                               timeout=timeout)
+                               timeout=timeout, check=False)
         return {
             "command": " ".join(cmd),
             "crate": crate, "features": feature_set,
@@ -163,7 +156,7 @@ def render_md(report: dict) -> str:
     return "\n".join(md) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Discover features + enumerate + check."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -192,7 +185,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w7_features_powerset_check",
         "wave": "W7", "subtask_refs": ["W7.8"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "args": {"crate": args.crate, "max_cardinality": args.max_cardinality,
                   "dry_run": args.dry_run},
         "discovered_crates": {k: v for k, v in crates.items()},
@@ -209,28 +202,21 @@ def run(args: argparse.Namespace) -> dict:
              "md_path": str(md_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w7_features_powerset_check, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "discovered_crates": list(result["discovered_crates"].keys()),
+        "json_path": result["json_path"],
+        "md_path": result["md_path"],
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "discovered_crates": list(result["discovered_crates"].keys()),
-            "json_path": result["json_path"],
-            "md_path": result["md_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w7_features_powerset_check."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

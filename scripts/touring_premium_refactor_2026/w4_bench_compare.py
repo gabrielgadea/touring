@@ -10,25 +10,20 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
+import script_common as sc
+
+_SCRIPT = "w4_bench_compare"
+
+_ROOT, _DATA_DIR = sc.ROOT, sc.DATA_DIR
 _TARGET_CRITERION = _ROOT / "target" / "criterion"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w4_bench_compare", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--baseline", type=str, required=False,
                    default="pre-refactor",
                    help="Baseline name (e.g., pre-refactor-2026-05-11)")
@@ -36,9 +31,7 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Current run name.")
     p.add_argument("--threshold", type=float, default=0.05,
                    help="Max acceptable regression (0.05 = 5%%).")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def find_bench_dirs(criterion_root: Path) -> list[Path]:
@@ -72,7 +65,7 @@ def compute_delta(baseline: dict, current: dict) -> dict:
             "regression": delta > 0}
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Compare baseline vs current."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     bench_dirs = find_bench_dirs(_TARGET_CRITERION)
@@ -93,7 +86,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w4_bench_compare",
         "wave": "W4", "subtask_refs": ["W4.10"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "baseline": args.baseline, "current": args.current,
         "threshold": args.threshold,
         "totals": {
@@ -113,27 +106,20 @@ def run(args: argparse.Namespace) -> dict:
              "json_path": str(json_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w4_bench_compare, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "top_3_regressions": result["regressions"][:3],
+        "json_path": result["json_path"],
+    })
+    return 0 if result["status"] == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "top_3_regressions": result["regressions"][:3],
-            "json_path": result["json_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result["status"] == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w4_bench_compare."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

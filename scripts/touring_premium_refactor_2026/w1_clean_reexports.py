@@ -20,20 +20,15 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
-from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w1_clean_reexports"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 DEFAULT_DELETED = [
     "touring-semantic-spike", "touring-wasm-client",
@@ -42,19 +37,14 @@ DEFAULT_DELETED = [
 ]
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w1_clean_reexports", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--apply", action="store_true",
                    help="DESTRUCTIVE — remove lines from .rs files.")
     p.add_argument("--crates", type=str, default="",
                    help="Comma-separated deleted crate names.")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def deleted_modules(crates: list[str]) -> list[str]:
@@ -67,22 +57,14 @@ def scan_dangling(modules: list[str]) -> dict[str, list[dict]]:
     patterns = [re.compile(rf"^\s*pub\s+use\s+{re.escape(mod)}(::|\s|;)")
                  for mod in modules]
     findings: dict[str, list[dict]] = defaultdict(list)
-    for crate_dir in sorted(_CRATES_DIR.glob("touring-*")):
-        src = crate_dir / "src"
-        if not src.exists():
-            continue
-        for rs in src.rglob("*.rs"):
-            try:
-                content = rs.read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                continue
-            for lineno, line in enumerate(content.splitlines(), start=1):
-                for pat in patterns:
-                    if pat.search(line):
-                        findings[str(rs.relative_to(_ROOT))].append({
-                            "line": lineno, "text": line.strip(),
-                        })
-                        break
+    for crate_dir, rs, content in sc.crate_rust_sources(_CRATES_DIR):
+        for lineno, line in enumerate(content.splitlines(), start=1):
+            for pat in patterns:
+                if pat.search(line):
+                    findings[str(rs.relative_to(_ROOT))].append({
+                        "line": lineno, "text": line.strip(),
+                    })
+                    break
     return dict(findings)
 
 
@@ -121,7 +103,7 @@ def render_md(report: dict) -> str:
     return "\n".join(lines)
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + optionally apply."""
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
     args.output_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +116,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w1_clean_reexports",
         "wave": "W1", "subtask_refs": ["W1.3"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "deleted_modules": modules,
         "apply": args.apply,
         "totals": {
@@ -154,27 +136,20 @@ def run(args: argparse.Namespace) -> dict:
              "md_path": str(md_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w1_clean_reexports, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json({
+        "status": result["status"], "apply": result["apply"],
+        "totals": result["totals"],
+        "json_path": result["json_path"], "md_path": result["md_path"],
+    })
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "apply": result["apply"],
-            "totals": result["totals"],
-            "json_path": result["json_path"], "md_path": result["md_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w1_clean_reexports."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

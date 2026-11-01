@@ -26,23 +26,17 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
-
-REPO = Path(__file__).resolve().parent.parent
-SCRIPT = REPO / "scripts" / "propagate-release.sh"
-
-
-def executable_lines() -> list[str]:
-    out = []
-    for raw in SCRIPT.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if line and not line.startswith("#"):
-            out.append(line)
-    return out
-
+from propagate_release_testlib import (
+    REPO,
+    executable_lines,
+    fake_tree_with_script,
+    stub_s1a_gate,
+    write_canonical_workspace_manifest,
+    write_fake_touring,
+)
 
 # ── content invariants ───────────────────────────────────────────────────────
 
@@ -62,33 +56,16 @@ def test_an_empty_glob_fails_the_gate_and_says_so():
 # ── behavioral (fake tree) ───────────────────────────────────────────────────
 
 def _fake_tree(with_rite_test: bool) -> Path:
-    tmp = Path(tempfile.mkdtemp(prefix="rite-glob-"))
-    (tmp / "scripts").mkdir(parents=True)
-    shutil.copy(SCRIPT, tmp / "scripts" / "propagate-release.sh")
-    os.chmod(tmp / "scripts" / "propagate-release.sh", 0o755)
+    tmp = fake_tree_with_script("rite-glob-")
     # The S1a gate (r3, XA-13) has its own tests (test_propagate_release_s1a_gate.py); here it
     # is a stub that passes: this tree has no hw-slot and no crates to run the benchmark, and
     # the question under test is the rite glob.
-    s1a = tmp / "scripts" / "r3-s1a-gate"
-    s1a.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
-    s1a.chmod(0o755)
+    stub_s1a_gate(tmp)
     if with_rite_test:
         (tmp / "scripts" / "test_propagate_release_dummy.py").write_text(
             "def test_dummy():\n    assert True\n", encoding="utf-8")
-    (tmp / "Cargo.toml").write_text(
-        '[workspace.package]\nversion = "0.0.0"\n[workspace]\nmembers = []\n',
-        encoding="utf-8")
-    bin_dir = tmp / "target" / "release"
-    bin_dir.mkdir(parents=True)
-    fake = bin_dir / "touring"
-    fake.write_text(
-        '#!/bin/sh\n'
-        'printf "touring 30.4.67\\n'
-        'b8e2e7e68faf69285011c1ffd5a17579630d9f4f\\n'
-        '2026-08-18\\n2026-09-24T04:12:23Z\\n'
-        'analysis-gate,async-memory,console,default,otlp,tantivy-fts\\n" >&2\n',
-        encoding="utf-8")
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    write_canonical_workspace_manifest(tmp)
+    write_fake_touring(tmp)
     return tmp
 
 
@@ -108,7 +85,7 @@ def _run(tmp: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(tmp / "scripts" / "propagate-release.sh"), "30.4.67",
          "--skip-build", "--skip-freeze", "--no-default"],
-        capture_output=True, text=True, timeout=120, env=env,
+        capture_output=True, text=True, timeout=120, env=env, check=False,
     )
 
 
@@ -181,14 +158,14 @@ def test_gate1_selection_excludes_and_post_build_selection_exercises():
     )
     gate1 = subprocess.run(
         [sys.executable, "-m", "pytest", str(test_file), "-q", "-m", "not post_build"],
-        capture_output=True, text=True, timeout=120, cwd=tmp,
+        capture_output=True, text=True, timeout=120, cwd=tmp, check=False,
     )
     assert gate1.returncode == 0, (
         f"gate 1 (not post_build) must skip the binary-dependent test: {gate1.stdout[-300:]}"
     )
     post = subprocess.run(
         [sys.executable, "-m", "pytest", str(test_file), "-q", "-m", "post_build"],
-        capture_output=True, text=True, timeout=120, cwd=tmp,
+        capture_output=True, text=True, timeout=120, cwd=tmp, check=False,
     )
     assert post.returncode != 0, (
         "the post_build selection must RUN the marked test (and here it fails, "

@@ -19,24 +19,23 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
-import json
 import logging
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w0_capture_baselines"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = sc.ROOT
 _BASELINES_DIR = _ROOT / "docs" / "baselines"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w0_capture_baselines", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--date", type=str,
                    default=datetime.now(UTC).strftime("%Y-%m-%d"))
     p.add_argument("--all", action="store_true", help="Run all baselines (slow).")
@@ -46,8 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--skip-test-norun", action="store_true")
     p.add_argument("--skip-wiring", action="store_true")
     p.add_argument("--dry-run", action="store_true")
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_verbose(p)
 
 
 def run_cmd(cmd: list[str], log_path: Path, timeout: int, dry: bool) -> dict:
@@ -60,7 +58,7 @@ def run_cmd(cmd: list[str], log_path: Path, timeout: int, dry: bool) -> dict:
     try:
         with log_path.open("wb") as out:
             proc = subprocess.run(cmd, cwd=_ROOT, stdout=out, stderr=subprocess.STDOUT,
-                                  timeout=timeout)
+                                  timeout=timeout, check=False)
         return {"command": " ".join(cmd), "exit_code": proc.returncode,
                 "log": str(log_path.relative_to(_ROOT)),
                 "status": "OK" if proc.returncode == 0 else "FAIL"}
@@ -79,7 +77,7 @@ def run_touring_json(args: list[str], out_path: Path, timeout: int, dry: bool) -
                 "output": str(out_path.relative_to(_ROOT))}
     try:
         proc = subprocess.run(["touring", *args], cwd=_ROOT, capture_output=True,
-                              timeout=timeout)
+                              timeout=timeout, check=False)
         if proc.returncode != 0:
             return {"command": "touring " + " ".join(args), "status": "FAIL",
                     "exit_code": proc.returncode,
@@ -95,7 +93,7 @@ def run_touring_json(args: list[str], out_path: Path, timeout: int, dry: bool) -
         return {"command": "touring " + " ".join(args), "status": "MISSING_TOOL"}
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Capture all selected baselines."""
     _BASELINES_DIR.mkdir(parents=True, exist_ok=True)
     date = args.date
@@ -163,7 +161,7 @@ def run(args: argparse.Namespace) -> dict:
         "script": "w0_capture_baselines",
         "wave": "W0",
         "subtask_refs": ["W0.2", "W0.3", "W0.4", "W0.5"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "date": date,
         "dry_run": args.dry_run,
         "summary": {"ok": summary_ok, "fail": summary_fail,
@@ -172,29 +170,22 @@ def run(args: argparse.Namespace) -> dict:
     }
 
 
-def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w0_capture_baselines, print its summary; the return value is the exit code."""
     if args.all:
         args.skip_bench = False
         args.skip_coverage = False
         args.skip_check = False
         args.skip_test_norun = False
         args.skip_wiring = False
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        return 0 if result["summary"]["fail"] == 0 else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    result = run(args)
+    sc.emit_json(result)
+    return 0 if result["summary"]["fail"] == 0 else 1
+
+
+def main() -> int:
+    """Entry point of w0_capture_baselines."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

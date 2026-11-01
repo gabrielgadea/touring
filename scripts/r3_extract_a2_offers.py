@@ -41,11 +41,11 @@ import json
 import os
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from r3_b0 import b0_decision  # noqa: E402
+from r3_b0 import b0_decision
 
 PROJ = os.path.expanduser("~/.claude/projects/-home-gabrielgadea-projects-touring")
 OUT_DIR = Path("~/.claude/touring/r3-data").expanduser()
@@ -59,7 +59,7 @@ K_WINDOW = 3
 # guardado (9 de 198 decisões divergentes). Fica a constante porque o número
 # documenta a regressão — se alguém reintroduzir o corte, o teste
 # `test_comando_acima_de_200_chars_e_preservado_inteiro` reprova.
-MAX_CMD_CHARS = 200  # noqa: N816 - mantida por valor histórico, ver acima
+MAX_CMD_CHARS = 200
 
 # `cli_suggester.rs:5686` — a 1ª linha do deny do G1, o único call site de
 # record_route_offer (:5670).
@@ -94,7 +94,7 @@ CITADAS_SO: list[tuple[str, int]] = []
 #   · **`'(.*)'\n`** → guloso até a ÚLTIMA `'` seguida de quebra: acerta os seis
 #     casos de teste e os 180 denies reais.
 _LANG_ROTA = re.compile(r"touring run --lang (\w+) --code ")
-ROUTE_IN_BODY = re.compile(r"--code '(.*)'\n", re.S)
+ROUTE_IN_BODY = re.compile(r"--code '(.*)'\n", re.DOTALL)
 
 
 def programa_da_rota(texto: str) -> str | None:
@@ -149,26 +149,19 @@ def _eventos_do_transcript(path: Path) -> tuple[list[tuple[str, str, str]], int,
     eventos: list[tuple[str, str, str]] = []
     bad = 0
     citadas = 0
-    with open(path, errors="replace") as f:
-        for line in f:
-            try:
-                d = json.loads(line)
-            except ValueError:
-                bad += 1
-                continue
-            ts = d.get("timestamp", "")
-            if ts and ts < SINCE:
-                continue
-            if d.get("type") == "user":
-                eventos.append((ts, "user", ""))
-            c = (d.get("message") or {}).get("content")
-            if not isinstance(c, list):
-                continue
-            for b in c:
-                _acumula_evento(b, ts, eventos)
-                if (b.get("type") == "tool_result" and isinstance(b.get("content"), str)
-                        and OFFER_MARKER.search(b["content"]) and b.get("is_error") is not True):
-                    citadas += 1
+    # `_iter_events` conta as linhas malformadas e fecha com um registro-sentinela que carrega o
+    # total (sem `type` nem `message`, logo inerte aqui): o último `bad` visto é o total.
+    for ts, d, bad in _iter_events(path):
+        if d.get("type") == "user":
+            eventos.append((ts, "user", ""))
+        c = (d.get("message") or {}).get("content")
+        if not isinstance(c, list):
+            continue
+        for b in c:
+            _acumula_evento(b, ts, eventos)
+            if (b.get("type") == "tool_result" and isinstance(b.get("content"), str)
+                    and OFFER_MARKER.search(b["content"]) and b.get("is_error") is not True):
+                citadas += 1
     return eventos, bad, citadas
 
 
@@ -278,8 +271,7 @@ def main() -> int:
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     with open(out, "w", encoding="utf-8") as f:
-        for o in todas:
-            f.write(json.dumps(o, ensure_ascii=False) + "\n")
+        f.writelines(json.dumps(o, ensure_ascii=False) + "\n" for o in todas)
 
     dec = Counter(o["b0_decisao"] for o in todas)
     vals = Counter(str(o["b0_valor"]) for o in todas)

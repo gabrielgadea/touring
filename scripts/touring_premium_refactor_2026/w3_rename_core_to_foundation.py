@@ -25,19 +25,15 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
 from collections import defaultdict
-from datetime import UTC, datetime
-from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_CRATES_DIR = _ROOT / "crates"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w3_rename_core_to_foundation"
+
+_ROOT, _DATA_DIR, _STAGING_DIR, _CRATES_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR, sc.CRATES_DIR
 
 USE_RE = re.compile(r"\b(?:use\s+)?touring_core::(\w+)(?:::(\w+))?")
 EXTERN_RE = re.compile(r"\bextern\s+crate\s+touring_core\b")
@@ -49,17 +45,12 @@ OLD_MOD = "touring_core"
 NEW_MOD = "touring_foundation"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w3_rename_core_to_foundation", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--emit-script", action="store_true",
                    help="Emit staging/w3-ast-grep-rewrites.sh.")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def scan_consumers() -> dict:
@@ -141,7 +132,7 @@ def render_markdown_plan(scan: dict, est: dict) -> str:
     lines = [
         "# W3.1 — Rename touring-core → touring-foundation",
         "",
-        f"Generated: {datetime.now(UTC).isoformat()}",
+        f"Generated: {sc.now_iso()}",
         "",
         "## Scope",
         "",
@@ -202,7 +193,7 @@ def render_ast_grep_script(scan: dict) -> str:
     lines = [
         "#!/usr/bin/env bash",
         "# AUTO-GENERATED — W3.1 ast-grep rewrites",
-        f"# Generated: {datetime.now(UTC).isoformat()}",
+        f"# Generated: {sc.now_iso()}",
         "# Idempotent: safe to re-run.",
         "set -euo pipefail",
         "",
@@ -224,7 +215,7 @@ def render_ast_grep_script(scan: dict) -> str:
     return "\n".join(lines) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Scan + estimate + render."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -245,7 +236,7 @@ def run(args: argparse.Namespace) -> dict:
     return {
         "script": "w3_rename_core_to_foundation",
         "wave": "W3", "subtask_refs": ["W3.1"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "totals": est["totals"],
         "estimate": {k: v for k, v in est.items() if k != "totals"},
@@ -256,25 +247,18 @@ def run(args: argparse.Namespace) -> dict:
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w3_rename_core_to_foundation, print its summary; the return value is the exit code."""
+    result = run(args)
+    import sys
+    sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False))
+    sys.stdout.write("\n")
+    return 0
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        import sys
-        sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False))
-        sys.stdout.write("\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w3_rename_core_to_foundation."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

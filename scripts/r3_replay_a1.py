@@ -33,7 +33,6 @@ o pacote de adjudicação é uma entrega separada (`r3_adjudication_a1.py`).
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import statistics as st
@@ -48,6 +47,7 @@ sys.path.insert(0, str(SCRIPTS))
 import r3_a1_kpi as kpi
 import r3_event_schema as schema
 import r3_extract_a1_blocks as ex
+import r3_replay_common as common
 
 CORPUS = Path(os.environ.get("R3_CORPUS", "~/.claude/touring/r3-data")).expanduser()
 # Cada replay grava no SEU subdiretório. Compartilhar um só diretório é o
@@ -181,39 +181,12 @@ VERSAO_CACHE = 1  # mude a gramática/pergunta e o cache invalida por construç�
 
 
 def _chave_cache(arm: str, chave: str, spec: str) -> str:
-    """A chave de uma predição: braço + item + VERSÃO da pergunta.
-
-    Inclui o `spec` (a pergunta) para que mudar a pergunta invalide o cache em vez
-    de devolver a predição da pergunta antiga — o re-run sem mudança de entrada
-    tem de dar 0 chamadas, e o re-run com a pergunta mudada tem de dar N.
-    """
-    return (
-        f"{VERSAO_CACHE}|{arm}|{chave}|{hashlib.sha256(spec.encode()).hexdigest()[:10]}"
-    )
+    """A chave de uma predição (ver `r3_replay_common.chave_cache`), com a VERSAO_CACHE deste replay."""
+    return common.chave_cache(VERSAO_CACHE, arm, chave, spec)
 
 
-def carregar_cache(caminho: Path) -> dict:
-    if not caminho.exists():
-        return {}
-    out = {}
-    for l in caminho.read_text(encoding="utf-8").splitlines():
-        if not l.strip():
-            continue
-        try:
-            r = json.loads(l)
-        except ValueError:
-            continue  # cache truncado: descarta a linha, não o arquivo
-        out[r["cache_key"]] = r["pred"]
-    return out
-
-
-def _registrar_cache(caminho: Path, cache_key: str, pred: dict) -> None:
-    caminho.parent.mkdir(parents=True, exist_ok=True)
-    with open(caminho, "a", encoding="utf-8") as f:
-        f.write(
-            json.dumps({"cache_key": cache_key, "pred": pred}, ensure_ascii=False)
-            + "\n"
-        )
+carregar_cache = common.carregar_cache
+_registrar_cache = common.registrar_cache
 
 
 # ─────────────────────────────────────────────────────────────── B-D (regra)
@@ -392,23 +365,11 @@ def _prob(corpo, qid: str) -> float:
     """A probabilidade, nos DOIS formatos de resposta (DecisionResult do laya e
     o dict do Jev). Ver a nota longa no `r3_replay_a2._prob_de_resposta`: ler o
     lugar errado dava 0.0 em tudo, um número plausível-e-absurdo."""
-    for atr in ("answers", "values"):
-        sub = getattr(corpo, atr, None)
-        if isinstance(sub, dict) and qid in sub:
-            corpo = {qid: sub[qid]}
-            break
-    if not isinstance(corpo, dict):
+    corpo = common.corpo_da_resposta(corpo, qid)
+    if corpo is None:
         return 0.0
     ans = corpo.get(qid) if qid in corpo else (corpo.get("answers") or {}).get(qid)
-    if isinstance(ans, (int, float)) and not isinstance(ans, bool):
-        return float(ans)
-    if not isinstance(ans, dict):
-        return 0.0
-    for chave in ("noul", "max_prob", "score"):
-        v = ans.get(chave)
-        if isinstance(v, (int, float)) and not isinstance(v, bool):
-            return float(v)
-    return 0.0
+    return common.valor_da_resposta(ans)
 
 
 # ──────────────────────────────────────────────────────────────── métricas

@@ -23,60 +23,52 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import re
-import sys
 from collections import defaultdict
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+import script_common as sc
+
+_SCRIPT = "w9_server_split_planner"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _SERVER_SRC = _ROOT / "crates" / "touring-server" / "src"
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
 
 RULES: list[tuple[str, re.Pattern | None, re.Pattern]] = [
     ("touring-server-core",
      re.compile(r"^(server|rpc|runtime|shared)$"),
      re.compile(r"\b(lib\.rs|main\.rs|server|rpc|dispatch|actor|error|"
-                r"daemon_main|tools_infra)", re.I)),
+                r"daemon_main|tools_infra)", re.IGNORECASE)),
     ("touring-server-tools",
      re.compile(r"^(tools|mcp)$"),
      re.compile(r"\b(tools_|mcp_|tool_handlers|file_tools|project_tools)",
-                re.I)),
+                re.IGNORECASE)),
     ("touring-server-reasoning",
      re.compile(r"^(reasoning|cognitive|cortex_bridge)$"),
      re.compile(r"\b(reasoning|persistence|cognitive|cortex|"
-                r"plan_speculate|shadow_validate)", re.I)),
+                r"plan_speculate|shadow_validate)", re.IGNORECASE)),
     ("touring-server-protocol",
      re.compile(r"^(capnp|rkyv|protocol|schemas)$"),
-     re.compile(r"\b(capnp|rkyv|protocol|schema|wire_format)", re.I)),
+     re.compile(r"\b(capnp|rkyv|protocol|schema|wire_format)", re.IGNORECASE)),
     ("touring-server-bench",
      re.compile(r"^(bench|metrics|telemetry)$"),
-     re.compile(r"\b(bench|metric|telemetry|profile|pprof)", re.I)),
+     re.compile(r"\b(bench|metric|telemetry|profile|pprof)", re.IGNORECASE)),
     ("touring-server-cli",
      None,
-     re.compile(r"\bcli_", re.I)),
+     re.compile(r"\bcli_", re.IGNORECASE)),
 ]
 
 FACADE_BUCKET = "touring-server-facade"
 USE_CRATE_RE = re.compile(r"^\s*use\s+crate::(\w+)", re.MULTILINE)
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w9_server_split_planner", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--emit-cargo", action="store_true")
     p.add_argument("--emit-evidence", action="store_true")
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def classify_file(rs_file: Path, src_root: Path) -> tuple[str, str]:
@@ -97,7 +89,7 @@ def classify_file(rs_file: Path, src_root: Path) -> tuple[str, str]:
     return "touring-server-misc", "fallback"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Walk + classify + report."""
     if not _SERVER_SRC.exists():
         return {"status": "MISSING_CRATE", "path": str(_SERVER_SRC)}
@@ -131,7 +123,7 @@ def run(args: argparse.Namespace) -> dict:
         "script": "w9_server_split_planner",
         "wave": "W9", "subtask_refs": ["W9.1", "W9.2", "W9.3", "W9.4",
                                           "W9.5", "W9.6", "W9.7"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "totals": {"rs_files": len(rs_files),
                     "total_loc": sum(c["loc"] for c in classifications),
                     "bucket_count": len(bucket_summary)},
@@ -141,8 +133,8 @@ def run(args: argparse.Namespace) -> dict:
     plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False),
                           encoding="utf-8")
     md_lines = ["# W9 — touring-server Split Plan", "",
-                f"Files: {plan['totals']['rs_files']} | "
-                f"LOC: {plan['totals']['total_loc']:,}",
+                (f"Files: {plan['totals']['rs_files']} | "
+                f"LOC: {plan['totals']['total_loc']:,}"),
                 "", "| Bucket | Files | LOC |", "|--------|-------|-----|"]
     for b, info in sorted(bucket_summary.items(),
                            key=lambda x: -x[1]["total_loc"]):
@@ -164,31 +156,24 @@ def run(args: argparse.Namespace) -> dict:
     return plan
 
 
-def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        if result.get("status") == "MISSING_CRATE":
-            sys.stdout.write(json.dumps(result, indent=2) + "\n")
-            return 1
-        sys.stdout.write(json.dumps({
-            "status": result["status"], "totals": result["totals"],
-            "buckets": {b: info["total_loc"]
-                         for b, info in result["buckets"].items()},
-            "plan_path": result["plan_path"], "md_path": result["md_path"],
-        }, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w9_server_split_planner, print its summary; the return value is the exit code."""
+    result = run(args)
+    if result.get("status") == "MISSING_CRATE":
+        sc.emit_json(result, ensure_ascii=True)
         return 1
+    sc.emit_json({
+        "status": result["status"], "totals": result["totals"],
+        "buckets": {b: info["total_loc"]
+                     for b, info in result["buckets"].items()},
+        "plan_path": result["plan_path"], "md_path": result["md_path"],
+    })
+    return 0
+
+
+def main() -> int:
+    """Entry point of w9_server_split_planner."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

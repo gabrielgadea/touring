@@ -7,28 +7,19 @@ before they're public).
 """
 from __future__ import annotations
 
-import argparse
-import json
-import logging
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w13_docs_rs_validator"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w13_docs_rs_validator", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    p = sc.new_parser(_SCRIPT, __doc__)
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def emit_docs_rs_config() -> Path:
@@ -80,7 +71,7 @@ jobs:
     return yml
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Emit configs."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     metadata = emit_docs_rs_config()
@@ -88,35 +79,25 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w13_docs_rs_validator",
         "wave": "W13", "subtask_refs": ["W13.7"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "status": "OK",
         "metadata_snippet": str(metadata.relative_to(_ROOT)),
         "ci_workflow": str(workflow.relative_to(_ROOT)),
     }
     json_path = args.output_dir / "w13-docs-rs-manifest.json"
-    json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False),
-                          encoding="utf-8")
-    report["json_path"] = str(json_path.relative_to(_ROOT))
-    return report
+    return sc.write_json_report(json_path, report, _ROOT)
+
+
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w13_docs_rs_validator, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json(result)
+    return 0
 
 
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
-        return 0
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w13_docs_rs_validator."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

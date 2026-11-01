@@ -26,23 +26,17 @@ import shutil
 import stat
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
-
-REPO = Path(__file__).resolve().parent.parent
-SCRIPT = REPO / "scripts" / "propagate-release.sh"
-
-
-def executable_lines() -> list[str]:
-    out = []
-    for raw in SCRIPT.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if line and not line.startswith("#"):
-            out.append(line)
-    return out
-
+from propagate_release_testlib import (
+    REPO,
+    SCRIPT,
+    executable_lines,
+    fake_tree_with_script,
+    write_canonical_workspace_manifest,
+    write_fake_touring,
+)
 
 # ── content invariants ───────────────────────────────────────────────────────
 
@@ -67,28 +61,12 @@ def test_the_refusal_teaches_the_bump():
 # ── behavioral (fake tree) ───────────────────────────────────────────────────
 
 def _fake_tree(declared: str) -> Path:
-    tmp = Path(tempfile.mkdtemp(prefix="label-guard-"))
-    (tmp / "scripts").mkdir(parents=True)
-    shutil.copy(SCRIPT, tmp / "scripts" / "propagate-release.sh")
-    os.chmod(tmp / "scripts" / "propagate-release.sh", 0o755)
+    tmp = fake_tree_with_script("label-guard-")
     # The script refuses a non-canonical WORKSPACE before the guard runs.
-    (tmp / "Cargo.toml").write_text('[workspace.package]\nversion = "0.0.0"\n[workspace]\nmembers = []\n',
-                                    encoding="utf-8")
-    bin_dir = tmp / "target" / "release"
-    bin_dir.mkdir(parents=True)
-    fake = bin_dir / "touring"
-    # The REAL `--version` is MULTI-LINE (version + sha + date + features) —
-    # a one-line fixture let an awk-$NF parse read the features list as the
-    # version and kill a correct build (the production condition the audit
-    # doctrine demands the fixture carry).
-    fake.write_text(
-        '#!/bin/sh\n'
-        f'printf "touring {declared}\\n'
-        'b8e2e7e68faf69285011c1ffd5a17579630d9f4f\\n'
-        '2026-08-18\\n2026-09-24T04:12:23Z\\n'
-        'analysis-gate,async-memory,console,default,otlp,tantivy-fts\\n" >&2\n',
-        encoding="utf-8")
-    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    write_canonical_workspace_manifest(tmp)
+    # The REAL `--version` is MULTI-LINE (see write_fake_touring): the production condition
+    # the audit doctrine demands the fixture carry.
+    write_fake_touring(tmp, declared)
     return tmp
 
 
@@ -108,7 +86,7 @@ def _run(tmp: Path, target: str) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(tmp / "scripts" / "propagate-release.sh"), target,
          "--skip-gates", "--skip-freeze", "--no-default"],
-        capture_output=True, text=True, timeout=60, env=env,
+        capture_output=True, text=True, timeout=60, env=env, check=False,
     )
 
 
@@ -152,7 +130,7 @@ def test_skip_build_does_not_bypass_the_label_guard():
         r = subprocess.run(
             ["bash", str(tmp / "scripts" / "propagate-release.sh"), "30.4.66",
              "--skip-gates", "--skip-build", "--skip-freeze", "--no-default"],
-            capture_output=True, text=True, timeout=60, env=env)
+            capture_output=True, text=True, timeout=60, env=env, check=False)
         out = r.stdout + r.stderr
         assert r.returncode == 1, f"--skip-build must NOT bypass the guard: rc={r.returncode}: {out[-300:]}"
         assert "rótulo divergente" in out
@@ -206,7 +184,7 @@ def _workspace_version() -> str:
     died still expecting 30.4.66 (2026-09-24, REGRA #21): a version literal in
     a test goes stale the day the release it guards actually ships."""
     text = (REPO / "Cargo.toml").read_text(encoding="utf-8")
-    m = re.search(r'\[workspace\.package\][^\[]*?version = "([^"]+)"', text, re.S)
+    m = re.search(r'\[workspace\.package\][^\[]*?version = "([^"]+)"', text, re.DOTALL)
     assert m, "the workspace version must be derivable from Cargo.toml"
     return m.group(1)
 
@@ -218,7 +196,7 @@ def _guard_alone() -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", str(SCRIPT), _workspace_version(),
          "--skip-gates", "--skip-build", "--check-label-only"],
-        capture_output=True, text=True, timeout=120, cwd=REPO)
+        capture_output=True, text=True, timeout=120, cwd=REPO, check=False)
 
 
 @pytest.mark.skipif(

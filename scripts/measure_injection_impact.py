@@ -34,7 +34,7 @@ BASE = "/home/gabrielgadea/.claude/projects"
 #: Corrigir o padrão num arquivo só não basta: a chave é uma constante.
 FAM = "familias"
 
-DIRECTIVE_RE = re.compile(r"^\s*(?:MUST|SHOULD|MAY)\s{2,}(\S+(?:\s+\S+)?)", re.M)
+DIRECTIVE_RE = re.compile(r"^\s*(?:MUST|SHOULD|MAY)\s{2,}(\S+(?:\s+\S+)?)", re.MULTILINE)
 PATH_RE = re.compile(r"(?:~|\$HOME)?/?[\w.\-]+(?:/[\w.\-]+)+\.\w{1,6}")
 SYMBOL_RE = re.compile(r"`([A-Za-z_][A-Za-z0-9_]{2,})`")
 
@@ -124,7 +124,7 @@ def extract_injected(stdout):
         return stripped
     try:
         payload = json.loads(stripped)
-    except Exception:
+    except (ValueError, RecursionError):  # JSONDecodeError é ValueError; aninhamento absurdo estoura a pilha
         return stripped
     if not isinstance(payload, dict):
         return stripped
@@ -216,13 +216,14 @@ def _merge(target, row):
 
 def _read_records(session_file):
     records = []
-    for line in open(session_file, encoding="utf-8", errors="ignore"):
-        if '"attachment"' not in line and '"assistant"' not in line:
-            continue
-        try:
-            records.append(json.loads(line))
-        except Exception:
-            continue
+    with open(session_file, encoding="utf-8", errors="ignore") as handle:
+        for line in handle:
+            if '"attachment"' not in line and '"assistant"' not in line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except (ValueError, RecursionError):
+                continue
     return records
 
 
@@ -234,8 +235,11 @@ def _calls_index(records):
     return calls_at
 
 
-def _iter_injections(records):
-    """(chave, texto, posição) de cada injeção de contexto do transcript."""
+def hook_attachments(records):
+    """(posição, attachment) de cada registro `attachment` cujo tipo começa com `hook`.
+
+    Compartilhado com `measure_injection_effect`: os dois leem o mesmo transcript do mesmo jeito.
+    """
     for i, rec in enumerate(records):
         if rec.get("type") != "attachment":
             continue
@@ -244,6 +248,12 @@ def _iter_injections(records):
             continue
         if not str(attachment.get("type", "")).startswith("hook"):
             continue
+        yield i, attachment
+
+
+def _iter_injections(records):
+    """(chave, texto, posição) de cada injeção de contexto do transcript."""
+    for i, attachment in hook_attachments(records):
         text = extract_injected(attachment.get("stdout") or "")
         if not text:
             continue
@@ -290,12 +300,12 @@ def _collect(files, window):
         except Exception as exc:  # noqa: BLE001 — falhar alto: um zero silencioso e pior que um erro
             failures += 1
             if failures <= 3:
-                print("ERRO ao analisar %s: %s: %s" % (path, type(exc).__name__, exc))
+                print(f"ERRO ao analisar {path}: {type(exc).__name__}: {exc}")
             continue
         for key, row in rows.items():
             _merge(total[key], row)
     if failures:
-        print("ATENCAO: %d de %d sessoes falharam" % (failures, len(files)))
+        print(f"ATENCAO: {failures} de {len(files)} sessoes falharam")
     return total
 
 
@@ -316,34 +326,44 @@ def _dominant_family(row):
 
 
 def _print_rows(title, table):
-    print("=== %s ===" % title)
-    print("%-22s %-28s %-9s %11s %8s %9s %7s %7s %8s %9s" % (
-        "evento", "hook", "familia", "bytes", "blocos", "com_prop", "aderiu", "tocou", "nenhum",
-        "payloads"))
+    print(f"=== {title} ===")
+    print(
+        f"{'evento':<22} {'hook':<28} {'familia':<9} {'bytes':>11} {'blocos':>8} {'com_prop':>9} "
+        f"{'aderiu':>7} {'tocou':>7} {'nenhum':>8} {'payloads':>9}"
+    )
     print("-" * 120)
     for key, row in sorted(table.items(), key=lambda kv: -kv[1]["bytes"]):
         event, hook = key if isinstance(key, tuple) else (key, "")
-        print("%-22s %-28s %-9s %11d %8d %9d %7d %7d %8d %9d" % (
-            str(event)[:22], str(hook)[:28], _dominant_family(row)[:9],
-            row["bytes"], row["n"], row["with_prop"], row["aderiu"], row["tocou"],
-            row["nenhum"], len(row["payloads"])))
+        print(
+            f"{str(event)[:22]:<22} {str(hook)[:28]:<28} {_dominant_family(row)[:9]:<9} "
+            f"{row['bytes']:>11d} {row['n']:>8d} {row['with_prop']:>9d} {row['aderiu']:>7d} "
+            f"{row['tocou']:>7d} {row['nenhum']:>8d} {len(row['payloads']):>9d}"
+        )
     print()
 
 
 def _print_rates(title, table):
-    print("=== %s ===" % title)
-    print("%-24s %11s %8s %9s %8s %7s %9s %9s" % (
-        "chave", "bytes", "blocos", "com_prop", "aderiu", "tocou", "adesao%", "impacto%"))
+    print(f"=== {title} ===")
+    print(
+        f"{'chave':<24} {'bytes':>11} {'blocos':>8} {'com_prop':>9} {'aderiu':>8} {'tocou':>7} "
+        f"{'adesao%':>9} {'impacto%':>9}"
+    )
     for key, row in sorted(table.items(), key=lambda kv: -kv[1]["bytes"]):
         w = row["with_prop"]
         ad = 100.0 * row["aderiu"] / w if w else 0.0
         tc = 100.0 * row["tocou"] / w if w else 0.0
-        print("%-24s %11d %8d %9d %8d %7d %8.1f%% %8.1f%%" % (
-            str(key)[:24], row["bytes"], row["n"], w, row["aderiu"], row["tocou"], ad, tc))
+        print(
+            f"{str(key)[:24]:<24} {row['bytes']:>11d} {row['n']:>8d} {w:>9d} {row['aderiu']:>8d} "
+            f"{row['tocou']:>7d} {ad:>8.1f}% {tc:>8.1f}%"
+        )
     print()
 
 
-def main(argv):
+def parse_cli(argv, default_dirs):
+    """(window, max_sessions, dirs) de `[dirs...] [--window N] [--max-sessions N]`.
+
+    Compartilhado com `measure_injection_effect`; só o diretório default muda entre os dois.
+    """
     window = 3
     max_sessions = 400
     dirs = []
@@ -356,7 +376,12 @@ def main(argv):
             max_sessions = int(argv[i + 1]); i += 2; continue
         dirs.append(arg); i += 1
     if not dirs:
-        dirs = ["-home-gabrielgadea-projects-touring"]
+        dirs = default_dirs
+    return window, max_sessions, dirs
+
+
+def main(argv):
+    window, max_sessions, dirs = parse_cli(argv, ["-home-gabrielgadea-projects-touring"])
     files = []
     for d in dirs:
         files.extend(sorted(globmod.glob(os.path.join(BASE, d, "*.jsonl"))))
@@ -367,8 +392,8 @@ def main(argv):
     outros = {k: r for k, r in total.items() if not k[3]}
 
     print("=== ADESAO E IMPACTO DA INJECAO (TOURING) ===")
-    print("sessoes=%d  janela=%d chamadas de ferramenta a frente" % (len(files), window))
-    print("hooks do Touring: %d combinacoes | de terceiros: %d" % (len(touring), len(outros)))
+    print(f"sessoes={len(files)}  janela={window} chamadas de ferramenta a frente")
+    print(f"hooks do Touring: {len(touring)} combinacoes | de terceiros: {len(outros)}")
     print()
     _print_rows("POR HOOK (Touring)", _aggregate(touring, lambda k: (k[0], k[1])))
     _print_rates("POR EVENTO (Touring)", _aggregate(touring, lambda k: k[0]))

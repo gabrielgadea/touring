@@ -18,34 +18,26 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import json
-import logging
 import subprocess
-import sys
-from datetime import UTC, datetime
 from pathlib import Path
 
-LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
-_DATA_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "data"
-_STAGING_DIR = _ROOT / "scripts" / "touring_premium_refactor_2026" / "staging"
+import script_common as sc
+
+_SCRIPT = "w6_cycle_audit"
+
+_ROOT, _DATA_DIR, _STAGING_DIR = sc.ROOT, sc.DATA_DIR, sc.STAGING_DIR
 _BASELINES_DIR = _ROOT / "docs" / "baselines"
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w6_cycle_audit", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--baseline", type=Path, default=None,
                    help="Path to cycles-pre-refactor-*.json (auto-detected if missing).")
     p.add_argument("--min-depth", type=int, default=2)
     p.add_argument("--timeout", type=int, default=120)
-    p.add_argument("--output-dir", type=Path, default=_DATA_DIR)
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_output_dir_and_verbose(p, _DATA_DIR)
 
 
 def auto_detect_baseline() -> Path | None:
@@ -60,7 +52,7 @@ def fetch_current_cycles(min_depth: int, timeout: int) -> dict:
         proc = subprocess.run(
             ["touring", "wiring", "cycles", "--min-depth", str(min_depth),
              "--format", "json"],
-            cwd=_ROOT, capture_output=True, timeout=timeout,
+            cwd=_ROOT, capture_output=True, timeout=timeout, check=False,
         )
         if proc.returncode != 0:
             return {"error": "touring exited non-zero",
@@ -125,7 +117,7 @@ def render_md(comparison: dict) -> str:
     return "\n".join(md) + "\n"
 
 
-def run(args: argparse.Namespace) -> dict:
+def run(args: sc.Namespace) -> dict:
     """Run audit."""
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _STAGING_DIR.mkdir(parents=True, exist_ok=True)
@@ -144,7 +136,7 @@ def run(args: argparse.Namespace) -> dict:
     report = {
         "script": "w6_cycle_audit",
         "wave": "W6", "subtask_refs": ["W6.cycle-audit"],
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "baseline_path": str(baseline_path.relative_to(_ROOT)),
         "comparison": comparison,
     }
@@ -160,23 +152,16 @@ def run(args: argparse.Namespace) -> dict:
              "md_path": str(md_path.relative_to(_ROOT))}
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w6_cycle_audit, print its summary; the return value is the exit code."""
+    result = run(args)
+    sc.emit_json(result)
+    return 0 if result.get("status") == "OK" else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args)
-        sys.stdout.write(json.dumps(result, indent=2, ensure_ascii=False) + "\n")
-        return 0 if result.get("status") == "OK" else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w6_cycle_audit."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":

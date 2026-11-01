@@ -23,8 +23,6 @@ por HASH do arquivo antes e depois de uma chamada real, num banco temporário
 from __future__ import annotations
 
 import hashlib
-import json
-import os
 import re
 import sqlite3
 import sys
@@ -34,16 +32,10 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-import jev_tags_sample as s  # noqa: E402
+import jev_tags_sample as s
+from script_testkit import check, finish
 
 TAGS_RS = HERE.parent / "crates" / "touring-intelligence" / "src" / "rl" / "memory" / "tags.rs"
-FAILURES: list[str] = []
-
-
-def check(name: str, ok: bool, detail: str = "") -> None:
-    print(f"  [{'PASS' if ok else 'FAIL'}] {name}" + (f" — {detail}" if detail else ""))
-    if not ok:
-        FAILURES.append(name)
 
 
 def test_sample_is_deterministic() -> None:
@@ -71,7 +63,7 @@ def test_vocabulary_matches_production() -> None:
         check("test_vocabulary_matches_production", False, f"fonte ausente: {TAGS_RS}")
         return
     text = TAGS_RS.read_text(encoding="utf-8")
-    match = re.search(r"Facet::Kind\s*=>\s*&\[(.*?)\]", text, re.S)
+    match = re.search(r"Facet::Kind\s*=>\s*&\[(.*?)\]", text, re.DOTALL)
     if not match:
         check("test_vocabulary_matches_production", False, "Facet::Kind => &[...] não localizado")
         return
@@ -230,8 +222,7 @@ def main() -> int:
         test_no_writes_to_memory_db,
     ):
         test()
-    print(f"\n{len(FAILURES)} falha(s): {FAILURES}" if FAILURES else "\nTODOS OS TESTES PASSARAM")
-    return 1 if FAILURES else 0
+    return finish()
 
 
 if __name__ == "__main__":

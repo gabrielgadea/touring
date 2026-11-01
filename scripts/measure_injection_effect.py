@@ -47,7 +47,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import measure_injection_impact as M  # noqa: E402
+import measure_injection_impact as M
 
 BASE = M.BASE
 DEFAULT_DIRS = [
@@ -71,15 +71,15 @@ FAMILIES = (
     ("pre-edit-prevention", r"Pre-edit prevention", "distal_tocou"),
     ("post-edit", r"post-edit verification:|post-write:", "distal_tocou"),
     ("pre-read", r"defs\[", "distal_simbolo"),
-    ("plugin-hook", r"ATZILUTH|SCOUT PERP|Touring Knowledge|Session intelligence|"
-                    r"\[delegation-nudge\]|\[SUGEST[ÃA]O DE SKILL", "distal_tocou"),
+    ("plugin-hook", (r"ATZILUTH|SCOUT PERP|Touring Knowledge|Session intelligence|"
+                    r"\[delegation-nudge\]|\[SUGEST[ÃA]O DE SKILL"), "distal_tocou"),
     ("compact-warning", r"Contexto em \d+%", "gravou_estado"),
     ("debug-stdout", r"\[EVENT_READER\]|\[POST_QUALITY_GATE|Hook execution started",
      "nenhum"),
     ("generic-noise", r"^\[generic\]", "nenhum"),
 )
 
-FAMILY_RX = [(name, re.compile(rx, re.M)) for name, rx, _ in FAMILIES]
+FAMILY_RX = [(name, re.compile(rx, re.MULTILINE)) for name, rx, _ in FAMILIES]
 SIGNAL_OF = {name: sig for name, _rx, sig in FAMILIES}
 
 #: Sinal -> chave do dicionario de sinais (evita a cadeia de ifs).
@@ -95,7 +95,7 @@ SIGNAL_KEY = {
 }
 
 #: O sermao SEM cabecalho: comeca por diretiva e NAO e o contrato do code mode.
-HEADLESS_SERMON = re.compile(r"^\s+(?:MUST|SHOULD|MAY)\s{2,}", re.M)
+HEADLESS_SERMON = re.compile(r"^\s+(?:MUST|SHOULD|MAY)\s{2,}", re.MULTILINE)
 CODE_MODE_DIRECTIVE = re.compile(r"MUST\s+touring run --lang|MUST\s+touring doctor -j")
 
 PIPEFAIL_MARK = re.compile(r"pipefail|PIPESTATUS")
@@ -140,7 +140,7 @@ def extract_channels(stdout):
         return s, ""
     try:
         payload = json.loads(s)
-    except Exception:
+    except (ValueError, RecursionError):  # JSONDecodeError é ValueError; aninhamento absurdo estoura a pilha
         return s, ""
     if not isinstance(payload, dict):
         return s, ""
@@ -157,14 +157,7 @@ def extract_channels(stdout):
 
 def _iter_payloads(records):
     """(chave, contexto, razao, posicao) de cada hook do Touring."""
-    for i, rec in enumerate(records):
-        if rec.get("type") != "attachment":
-            continue
-        attachment = rec.get("attachment") or {}
-        if not isinstance(attachment, dict):
-            continue
-        if not str(attachment.get("type", "")).startswith("hook"):
-            continue
+    for i, attachment in M.hook_attachments(records):
         ctx, reason = extract_channels(attachment.get("stdout") or "")
         if not (ctx.strip() or reason.strip()):
             continue
@@ -318,12 +311,14 @@ def analyse_session(path, window):
 
 def _report(total, sessions, failures, window):
     print("=== IMPACTO POR FAMILIA (somente Touring) ===")
-    print("sessoes=%d janela=%d | distal = sessao inteira" % (sessions, window))
+    print(f"sessoes={sessions} janela={window} | distal = sessao inteira")
     if failures:
-        print("ATENCAO: %d sessoes falharam" % failures)
+        print(f"ATENCAO: {failures} sessoes falharam")
     print()
-    hdr = ("%-22s %7s %9s %9s %11s %8s %8s" % (
-        "familia", "n", "CONFORME", "CONTRARIO", "SEM EFEITO", "INDET", "citou"))
+    hdr = (
+        f"{'familia':<22} {'n':>7} {'CONFORME':>9} {'CONTRARIO':>9} "
+        f"{'SEM EFEITO':>11} {'INDET':>8} {'citou':>8}"
+    )
     print(hdr)
     print("-" * len(hdr))
     for family in sorted(total, key=lambda f: -total[f]["n"]):
@@ -331,10 +326,15 @@ def _report(total, sessions, failures, window):
         n = c["n"]
         if not n:
             continue
-        print("%-22s %7d %8.1f%% %8.1f%% %10.1f%% %7.1f%% %7.1f%%" % (
-            family, n, 100.0 * c["CONFORME"] / n, 100.0 * c["CONTRARIO"] / n,
-            100.0 * c["SEM EFEITO (nao e contexto)"] / n,
-            100.0 * c["INDETERMINADO"] / n, 100.0 * c["citou"] / n))
+        conforme = 100.0 * c["CONFORME"] / n
+        contrario = 100.0 * c["CONTRARIO"] / n
+        sem_efeito = 100.0 * c["SEM EFEITO (nao e contexto)"] / n
+        indet = 100.0 * c["INDETERMINADO"] / n
+        citou = 100.0 * c["citou"] / n
+        print(
+            f"{family:<22} {n:>7d} {conforme:>8.1f}% {contrario:>8.1f}% "
+            f"{sem_efeito:>10.1f}% {indet:>7.1f}% {citou:>7.1f}%"
+        )
     print()
     print("=== FORMA DO EFEITO ===")
     for family in sorted(total, key=lambda f: -total[f]["n"]):
@@ -342,30 +342,18 @@ def _report(total, sessions, failures, window):
         formas = {k[5:]: v for k, v in c.items() if k.startswith("forma:")}
         if not formas:
             continue
-        print("  %-22s %s" % (family, ", ".join(
-            "%s=%d" % (k, v) for k, v in sorted(formas.items(), key=lambda kv: -kv[1]))))
+        ranked = sorted(formas.items(), key=lambda kv: -kv[1])
+        print(f"  {family:<22} {', '.join(f'{k}={v}' for k, v in ranked)}")
     print()
     print("=== SINALIZACAO QUE O INSTRUMENTO NAO PODE MEDIR ===")
     for family in sorted(total):
         c = total[family]
         if c["INDETERMINADO"]:
-            print("  %-22s %d casos" % (family, c["INDETERMINADO"]))
+            print(f"  {family:<22} {c['INDETERMINADO']} casos")
 
 
 def main(argv):
-    window = 3
-    max_sessions = 400
-    dirs = []
-    i = 0
-    while i < len(argv):
-        arg = argv[i]
-        if arg == "--window":
-            window = int(argv[i + 1]); i += 2; continue
-        if arg == "--max-sessions":
-            max_sessions = int(argv[i + 1]); i += 2; continue
-        dirs.append(arg); i += 1
-    if not dirs:
-        dirs = DEFAULT_DIRS
+    window, max_sessions, dirs = M.parse_cli(argv, DEFAULT_DIRS)
     files = []
     for d in dirs:
         files.extend(sorted(globmod.glob(os.path.join(BASE, d, "*.jsonl"))))
@@ -379,7 +367,7 @@ def main(argv):
         except Exception as exc:  # noqa: BLE001 — falhar alto, nao zerar calado
             failures += 1
             if failures <= 2:
-                print("ERRO %s: %s: %s" % (os.path.basename(path), type(exc).__name__, exc))
+                print(f"ERRO {os.path.basename(path)}: {type(exc).__name__}: {exc}")
             continue
         for family, counter in rows.items():
             total[family].update(counter)

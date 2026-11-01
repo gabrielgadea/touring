@@ -13,16 +13,18 @@ Usage
 """
 from __future__ import annotations
 
-import argparse
 import hashlib
-import json
 import logging
 import subprocess
 from datetime import UTC, datetime
 from pathlib import Path
 
+import script_common as sc
+
+_SCRIPT = "w0_snapshot_tar"
+
 LOGGER = logging.getLogger(__name__)
-_ROOT = Path(__file__).resolve().parents[2]
+_ROOT = sc.ROOT
 _BASELINES_DIR = _ROOT / "docs" / "baselines"
 
 EXCLUDE_PATTERNS = [
@@ -38,18 +40,14 @@ EXCLUDE_PATTERNS = [
 INCLUDE_PATHS = ["crates", "Cargo.toml", "Cargo.lock"]
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> sc.ArgumentParser:
     """CLI parser."""
-    p = argparse.ArgumentParser(
-        prog="w0_snapshot_tar", description=__doc__,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
+    p = sc.new_parser(_SCRIPT, __doc__)
     p.add_argument("--output-dir", type=Path, default=_BASELINES_DIR)
     p.add_argument("--date", type=str, default=datetime.now(UTC).strftime("%Y-%m-%d"))
     p.add_argument("--dry-run", action="store_true",
                    help="Print tar command without executing.")
-    p.add_argument("-v", "--verbose", action="store_true")
-    return p
+    return sc.with_verbose(p)
 
 
 def compute_sha256(path: Path, chunk_size: int = 1 << 16) -> str:
@@ -71,7 +69,7 @@ def run(output_dir: Path, date: str, dry_run: bool) -> dict:
         return {"status": "DRY_RUN", "command": " ".join(cmd),
                 "archive": str(archive), "sha_file": str(sha_file)}
     LOGGER.info("running tar (may take 30-90s)...")
-    proc = subprocess.run(cmd, cwd=_ROOT, capture_output=True, timeout=600)
+    proc = subprocess.run(cmd, cwd=_ROOT, capture_output=True, timeout=600, check=False)
     if proc.returncode != 0:
         LOGGER.error("tar failed: %s", proc.stderr.decode("utf-8", errors="replace"))
         return {"status": "ERROR", "returncode": proc.returncode,
@@ -86,29 +84,22 @@ def run(output_dir: Path, date: str, dry_run: bool) -> dict:
         "sha_file": str(sha_file.relative_to(_ROOT)),
         "size_bytes": size,
         "sha256": digest,
-        "timestamp": datetime.now(UTC).isoformat(),
+        "timestamp": sc.now_iso(),
         "excludes": [e.removeprefix("--exclude=") for e in EXCLUDE_PATTERNS],
         "includes": INCLUDE_PATHS,
     }
 
 
+def _run_and_report(args: sc.Namespace) -> int:
+    """Run w0_snapshot_tar, print its summary; the return value is the exit code."""
+    result = run(args.output_dir, args.date, args.dry_run)
+    sc.emit_json(result)
+    return 0 if result.get("status") in ("OK", "DRY_RUN") else 1
+
+
 def main() -> int:
-    """Entry point."""
-    args = build_parser().parse_args()
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-    )
-    try:
-        result = run(args.output_dir, args.date, args.dry_run)
-        print(json.dumps(result, indent=2, ensure_ascii=False))
-        return 0 if result.get("status") in ("OK", "DRY_RUN") else 1
-    except KeyboardInterrupt:
-        LOGGER.warning("interrupted")
-        return 130
-    except Exception:  # noqa: BLE001
-        LOGGER.exception("error")
-        return 1
+    """Entry point of w0_snapshot_tar."""
+    return sc.main_frame(build_parser, _run_and_report, __name__)
 
 
 if __name__ == "__main__":
