@@ -1260,6 +1260,15 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
         por_lang[_lang] = por_lang.get(_lang, 0) + _n
     cont_arq: Counter = Counter()
     cont_commit: Counter = Counter()
+    # MEDIDO em 01/11 (V-8): os contadores do TETO sao POR LINGUAGEM e nao podem ser
+    # recarregados do disco a cada troca de linguagem. O codigo antigo recarregava, e o
+    # resultado medido foi a concentracao explodir: com a ordem CRONOLOGICA os pares
+    # alternam de linguagem a cada commit (o mesmo commit toca .ts e .tsx), e cada alternancia
+    # devolvia os contadores ao estado do disco — que nao tinha as entradas ja rotuladas neste
+    # repo. Medido na camada parcial: tsx com 25 entradas num arquivo contra um teto de 3.
+    # O `Counter` por linguagem e atualizado NO LUGAR e sobrevive a alternancia.
+    cont_arq_por_lang = {lg: Counter(c) for lg, c in cont_arq_por_lang.items()}
+    cont_commit_por_lang = {lg: Counter(c) for lg, c in cont_commit_por_lang.items()}
     lang_atual = ""
     try:
         for idx in ordem:
@@ -1270,8 +1279,8 @@ def rotula_repo(nome_repo: str, a, por_lang: dict, excluidos: set | None = None)
             # intacta sem somar as linguagens umas as outras.
             if lang != lang_atual:
                 lang_atual = lang
-                cont_arq = Counter(cont_arq_por_lang.get(lang, {}))
-                cont_commit = Counter(cont_commit_por_lang.get(lang, {}))
+                cont_arq = cont_arq_por_lang.setdefault(lang, Counter())
+                cont_commit = cont_commit_por_lang.setdefault(lang, Counter())
             if por_lang.get(lang, 0) >= a.alvo:
                 continue
             barrou = passa_no_teto(
