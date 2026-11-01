@@ -1471,14 +1471,15 @@ mod vgp_execucao_tests {
     }
 
     #[test]
-    fn node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny() {
+    fn node_mede_o_script_e_o_motor_js_nega_nome_indefinido() {
         let a = Ambiente::novo("ativo");
         let js = a.arquivo("frag.js", "console.log(naoExiste);\n");
         for cmd in [
             format!("node {js}"),
             format!("node --no-warnings -r ./x {js}"),
         ] {
-            nao_e_deny(&a.roda(&cmd));
+            let razao = razao_do_deny(a.roda(&cmd));
+            assert!(razao.contains("naoExiste"), "{razao}");
         }
         let linhas = a.linhas();
         let medidas: Vec<_> = linhas
