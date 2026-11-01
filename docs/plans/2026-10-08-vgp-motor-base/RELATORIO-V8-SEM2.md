@@ -114,7 +114,12 @@ alvo). Não há mais 217 entradas para escrever: elas não existem.
    adjudicador de html para o estrato OSS, ou o html sai do "não provada" por
    decisão explícita.
 
-## 4.1 O `html`: **NÃO PROVADA por decisão explícita** nesta rodada
+## 4.1 O `html`: **NÃO PROVADA por decisão explícita** nesta rodada — **SUPERADO pelo D-8 (01/11)**
+
+> **ATUALIZADO em 01/11**: a decisão do **Gabriel (D-8)** mandou **construir o adjudicador
+> html**, o que substitui o «NÃO PROVADA por decisão» abaixo. O **plano** do adjudicador está em
+> `PLANO-ADJUDICADOR-HTML.md` (na raiz do bundle), escrito **antes de qualquer código**, como a
+> coordenadora pediu. O texto original da decisão de 31/10 fica abaixo, como registro.
 
 **Decisão da coordenadora (31/10)**: o `html` fica **NÃO PROVADA por decisão
 explícita** nesta rodada. Um adjudicador próprio para html é **trabalho novo**,
@@ -140,7 +145,123 @@ com o **mesmo critério**: classe com **299 negativos ou mais**, dentro do teto
 e com o selo conferido, sai do "não provada"; a que não atingir segue
 declarada como tal, com o n e o motivo.
 
-## 5. Regras (do briefing, em vigor)
+## 5. A re-rotulação (continuação de 01/11) — o que a camada nova é, e como foi medida
+
+> Esta seção é da **continuação** da sessão (a primeira parou com o run vazio). Ela traz: a causa
+> raiz do run anterior, o que foi corrigido no rotulador, a **linha de base medida** da camada
+> antiga, e o resultado da camada nova com o selo externo conferido.
+
+### 5.1 A CAUSA RAIZ: o run anterior voltou vazio por um TRAVAMENTO, não por lentidão
+
+O run do V-8 anterior (que a coordenadora reemitiu) não produziu saída. **Não era lentidão: era
+um travamento silencioso**, e a causa está no leitor de frames do adjudicador:
+
+| | |
+|---|---|
+| o que o adjudicador escreve | `#<n>` com `Buffer.byteLength(corpo, "utf8")` — **bytes** — e o corpo em UTF-8 (`oraculo_ls.js:233-236`) |
+| o que o rotulador lia | `Popen(..., text=True)` e `stdout.read(n)` — que pede **n CARACTERES** (`rotular_oss.py`, classe `LS`) |
+| o que acontece num corpo com acento | os caracteres são **menos** que os bytes declarados ⇒ o pipe esvaziava e o `read` bloqueava **para sempre**: node **VIVO** e ocioso (`ep_poll`), Python em `anon_pipe_read`, CPU ~0, **zero erro e zero saída** |
+| o segundo defeito no mesmo lugar | o `oraculo_ls.js` escreve `${corpo}\n`; o `\n` ficava no stream e o `readline()` seguinte lia o terminador como se fosse o **cabeçalho** do frame seguinte |
+
+**Diagnóstico que fecha**: o `wchar` do node (106 756 bytes escritos) com o **pipe vazio** e o
+Python bloqueado ⇒ o produtor já escreveu tudo e o comprimento declarado é maior do que o frame
+tem. Reproduzido em 5 linhas: `read(n)` em modo texto, num frame de 3 bytes com 2 caracteres,
+**não recebe nunca o terceiro** (`select` fica `pronto=False`).
+
+**Correção** (`rotular_oss.py` e `chama_oraculo.py`): pipe **binário** (`text=False`), leitura por
+**BYTES**, o terminador `\n` consumido explicitamente, e o `ler_framing` comparando
+`len(corpo.encode("utf-8"))` contra `n` (o `len(corpo)` em caracteres acusava «truncado» num frame
+inteiro com acento).
+
+**Prova**: `scripts/test_rotular_oss_framing.py` — **6/6**, e o **mutante em modo texto TRAVA**
+(sem travar, o teste passaria sem provar nada). `rotular_oss.py --selftest` **92/92**,
+`test_chama_oraculo.py` **15/15**, suíte do bundle **259 passed / 0 failed**.
+
+### 5.2 A DISJUNCAO entre corporas — não existia, e sem ela a camada repetiria a anterior
+
+MEDIDO: `estado_no_disco` lê **só** o diretório de saída e o `grava_entrada` **reescreve** o id
+em vez de recusar o par ⇒ um par que um corpus anterior já rotulou seria rotulado **de novo**, e a
+camada nova repetiria a antiga par a par. Um held-out que repete o holdout anterior não prova
+nada: o juiz pode ter sido calibrado nos mesmos pares.
+
+**Correção** (opt-in; o comportamento padrão fica intacto): a flag `--excluir-corpus`, que tira da
+**população** os pares que um corpus anterior já rotulou, **antes** da seleção — então o par
+excluído não consome oracle e **não entra no teto** (o teto mede o que foi ROTULADO). O `id` da
+comparação é o mesmo do `grava_entrada` (`ident_do_par`), e a **política de exclusão fica no selo**.
+
+O conjunto medido: **7 527 ids** no histórico de corporas (`~/.claude/touring/vgp`), incluindo os
+446 da camada OSS antiga e os 924 do `corpus_semeado`.
+
+**Prova**: `scripts/test_rotular_oss_exclusao.py` — **11/11**, incluindo «o par EXCLUIDO **não
+chega ao adjudicador**» (o único jeito de provar a disjunção) e «sem a flag, **nenhum** par é
+descartado» (controle negativo).
+
+### 5.3 A LINHA DE BASE da camada antiga, medida com o método do selo
+
+Medida por `scripts/selar_camada_oss.py` (o mesmo método do `rotular_oss.py`: teto = `3 % do n da
+linguagem`, infração = `entradas por chave > teto`), sobre
+`~/.claude/touring/vgp/corpus_holdout_web_20261012/oss/`:
+
+| camada | n | negativos | chaves | maior chave | fração | teto medido | infrações | dentro do teto? |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| `tsx` | 213 | 169 | 127 | 7 | 3,29 % | 6 | **1** | **NÃO** |
+| `typescript` | 214 | 169 | 128 | 7 | 3,27 % | 6 | **1** | **NÃO** |
+| `javascript` | 3 | 3 | 3 | 1 | 33,3 % | 1 | 0 | sim |
+| `_podado_20261009-215331/tsx` | 180 | 148 | 112 | 10 | 5,56 % | 5 | **3** | **NÃO** |
+| `_podado_20261009-215331/typescript` | 191 | 151 | 119 | 12 | 6,28 % | 5 | **1** | **NÃO** |
+
+Todos os números do §2.2 deste relatório foram **confirmados** por esta medição independente
+(n, chaves, maior chave e fração batem). **Uma coisa que o §2.2 não dizia e esta medição diz**: a
+**camada principal também está acima do teto medido** (1 infração em `tsx` e 1 em `typescript`).
+A causa é a poda: o selo da camada declara `n_por_lang` = {tsx 243, typescript 245}, e o disco tem
+213/214 — a poda tirou 30 e 31 entradas e, com isso, o **teto caiu de 7 para 6**, deixando uma chave
+com 7. **Declarar um teto e medir são coisas diferentes, e só a medição restringe** — é o que a
+re-rotulação corrige, aplicando o teto **na seleção** e sem poda depois.
+
+A camada antiga também é **DISJUNTA** do `corpus_semeado` (446 ids, verificado por id).
+
+### 5.4 O selo externo da camada nova
+
+`scripts/selar_camada_oss.py` — selo **fora** do corpus, no formato que o `confere_selo.py` exige
+(`sha_tree`/`arquivos`/`bytes`), com os denominadores por classe, a **concentração medida**, o
+**teto medido** e a **disjunção medida**. Conferido com
+`confere_selo.py --corpus <dir> --selo <selo.json>` → **INTACTO** (rc 0).
+
+O **denominador da prova é o dos NEGATIVOS**: o falso deny só existe sobre um negativo (um
+positivo é um erro que o motor **deve** negar), e o `n` total quase dobra a força da prova sem
+acrescentar um único falso deny possível. A camada antiga tem 169 negativos por classe — o `n`
+total (213/214) inflaria a prova sem motivo.
+
+### 5.5 As correções no rotulador — cinco defeitos, cada um com a causa medida
+
+| # | defeito | sintoma medido | correção | prova |
+|---|---|---|---|---|
+| 1 | **framing lido em caracteres** — o `oraculo_ls.js` declara `#<n>` em **bytes** (`Buffer.byteLength`) e o rotulador lia `read(n)` em modo **texto** | num corpo com acento o pipe esvaziava e o `read` bloqueava **para sempre** (node vivo e ocioso, CPU ~0, zero saída) | pipe **binário**, leitura por **bytes**, e o `\n` terminador consumido | `test_rotular_oss_framing.py` **6/6** (o mutante em modo texto **trava**) |
+| 2 | **sem disjunção entre corporas** — `estado_no_disco` lê só a saída e o `grava_entrada` **reescreve** o id | a camada nova repetiria a antiga par a par | `--excluir-corpus`: os pares já usados saem da **população** antes da seleção | `test_rotular_oss_exclusao.py` **11/11** |
+| 3 | **a divergência parava o LOTE INTEIRO** | o `excalidraw` diverge em `manager.tsx` (o LS acusa `TS2307` de módulos que o `tsc` resolve) e o lote morreu com **218 entradas** — nenhum corpus | a divergência **exclui o par** (o item suspeito) e o lote continua; a divergência fica no selo | `test_rotular_oss_divergencia.py` **4/4** |
+| 4 | **coleta com 3 spawns por par** | 17 670 pares ⇒ ~50 000 spawns; **1,5 h dos 2,4 h** de coleta eram de repos cujas linguagens já estavam cheias | pai e **data** no mesmo log (`%P`, `%ct`); conteúdo em **um** `git cat-file --batch` | `test_rotular_oss_coleta.py` **12/12** (byte a byte igual ao `git show`) |
+| 5 | **o `datas` nunca era preenchido** — o `data_commit` era sempre `0` | a «ordem canônica» era **alfabética por caminho**, não pela data (o docstring prometia a data) | a data vem no log (`%ct`) | o mesmo teste, 12/12 |
+
+**Dois achados que só apareceram porque a corrida foi observada**:
+
+- **o adjudicador NÃO é o congelado**: o vivo é byte a byte igual à cópia versionada do bundle
+  (sha `80976ec9…`, 10 580 bytes, mtime **09/10 23:39**), e a camada **antiga** foi feita com
+  `8e8dd5f1…` (7 884 bytes). **As duas camadas não foram feitas pelo mesmo adjudicador**, e por
+  isso os números delas não são comparáveis sem declarar isso.
+- **o teto era por linguagem mas recarregado do disco a cada troca de linguagem**: com a ordem
+  cronológica os pares alternam de `.ts`/`.tsx` a cada commit, e cada alternância devolvia os
+  contadores a um estado que não tinha as entradas já rotuladas — efeito medido: `tsx` com **25
+  entradas num arquivo** contra um teto de 3. Agora o `Counter` é por linguagem e atualizado no
+  lugar (`test_rotular_oss_teto.py` **3/3**, com o mutante que só aparece com alternância).
+
+E uma lição de operação que vale mais que o código: **dois rotuladores no mesmo `--saida`
+corrompem a camada** — o teto é contado por processo e o arquivo é compartilhado. O sinal foi a
+camada ter os **primeiros 12 índices repetindo caminho** e do 12 em diante não repetindo: dois
+comportamentos na mesma camada. As camadas parciais foram guardadas ( `-parcial1a-divergencia`,
+`-parcial2a-teto`, `-parcial3a-2processos`, `-parcial4a-alvo450`) e o lote final roda com
+**um** processo, verificado.
+
+## 6. Regras (do briefing, em vigor)
 
 - Nada foi mergeado no branch principal; nada foi sobrescrito nem apagado: o
   corpus de disco (`corpus_holdout_web_20261012`) e o `oss/selo.json` continuam
