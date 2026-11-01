@@ -296,7 +296,7 @@ releases; o CC instalado hoje é **2.1.316**: `validate` e `test` precisam passa
 instalado e a flag ausente ele é **inerte** (`return next(e)`), nos dois braços.
 
 **P3 — a flag do settings chega ao mod, e o mod age.**
-`python3 ab34_arm.py arm --force-cell -E --yes` (calendário com `day0: null`: vale como pré-voo e
+`python3 ab34_arm.py arm --force-cell=-E --yes` (com `=`: sem ele o argparse lê `-E` como opção e recusa) (calendário com `day0: null`: vale como pré-voo e
 registra `event: preflight`). Abra uma **sessão nova** em `projects/touring`, leia um arquivo grande,
 edite-o, leia de novo, rode `/compact` e confira `ls -la ~/.claude/touring/evicted/`: tem de haver
 arquivo novo. Zero arquivos = o `env` do settings não chega ao `$.env.get`: **pare** (E precisaria de
