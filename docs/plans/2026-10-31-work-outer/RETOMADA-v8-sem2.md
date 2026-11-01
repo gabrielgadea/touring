@@ -20,7 +20,7 @@
 - **Disjunção**: **DISJUNTA** — 0 ids em comum com os 8 901 ids do histórico de corporas.
 - **Teto de 3 %**: 0 infratores em todas as classes (medido, não declarado).
 - **Relatório**: §5.6 do `RELATORIO-V8-SEM2.md` escrito com o n por classe, a concentração
-  medida e o hash do selo. **Commit**: `ebda1d37`.
+  medida e o hash do selo. **Commit**: `5494a0fe`.
 - **O que falta** (não depende do método): alvo total ~1 700 para levar `tsx` e `javascript`
   aos 299 negativos. O `html` depende do **D-8** (adjudicator próprio), cujo plano está em
   `docs/plans/2026-10-08-vgp-motor-base/PLANO-ADJUDICADOR-HTML.md` — **antes** de qualquer
@@ -286,10 +286,10 @@ I-4/I-5 (outra sessão), não do V-8** — fica aqui registrado para não se "co
 reescrever o histórico local: **66 caminhos** com conteúdo privado saíram — prompts de transcritos,
 memória da analise, scripts eleitorais, corpus literal do VGP, backups ANTT) → 15:0x (outras
 sessões commitaram em cima) → **reescrita concluída**: `feat/2026-09-16-shell-quality-wiring-python`
-= `main` = `origin/main` = **`b98ce8c8`**, as duas publicadas no GitHub.
+= `main` = `origin/main` = **`5716554f`**, as duas publicadas no GitHub.
 
-**Todos os hashes do range não publicado mudaram.** Os meus dois commits agora são **`ee5a9fde`**
-(RELATORIO §5.6) e **`ddb46e90`** (resumo do topo) — ambos em `origin/main`. O conteúdo dos
+**Todos os hashes do range não publicado mudaram.** Os meus dois commits agora são **`5494a0fe`**
+(RELATORIO §5.6) e **`5a247832`** (resumo do topo) — ambos em `origin/main`. O conteúdo dos
 arquivos segue íntegro (verificado: §5.6, `RESUMO FINAL` e o `sha_tree e298fe3b6fe48d58` estão nos
 arquivos).
 
@@ -312,7 +312,7 @@ passava a confirmar nada). Teste novo: `scripts/test_rotular_oss_tsc.py` (**6/6*
 
 Resposta à coordenadora: **não é meu**. Evidência: mtime **14:03:39**, o último commit que toca
 esse arquivo é de **27/10**, e a alteração é o teste do **motor JS** (trilho F2.1/F2.6,
-`8ddbcbb5` de 15:03) — o meu escopo é o corpus VGP e a memória. A sessão dona **não está mais
+`4bf533a5` de 15:03) — o meu escopo é o corpus VGP e a memória. A sessão dona **não está mais
 viva** (vivas: `touring-d1`, `touring-45` e esta), então a alteração ficou **órfã** no working
 tree, sem ninguém que a commitasse. **Teste verde**: `cargo test -p touring-hook-handlers
 --features pre-hooks,post-hooks vgp_execucao_tests::` → **11 passed, 0 failed**, incluindo
@@ -324,3 +324,47 @@ coordenadora pode reverter se discordar.
 A branch `int/2026-10-31-intadapt` do worktree `touring-wt-intadapt` **não** é publicada (aponta
 para hashes antigos e já está integrada), e o snapshot `safety/2026-11-01-pre-scrub` **nunca** vai
 ao remoto. Não mexi em nenhum dos dois.
+
+## 9. SEGUNDA PARADA DE COMMIT (01/11) — os `.db` de estado saem do histórico público
+
+A coordenadora avisa: o **Gabriel mandou tirar do histórico PÚBLICO os 151 `.db` de estado**
+(`crates/**/.claude/touring/*.db`). Isso **reescreve TODO o histórico desde julho** e exige
+force-push da `main` e da branch. Até ela mandar o novo HEAD: **sem `git commit`, sem `push`**.
+Posso seguir editando e testando.
+
+**Estado medido no momento da parada**:
+- **nenhum `git commit`/`push` em voo neste repo** — o que existe na máquina é de outra sessão,
+  no repo `analise` (e ela está em laço de retry por `index.lock`);
+- working tree **sem nenhum arquivo rastreado modificado**;
+- os `.db` **não estão versionados na árvore atual** (`git ls-files` → 0), mas estão no
+  **histórico** — por isso a remoção é de reescrita, e não de `rm` + commit;
+- **nenhum dos meus commits toca `.db`** (meus paths são `docs/plans/2026-10-08-vgp-motor-base/`
+  e um arquivo de teste do crate de hooks).
+
+**O efeito colateral que a reescrita causou dentro do repo**: os **hashes citados na própria
+documentação** passaram a apontar para commits que não existem mais. **Resolvido** — a reescrita
+foi concluída (force-push de `main` e da branch) e todos os hashes citados foram atualizados:
+
+| hash antigo | hash novo | commit |
+|---|---|---|
+| `ebda1d37` / `ee5a9fde` | **`5494a0fe`** | vgp: a camada OSS selada tem 394 negativos em typescript (V-8) |
+| `b0baaf50` / `ddb46e90` | **`5a247832`** | docs(v8): o resumo final do V-8 SEM2 no topo da RETOMADA |
+| `671d4d09` | **`632fdcac`** | vgp: o tsc do retestemunho sai do caminho absoluto (V-8) |
+| `6baf7a6c` | **`487dcf6a`** | vgp: o teste do motor JS que ficou órfão |
+| `cbfcb5b6` | **`a5ab122f`** | vgp: atualiza hashes após reescrita do histórico |
+| `b98ce8c8` | **`5716554f`** | merge: branch de trabalho na main (01/11/2026) |
+| `8ddbcbb5` | **`4bf533a5`** | F2.1/F2.6: arquivos de teste JS/TS são fixture, não sink |
+| `59eb46d3` | **`c592af5d`** | int97 integrado: INT97 + P0B + FRAG + P0B-d + roteamento + correções da análise ECC |
+| `f7e44e29` | **`7d433cfb`** | release 30.4.97: INT97 integrado propagado + espelho da re-atestação do juiz |
+| `c118aa52` | **`1ae8dc78`** | docs(vgp): estado do plano original após o release de 09/10 |
+
+**Dois que NÃO morrem, e por quê**: `80976ec9` e `8e8dd5f1` são hashes de *conteúdo* do
+adjudicator, não de commit; e `f55ec4b5` (citado no `PENDENCIAS`) é o **id do binário P0** (aparece
+como prefixo de arquivo de saída em `rodar_p0m2.sh`), não um commit — foi um erro meu listá-lo
+como hash de commit, e está corrigido aqui.
+
+**O remoto está limpo** (medido): `git log origin/main -- 'crates/*/.claude/touring/*.db'` → vazio;
+as **duas** branches remotas → `.db=0`; e o tag `v30.3.0` aponta para `e4cd202a` (24/07), que é
+ancestral do `origin/main` reescrito e também não alcança nenhum `.db`. Os `.db` continuam
+alcançáveis **apenas por branches LOCAIS** (`safety/2026-11-01-pre-db-purge`,
+`safety/2026-11-01-pre-scrub`, `release-plz-2026-07-24T22-54-32Z`), que **nunca vão ao remoto**.
