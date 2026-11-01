@@ -1,0 +1,224 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.57% > 1% (2/400, taxa 0.500%) — com n=400 o teto admite no máximo 0 falso(s)"
+ ],
+ "inconclusivo": false,
+ "inconclusivo_motivo": "",
+ "timeouts_camada2": 0,
+ "camada2_sem_veredito": 0,
+ "taxa_timeouts_camada2": 0.0,
+ "patamar_timeouts_camada2": 0.2,
+ "sinal_camada2": "nao_aplicavel",
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 2,
+   "n": 600,
+   "taxa": 0.0033333333333333335,
+   "limite_superior_95": 0.010455489384196302,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 2,
+   "n": 400,
+   "taxa": 0.005,
+   "limite_superior_95": 0.01565517993646815,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.7777777777777778
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   5,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "59803cbd8d0b",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/placar_rootdir.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "rootdirs",
+     "linha": 60,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8aea29a769e2",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_donas.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 5,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "sd",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "2106f0ebf279",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exit",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "de4fb0258f41",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 4,
+     "severidade": "deny",
+     "sugestao": "módulo `laya.common` não tem atributo `__file__`",
+     "reais": [
+      "Any",
+      "ContextVar",
+      "DecisionModel",
+      "Dict",
+      "F",
+      "List",
+      "Optional",
+      "QTYPES"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "avisos_em_negativos": 48,
+ "defeito_de_corpus": [],
+ "p95_ms": 68.526927,
+ "chamadas": 1064,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  }
+ ]
+}

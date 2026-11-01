@@ -47,11 +47,16 @@
 #![cfg_attr(not(test), deny(clippy::unwrap_used))]
 
 pub mod ast;
+pub mod cwe_scan;
 pub mod error;
+pub mod journal;
 pub mod languages;
 pub mod polyglot;
+pub mod sdk;
+pub mod sdk_signal_mirror;
 pub mod semantics;
 pub mod types;
+pub mod vgp;
 
 pub use error::{Error, Result};
 pub use types::*;

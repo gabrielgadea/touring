@@ -1,0 +1,8 @@
+testes rc=0
+variantes rc=0
+medida V22 rc=0
+gates feitos (ver gates.rcs)
+repro build rc=0
+repro cmp rc=0 (0 = identico)
+mutantes rc=0
+ETAPA8 CONCLUIDA

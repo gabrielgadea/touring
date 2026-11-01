@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Fake claude binary for tests — prints its args and exits 0
+echo "claude $*"

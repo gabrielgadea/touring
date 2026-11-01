@@ -1,0 +1,12 @@
+# gate=04-drift-coverage
+# cmd=python3 scripts/test_drift_coverage.py
+# inicio_utc=2026-10-09T23:13:28Z
+# disco_livre_gb=392
+
+=== 8 tests, 4 failures ===
+  FAIL scan --check stale total: expected 395, got 397
+  FAIL sum(C1+C3+C4+C5+C6): expected 395, got 397
+  FAIL C1 versions: expected 85, got 86
+  FAIL C5 code-fences: expected 166, got 167
+# rc=1
+# fim_utc=2026-10-09T23:13:45Z

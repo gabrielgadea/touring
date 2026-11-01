@@ -117,12 +117,17 @@ pub fn run_ddl(conn: &mut rusqlite::Connection) -> rusqlite::Result<()> {
 /// SQLite 3.39.0+ supports `ADD COLUMN IF NOT EXISTS` natively; for older versions
 /// we catch the error and continue.
 fn run_migrations(conn: &mut rusqlite::Connection) -> rusqlite::Result<()> {
-    let r1 = conn.execute_batch(SQL_MIGRATE_AUTO_SEEDED);
-    let r2 = conn.execute_batch(SQL_MIGRATE_CANONICAL);
-    // Ignore "duplicate column name" errors — column already exists from CREATE TABLE
-    if r1.is_err() || r2.is_err() {
-        let _ = conn.execute("INSERT INTO sqlite_master DEFAULT VALUES", []);
-    }
+    // Both migrations are ADD COLUMN on a table that CREATE TABLE may already
+    // have created with the column. "duplicate column name" is the expected
+    // outcome on a current database and is deliberately ignored.
+    //
+    // 2026-08-20: this used to branch on `r1.is_err() || r2.is_err()` and then
+    // run `INSERT INTO sqlite_master DEFAULT VALUES`, discarding the result.
+    // `sqlite_master` is read-only without `writable_schema`, so that insert
+    // always failed and the whole branch was dead — which is why the mutant
+    // `replace || with &&` survived: there was no behaviour to observe.
+    let _ = conn.execute_batch(SQL_MIGRATE_AUTO_SEEDED);
+    let _ = conn.execute_batch(SQL_MIGRATE_CANONICAL);
     Ok(())
 }
 
@@ -137,6 +142,73 @@ pub fn open_or_create<P: AsRef<Path>>(path: P) -> rusqlite::Result<rusqlite::Con
 mod tests {
     use super::*;
     use tempfile::NamedTempFile;
+
+    /// Migrations must actually add the columns a legacy database lacks.
+    ///
+    /// Kills the 2026-08-20 survivor `replace run_migrations -> Ok(())`:
+    /// every existing test opened a fresh database, where `run_ddl` already
+    /// creates `auto_seeded` and `canonical`, so a no-op migration was
+    /// indistinguishable from a real one. This builds the pre-migration shape
+    /// on purpose — the only state where the function has work to do.
+    #[test]
+    fn run_migrations_adds_columns_missing_from_a_legacy_table() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        // The `entities` table as it existed BEFORE the two columns landed.
+        conn.execute_batch(
+            "CREATE TABLE entities (
+                 id TEXT PRIMARY KEY,
+                 canonical_name TEXT NOT NULL,
+                 kind TEXT NOT NULL,
+                 crate_name TEXT NOT NULL,
+                 source_path TEXT,
+                 definition_line INTEGER,
+                 doc_summary TEXT
+             )",
+        )
+        .unwrap();
+
+        let before = column_names(&conn);
+        assert!(
+            !before.contains(&"auto_seeded".to_owned()),
+            "fixture must start without the column"
+        );
+
+        run_migrations(&mut conn).unwrap();
+
+        let after = column_names(&conn);
+        assert!(
+            after.contains(&"auto_seeded".to_owned()),
+            "auto_seeded was not added: {after:?}"
+        );
+        assert!(
+            after.contains(&"canonical".to_owned()),
+            "canonical was not added: {after:?}"
+        );
+    }
+
+    /// Running the migrations twice is a no-op, not an error.
+    #[test]
+    fn run_migrations_is_idempotent_on_a_current_table() {
+        let mut conn = rusqlite::Connection::open_in_memory().unwrap();
+        run_ddl(&mut conn).unwrap();
+        run_migrations(&mut conn).unwrap();
+        run_migrations(&mut conn).unwrap();
+        let cols = column_names(&conn);
+        assert_eq!(
+            cols.iter().filter(|c| *c == "canonical").count(),
+            1,
+            "the column must exist exactly once"
+        );
+    }
+
+    /// Column names of the `entities` table, in declaration order.
+    fn column_names(conn: &rusqlite::Connection) -> Vec<String> {
+        let mut stmt = conn.prepare("PRAGMA table_info(entities)").unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap()
+    }
 
     #[test]
     fn run_ddl_creates_tables() {

@@ -1,6 +1,7 @@
 //! `cli_kpi` — Wave R2: Falsifiable Commitments Dashboard.
 //!
-//! Reads `~/.claude/rust/docs/kpi/commitments.yaml` (versioned source of truth),
+//! Reads `~/projects/touring/docs/kpi/commitments.yaml` (versioned source of
+//! truth — the canonical workspace; `~/.claude/rust` is the FROZEN tree),
 //! checks each commitment against its declared threshold/direction, and
 //! returns a structured snapshot consumable by Gabriel or by CI gates.
 //!
@@ -12,9 +13,11 @@
 //! - `derived:<name>` — a value computed from already-collected data with no
 //!   new instrumentation (`health_delta_net`, `world_model_success`). Powers
 //!   the `touring.coupling.*` effectiveness family (F1 telemetry).
-//! - `external:<command>` — placeholder for subprocess gates (cargo nextest,
-//!   llvm-cov, etc.) that the daemon cannot check alone. For MVP these
-//!   return `actual: null, status: "STUB"` to keep the dashboard honest.
+//! - `external:<id>` — resolved from `docs/kpi/external/<id>.json`, the file a
+//!   subprocess gate (cargo nextest, llvm-cov, a peer session) writes. Since
+//!   28/08/2026 these resolve REAL values; a missing/stale/value-less file
+//!   returns `status: "STUB"` with a `stub_reason` naming the cause and the
+//!   remedy (`ExternalStub` — Missing/Stale/Declared/Malformed).
 //!
 //! # CLI flags (handled by `touring-server::cli::kpi`)
 //!
@@ -101,6 +104,12 @@ pub struct CommitmentCheck {
     /// Whether this commitment is advisory (missed threshold → `ADVISORY`,
     /// excluded from the `--check` failure gate).
     pub advisory: bool,
+    /// Why an `external:` STUB has no value — never-measured, stale, or
+    /// malformed, each named with its remedy. `None` for non-external sources
+    /// or when a value resolved: "measured and failed" (FAIL) must never be
+    /// confusable with "nobody measured" (a bare STUB).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stub_reason: Option<String>,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -136,7 +145,18 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
             .to_string();
         }
     };
-    let checks: Vec<CommitmentCheck> = file.commitments.iter().map(|c| check_one(rt, c)).collect();
+    // Measurements for `external:` sources live next to the contract itself
+    // (`<commitments-dir>/external/<id>.json` — versionable, dated, auditable);
+    // see `resolve_external`.
+    let external_dir = yaml_path
+        .parent()
+        .map(|p| p.join("external"))
+        .unwrap_or_else(|| PathBuf::from("external"));
+    let checks: Vec<CommitmentCheck> = file
+        .commitments
+        .iter()
+        .map(|c| check_one(rt, c, &external_dir))
+        .collect();
     let summary = summarize(&checks);
     let snapshot_date = today_iso();
     // Investigation 2026-07-01: several sources resolve per-project (orphans,
@@ -169,6 +189,65 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
     if check && summary["failed"].as_u64().unwrap_or(0) > 0 {
         out["check_failed"] = json!(true);
     }
+    // MED-1 (28/08) — a régua de aderência do `touring run`, do journal
+    // durável (o processo CLI morre; o journal fica). Ausência exibida (E4).
+    out["code_mode_adherence"] = code_mode_adherence();
+    // F6 S4 (2026-09-01) — distinct SDK hooks invoked at runtime, do
+    // mirror (~/.claude/touring/sdk_signal_mirror.jsonl). Piso M3 ≥ 6/8
+    // antes de F5 promover a Block; por enquanto advisory.
+    out["code_mode_signal_use"] = code_mode_signal_use();
+    // D1 (2026-09-02) — comparação com um relatório persistido, quando o
+    // chamador declara um: a série entre execuções que o espelho vivo não tem.
+    if let Some(path) = payload.get("signal_baseline").and_then(Value::as_str) {
+        let base = signal_baseline(path);
+        let delta = signal_delta(&out["code_mode_signal_use"], &base);
+        out["code_mode_signal_use"]["baseline"] = base;
+        if !delta.is_null() {
+            out["code_mode_signal_use"]["baseline_delta"] = delta;
+        }
+    }
+    // C4 (2026-09-02) — a régua do REUSO: do journal v2 (B2), quantos runs
+    // vieram de um script persistente ou foram colhidos, sobre os runs que
+    // declaram origem. Piso 0.20 (falsificador do canvas §9c). Ausência exibida.
+    out["code_mode_reuse"] = code_mode_reuse(&rt.project_root);
+    // F9 (2026-09-01) — régua do complemento de hooks: despachos por hook no
+    // daemon (F0.3d) × entregas ao mirror na mesma janela. Nasce da sonda
+    // F0.3 (post-bash vivo 5/47 atendido, 0/47 no mirror) — ausência exibida.
+    out["hooks_complement"] = hooks_complement();
+    // S73 (26/09/2026) — a régua da DISPONIBILIDADE do daemon, do exit_reason
+    // verdadeiro do hook_trace (S14): das invocações que PEDIRAM o daemon,
+    // quantas tiveram resposta usável, em 48 h (piso 0.95). Ausência = null.
+    out["daemon_availability"] = daemon_availability::daemon_availability();
+    // S-3.1 (2026-10-01) — a família `decision`: as seis réguas de decisão
+    // tipada (intent_distribution, keyword_fallback_rate, recall_curated_share,
+    // jev_calls_total/latency_p99/confidence_hist), lidas dos journals
+    // append-only em ~/.claude/touring/logs/. A regra que atravessa as seis:
+    // ausência de dado é `unmeasured`, nunca 0 — um 0 lido como "o Jev nunca
+    // caiu para o keyword" aciona a decisão errada e liga a flag.
+    out["decision"] = decision::decision_family();
+    // S-10 (2026-10-02, plan jev-harness-r3) — a família `shadow`: o que o avaliador
+    // do shadow Jev/Laya registrou em r3_shadow.jsonl (n de eventos, acordo B0×braço,
+    // descartes, latência p50/p95, por use_case). Journal PRÓPRIO — nunca lê nem altera
+    // os da `decision`; sem linha, `unmeasured` (jamais 0).
+    out["shadow"] = shadow::shadow_family();
+    // P0/S-0.1 (2026-09-04) — a régua da JANELA, do transcript do proprio Claude
+    // Code. Todas as demais medem a ROTA (aderencia, reuso, complemento); o
+    // recurso mais caro do sistema era o unico sem instrumento, e por isso toda
+    // tentativa de calibra-lo era fe. Ausencia exibida; varredura limitada DIZ
+    // que foi limitada (`capped`).
+    out["context_budget"] = super::context_budget::context_budget(&rt.project_root);
+    // I-1/I-2 (31/10/2026) — the permission channel's adherence over the whole
+    // gate population, and the injection level and cuts of THIS daemon. The
+    // transcript ruler above cannot see either: a gate event never reaches the
+    // transcript as such, and a cut is by definition what did not.
+    let gate_snap = crate::shared::gate_metrics::GateMetricsSnapshot::capture();
+    out["context_budget"]["nudge_follow"] =
+        super::context_budget::nudge_follow(&gate_snap.gate_events);
+    out["context_budget"]["injection_level"] = json!(gate_snap.injection_level);
+    out["context_budget"]["injection_suppressed_blocks_count"] =
+        json!(gate_snap.injection_suppressed_blocks_count);
+    out["context_budget"]["injection_suppressed_bytes_count"] =
+        json!(gate_snap.injection_suppressed_bytes_count);
     if snapshot {
         match persist_snapshot(&out, &snapshot_date, &rt.project_root) {
             Ok(path) => out["snapshot_path"] = json!(path.display().to_string()),
@@ -182,62 +261,28 @@ pub fn cli_kpi(rt: &mut HookRuntime, payload: &Value) -> String {
 // Loading + path resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn default_commitments_path() -> PathBuf {
-    if let Ok(home) = std::env::var("HOME") {
-        let p = PathBuf::from(home).join(".claude/rust/docs/kpi/commitments.yaml");
-        if p.exists() {
-            return p;
-        }
-    }
-    PathBuf::from("docs/kpi/commitments.yaml")
-}
+mod code_mode;
+mod daemon_availability;
+mod decision;
+mod shadow;
+mod sources;
 
-fn load_commitments(path: &PathBuf) -> std::io::Result<CommitmentsFile> {
-    let raw = std::fs::read_to_string(path)?;
-    serde_yaml::from_str::<CommitmentsFile>(&raw)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))
-}
+// Re-exportados: o `mod tests` (55 testes) e todo chamador seguem vendo
+// estas funcoes pelo mesmo caminho de antes da divisao.
+pub(crate) use code_mode::*;
+pub(crate) use sources::*;
 
-fn today_iso() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
-    iso_date_from_unix(secs)
-}
-
-/// Convert unix seconds to `YYYY-MM-DD` (UTC, Gregorian, post-1970).
-#[must_use]
-pub fn iso_date_from_unix(secs: u64) -> String {
-    let days = secs / 86_400;
-    let (y, m, d) = days_to_ymd(days as i64);
-    format!("{y:04}-{m:02}-{d:02}")
-}
-
-fn days_to_ymd(mut days: i64) -> (i32, u32, u32) {
-    days += 719_468;
-    let era = if days >= 0 { days } else { days - 146_096 } / 146_097;
-    let doe = (days - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y_signed = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = (doy - (153 * mp + 2) / 5 + 1) as u32;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 } as u32;
-    let y = if m <= 2 { y_signed + 1 } else { y_signed };
-    (y as i32, m, d)
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Per-commitment checking
-// ─────────────────────────────────────────────────────────────────────────────
-
-fn check_one(rt: &mut HookRuntime, c: &Commitment) -> CommitmentCheck {
-    let (kind, actual) = resolve_source(rt, &c.source);
+fn check_one(
+    rt: &mut HookRuntime,
+    c: &Commitment,
+    external_dir: &std::path::Path,
+) -> CommitmentCheck {
+    let (kind, actual) = resolve_source(rt, &c.source, &c.id, external_dir);
     let mut status = match (kind, actual) {
-        ("daemon" | "derived", Some(v)) => check_threshold(v, c.threshold, &c.direction),
-        ("external", _) | ("daemon" | "derived", None) => "STUB",
+        ("daemon" | "derived" | "external", Some(v)) => {
+            check_threshold(v, c.threshold, &c.direction)
+        }
+        ("daemon" | "derived" | "external", None) => "STUB",
         _ => "ERROR",
     };
     if c.advisory && status == "FAIL" {
@@ -253,124 +298,27 @@ fn check_one(rt: &mut HookRuntime, c: &Commitment) -> CommitmentCheck {
         status,
         rationale: c.rationale.clone(),
         advisory: c.advisory,
-    }
-}
-
-fn resolve_source(rt: &mut HookRuntime, source: &str) -> (&'static str, Option<f64>) {
-    if let Some(rest) = source.strip_prefix("daemon:") {
-        let mut parts = rest.splitn(2, ':');
-        let handler = parts.next().unwrap_or("");
-        let pointer = parts.next().unwrap_or("");
-        let value = invoke_handler(rt, handler);
-        let extracted = value
-            .as_ref()
-            .and_then(|v| v.pointer(pointer))
-            .and_then(json_value_as_f64);
-        return ("daemon", extracted);
-    }
-    if let Some(name) = source.strip_prefix("derived:") {
-        return ("derived", resolve_derived(rt, name));
-    }
-    if source.starts_with("external:") {
-        return ("external", None);
-    }
-    ("unknown", None)
-}
-
-/// Resolves a `derived:<name>` KPI — a value computed from already-collected
-/// data with no new instrumentation, for the `touring.coupling.*` family (F1).
-/// Returns `None` (→ `STUB`) when the underlying data is unavailable.
-fn resolve_derived(rt: &mut HookRuntime, name: &str) -> Option<f64> {
-    match name {
-        "health_delta_net" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let imp = m
-                .pointer("/health_delta_improvement_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let reg = m
-                .pointer("/health_delta_regression_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(imp - reg)
-        }
-        "suggestion_uptake" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let emitted = m
-                .pointer("/suggestion_uptake_emitted_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            if emitted <= 0.0 {
-                return None;
-            }
-            let followed = m
-                .pointer("/suggestion_uptake_followed_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(followed / emitted)
-        }
-        "adoption_ratio" => {
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let touring = m
-                .pointer("/adoption_touring_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let antipattern = m
-                .pointer("/adoption_antipattern_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            let total = touring + antipattern;
-            if total <= 0.0 {
-                return None;
-            }
-            Some(touring / total)
-        }
-        "pillar_induction_ratio" => {
-            // Task #6 — followed / emitted for the armed pillar-induction layer
-            // (master-cli + learning-memory nudges). Mirrors `suggestion_uptake`
-            // but scoped to the per-pillar counters; `None` until the layer emits
-            // (default-OFF), so it reports ADVISORY rather than a false 0.
-            let m = invoke_handler(rt, "cli-gate-metrics")?;
-            let emitted = m
-                .pointer("/pillar_induction_emitted_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            if emitted <= 0.0 {
-                return None;
-            }
-            let followed = m
-                .pointer("/pillar_induction_followed_count")
-                .and_then(json_value_as_f64)
-                .unwrap_or(0.0);
-            Some(followed / emitted)
-        }
-        "world_model_success" => read_world_model_success(),
-        // The `touring.memory.*` family (2026-08-02). Derived by SQL over the
-        // project's memory.db — no new instrumentation, same shape as the ADW
-        // derivations. Retroactive justification for the family: the ANN corpus
-        // had drifted to 79,7 % coverage for weeks with a one-command remedy, and
-        // nothing measured it, so nobody could see it.
-        "memory_corpus_coverage" => memory_corpus_coverage(&rt.project_root),
-        "memory_curated_recall_share" => memory_curated_recall_share(&rt.project_root),
-        "memory_never_recalled_ratio" => memory_never_recalled_ratio(&rt.project_root),
-        // F6.4 (ADW plan 2026-07-19) — the software-factory KPI family. All are
-        // file-derived from per-project artifacts the ADW stack already writes;
-        // `None` (→ STUB) whenever the project has no such artifacts yet.
-        "adw_explore_rounds_to_dry" => adw_explore_rounds_to_dry(&rt.project_root),
-        "adw_plan_refine_iters" => adw_plan_refine_iters(&rt.project_root),
-        "adw_runs" => adw_runs_count(&rt.project_root),
-        "adw_router_accuracy" => adw_router_accuracy(&rt.project_root),
-        "adw_zte_bypass_rate" => adw_zte_bypass_rate(&rt.project_root),
-        // E3 (flow enforcement 2026-07-23) — gated-flow OUTER compliance for
-        // THIS project, fed by loop_outer_gate.py evaluations at every Stop.
-        "flow_compliance" => flow_compliance_ratio(&rt.project_root),
-        _ => None,
+        stub_reason: external_stub_reason(kind, actual, external_dir, &c.id),
     }
 }
 
 /// Mean number of exploration rounds until the CCE ledger converged, over every
 /// `.touring-explore/*.ledger.json` in the current project. `None` when no
 /// ledger has converged yet (the KPI only speaks about *finished* explorations).
+/// Length of the LAST convergence episode in a rounds history: the maximal
+/// tail of rounds after the previous dry pair (two consecutive zero-new
+/// rounds). A dry pair with nothing after it is the whole episode by itself —
+/// an exploration that converges on the spot costs 2 rounds, not 0.
+fn last_episode_len(news: &[u64]) -> usize {
+    let mut start = 0usize;
+    for i in 1..news.len() {
+        if news[i - 1] == 0 && news[i] == 0 && i + 1 < news.len() {
+            start = i + 1;
+        }
+    }
+    news.len() - start
+}
+
 fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
     let dir = root.join(".touring-explore");
     let mut totals: Vec<f64> = Vec::new();
@@ -394,7 +342,28 @@ fn adw_explore_rounds_to_dry(root: &std::path::Path) -> Option<f64> {
                 .pointer("/rounds")
                 .and_then(serde_json::Value::as_array)
         {
-            totals.push(rounds.len() as f64);
+            // N2 (2026-09-23): price the convergence EPISODE, not the ledger's
+            // lifetime. Ledgers persist across sessions and each revisit
+            // appends rounds, so `rounds.len()` billed re-exploration as slow
+            // convergence — measured on 174 ledgers: lifetime mean 8.09 vs
+            // last-episode mean 2.33 (p90 6). The dry-lens hypothesis the
+            // metric was meant to support died on the same data: cutting
+            // lenses with 2 dry rounds saves 1 round across all 174 ledgers.
+            let news: Vec<u64> = rounds
+                .iter()
+                .filter_map(|r| {
+                    r.pointer("/new_findings")
+                        .and_then(serde_json::Value::as_u64)
+                })
+                .collect();
+            if news.len() != rounds.len() {
+                // A round whose yield is unreadable cannot prove where the
+                // episode starts — fall back to lifetime for this ledger
+                // (fail-closed: conservative high, never silently elided).
+                totals.push(rounds.len() as f64);
+            } else if !news.is_empty() {
+                totals.push(last_episode_len(&news) as f64);
+            }
         }
     }
     if totals.is_empty() {
@@ -421,11 +390,24 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
                 .file_name()
                 .is_some_and(|n| n.to_string_lossy().ends_with(".refine.json"))
                 && let Ok(text) = std::fs::read_to_string(&path)
-                && let Ok(serde_json::Value::Array(iters)) = serde_json::from_str(&text)
+                && let Ok(value) = serde_json::from_str::<serde_json::Value>(&text)
             {
-                let n = iters.len() as f64;
-                if best.is_none_or(|b| n > b) {
-                    *best = Some(n);
+                // O produtor real (`plan_refine.py`) grava `{version,
+                // iterations: […]}`; só o formato de array cru fazia o KPI
+                // ficar STUB com ledger legítimo no disco (produtor≠consumidor,
+                // descoberto 28/08/2026 exercitando a fonte de verdade).
+                let iters = match &value {
+                    serde_json::Value::Array(a) => Some(a.len()),
+                    v => v
+                        .pointer("/iterations")
+                        .and_then(serde_json::Value::as_array)
+                        .map(|a| a.len()),
+                };
+                if let Some(n) = iters {
+                    let n = n as f64;
+                    if best.is_none_or(|b| n > b) {
+                        *best = Some(n);
+                    }
                 }
             }
         }
@@ -434,6 +416,81 @@ fn adw_plan_refine_iters(root: &std::path::Path) -> Option<f64> {
     scan(&root.join("docs").join("plans"), 4, &mut best);
     scan(root, 1, &mut best);
     best
+}
+
+/// M0 (29/08/2026) — distinct sandbox runs with at least one sub-call issued
+/// via `touring.parallel` (the SDKs stamp a `:par` suffix on the origin).
+/// Reads the daemon-side `~/.claude/touring/run_subcalls.jsonl`; `None`
+/// (→ STUB) until the first parallel sub-call is journaled — before this
+/// counter the fan-out affordance's adoption was invisible by construction.
+fn code_mode_parallel_runs() -> Option<f64> {
+    let home = std::env::var_os("HOME")?;
+    let path = std::path::Path::new(&home).join(".claude/touring/run_subcalls.jsonl");
+    code_mode_parallel_runs_from(&path)
+}
+
+/// Testable core of [`code_mode_parallel_runs`]: the wrapper resolves `$HOME`
+/// (process-global, unsafe to mutate in parallel tests), this one takes the
+/// journal path.
+fn code_mode_parallel_runs_from(path: &std::path::Path) -> Option<f64> {
+    let text = std::fs::read_to_string(path).ok()?;
+    let mut runs = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+            continue;
+        };
+        let Some(origin) = v.get("origin").and_then(serde_json::Value::as_str) else {
+            continue;
+        };
+        if let Some(resto) = origin.strip_suffix(":par")
+            && let Some(run_id) = resto.split(":code:").next()
+        {
+            runs.insert(run_id.to_string());
+        }
+    }
+    if runs.is_empty() {
+        return None;
+    }
+    Some(runs.len() as f64)
+}
+
+/// M0 (29/08/2026) — share of EXECUTED ADW agent-node starts that declared a
+/// `tier`, over this project's run journals. The static `calls_by_tier` in
+/// `explain --cost` estimates; this measures. `None` until a journal carries
+/// an agent `node_started` with the (new) `tier` key — old journals predate
+/// the instrumentation and must not read as "0% tiered".
+fn adw_tiered_agent_share(root: &std::path::Path) -> Option<f64> {
+    let dir = root.join(".touring").join("adw-runs");
+    let mut agentes = 0u64;
+    let mut com_tier = 0u64;
+    for entry in std::fs::read_dir(dir).ok()?.flatten() {
+        let journal = entry.path().join("journal.jsonl");
+        let Ok(text) = std::fs::read_to_string(&journal) else {
+            continue;
+        };
+        for line in text.lines() {
+            let Ok(v) = serde_json::from_str::<serde_json::Value>(line) else {
+                continue;
+            };
+            if v.get("event").and_then(serde_json::Value::as_str) != Some("node_started")
+                || v.get("type").and_then(serde_json::Value::as_str) != Some("agent")
+                || !v.as_object().is_some_and(|o| o.contains_key("tier"))
+            {
+                continue;
+            }
+            agentes += 1;
+            if v.get("tier")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|t| !t.is_empty())
+            {
+                com_tier += 1;
+            }
+        }
+    }
+    if agentes == 0 {
+        return None;
+    }
+    Some(com_tier as f64 / agentes as f64)
 }
 
 /// Number of ADW runs recorded for this project (`.touring/adw-runs/*/journal.jsonl`).
@@ -496,6 +553,23 @@ fn flow_compliance_ratio(root: &std::path::Path) -> Option<f64> {
     let home = std::env::var("HOME").ok()?;
     let log = PathBuf::from(home).join(".claude/loop-engineering/compliance.jsonl");
     flow_compliance_from_log(&log, root)
+}
+
+/// Per-flow variant of [`flow_compliance_ratio`] — the flows are structurally
+/// different (work-outer owes 2 artifacts, strategy-outer 3, cross-audit 1),
+/// so each gets its own check and threshold (N1, 2026-09-23).
+fn flow_compliance_flow(root: &std::path::Path, flow: &str) -> Option<f64> {
+    let home = std::env::var("HOME").ok()?;
+    let log = PathBuf::from(home).join(".claude/loop-engineering/compliance.jsonl");
+    flow_compliance_for_flow(&log, root, flow)
+}
+
+/// Arm-yield wrapper (started / armed) — the abandonment meter the
+/// started-conditional compliance excludes by design.
+fn flow_arm_yield_ratio(root: &std::path::Path) -> Option<f64> {
+    let home = std::env::var("HOME").ok()?;
+    let log = PathBuf::from(home).join(".claude/loop-engineering/compliance.jsonl");
+    flow_arm_yield_from_log(&log, root)
 }
 
 /// Pure core of [`flow_compliance_ratio`], separated so tests can feed a
@@ -579,10 +653,48 @@ fn memory_never_recalled_ratio(root: &std::path::Path) -> Option<f64> {
     Some(never as f64 / total as f64)
 }
 
-fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+/// 14-day window for the flow-compliance KPIs — the same horizon the
+/// memory-graph meters use, so a schema or policy change (Opção C, 03/09)
+/// stops dragging the metric after one window instead of forever.
+const FLOW_COMPLIANCE_WINDOW_SECS: u64 = 14 * 86_400;
+
+/// Per-flow aggregation over the compliance JSONL.
+#[derive(Default, Clone, Copy)]
+struct FlowAgg {
+    armed: u64,
+    started: u64,
+    complete: u64,
+}
+
+/// A record is `started` when at least one manifest artifact was present at
+/// evaluation time (`present_ids` non-empty) OR the manifest was complete.
+/// `complete ⇒ started` by construction, and the OR matters: 58% of the real
+/// history (948/1629 records, 2026-08/09) lacks `present_ids` entirely — the
+/// schema grew the field later — so requiring the key would silently demote
+/// every complete old record to "never started" (measured 2026-09-23, N1).
+fn record_started(rec: &Value) -> bool {
+    rec.pointer("/complete").and_then(Value::as_bool) == Some(true)
+        || rec
+            .pointer("/present_ids")
+            .and_then(Value::as_array)
+            .is_some_and(|a| !a.is_empty())
+}
+
+/// Windowed per-flow breakdown of the compliance log for one project.
+/// Records without a readable `ts` are skipped (fail-closed for the window —
+/// a record whose age is unknown cannot prove it belongs).
+fn flow_compliance_breakdown(
+    log: &std::path::Path,
+    root: &std::path::Path,
+) -> Option<std::collections::BTreeMap<String, FlowAgg>> {
     let text = std::fs::read_to_string(log).ok()?;
     let root_str = root.display().to_string();
-    let (mut total, mut complete) = (0u64, 0u64);
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs();
+    let cut = now.saturating_sub(FLOW_COMPLIANCE_WINDOW_SECS);
+    let mut map: std::collections::BTreeMap<String, FlowAgg> = std::collections::BTreeMap::new();
     for line in text.lines() {
         let Ok(rec) = serde_json::from_str::<Value>(line) else {
             continue;
@@ -590,15 +702,73 @@ fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Op
         if rec.pointer("/cwd").and_then(Value::as_str) != Some(root_str.as_str()) {
             continue;
         }
-        total += 1;
+        let Some(ts) = rec.pointer("/ts").and_then(json_value_as_f64) else {
+            continue;
+        };
+        if ts < cut as f64 {
+            continue;
+        }
+        let flow = rec
+            .pointer("/flow")
+            .and_then(Value::as_str)
+            .unwrap_or("?")
+            .to_string();
+        let agg = map.entry(flow).or_default();
+        agg.armed += 1;
+        if record_started(&rec) {
+            agg.started += 1;
+        }
         if rec.pointer("/complete").and_then(Value::as_bool) == Some(true) {
-            complete += 1;
+            agg.complete += 1;
         }
     }
-    if total == 0 {
-        return None;
+    if map.is_empty() { None } else { Some(map) }
+}
+
+fn ratio_opt(num: u64, den: u64) -> Option<f64> {
+    if den == 0 {
+        None
+    } else {
+        Some(num as f64 / den as f64)
     }
-    Some(complete as f64 / total as f64)
+}
+
+/// Aggregate flow compliance, **started-conditional**: complete manifests over
+/// flows that actually started. Post-Opção-C (03/09) the Stop hook no longer
+/// blocks, so an armed-and-abandoned flow is a policy-allowed state, not a
+/// violation — counting it in the denominator measured obedience to a retired
+/// policy (aggregate 0.499, with strategy-outer at 74% never-started; N1,
+/// 2026-09-23). None when nothing started in the window.
+fn flow_compliance_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let (started, complete): (u64, u64) = map
+        .values()
+        .fold((0, 0), |(s, c), a| (s + a.started, c + a.complete));
+    ratio_opt(complete, started)
+}
+
+/// The same started-conditional compliance for one flow (`work-outer`,
+/// `strategy-outer`, `cross-audit`). None when that flow never started in the
+/// window — absent signal is unknown, never zero (Lei L2).
+fn flow_compliance_for_flow(
+    log: &std::path::Path,
+    root: &std::path::Path,
+    flow: &str,
+) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let agg = map.get(flow)?;
+    ratio_opt(agg.complete, agg.started)
+}
+
+/// Arm yield: started / armed over the window — how often arming a flow leads
+/// to actual work. The complement of what the started-conditional compliance
+/// deliberately excludes, kept visible instead of hidden.
+fn flow_arm_yield_from_log(log: &std::path::Path, root: &std::path::Path) -> Option<f64> {
+    let map = flow_compliance_breakdown(log, root)?;
+    let (armed, started): (u64, u64) = map
+        .values()
+        .fold((0, 0), |(a, s), g| (a + g.armed, s + g.started));
+    ratio_opt(started, armed)
 }
 
 /// Σsuccesses / (Σsuccesses + Σfailures) over `action_world_model.json`
@@ -626,12 +796,31 @@ fn read_world_model_success() -> Option<f64> {
     }
 }
 
+/// `<handler>@<scope>` — a `daemon:` source may carry a scope argument
+/// declared in the YAML (e.g. `daemon:cli-mutation-test@touring-identity:/kill_rate`),
+/// so the target lives in the contract instead of hardcoded here.
+fn split_handler_scope(handler: &str) -> (&str, Option<&str>) {
+    match handler.split_once('@') {
+        Some((name, scope)) if !scope.is_empty() => (name, Some(scope)),
+        _ => (handler, None),
+    }
+}
+
 fn invoke_handler(rt: &mut HookRuntime, handler: &str) -> Option<Value> {
-    let raw = match handler {
+    let (name, scope) = split_handler_scope(handler);
+    let raw = match name {
         "cli-wiring-status" => super::super::cli_handlers::cli_wiring_status(rt, &Value::Null),
         "cli-learning-status" => super::super::cli_handlers::cli_learning_status(rt, &Value::Null),
         "cli-gate-metrics" => super::super::cli_handlers::cli_gate_metrics(rt, &Value::Null),
         "cli-gotcha-stats" => super::super::cli_handlers::cli_gotcha_stats(rt, &Value::Null),
+        "cli-memory-stats" => super::super::cli_handlers::cli_memory_stats(rt, &Value::Null),
+        // Cache-only read: the mutation run itself takes ~20 min and is
+        // triggered explicitly (`touring mutation-test --package <p>`); the
+        // KPI must never spawn it — a cold cache reads as STUB, by design.
+        "cli-mutation-test" => crate::cli_handlers_mutation_test::cli_mutation_test(
+            rt,
+            &json!({"cache_only": true, "package": scope}),
+        ),
         _ => return None,
     };
     serde_json::from_str(&raw).ok()
@@ -679,7 +868,15 @@ fn summarize(checks: &[CommitmentCheck]) -> Value {
 /// Path to the latest A/B attribution block written by `run_bench.py --compare`
 /// (mirrors its `DEFAULT_AB_OUT`: `<workspace>/docs/agentic-bench/.ab-latest.json`).
 fn default_ab_path() -> PathBuf {
+    // Canonical source tree first (F4′, 24/07/2026): `~/.claude/rust` is the
+    // FROZEN tree — preferring it meant reading A/B blocks nothing writes
+    // anymore. The frozen path stays as a read fallback for pre-move history.
     if let Ok(home) = std::env::var("HOME") {
+        let canonical =
+            PathBuf::from(&home).join("projects/touring/docs/agentic-bench/.ab-latest.json");
+        if canonical.exists() {
+            return canonical;
+        }
         PathBuf::from(home).join(".claude/rust/docs/agentic-bench/.ab-latest.json")
     } else {
         PathBuf::from("docs/agentic-bench/.ab-latest.json")
@@ -694,37 +891,168 @@ fn build_ab_block(path: &Path) -> Option<Value> {
     serde_json::from_str::<Value>(&raw).ok()
 }
 
+/// B (coordenação, 2026-09-23): an ephemeral root (system temp, a pytest tmp,
+/// the harness scratchpad) never becomes a dated snapshot in the real
+/// `docs/kpi` — 12 `tmp-pytest-*` files landed there because a test's tmp
+/// root passed through this writer with no guard.
+fn is_ephemeral_root(project_root: &std::path::Path) -> bool {
+    project_root.starts_with(std::env::temp_dir())
+}
+
+/// Where the dated series lives for a given HOME (testable without mutating
+/// the process env): canonical source tree (`$HOME/projects/touring/docs/kpi`),
+/// never the frozen `~/.claude/rust` tree (F4′, 24/07/2026).
+fn snapshot_dir(home: Option<&std::path::Path>, month: &str) -> PathBuf {
+    match home {
+        Some(h) => h.join("projects/touring/docs/kpi").join(month),
+        None => PathBuf::from("docs/kpi").join(month),
+    }
+}
+
 fn persist_snapshot(
     payload: &Value,
     date: &str,
     project_root: &std::path::Path,
 ) -> std::io::Result<PathBuf> {
+    if is_ephemeral_root(project_root) {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "ephemeral project root — snapshot skipped",
+        ));
+    }
     let month = date.get(0..7).unwrap_or("0000-00");
-    let dir = if let Ok(home) = std::env::var("HOME") {
-        PathBuf::from(home)
-            .join(".claude/rust/docs/kpi")
-            .join(month)
-    } else {
-        PathBuf::from("docs/kpi").join(month)
-    };
-    std::fs::create_dir_all(&dir)?;
+    let home = std::env::var("HOME").ok();
+    let home = home.as_deref().map(std::path::Path::new);
+    persist_snapshot_at(
+        &snapshot_dir(home, month),
+        home,
+        payload,
+        date,
+        project_root,
+    )
+}
+
+/// Writes the dated snapshot into `dir`. The file lives in a PUBLIC repository, so
+/// nothing that identifies the machine's user may reach it: every string of the payload
+/// and the file NAME go through [`scrub_home`] first (17/10/2026 — 232 files under
+/// `docs/kpi/` carried `/home/<user>/…` in `project_root`, `reason` and `journal`, and
+/// in their names).
+fn persist_snapshot_at(
+    dir: &std::path::Path,
+    home: Option<&std::path::Path>,
+    payload: &Value,
+    date: &str,
+    project_root: &std::path::Path,
+) -> std::io::Result<PathBuf> {
+    std::fs::create_dir_all(dir)?;
     // One file per project per day (investigation 2026-07-01): the daemon's F5
     // flush snapshots EVERY warm project, and per-project sources (orphans,
     // ema) differ wildly between projects — a shared `{date}.json` made
     // consecutive writes silently overwrite each other and the dated series
     // uninterpretable (observed: 368→0→0→12002 across mixed projects).
     // Readers glob `docs/kpi/*/*.json`, so the new name stays discoverable.
-    let file = dir.join(format!("{date}--{}.json", project_slug(project_root)));
-    let pretty = serde_json::to_string_pretty(payload)?;
+    let file = dir.join(format!("{date}--{}.json", project_slug(project_root, home)));
+    let mut clean = payload.clone();
+    scrub_value(&mut clean, home);
+    let pretty = serde_json::to_string_pretty(&clean)?;
     std::fs::write(&file, pretty)?;
     Ok(file)
 }
 
-/// Deterministic filename-safe slug for a project root: the full path with
-/// separators folded to `-` (collision-free, unlike a basename).
-fn project_slug(project_root: &std::path::Path) -> String {
-    let slug: String = project_root.display().to_string().replace(['/', '\\'], "-");
-    slug.trim_matches('-').to_string()
+/// Deterministic filename-safe slug for a project root: the path relative to the
+/// user's home (`~/projects/touring`) with separators folded to `-` (collision-free,
+/// unlike a basename, and free of the user name, unlike the absolute path).
+fn project_slug(project_root: &std::path::Path, home: Option<&std::path::Path>) -> String {
+    let shown = scrub_home(&project_root.display().to_string(), home);
+    shown
+        .replace(['/', '\\'], "-")
+        .trim_matches('-')
+        .to_string()
+}
+
+/// A byte that can belong to a path component name.
+fn is_name_byte(b: u8) -> bool {
+    b.is_ascii_alphanumeric() || matches!(b, b'_' | b'.' | b'-')
+}
+
+/// `text` with every occurrence of `needle` that stands alone replaced by `with`: the
+/// byte before must not continue a name, and the byte after must end it (or be one of
+/// `also_after`, for the dash-encoded spelling where the name is followed by `-`).
+fn replace_standalone(text: &str, needle: &str, with: &str, also_after: &[u8]) -> String {
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for (at, _) in text.match_indices(needle) {
+        let end = at + needle.len();
+        let before_ok = at == 0 || !is_name_byte(bytes[at - 1]);
+        let after_ok = bytes
+            .get(end)
+            .is_none_or(|b| !is_name_byte(*b) || also_after.contains(b));
+        if at >= last && before_ok && after_ok {
+            out.push_str(&text[last..at]);
+            out.push_str(with);
+            last = end;
+        }
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// Rewrites every spelling of the user's home directory in `text` as `~`:
+/// `$HOME` itself, any `/home/<user>` (a path from another account, or `$HOME` unset),
+/// and the dash-encoded form Claude Code uses for its per-project directories
+/// (`-home-<user>-projects-x` → `-~-projects-x`).
+fn scrub_home(text: &str, home: Option<&std::path::Path>) -> String {
+    let mut out = text.to_string();
+    if let Some(h) = home {
+        let h = h.display().to_string();
+        let h = h.trim_end_matches('/');
+        if h.len() > 1 {
+            out = replace_standalone(&out, h, "~", &[]);
+            out = replace_standalone(&out, &h.replace('/', "-"), "-~", b"-");
+        }
+    }
+    scrub_home_dirs(&out)
+}
+
+/// `/home/<user>` → `~` for any user.
+fn scrub_home_dirs(text: &str) -> String {
+    const ROOT: &str = "/home/";
+    let bytes = text.as_bytes();
+    let mut out = String::with_capacity(text.len());
+    let mut last = 0;
+    for (at, _) in text.match_indices(ROOT) {
+        if at < last || (at > 0 && is_name_byte(bytes[at - 1])) {
+            continue;
+        }
+        let name_len = bytes[at + ROOT.len()..]
+            .iter()
+            .take_while(|b| is_name_byte(**b))
+            .count();
+        if name_len == 0 {
+            continue;
+        }
+        out.push_str(&text[last..at]);
+        out.push('~');
+        last = at + ROOT.len() + name_len;
+    }
+    out.push_str(&text[last..]);
+    out
+}
+
+/// [`scrub_home`] over every string of `value`, object keys included.
+fn scrub_value(value: &mut Value, home: Option<&std::path::Path>) {
+    match value {
+        Value::String(s) => *s = scrub_home(s, home),
+        Value::Array(items) => items.iter_mut().for_each(|v| scrub_value(v, home)),
+        Value::Object(map) => {
+            for (key, mut v) in std::mem::take(map) {
+                scrub_value(&mut v, home);
+                map.insert(scrub_home(&key, home), v);
+            }
+        }
+        _ => {}
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -910,15 +1238,437 @@ pub fn actuator_signals() -> (Option<f64>, Option<bool>) {
 mod tests {
     use super::*;
 
+    // ── F9 (2026-09-01): régua do complemento de hooks ──────────────────
+    // Despachos por hook (daemon, F0.3d) × entregas ao mirror na MESMA janela.
+    // Nasce da sonda F0.3: post-bash vivo 5/47 atendido, 0/47 no mirror — e
+    // nenhum número do daemon podia dizer isso.
+
+    #[test]
+    fn hooks_complement_reads_dispatches_and_mirror_deliveries_in_the_same_window() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("post-bash".to_string(), 10u64);
+        by_name.insert("post-tool-rl".to_string(), 12u64);
+        by_name.insert("cli-suggest".to_string(), 30u64);
+        let epoch = 1_788_300_000u64;
+        let mirror = [
+            r#"{"ts":1788299999,"hook_name":"index_find"}"#, // antes do epoch: fora
+            r#"{"ts":1788300010,"hook_name":"index_find"}"#,
+            r#"{"ts":1788300020,"hook_name":"memory_recall"}"#,
+            r#"{"ts":1788300030,"hook_name":"cli-index-find"}"#, // alias: visível, à parte
+            "not json at all",
+        ];
+        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        assert_eq!(v["available"], true);
+        assert_eq!(v["since_epoch"], epoch);
+        assert_eq!(v["dispatched"]["post-bash"], 10);
+        assert_eq!(v["dispatched"]["post-tool-rl"], 12);
+        assert_eq!(v["post_bash_dispatched"], 10);
+        assert_eq!(v["mirror_deliveries_since"], 2);
+        assert_eq!(v["mirror_non_canonical_since"], 1);
+        // F9-origem (02/09): linhas legadas não declaram origem — não entram
+        // na razão do post-bash (seriam creditadas a um despacho que talvez
+        // nunca aconteceu). Visíveis como `unknown`, nunca somadas à razão.
+        assert_eq!(v["mirror_deliveries_by_origin"]["unknown"], 2);
+        assert_eq!(v["post_bash_delivery_ratio"], 0.0);
+    }
+
+    // F9-origem (2026-09-02): a razão media 5,0 (5 entregas ÷ 1 despacho)
+    // porque o numerador somava entregas do SDK in-sandbox e do caminho CLI
+    // junto com as do post-bash. Só a origem `post_bash` conta na razão; as
+    // demais ficam visíveis por origem.
+    #[test]
+    fn hooks_complement_ratio_counts_only_post_bash_origin_deliveries() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("post-bash".to_string(), 4u64);
+        let epoch = 1_788_300_000u64;
+        let mirror = [
+            r#"{"ts":1788300010,"hook_name":"index_find","origin":"post_bash"}"#,
+            r#"{"ts":1788300011,"hook_name":"ast_meta","origin":"post_bash"}"#,
+            r#"{"ts":1788300020,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300021,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300022,"hook_name":"memory_recall","origin":"sdk"}"#,
+            r#"{"ts":1788300030,"hook_name":"index_find"}"#, // legado, sem origem
+            r#"{"ts":1788300040,"hook_name":"cli-index-find","origin":"post_bash"}"#, // alias: fora
+        ];
+        let v = hooks_complement_from(&by_name, mirror.iter().copied(), Some(epoch));
+        assert_eq!(
+            v["mirror_deliveries_since"], 6,
+            "todas as canônicas seguem contadas"
+        );
+        assert_eq!(v["mirror_non_canonical_since"], 1);
+        assert_eq!(v["mirror_deliveries_by_origin"]["post_bash"], 2);
+        assert_eq!(v["mirror_deliveries_by_origin"]["sdk"], 3);
+        assert_eq!(v["mirror_deliveries_by_origin"]["unknown"], 1);
+        assert_eq!(v["post_bash_origin_deliveries_since"], 2);
+        assert_eq!(
+            v["post_bash_delivery_ratio"], 0.5,
+            "2 entregas do post-bash ÷ 4 despachos"
+        );
+    }
+
+    #[test]
+    fn hooks_complement_before_any_dispatch_is_visible_not_a_division() {
+        let v = hooks_complement_from(&Default::default(), std::iter::empty(), None);
+        assert_eq!(v["available"], false);
+        assert_eq!(v["reason"], "no hook dispatched yet in this daemon");
+    }
+
+    #[test]
+    fn hooks_complement_ratio_is_null_when_post_bash_never_dispatched() {
+        let mut by_name = std::collections::BTreeMap::new();
+        by_name.insert("cli-suggest".to_string(), 3u64);
+        let v = hooks_complement_from(&by_name, std::iter::empty(), Some(1));
+        assert_eq!(v["available"], true);
+        assert_eq!(v["post_bash_dispatched"], 0);
+        assert!(v["post_bash_delivery_ratio"].is_null(), "{v}");
+    }
+
+    /// F0 wave signal-layer-tier-ab (01/09) — `used` counts only the 8
+    /// CANONICAL hook names: alias/daemon names (`cli-index-find`) raised the
+    /// measured ratio to 1.0 with only 3 canonical hooks in the mirror.
+    #[test]
+    fn signal_use_counts_only_canonical_hooks() {
+        let lines = [
+            r#"{"ts":1,"hook_name":"ast_meta","duration_ms":2,"success":true}"#,
+            r#"{"ts":2,"hook_name":"cli-index-find","duration_ms":0,"success":true}"#,
+            r#"{"ts":3,"hook_name":"cli-gate-metrics","duration_ms":0,"success":true}"#,
+            r#"{"ts":4,"hook_name":"index_find","duration_ms":1,"success":true}"#,
+            r#"{"ts":5,"hook_name":"index_find","duration_ms":1,"success":true}"#,
+        ];
+        let v = signal_use_from_lines(lines.iter().copied());
+        assert_eq!(v["used"], 2, "ast_meta + index_find; cli-* never count");
+        assert_eq!(v["total_calls"], 5, "every parsed line is a call");
+        assert_eq!(
+            v["non_canonical_calls"], 2,
+            "alias drift stays visible, never silently dropped"
+        );
+    }
+
+    /// Cross-audit 2026-08-30 (F-1) — o contrato do grafo governa kinds por
+    /// FACETA (cláusula 3), então o KPI filtra por memory_tags, nunca por
+    /// entry_type (medido: nós semantic com `kind:decision` na faceta e
+    /// entry_type legado ficavam invisíveis). Mutação que mata: reverter o
+    /// filtro para `entry_type IN (...)`.
+    #[test]
+    fn graph_contract_share_counts_by_facet_not_entry_type() {
+        let dir = std::env::temp_dir().join(format!("kpi-gcs-{}", std::process::id()));
+        let db_dir = dir.join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).expect("tempdir");
+        let conn = rusqlite::Connection::open(db_dir.join("memory.db")).expect("open");
+        conn.execute_batch(
+            "CREATE TABLE memory_entries (key TEXT PRIMARY KEY, tier TEXT,
+                 entry_type TEXT, created_at TEXT);
+             CREATE TABLE memory_tags (entry_key TEXT, full_tag TEXT);
+             CREATE TABLE memory_links (id TEXT PRIMARY KEY, src TEXT, dst TEXT,
+                 rel TEXT, created_at TEXT DEFAULT (datetime('now')));
+             -- curado PELA FACETA, entry_type legado, COM aresta e key ok
+             INSERT INTO memory_entries VALUES
+                 ('lesson:facetado:2026-08-30','semantic','text',datetime('now'));
+             INSERT INTO memory_tags VALUES ('lesson:facetado:2026-08-30','kind:lesson');
+             INSERT INTO memory_links VALUES ('e1','lesson:facetado:2026-08-30','x',
+                 'generated-by',datetime('now'));
+             -- curado pela faceta, SEM aresta (conta no denominador, não no numerador)
+             INSERT INTO memory_entries VALUES
+                 ('decisao:orfa:2026-08-30','semantic','text',datetime('now'));
+             INSERT INTO memory_tags VALUES ('decisao:orfa:2026-08-30','kind:decision');
+             -- não-curado: fora das duas contagens
+             INSERT INTO memory_entries VALUES
+                 ('outcome:bash:x','episodic','outcome',datetime('now'));",
+        )
+        .expect("seed");
+        drop(conn);
+        assert_eq!(
+            super::graph_contract_share(&dir),
+            Some(0.5),
+            "1 de 2 nós curados-por-faceta cumpre chave+aresta"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// F2 ADW (28/08/2026) — o KPI lê o formato que o PRODUTOR grava:
+    /// `plan_refine.py` escreve `{version, iterations: […]}`, e só o array cru
+    /// era aceito — o KPI ficava STUB com ledger legítimo no disco.
+    #[test]
+    fn plan_refine_iters_reads_the_producers_object_format() {
+        let dir = std::env::temp_dir().join(format!("kpi-refine-{}", std::process::id()));
+        let plans = dir.join("docs").join("plans").join("bundle");
+        std::fs::create_dir_all(&plans).expect("tempdir");
+        std::fs::write(
+            plans.join("strategy.refine.json"),
+            r#"{"version": 1, "iterations": [{"iter": 1}, {"iter": 2}, {"iter": 3}]}"#,
+        )
+        .expect("write ledger");
+        assert_eq!(super::adw_plan_refine_iters(&dir), Some(3.0));
+        // o formato de array cru segue aceito
+        std::fs::write(plans.join("raw.refine.json"), r#"[1, 2, 3, 4]"#).expect("write raw");
+        assert_eq!(super::adw_plan_refine_iters(&dir), Some(4.0));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// M0 (29/08/2026) — the `:par` stamp is the only adoption signal:
+    /// distinct run_ids count once, unstamped origins never count, and a
+    /// missing journal is STUB (`None`), never zero.
+    #[test]
+    fn parallel_runs_counts_distinct_stamped_runs_only() {
+        let dir = std::env::temp_dir().join(format!("kpi-par-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tempdir");
+        let journal = dir.join("run_subcalls.jsonl");
+        std::fs::write(
+            &journal,
+            concat!(
+                r#"{"origin":"run-1:code:1:par","hook":"cli-memory-recall"}"#,
+                "\n",
+                r#"{"origin":"run-1:code:2:par","hook":"cli-index-find"}"#,
+                "\n",
+                r#"{"origin":"run-2:code:1:par","hook":"cli-memory-recall"}"#,
+                "\n",
+                r#"{"origin":"run-3:code:1","hook":"cli-memory-recall"}"#,
+                "\n",
+            ),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::code_mode_parallel_runs_from(&journal),
+            Some(2.0),
+            "run-1 counts once, run-3 has no :par stamp"
+        );
+        assert_eq!(
+            super::code_mode_parallel_runs_from(&dir.join("missing.jsonl")),
+            None,
+            "no journal is STUB, never a measured zero"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// M0 (29/08/2026) — the `tier` KEY separates the eras: a line without it
+    /// (pre-instrumentation) stays out of the denominator entirely, while
+    /// `tier: null` is an agent that declared nothing and MUST lower the
+    /// share — the ruler measures declared specialization, not runner
+    /// version (the "adoption measures the channel" trap).
+    #[test]
+    fn tiered_share_null_lowers_and_missing_key_is_excluded() {
+        let dir = std::env::temp_dir().join(format!("kpi-tier-{}", std::process::id()));
+        let run = dir.join(".touring").join("adw-runs").join("r1");
+        std::fs::create_dir_all(&run).expect("tempdir");
+        let journal = run.join("journal.jsonl");
+        // only a pre-instrumentation line (no tier key) → STUB, never "0% tiered"
+        std::fs::write(
+            &journal,
+            concat!(
+                r#"{"event":"node_started","type":"agent","node":"old"}"#,
+                "\n"
+            ),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::adw_tiered_agent_share(&dir),
+            None,
+            "journals that predate the instrumentation must read as STUB"
+        );
+        std::fs::write(
+            &journal,
+            concat!(
+                r#"{"event":"node_started","type":"agent","node":"old"}"#,
+                "\n",
+                r#"{"event":"node_started","type":"agent","node":"critic","tier":"mid"}"#,
+                "\n",
+                r#"{"event":"node_started","type":"agent","node":"bare","tier":null}"#,
+                "\n",
+                r#"{"event":"node_started","type":"code","node":"gate","tier":"mid"}"#,
+                "\n",
+            ),
+        )
+        .expect("write journal");
+        assert_eq!(
+            super::adw_tiered_agent_share(&dir),
+            Some(0.5),
+            "null tier enters the denominator only; non-agent lines never count"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// S3 — a fração da inspeção capturada como rajada.
+    #[test]
+    fn inspect_burst_share_is_denied_over_observed() {
+        // a previsão da medição de 115 transcripts: ~77,5% em rajada
+        let r = super::inspect_burst_share(775.0, 225.0).expect("há observação");
+        assert!((r - 0.775).abs() < 1e-9, "{r}");
+    }
+
+    /// Ausência de sinal é DESCONHECIDO, nunca zero (Lei L2). Um gate que nunca
+    /// falou e um gate que falou e não pegou nada são estados diferentes — o
+    /// T3-B morreu justamente por essa confusão.
+    #[test]
+    fn no_inspection_observed_is_none_not_zero() {
+        assert_eq!(super::inspect_burst_share(0.0, 0.0), None);
+        assert_eq!(
+            super::inspect_burst_share(0.0, 10.0),
+            Some(0.0),
+            "10 isoladas e nenhuma rajada é um zero MEDIDO"
+        );
+    }
+
+    /// D (09/10/2026): o S3 passou a AVISAR — `advised` na 2ª, `in_burst` nas
+    /// seguintes da mesma rajada — e o arquivo durável ainda guarda o `denied`
+    /// de antes do release. A rajada observada é a soma das três; lendo só
+    /// `denied`, o KPI cairia a zero depois do release por um campo que ninguém
+    /// mais incrementa — um zero que não mede nada.
+    #[test]
+    fn s3_burst_observations_sum_the_old_and_the_new_fields() {
+        let v = json!({"s3": {"denied": 7, "advised": 2, "in_burst": 3, "first_passed": 5}});
+        assert_eq!(super::s3_burst_observations(&v), (12.0, 5.0));
+        let so_novo = json!({"s3": {"advised": 1, "first_passed": 4}});
+        assert_eq!(super::s3_burst_observations(&so_novo), (1.0, 4.0));
+        assert_eq!(super::s3_burst_observations(&json!({})), (0.0, 0.0));
+    }
+
+    /// O mesmo, fim a fim: o braço `inspect_burst_share` do `resolve_derived` lê
+    /// o arquivo durável que o gate grava — só com os campos novos, ele mede.
+    #[test]
+    fn inspect_burst_share_arm_reads_the_advised_fields_on_disk() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let mut rt = HookRuntime::new(tmp.path()).expect("HookRuntime::new");
+        for (campo, n) in [("advised", 2), ("in_burst", 1), ("first_passed", 1)] {
+            for _ in 0..n {
+                crate::cli_suggester::bump_durable_evidence(&rt.project_root, "s3", campo);
+            }
+        }
+        let r = resolve_derived(&mut rt, "inspect_burst_share").expect("há observação");
+        assert!(
+            (r - 0.75).abs() < 1e-9,
+            "3 de rajada sobre 4 observadas: {r}"
+        );
+    }
+
+    #[test]
+    fn adoption_ratio_is_runs_over_bash_calls() {
+        assert_eq!(code_mode_adoption(4.0, 100.0), Some(0.04));
+        // Measured zero: Bash actions exist, no runs — honestly 0.0.
+        assert_eq!(code_mode_adoption(0.0, 10.0), Some(0.0));
+    }
+
+    #[test]
+    fn ratio_absent_reads_as_null_never_zero() {
+        // No denominator observed → unknown, never a fabricated 0.0 (Lei L2).
+        assert_eq!(code_mode_adoption(0.0, 0.0), None);
+        assert_eq!(code_mode_adoption(3.0, 0.0), None);
+    }
+
     #[test]
     fn project_slug_is_deterministic_and_collision_free() {
-        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"));
-        assert_eq!(a, "home-g-.claude-rust");
+        let home = Some(std::path::Path::new("/home/g"));
+        let a = project_slug(std::path::Path::new("/home/g/.claude/rust"), home);
+        assert_eq!(a, "~-.claude-rust");
         // Distinct roots sharing a basename must not collide (a plain
         // basename slug would map both to "rust").
-        let b = project_slug(std::path::Path::new("/tmp/other/rust"));
+        let b = project_slug(std::path::Path::new("/tmp/other/rust"), home);
         assert_ne!(a, b);
         assert!(!a.contains('/'));
+    }
+
+    #[test]
+    fn scrub_home_rewrites_every_spelling_of_the_home_directory() {
+        let home = Some(std::path::Path::new("/Users/g"));
+        for (input, want) in [
+            ("/Users/g", "~"),
+            ("/Users/g/projects/touring", "~/projects/touring"),
+            ("/Users/g/", "~/"),
+            // the dash-encoded per-project directory Claude Code derives from it
+            (
+                "no transcript directory at /Users/g/.claude/projects/-Users-g-projects-x",
+                "no transcript directory at ~/.claude/projects/-~-projects-x",
+            ),
+            // another account's home, or $HOME unset: the generic /home/<user>
+            (
+                "/home/other/.claude/touring/logs/r3.jsonl",
+                "~/.claude/touring/logs/r3.jsonl",
+            ),
+            ("a=/home/a b=/home/b/c", "a=~ b=~/c"),
+            // a longer name, a longer path component, an embedded path: not the home
+            ("/Users/gabriel/x", "/Users/gabriel/x"),
+            ("/mnt/Users/g/x", "/mnt/Users/g/x"),
+            ("/homework/g/x", "/homework/g/x"),
+            ("/home/", "/home/"),
+            ("plain text", "plain text"),
+        ] {
+            assert_eq!(scrub_home(input, home), want, "input {input:?}");
+        }
+    }
+
+    #[test]
+    fn scrub_value_walks_nested_values_and_keys() {
+        let home = Some(std::path::Path::new("/home/alice"));
+        let mut v = serde_json::json!({
+            "project_root": "/home/alice/projects/touring",
+            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-analise--claude"},
+            "shadow": [{"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"}],
+            "/home/alice/key": 3,
+            "n": 7,
+            "ok": true,
+            "none": null
+        });
+        scrub_value(&mut v, home);
+        let text = v.to_string();
+        assert!(!text.contains("alice"), "{text}");
+        assert_eq!(v["project_root"], "~/projects/touring");
+        assert_eq!(
+            v["shadow"][0]["journal"],
+            "~/.claude/touring/logs/r3_shadow.jsonl"
+        );
+        assert_eq!(v["~/key"], 3);
+        assert_eq!(
+            (v["n"].clone(), v["ok"].clone()),
+            (serde_json::json!(7), serde_json::json!(true))
+        );
+    }
+
+    #[test]
+    fn project_slug_carries_no_home_path() {
+        let home = Some(std::path::Path::new("/home/alice"));
+        let slug = |p: &str| project_slug(std::path::Path::new(p), home);
+        assert_eq!(slug("/home/alice/projects/touring"), "~-projects-touring");
+        assert_eq!(slug("/home/alice"), "~");
+        assert_ne!(
+            slug("/home/alice/projects/touring"),
+            slug("/home/alice/Work")
+        );
+        for root in ["/home/alice/projects/analise", "/home/alice", "/opt/x/y"] {
+            let s = slug(root);
+            assert!(!s.contains("alice") && !s.contains("home"), "{s}");
+        }
+        // Outside the home nothing changes.
+        assert_eq!(slug("/opt/x/y"), "opt-x-y");
+    }
+
+    #[test]
+    fn a_persisted_snapshot_names_no_user_in_its_file_or_its_body() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let home = std::path::Path::new("/home/alice");
+        let root = home.join("projects/touring");
+        let payload = serde_json::json!({
+            "schema": 1,
+            "project_root": root.display().to_string(),
+            "context_budget": {"reason": "no transcript directory at /home/alice/.claude/projects/-home-alice-projects-touring"},
+            "shadow": {"journal": "/home/alice/.claude/touring/logs/r3_shadow.jsonl"},
+        });
+        let file = persist_snapshot_at(dir.path(), Some(home), &payload, "2026-10-17", &root)
+            .expect("persist");
+        let name = file
+            .file_name()
+            .expect("name")
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(name, "2026-10-17--~-projects-touring.json");
+        let body = std::fs::read_to_string(&file).expect("read");
+        assert!(
+            !body.contains("alice") && !name.contains("alice"),
+            "{name}\n{body}"
+        );
+        let back: Value = serde_json::from_str(&body).expect("json");
+        assert_eq!(back["project_root"], "~/projects/touring");
+        assert_eq!(back["schema"], 1, "everything else is untouched");
+        // The in-memory payload (what the command prints) keeps the real path.
+        assert_eq!(payload["project_root"], root.display().to_string());
     }
 
     #[test]
@@ -1077,6 +1827,61 @@ mod tests {
         assert_eq!(json_value_as_f64(&json!(false)), Some(0.0));
         assert_eq!(json_value_as_f64(&json!("not a number")), None);
     }
+
+    // MED-1 (28/08) — a régua de aderência, sobre dados sintéticos:
+    // 4 runs (3 ok, 1 falha com failure_kind) e 1 par falha→retry <120s.
+    /// Cross-audit 04/09/2026 — `by_failure_kind` era histograma da string CRUA do
+    /// journal, entao uma grafia desconhecida virava categoria propria e a taxonomia
+    /// declarada na diretriz A5 nao valia na ponta que le. `FailureKind::from_str_opt`
+    /// existia com essa funcao exata e nao tinha consumidor de producao (orfao pela
+    /// REGRA #0). Agora o KPI conta as 7 classes que existem, e so elas.
+    #[test]
+    fn classe_de_falha_desconhecida_cai_em_other_e_nao_cria_categoria() {
+        let journal = [
+            r#"{"exit_code":1,"failure_kind":"kind-que-nao-existe","language":"bash","ts":1000}"#,
+            r#"{"exit_code":1,"failure_kind":"timeout","language":"bash","ts":1010}"#,
+        ];
+        let v = adherence_from_lines(journal.iter().copied());
+        assert!(
+            v["by_failure_kind"].get("kind-que-nao-existe").is_none(),
+            "grafia desconhecida nao pode criar categoria: {}",
+            v["by_failure_kind"]
+        );
+        assert_eq!(
+            v["by_failure_kind"]["other"],
+            json!(1),
+            "cai em `other`: {v}"
+        );
+        assert_eq!(
+            v["by_failure_kind"]["timeout"],
+            json!(1),
+            "classe real preservada: {v}"
+        );
+    }
+
+    #[test]
+    fn med1_adherence_from_lines_agrega_e_conta_retry() {
+        let journal = [
+            r#"{"exit_code":0,"failure_kind":null,"language":"python","ts":1000}"#,
+            r#"{"exit_code":1,"failure_kind":"proc-exit","language":"python","ts":1010}"#,
+            // retry da mesma linguagem 30s depois → wasted
+            r#"{"exit_code":0,"failure_kind":null,"language":"python","ts":1040}"#,
+            // outra linguagem: não é retry do par anterior
+            r#"{"exit_code":0,"failure_kind":null,"language":"bash","ts":2000}"#,
+        ];
+        let v = adherence_from_lines(journal.iter().copied());
+        assert_eq!(v["runs_total"], json!(4));
+        assert_eq!(v["runs_ok"], json!(3));
+        assert_eq!(v["success_rate"], json!(0.75));
+        assert_eq!(v["wasted_attempts_retry_pairs"], json!(1));
+        assert_eq!(v["by_failure_kind"]["proc-exit"], json!(1));
+        assert_eq!(v["by_language"]["python"], json!(3));
+        assert_eq!(v["by_language"]["bash"], json!(1));
+        // journal vazio: available com zeros, success_rate null (nunca inventa)
+        let vazio = adherence_from_lines(std::iter::empty());
+        assert_eq!(vazio["runs_total"], json!(0));
+        assert_eq!(vazio["success_rate"], Value::Null);
+    }
     #[test]
     fn yaml_round_trip_preserves_commitment() {
         let yaml = "version: '1.0'\nschema: kpi-v1\ncommitments:\n  - id: a.b\n    name: T\n    threshold: 1.0\n    direction: gte\n    source: 'daemon:x:/y'\n";
@@ -1123,6 +1928,7 @@ mod tests {
             status,
             rationale: String::new(),
             advisory: false,
+            stub_reason: None,
         }
     }
     #[test]
@@ -1137,25 +1943,144 @@ mod tests {
         assert_eq!(s["passed"], 1);
     }
     #[test]
-    fn flow_compliance_filters_by_project_and_needs_data() {
+    fn ephemeral_roots_never_become_snapshots_and_real_roots_resolve_the_dir() {
+        // B (coordenação, 2026-09-23): 12 `tmp-pytest-*` snapshots landed in the
+        // real docs/kpi because a test's tmp root passed through the writer.
+        let err = persist_snapshot(
+            &serde_json::json!({}),
+            "2026-09-23",
+            &std::env::temp_dir().join("pytest-of-gabrielgadea-x"),
+        )
+        .expect_err("an ephemeral root must be refused");
+        assert!(err.to_string().contains("ephemeral project root"), "{err}");
+        // The CC-session scratchpad is the same class (5 already-committed
+        // strays in docs/kpi history): /tmp/claude-1000/<slug>/scratchpad.
+        let err2 = persist_snapshot(
+            &serde_json::json!({}),
+            "2026-09-23",
+            &std::env::temp_dir().join("claude-1000/sess-x/scratchpad/proj"),
+        )
+        .expect_err("the CC scratchpad is ephemeral too");
+        assert!(
+            err2.to_string().contains("ephemeral project root"),
+            "{err2}"
+        );
+        // A real root resolves the canonical tree (no env mutation in the test).
+        let dir = snapshot_dir(Some(std::path::Path::new("/home/x")), "2026-09");
+        assert_eq!(
+            dir,
+            std::path::Path::new("/home/x/projects/touring/docs/kpi/2026-09"),
+            "the canonical dated tree, never the frozen one"
+        );
+        assert_eq!(
+            snapshot_dir(None, "2026-09"),
+            PathBuf::from("docs/kpi/2026-09"),
+            "the HOME-less fallback stays relative"
+        );
+    }
+    #[test]
+    fn explore_rounds_to_dry_measures_the_last_convergence_episode_not_lifetime() {
+        // N2 (2026-09-23): the metric read `rounds.len()` — the ledger's whole
+        // lifetime across every re-exploration. A topic revisited weekly for a
+        // month scored 20+ "rounds to dry" with every visit converging in 1-2
+        // rounds; measured distribution on 174 real ledgers: lifetime mean 8.09
+        // vs last-episode mean 2.33. The metric now prices ONE convergence
+        // episode: the maximal tail of rounds after the previous dry pair.
+        let dir = std::env::temp_dir().join(format!("kpi-expl-{}", std::process::id()));
+        let led = dir.join(".touring-explore");
+        std::fs::create_dir_all(&led).expect("mkdir");
+        assert_eq!(adw_explore_rounds_to_dry(&dir), None, "no ledgers → STUB");
+        let ledger = |name: &str, news: &[u64], converged: bool| {
+            let rounds: String = news
+                .iter()
+                .map(|n| format!("{{\"new_findings\":{n}}}"))
+                .collect::<Vec<_>>()
+                .join(",");
+            std::fs::write(
+                led.join(name),
+                format!("{{\"verdict\":{{\"converged\":{converged}}},\"rounds\":[{rounds}]}}"),
+            )
+            .expect("write ledger");
+        };
+        // 11 lifetime rounds; episodes [3,2,0,0]·[4,1,0,0]·[2,0,0] → last = 3.
+        ledger("a.ledger.json", &[3, 2, 0, 0, 4, 1, 0, 0, 2, 0, 0], true);
+        // converged on the spot: one dry pair IS the episode → 2.
+        ledger("b.ledger.json", &[0, 0], true);
+        // not converged → ignored.
+        ledger("c.ledger.json", &[9, 9, 9], false);
+        let got = adw_explore_rounds_to_dry(&dir).expect("speaks");
+        assert!(
+            (got - 2.5).abs() < 1e-9,
+            "mean of last episodes (3 and 2) → 2.5, not lifetime 11 — got {got}"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+    #[test]
+    fn flow_compliance_is_started_conditional_windowed_and_per_flow() {
         let dir = std::env::temp_dir().join(format!("kpi-flow-{}", std::process::id()));
         std::fs::create_dir_all(&dir).expect("mkdir");
         let log = dir.join("compliance.jsonl");
         let proj = std::path::Path::new("/proj/a");
         // No log yet → None (STUB, never a fabricated 0.0).
         assert_eq!(flow_compliance_from_log(&log, proj), None);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("clock")
+            .as_secs_f64();
+        let old = now - 30.0 * 86_400.0;
+        let rec = |flow: &str, ts: f64, complete: bool, present: bool, cwd: &str| {
+            let p = if present {
+                ",\"present_ids\":[\"diagnostic-okf\"]"
+            } else {
+                ""
+            };
+            format!(
+                "{{\"cwd\":\"{cwd}\",\"flow\":\"{flow}\",\"ts\":{ts},\"complete\":{complete}{p}}}\n"
+            )
+        };
         std::fs::write(
             &log,
-            concat!(
-                "{\"cwd\":\"/proj/a\",\"flow\":\"strategy-outer\",\"complete\":true}\n",
-                "{\"cwd\":\"/proj/a\",\"flow\":\"strategy-outer\",\"complete\":false}\n",
-                "{\"cwd\":\"/proj/b\",\"flow\":\"cross-audit\",\"complete\":false}\n",
-                "not-json\n",
-            ),
+            [
+                // complete counts as started even without present_ids (58% of the
+                // real history lacks the key — schema grew it later).
+                rec("work-outer", now, true, false, "/proj/a"),
+                // started but not complete (the denominator's honest member).
+                rec("work-outer", now, false, true, "/proj/a"),
+                // armed and abandoned: never started → denominator must NOT see it.
+                rec("work-outer", now, false, false, "/proj/a"),
+                rec("strategy-outer", now, false, true, "/proj/a"),
+                // outside the 14-day window → excluded.
+                rec("cross-audit", old, true, true, "/proj/a"),
+                // another project → ignored.
+                rec("work-outer", now, true, true, "/proj/b"),
+                "not-json\n".to_string(),
+            ]
+            .concat(),
         )
         .expect("write log");
-        // Only /proj/a records count: 1 complete of 2 → 0.5; /proj/b is ignored.
-        assert_eq!(flow_compliance_from_log(&log, proj), Some(0.5));
+        // Aggregate: started = 3, complete = 1 → 1/3 (the abandoned arm is noise).
+        let agg = flow_compliance_from_log(&log, proj).expect("aggregate speaks");
+        assert!(
+            (agg - 1.0 / 3.0).abs() < 1e-9,
+            "aggregate started-conditional, got {agg}"
+        );
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "work-outer"),
+            Some(0.5),
+            "per-flow split"
+        );
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "strategy-outer"),
+            Some(0.0),
+            "started-without-completion is an honest 0.0, not STUB"
+        );
+        assert_eq!(
+            flow_compliance_for_flow(&log, proj, "cross-audit"),
+            None,
+            "a flow whose only records are outside the window stays STUB"
+        );
+        // Arm yield: armed = 4 (3 work-outer + 1 strategy-outer), started = 3 → 0.75.
+        assert_eq!(flow_arm_yield_from_log(&log, proj), Some(0.75));
         assert_eq!(
             flow_compliance_from_log(&log, std::path::Path::new("/proj/c")),
             None,
@@ -1171,5 +2096,407 @@ mod tests {
         let adv = "version: '1.0'\nschema: kpi-v1\ncommitments:\n  - id: a.b\n    name: T\n    threshold: 1.0\n    direction: gte\n    source: 'derived:health_delta_net'\n    advisory: true\n";
         let f2: CommitmentsFile = serde_yaml::from_str(adv).expect("parse advisory");
         assert!(f2.commitments[0].advisory);
+    }
+
+    #[test]
+    fn split_handler_scope_extracts_package() {
+        assert_eq!(
+            split_handler_scope("cli-gate-metrics"),
+            ("cli-gate-metrics", None)
+        );
+        assert_eq!(
+            split_handler_scope("cli-mutation-test@touring-identity"),
+            ("cli-mutation-test", Some("touring-identity"))
+        );
+        assert_eq!(
+            split_handler_scope("cli-x@"),
+            ("cli-x@", None),
+            "an empty scope is not a scope"
+        );
+    }
+
+    #[test]
+    fn resolve_external_reads_fresh_value_and_stubs_otherwise() {
+        let dir = std::env::temp_dir().join(format!("kpi-external-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        assert_eq!(resolve_external(&dir, "a.b"), None, "missing file is STUB");
+        std::fs::write(
+            dir.join("a.b.json"),
+            r#"{"value": 15786, "measured_at": "x"}"#,
+        )
+        .expect("write fresh");
+        assert_eq!(resolve_external(&dir, "a.b"), Some(15786.0));
+        std::fs::write(dir.join("c.d.json"), "not json").expect("write malformed");
+        assert_eq!(resolve_external(&dir, "c.d"), None, "malformed is STUB");
+        std::fs::write(dir.join("e.f.json"), r#"{"measured_at": "x"}"#).expect("write valueless");
+        assert_eq!(
+            resolve_external(&dir, "e.f"),
+            None,
+            "a file without `value` is STUB, never a fabricated zero"
+        );
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The routing-adherence commitment (17/10/2026) rides on the declarative `external:` source,
+    /// so two ways to fail silently are pinned against the REAL file: a malformed addition makes
+    /// `load_commitments` fail and takes the WHOLE dashboard down, and a producer that writes
+    /// anywhere but `<id>.json` leaves the check STUB forever.
+    #[test]
+    fn routing_adherence_commitment_parses_and_resolves_from_its_external_file() {
+        let yaml = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/kpi/commitments.yaml");
+        let file = load_commitments(&yaml).expect("the real commitments.yaml must parse");
+        let c = file
+            .commitments
+            .iter()
+            .find(|c| c.id == "touring.routing.adherence")
+            .expect("the routing adherence commitment is declared");
+        assert!(c.advisory, "a provisional floor never fails `--check`");
+        assert!(c.source.starts_with("external:"), "source: {}", c.source);
+        assert!(
+            c.source
+                .contains(&format!("--emit docs/kpi/external/{}.json", c.id)),
+            "the declared producer must write the file the resolver reads: {}",
+            c.source
+        );
+        let dir = std::env::temp_dir().join(format!("kpi-routing-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("mkdir");
+        let file_path = dir.join(format!("{}.json", c.id));
+        // The shape `scripts/model_routing_adherence.py --emit` writes with a sufficient sample.
+        std::fs::write(
+            &file_path,
+            r#"{"value": 0.5333, "n": 15, "id": "touring.routing.adherence"}"#,
+        )
+        .expect("write value");
+        assert_eq!(resolve_external(&dir, &c.id), Some(0.5333));
+        // Below the minimum sample the producer writes `value: null` + `detalhe`: STUB with cause.
+        std::fs::write(
+            &file_path,
+            r#"{"value": null, "detalhe": "STUB — 3 buscas decidíveis abaixo do mínimo 10."}"#,
+        )
+        .expect("write null");
+        assert_eq!(resolve_external(&dir, &c.id), None);
+        assert!(matches!(
+            resolve_external_detailed(&dir, &c.id),
+            Err(ExternalStub::Declared { .. })
+        ));
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The three STUB causes are distinguishable facts with distinct remedies
+    /// (analise-e0 review, 30/08/2026): "nobody measured" must never be
+    /// confusable with "measured long ago" or "recorded wrong".
+    #[test]
+    fn an_external_stub_names_its_cause_and_the_remedy() {
+        assert_eq!(external_verdict(0, Some("{\"value\": 3.5}")), Ok(3.5));
+        assert_eq!(
+            external_verdict(0, None),
+            Err(ExternalStub::Missing),
+            "unreadable content is an unknown, never zero"
+        );
+        assert_eq!(
+            external_verdict(EXTERNAL_STALE_SECS + 86_400, Some("{\"value\": 1.0}")),
+            Err(ExternalStub::Stale { days: 15 }),
+            "a stale value must not masquerade as current even when parseable"
+        );
+        assert_eq!(
+            external_verdict(0, Some("{\"measured_at\": \"2026-08-28\"}")),
+            Err(ExternalStub::Malformed),
+            "no `value` key at all and no explanation — that IS malformed"
+        );
+        // A3 (cross-audit 30/08): value:null + producer explanation is an
+        // HONEST unknown — the dashboard repeats their words, never accuses.
+        assert_eq!(
+            external_verdict(
+                0,
+                Some("{\"value\": null, \"detalhe\": \"amostra n=6 abaixo do mínimo 20\"}")
+            ),
+            Err(ExternalStub::Declared {
+                detalhe: "amostra n=6 abaixo do mínimo 20".into()
+            })
+        );
+        assert_eq!(
+            external_verdict(0, Some("{\"value\": null}")),
+            Err(ExternalStub::Malformed),
+            "value:null WITHOUT an explanation stays malformed — silence is not honesty"
+        );
+        let d = ExternalStub::Declared {
+            detalhe: "amostra n=6".into(),
+        }
+        .teach("x");
+        assert!(
+            d.contains("declared unmeasured") && d.contains("amostra n=6"),
+            "got: {d}"
+        );
+        // The message carries the remedy and the exact drop path (A5) — the
+        // operator acts on the dashboard line alone.
+        let m = ExternalStub::Missing.teach("touring.test.count");
+        assert!(
+            m.contains("never measured") && m.contains("docs/kpi/external/touring.test.count.json"),
+            "got: {m}"
+        );
+        let s = ExternalStub::Stale { days: 15 }.teach("x");
+        assert!(s.contains("15d ago"), "got: {s}");
+        assert!(
+            ExternalStub::Malformed
+                .teach("x")
+                .contains("numeric `value`")
+        );
+    }
+
+    /// Only an `external:` source that resolved to no value carries a reason —
+    /// non-external STUBs and resolved values keep the old payload shape.
+    #[test]
+    fn only_an_external_stub_carries_a_reason() {
+        let dir = std::env::temp_dir().join("touring-kpi-stub-reason-test");
+        std::fs::create_dir_all(&dir).ok();
+        assert_eq!(
+            external_stub_reason("derived", None, &dir, "x"),
+            None,
+            "a non-external STUB explains nothing new"
+        );
+        assert_eq!(
+            external_stub_reason("external", Some(1.0), &dir, "x"),
+            None,
+            "a resolved value needs no excuse"
+        );
+        let reason = external_stub_reason("external", None, &dir, "kpi-stub-nonexistent")
+            .expect("a missing measurement must name its cause");
+        assert!(reason.contains("never measured"), "got: {reason}");
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    /// The structural guard the 2026-08-28 audit found missing: every source
+    /// the contract declares must have a matching arm in this file, and every
+    /// derived arm must be declared by the contract. `cli-mutation-test` sat
+    /// in the YAML with no `invoke_handler` arm (permanently STUB), and the
+    /// `inspect_burst_share` arm sat here with no commitment (never shown) —
+    /// declaration and executor must derive from the same source (D8).
+    #[test]
+    fn every_declared_source_has_an_arm_and_every_derived_arm_a_commitment() {
+        let yaml_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/kpi/commitments.yaml");
+        let Ok(yaml) = std::fs::read_to_string(&yaml_path) else {
+            eprintln!(
+                "skip: {} not present (out-of-repo build)",
+                yaml_path.display()
+            );
+            return;
+        };
+        // O módulo virou TRÊS arquivos em 21/09/2026 (kpi.rs tinha 2931 linhas
+        // e reprovava F1.2). Este guard lê a fonte, então precisa dos três: com
+        // só `kpi.rs` ele parou de achar `resolve_derived` e falhou — a divisão
+        // tirou a região do arquivo sem tirá-la do programa. Concatenar mantém
+        // o guard medindo o MÓDULO, que é o que ele sempre quis medir.
+        let src = concat!(
+            include_str!("kpi.rs"),
+            "\n",
+            include_str!("kpi/code_mode.rs"),
+            "\n",
+            include_str!("kpi/sources.rs"),
+        );
+        // A region runs from its top-level `fn` line to the next top-level fn.
+        // `pub(crate) fn` conta como topo: a divisão elevou a visibilidade dos
+        // itens que a raiz re-exporta, e um prefixo novo não pode esconder uma
+        // região deste guard.
+        let topo = |line: &str| line.starts_with("fn ") || line.starts_with("pub(crate) fn ");
+        let region = |start: &str| -> String {
+            let mut out = String::new();
+            let mut inside = false;
+            for line in src.lines() {
+                if line.starts_with(start) || line.starts_with(&format!("pub(crate) {start}")) {
+                    inside = true;
+                } else if inside && topo(line) {
+                    break;
+                }
+                if inside {
+                    out.push_str(line);
+                    out.push('\n');
+                }
+            }
+            out
+        };
+        let invoke = region("fn invoke_handler");
+        let derived_region = region("fn resolve_derived");
+        assert!(
+            !invoke.is_empty() && !derived_region.is_empty(),
+            "invoke_handler / resolve_derived regions must be locatable"
+        );
+
+        let mut daemon_handlers: Vec<String> = Vec::new();
+        let mut derived_names: Vec<String> = Vec::new();
+        let mut external_ids: Vec<String> = Vec::new();
+        let mut last_id = String::new();
+        for line in yaml.lines() {
+            let t = line.trim();
+            if let Some(id) = t.strip_prefix("- id: ") {
+                last_id = id.trim().to_string();
+                continue;
+            }
+            let Some(rest) = t.strip_prefix("source: \"") else {
+                continue;
+            };
+            let Some(end) = rest.rfind('"') else { continue };
+            let source = &rest[..end];
+            if let Some(r) = source.strip_prefix("daemon:") {
+                let handler = r.split(':').next().unwrap_or("");
+                let (name, _) = split_handler_scope(handler);
+                daemon_handlers.push(name.to_string());
+            } else if let Some(r) = source.strip_prefix("derived:") {
+                derived_names.push(r.to_string());
+            } else if source.starts_with("external:") {
+                // The operator learns WHERE to drop the measurement from the
+                // source line itself; an id×path drift leaves the KPI STUB
+                // forever while the operator writes to the wrong file.
+                assert!(
+                    source.contains(&format!("docs/kpi/external/{last_id}.json")),
+                    "external source for `{last_id}` does not name its drop path docs/kpi/external/{last_id}.json — the operator cannot know where to record the measurement"
+                );
+                external_ids.push(last_id.clone());
+            }
+        }
+        assert!(
+            !daemon_handlers.is_empty() && !derived_names.is_empty(),
+            "commitments.yaml parsed no sources — the guard is not seeing the contract"
+        );
+        for h in &daemon_handlers {
+            assert!(
+                invoke.contains(&format!("\"{h}\"")),
+                "daemon source `{h}` declared in commitments.yaml has no invoke_handler arm — it can only ever be STUB"
+            );
+        }
+        for d in &derived_names {
+            assert!(
+                derived_region.contains(&format!("\"{d}\"")),
+                "derived source `{d}` declared in commitments.yaml has no resolve_derived arm — it can only ever be STUB"
+            );
+        }
+        // Inverse direction: an arm nothing declares is dead code no KPI shows.
+        for line in derived_region.lines() {
+            let t = line.trim_start();
+            if !t.starts_with('"') || !t.contains("=>") {
+                continue;
+            }
+            let Some(name) = t.trim_start_matches('"').split('"').next() else {
+                continue;
+            };
+            if !name.is_empty() {
+                assert!(
+                    derived_names.iter().any(|d| d == name),
+                    "resolve_derived arm `{name}` has no commitment in commitments.yaml — an orphan no `touring kpi` output ever shows"
+                );
+            }
+        }
+
+        // `external:` arm (the gap the analise-e0 review named, 30/08/2026):
+        // the resolver is generic so there is no per-id arm to demand, but the
+        // parse must be SEEN working (an id-format drift would empty this vec
+        // silently and turn the path assertions above into no-ops)…
+        assert!(
+            !external_ids.is_empty(),
+            "commitments.yaml declares no parseable external: sources — the guard is not seeing the contract"
+        );
+        // …and the inverse direction holds like the others: a measurement file
+        // nothing declares is an orphan no `touring kpi` output ever shows.
+        if let Some(dir) = yaml_path.parent().map(|p| p.join("external"))
+            && let Ok(entries) = std::fs::read_dir(&dir)
+        {
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                let Some(id) = name.strip_suffix(".json") else {
+                    continue;
+                };
+                assert!(
+                    external_ids.iter().any(|e| e == id),
+                    "external measurement `{name}` has no commitment in commitments.yaml — an orphan no `touring kpi` output ever shows"
+                );
+            }
+        }
+    }
+}
+
+/// REGRA #0 (2026-09-02) — o KPI de sinal publica a latência que o mirror já
+/// media. Antes, `duration_p50`/`duration_p99` eram órfãos: computavam
+/// percentis que ninguém lia. Este guard falha se o wiring for desfeito.
+#[cfg(test)]
+mod signal_latency_tests {
+    use touring_code::sdk::HookName;
+    use touring_code::sdk_signal_mirror::{MirrorOrigin, read, record};
+
+    #[test]
+    fn the_kpi_publishes_the_latency_the_mirror_measures() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("mirror.jsonl");
+        for ms in [10u32, 20, 30, 400] {
+            record(&path, HookName::IndexFind, ms, true, MirrorOrigin::Sdk).expect("record");
+        }
+        let agg = read(&path).expect("read");
+        assert!(agg.duration_p50() > 0, "p50 must be measured");
+        assert!(
+            agg.duration_p99() >= agg.duration_p50(),
+            "p99 {} < p50 {}",
+            agg.duration_p99(),
+            agg.duration_p50()
+        );
+        let content = std::fs::read_to_string(&path).expect("content");
+        let mut out = super::signal_use_from_lines(content.lines());
+        out["duration_ms_p50"] = serde_json::json!(agg.duration_p50());
+        out["duration_ms_p99"] = serde_json::json!(agg.duration_p99());
+        assert!(out.get("duration_ms_p50").is_some());
+        assert!(out.get("duration_ms_p99").is_some());
+    }
+}
+
+/// D1 (2026-09-02) — o baseline persistido é lido pela rota pública do SDK.
+#[cfg(test)]
+mod signal_baseline_tests {
+    use super::*;
+
+    #[test]
+    fn a_missing_baseline_reports_the_reason_instead_of_going_quiet() {
+        let out = signal_baseline("/nao/existe/report.json");
+        assert_eq!(out["source"], "/nao/existe/report.json");
+        assert!(out.get("error").is_some(), "{out}");
+    }
+
+    #[test]
+    fn a_real_report_yields_used_and_the_worst_p99() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("report.json");
+        let body = serde_json::json!({
+            "generated_at_unix": 1_700_000_000u64,
+            "source_journal_path": "/x/run_journal.jsonl",
+            "total_runs": 42u64,
+            "hooks": {
+                "index_find": {"call_count": 10, "failure_count": 0,
+                               "duration_ms_p50": 3, "duration_ms_p99": 120},
+                "ast_meta": {"call_count": 5, "failure_count": 1,
+                             "duration_ms_p50": 1, "duration_ms_p99": 40}
+            },
+            "by_language": {},
+            "failure_taxonomy": {}
+        });
+        std::fs::write(&path, serde_json::to_vec(&body).expect("json")).expect("write");
+        let out = signal_baseline(path.to_str().expect("utf8"));
+        assert!(out.get("error").is_none(), "{out}");
+        assert_eq!(out["total_runs"], 42);
+        assert_eq!(out["used"], 2, "ambos os hooks são canônicos: {out}");
+        assert_eq!(out["worst_duration_ms_p99"], 120, "o pior, não a média");
+    }
+
+    #[test]
+    fn the_delta_is_null_when_either_side_is_unreadable() {
+        let live = serde_json::json!({"used": 6});
+        let broken = serde_json::json!({"error": "x"});
+        assert!(signal_delta(&live, &broken).is_null());
+    }
+
+    #[test]
+    fn a_drop_in_adoption_shows_as_a_negative_delta() {
+        let live = serde_json::json!({"used": 5, "duration_ms_p99": 200});
+        let base = serde_json::json!({"used": 7, "worst_duration_ms_p99": 120});
+        let d = signal_delta(&live, &base);
+        assert_eq!(d["used"], -2, "{d}");
+        assert_eq!(d["worst_duration_ms_p99"], 80, "{d}");
     }
 }

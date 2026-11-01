@@ -1,0 +1,11 @@
+{
+  "phase": "p1_5_supersede",
+  "entities": [
+    {
+      "entity_id": "phase:p1_5_supersede",
+      "type": "phase",
+      "description": "P1.5: supersede reaponta memory_links do n\u00f3 antigo (id determin\u00edstico recalculado, aresta de sucess\u00e3o preservada, fail-open). Teste com muta\u00e7\u00e3o nomeada."
+    }
+  ],
+  "relations": []
+}

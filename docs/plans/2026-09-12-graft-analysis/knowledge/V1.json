@@ -1,0 +1,45 @@
+{
+  "phase": "V1",
+  "entities": [
+    {
+      "entity_id": "phase:V1",
+      "type": "phase",
+      "description": "ViolationsDiff::counts explicado: diff_violations(previous, current) classifica MetricViolation em resolved/introduced/persisting por (rule_name, location); counts devolve os tr\u00eas tamanhos e total a soma. Nasceu no Sentrux Wave 2 P4 (09/05/2026), chegou pelo move a38ae33. Nenhum consumidor de produ\u00e7\u00e3o: ViolationsDiff e diff_violations s\u00f3 aparecem no re-export de rules/mod.rs e nos 7 testes de diff.rs; tools_quality_signal avalia regras uma vez por chamada e a rota web /quality/diff compara notas, n\u00e3o viola\u00e7\u00f5es. Decis\u00e3o continua de Gabriel: ligar como catraca (bloquear s\u00f3 introduced deny) ou apagar."
+    },
+    {
+      "entity_id": "memory:loop:task_1789356669864634398:V1:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789356669864634398",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789356669864634398",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:V1|produces|memory:loop:task_1789356669864634398:V1:done",
+      "source": "phase:V1",
+      "type": "produces",
+      "target": "memory:loop:task_1789356669864634398:V1:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789356669864634398:V1:done|generated-by|loop:loop:task_1789356669864634398",
+      "source": "memory:loop:task_1789356669864634398:V1:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789356669864634398"
+    },
+    {
+      "relation_id": "memory:loop:task_1789356669864634398:V1:done|generated-by|dag:decomp:task_1789356669864634398",
+      "source": "memory:loop:task_1789356669864634398:V1:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789356669864634398"
+    }
+  ]
+}

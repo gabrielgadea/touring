@@ -1,0 +1,1 @@
+Package id 0:  +97.0°C  (high = +100.0°C, crit = +100.0°C)

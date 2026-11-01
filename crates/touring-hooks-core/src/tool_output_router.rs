@@ -141,6 +141,7 @@ pub fn build_sandbox_wrapper_args(
         timeout_ms: crate::shared::feature_flags::sandbox_timeout_ms(),
         max_output_bytes: crate::shared::feature_flags::sandbox_max_output_bytes(),
         fallback_on_timeout: crate::shared::feature_flags::sandbox_fallback_on_timeout(),
+        ..SandboxConfig::default()
     };
     match execute_and_store(project_root, tool_name, original_args.clone(), cfg) {
         Ok(res) => {

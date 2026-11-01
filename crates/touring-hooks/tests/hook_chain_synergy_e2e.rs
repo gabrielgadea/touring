@@ -106,6 +106,7 @@ pub fn subtract(a: i32, b: i32) -> i32 {
         | HookResponse::Block { .. }
         | HookResponse::Deny { .. }
         | HookResponse::ContextWithUpdatedInput { .. }
+        | HookResponse::ContextWithUpdatedToolOutput { .. }
         | HookResponse::Halt { .. } => {
             // All variants are valid — hook completed without double-pipeline panic
         }
@@ -734,6 +735,7 @@ fn i6_pre_read_runs_without_panic_when_no_symbol_index() {
         | HookResponse::Block { .. }
         | HookResponse::Deny { .. }
         | HookResponse::ContextWithUpdatedInput { .. }
+        | HookResponse::ContextWithUpdatedToolOutput { .. }
         | HookResponse::Halt { .. } => {
             // Any variant is acceptable — the test proves no panic/crash
         }

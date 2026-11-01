@@ -1,0 +1,312 @@
+{
+ "vgp": [
+  "05166acc-ff08-4644-8481-ab8c2316c4a4",
+  "0c736c41-487f-4465-9c68-8577d43ddb03",
+  "10fb71c6-ef49-4c56-b3c0-493d1f4b1837",
+  "27920cca-ad31-4083-9244-ecdc9fa30a9f",
+  "2e4db816-c57e-43e8-9a44-aca77d1874da",
+  "2ed9ce43-b2f7-4b19-998a-5faa3949daa6",
+  "35c65e1a-d2e6-4665-b43c-40fbfc37c6f4",
+  "39ce549b-2641-447a-bf19-16abc4bd3471",
+  "3eeb7ec4-1266-4fa0-8c39-a21a1440d78b",
+  "4895fa67-f6ee-43f4-ad31-00a35aea5995",
+  "4a862f2c-bb24-4dbd-86b3-d91451a1e047",
+  "647e47b7-8a50-4883-8b7e-7aa67c212a06",
+  "751b3a8c-4a8b-49b3-885e-3956e002b458",
+  "753e882b-4991-4141-a352-a59b548998e7",
+  "770aca3d-c661-4906-a754-a2e3b94dc49b",
+  "7b22ab65-b4f9-4c11-bf28-3e5699d195ba",
+  "8614d1f9-9b47-4062-b05e-2321805c23f6",
+  "88a31b1d-0ff6-46a5-ae6f-170c6b4f1dc2",
+  "8c66996c-c676-4807-b0a6-b256bf256aa6",
+  "9a74268a-a6fd-4978-8e1b-06e241df3287",
+  "aa39eb86-8a08-42ae-adb0-a7f59615d8a7",
+  "ae848e4c-c5a9-4849-85e1-3a1eadad4911",
+  "d75671a4-8faa-4829-aeb8-d1146156a3f8",
+  "d7651e34-c3d3-457e-884c-17872e10e415",
+  "d82d0220-60f1-41c4-8ee8-e2cf81f39937",
+  "e7c33fba-4d8d-4026-84db-fe7083ece971",
+  "ecba994c-599b-49b5-96e7-fe83beb8d70a",
+  "ee4a48e6-becb-478b-9ea5-fb018b8fea8f"
+ ],
+ "detalhe": {
+  "analise:05166acc-ff08-4644-8481-ab8c2316c4a4": {
+   "arquivos": 38,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:00:40.248Z",
+   "ts_max": "2026-10-10T13:09:11.542Z",
+   "subagentes": 37
+  },
+  "analise:0c736c41-487f-4465-9c68-8577d43ddb03": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:27:43.980Z",
+   "ts_max": "2026-10-10T10:20:01.382Z",
+   "subagentes": 0
+  },
+  "analise:10fb71c6-ef49-4c56-b3c0-493d1f4b1837": {
+   "arquivos": 10,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T14:37:36.887Z",
+   "ts_max": "2026-10-09T03:17:40.236Z",
+   "subagentes": 9
+  },
+  "analise:27920cca-ad31-4083-9244-ecdc9fa30a9f": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T19:09:20.381Z",
+   "ts_max": "2026-10-09T21:44:03.011Z",
+   "subagentes": 0
+  },
+  "analise:2ed9ce43-b2f7-4b19-998a-5faa3949daa6": {
+   "arquivos": 10,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:02:59.724Z",
+   "ts_max": "2026-10-10T00:48:11.701Z",
+   "subagentes": 9
+  },
+  "analise:35c65e1a-d2e6-4665-b43c-40fbfc37c6f4": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T13:37:19.293Z",
+   "ts_max": "2026-10-09T22:05:17.320Z",
+   "subagentes": 0
+  },
+  "analise:39ce549b-2641-447a-bf19-16abc4bd3471": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T19:42:23.569Z",
+   "ts_max": "2026-10-08T19:42:35.542Z",
+   "subagentes": 0
+  },
+  "analise:3eeb7ec4-1266-4fa0-8c39-a21a1440d78b": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-10T01:19:29.341Z",
+   "ts_max": "2026-10-10T01:19:34.117Z",
+   "subagentes": 0
+  },
+  "analise:4895fa67-f6ee-43f4-ad31-00a35aea5995": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:10:13.062Z",
+   "ts_max": "2026-10-09T23:10:23.456Z",
+   "subagentes": 0
+  },
+  "analise:4a862f2c-bb24-4dbd-86b3-d91451a1e047": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:12:07.594Z",
+   "ts_max": "2026-10-09T23:12:09.331Z",
+   "subagentes": 0
+  },
+  "analise:647e47b7-8a50-4883-8b7e-7aa67c212a06": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T13:37:07.960Z",
+   "ts_max": "2026-10-09T22:02:00.869Z",
+   "subagentes": 0
+  },
+  "analise:753e882b-4991-4141-a352-a59b548998e7": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:57:32.311Z",
+   "ts_max": "2026-10-09T22:57:44.496Z",
+   "subagentes": 0
+  },
+  "analise:770aca3d-c661-4906-a754-a2e3b94dc49b": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:17:25.769Z",
+   "ts_max": "2026-10-09T23:17:38.491Z",
+   "subagentes": 0
+  },
+  "analise:7b22ab65-b4f9-4c11-bf28-3e5699d195ba": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T23:35:40.972Z",
+   "ts_max": "2026-10-09T03:21:21.673Z",
+   "subagentes": 0
+  },
+  "analise:8614d1f9-9b47-4062-b05e-2321805c23f6": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T14:37:06.990Z",
+   "ts_max": "2026-10-09T03:21:03.273Z",
+   "subagentes": 0
+  },
+  "analise:88a31b1d-0ff6-46a5-ae6f-170c6b4f1dc2": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:35:32.267Z",
+   "ts_max": "2026-10-09T23:35:57.562Z",
+   "subagentes": 0
+  },
+  "analise:8c66996c-c676-4807-b0a6-b256bf256aa6": {
+   "arquivos": 2,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T18:47:39.558Z",
+   "ts_max": "2026-10-09T02:55:40.456Z",
+   "subagentes": 1
+  },
+  "analise:9a74268a-a6fd-4978-8e1b-06e241df3287": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T23:38:49.480Z",
+   "ts_max": "2026-10-09T23:39:01.836Z",
+   "subagentes": 0
+  },
+  "analise:aa39eb86-8a08-42ae-adb0-a7f59615d8a7": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:05:20.678Z",
+   "ts_max": "2026-10-10T03:59:51.416Z",
+   "subagentes": 0
+  },
+  "analise:ae848e4c-c5a9-4849-85e1-3a1eadad4911": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-10T01:15:50.417Z",
+   "ts_max": "2026-10-10T01:15:59.687Z",
+   "subagentes": 0
+  },
+  "analise:d82d0220-60f1-41c4-8ee8-e2cf81f39937": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:58:23.813Z",
+   "ts_max": "2026-10-09T22:58:26.150Z",
+   "subagentes": 0
+  },
+  "analise:e7c33fba-4d8d-4026-84db-fe7083ece971": {
+   "arquivos": 7,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T13:36:58.742Z",
+   "ts_max": "2026-10-09T22:02:54.810Z",
+   "subagentes": 6
+  },
+  "analise:ecba994c-599b-49b5-96e7-fe83beb8d70a": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:27:43.980Z",
+   "ts_max": "2026-10-10T00:41:56.391Z",
+   "subagentes": 0
+  },
+  "analise:ee4a48e6-becb-478b-9ea5-fb018b8fea8f": {
+   "arquivos": 1,
+   "marcas": [
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-08T19:39:25.813Z",
+   "ts_max": "2026-10-08T19:39:38.538Z",
+   "subagentes": 0
+  },
+  "touring:2e4db816-c57e-43e8-9a44-aca77d1874da": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T21:25:29.579Z",
+   "ts_max": "2026-10-10T13:09:55.591Z",
+   "subagentes": 0
+  },
+  "touring:751b3a8c-4a8b-49b3-885e-3956e002b458": {
+   "arquivos": 17,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T21:25:10.119Z",
+   "ts_max": "2026-10-10T13:09:56.685Z",
+   "subagentes": 16
+  },
+  "touring:d75671a4-8faa-4829-aeb8-d1146156a3f8": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "touring-a6",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T22:28:20.358Z",
+   "ts_max": "2026-10-10T03:09:44.699Z",
+   "subagentes": 0
+  },
+  "touring:d7651e34-c3d3-457e-884c-17872e10e415": {
+   "arquivos": 1,
+   "marcas": [
+    "touring-4f",
+    "vgp-motor-base"
+   ],
+   "ts_min": "2026-10-09T21:25:18.824Z",
+   "ts_max": "2026-10-09T22:09:51.908Z",
+   "subagentes": 0
+  }
+ }
+}

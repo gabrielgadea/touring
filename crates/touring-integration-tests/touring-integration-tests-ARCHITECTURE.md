@@ -22,13 +22,13 @@ N/A (test-only crate)
 - **CLI E2E tests**: End-to-end CLI command validation
 - **MCP tool tests**: MCP tool integration tests
 - **Daemon lifecycle tests**: Daemon startup/shutdown validation
-- **Cross-subsystem tests**: Integration between touring-hooks, touring-server, touring-learning
+- **Cross-subsystem tests**: Integration between touring-hooks, touring-server, touring-intelligence (era touring-learning)
 
 ## Integration Points
 
 - touring-server: CLI integration tests
 - touring-hooks: hook lifecycle tests
-- touring-learning: RL integration tests
+- touring-intelligence::rl (era touring-learning): RL integration tests
 
 ## Technology
 

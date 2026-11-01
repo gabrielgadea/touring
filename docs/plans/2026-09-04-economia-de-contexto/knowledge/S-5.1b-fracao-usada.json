@@ -1,0 +1,45 @@
+{
+  "phase": "S-5.1b-fracao-usada",
+  "entities": [
+    {
+      "entity_id": "phase:S-5.1b-fracao-usada",
+      "type": "phase",
+      "description": "Fracao USADA dos tool results medida na regua (tool_output: atribuicao por ferramenta + reuso linha/token). Reuso global 0,067; Bash 79% do volume; zero-reuso 2-5,5%. Joelho em 2 KB (44,4%), nao 8 KB. Decis uniformes refutam o digest por truncagem: cabeca+cauda cobre >=90% do reuso em so 45% dos grandes. Sustentado: agregado derivado do conteudo (--brief) + spill com retrieval_hint."
+    },
+    {
+      "entity_id": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788534325883539352",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788534325883539352",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-5.1b-fracao-usada|produces|memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done",
+      "source": "phase:S-5.1b-fracao-usada",
+      "type": "produces",
+      "target": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done|generated-by|loop:loop:task_1788534325883539352",
+      "source": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788534325883539352"
+    },
+    {
+      "relation_id": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done|generated-by|dag:decomp:task_1788534325883539352",
+      "source": "memory:loop:task_1788534325883539352:S-5.1b-fracao-usada:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788534325883539352"
+    }
+  ]
+}

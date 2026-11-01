@@ -1,0 +1,2 @@
+{"itens": 98, "por desfecho": {"rc 0 sem a classe": 58, "reproduz (classe na saída)": 32, "falhou por outro motivo": 8}, "(sobreposto) /tmp reconstruído": 75, "(sobreposto) /tmp não reconstruído": 6, "(sobreposto) reconstrução incompleta": 18}
+replay rc=0

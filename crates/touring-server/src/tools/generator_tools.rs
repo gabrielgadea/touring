@@ -17,6 +17,34 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use serde_json::Value;
+
+/// S-4 ceiling on files incrementally indexed per commit; beyond it the
+/// operator runs `touring index rebuild` deliberately instead of the commit
+/// path queueing unbounded work on the project actor.
+const INGEST_MAX_FILES: usize = 64;
+/// S-4 budget per `touring index ingest <file>` call.
+const INGEST_CALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// The files a commit should incrementally index: deduplicated in first-seen
+/// order, blanks dropped, capped at [`INGEST_MAX_FILES`]. Pure, so the S-4
+/// contract — files (never their parent directories), bounded — is testable
+/// without spawning anything.
+pub(crate) fn ingest_targets<'a>(paths: impl Iterator<Item = &'a str>) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for raw in paths {
+        let p = raw.trim();
+        if p.is_empty() || !seen.insert(p.to_string()) {
+            continue;
+        }
+        out.push(p.to_string());
+        if out.len() >= INGEST_MAX_FILES {
+            break;
+        }
+    }
+    out
+}
+
 use touring_generator::{
     CapacityLimits, ExecutionStatus, GeneratorContext, GeneratorKind, GeneratorPlan, PlanExecutor,
     PlanExecutorHandle, PlanRegistry, RenderShape, Rendered, ReplanRequest,
@@ -666,23 +694,35 @@ async fn speculate_and_commit(
                 ),
             );
 
-            // S-4: Trigger symbol index rebuild for committed files (fire-and-forget).
+            // S-4: incrementally index the committed FILES (bounded, sequential).
+            //
+            // 21/08/2026: this used to fire-and-forget one `touring index rebuild
+            // --dir <parent>` per directory touched — N concurrent full walks
+            // queued on the single-threaded project actor, each serialising it
+            // for minutes, with every 15s-budget probe (viz, doctor, index
+            // status) starving behind them; the emitter stayed unattributed for
+            // a night because the daemon log named no sender. `index ingest
+            // <file>` is the incremental op a commit actually needs; one task
+            // runs the calls in sequence under a per-call timeout, so the actor
+            // sees N short ops instead of N long ones. Bounded by
+            // `ingest_targets` (dedup + cap) — past the cap an operator runs
+            // `touring index rebuild` deliberately.
             {
-                let dirs: std::collections::HashSet<String> = completed
-                    .commit_report
-                    .files_written
-                    .iter()
-                    .filter_map(|a| {
-                        std::path::Path::new(&a.path)
-                            .parent()
-                            .map(|p| p.to_string_lossy().into_owned())
-                    })
-                    .collect();
-                for dir in dirs {
+                let targets = ingest_targets(
+                    completed
+                        .commit_report
+                        .files_written
+                        .iter()
+                        .map(|a| a.path.as_str()),
+                );
+                if !targets.is_empty() {
                     tokio::spawn(async move {
-                        let _ = std::process::Command::new("touring")
-                            .args(["index", "rebuild", "--dir", &dir])
-                            .output();
+                        for path in targets {
+                            let call = tokio::process::Command::new("touring")
+                                .args(["index", "ingest", &path])
+                                .output();
+                            let _ = tokio::time::timeout(INGEST_CALL_TIMEOUT, call).await;
+                        }
                     });
                 }
             }
@@ -1179,7 +1219,7 @@ pub fn rollback_plan(plan_json: &str) -> Value {
 /// Query `FileKnowledgeEnriched` for the plan target path.
 ///
 /// Returns a JSON object with `coverage_pct`, `community_id`, `integration_score`,
-/// `fan_in`, `fan_out`, and `cognitive_score` extracted from the enrichment tables.
+/// `fan_in`, `fan_out`, and `quality_score` extracted from the enrichment tables.
 /// Returns [`Value::Null`] when the DB is unavailable or the target has no record.
 /// Used by `plan_status` (R4-S5) to surface file-level health signals before pipeline
 /// execution, complementing the pre-commit critique used by `collect_intelligence_critique`.
@@ -1201,7 +1241,7 @@ fn query_target_knowledge(target_path: &str) -> Value {
             "integration_score": ext.integration_score,
             "fan_in": ext.fan_in_signal,
             "fan_out": ext.fan_out_signal,
-            "cognitive_score": ext.cognitive_score,
+            "quality_score": ext.quality_score,
         }),
         _ => Value::Null,
     }
@@ -1448,27 +1488,15 @@ pub fn suggest_plan(intent: &str, kind_str: Option<&str>) -> Value {
     })
 }
 
-/// Build the skeleton plan JSON (extracted for CC reduction).
+/// Build the skeleton plan JSON. The shape comes from the REAL
+/// `GeneratorPlan` struct via serde — never hand-written JSON, which is how
+/// this function emitted four field vocabularies that `plan-validate`
+/// rejected until 2026-08-25 (`gotcha:generate-suggest-valida-drift`).
 fn build_skeleton_plan(intent: &str, kind: &GeneratorKind) -> Value {
-    serde_json::json!({
-        "version": "2.0",
-        "plan_id": "00000000-0000-0000-0000-000000000000",
-        "intent": intent,
-        "cila_level": "L2",
-        "target": {"file_path": "src/generated.rs"},
-        "kind": format!("{kind:?}"),
-        "contracts": {"must_exist": [], "must_not_exist": []},
-        "template": {"override_name": null},
-        "assembly": {"merge_strategy": "overwrite"},
-        "validation": {"run_clippy": true, "run_tests": false},
-        "commit_policy": {"write_to_disk": true, "store_memory": true, "inject_rl_reward": true},
-        "rollback": {"keep_backup": true},
-        "learning": {"reward_on_success": 1.0, "reward_on_failure": -0.3},
-        "spec_inputs": null,
-        "capacity_hints": {"estimated_tokens": 500},
-        "execution_trace": [],
-        "metadata": {"tags": []},
-    })
+    let plan = GeneratorPlan::skeleton(intent, kind.clone(), "src/generated.rs");
+    serde_json::to_value(&plan).unwrap_or_else(
+        |e| serde_json::json!({"error": format!("skeleton serialization failed: {e}")}),
+    )
 }
 
 // ── template_list ────────────────────────────────────────────────────────────
@@ -1798,40 +1826,19 @@ pub fn build_consumer_generator_plans(limit: usize) -> Value {
         .iter()
         .enumerate()
         .map(|(i, s)| {
-            let module_file = s.get("module_file").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let symbol_name = s.get("symbol_name").and_then(|v| v.as_str()).unwrap_or("unknown");
-            let symbol_kind = s.get("symbol_kind").and_then(|v| v.as_str()).unwrap_or("any");
-            // Unique plan-id via SystemTime nanos + index (no uuid dep needed).
-            let nanos = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .subsec_nanos();
-            let plan_id = format!("consumer-wiring-{nanos:010}-{i:03}");
-
-            serde_json::json!({
-                "version": "1.0.0",
-                "plan_id": plan_id,
-                "intent": format!("Wire orphan {} '{}' from '{}' into a consumer", symbol_kind, symbol_name, module_file),
-                "cila_level": "L2",
-                "target": {"file_path": module_file},
-                "kind": "ConsumerGenerator",
-                "contracts": {
-                    "symbols_must_exist": [{"name": symbol_name, "kind": symbol_kind}],
-                    "symbols_must_not_exist": [],
-                    "files_must_exist": [module_file],
-                    "files_must_not_exist": []
-                },
-                "template": {"override_name": null},
-                "assembly": {"merge_strategy": "merge"},
-                "validation": {"run_clippy": true, "run_tests": false},
-                "commit_policy": {"write_to_disk": true, "store_memory": true, "inject_rl_reward": true},
-                "rollback": {"keep_backup": true},
-                "learning": {"reward_on_success": 0.8, "reward_on_failure": -0.3},
-                "spec_inputs": null,
-                "capacity_hints": {"estimated_tokens": 800},
-                "execution_trace": [],
-                "metadata": {"tags": ["wiring", "consumer", symbol_name]},
-            })
+            let module_file = s
+                .get("module_file")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let symbol_name = s
+                .get("symbol_name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("unknown");
+            let symbol_kind = s
+                .get("symbol_kind")
+                .and_then(|v| v.as_str())
+                .unwrap_or("any");
+            build_consumer_plan(module_file, symbol_name, symbol_kind, i)
         })
         .collect();
 
@@ -1846,6 +1853,39 @@ pub fn build_consumer_generator_plans(limit: usize) -> Value {
 }
 
 // ── Private helpers ──────────────────────────────────────────────────────────
+
+/// Build one consumer-wiring plan from an orphan record. Pure so the
+/// suggest↔serde junta is testable; the shape comes from
+/// `GeneratorPlan::skeleton` (the single source of truth), never
+/// hand-written JSON.
+fn build_consumer_plan(
+    module_file: &str,
+    symbol_name: &str,
+    symbol_kind: &str,
+    index: usize,
+) -> Value {
+    let mut plan = GeneratorPlan::skeleton(
+        format!("Wire orphan {symbol_kind} '{symbol_name}' from '{module_file}' into a consumer"),
+        GeneratorKind::ConsumerGenerator,
+        module_file,
+    );
+    // Deterministic-enough unique id: nanos in the high bits, index in the low.
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .subsec_nanos();
+    plan.plan_id = uuid::Uuid::from_u128((u128::from(nanos) << 64) | index as u128);
+    plan.contracts.symbols_must_exist = vec![touring_generator::SymbolRef::named(symbol_name)];
+    plan.contracts.files_must_exist = vec![module_file.to_owned()];
+    plan.metadata.tags = vec![
+        "wiring".to_owned(),
+        "consumer".to_owned(),
+        symbol_name.to_owned(),
+    ];
+    serde_json::to_value(&plan).unwrap_or_else(
+        |e| serde_json::json!({"error": format!("consumer plan serialization failed: {e}")}),
+    )
+}
 
 /// All GeneratorKind variants in declaration order.
 fn all_kinds() -> Vec<GeneratorKind> {

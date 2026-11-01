@@ -1,0 +1,364 @@
+[
+ {
+  "caso": "a) fragmento em /tmp, nome do projeto [L1]",
+  "path": "/tmp/frag.py",
+  "camadas": "1",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "a') o mesmo, com a camada 2 real [L1+L2]",
+  "path": "/tmp/frag.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "d) controle limpo em /tmp [L1+L2]",
+  "path": "/tmp/ok.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "allow",
+   "camada2": null,
+   "achados": []
+  },
+  "frag:escrita": {
+   "verdict": "allow",
+   "camada2": null,
+   "achados": []
+  },
+  "frag:execucao": {
+   "verdict": "allow",
+   "camada2": null,
+   "achados": []
+  }
+ },
+ {
+  "caso": "e) /tmp/x.py com os.pathx [L1+L2]",
+  "path": "/tmp/x.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "e') /tmp/x.py com json.loadz [L1+L2]",
+  "path": "/tmp/x.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "loadz",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "loadz",
+     "deny"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "loadz",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "e'') /tmp com stdlib que a L1 modela [L1]",
+  "path": "/tmp/x.py",
+  "camadas": "1",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "combending",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "combending",
+     "deny"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "combending",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "inline <string>, nome do projeto [L1+L2]",
+  "path": "<string>",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "inline <string>, os.pathx [L1+L2]",
+  "path": "<string>",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "atributo",
+     "pathx",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "scratch do projeto (.cache/), nome do projeto [L1+L2]",
+  "path": "/home/gabrielgadea/projects/analise/.cache/frag-x/a.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "deny",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "deny"
+    ]
+   ]
+  }
+ },
+ {
+  "caso": "arquivo do projeto, nome do projeto [L1+L2]",
+  "path": "/home/gabrielgadea/projects/analise/scripts/frag_x_a.py",
+  "camadas": "1,2",
+  "base:-": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  },
+  "frag:escrita": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  },
+  "frag:execucao": {
+   "verdict": "warn",
+   "camada2": null,
+   "achados": [
+    [
+     "nome",
+     "nome_do_projeto_inexistente",
+     "warn"
+    ]
+   ]
+  }
+ }
+]

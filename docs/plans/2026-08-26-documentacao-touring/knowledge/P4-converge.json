@@ -1,0 +1,45 @@
+{
+  "phase": "P4-converge",
+  "entities": [
+    {
+      "entity_id": "phase:P4-converge",
+      "type": "phase",
+      "description": "Convergence gate parcial: 6/8 clauses passam (judge_intact, quality_gold, no_p0_fail, measured_whole_scope, cargo_green, dag_done ap\u00f3s mark). 2 unmet: (1) orphans_base 5409 vs 2357 baseline \u2014 5 symbols novos (flaky_test_pattern_detector.rs::{Input,Output}, lib.rs::set_input, manifest.rs::{validate_wasm,wasm_default_fuel}) N\u00c3O introduzidos por este loop (escopo: scripts/drift_semantic_scan.py, docs). Prov\u00e1vel baseline stale ou pre-existing orphans em c\u00f3digo n\u00e3o tocado. Surface para Gabriel como potencializa\u00e7\u00e3o P5. (2) cross_audit skipped por falta de audit-plan-completion.sh."
+    },
+    {
+      "entity_id": "memory:loop:task_1788183829765739732:P4-converge:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788183829765739732",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788183829765739732",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:P4-converge|produces|memory:loop:task_1788183829765739732:P4-converge:done",
+      "source": "phase:P4-converge",
+      "type": "produces",
+      "target": "memory:loop:task_1788183829765739732:P4-converge:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788183829765739732:P4-converge:done|generated-by|loop:loop:task_1788183829765739732",
+      "source": "memory:loop:task_1788183829765739732:P4-converge:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788183829765739732"
+    },
+    {
+      "relation_id": "memory:loop:task_1788183829765739732:P4-converge:done|generated-by|dag:decomp:task_1788183829765739732",
+      "source": "memory:loop:task_1788183829765739732:P4-converge:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788183829765739732"
+    }
+  ]
+}

@@ -1,0 +1,4 @@
+recall de símbolo · arquivo 11/13 · inline 20/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 11]} | falsos deny 0 em {'arquivo': 77, 'inline': 189} | avisos em negativos 1 | p95 678.2 ms | chamadas 328 | não classificados 0 | defeito de corpus (snap não compila) 3
+  PENDENTE: p95 678.2 ms > 150.0 ms
+veredito: NÃO PRONTO
+rc=1

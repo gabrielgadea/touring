@@ -1,0 +1,19 @@
+{
+ "model": "laya-w42-intent (fine-tune RLCD, 4 épocas, G1 train 560)",
+ "n_test": 120,
+ "accuracy": 0.6083,
+ "ece": 0.1741,
+ "p50_ms": 8.6,
+ "p99_ms": 24.4,
+ "baselines_g2": {
+  "keyword_producao": 0.536,
+  "jev": 0.533,
+  "professor": 0.696
+ },
+ "gate_g3": {
+  "beats_keyword": true,
+  "beats_085_professor": true,
+  "ece_below_010": false,
+  "p99_below_30ms": true
+ }
+}

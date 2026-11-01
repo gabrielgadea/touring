@@ -21,6 +21,21 @@ use std::path::{Path, PathBuf};
 /// never removable via `touring component remove` (potentialize, never reduce).
 pub(crate) const PROJECT_BINARIES: &[&str] = &["touring", "touring-hook", "touring-daemon"];
 
+/// ONNX Runtime provider libraries `touring-daemon` opens to embed on the GPU.
+///
+/// ONNX Runtime opens them from the directory of the path the process was
+/// LAUNCHED by (`argv[0]`), not of the resolved binary: a daemon started as
+/// `<proj>/.touring/bin/touring-daemon` looks in `<proj>/.touring/bin/`
+/// (measured 15/09/2026 — the same test binary found them in `target/debug/deps`
+/// and failed through a symlink elsewhere). So they are linked wherever a
+/// binary is. Optional: a build without `storage-emb-cuda` has none, and a
+/// missing one costs the GPU only (the embedder falls back to CPU).
+/// Must equal `RUNTIME_LIBS` in `scripts/update-touring`.
+pub(crate) const PROJECT_RUNTIME_LIBS: &[&str] = &[
+    "libonnxruntime_providers_shared.so",
+    "libonnxruntime_providers_cuda.so",
+];
+
 /// Lockfile name under `.touring/`.
 pub(crate) const LOCK_FILE: &str = "toolchain.lock";
 
@@ -82,9 +97,14 @@ impl ToolchainLock {
         body.push_str(&format!("reason = \"{}\"\n", self.reason.replace('"', "'")));
         let path = dot_touring.join(LOCK_FILE);
         let tmp = dot_touring.join(format!("{LOCK_FILE}.tmp"));
-        std::fs::write(&tmp, body).map_err(|e| anyhow!("write {}: {e}", tmp.display()))?;
+        std::fs::write(&tmp, body).map_err(|e| {
+            anyhow!(
+                "write {}: {e} — run `df -h .` to check disk space",
+                tmp.display()
+            )
+        })?;
         std::fs::rename(&tmp, &path)
-            .map_err(|e| anyhow!("rename {} -> {}: {e}", tmp.display(), path.display()))?;
+            .map_err(|e| anyhow!("rename {} -> {}: {e} — run `ls -la` on the parent directory to check write permissions", tmp.display(), path.display()))?;
         Ok(())
     }
 }
@@ -165,7 +185,106 @@ pub(crate) fn relink_bins_inner(
             )),
         }
     }
+    // Provider libraries come from the directory the daemon link resolved to and
+    // from nowhere else: a pinned toolchain without them must not borrow the dev
+    // channel's, which belong to another ONNX Runtime build.
+    let daemon_dir = resolve_binary_target(
+        "touring-daemon",
+        channel.as_deref(),
+        touring_home,
+        dev_bin_dir,
+    )
+    .and_then(|daemon| daemon.parent().map(Path::to_path_buf));
+    for name in PROJECT_RUNTIME_LIBS {
+        let link = dot_touring.join("bin").join(name);
+        // A link left by the previous channel would load its provider into the
+        // new daemon.
+        let _ = std::fs::remove_file(&link);
+        let Some(target) = daemon_dir
+            .as_ref()
+            .map(|d| d.join(name))
+            .filter(|p| p.exists())
+        else {
+            continue;
+        };
+        match std::os::unix::fs::symlink(&target, &link) {
+            Ok(()) => notes.push(format!("bin/{name} -> {}", target.display())),
+            Err(e) => notes.push(format!(
+                "bin/{name}: symlink failed ({e}) — GPU embeddings will run on CPU"
+            )),
+        }
+    }
+    notes.extend(relink_optional_components(
+        &dot_touring.join("bin"),
+        channel.as_deref(),
+        touring_home,
+        dev_bin_dir,
+    ));
     notes
+}
+
+/// S225 (26/09/2026): the optional components the project LINKED follow the
+/// active channel too. `update` re-linked only the core, and the analise's
+/// `touring-quality` stayed on the 30.4.30 toolchain across 42 releases. A
+/// component the channel no longer offers keeps its link and says so, loudly;
+/// one never linked stays unlinked (that is `touring component add`'s call).
+fn relink_optional_components(
+    bin_dir: &Path,
+    channel: Option<&str>,
+    touring_home: &Path,
+    dev_bin_dir: &Path,
+) -> Vec<String> {
+    let Ok(entries) = std::fs::read_dir(bin_dir) else {
+        return Vec::new();
+    };
+    let mut names: Vec<String> = entries
+        .filter_map(Result::ok)
+        .filter(|e| e.file_type().is_ok_and(|t| t.is_symlink()))
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| {
+            !PROJECT_BINARIES.contains(&n.as_str()) && !PROJECT_RUNTIME_LIBS.contains(&n.as_str())
+        })
+        .collect();
+    names.sort();
+    names
+        .into_iter()
+        .map(|name| relink_component(bin_dir, &name, channel, touring_home, dev_bin_dir))
+        .collect()
+}
+
+/// Re-point one linked component, atomically: the new link is created beside
+/// the old one and renamed over it, so a failure never leaves it unlinked.
+fn relink_component(
+    bin_dir: &Path,
+    name: &str,
+    channel: Option<&str>,
+    touring_home: &Path,
+    dev_bin_dir: &Path,
+) -> String {
+    let link = bin_dir.join(name);
+    let current = std::fs::read_link(&link).ok();
+    let Some(target) = resolve_binary_target(name, channel, touring_home, dev_bin_dir) else {
+        return format!(
+            "bin/{name}: component NOT offered by channel {} — still linked to {} \
+             (`touring component remove {name}`, or install a toolchain that ships it)",
+            channel.unwrap_or("<unpinned>"),
+            current.map_or_else(|| "?".to_string(), |p| p.display().to_string())
+        );
+    };
+    if current.as_deref() == Some(target.as_path()) {
+        return format!("bin/{name} -> {} (component, unchanged)", target.display());
+    }
+    let staged = bin_dir.join(format!(".{name}.relink"));
+    let _ = std::fs::remove_file(&staged);
+    match std::os::unix::fs::symlink(&target, &staged)
+        .and_then(|()| std::fs::rename(&staged, &link))
+    {
+        Ok(()) => format!("bin/{name} -> {} (component)", target.display()),
+        Err(e) => {
+            let _ = std::fs::remove_file(&staged);
+            format!("bin/{name}: component relink failed ({e}) — still on its previous target")
+        }
+    }
 }
 
 /// Env-resolving wrapper over [`relink_bins_inner`] (production entry).
@@ -222,6 +341,61 @@ mod tests {
         }
     }
 
+    /// S225 (26/09/2026): `touring update` re-linked only the core binaries, so the
+    /// analise's `touring-quality` stayed on the 30.4.30 toolchain across 42
+    /// releases — the project's quality gate ran code no one maintained. A
+    /// component the project LINKED follows the active channel; one the channel no
+    /// longer offers keeps its link and says so; one never linked stays unlinked.
+    #[test]
+    fn relink_bins_moves_linked_optional_components_to_the_active_channel() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        let th = tmp.path().join("touring-home");
+        let old = th.join("toolchains/1.0.0/bin");
+        let new = th.join("toolchains/2.0.0/bin");
+        for dir in [&old, &new] {
+            for b in PROJECT_BINARIES {
+                fake_bin(dir, b);
+            }
+            fake_bin(dir, "touring-quality");
+        }
+        fake_bin(&old, "touring-legacy");
+        fake_bin(&new, "touring-extra");
+        std::os::unix::fs::symlink(old.join("touring-quality"), dot.join("bin/touring-quality"))
+            .expect("link quality");
+        std::os::unix::fs::symlink(old.join("touring-legacy"), dot.join("bin/touring-legacy"))
+            .expect("link legacy");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"2.0.0\"\n",
+        )
+        .expect("pin");
+
+        let notes = relink_bins_inner(&dot, &th, &tmp.path().join("no-dev"));
+
+        assert_eq!(
+            std::fs::read_link(dot.join("bin/touring-quality")).expect("link"),
+            new.join("touring-quality"),
+            "{notes:?}"
+        );
+        assert_eq!(
+            std::fs::read_link(dot.join("bin/touring-legacy")).expect("link"),
+            old.join("touring-legacy"),
+            "a component the channel no longer offers keeps its link"
+        );
+        assert!(
+            notes
+                .iter()
+                .any(|n| n.contains("touring-legacy") && n.contains("2.0.0")),
+            "and says so: {notes:?}"
+        );
+        assert!(
+            !dot.join("bin/touring-extra").exists(),
+            "a component never linked stays unlinked"
+        );
+    }
+
     #[test]
     fn relink_bins_falls_back_to_dev_channel() {
         // Pinned toolchain absent → the update-touring dev symlink dir serves.
@@ -243,6 +417,73 @@ mod tests {
         );
         // The two binaries present nowhere are skipped with a note, not an error.
         assert_eq!(notes.iter().filter(|n| n.contains("not found")).count(), 2);
+    }
+
+    #[test]
+    fn relink_bins_links_runtime_libs_from_the_daemon_s_own_toolchain() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"9.9.9\"\n",
+        )
+        .expect("write");
+        let th = tmp.path().join("touring-home");
+        let tc_bin = th.join("toolchains/9.9.9/bin");
+        let dev = tmp.path().join("dev-bin");
+        for b in PROJECT_BINARIES {
+            fake_bin(&tc_bin, b);
+        }
+        for lib in PROJECT_RUNTIME_LIBS {
+            fake_bin(&tc_bin, lib);
+            fake_bin(&dev, lib);
+        }
+        relink_bins_inner(&dot, &th, &dev);
+        for lib in PROJECT_RUNTIME_LIBS {
+            assert_eq!(
+                std::fs::read_link(dot.join("bin").join(lib)).expect("symlink"),
+                tc_bin.join(lib),
+                "bin/{lib} must come from the toolchain the daemon comes from"
+            );
+        }
+    }
+
+    #[test]
+    fn relink_bins_never_pairs_a_toolchain_daemon_with_dev_libs() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let dot = tmp.path().join("proj/.touring");
+        std::fs::create_dir_all(dot.join("bin")).expect("mkdir");
+        std::fs::write(
+            dot.join("touring.toml"),
+            "[toolchain]\nchannel = \"9.9.9\"\n",
+        )
+        .expect("write");
+        let th = tmp.path().join("touring-home");
+        let tc_bin = th.join("toolchains/9.9.9/bin");
+        let dev = tmp.path().join("dev-bin");
+        for b in PROJECT_BINARIES {
+            fake_bin(&tc_bin, b);
+        }
+        for lib in PROJECT_RUNTIME_LIBS {
+            fake_bin(&dev, lib);
+        }
+        // A link left by a previous channel that did carry the libs.
+        let stale = dot.join("bin").join(PROJECT_RUNTIME_LIBS[0]);
+        std::os::unix::fs::symlink(dev.join(PROJECT_RUNTIME_LIBS[0]), &stale).expect("stale");
+
+        let notes = relink_bins_inner(&dot, &th, &dev);
+        for lib in PROJECT_RUNTIME_LIBS {
+            assert!(
+                std::fs::symlink_metadata(dot.join("bin").join(lib)).is_err(),
+                "bin/{lib} must not point at another build's provider"
+            );
+        }
+        assert_eq!(
+            notes.len(),
+            3,
+            "absent optional libs add no note: {notes:?}"
+        );
     }
 
     #[test]

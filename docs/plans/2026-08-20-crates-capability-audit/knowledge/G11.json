@@ -1,0 +1,11 @@
+{
+  "phase": "G11",
+  "entities": [
+    {
+      "entity_id": "phase:G11",
+      "type": "phase",
+      "description": "G11: 6 testes novos cobrindo os sobreviventes de parse_kind, levenshtein_distance, types.rs e schema.rs. TODOS provados por mutacao manual (12 mutantes aplicados e revertidos): parse_kind delete arm trait/config MORTOS; levenshtein take(m+1) e take(n+1) para *1 e -1 MORTOS (4); matrix[i][j]+cost para -cost MORTO; min(...+1) para *1 MORTO; as_ref para xyzzy MORTO; Display::fmt para Ok(default) MORTO; exact_confidence para 1.0 MORTO; run_migrations para Ok(()) MORTO. LICAO: a primeira tabela de levenshtein tinha 12 pares e os dois mutantes de take() SOBREVIVERAM - take(m*1) so corrompe matrix[m][0], que muda o resultado apenas quando a resposta depende da ultima linha/coluna; pares de comprimento parecido nunca alcancam esse estado. Adicionados (abcdef,a,5) e (a,abcdef,5). CODIGO MORTO REMOVIDO (REGRA #0): run_migrations tinha 'if r1.is_err() || r2.is_err() { let _ = conn.execute(INSERT INTO sqlite_master DEFAULT VALUES) }' - sqlite_master e somente-leitura sem writable_schema, o insert sempre falhava e o resultado era descartado; o bloco inteiro era morto, e era por isso que o mutante ||->&& da linha 123 sobrevivia. Substituido por dois let _ = com o motivo documentado. 37+3+4+5 testes passam, clippy -D warnings limpo (corrigi um let-binding meu)."
+    }
+  ],
+  "relations": []
+}

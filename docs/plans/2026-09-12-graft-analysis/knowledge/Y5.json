@@ -1,0 +1,45 @@
+{
+  "phase": "Y5",
+  "entities": [
+    {
+      "entity_id": "phase:Y5",
+      "type": "phase",
+      "description": "Docs e fechamento da rodada 7: analysis.md v8 com \u00a730 (31 se\u00e7\u00f5es; proveni\u00eancia blake2b16 da v7 completa 862f564b94fbd542ab73cfc80fe3f91c), index.md com Y0-Y5 e bench/, CLAUDE.md do touring-cli (texto no \u00edndice, cobertura, limites de t\u00edtulo e nome, guarda de mem\u00f3ria an\u00f4nima e TOURING_REBUILD_MEMORY_HARD_MB, TOURING_REBUILD_SEARCH_DOCS), cheatsheet das rules, mem\u00f3rias novas (cache-sem-escopo, corte-de-byte-em-str, titulo-gigante, indice-parcial) e atualizadas (busca-so-via-nomes, comentario-afirma-simetria, analise-trailhq-graft). Espelho client/ CLEAN 343 arquivos."
+    },
+    {
+      "entity_id": "memory:loop:task_1789320476116312329:Y5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789320476116312329",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789320476116312329",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:Y5|produces|memory:loop:task_1789320476116312329:Y5:done",
+      "source": "phase:Y5",
+      "type": "produces",
+      "target": "memory:loop:task_1789320476116312329:Y5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789320476116312329:Y5:done|generated-by|loop:loop:task_1789320476116312329",
+      "source": "memory:loop:task_1789320476116312329:Y5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789320476116312329"
+    },
+    {
+      "relation_id": "memory:loop:task_1789320476116312329:Y5:done|generated-by|dag:decomp:task_1789320476116312329",
+      "source": "memory:loop:task_1789320476116312329:Y5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789320476116312329"
+    }
+  ]
+}

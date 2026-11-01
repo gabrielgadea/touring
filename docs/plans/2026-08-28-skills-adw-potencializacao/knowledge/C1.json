@@ -1,0 +1,11 @@
+{
+  "phase": "C1",
+  "entities": [
+    {
+      "entity_id": "phase:C1",
+      "type": "phase",
+      "description": "23 flows etiquetados curation=generic|local|hold + guard test_every_shipped_flow_carries_a_curation_label; 248 testes verdes"
+    }
+  ],
+  "relations": []
+}

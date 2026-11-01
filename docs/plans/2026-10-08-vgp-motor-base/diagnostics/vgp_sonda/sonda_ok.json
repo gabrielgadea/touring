@@ -1,0 +1,109 @@
+{
+    "version": "1.1.408",
+    "time": "1791484109148",
+    "generalDiagnostics": [
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Function declaration \"campo\" is obscured by a declaration of the same name",
+            "range": {
+                "start": {
+                    "line": 9,
+                    "character": 4
+                },
+                "end": {
+                    "line": 9,
+                    "character": 9
+                }
+            },
+            "rule": "reportRedeclaration"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Function with declared return type \"str\" must return value on all code paths\n  \"None\" is not assignable to \"str\"",
+            "range": {
+                "start": {
+                    "line": 9,
+                    "character": 20
+                },
+                "end": {
+                    "line": 9,
+                    "character": 23
+                }
+            },
+            "rule": "reportReturnType"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Expected indented block",
+            "range": {
+                "start": {
+                    "line": 12,
+                    "character": 0
+                },
+                "end": {
+                    "line": 12,
+                    "character": 2
+                }
+            }
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Operator \"+=\" not supported for types \"Counter[Unknown] | defaultdict[Unknown, Counter[Unknown]] | int\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"Counter[Unknown]\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"defaultdict[Unknown, Counter[Unknown]]\" and \"Literal[1]\"",
+            "range": {
+                "start": {
+                    "line": 13,
+                    "character": 0
+                },
+                "end": {
+                    "line": 13,
+                    "character": 12
+                }
+            },
+            "rule": "reportOperatorIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"most_common\" for class \"defaultdict[Unknown, Counter[Unknown]]\"\n  Attribute \"most_common\" is unknown",
+            "range": {
+                "start": {
+                    "line": 14,
+                    "character": 14
+                },
+                "end": {
+                    "line": 14,
+                    "character": 25
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ok.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"most_common\" for class \"int\"\n  Attribute \"most_common\" is unknown",
+            "range": {
+                "start": {
+                    "line": 14,
+                    "character": 14
+                },
+                "end": {
+                    "line": 14,
+                    "character": 25
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        }
+    ],
+    "summary": {
+        "filesAnalyzed": 1,
+        "errorCount": 6,
+        "warningCount": 0,
+        "informationCount": 0,
+        "timeInSec": 0.179
+    }
+}
+

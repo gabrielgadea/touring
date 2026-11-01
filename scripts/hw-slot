@@ -1,0 +1,434 @@
+#!/usr/bin/env python3
+"""hw-slot — machine-wide semaphore for heavy jobs (kernel-enforced, not a convention).
+
+    hw-slot [--class heavy|rust|medida] [--wait S] [--max-temp C] [--min-mem-gb N] [--label TXT] -- <cmd...>
+    hw-slot --status
+
+Why it exists: on this i9-14900HX the trigger of the machine checks is heavy
+multi-threaded Rust build/test load, the package idles at 86-95 C (crit 100),
+and six agent sessions share one box. A rule in a prompt was measured to be
+ignored (protocol-adherence-diagnosis); a flock is not.
+
+Classes (design agreed with the analise coordinator, 02/10/2026)
+  heavy  full pytest / judge / OCR / GPU batch — 2 slots machine-wide.
+  rust   cargo build/test/clippy — exactly 1 machine-wide (the MCE trigger), and it
+         ALSO takes a heavy slot, so total concurrent heavy jobs stay <= 2.
+  medida a MEASUREMENT run that has to see a quiet machine (the VGP latency judge): it takes
+         the rust slot AND EVERY heavy slot, so no other heavy/rust job can run beside it — a
+         measurement that shares the machine with a neighbour measures the neighbour. It also
+         takes its own `medida-1` slot (1 machine-wide) so two measurements never overlap.
+         `--status` keeps listing rust+heavy only (the classes that admit work); the exclusive
+         run shows up in the log with class=medida and in the holders of the rust/heavy slots.
+
+Contract
+  * Slots are flock'd files held by the WRAPPER for exactly as long as the job runs; the
+    kernel frees them if the wrapper dies. The fd is deliberately NOT inherited: a daemon
+    started inside a job (update-touring restarts the global one) would hold the slot for
+    days — the incident of 02/10/2026. Trade-off: SIGKILL of the wrapper alone frees the
+    slot while its orphaned job keeps running unslotted (rare; the whole-group kill is clean).
+  * Re-entrant: the job runs with HW_SLOT_HELD=<lock>@<holder pid>; a nested hw-slot
+    covered by it passes straight through (the judge chains scorer + pytest and would
+    deadlock itself otherwise). The env is VERIFIED against the kernel lock and the
+    holder's pid — a stale value in a long-lived shell never bypasses anything.
+  * Atomic acquisition (all missing slots or none): no hold-and-wait, so a heavy
+    holder that needs rust and a rust holder that needs heavy cannot deadlock.
+  * Pre-check before taking a slot: package temp <= --max-temp (88) and MemAvailable
+    >= --min-mem-gb (12). Unmeasured temp warns and proceeds — never silently.
+    Optional (off by default): --min-vram-gb N blocks until N GB of VRAM are FREE
+    (nvidia-smi; unmeasured warns and proceeds) — a training job that grows on the GPU
+    can starve the daemons that hold ORT arenas.
+  * Optional thermal abort DURING the job (--abort-temp C, off by default): package temp
+    above C for HW_SLOT_ABORT_SAMPLES (3) consecutive samples (every HW_SLOT_WATCH_SECS,
+    5 s) sends SIGTERM to the job's whole process group (SIGKILL after 10 s) and exits 75.
+    The entry check alone cannot stop a job that heats the chip after it started.
+  * CARGO_BUILD_JOBS / RUST_TEST_THREADS default to 4 when unset (caller wins).
+  * Job exit code is transparent. 75 = no slot in time, 64 = usage, 70 = job was green
+    but a machine check hit the kernel meanwhile (a green build on a faulting core
+    does not prove the artifact). One JSON line per run in
+    ~/.claude/touring/logs/hw-slot.jsonl.
+  * Wrap OUTSIDE tools that watch their own cgroup (pytest_com_teto): a parent between
+    the scope and the watched process blinds the watcher.
+"""
+import argparse
+import fcntl
+import glob
+import json
+import os
+import re
+import shlex
+import signal
+import subprocess
+import sys
+import threading
+import time
+from pathlib import Path
+
+EX_USAGE, EX_SOFTWARE, EX_TEMPFAIL = 64, 70, 75
+HELD_ENV = "HW_SLOT_HELD"
+
+
+def err(msg):
+    print(f"hw-slot: {msg}", file=sys.stderr, flush=True)
+
+
+def slot_dir():
+    return Path(os.environ.get("HW_SLOT_DIR") or f"/run/user/{os.getuid()}")
+
+
+def counts():
+    return {"rust": int(os.environ.get("HW_SLOT_RUST_COUNT", "1")),
+            "heavy": int(os.environ.get("HW_SLOT_COUNT", "2")),
+            "medida": int(os.environ.get("HW_SLOT_MEDIDA_COUNT", "1"))}
+
+
+def lock_names(cls):
+    return [f"{cls}-{i}" for i in range(1, counts()[cls] + 1)]
+
+
+def all_names():
+    return lock_names("rust") + lock_names("heavy")
+
+
+# Lock-file generation. The first generation (no tag) leaked: its fd was inherited by
+# the job, so the GLOBAL daemon that `update-touring` restarts inside a job kept
+# rust-1/heavy-1 held for as long as it lived (lsof 02/10/2026: touring-daemon fd 3,4).
+# Locks already leaked cannot be released from outside the daemon (REGRA #19), so the
+# fixed code uses fresh file names instead of waiting for the next daemon restart.
+LOCK_GEN = "g2"
+
+
+def lock_path(name):
+    return slot_dir() / f"hw-slot-{LOCK_GEN}-{name}.lock"
+
+
+def info_path(name):
+    return slot_dir() / f"hw-slot-{LOCK_GEN}-{name}.info"
+
+
+def pkg_temp_c():
+    """Package temperature in C, or None when unmeasured."""
+    if "HW_SLOT_TEMP_C" in os.environ:
+        return float(os.environ["HW_SLOT_TEMP_C"])
+    explicit = os.environ.get("HW_SLOT_TEMP_FILE")
+    paths = [explicit] if explicit else [
+        z + "/temp" for z in glob.glob("/sys/class/thermal/thermal_zone*")
+        if Path(z, "type").read_text().strip() == "x86_pkg_temp"
+    ]
+    for p in paths:
+        try:
+            return int(Path(p).read_text()) / 1000
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def mem_avail_gb():
+    if "HW_SLOT_MEM_AVAIL_GB" in os.environ:
+        return float(os.environ["HW_SLOT_MEM_AVAIL_GB"])
+    m = re.search(r"MemAvailable:\s+(\d+)", Path("/proc/meminfo").read_text())
+    return int(m.group(1)) / 1048576 if m else None
+
+
+def vram_mb():
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split(",")
+        return {"used_mb": int(out[0]), "total_mb": int(out[1])}
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return None
+
+
+def mce_since(epoch):
+    """Machine-check lines in the kernel journal since `epoch`; None = unmeasured."""
+    override = os.environ.get("HW_SLOT_JOURNAL_CMD")
+    argv = shlex.split(override) if override else [
+        "journalctl", "_TRANSPORT=kernel", "--since", f"@{int(epoch)}", "--no-pager"]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, timeout=30).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return sum(1 for line in out.splitlines() if re.search(r"machine check", line, re.I))
+
+
+def vram_free_gb():
+    """Free VRAM in GB, or None when unmeasured (no nvidia-smi / unreadable)."""
+    if "HW_SLOT_VRAM_FREE_GB" in os.environ:
+        return float(os.environ["HW_SLOT_VRAM_FREE_GB"])
+    try:
+        out = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.free", "--format=csv,noheader,nounits"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.split()
+        return int(out[0]) / 1024
+    except (OSError, ValueError, IndexError, subprocess.SubprocessError):
+        return None
+
+
+def blockers(max_temp, min_mem, min_vram, warned):
+    """`warned` is the set of 'unmeasured' notices already printed (each is announced once)."""
+    temp, mem = pkg_temp_c(), mem_avail_gb()
+    out = []
+    if temp is None:
+        if "temp" not in warned:
+            warned.add("temp")
+            err("temp unmeasured — seguindo sem o gate térmico")
+    elif temp > max_temp:
+        out.append(f"temp {temp:.0f}C > {max_temp:.0f}C")
+    if mem is not None and mem < min_mem:
+        out.append(f"mem {mem:.1f}GB < {min_mem:.0f}GB")
+    if min_vram > 0:
+        vram = vram_free_gb()
+        if vram is None:
+            if "vram" not in warned:
+                warned.add("vram")
+                err("vram unmeasured — seguindo sem o gate de VRAM")
+        elif vram < min_vram:
+            out.append(f"vram {vram:.1f}GB < {min_vram:.0f}GB livres")
+    return out, temp, mem
+
+
+def read_holder(name):
+    try:
+        return json.loads(info_path(name).read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def is_held(name):
+    p = lock_path(name)
+    if not p.exists():
+        return False
+    fd = os.open(p, os.O_RDWR)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        return False
+    except BlockingIOError:
+        return True
+    finally:
+        os.close(fd)
+
+
+def inherited_holds():
+    """{lock name: 'name@pid'} this process tree already owns — verified, never trusted."""
+    out = {}
+    for item in filter(None, os.environ.get(HELD_ENV, "").split(",")):
+        name, _, pid = item.partition("@")
+        h = read_holder(name)
+        if h and str(h.get("pid")) == pid and is_held(name):
+            out[name] = item
+    return out
+
+
+def try_acquire_all(classes, exclusivos=(), held=()):
+    """One slot per class, atomically: every class or nothing (no hold-and-wait).
+
+    A class in `exclusivos` has ALL of its slots taken — é o que faz a medição ter a máquina
+    sozinha (a medida com vizinho mede o vizinho). Os slots que a MESMA árvore já segura
+    (`held`) são pulados: re-flocar um lock que o próprio processo tem é deadlock."""
+    d = slot_dir()
+    d.mkdir(parents=True, exist_ok=True)
+    got = []
+    for cls in classes:
+        if cls in exclusivos:
+            fds = []
+            for name in [n for n in lock_names(cls) if n not in held]:
+                fd = os.open(lock_path(name), os.O_CREAT | os.O_RDWR, 0o600)
+                try:
+                    fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    os.close(fd)
+                    for _, outro in got + fds:
+                        os.close(outro)
+                    return None
+                fds.append((name, fd))
+            got.extend(fds)
+            continue
+        for name in lock_names(cls):
+            fd = os.open(lock_path(name), os.O_CREAT | os.O_RDWR, 0o600)
+            try:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                os.close(fd)
+                continue
+            # NOT inheritable (the Python default, stated on purpose): a descendant that
+            # outlives the job — a daemon — must never keep the slot.
+            got.append((name, fd))
+            break
+        else:
+            for _, fd in got:
+                os.close(fd)
+            return None
+    return got
+
+
+def holders_summary():
+    parts = []
+    for name in all_names():
+        h = read_holder(name) if is_held(name) else None
+        parts.append(f"{name}=" + (f"{h['cmd']} (pid {h['pid']})" if h else "livre"))
+    return ", ".join(parts)
+
+
+def status():
+    slots = [{"slot": n, "held": is_held(n), "holder": read_holder(n) if is_held(n) else None}
+             for n in all_names()]
+    print(json.dumps({"temp_c": pkg_temp_c(), "mem_avail_gb": mem_avail_gb(),
+                      "vram": vram_mb(), "slots": slots}, indent=1))
+    return 0
+
+
+def append_log(rec):
+    p = Path(os.environ.get("HW_SLOT_LOG") or Path.home() / ".claude/touring/logs/hw-slot.jsonl")
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        with p.open("a") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    except OSError as e:
+        err(f"log não gravado ({e})")
+
+
+class Parser(argparse.ArgumentParser):
+    def error(self, message):
+        err(message)
+        sys.exit(EX_USAGE)
+
+
+def parse(argv):
+    cmd = []
+    if "--" in argv:
+        i = argv.index("--")
+        argv, cmd = argv[:i], argv[i + 1:]
+    p = Parser(prog="hw-slot")
+    p.add_argument("--status", action="store_true")
+    p.add_argument("--class", dest="cls", choices=("heavy", "rust", "medida"), default="heavy")
+    p.add_argument("--wait", type=float, default=float(os.environ.get("HW_SLOT_WAIT_SECS", "600")))
+    p.add_argument("--max-temp", type=float, default=float(os.environ.get("HW_SLOT_MAX_TEMP", "88")))
+    p.add_argument("--min-mem-gb", type=float, default=float(os.environ.get("HW_SLOT_MIN_MEM_GB", "12")))
+    p.add_argument("--min-vram-gb", type=float, default=float(os.environ.get("HW_SLOT_MIN_VRAM_GB", "0")))
+    p.add_argument("--abort-temp", type=float,
+                   default=float(os.environ["HW_SLOT_ABORT_TEMP"]) if "HW_SLOT_ABORT_TEMP" in os.environ else None)
+    p.add_argument("--label", default="")
+    a = p.parse_args(argv)
+    if not a.status and not cmd:
+        p.error("faltou o comando: hw-slot [opções] -- <cmd...>")
+    return a, cmd
+
+
+def acquire(a):
+    """Block until the missing slots AND the hardware gate allow it; None on timeout.
+
+    Returns (held, new, temp, mem, waited): `held` = verified inherited locks,
+    `new` = [(name, fd)] taken now.
+    """
+    held = inherited_holds()
+    needed = ["rust", "heavy"] if a.cls == "rust" else ["heavy"]
+    exclusivos = set()
+    if a.cls == "medida":
+        # A medição quer a máquina sozinha: rust + TODOS os heavy + o slot dela própria.
+        needed = ["medida", "rust", "heavy"]
+        exclusivos = {"medida", "rust", "heavy"}
+    missing = []
+    for c in needed:
+        if c in exclusivos:
+            # classe exclusiva: só passa direto se JÁ temos TODOS os slots dela (reentrância)
+            if not all(any(n == s for n in held) for s in lock_names(c)):
+                missing.append(c)
+        elif not any(n.startswith(c + "-") for n in held):
+            missing.append(c)
+    t0, warned, announced = time.time(), set(), False
+    poll = float(os.environ.get("HW_SLOT_POLL_SECS", "2"))
+    while True:
+        why, temp, mem = blockers(a.max_temp, a.min_mem_gb, a.min_vram_gb, warned)
+        if not why:
+            new = try_acquire_all(missing, exclusivos, set(held)) if missing else []
+            if new is not None:
+                return held, new, temp, mem, time.time() - t0
+            why = [f"slot — {'+'.join(missing)} ocupado: {holders_summary()}"]
+        if time.time() - t0 >= a.wait:
+            err(f"sem vaga após {a.wait:.0f}s: " + "; ".join(why))
+            return None
+        if not announced:
+            err("aguardando — " + "; ".join(why))
+            announced = True
+        time.sleep(poll)
+
+
+def run_job(a, cmd, held, new):
+    for name, _ in new:
+        info_path(name).write_text(json.dumps(
+            {"pid": os.getpid(), "cmd": " ".join(cmd)[:160], "label": a.label,
+             "class": a.cls, "started": time.time(), "cwd": os.getcwd()}))
+    env = dict(os.environ)
+    env.setdefault("CARGO_BUILD_JOBS", "4")
+    env.setdefault("RUST_TEST_THREADS", "4")
+    env[HELD_ENV] = ",".join(list(held.values()) + [f"{n}@{os.getpid()}" for n, _ in new])
+    t0 = time.time()
+    try:
+        # no pass_fds: the wrapper alone holds the lock. The job leads its OWN process group so
+        # a signal (forwarded Ctrl-C, thermal abort) reaches every descendant, not just the child.
+        child = subprocess.Popen(cmd, env=env, process_group=0)
+    except OSError as e:
+        err(f"não executou {cmd[0]!r}: {e}")
+        return 127, t0, None, False
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, lambda s, _f: _signal_group(child, s))
+    state, stop = {"aborted": False}, threading.Event()
+    if a.abort_temp is not None:
+        threading.Thread(target=_thermal_watchdog, args=(child, a.abort_temp, stop, state), daemon=True).start()
+    rc = child.wait()
+    stop.set()
+    return rc, t0, mce_since(t0), state["aborted"]
+
+
+def _signal_group(child, sig):
+    try:
+        os.killpg(child.pid, sig)
+    except ProcessLookupError:
+        pass
+
+
+def _thermal_watchdog(child, limit, stop, state):
+    """Abort the job when the package stays above `limit` for N consecutive samples."""
+    watch = float(os.environ.get("HW_SLOT_WATCH_SECS", "5"))
+    need = int(os.environ.get("HW_SLOT_ABORT_SAMPLES", "3"))
+    strikes = 0
+    while not stop.wait(watch):
+        t = pkg_temp_c()
+        strikes = strikes + 1 if (t is not None and t > limit) else 0
+        if strikes >= need:
+            state["aborted"] = True
+            err(f"⚠ ABORT — pkg {t:.0f}C > {limit:.0f}C por {need} amostras seguidas; encerrando o job")
+            _signal_group(child, signal.SIGTERM)
+            if not stop.wait(10):
+                _signal_group(child, signal.SIGKILL)
+            return
+
+
+def main(argv):
+    a, cmd = parse(argv)
+    if a.status:
+        return status()
+    got = acquire(a)
+    if got is None:
+        return EX_TEMPFAIL
+    held, new, temp, mem, waited = got
+    rc, t0, mce, aborted = run_job(a, cmd, held, new)
+    if aborted:
+        rc = EX_TEMPFAIL  # the job did not complete: never report the child's SIGTERM as its own result
+    if mce:
+        err(f"⚠ MCE={mce} durante o job — verde NÃO prova o artefato (núcleo defeituoso); relance")
+        if rc == 0:
+            rc = EX_SOFTWARE
+    append_log({"ts": time.strftime("%Y-%m-%dT%H:%M:%S"), "class": a.cls, "label": a.label,
+                "slots": [n for n, _ in new], "passthrough": sorted(held),
+                "cmd": " ".join(cmd)[:160], "waited_s": round(waited, 1),
+                "secs": round(time.time() - t0, 1), "rc": rc, "aborted": aborted, "temp_c": temp,
+                "mem_gb": None if mem is None else round(mem, 1), "mce": mce})
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

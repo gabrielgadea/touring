@@ -53,8 +53,19 @@ pub struct LearningStatus {
     pub bandit_type: String,
     /// Number of bandit arms (candidate actions).
     pub arm_count: usize,
+    /// P2 replay (29/08): rewarded outcomes still awaiting offline replay
+    /// into the engine (`touring learning replay`). `None` when memory.db is
+    /// unreadable — absence displayed, never coerced to zero (E4).
+    pub corpus_pending: Option<i64>,
     /// AgenticRL state snapshot — None if AgenticRL was never activated.
-    pub agentic_rl_state: Option<crate::agentic_rl::AgenticRLState>,
+    /// Agentic-RL summary — R6 (29/08): the full `AgenticRLState` used to be
+    /// inlined here and dumped ~40KB of raw policy weights into every
+    /// `learning status` (an STR violation — a status reader decides nothing
+    /// with 8k floats). Long numeric arrays are compressed to
+    /// `{len, l2_norm}`; scalars pass through. The full state still lives on
+    /// the persistence path (`.claude/data/agentic_rl_state.json`), never in
+    /// a status line.
+    pub agentic_rl_state: Option<serde_json::Value>,
 }
 /// A public symbol with no consumers, reported by wiring orphan analysis.
 #[derive(Serialize)]
@@ -131,8 +142,12 @@ pub struct GotchaStats {
     /// Sum of `hit_count` across all gotchas — how often they matched.
     pub total_hits: usize,
     /// Sum of `prevented_errors` across all gotchas — matches credited with
-    /// preventing a real error.
-    pub total_prevented: usize,
+    /// preventing a real error. `None` (JSON `null`) while the signal has no
+    /// producer: an absent signal is not a zero (C7, 2026-10-17).
+    pub total_prevented: Option<usize>,
+    /// Whether `total_prevented` is measured. `false` means the `null` above
+    /// is "unknown", never "none were prevented".
+    pub prevented_measured: bool,
 }
 /// Aggregate counts over the knowledge store.
 #[derive(Serialize)]
@@ -149,6 +164,14 @@ pub struct KnowledgeStats {
     pub gotcha_stats: GotchaStats,
     /// Number of stored memory entries.
     pub memory_entry_count: usize,
+    /// Number of memory entries carrying at least one faceted tag (F6).
+    #[serde(default)]
+    pub memory_tagged_count: usize,
+    /// `memory_tagged_count / memory_entry_count` — the hashtag-library
+    /// coverage KPI (`touring.memory.tag_coverage`). 0.0 when the store is
+    /// empty, so the ratio never divides by zero.
+    #[serde(default)]
+    pub tag_coverage: f64,
 }
 /// Status of the incremental indexing subsystem.
 #[derive(Serialize)]
@@ -208,6 +231,7 @@ pub use crate::cli::gotcha::cli_gotcha_add;
 pub use crate::cli::gotcha::cli_gotcha_init;
 pub use crate::cli::gotcha::cli_gotcha_list;
 pub use crate::cli::gotcha::cli_gotcha_match;
+pub use crate::cli::gotcha::cli_gotcha_resolve;
 pub use crate::cli::gotcha::cli_gotcha_stats;
 pub use crate::cli::gotcha::cli_gotcha_sync;
 pub use crate::cli::granularity::cli_granularity_hint;
@@ -230,12 +254,23 @@ pub use crate::cli::knowledge::cli_metadata_backfill;
 pub use crate::cli::knowledge::cli_session_summary;
 pub use crate::cli::learning::cli_learning_reward;
 pub use crate::cli::learning::cli_learning_status;
+pub use crate::cli::learning::{cli_experiment_list, cli_experiment_record, cli_learning_replay};
+pub use crate::cli::memory::cli_memory_backfill_tags;
+pub use crate::cli::memory::cli_memory_communities;
 pub use crate::cli::memory::cli_memory_credit;
+pub use crate::cli::memory::cli_memory_link;
+pub use crate::cli::memory::cli_memory_links;
 pub use crate::cli::memory::cli_memory_list;
+pub use crate::cli::memory::cli_memory_moc;
+pub use crate::cli::memory::cli_memory_query;
 pub use crate::cli::memory::cli_memory_recall;
 pub use crate::cli::memory::cli_memory_reindex;
 pub use crate::cli::memory::cli_memory_stats;
 pub use crate::cli::memory::cli_memory_store;
+pub use crate::cli::memory::cli_memory_sync_tags;
+pub use crate::cli::memory::cli_memory_tag_add;
+pub use crate::cli::memory::cli_memory_tags;
+pub use crate::cli::memory::cli_memory_unlink;
 pub use crate::cli::metrics::cli_mcp_overhead;
 pub use crate::cli::metrics::cli_profile_status;
 pub use crate::cli::metrics::cli_tokio_metrics;
@@ -272,7 +307,7 @@ pub use crate::cli::shared::touring_claude_dir;
 pub(crate) use crate::cli::shared::{
     ARCTIC_QUERY_PREFIX, discover_canonical_dbs, ensure_decompose_tables,
     inject_synthetic_tool_rewards, keyword_skill_match, memory_recall_sql_federated,
-    semantic_or_hash_embedding, semantic_text_embedding,
+    semantic_or_hash_embeddings, semantic_text_embedding,
 };
 pub use crate::cli::skip::cli_skip_list;
 pub use crate::cli::skip::cli_skip_validate;
@@ -303,6 +338,7 @@ pub use crate::cli::wiring::cli_wiring_impact;
 pub use crate::cli::wiring::cli_wiring_modules;
 pub use crate::cli::wiring::cli_wiring_orphans;
 pub use crate::cli::wiring::cli_wiring_purpose;
+pub use crate::cli::wiring::cli_wiring_scip_ingest;
 pub use crate::cli::wiring::cli_wiring_status;
 pub use crate::cli::wiring::cli_wiring_suggest;
 pub use crate::cli::workflow::cli_workflow_compare;
@@ -320,7 +356,7 @@ pub(crate) use crate::cli::shared::{memory_recall_fts5_expr, memory_recall_sql};
 // moved to `cli/health.rs` (Master Plan A.W2.P5). Re-exported so dispatch
 // closures `crate::cli_handlers::cli_*` (hook_registry.rs) resolve unchanged.
 pub use crate::cli::health::{
-    cli_doctor, cli_flywheel_status, cli_harness_metric, cli_incremental_status,
+    cli_code_mode_run, cli_doctor, cli_flywheel_status, cli_harness_metric, cli_incremental_status,
     cli_prompt_enhance, cli_status,
 };
 // Live `cli_pre_task_scout` (+ scout cache helpers, run_scouter_*,

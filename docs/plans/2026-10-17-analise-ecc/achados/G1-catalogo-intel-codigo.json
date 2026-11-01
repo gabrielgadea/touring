@@ -1,0 +1,579 @@
+{
+ "area": "G1-catalogo-intel-codigo",
+ "symbol_verification": {
+  "cli_kpi": "touring index find: definicao crates/touring-cli/src/cli/kpi.rs:125 e 1 referencia repo_health.rs:56; touring scout cli_kpi = UNIQUE; touring ast overview kpi.rs = 116 simbolos; touring ast blast kpi.rs = blast_radius 5",
+  "code_mode_adherence": "touring kpi -j: available true, by_failure_kind presente"
+ },
+ "inventario_ecc": {
+  "revisao-por-linguagem": {
+   "agents": 26,
+   "skills": 0,
+   "commands": 14,
+   "exemplos": [
+    "python-reviewer",
+    "rust-reviewer",
+    "go-reviewer"
+   ]
+  },
+  "build-resolver": {
+   "agents": 12,
+   "skills": 0,
+   "commands": 10,
+   "exemplos": [
+    "rust-build-resolver",
+    "go-build-resolver"
+   ]
+  },
+  "padroes-e-testes-por-linguagem": {
+   "agents": 2,
+   "skills": 63,
+   "commands": 7,
+   "exemplos": [
+    "golang-testing",
+    "kotlin-testing",
+    "rust-patterns"
+   ]
+  },
+  "planejamento": {
+   "agents": 9,
+   "skills": 0,
+   "commands": 5,
+   "exemplos": [
+    "planner",
+    "architect",
+    "plan-prd"
+   ]
+  },
+  "seguranca": {
+   "agents": 1,
+   "skills": 17,
+   "commands": 1,
+   "exemplos": [
+    "security-reviewer",
+    "security-review",
+    "security-scan"
+   ]
+  },
+  "orquestracao-multiagente": {
+   "agents": 0,
+   "skills": 45,
+   "commands": 23,
+   "exemplos": [
+    "orch-fix-defect",
+    "claude-devfleet",
+    "santa-loop"
+   ]
+  },
+  "memoria-aprendizado": {
+   "agents": 0,
+   "skills": 12,
+   "commands": 13,
+   "exemplos": [
+    "continuous-learning-v2",
+    "instinct-status",
+    "ck"
+   ]
+  },
+  "contexto-custo": {
+   "agents": 0,
+   "skills": 6,
+   "commands": 2,
+   "exemplos": [
+    "cost-tracking",
+    "context-budget",
+    "cost-report"
+   ]
+  },
+  "hooks-gates": {
+   "agents": 0,
+   "skills": 5,
+   "commands": 4,
+   "exemplos": [
+    "gateguard",
+    "delivery-gate",
+    "hookify-rules"
+   ]
+  },
+  "multi-harness-instalacao": {
+   "agents": 0,
+   "skills": 4,
+   "commands": 3,
+   "exemplos": [
+    "skill-host-compat",
+    "deepseek-harness-setup",
+    "configure-ecc"
+   ]
+  },
+  "negocio-conteudo": {
+   "agents": 3,
+   "skills": 31,
+   "commands": 1,
+   "exemplos": [
+    "marketing-agent",
+    "investor-materials",
+    "seo-specialist"
+   ]
+  },
+  "rede-homelab": {
+   "agents": 4,
+   "skills": 10,
+   "commands": 0,
+   "exemplos": [
+    "network-architect",
+    "network-troubleshooter",
+    "homelab-architect"
+   ]
+  },
+  "banco-dados": {
+   "agents": 1,
+   "skills": 10,
+   "commands": 0,
+   "exemplos": [
+    "database-reviewer",
+    "postgres-patterns",
+    "mysql-patterns"
+   ]
+  },
+  "inteligencia-codigo": {
+   "agents": 4,
+   "skills": 4,
+   "commands": 1,
+   "exemplos": [
+    "code-tour",
+    "codebase-onboarding",
+    "change-impact",
+    "codehealth-mcp",
+    "code-explorer"
+   ]
+  },
+  "contextos": {
+   "agents": 0,
+   "skills": 0,
+   "commands": 0,
+   "exemplos": [
+    "contexts/dev.md",
+    "contexts/research.md",
+    "contexts/review.md"
+   ]
+  }
+ },
+ "linhas": [
+  {
+   "dominio": "cat-agentes",
+   "funcionalidade": "revisao especializada por linguagem",
+   "ecc": {
+    "como": "26 reviewers por linguagem e framework, somente leitura, sonnet; cada um com checklist de idiomas e seguranca do seu stack",
+    "evidencia": "agents/rust-reviewer.md (frontmatter: tools Read Grep Glob Bash)"
+   },
+   "touring": {
+    "como": "5 agents touring-* (architect, auditor, engineer, scouter, scriber) e nenhum reviewer por linguagem",
+    "evidencia": "ls ~/.claude/agents: 5 touring-*.md + _shared-touring-base.md",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Touring e Rust e Python. So rust-reviewer e python-reviewer tem valor direto; os outros 24 nao entram."
+  },
+  {
+   "dominio": "cat-agentes",
+   "funcionalidade": "resolucao de erro de build por linguagem",
+   "ecc": {
+    "como": "12 agents build-resolver que corrigem erros de compilacao, linker e dependencia de forma incremental",
+    "evidencia": "agents/rust-build-resolver.md (frontmatter)"
+   },
+   "touring": {
+    "como": "nenhum agent dedicado; build do Touring passa por update-touring (pipeline kill, build, install, restart, verify)",
+    "evidencia": "CLAUDE.md regra 1 do workspace (update-touring)",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Vale um rust-build-resolver que siga o gate do update-touring, sem substituir o pipeline."
+  },
+  {
+   "dominio": "cat-skills",
+   "funcionalidade": "padroes, testes e coding-standards por linguagem",
+   "ecc": {
+    "como": "63 skills de padrao e teste (golang-testing, kotlin-testing, rust-patterns, rust-testing e outras)",
+    "evidencia": "skills/golang-testing/SKILL.md (contagem por nome, ls)"
+   },
+   "touring": {
+    "como": "nenhuma skill de padrao por linguagem em ~/.claude/skills; so TACO-*, touring-* e persona-*",
+    "evidencia": "ls ~/.claude/skills: 189 entradas, 185 com SKILL.md",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Somente rust-patterns e rust-testing servem ao workspace Rust; o resto esta fora do escopo."
+  },
+  {
+   "dominio": "cat-rules",
+   "funcionalidade": "regras por linguagem (coding-style, testing, security, hooks) e modos de contexto",
+   "ecc": {
+    "como": "22 pastas de linguagem em rules/ com 5 a 10 arquivos cada, mais common/; 3 contexts (dev, research, review) como modos de sessao",
+    "evidencia": "rules/python/ (6 arquivos); contexts/dev.md"
+   },
+   "touring": {
+    "como": "17 rules em ~/.claude/rules, todas constitucionais e nenhuma por linguagem; sem modos de contexto",
+    "evidencia": "ls ~/.claude/rules: 17 .md (ex. touring-4-pillars.md)",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "A divisao por arquivo (style/testing/security) vale como padrao. Os contexts nao compensam: o Touring ativa por hook e skill."
+  },
+  {
+   "dominio": "cat-commands",
+   "funcionalidade": "comandos de revisao de codigo por linguagem",
+   "ecc": {
+    "como": "14 comandos review (code-review, cpp-review, go-review, rust-review e outros) com checklists por linguagem",
+    "evidencia": "commands/rust-review.md (frontmatter)"
+   },
+   "touring": {
+    "como": "sem comando /code-review em ~/.claude/commands; a revisao profunda e TACO-cross-audit e touring audit",
+    "evidencia": "ls ~/.claude/commands: 25 entradas; touring audit em touring --help",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "O Touring cobre a profundidade (cross-audit); falta a camada por linguagem, que pode vir dos reviewers."
+  },
+  {
+   "dominio": "seguranca",
+   "funcionalidade": "checklist de seguranca e enforcement",
+   "ecc": {
+    "como": "17 skills de seguranca (security-review, safety-guard, django-security, springboot-security, security-bounty-hunter) e security-scan sobre a config do agente",
+    "evidencia": "skills/security-review/SKILL.md (frontmatter)"
+   },
+   "touring": {
+    "como": "sem skill de seguranca; enforcement por hooks pre-bash, pre-write e guard, scan-pii e o gate de rajada do code mode",
+    "evidencia": "touring --help lista scan-pii, guard, pre-bash, pre-write",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Touring tem o enforcement, falta o checklist de revisao. Adaptar security-review como skill."
+  },
+  {
+   "dominio": "hooks-gates",
+   "funcionalidade": "gate de fato antes de Edit/Write e de fim de turno",
+   "ecc": {
+    "como": "gateguard exige fatos antes do primeiro Edit/Write; delivery-gate bloqueia o fim do turno sem checagem de qualidade",
+    "evidencia": "skills/gateguard/SKILL.md (frontmatter); skills/delivery-gate/SKILL.md"
+   },
+   "touring": {
+    "como": "hooks pre/post-bash, pre/post-edit, pre/post-write, session-start/stop; gates G1 a G11 do code mode; hook trace pelo TOURING_HOOK_TRACE_FILE",
+    "evidencia": "touring --help lista os hooks; CLAUDE.md regras 10 e 13",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Touring ja tem gates por contagem e por rajada. A ideia do gateguard (fatos antes do edit) pode entrar como gate, nao como skill."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "workflows multiagente por tarefa (orch-*, multi-*, prp-*, epic-*)",
+   "ecc": {
+    "como": "23 comandos de orquestracao (orch-fix-defect, multi-workflow, epic-claim) guiados por prompt; sem journal de execucao",
+    "evidencia": "commands/orch-fix-defect.md (frontmatter)"
+   },
+   "touring": {
+    "como": "touring adw run (runner duravel com journal fsync, lint, test, explain, race) e touring factory route/start",
+    "evidencia": "touring adw --help: list, lint, run, test, from-template, explain, promote, race",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O journal e o gate de convergencia do ADW nao existem no ECC, cujos orch-* sao prompts."
+  },
+  {
+   "dominio": "planejamento",
+   "funcionalidade": "planejamento e decomposicao em DAG",
+   "ecc": {
+    "como": "plan e prp-plan geram plano em prosa; ralphinho-rfc-pipeline quebra RFC em DAG de execucao multiagente",
+    "evidencia": "skills/ralphinho-rfc-pipeline/SKILL.md (frontmatter); commands/plan.md"
+   },
+   "touring": {
+    "como": "taco-planning (plano com VGP), touring decompose create/claim/frontier, com claim atomico e fronteira de decisoes abertas",
+    "evidencia": "touring decompose --help: DAG task decomposition; CLAUDE.md regra 9",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Claim condicional (uma sessao vence) e fronteira de decisao nao existem no ECC."
+  },
+  {
+   "dominio": "memoria",
+   "funcionalidade": "memoria persistente e recall",
+   "ecc": {
+    "como": "ck (context keeper por projeto), unified-memory, continuous-learning-v2 observa sessao por hook; nenhuma busca indexada nas skills que li",
+    "evidencia": "skills/ck/SKILL.md (frontmatter)"
+   },
+   "touring": {
+    "como": "touring memory store/recall com facetas; tantivy indexa memorias, rules e skills como @companion; a busca devolveu code-elaboration-directives.md:43",
+    "evidencia": "touring tantivy search 'kpi code_mode_adherence' 5",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Recall ranqueado sobre memoria, regra e codigo; o ECC so tem arquivo."
+  },
+  {
+   "dominio": "memoria",
+   "funcionalidade": "aprendizado por instincts (promover e podar padroes)",
+   "ecc": {
+    "como": "13 comandos instinct-*, learn, learn-eval, evolve, promote, prune; instinct tem confianca mas nao ha reforco medido",
+    "evidencia": "commands/instinct-status.md (frontmatter)"
+   },
+   "touring": {
+    "como": "touring learning, touring evolution, touring gotcha, e learning reward (CLAUDE.md regra 7)",
+    "evidencia": "touring --help lista learning, evolution, gotcha; CLAUDE.md regra 7",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O Touring fecha o loop com reward; o ECC so acumula arquivos de instinct."
+  },
+  {
+   "dominio": "contexto-custo",
+   "funcionalidade": "orcamento de contexto e relatorio de custo",
+   "ecc": {
+    "como": "context-budget, cost-tracking, token-budget-advisor, strategic-compact e o comando cost-report para relatorio local",
+    "evidencia": "skills/cost-tracking/SKILL.md; commands/cost-report.md"
+   },
+   "touring": {
+    "como": "touring budget-verify, touring compact e CILA budget; regra 17 do CLAUDE.md e hook agent_model_gate.py exigem model no Agent",
+    "evidencia": "touring --help lista budget-verify e compact; client/hooks/agent_model_gate.py (git status)",
+    "estado": "existe"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "O relatorio legivel de custo (cost-report) nao tem comando equivalente no Touring. Adaptar o relatorio, nao o roteador."
+  },
+  {
+   "dominio": "roteamento",
+   "funcionalidade": "escolha de tier de modelo por tarefa",
+   "ecc": {
+    "como": "model-route recomenda tier por complexidade e risco; cost-aware-llm-pipeline roteia por custo",
+    "evidencia": "commands/model-route.md (frontmatter)"
+   },
+   "touring": {
+    "como": "regra 17 manda cada parte ao executor mais barato que passa no juiz; agent_model_gate recusa Agent sem model",
+    "evidencia": "CLAUDE.md regra 17; client/hooks/agent_model_gate.py (git status)",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "ECC so recomenda. Touring impoe por hook. O roteamento por tier do ECC nao acrescenta."
+  },
+  {
+   "dominio": "verificacao-qualidade",
+   "funcionalidade": "verificacao antes de declarar pronto",
+   "ecc": {
+    "como": "verification-loop, tdd-workflow, e2e-testing, quality-gate, santa-loop (dois revisores adversariais que precisam aprovar ambos)",
+    "evidencia": "skills/verification-loop/SKILL.md (frontmatter); skills/santa-loop/SKILL.md"
+   },
+   "touring": {
+    "como": "touring e2e (score composto), touring-elite com 13 gates, loop_converged.py cujo exit 0 e o unico pronto (regra 11)",
+    "evidencia": "touring e2e --help: Comprehensive E2E code analysis; ~/.claude/skills/loop-engineering/scripts/loop_converged.py existe",
+    "estado": "existe"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Juiz por exit code, nao autoavaliacao. santa-loop e o ponto mais proximo, e so vale como ideia de dupla revisao."
+  },
+  {
+   "dominio": "observabilidade",
+   "funcionalidade": "metricas e dashboard de saude",
+   "ecc": {
+    "como": "skill-health (dashboard de portfolio de skills), token-card, cost-report, ecc_dashboard.py",
+    "evidencia": "commands/skill-health.md (frontmatter); ecc_dashboard.py na raiz"
+   },
+   "touring": {
+    "como": "touring kpi -j com code_mode_adherence (available true, contagem por tipo de falha), touring status -j, touring gate-metrics -j",
+    "evidencia": "touring kpi -j: code_mode_adherence com by_failure_kind; touring --help lista gate-metrics",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "KPI medido por codigo, com piso (0.8). O dashboard do ECC e visual e nao tem gate."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "mapa de codigo (codemaps)",
+   "ecc": {
+    "como": "generate.ts varre diretorios, classifica por pasta, gera arvore e conta linhas com fs e path; sem AST e sem grafo de consumidores",
+    "evidencia": "scripts/codemaps/generate.ts:107 (classifyFiles), :140 (lineCount)"
+   },
+   "touring": {
+    "como": "touring index find, ast overview, ast blast e wiring impact: definicao e referencia, 116 simbolos, blast_radius, consumidores",
+    "evidencia": "touring index find cli_kpi: kpi.rs:125 + repo_health.rs:56; touring ast blast kpi.rs: blast_radius 5 com 5 consumers",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O gerador do ECC so faz mapa de pastas. O Touring responde impacto e consumidor por simbolo."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "tour e onboarding de codebase",
+   "ecc": {
+    "como": "code-tour gera .tour (CodeTour) com passos ancorados em arquivo:linha; codebase-onboarding faz 4 fases e guia de onboarding; change-impact e read-only antes do edit",
+    "evidencia": "skills/code-tour/SKILL.md (254 linhas); skills/codebase-onboarding/SKILL.md (234 linhas)"
+   },
+   "touring": {
+    "como": "nenhuma skill de tour ou onboarding (ls: onboard 0; tour so touring-*); touring map e touring investigate existem",
+    "evidencia": "ls ~/.claude/skills | grep onboard = 0; touring --help lista map e investigate",
+    "estado": "ausente"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "O formato .tour e util como saida de touring map para novato. change-impact ja e coberto por ast blast."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "explorar e desenhar a partir do codigo",
+   "ecc": {
+    "como": "code-explorer e code-architect rastreiam caminhos de execucao com Read, Grep e Glob, a partir de prompt; sem verificacao de simbolo",
+    "evidencia": "agents/code-explorer.md:5 (tools: Read, Grep, Glob)"
+   },
+   "touring": {
+    "como": "touring-scouter (haiku, saida JSON, VGP com symbol_verification) e touring-architect; touring scout devolve veredito UNIQUE com cadeias de evidencia",
+    "evidencia": "ls ~/.claude/agents: touring-scouter (haiku); touring scout cli_kpi: UNIQUE",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "O scout verifica simbolo por CLI. O explorer do ECC le sem verificar."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "revisao de falhas silenciosas e design de tipos",
+   "ecc": {
+    "como": "silent-failure-hunter (catch vazio, fallback ruim, erro sem propagacao) e type-design-analyzer (encapsulamento, invariantes), ambos sonnet",
+    "evidencia": "agents/silent-failure-hunter.md:25 (catch vazio), :3 (description)"
+   },
+   "touring": {
+    "como": "nenhum agent ou skill com esse foco entre os que verifiquei; cobertura parcial por touring gotcha e gates",
+    "evidencia": "ls ~/.claude/agents e ~/.claude/skills: sem silent-failure",
+    "estado": "nao_verificado"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "adaptar",
+   "nota": "Checklist util para Rust (Result descartado, unwrap_or que esconde erro). Os gates do Touring nao foram auditados a fundo."
+  },
+  {
+   "dominio": "inteligencia-codigo",
+   "funcionalidade": "score de saude estrutural do codigo",
+   "ecc": {
+    "como": "codehealth-mcp: score de manutenibilidade via CodeScene, opt-in, serviço externo que exige CS_ACCESS_TOKEN",
+    "evidencia": "skills/codehealth-mcp/SKILL.md:1-20 (Security and boundaries)"
+   },
+   "touring": {
+    "como": "touring-elite (skill presente, agrega gates) e touring ast tdg/quality, que nao rodei nesta sessao",
+    "evidencia": "ls ~/.claude/skills: touring-elite; comando ast tdg nao executado",
+    "estado": "nao_verificado"
+   },
+   "veredito": "equivalente",
+   "acao": "ignorar",
+   "nota": "Servico externo e token: nao vale. Touring ja tem a mesma funcao local, a confirmar."
+  },
+  {
+   "dominio": "governanca-repo",
+   "funcionalidade": "governanca de docs vivos e ADR",
+   "ecc": {
+    "como": "living-docs-governance mantem docs sem apodrecer; architecture-decision-records gera ADR numerado; update-docs e update-codemaps sincronizam com a fonte",
+    "evidencia": "skills/living-docs-governance/SKILL.md (frontmatter); skills/architecture-decision-records/SKILL.md"
+   },
+   "touring": {
+    "como": "okf_emit como emissor unico de docs OKF, diary, CLAUDE.md com limites 400 e 300 linhas (regra 16); sem ADR numerado",
+    "evidencia": "CLAUDE.md regras 6 e 16; touring --help lista diary",
+    "estado": "parcial"
+   },
+   "veredito": "equivalente",
+   "acao": "adaptar",
+   "nota": "O ganho e so o ADR numerado. O resto o Touring ja faz com okf_emit e a regra 16."
+  },
+  {
+   "dominio": "instalacao",
+   "funcionalidade": "instalar, configurar e atualizar",
+   "ecc": {
+    "como": "install.sh e install.ps1, configure-ecc (wizard), auto-update (pull e reinstalacao)",
+    "evidencia": "skills/configure-ecc/SKILL.md (frontmatter); commands/auto-update.md"
+   },
+   "touring": {
+    "como": "update-touring com verify e rollback; touring toolchain install; propagate-release.sh com gates e --rollback",
+    "evidencia": "touring --help lista toolchain e update; CLAUDE.md secao 2.1",
+    "estado": "superior"
+   },
+   "veredito": "touring_melhor",
+   "acao": "ja_coberto",
+   "nota": "Touring tem verificacao pos-instalacao e rollback. O ECC so reinstala."
+  },
+  {
+   "dominio": "multi-harness",
+   "funcionalidade": "portar para outros agentes e harnesses",
+   "ecc": {
+    "como": "skill-host-compat (Codex e Cursor), deepseek-harness-setup, pasta pi/ com 208 arquivos; funciona fora do Claude Code",
+    "evidencia": "skills/skill-host-compat/SKILL.md; skills/deepseek-harness-setup/SKILL.md"
+   },
+   "touring": {
+    "como": "so Claude Code; sessoes irmas Kimi e MiniMax ficam fora do harness (regra 17)",
+    "evidencia": "CLAUDE.md regra 17",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "ignorar",
+   "nota": "Touring e o harness. Multi-harness so vale se Gabriel quiser portar skills. Nao e prioridade."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "negocio, conteudo, saude, financas e dominios verticais",
+   "ecc": {
+    "como": "31 skills de negocio e conteudo (investor-materials, marketing-campaign, seo, crosspost), 10 de persona, saude (healthcare-*, hipaa) e comercio exterior",
+    "evidencia": "skills/investor-materials/SKILL.md (frontmatter)"
+   },
+   "touring": {
+    "como": "10 persona-* genericas; sem verticais de negocio",
+    "evidencia": "ls ~/.claude/skills | grep persona = 10",
+    "estado": "parcial"
+   },
+   "veredito": "ecc_melhor",
+   "acao": "ignorar",
+   "nota": "Fora do escopo do Touring como harness de codigo. Nao adotar."
+  },
+  {
+   "dominio": "dominios-nao-codigo",
+   "funcionalidade": "direito e licitacao brasileira, analise de processo",
+   "ecc": {
+    "como": "nenhuma skill de direito ou licitacao brasileira; ha research e literature-review genericos",
+    "evidencia": "skills/literature-review/SKILL.md (frontmatter)"
+   },
+   "touring": {
+    "como": "lexcore-br-law-typify, lexcore-antt, detran-document-elaborator e analysis-loop (analise com 14 clausulas de convergencia)",
+    "evidencia": "ls ~/.claude/skills: lexcore-*, detran-document-elaborator, analysis-loop",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Dominio brasileiro que o ECC nao tem. Vale para o Gabriel, nao para o catalogo de codigo."
+  },
+  {
+   "dominio": "orquestracao",
+   "funcionalidade": "execucao de codigo com sandbox e contencao",
+   "ecc": {
+    "como": "nenhum sandbox proprio de execucao de codigo entre os agents e skills lidos; so hooks que bloqueiam comandos",
+    "evidencia": "skills/safety-guard/SKILL.md (frontmatter)"
+   },
+   "touring": {
+    "como": "touring run com sandbox Landlock e rlimit, tmp privado por run, CEG com estagios X0 a X9; a chamada de teste devolveu stdout, exit_code e forbidden_calls",
+    "evidencia": "execucao real de touring run --lang python: exit_code 0, KernelEnforced",
+    "estado": "superior"
+   },
+   "veredito": "so_touring",
+   "acao": "ja_coberto",
+   "nota": "Contencao no kernel, fora do alcance do ECC. Ja em uso."
+  }
+ ],
+ "nao_coberto": "Li so frontmatter e primeiro paragrafo das 311 skills, 71 agents e 97 commands; corpo completo nao lido. Pastas hooks/, ecc2/, pi/, plugins/, integrations/, docs/ e scripts/ (370 arquivos) nao foram lidas. rules/ tem 22 pastas de linguagem mais README.md (o brief citou 23). Contagens por dominio sao por padrao de nome, aprox. Do lado Touring nao executei touring ast tdg, touring memory recall, touring adw run nem loop_converged.py; codehealth, silent-failure e type-design ficaram nao_verificado. A lista de skills do Touring veio elidida no sandbox e foi completada com ls."
+}

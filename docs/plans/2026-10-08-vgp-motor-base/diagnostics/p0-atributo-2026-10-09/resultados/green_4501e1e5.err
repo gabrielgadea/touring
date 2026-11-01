@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/p0-atributo-2026-10-09/scripts/sonda_p0.py", line 52, in <module>
+    Path(sys.argv[sys.argv.index("--json") + 1]).write_text(json.dumps(saida, indent=1, ensure_ascii=False))
+         ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+IndexError: list index out of range

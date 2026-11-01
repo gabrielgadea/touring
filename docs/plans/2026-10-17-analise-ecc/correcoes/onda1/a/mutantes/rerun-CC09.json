@@ -1,0 +1,23 @@
+{
+ "summary": {
+  "controles": {
+   "quota": 0
+  },
+  "total": 1,
+  "validos": 1,
+  "mortos": 1,
+  "sobreviventes": [],
+  "invalidos": [],
+  "segundos": 8
+ },
+ "results": [
+  {
+   "id": "CC09",
+   "why": "porcentagem ilegível é anunciada",
+   "suite": "quota",
+   "status": "morto",
+   "rc": 1,
+   "killer": "test_a_marker_without_a_readable_percentage_is_silence_not_a_crash"
+  }
+ ]
+}

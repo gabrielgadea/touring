@@ -22,6 +22,15 @@ description: Attack orphan pub symbols via wiring suggestions. Use to reduce the
 | `touring wiring modules` | Module integration scores |
 | `touring wiring audit` | Full wiring audit |
 
+## O número que esta skill move é uma cláusula do juiz
+
+`touring wiring orphans -j` não é só um relatório: é a cláusula `orphans_base` do
+`loop_converged.py`, que compara os órfãos do escopo contra a baseline e **falha**
+se subiram. Duas consequências práticas: (a) criar símbolo `pub` novo sem consumidor
+faz a contagem subir e trava a convergência de quem estiver em loop (REGRA #0 vira
+verificável, não exortação); (b) aplicar sugestões em lote sem `cargo check` entre
+elas pode derrubar `cargo_green` e mascarar qual lote quebrou. Ref: `Touring/references/skill-operating-principles.md` (P2).
+
 ## Strategy
 - Target: reduce orphan rate from 96.8% to <90%
 - Focus on high-similarity suggestions (score > 0.7)

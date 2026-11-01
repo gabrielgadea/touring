@@ -200,6 +200,12 @@ fn tantivy_bm25_index_and_search() {
             blake3_hash: Some("abc123def456".to_string()),
             import_count: Some(12),
             export_count: Some(5),
+        // `SymbolDoc.cognitive_score` — o campo POR SIMBOLO do indice tantivy, valor
+        // DIFERENTE do `quality_score` por arquivo (renomeado em 04/09/2026) e
+        // documentado com a direcao oposta ("Cognitive complexity score"). Mantem o
+        // nome de proposito: nenhum escritor de producao o preenche, e renomea-lo
+        // teria fundido um campo morto de complexidade com um vivo de qualidade —
+        // exatamente o defeito que o rename existe para corrigir.
             cognitive_score: Some(0.72),
             functional_signature: Some("fn(file_path: &str, content: &str, symbols_json: &str) -> Option<FunctionalSignature>".to_string()),
             community_id: None,

@@ -1,0 +1,15 @@
+disjunto_x_vivo: {'ids': 0, 'tool_use_ids': 0, 'shas': 0, 'comandos': 0}
+disjunto_x_temporal: {'ids': 0, 'tool_use_ids': 0, 'shas': 0, 'comandos': 0}
+controle_positivo_vivo_x_vivo: {'ids': 763, 'tool_use_ids': 463, 'shas': 782, 'comandos': 493}
+controle_temporal_x_vivo: {'ids': 0, 'tool_use_ids': 0, 'shas': 0, 'comandos': 0}
+tamanhos: {'disjunto': {'ids': 1153, 'tool_use_ids': 553, 'shas': 1153, 'comandos': 553}, 'vivo': {'ids': 763, 'tool_use_ids': 463, 'shas': 782, 'comandos': 493}, 'temporal': {'ids': 266, 'tool_use_ids': 190, 'shas': 261, 'comandos': 190}, 'corpus_holdout_disjunto': {'ids': 1200, 'tool_use_ids': 600, 'shas': 1200, 'comandos': 600}, 'corpus_holdout_disjunto_20261011': {'ids': 1200, 'tool_use_ids': 600, 'shas': 1200, 'comandos': 600}}
+disjunto_x_corpus_holdout_disjunto: {'ids': 0, 'tool_use_ids': 0, 'shas': 0, 'comandos': 0}
+controle_positivo_corpus_holdout_disjunto_x_corpus_holdout_disjunto: {'ids': 1200, 'tool_use_ids': 600, 'shas': 1200, 'comandos': 600}
+disjunto_x_corpus_holdout_disjunto_20261011: {'ids': 0, 'tool_use_ids': 0, 'shas': 0, 'comandos': 0}
+controle_positivo_corpus_holdout_disjunto_20261011_x_corpus_holdout_disjunto_20261011: {'ids': 1200, 'tool_use_ids': 600, 'shas': 1200, 'comandos': 600}
+arquivo_ja_no_vivo (descritivo, nao e criterio de exclusao): {'atribuido': 600, 'com_path_que_o_vivo_tambem_editou': 61, 'arquivos_distintos': 508, 'arquivos_distintos_tambem_no_vivo': 45}
+duplicatas_internas_de_conteudo: 0
+comandos_vazios_no_disjunto (arquivo nao tem comando): 600
+OK_zero_nas_tres_chaves: True
+OK_zero_em_todos_os_cruzamentos: True
+controle_positivo_enxerga: True

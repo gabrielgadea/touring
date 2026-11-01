@@ -46,7 +46,7 @@ fn file_knowledge_enriched_from_base_enrichment_fields_are_none() {
         ..Default::default()
     };
     let enriched = FileKnowledgeEnriched::from_base(base);
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.fan_in_signal.is_none());
     assert!(enriched.fan_out_signal.is_none());
     assert!(enriched.blake3_hash.is_none());
@@ -60,7 +60,7 @@ fn file_knowledge_enriched_from_base_enrichment_fields_are_none() {
 fn file_knowledge_enriched_default_is_all_none_or_zero() {
     let enriched = FileKnowledgeEnriched::default();
     assert!(enriched.file_path.is_empty());
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.coverage_pct.is_none());
     assert!(enriched.modularity_score.is_none());
     assert!(enriched.complexity_signal.is_none());
@@ -70,13 +70,13 @@ fn file_knowledge_enriched_default_is_all_none_or_zero() {
 fn file_knowledge_enriched_serializes_to_json() {
     let enriched = FileKnowledgeEnriched {
         file_path: "test.rs".to_string(),
-        cognitive_score: Some(0.85),
+        quality_score: Some(0.85),
         fan_in_signal: Some(3.0),
         ..Default::default()
     };
     let json = serde_json::to_value(&enriched).unwrap();
     assert_eq!(json["file_path"], "test.rs");
-    assert!((json["cognitive_score"].as_f64().unwrap() - 0.85).abs() < 1e-9);
+    assert!((json["quality_score"].as_f64().unwrap() - 0.85).abs() < 1e-9);
     assert!((json["fan_in_signal"].as_f64().unwrap() - 3.0).abs() < 1e-9);
     assert!(json["blake3_hash"].is_null());
 }
@@ -124,7 +124,7 @@ fn query_extended_returns_base_fields_when_no_enrichment() {
     assert_eq!(enriched.line_count, 42);
     assert_eq!(enriched.symbol_count, 5);
     // No enrichment data → all enrichment fields None
-    assert!(enriched.cognitive_score.is_none());
+    assert!(enriched.quality_score.is_none());
     assert!(enriched.integration_score.is_none());
     assert!(enriched.blake3_hash.is_none());
 }
@@ -143,7 +143,7 @@ fn query_extended_includes_cognitive_enrichment_after_upsert() {
         .unwrap();
 
     let result = db.query_extended("src/enriched.rs").unwrap().unwrap();
-    assert!((result.cognitive_score.unwrap() - 0.75).abs() < 1e-9);
+    assert!((result.quality_score.unwrap() - 0.75).abs() < 1e-9);
     assert!((result.fan_in_signal.unwrap() - 3.0).abs() < 1e-9);
     assert!((result.fan_out_signal.unwrap() - 2.0).abs() < 1e-9);
     assert!((result.complexity_signal.unwrap() - 0.5).abs() < 1e-9);
@@ -268,10 +268,20 @@ fn hook_registry_count_matches_the_dispatch_registry() {
     // doc de `test_hook_registry_counts_match_the_dispatch_registry`
     // (touring-hooks/tests/stringzilla_e2e.rs). Atualizar um subconjunto foi
     // como `cli-memory-credit` chegou ao CI com três testes vermelhos.
+    // 2026-08-18: +4 decompose verbs — claim, release (C2 atomic claim) and
+    //   ticket, frontier (C3 Wayfinder): 234->238 / 236->240.
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve: 239->240 / 241->242.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list}: 240->242 / 242->244.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay: 242->243 / 244->245.
+    // 2026-09-13 (I13): +1 cli-index-why: 243->244 / 245->246.
+    // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249.
+    // 2026-09-19: +1 cli-decompose-archive: 244->245 / 246->247.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(
         names.len(),
         EXPECTED_NAMES,

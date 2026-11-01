@@ -28,7 +28,7 @@ Entity identity registry for Touring — deterministic EntityId derivation from 
 
 ## Integration Points
 
-- touring-ast: entity resolution for symbol lookup
+- touring-code::ast (era touring-ast): entity resolution for symbol lookup
 - touring-semantics: resolve-def uses EntityId
 - touring-hooks: hook context uses EntityId for identity
 

@@ -1,0 +1,13 @@
+# Fragment `phase-close` — the pheromone deposit: nothing is done until it is recorded.
+[fragment]
+description = "Close a phase: persist the lesson to faceted memory and reward the tool"
+inputs = ["key", "summary", "domain"]
+entry = "persist"
+
+[node.persist]
+type = "code"
+command = ["bash", "-c", "touring memory store \"$1\" \"$2\" --tier semantic --tag '#kind:lesson' --tag \"#domain:$3\" 2>/dev/null; touring learning reward adw 1.0 2>/dev/null; true", "--", "{{inputs.key}}", "{{inputs.summary}}", "{{inputs.domain}}"]
+timeout_ms = 60000
+idempotent = true
+on_pass = "__exit__"
+on_fail = "__exit__"

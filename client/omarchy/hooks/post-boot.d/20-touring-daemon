@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# 20-touring-daemon — ensure the Touring daemon is running after boot.
+# Part of OmarchyOS Agêntico (S-0.7, P0).
+#
+# Runs AFTER P4 (update-touring installs the daemon binary). Before P4 the
+# binary is absent; we detect that and exit 0 silently so boot never blocks.
+#
+# Never uses pkill/kill (REGRA #19): the only restart path is daemon-ctl.
+# Timeout: 20 s — the hook must not block a slow boot indefinitely.
+
+set -euo pipefail
+
+# If the touring binary is not yet installed (pre-P4), exit silently.
+if ! command -v touring >/dev/null 2>&1; then
+    exit 0
+fi
+
+# Give the daemon a moment to race; health check is cheap.
+#
+# ATENCAO (medido 2026-08-23, primeiro boot real pos-instalacao): NAO usar o
+# exit code de `daemon-ctl status` como teste de vida. Ele retorna 0 MESMO com
+# o daemon morto — imprime "socket: ... (dead)" e "daemon PID: (none)" e sai
+# com sucesso. O guard anterior (`if ... status >/dev/null; then exit 0; fi`)
+# portanto SEMPRE saia por aqui, tornando o restart abaixo codigo morto: o
+# daemon nunca subia no boot. O teste real e o PID reportado ser numerico.
+#
+# O `2>&1` NAO e' descuido: `daemon-ctl status` escreve o relatorio inteiro em
+# STDERR (stdout sai vazio). Capturar so stdout deixaria status_out vazio e o
+# hook religaria o daemon a TODO boot, mesmo com ele vivo.
+status_out="$(timeout 20 touring daemon-ctl status 2>&1 || printf '')"
+if printf '%s\n' "$status_out" | grep -qE '^[[:space:]]*daemon PID:[[:space:]]+[0-9]+'; then
+    exit 0
+fi
+
+# Daemon not responding — attempt a restart, also bounded to 20 s total.
+timeout 20 touring daemon-ctl restart >/dev/null 2>&1 || true
+
+exit 0

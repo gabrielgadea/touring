@@ -8,36 +8,6 @@ use serde_json::json;
 
 use crate::server::params::DetailLevel;
 
-/// Compact project context (~100-150 tokens at minimal detail level).
-#[derive(Debug, Clone, Serialize)]
-pub struct MinimalContext {
-    /// High-level statistics
-    pub stats: ContextStats,
-    /// Risk assessment (0.0-1.0) for the given scope
-    pub risk_score: f64,
-    /// Risk level label
-    pub risk_level: String,
-    /// Top issues (gotchas, orphans, etc.)
-    pub top_issues: Vec<String>,
-    /// Suggested next tools to call
-    pub suggested_tools: Vec<ToolSuggestion>,
-}
-
-/// Aggregate statistics from index + wiring + knowledge subsystems.
-#[derive(Debug, Clone, Serialize)]
-pub struct ContextStats {
-    /// Total number of symbols in the index.
-    pub symbol_count: u64,
-    /// Total number of source files tracked by the index.
-    pub file_count: u64,
-    /// Number of orphan `pub` symbols with no consumers.
-    pub orphan_count: u64,
-    /// End-to-end composite health score (0.0-1.0).
-    pub e2e_health: f64,
-    /// Current EMA reinforcement-learning reward.
-    pub rl_reward: f64,
-}
-
 /// A tool suggestion with rationale.
 #[derive(Debug, Clone, Serialize)]
 pub struct ToolSuggestion {

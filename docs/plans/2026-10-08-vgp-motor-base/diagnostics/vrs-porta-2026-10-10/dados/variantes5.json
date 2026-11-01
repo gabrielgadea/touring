@@ -1,0 +1,14 @@
+{
+ "sha_rust_rs": "95aa007757d99811",
+ "variantes": [
+  {
+   "variante": "VB",
+   "desfeitas": [
+    "e3"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/VB/touring",
+   "sha256": "eb8466bb5a3510a005e98c6d013a96d68a23744ba57d0066d747b80a7cc1bb42",
+   "segundos": 25.4
+  }
+ ]
+}

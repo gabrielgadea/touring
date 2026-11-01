@@ -470,8 +470,31 @@ impl Symbol {
         }
     }
 
-    /// Detect visibility from syntax
-    fn detect_visibility(source: &str, node: Node, lang: Lang) -> (bool, Option<Visibility>) {
+    /// Python visibility, which lives in the name: `_x` is private, `__x` (not
+    /// dunder) is name-mangled, everything else is public.
+    ///
+    /// B4 (15/09/2026): this used to look for `def `/`class ` in the node text,
+    /// so a module-level binding — which has neither — fell through to "public
+    /// with no visibility", and `_FORMAS = {...}` was registered as a public
+    /// symbol of the wiring graph, eligible to be reported as an orphan.
+    fn python_visibility(name: &str) -> (bool, Option<Visibility>) {
+        if name.starts_with("__") && !name.ends_with("__") {
+            (false, Some(Visibility::Protected))
+        } else if name.starts_with('_') && !name.ends_with("__") {
+            (false, Some(Visibility::Private))
+        } else {
+            (true, Some(Visibility::Public))
+        }
+    }
+
+    /// Detect visibility from syntax. `name` is the symbol's own name, which is
+    /// what Python's convention is written in.
+    fn detect_visibility(
+        source: &str,
+        node: Node,
+        lang: Lang,
+        name: &str,
+    ) -> (bool, Option<Visibility>) {
         let node_text = &source[node.start_byte()..node.end_byte()];
 
         match lang {
@@ -489,25 +512,26 @@ impl Symbol {
                     (false, Some(Visibility::Private))
                 }
             }
-            Lang::Python => {
-                // Python: _prefix = private, __prefix = name-mangled/protected
-                let name_start = node_text.find("def ").or_else(|| node_text.find("class "));
-                if let Some(pos) = name_start {
-                    let after = &node_text[pos..];
-                    let name = after.split_whitespace().nth(1).unwrap_or("");
-                    if name.starts_with("__") && !name.ends_with("__") {
-                        (false, Some(Visibility::Protected))
-                    } else if name.starts_with('_') {
-                        (false, Some(Visibility::Private))
-                    } else {
-                        (true, Some(Visibility::Public))
-                    }
-                } else {
-                    (true, None)
-                }
-            }
+            Lang::Python => Self::python_visibility(name),
             Lang::TypeScript | Lang::JavaScript => {
-                if node_text.contains("export ") {
+                // S9 (2026-09-02): `export` lives on the wrapping
+                // `export_statement` node (one level further up for
+                // `export const f = () => …`), NOT on the declaration itself —
+                // reading only the declaration text reported every exported
+                // function/class as module-private.
+                let mut exported = node_text.contains("export ");
+                let mut cursor = node.parent();
+                for _ in 0..2 {
+                    match cursor {
+                        Some(p) if p.kind() == "export_statement" => {
+                            exported = true;
+                            break;
+                        }
+                        Some(p) => cursor = p.parent(),
+                        None => break,
+                    }
+                }
+                if exported {
                     (true, Some(Visibility::Public))
                 } else {
                     (false, Some(Visibility::Module))
@@ -1117,11 +1141,8 @@ fn extract_symbols_from_tree(
             };
             if capture_name == "name" {
                 let node = capture.node;
-                let parent: Option<tree_sitter::Node> = node.parent();
 
-                if let Some(parent) = parent {
-                    let range_key: (usize, usize) = (parent.start_byte(), parent.end_byte());
-
+                if let Some((parent, range_key)) = defining_node(node) {
                     if seen_ranges.contains(&range_key) {
                         continue;
                     }
@@ -1136,7 +1157,8 @@ fn extract_symbols_from_tree(
                     let start_byte = parent.start_byte();
                     let end_byte = parent.end_byte();
                     let signature = Symbol::extract_signature(source, parent);
-                    let (is_public, visibility) = Symbol::detect_visibility(source, parent, lang);
+                    let (is_public, visibility) =
+                        Symbol::detect_visibility(source, parent, lang, &name);
                     let is_async = Symbol::detect_async(source, parent, lang);
                     let parent_name = Symbol::find_parent_name(source, parent, lang);
                     let decorators = Symbol::extract_decorators(source, parent, lang);
@@ -1228,6 +1250,21 @@ pub fn extract_symbols_with_pool(
 ) -> AstResult<Vec<Symbol>> {
     let tree = pool.parse(source, lang)?;
     extract_symbols_from_tree(&tree, source, lang)
+}
+
+/// The node that DEFINES a captured name, with the key that dedups it: the name's
+/// parent — or, for a tuple-unpacked binding (`A, B = 1, 2`), the enclosing
+/// assignment keyed by the name's OWN range, so every name of the tuple is its own
+/// symbol instead of the first one shadowing the rest (26/09/2026). Shared by the
+/// index path (`incremental_pipeline::run_query`) so the two cannot drift apart.
+pub(crate) fn defining_node(
+    name: tree_sitter::Node,
+) -> Option<(tree_sitter::Node, (usize, usize))> {
+    let parent = name.parent()?;
+    if matches!(parent.kind(), "pattern_list" | "tuple_pattern") {
+        return Some((parent.parent()?, (name.start_byte(), name.end_byte())));
+    }
+    Some((parent, (parent.start_byte(), parent.end_byte())))
 }
 
 /// Extract symbols from source code (standalone, creates its own parser).

@@ -45,7 +45,15 @@ from lib import (  # noqa: E402  pylint: disable=wrong-import-position
     write_json_atomic,
 )
 
-_RE_FILE_CITATION = re.compile(r"`?([a-z_][a-z_0-9/]*\.(?:rs|py|ts|tsx|js|go))(?::(\d+))?`?")
+# Path alphabet includes -, ., digits and uppercase (hyphenated crate dirs) —
+# the old class captured MUTILATED paths ("ceg/src/…" from "crates/touring-ceg/
+# src/…"), which fail any existence check downstream.
+# Leading dot-dir kept (`.claude/…`), never a mid-path start; the suffix guard refuses a
+# following letter too, so `manifest.json` is not read as `manifest.js` (28/10/2026).
+_RE_FILE_CITATION = re.compile(
+    r"(?<![A-Za-z0-9_./-])(\.?[A-Za-z0-9_][A-Za-z0-9_./-]*\.(?:rs|py|tsx|ts|js|go))"
+    r"(?![A-Za-z0-9]|\.[A-Za-z0-9])(?::(\d+))?"
+)
 _RE_PASCAL_SYMBOL = re.compile(r"\b([A-Z][a-zA-Z0-9]{2,}(?:[A-Z][a-zA-Z0-9]{2,})*)\b")
 _RE_SUBTASK_BLOCK = re.compile(
     r"(?:^#{2,4}\s+|^\s*-\s*\*\*)S-(\d+(?:\.\d+)?)\s*[:—-]",
@@ -83,7 +91,8 @@ def detect_invented_symbols(plan_md: str, ground_truth: dict[str, Any] | None) -
             continue
         seen.add(sym)
         # Heuristic: only flag symbols that look like code refs (mentioned in code-fence proximity)
-        if "`" + sym in plan_md or "::" + sym in plan_md or sym + "(" in plan_md:
+        # Word-boundary aware: a substring check flagged `Blast` from `BlastRadiusSignalLayer` (2026-09-02).
+        if re.search(r"(?:`|::)" + re.escape(sym) + r"\b", plan_md) or re.search(r"\b" + re.escape(sym) + r"\(", plan_md):
             gaps.append({
                 "id": f"G-INV-{sym}",
                 "severity": "P0",
@@ -184,6 +193,11 @@ def detect_orphan_not_addressed(plan_md: str, ground_truth: dict[str, Any] | Non
     if ground_truth is None:
         return []
     orphans = ground_truth.get("wiring_orphans") or []
+    # The collector stores the CLI envelope (dict: {orphans|symbols: [...], count}) — normalise to a list (2026-09-02).
+    if isinstance(orphans, dict):
+        orphans = orphans.get("orphans") or orphans.get("symbols") or orphans.get("items") or []
+    if not isinstance(orphans, list):
+        orphans = []
     gaps: list[dict[str, str]] = []
     for orphan in orphans[:20]:  # cap to keep output bounded
         name = orphan.get("name") or orphan.get("symbol", "")

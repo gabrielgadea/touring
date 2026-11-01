@@ -7,19 +7,27 @@
 
 /// Check whether a file path belongs to a test module.
 ///
-/// Matches common conventions: `/tests/`, `/test/`, `_test.`, `test_`,
-/// `.test.ts`, `.spec.ts`, `.spec.js`.
+/// A directory counts by its exact name (`tests/`, `test/`); every other marker is
+/// read from the FILE NAME: `test_*`, `*_test.*`, `*_tests.*`, `*.test.ts`,
+/// `*.spec.ts`, `*.spec.js`. S220: the markers used to be substrings of the whole
+/// path, so a `test_` anywhere — a pytest tmp dir `test_<name>0/`, `latest_*/` —
+/// made every file below it a test file.
 pub fn is_test_file(file_path: &str) -> bool {
-    let path_lower = file_path.to_lowercase();
-    path_lower.starts_with("tests/")
-        || path_lower.contains("/tests/")
-        || path_lower.contains("_test.")
-        || path_lower.contains("test_")
-        || path_lower.starts_with("test/")
-        || path_lower.contains("/test/")
-        || path_lower.ends_with(".test.ts")
-        || path_lower.ends_with(".spec.ts")
-        || path_lower.ends_with(".spec.js")
+    let lower = file_path.to_lowercase();
+    let path = std::path::Path::new(&lower);
+    let in_test_dir = path
+        .parent()
+        .into_iter()
+        .flat_map(std::path::Path::components)
+        .any(|c| matches!(c.as_os_str().to_str(), Some("tests" | "test")));
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    in_test_dir
+        || name.starts_with("test_")
+        || name.contains("_test.")
+        || name.contains("_tests.")
+        || name.ends_with(".test.ts")
+        || name.ends_with(".spec.ts")
+        || name.ends_with(".spec.js")
 }
 
 /// Snapshot current file quality metrics via AST for evolution tracking.
@@ -136,6 +144,22 @@ mod tests {
         // Path-lowercasing means mixed-case paths match correctly.
         assert!(is_test_file("src/Tests/foo.rs"));
         assert!(is_test_file("Handler_Test.go"));
+    }
+
+    /// S220 (2026-09-25): `contains("test_")` over the WHOLE path made every file under a
+    /// pytest tmp dir (`test_<name>0/`) — and under `latest_*`, `contest_*`, `attest_*` —
+    /// a test file, so the S28 block gate counted zero new antipatterns for it.
+    #[test]
+    fn test_marker_in_a_directory_name_is_not_a_test_file() {
+        assert!(!is_test_file(
+            "/tmp/pytest-of-u/pytest-7/test_blocked_write_is_kept0/triad_blocked.py"
+        ));
+        assert!(!is_test_file("/home/u/latest_results/report.py"));
+        assert!(!is_test_file("src/contest_entries/score.rs"));
+        // Test modules by NAME and test directories by exact component still are.
+        assert!(is_test_file("crates/x/src/hook_registry_tests.rs"));
+        assert!(is_test_file("/repo/src/test_handler.py"));
+        assert!(is_test_file("tests/common/mod.rs"));
     }
 
     #[test]

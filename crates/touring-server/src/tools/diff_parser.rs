@@ -9,6 +9,7 @@ use regex::Regex;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::path::Path;
+use touring_foundation::truncate_str;
 
 /// Builtin symbol names filtered from blast radius to reduce noise.
 /// Inspired by code-review-graph's `_BUILTIN_CALL_NAMES` (~150 entries).
@@ -360,7 +361,7 @@ pub fn git_diff_hunks(repo_root: &Path, base: &str) -> Result<Vec<DiffHunk>, Dif
         return Err(format!(
             "git diff error (rc={}): {}",
             output.status,
-            &stderr[..stderr.len().min(200)]
+            truncate_str(&stderr, 200)
         )
         .into());
     }

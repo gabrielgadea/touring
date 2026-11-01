@@ -8,7 +8,9 @@
 //! Runtimes (node/bun/python3) must be installed — tests SKIP if missing.
 
 use std::process::Command;
-use touring_server::tools::ctx_execute_tools::{CtxExecuteInput, CtxExecuteOutput};
+use touring_server::tools::ctx_execute_tools::{
+    CtxExecuteInput, CtxExecuteOutput, RunFailureKind, RunPhase,
+};
 
 fn runtime_available(name: &str) -> bool {
     Command::new(name)
@@ -35,6 +37,7 @@ fn run_ctx_with_override(
         input.timeout_ms,
         input.cwd,
         allow_forbidden,
+        None, // RunTunables — superfície do `touring run` CLI
     ))
     .unwrap()
 }
@@ -275,9 +278,9 @@ fn test_p13_perl_substring_fallback() {
 fn test_p14_allow_forbidden_override() {
     use touring_server::tools::ctx_execute_tools::{ForbiddenCallPolicy, ctx_execute_impl};
     // Set Block policy in env for this test.
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_ENFORCE", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
 
     let rt = tokio::runtime::Runtime::new().unwrap();
@@ -290,8 +293,9 @@ fn test_p14_allow_forbidden_override() {
         Some(5000),
         None,
         Some(true),
+        None,
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
     // Even with block mode, clean code should succeed.
     assert!(
@@ -300,6 +304,44 @@ fn test_p14_allow_forbidden_override() {
         result.err()
     );
     let _ = ForbiddenCallPolicy::Block; // ensure type is accessible
+}
+
+// SEG-1 (28/08): UDP egress é negado pelo KERNEL (seccomp), mesmo com o
+// scanner léxico fora do caminho — em 27/08 um datagrama p/ 8.8.8.8:53 SAIU
+// (Landlock é FS+TCP-only; não modela UDP). O deny léxico do X6 fala do token
+// `socket`; este teste prova a camada que não depende de léxico.
+#[test]
+fn seg1_udp_egress_is_denied_by_the_kernel() {
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let result = rt.block_on(ctx_execute_impl(
+        "python".to_string(),
+        r#"import socket
+try:
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.sendto(b"x", ("8.8.8.8", 53))
+    print("UDP SAIU — FURO")
+except (PermissionError, OSError) as e:
+    print(f"UDP CONFINADO errno={e.errno}")
+"#
+        .to_string(),
+        None,
+        Some(15000),
+        None,
+        None,
+        None,
+    ));
+    let out = result.expect("run deve completar (o deny é no filho, não no gate)");
+    assert!(
+        out.stdout.contains("UDP CONFINADO"),
+        "o kernel deve negar o socket UDP: stdout={:?} stderr={:?}",
+        out.stdout,
+        out.stderr
+    );
+    assert!(
+        !out.stdout.contains("SAIU"),
+        "FURO: o datagrama saiu: {:?}",
+        out.stdout
+    );
 }
 
 // T2.13: Off policy suppresses scanner entirely — forbidden_calls is empty even for bad code.
@@ -317,9 +359,9 @@ fn test_p14_off_policy_suppresses_detection() {
     );
 
     // With Off policy, ctx_execute_impl returns empty forbidden_calls.
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::set_var("TOURING_CEG_FORBIDDEN_OFF", "1") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_ENFORCE") };
     let rt = tokio::runtime::Runtime::new().unwrap();
     let result = rt.block_on(ctx_execute_impl(
@@ -329,8 +371,9 @@ fn test_p14_off_policy_suppresses_detection() {
         Some(5000),
         None,
         None,
+        None,
     ));
-    // TODO: Audit that the environment access only happens in single-threaded code.
+    // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
     unsafe { std::env::remove_var("TOURING_CEG_FORBIDDEN_OFF") };
 
     // Off mode: should not error (no blocking), forbidden_calls should be empty.
@@ -345,3 +388,159 @@ fn test_p14_off_policy_suppresses_detection() {
 }
 
 use touring_server::tools::ctx_execute_tools::ctx_execute_impl;
+
+// ── W0 d0 (2026-08-23) — stderr must reach the caller ────────────────────
+// Regression contract for the swallowed-stderr bug: the sandbox piped stderr
+// and never drained it, and the adapter materialized `String::new()`. These
+// two tests are the exact probes that reproduced the bug on 2026-08-23.
+
+#[test]
+fn ctx_execute_returns_python_traceback_in_stderr() {
+    if !runtime_available("python3") {
+        eprintln!("SKIP (python3 not available)");
+        return;
+    }
+    let input = CtxExecuteInput {
+        language: "python".to_string(),
+        code: "import sys\nprint(\"stdout-ok\")\nprint(\"stderr-marker\", file=sys.stderr)\nsys.exit(3)"
+            .to_string(),
+        args: None,
+        timeout_ms: Some(10000),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    assert_eq!(out.exit_code, 3);
+    assert!(out.stdout.contains("stdout-ok"));
+    assert!(
+        out.stderr.contains("stderr-marker"),
+        "python stderr must be captured, got: {:?}",
+        out.stderr
+    );
+}
+
+#[test]
+fn ctx_execute_returns_bash_stderr_marker() {
+    let input = CtxExecuteInput {
+        language: "bash".to_string(),
+        code: "echo out; echo errmark >&2; exit 5".to_string(),
+        args: None,
+        timeout_ms: Some(10000),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    assert_eq!(out.exit_code, 5);
+    assert!(out.stdout.contains("out"));
+    assert!(
+        out.stderr.contains("errmark"),
+        "bash >&2 must be captured, got: {:?}",
+        out.stderr
+    );
+}
+
+#[test]
+fn ctx_execute_timeout_stderr_teaches_cause() {
+    if !runtime_available("python3") {
+        eprintln!("SKIP (python3 not available)");
+        return;
+    }
+    let input = CtxExecuteInput {
+        language: "python".to_string(),
+        code: "import time\ntime.sleep(30)".to_string(),
+        args: None,
+        timeout_ms: Some(1500),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    assert_eq!(out.exit_code, -2, "timeout sentinel");
+    assert!(
+        out.stderr.contains("timeout"),
+        "timeout must be labeled in stderr, got: {:?}",
+        out.stderr
+    );
+}
+
+// ── W1 d3 — failure taxonomy + spill locator ─────────────────────────────
+
+#[test]
+fn failure_kind_timeout_is_not_exception() {
+    if !runtime_available("python3") {
+        eprintln!("SKIP (python3 not available)");
+        return;
+    }
+    let input = CtxExecuteInput {
+        language: "python".to_string(),
+        code: "import time\ntime.sleep(30)".to_string(),
+        args: None,
+        timeout_ms: Some(1500),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    let f = out
+        .failure
+        .expect("timeout must carry a structured failure");
+    assert_eq!(
+        f.kind,
+        RunFailureKind::Timeout,
+        "a budget expiry is not an exception"
+    );
+    assert_eq!(f.phase, RunPhase::Execute);
+    assert!(!f.message.is_empty(), "message must teach the correction");
+}
+
+#[test]
+fn failure_message_names_next_action_on_nonzero_exit() {
+    let input = CtxExecuteInput {
+        language: "bash".to_string(),
+        code: "echo boom-cause >&2; exit 9".to_string(),
+        args: None,
+        timeout_ms: Some(10000),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    let f = out.failure.expect("non-zero exit must carry a failure");
+    assert_eq!(f.kind, RunFailureKind::Exception);
+    assert!(
+        f.message.contains("boom-cause"),
+        "message carries the first stderr line, got: {:?}",
+        f.message
+    );
+}
+
+#[test]
+fn clean_success_has_no_failure() {
+    let input = CtxExecuteInput {
+        language: "bash".to_string(),
+        code: "printf ok".to_string(),
+        args: None,
+        timeout_ms: Some(10000),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    assert!(out.failure.is_none(), "clean success carries no failure");
+    assert!(out.stored_path.is_none(), "no locator when nothing was cut");
+}
+
+#[test]
+fn spill_locator_present_when_inline_view_truncated() {
+    // 100 KB of stdout — over the 8 KB inline cap, under the 1 MB sandbox cap.
+    let input = CtxExecuteInput {
+        language: "bash".to_string(),
+        code: "head -c 102400 /dev/zero | tr '\\0' 'x'".to_string(),
+        args: None,
+        timeout_ms: Some(10000),
+        cwd: None,
+    };
+    let out = run_ctx(input);
+    assert_eq!(out.exit_code, 0);
+    assert!(out.stdout_truncated, "inline view must be truncated");
+    assert!(
+        out.stdout.contains("bytes elided"),
+        "head/tail marker present"
+    );
+    let path = out
+        .stored_path
+        .expect("locator must point at the full bytes");
+    assert!(std::path::Path::new(&path).exists(), "stored file exists");
+    let hint = out.retrieval_hint.expect("hint teaches how to read it");
+    assert!(hint.contains(&path), "hint names the real path");
+}

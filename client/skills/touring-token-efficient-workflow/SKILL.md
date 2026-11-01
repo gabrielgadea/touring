@@ -15,6 +15,13 @@ description: Token-efficient workflow patterns for Touring MCP tools. Use detail
 4. Follow `_next_tools` suggestions in every response for optimal workflow
 5. Maximum 3-4 tool calls per turn unless absolutely necessary
 
+6. **O turno mais barato não tem 3 chamadas — tem uma.** Estas regras minimizam o
+   custo *de cada* chamada MCP; o Code Mode elimina as chamadas: `touring run --lang
+   python --code '…'` executa o laço inteiro no sandbox **sem MCP** e devolve só o
+   dígito, trocando N round-trips por 1 (compressão de 30-200×, Anthropic CodeAct /
+   programmatic tool calling). `detail_level: "minimal"` é o teto quando você
+   precisa mesmo de N chamadas; quando não precisa, o teto é zero. Ref: `Touring/references/skill-operating-principles.md` (P1).
+
 ## Workflow Templates
 
 ### Review Changes

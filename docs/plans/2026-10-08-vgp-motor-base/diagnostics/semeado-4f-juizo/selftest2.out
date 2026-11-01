@@ -1,0 +1,46 @@
+hw-slot: aguardando — temp 96C > 88C
+    hardlink: inode compartilhado=True | mutante(in-place) alterou o original=True (tem de ser True, senao o mutante nao discrimina) | escreve_isolado preservou=True | inode novo=True
+selftest: linha de base limpa (0 arquivos com erro)
+[delta] js: base com 92 arquivo(s) com erro, 93 .js
+[delta] js: base com 92 arquivo(s) com erro, 93 .js
+[delta] js: base com 92 arquivo(s) com erro, 93 .js
+[delta] js: base com 92 arquivo(s) com erro, 93 .js
+[delta] js: base com 92 arquivo(s) com erro, 93 .js
+  ok   controle positivo: a linha de base do projeto tem 0 erros
+  ok   a mutacao na sombra NAO altera o arquivo real (mutante in-place reprovado)
+  ok   ts/tsx: atributo - o tsc acusa o mutado, e o original estava limpo
+  ok   ts/tsx: componente - o tsc acusa o mutado, e o original estava limpo
+  ok   ts/tsx: import - o tsc acusa o mutado, e o original estava limpo
+  ok   ts/tsx: kwarg - o tsc acusa o mutado, e o original estava limpo
+  ok   ts/tsx: nome - o tsc acusa o mutado, e o original estava limpo
+  ok   ts/tsx: prop - o tsc acusa o mutado, e o original estava limpo
+  ok   html: recurso - o oraculo acusa o mutado e nao o original
+  ok   html: ancora - o oraculo acusa o mutado e nao o original
+  ok   html: classe_css - o oraculo acusa o mutado e nao o original
+  ok   html: cdn - o oraculo acusa o mutado e nao o original
+  ok   html: cdn_pin - o oraculo acusa o mutado e nao o original
+  ok   delta/js: atributo - exatamente 1 diagnostico novo, o esperado
+  ok   delta/js: import - exatamente 1 diagnostico novo, o esperado
+  ok   delta/js: kwarg - exatamente 1 diagnostico novo, o esperado
+  ok   delta/js: nome - exatamente 1 diagnostico novo, o esperado
+  ok   delta: controle positivo - o oraculo aceita o diagnostico esperado
+  ok   delta: o oraculo REPROVA codigo errado
+  ok   delta: o oraculo REPROVA linha errada
+  ok   mutante do oraculo delta: o laxo ACEITA codigo errado (reprovado)
+  ok   mutante do oraculo delta: o laxo ACEITA linha errada (reprovado)
+  ok   mutante que desliga atributo: reprovado aqui
+  ok   mutante que desliga componente: reprovado aqui
+  ok   mutante que desliga import: reprovado aqui
+  ok   mutante que desliga kwarg: reprovado aqui
+  ok   mutante que desliga nome: reprovado aqui
+  ok   mutante que desliga prop: reprovado aqui
+  ok   mutante que desliga recurso: reprovado aqui
+  ok   mutante que desliga ancora: reprovado aqui
+  ok   mutante que desliga classe_css: reprovado aqui
+  ok   mutante que desliga cdn: reprovado aqui
+  ok   mutante que desliga cdn_pin: reprovado aqui
+  ok   mutante que desliga atributo: reprovado aqui
+  ok   mutante que desliga import: reprovado aqui
+  ok   mutante que desliga kwarg: reprovado aqui
+  ok   mutante que desliga nome: reprovado aqui
+selftest: 37/37 em 108s - sombra em /home/gabrielgadea/.cache/vgp-semeado/proj-pg7wc6hq/frontend (NAO removida: exclusao recursiva e decisao do humano)

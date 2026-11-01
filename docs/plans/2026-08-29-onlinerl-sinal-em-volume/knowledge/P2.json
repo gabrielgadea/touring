@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "Canal offline\u2192engine: handler cli-learning-replay + touring learning replay [--limit/--dry-run], cursor dur\u00e1vel (ileg\u00edvel \u21d2 resumed_from_zero declarado), shuffle FNV determin\u00edstico, key malformada \u2192 replay-unknown contado, corpus_pending no learning status (E4). E2e round-trip VERDE: 5 outcomes semeados \u2192 replayed=5, update_count +5 exato, dry_run inerte, snapshot de identidade em disco, 2\u00aa chamada replaya 0 (cursor dur\u00e1vel). Corpus real validado: 818 recompensados, 106 sem segmento (fallback coberto). Registry+tripwires 239/243/245 nos 4 arquivos; guard KPI bidirecional 39/39 verde."
+    }
+  ],
+  "relations": []
+}

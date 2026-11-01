@@ -1,0 +1,23 @@
+F                                                                        [100%]
+=================================== FAILURES ===================================
+___________ test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts ___________
+
+    def test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts():
+        indice = {
+            ARQ: [
+                evento_write(None, "api-request-blob"),
+                evento_write(TS, "assistant"),
+            ]
+        }
+        filtrados, contagens = c0.universo_negativos(indice)
+>       assert filtrados == [f"{ARQ}@{TS}"]
+E       AssertionError: assert ['/home/gabri...4:22:17.466Z'] == ['/home/gabri...4:22:17.466Z']
+E
+E         At index 0 diff: '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@' != '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@2026-10-27T14:22:17.466Z'
+E         Left contains one more item: '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@2026-10-27T14:22:17.466Z'
+E         Use -v to get more diff
+
+vgp-arquivo_aceita_ts_ausente-e0n69di_/diagnostics/holdout-20261031/test_ts_arquivo.py:42: AssertionError
+=========================== short test summary info ============================
+FAILED vgp-arquivo_aceita_ts_ausente-e0n69di_/diagnostics/holdout-20261031/test_ts_arquivo.py::test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts
+1 failed in 0.06s

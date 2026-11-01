@@ -2,7 +2,7 @@
 name = "touring-analysis"
 version = "0.3.3"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Unified Deep Code Analysis Engine — blast radius, wiring, quality, knowledge, learning, health score"
 license.workspace = true
 

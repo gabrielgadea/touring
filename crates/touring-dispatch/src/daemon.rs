@@ -52,8 +52,10 @@
 //!   inside its thread (panic-guarded per step) and acks via oneshot. Then
 //!   `std::process::exit(0)` after 5s timeout per actor.
 
-use std::collections::HashMap;
+use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -66,6 +68,9 @@ use tokio::time::{interval, timeout};
 use crate::ipc::{DaemonRequest, DaemonResponse, daemon_lock_path_for, daemon_socket_path};
 use crate::runtime::HookRuntime;
 use crate::shared::latency_marker::LatencyMarker;
+use touring_foundation::injection_policy::{self, InjectionLevel};
+use touring_foundation::is_heavy_hook;
+use touring_hook_runtime::actor_yield;
 
 /// Maximum projects in memory before LRU eviction kicks in.
 /// Prevents unbounded memory growth in multi-project scenarios.
@@ -96,6 +101,52 @@ static HOOK_TABLE: OnceLock<HashMap<&'static str, HookHandler>> = OnceLock::new(
 /// Each entry tracks (invocations, total_latency_ms) as a pair of AtomicU64.
 /// Built lazily from the dispatch table keys on first access.
 static HOOK_METRICS: OnceLock<HashMap<&'static str, (AtomicU64, AtomicU64)>> = OnceLock::new();
+
+/// The per-project pin (touring-36 ticket, 25/09/2026): a daemon whose socket
+/// is `<root>/.touring/daemon.sock` serves ONLY `<root>`. Set once at boot
+/// from the daemon's OWN socket path — never from the inherited
+/// `TOURING_PROJECT_ROOT`, which a launcher can carry by accident (the global
+/// daemon's socket lives in `/tmp`, so it stays unpinned either way).
+/// `None` until the boot sets it: tests driving `dispatch_request_async`
+/// directly keep the unpinned behavior.
+static DAEMON_PROJECT_PIN: OnceLock<Option<PathBuf>> = OnceLock::new();
+
+/// Derive the pin from a socket path: `<root>/.touring/<anything>` pins the
+/// daemon to `<root>`; any other location (the global `/tmp` socket) does
+/// not. This is the SAME rule the spawn sites use to pin
+/// `TOURING_PROJECT_ROOT` (`touring-hooks main.rs`, `daemon_ctl.rs`) — the
+/// admission side now agrees with the spawn side, which is what makes
+/// «qualquer caller é correto por construção» true again.
+fn pin_for_socket(socket_path: &std::path::Path) -> Option<PathBuf> {
+    socket_path
+        .parent()
+        .filter(|d| d.file_name().is_some_and(|n| n == ".touring"))
+        .and_then(|d| d.parent())
+        .map(std::path::Path::to_path_buf)
+}
+
+/// Canonicalize for the pin comparison (symlinks and `..` resolved, so they
+/// never read as a false "outside"). A path that cannot be resolved compares
+/// lexically — `Path::starts_with` is per COMPONENT, so `/x/analise-old` is
+/// never inside `/x/analise`.
+fn canonical_for_pin(p: &std::path::Path) -> PathBuf {
+    std::fs::canonicalize(p).unwrap_or_else(|_| p.to_path_buf())
+}
+
+/// The admission verdict of a pinned daemon (touring-36 review, 25/09/2026):
+/// the client root is served IFF it sits INSIDE the pinned tree — the pin
+/// itself included. Equality was the first cut, but `normalize_project_root`
+/// stops at the FIRST marker (`.touring/`, `.git` dir-or-file, a
+/// `Cargo.toml [workspace]`), so a client whose cwd lives under a NESTED
+/// marker (measured live: `packages/**` in the analise normalizes to
+/// `analise/packages`; `.claude/.git`, worktree `.git` files, nested
+/// `.touring/`) got REFUSED — a regression on 30.4.68, which served it.
+/// Inside the tree the behavior is exactly 30.4.68's; outside, the refusal.
+fn pin_admits(pinned: &std::path::Path, client_root: &std::path::Path) -> bool {
+    let pinned = canonical_for_pin(pinned);
+    let client = canonical_for_pin(client_root);
+    client.starts_with(&pinned)
+}
 
 /// Initialize or retrieve the per-hook metrics map.
 fn hook_metrics_map() -> &'static HashMap<&'static str, (AtomicU64, AtomicU64)> {
@@ -167,10 +218,10 @@ impl ProjectRuntime {
     fn new(rt: HookRuntime) -> Self {
         let (cmd_tx, cmd_rx) = mpsc::channel::<ProjectCommand>(PROJECT_CHANNEL_DEPTH);
 
-        // Inject the actor's command sender into the runtime so that handlers
-        // (running on the bare actor thread) can dispatch sub-commands and await
-        // responses synchronously without needing a Tokio runtime.
-        rt.ctx.set_cmd_tx(cmd_tx.clone());
+        // The runtime keeps only a weak handle to its own channel: the actor owns
+        // the runtime, so a strong one would keep the channel open after this
+        // handle is dropped, and an evicted actor would never exit.
+        rt.ctx.set_cmd_tx(&cmd_tx);
 
         std::thread::Builder::new()
             .name("touring-project-actor".into())
@@ -220,9 +271,17 @@ impl ProjectRuntime {
 /// # Tracing
 /// Each command is wrapped in a tracing span with hook_name + latency, so
 /// slow / failing handlers are identifiable from logs without extra state.
-fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<ProjectCommand>) {
+fn run_project_actor(runtime: HookRuntime, cmd_rx: mpsc::Receiver<ProjectCommand>) {
     let table = HOOK_TABLE.get_or_init(crate::hook_registry::build_dispatch_table);
+    run_project_actor_with(runtime, cmd_rx, table);
+}
 
+/// [`run_project_actor`] over an explicit dispatch table (tests pass their own).
+fn run_project_actor_with(
+    mut runtime: HookRuntime,
+    cmd_rx: mpsc::Receiver<ProjectCommand>,
+    table: &'static HashMap<&'static str, HookHandler>,
+) {
     // ES4 P1: Warm-load the durable action world model when this project actor
     // spawns in the daemon — so a daemon (re)start immediately inherits the X4
     // PREDICT online model from disk, not only at the next CC session-start. The
@@ -236,110 +295,37 @@ fn run_project_actor(mut runtime: HookRuntime, mut cmd_rx: mpsc::Receiver<Projec
     // Last time the debounced inline E2E quick scan ran on this actor (perf F1/F2).
     let mut last_e2e_scan: Option<Instant> = None;
 
-    while let Some(cmd) = cmd_rx.blocking_recv() {
+    let cmd_rx = Rc::new(RefCell::new(cmd_rx));
+    let deferred: Rc<RefCell<VecDeque<ProjectCommand>>> = Rc::default();
+    while let Some(cmd) = next_command(&cmd_rx, &deferred) {
         match cmd {
             ProjectCommand::RunHook {
                 hook_name,
                 payload,
+                injection_level,
                 response,
                 enqueued_at,
             } => {
-                // Queue-wait first: time parked in the bounded mpsc behind
-                // earlier commands. Separates serialized-actor backpressure
-                // (another session's heavy hook, same project) from handler
-                // execution time — `hook_dispatch_latency` starts only here.
-                crate::shared::gate_metrics::record_actor_queue_wait_us(
-                    enqueued_at.elapsed().as_micros() as u64,
-                );
-                let span = tracing::debug_span!("hook", name = %hook_name);
-                let _enter = span.enter();
-                let start = Instant::now();
-
-                // Panic-safe handler invocation. `AssertUnwindSafe` is sound
-                // here because: (a) we own `runtime` and if it panics mid-op
-                // we may have partial state, but since rusqlite uses
-                // transactions for mutating ops and we're serialized per
-                // project, the worst case is a transaction rollback — the
-                // handler's own error path — not cross-request corruption;
-                // (b) the only shared mutable state (static metrics counters,
-                // hook table) is Sync, so a panic during their use is safe.
-                // D1: Wire LatencyMarker — record hook entry, warn on spikes >60s.
-                let marker = LatencyMarker::new(hook_name.as_str());
-                let _ = marker.record();
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match table
-                    .get(hook_name.as_str())
-                {
-                    Some(handler) => handler(&mut runtime, &payload),
-                    None => {
-                        tracing::warn!(hook = %hook_name, "unhandled hook");
-                        String::new()
-                    }
-                }));
-                if let Some(elapsed) = marker.elapsed_ms()
-                    && elapsed > 60_000
-                {
-                    tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
-                }
-
-                let output = match result {
-                    Ok(s) => s,
-                    Err(panic_payload) => {
-                        let msg = panic_payload
-                            .downcast_ref::<&'static str>()
-                            .copied()
-                            .or_else(|| panic_payload.downcast_ref::<String>().map(|s| s.as_str()))
-                            .unwrap_or("<non-string panic");
-                        tracing::error!(
-                            hook = %hook_name,
-                            panic = %msg,
-                            "handler panicked — actor continuing"
-                        );
-                        String::new()
-                    }
+                // A heavy hook may yield to queued light commands while it runs
+                // (see `install_light_yield`; only `index rebuild` has yield
+                // points today); the guard uninstalls on return or panic.
+                let _light_yield = is_heavy_hook(&hook_name)
+                    .then(|| install_light_yield(table, &cmd_rx, &deferred));
+                let run = || {
+                    run_hook_command(
+                        &mut runtime,
+                        table,
+                        hook_name,
+                        payload,
+                        response,
+                        enqueued_at,
+                        &mut last_e2e_scan,
+                    );
                 };
-
-                let elapsed = start.elapsed();
-                let elapsed_ms = elapsed.as_millis() as u64;
-                if let Some((inv, lat)) = hook_metrics_map().get(hook_name.as_str()) {
-                    inv.fetch_add(1, Ordering::Relaxed);
-                    lat.fetch_add(elapsed_ms, Ordering::Relaxed);
-                }
-                // 2026-04-17: also feed the hook dispatch histogram — the
-                // per-hook counters above expose sum/count (→ mean), while
-                // the histogram surfaces P50/P99/max across ALL hooks so
-                // tail-latency spikes become visible without per-hook
-                // aggregation downstream.
-                crate::shared::gate_metrics::record_hook_dispatch_latency_us(
-                    elapsed.as_micros() as u64
-                );
-
-                if elapsed_ms > 1_000 {
-                    tracing::warn!(hook = %hook_name, elapsed_ms, "slow handler (>1s)");
-                }
-
-                // Reply to the client FIRST so hook latency never includes the
-                // post-edit maintenance scan below (perf F1, 2026-06-13: the free
-                // `cli_e2e` has no TTL cache, so it used to run a full workspace
-                // walk on the response path of every edit → the p99/p999 dispatch
-                // tail). Ignore send error: the client may have timed out and
-                // dropped the oneshot receiver — that's an expected race.
-                let _ = response.send(output);
-
-                // Debounced inline E2E quick scan after post-edit / post-write.
-                // The actor owns `runtime` (!Sync rusqlite) so the scan must run
-                // on this thread, but it now runs (a) AFTER the reply and (b) at
-                // most once per `E2E_SCAN_DEBOUNCE`, so an edit burst can't convoy
-                // the actor on every keystroke (perf F2: bounds head-of-line
-                // blocking of the next queued hook). Panic-guarded so a broken
-                // scan can't take the actor down.
-                if (hook_name == "post_edit" || hook_name == "post_write")
-                    && e2e_scan_due(last_e2e_scan, Instant::now(), E2E_SCAN_DEBOUNCE)
-                {
-                    last_e2e_scan = Some(Instant::now());
-                    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                        let e2e_payload = serde_json::json!({ "depth": "quick" });
-                        crate::cli_e2e::cli_e2e(&mut runtime, &e2e_payload);
-                    }));
+                if let Some(level) = injection_level {
+                    injection_policy::with_level_override(level, run);
+                } else {
+                    injection_policy::with_inherited_level(run);
                 }
             }
             ProjectCommand::RunSaga {
@@ -529,35 +515,289 @@ const IDLE_CHECK_INTERVAL: Duration = Duration::from_secs(30);
 /// (`docs/kpi/YYYY-MM/YYYY-MM-DD.json`), last-write-wins.
 const KPI_SNAPSHOT_INTERVAL: Duration = Duration::from_secs(6 * 3600);
 
-/// Hooks classified as "heavy" operations.
-/// Heavy hooks receive a much larger handler-execution budget
-/// (see [`dispatch_request_async`]) because they legitimately run for tens of
-/// seconds (tantivy reindex of 1M+ symbols, full index rebuild, blast radius
-/// over large files). Without this flag, the light-path 15s budget fires
-/// prematurely and the client sees a spurious failure even though the actor
-/// continues working.
-fn is_heavy_hook(hook_name: &str) -> bool {
-    matches!(
-        hook_name,
-        "cli-index-rebuild"
-            | "cli-ast-blast"
-            | "cli-ast-blast-cross-feature"
-            | "cli-mcts-search"
-            | "cli-session-start"
-            | "cli-session-assess"
-            | "cli-tantivy-reindex"
-            | "cli-wiring-chains"
-            | "cli-wiring-audit"
-            | "cli-e2e"
-    )
+/// Run one `RunHook` command on the actor thread: queue-wait metric, panic-safe
+/// handler call, latency metrics, the reply, then the debounced E2E scan. The
+/// main loop and a heavy hook's yield both come here, so a command served during
+/// a yield is measured and answered like any other.
+/// S8 (2026-10-08): dedupe por seção, com a validade da ÉPOCA de compactação
+/// (não um TTL de 300 s), no ponto central por onde TODO handler da dispatch
+/// table sai — o bloco quase nunca é byte-idêntico (carrega o arquivo/comando
+/// da vez), então a dedupe por bloco deixava as seções estáticas viajarem a
+/// cada chamada. Medido: 894 B de conselho por chamada em 8.864 chamadas.
+/// Fail-open: sem `session_id` no envelope, ou output não-JSON, passa intacto.
+/// S-4p (26/10/2026): o caminho standalone (daemon fora) ganhou a MESMA dedupe —
+/// o cliente grava o escopo (raiz, sessão) ao cair na rota standalone e o
+/// `HookResponse::emit` dedupa por ele (`set_dedup_scope` em
+/// touring-hook-runtime/src/hook_runtime.rs); este processo nunca o define,
+/// logo a resposta do daemon nunca é dedupada duas vezes.
+fn maybe_dedup_output(
+    runtime: &HookRuntime,
+    payload: &serde_json::Value,
+    output: String,
+) -> String {
+    match payload.get("session_id").and_then(|v| v.as_str()) {
+        Some(session) if !session.is_empty() => {
+            touring_hooks_shared::injection_dedup::dedup_hook_output(
+                &runtime.project_root,
+                session,
+                &output,
+            )
+        }
+        _ => output,
+    }
+}
+
+fn run_hook_command(
+    runtime: &mut HookRuntime,
+    table: &HashMap<&'static str, HookHandler>,
+    hook_name: String,
+    payload: serde_json::Value,
+    response: oneshot::Sender<String>,
+    enqueued_at: Instant,
+    last_e2e_scan: &mut Option<Instant>,
+) {
+    // Queue-wait first: time parked in the bounded mpsc behind
+    // earlier commands. Separates serialized-actor backpressure
+    // (another session's heavy hook, same project) from handler
+    // execution time — `hook_dispatch_latency` starts only here.
+    crate::shared::gate_metrics::record_actor_queue_wait_us(
+        enqueued_at.elapsed().as_micros() as u64
+    );
+    let span = tracing::debug_span!("hook", name = %hook_name);
+    let _enter = span.enter();
+    let start = Instant::now();
+
+    // Panic-safe handler invocation. `AssertUnwindSafe` is sound
+    // here because: (a) we own `runtime` and if it panics mid-op
+    // we may have partial state, but since rusqlite uses
+    // transactions for mutating ops and we're serialized per
+    // project, the worst case is a transaction rollback — the
+    // handler's own error path — not cross-request corruption;
+    // (b) the only shared mutable state (static metrics counters,
+    // hook table) is Sync, so a panic during their use is safe.
+    // D1: Wire LatencyMarker — record hook entry, warn on spikes >60s.
+    let marker = LatencyMarker::new(hook_name.as_str());
+    let _ = marker.record();
+    // F0.3d: per-hook dispatch count — the only daemon-side number
+    // that tells `post-bash` apart from `post-tool-rl`.
+    touring_foundation::gate_metrics::record_hook_dispatch_named(hook_name.as_str());
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        match table.get(hook_name.as_str()) {
+            Some(handler) => handler(runtime, &payload),
+            None => {
+                tracing::warn!(hook = %hook_name, "unhandled hook");
+                String::new()
+            }
+        }
+    }));
+    if let Some(elapsed) = marker.elapsed_ms()
+        && elapsed > 60_000
+    {
+        tracing::warn!(hook = %hook_name, elapsed_ms = elapsed, "hook latency spike");
+    }
+
+    let output = match result {
+        Ok(s) => s,
+        Err(panic_payload) => {
+            let msg = panic_payload
+                .downcast_ref::<&'static str>()
+                .copied()
+                .or_else(|| panic_payload.downcast_ref::<String>().map(|s| s.as_str()))
+                .unwrap_or("<non-string panic");
+            tracing::error!(
+                hook = %hook_name,
+                panic = %msg,
+                "handler panicked — actor continuing"
+            );
+            String::new()
+        }
+    };
+
+    let elapsed = start.elapsed();
+    let elapsed_ms = elapsed.as_millis() as u64;
+    if let Some((inv, lat)) = hook_metrics_map().get(hook_name.as_str()) {
+        inv.fetch_add(1, Ordering::Relaxed);
+        lat.fetch_add(elapsed_ms, Ordering::Relaxed);
+    }
+    // 2026-04-17: also feed the hook dispatch histogram — the
+    // per-hook counters above expose sum/count (→ mean), while
+    // the histogram surfaces P50/P99/max across ALL hooks so
+    // tail-latency spikes become visible without per-hook
+    // aggregation downstream.
+    crate::shared::gate_metrics::record_hook_dispatch_latency_us(elapsed.as_micros() as u64);
+
+    if elapsed_ms > 1_000 {
+        tracing::warn!(hook = %hook_name, elapsed_ms, "slow handler (>1s)");
+    }
+
+    // S8 (2026-10-08): dedupe por seção na saída central — ver `maybe_dedup_output`.
+    let output = maybe_dedup_output(runtime, &payload, output);
+    // Reply to the client FIRST so hook latency never includes the
+    // post-edit maintenance scan below (perf F1, 2026-06-13: the free
+    // `cli_e2e` has no TTL cache, so it used to run a full workspace
+    // walk on the response path of every edit → the p99/p999 dispatch
+    // tail). Ignore send error: the client may have timed out and
+    // dropped the oneshot receiver — that's an expected race.
+    let _ = response.send(output);
+
+    // Debounced inline E2E quick scan after post-edit / post-write.
+    // The actor owns `runtime` (!Sync rusqlite) so the scan must run
+    // on this thread, but it now runs (a) AFTER the reply and (b) at
+    // most once per `E2E_SCAN_DEBOUNCE`, so an edit burst can't convoy
+    // the actor on every keystroke (perf F2: bounds head-of-line
+    // blocking of the next queued hook). Panic-guarded so a broken
+    // scan can't take the actor down.
+    if (hook_name == "post_edit" || hook_name == "post_write")
+        && e2e_scan_due(*last_e2e_scan, Instant::now(), E2E_SCAN_DEBOUNCE)
+    {
+        *last_e2e_scan = Some(Instant::now());
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let e2e_payload = serde_json::json!({ "depth": "quick" });
+            crate::cli_e2e::cli_e2e(runtime, &e2e_payload);
+        }));
+    }
+}
+
+/// The actor's next command: those deferred during a heavy hook's yields first,
+/// in arrival order (they reached the channel before anything still in it), then
+/// the channel. `None` once every sender is gone and nothing is deferred.
+fn next_command(
+    rx: &RefCell<mpsc::Receiver<ProjectCommand>>,
+    deferred: &RefCell<VecDeque<ProjectCommand>>,
+) -> Option<ProjectCommand> {
+    if let Some(cmd) = deferred.borrow_mut().pop_front() {
+        return Some(cmd);
+    }
+    rx.borrow_mut().blocking_recv()
+}
+
+/// Most commands a single yield serves before handing the thread back to the
+/// heavy hook, so a steady stream of light commands cannot stall the heavy one.
+const MAX_SERVED_PER_YIELD: usize = 32;
+
+/// Install the yield function a heavy hook may call between units of work (A1,
+/// 14/09/2026): during a 15-minute `index rebuild` of the analise project,
+/// `memory store` from another session queued behind it until its 15 s budget
+/// expired. The function drains the channel without blocking. A light command
+/// ([`may_run_during_heavy`]) runs at once, through [`run_hook_command`]; any
+/// other command waits in `deferred`, which the loop consumes before reading the
+/// channel again, so their order is preserved. One runtime, one thread: the
+/// function runs against the `&mut HookRuntime` the heavy hook yields.
+fn install_light_yield(
+    table: &'static HashMap<&'static str, HookHandler>,
+    rx: &Rc<RefCell<mpsc::Receiver<ProjectCommand>>>,
+    deferred: &Rc<RefCell<VecDeque<ProjectCommand>>>,
+) -> actor_yield::YieldGuard {
+    let rx = Rc::clone(rx);
+    let deferred = Rc::clone(deferred);
+    actor_yield::install(Box::new(move |runtime| {
+        // Light commands never trigger the post-edit scan; a local keeps the
+        // loop's debounce clock untouched.
+        let mut last_e2e_scan = None;
+        // Deferred commands never outnumber the channel's own capacity. Every
+        // `try_recv` frees a channel slot, so an unbounded `deferred` erased the
+        // backpressure the bounded channel exists for: during a 30-minute rebuild
+        // every hook of every session was accepted at once, held with its whole
+        // payload, and replayed after the heavy hook with its clients long gone
+        // (cross-audit 14/09/2026, A1). At the bound the rest stays in the
+        // channel, and senders park as they did before the yield existed.
+        let bound = rx.borrow().max_capacity();
+        for _ in 0..MAX_SERVED_PER_YIELD {
+            if deferred.borrow().len() >= bound {
+                break;
+            }
+            let Ok(cmd) = rx.borrow_mut().try_recv() else {
+                break;
+            };
+            match cmd {
+                ProjectCommand::RunHook {
+                    hook_name,
+                    payload,
+                    injection_level,
+                    response,
+                    enqueued_at,
+                } if may_run_during_heavy(&hook_name) => {
+                    let run = || {
+                        run_hook_command(
+                            runtime,
+                            table,
+                            hook_name,
+                            payload,
+                            response,
+                            enqueued_at,
+                            &mut last_e2e_scan,
+                        );
+                    };
+                    if let Some(level) = injection_level {
+                        injection_policy::with_level_override(level, run);
+                    } else {
+                        injection_policy::with_inherited_level(run);
+                    }
+                }
+                other => deferred.borrow_mut().push_back(other),
+            }
+        }
+    }))
+}
+
+/// Hooks that may run while a heavy hook yields. Only the memory family (minus
+/// `cli-memory-reindex`, itself heavy), the hook-memory pair (`hook_events` rows)
+/// and `cli-index-status`: none of them writes the symbol, wiring or search index,
+/// which a heavy hook may be halfway through rebuilding. Every other hook waits
+/// for the heavy one to finish. `__health__` is answered before the actor and
+/// needs no entry. `cli-hook-memory-*` used to wait while `cli-memory-*` ran, so
+/// the two memory families were reordered against each other (A11).
+fn may_run_during_heavy(hook_name: &str) -> bool {
+    (hook_name.starts_with("cli-memory-") && hook_name != "cli-memory-reindex")
+        || hook_name.starts_with("cli-hook-memory-")
+        || hook_name == "cli-index-status"
 }
 
 /// Per-request timeout — prevents a hung request from blocking forever.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 
+/// Human-readable sender for the `heavy op:` log line: `pid=<n> comm=<name>`
+/// from `/proc/<pid>/comm` (best effort — the client may already be gone),
+/// or `unknown` when the transport gave no credentials. The line existed
+/// before 21/08/2026; what it lacked was exactly this.
+fn peer_label(pid: Option<i32>) -> String {
+    match pid {
+        None => "unknown".to_string(),
+        Some(p) => {
+            let comm = std::fs::read_to_string(format!("/proc/{p}/comm"))
+                .map(|s| s.trim().to_string())
+                .unwrap_or_else(|_| "?".to_string());
+            format!("pid={p} comm={comm}")
+        }
+    }
+}
+
+/// Who started this daemon and which cgroup it lives in, for the startup line:
+/// `spawner=(pid=<n> comm=<name>) cgroup=<path>`. On 14/09/2026 the global daemon
+/// died mid-rebuild with no log, no core and no OOM, and nothing said whose
+/// process tree or systemd unit it belonged to — a daemon spawned inside a
+/// oneshot service is killed when the unit ends. `cgroup` is the v2 line
+/// (`0::<path>`); `?` when unreadable.
+fn startup_identity(spawner: &str, cgroup_file: &str) -> String {
+    let cgroup = cgroup_file
+        .lines()
+        .find_map(|line| line.strip_prefix("0::"))
+        .filter(|path| !path.is_empty())
+        .unwrap_or("?");
+    format!("spawner=({spawner}) cgroup={cgroup}")
+}
+
 /// Run the async daemon server loop.
 pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    // Who spawned us, read FIRST (cross-audit 14/09/2026, C12): a launcher that
+    // exits while the boot is still acquiring the lock and binding reparents
+    // this process, and a later read named the subreaper instead of the spawner.
+    let spawner_at_start = peer_label(i32::try_from(std::os::unix::process::parent_id()).ok());
+    let cgroup_at_start = std::fs::read_to_string("/proc/self/cgroup").unwrap_or_default();
     let socket_path = daemon_socket_path();
+    // The admission pin: decided ONCE from this daemon's own socket, before
+    // the first request is served (the accept loop runs after this point).
+    let _ = DAEMON_PROJECT_PIN.set(pin_for_socket(&socket_path));
     // W12.5: the lock scopes to THIS socket — N per-project daemons coexist;
     // same-socket races still serialize on one lock (REGRA #19).
     let lock_path = daemon_lock_path_for(&socket_path);
@@ -622,11 +862,6 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
     // the actor warms the global parser cache via spawn_blocking, cutting the
     // pre_read hit penalty from ~15ms (cold parse) to <1ms (cache hit).
     crate::shared::file_prefetch::spawn_prefetch_actor();
-
-    // Pre-warm the query cache with top-20 hot symbols (Wave 26 — 2026-04-21).
-    // Eliminates cold-start cache misses for the first few minutes after daemon start.
-    // Non-blocking and best-effort — failures log but never propagate.
-    crate::shared::query_cache::warm_cache_async();
 
     // THSF Phase 5 Opt A (2026-04-24) — embed the touring-capnp RPC server
     // inside this daemon. Preserves the in-process
@@ -701,9 +936,10 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
     }
 
     eprintln!(
-        "[touring-daemon] pid={} socket={} async=true",
+        "[touring-daemon] pid={} socket={} async=true {}",
         std::process::id(),
-        socket_path.display()
+        socket_path.display(),
+        startup_identity(&spawner_at_start, &cgroup_at_start)
     );
 
     // Lazily-initialized per-project runtime map.
@@ -966,6 +1202,9 @@ pub async fn run_daemon_async() -> Result<(), Box<dyn std::error::Error + Send +
 /// The peek is done via `BufReader::fill_buf` so the byte is replayed to
 /// the reader; no custom unread buffer needed.
 async fn handle_connection_async(stream: tokio::net::UnixStream, runtime: &RuntimeMap) {
+    // Who is talking? Read before `split` consumes the stream. Linux fills the
+    // pid (SO_PEERCRED); elsewhere it is None and the log says so.
+    let peer_pid: Option<i32> = stream.peer_cred().ok().and_then(|c| c.pid());
     let (reader, mut writer) = tokio::io::split(stream);
     let mut reader = tokio::io::BufReader::new(reader);
 
@@ -980,21 +1219,21 @@ async fn handle_connection_async(stream: tokio::net::UnixStream, runtime: &Runti
         #[cfg(feature = "rkyv-ipc")]
         b'S' => handle_saga_request_async(&mut reader, runtime).await,
         #[cfg(feature = "rkyv-ipc")]
-        b'R' => handle_rkyv_request_async(&mut reader, runtime).await,
+        b'R' => handle_rkyv_request_async(&mut reader, runtime, peer_pid).await,
         #[cfg(feature = "acp-protocol")]
         b'{' => {
             let mut line = String::new();
             let _ = reader.read_line(&mut line).await;
             if crate::protocol::acp::detect_acp_payload(line.as_bytes()) {
-                handle_acp_request_async(&mut reader, runtime, line).await
+                handle_acp_request_async(&mut reader, runtime, line, peer_pid).await
             } else {
-                handle_json_request_async_stored_line(&mut reader, runtime, line).await
+                handle_json_request_async_stored_line(&mut reader, runtime, line, peer_pid).await
             }
         }
         #[cfg(not(feature = "acp-protocol"))]
-        _ => handle_json_request_async(&mut reader, runtime).await,
+        _ => handle_json_request_async(&mut reader, runtime, peer_pid).await,
         #[cfg(feature = "acp-protocol")]
-        _ => handle_json_request_async(&mut reader, runtime).await,
+        _ => handle_json_request_async(&mut reader, runtime, peer_pid).await,
     };
 
     // Wave 3 D4: Mirror the inbound protocol on the response side.
@@ -1054,10 +1293,50 @@ fn protocol_failure(reason: impl std::fmt::Display) -> DaemonResponse {
     }
 }
 
+/// The failure for a handler that exceeded its budget. Typed
+/// (`error_kind: budget_exceeded`, `still_running: true`, `retryable` = not
+/// heavy) so a caller can tell "the daemon is busy, the work may still
+/// complete" from a semantic error, and a light hook it may repeat from a heavy
+/// walk it must wait for; the CLI maps it to exit code 75 (retryable) or 79
+/// (heavy, still running).
+fn budget_exceeded_failure(hook: &str, budget_secs: u64, heavy: bool) -> DaemonResponse {
+    // The actor never cancels a command: after the client gives up, the handler
+    // still runs (or still waits its turn). `still_running` says so; `retryable`
+    // separates a light hook, safe to repeat, from a heavy walk, where a re-run
+    // queues behind the first and starts a SECOND walk when it ends (a 51k-file
+    // analise rebuild outlived its 1800 s budget, 14/09/2026).
+    let error = if heavy {
+        format!(
+            "handler `{hook}` exceeded its {budget_secs}s budget and this client gave up, but the \
+             work continues in the daemon — do not re-run it: a second call waits for the first \
+             and then repeats the whole job. Poll its status instead (`touring index status` for \
+             a rebuild)"
+        )
+    } else {
+        format!(
+            "handler `{hook}` exceeded its {budget_secs}s budget and this client gave up — the \
+             actor may still be finishing the work, so check the result before re-running"
+        )
+    };
+    DaemonResponse {
+        output: serde_json::json!({
+            "error": error,
+            "error_kind": "budget_exceeded",
+            "handler": hook,
+            "budget_secs": budget_secs,
+            "still_running": true,
+            "retryable": !heavy,
+        })
+        .to_string(),
+        success: false,
+    }
+}
+
 /// Legacy JSON path — reads a newline-delimited JSON `DaemonRequest`.
 async fn handle_json_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1068,17 +1347,167 @@ where
             return protocol_failure("client closed the connection before sending a request");
         }
         Err(e) => {
-            return protocol_failure(format_args!("reading the request line: {e} ({:?})", e.kind()));
+            return protocol_failure(format_args!(
+                "reading the request line: {e} ({:?})",
+                e.kind()
+            ));
         }
         Ok(_) => {}
     }
 
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
-        Ok(req) => dispatch_request_async(req, runtime).await,
+        Ok(mut req) => {
+            req.peer_pid = peer_pid;
+            // M0 (29/08/2026) — a sandboxed sub-call may name the hook by the
+            // typed SDK method the stub taught (`memory_recall`); resolve it
+            // to the canonical `cli-*` name BEFORE identity capture,
+            // enforcement and dispatch, so all three see one spelling. Only
+            // sandbox-origin requests get the convenience: aliases are an SDK
+            // contract, not a wire one — and an alias can only ever name a
+            // hook the allowlist already permits (asserted in foundation).
+            if touring_foundation::orchestrate_allowlist::is_sandbox_origin(req.origin.as_deref()) {
+                let resolvido = touring_foundation::orchestrate_allowlist::resolve_hook(&req.hook);
+                if resolvido != req.hook {
+                    req.hook = resolvido.to_string();
+                }
+            }
+            // C2-W0 d4/S-5.2 — an orchestrate sub-call announces itself via
+            // `origin: <run_id>:code:<n>`. Capture identity + payload size
+            // BEFORE dispatch consumes the request; the common path (no
+            // origin) pays nothing — `payload.to_string()` only runs for
+            // sub-calls. The JSON path is the only wire the SDK speaks.
+            let subcall = req.origin.as_ref().map(|o| {
+                (
+                    o.clone(),
+                    req.hook.clone(),
+                    req.payload.to_string().len() as u64,
+                )
+            });
+            // S5 — o par start/settle. O `start` é gravado ANTES do dispatch,
+            // então uma sub-chamada que nunca volta (daemon morto, hook travado)
+            // deixa um start ÓRFÃO no journal. Sem ele, uma sub-chamada que não
+            // retorna é indistinguível de uma que nunca aconteceu — e "ausência
+            // de sinal" já foi lida como "terminou" neste workspace antes.
+            if let Some((origin, hook, payload_bytes)) = subcall.as_ref() {
+                journal_subcall_start(origin, hook, *payload_bytes);
+                // 27/08/2026 — a allowlist do `--orchestrate` passa a ser
+                // IMPOSTA aqui, e não só ensinada no cliente.
+                //
+                // Provado no mesmo dia: `touring.READONLY_HOOKS` é um atributo
+                // Python mutável, então um programa no sandbox fazia
+                // `touring.READONLY_HOOKS += ("cli-memory-store",)` e gravava
+                // na memória do daemon. Uma tupla num objeto de cliente é uma
+                // sugestão; a fronteira é deste lado do socket, onde o
+                // chamador não escreve o código que a verifica.
+                if touring_foundation::orchestrate_allowlist::is_sandbox_origin(Some(origin))
+                    && !touring_foundation::orchestrate_allowlist::sandbox_may_call(hook)
+                {
+                    let motivo = touring_foundation::orchestrate_allowlist::refusal(hook);
+                    tracing::warn!(
+                        hook = hook.as_str(),
+                        origin = origin.as_str(),
+                        "sandboxed sub-call refused: hook outside the read-only allowlist"
+                    );
+                    journal_subcall(origin, hook, *payload_bytes, 0, 0, false);
+                    return protocol_failure(format_args!("{motivo}"));
+                }
+            }
+            let iniciado = std::time::Instant::now();
+            let resp = dispatch_request_async(req, runtime).await;
+            if let Some((origin, hook, payload_bytes)) = subcall {
+                let output_bytes = resp.output.len() as u64;
+                crate::shared::gate_metrics::record_code_mode_subcall(payload_bytes, output_bytes);
+                journal_subcall(
+                    &origin,
+                    &hook,
+                    payload_bytes,
+                    output_bytes,
+                    u64::try_from(iniciado.elapsed().as_millis()).unwrap_or(u64::MAX),
+                    resp.success,
+                );
+            }
+            resp
+        }
         Err(e) => protocol_failure(format_args!(
             "malformed DaemonRequest JSON: {e} (received {} bytes)",
             line.len()
         )),
+    }
+}
+
+/// C2-W0 d4 — append one JSONL record per orchestrate sub-call to
+/// `~/.claude/touring/run_subcalls.jsonl`. Together with `run_journal.jsonl`
+/// (keyed by the same `run_id` prefix) it reconstructs the counterfactual
+/// tool-parts per run: sizes + hook name only — never the content (volume +
+/// secret risk; the KPI needs the bytes, not the data). Fail-open: I/O errors
+/// are swallowed — observability never blocks a dispatch.
+///
+/// S5 (2026-08-27) added the `start`/`settle` pair, `duration_ms` and `ok`, and
+/// deliberately did NOT add the output preview its plan item asked for: a
+/// preview is content, and the whole point of the rule above is that a memory
+/// recall or a symbol body can carry a secret. Latency and outcome answer the
+/// questions a preview was wanted for — which hook is expensive, which one
+/// failed — without turning an observability file into an exfiltration surface.
+fn journal_subcall(
+    origin: &str,
+    hook: &str,
+    payload_bytes: u64,
+    output_bytes: u64,
+    duration_ms: u64,
+    success: bool,
+) {
+    append_subcall_record(serde_json::json!({
+        "ts": agora_secs(),
+        "phase": "settle",
+        "origin": origin,
+        "hook": hook,
+        "payload_bytes": payload_bytes,
+        "output_bytes": output_bytes,
+        "duration_ms": duration_ms,
+        "ok": success,
+    }));
+}
+
+/// S5 — o `start` do par, gravado ANTES do dispatch.
+///
+/// Carrega identidade e tamanho de entrada, nunca conteúdo (a mesma política do
+/// `settle`). Seu valor está em ser o registro que SOBREVIVE a uma sub-chamada
+/// que não termina: um `start` sem `settle` correspondente é a assinatura em
+/// disco de um hook travado ou de um daemon que morreu no meio do despacho.
+fn journal_subcall_start(origin: &str, hook: &str, payload_bytes: u64) {
+    append_subcall_record(serde_json::json!({
+        "ts": agora_secs(),
+        "phase": "start",
+        "origin": origin,
+        "hook": hook,
+        "payload_bytes": payload_bytes,
+    }));
+}
+
+/// Segundos desde o epoch, 0 se o relógio recuar.
+fn agora_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
+}
+
+/// Escreve uma linha em `run_subcalls.jsonl`. Fail-open em toda direção —
+/// observabilidade jamais bloqueia um despacho.
+fn append_subcall_record(record: serde_json::Value) {
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let dir = std::path::Path::new(&home).join(".claude/touring");
+    if std::fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    use std::io::Write;
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(dir.join("run_subcalls.jsonl"))
+    {
+        let _ = writeln!(f, "{record}");
     }
 }
 
@@ -1088,12 +1517,16 @@ async fn handle_json_request_async_stored_line<R>(
     _reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
     line: String,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
 {
     match serde_json::from_str::<DaemonRequest>(line.trim()) {
-        Ok(req) => dispatch_request_async(req, runtime).await,
+        Ok(mut req) => {
+            req.peer_pid = peer_pid;
+            dispatch_request_async(req, runtime).await
+        }
         Err(e) => protocol_failure(format_args!(
             "malformed DaemonRequest JSON (pre-read line): {e} (received {} bytes)",
             line.len()
@@ -1110,6 +1543,7 @@ where
 async fn handle_rkyv_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1189,11 +1623,15 @@ where
     };
 
     let req = DaemonRequest {
+        peer_pid,
         hook: archived.hook.to_string(),
         payload: payload_value,
         project_root: archived.project_root.to_string(),
         session_id,
         priority: archived.priority,
+        // rkyv wire predates S-5.2 and the SDK speaks JSON only.
+        origin: None,
+        injection_level: None,
     };
 
     let resp = dispatch_request_async(req, runtime).await;
@@ -1360,6 +1798,7 @@ async fn handle_acp_request_async<R>(
     reader: &mut tokio::io::BufReader<R>,
     runtime: &RuntimeMap,
     _first_line: String,
+    peer_pid: Option<i32>,
 ) -> DaemonResponse
 where
     R: tokio::io::AsyncRead + Unpin,
@@ -1369,7 +1808,10 @@ where
     // Read the full ACP message (already consumed first line in detection)
     let mut line = String::new();
     if let Err(e) = reader.read_line(&mut line).await {
-        return protocol_failure(format_args!("reading the ACP message: {e} ({:?})", e.kind()));
+        return protocol_failure(format_args!(
+            "reading the ACP message: {e} ({:?})",
+            e.kind()
+        ));
     }
 
     let msg = match acp::parse_message(line.trim()) {
@@ -1432,11 +1874,14 @@ where
 
     // Build a DaemonRequest and dispatch through the actor
     let req = DaemonRequest {
+        peer_pid,
         hook: hook_name.to_string(),
         project_root: String::new(),
         payload: msg.params,
         priority: 0,
         session_id: None,
+        origin: None,
+        injection_level: None,
     };
 
     dispatch_request_async(req, runtime).await
@@ -1505,8 +1950,41 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     let client_root = touring_foundation::TouringConfig::normalize_project_root(&PathBuf::from(
         &req.project_root,
     ));
+
+    // The pinned daemon refuses a request whose root is OUTSIDE its tree
+    // (touring-36 ticket, 25/09/2026): the project was once chosen from the
+    // CLIENT's cwd, so a `--purge-phantom --dry-run` pointed at a scratch
+    // daemon's socket ran the definer pass against the LIVE touring db
+    // (unknown 21→2 there). Equality was the first cut — and refused clients
+    // under NESTED markers (a regression on 30.4.68, measured live by
+    // touring-36: `packages/**`, `.claude/.git`, worktree `.git` files).
+    // `pin_admits` carries the inside/outside rule; the refusal names both
+    // roots and the route back.
+    if let Some(Some(pinned)) = DAEMON_PROJECT_PIN.get()
+        && !pin_admits(pinned, &client_root)
+    {
+        return protocol_failure(format_args!(
+            "this daemon is pinned to {} (derived from its own socket); the request names {}, outside that tree — run it with the cwd inside the pinned root, or against the global daemon",
+            pinned.display(),
+            client_root.display(),
+        ));
+    }
     let hook_name = req.hook.clone();
     let priority = req.priority;
+
+    // Decision 3-A (14/09/2026): `index status` never waits in the actor queue.
+    // It reads committed state through read-only connections on the blocking
+    // pool, so it answers while a rebuild seals (the inferred-consumer
+    // transaction and the search compaction cannot yield). Only a project whose
+    // databases do not exist yet falls through to the actor, which creates them.
+    if hook_name == OFF_ACTOR_STATUS_HOOK
+        && let Some(output) = serve_status_off_actor(client_root.clone()).await
+    {
+        return DaemonResponse {
+            output,
+            success: true,
+        };
+    }
 
     // ── Get or create per-project runtime ────────────────────────────────
     // RwLock.read() allows CONCURRENT reads from multiple projects.
@@ -1644,21 +2122,33 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // commands within its queue (correct: rusqlite !Sync) but without the
     // kernel Mutex contention that previously let 50+ ESTAB connections pile
     // up behind a single `.lock()` call.
+    // An absent or invalid level is a legacy request: retain the daemon's
+    // environment instead of failing open to `full` and leaking advisories.
+    let injection_level = req
+        .injection_level
+        .as_deref()
+        .and_then(InjectionLevel::parse);
     let payload = req.payload.clone();
     let is_heavy = is_heavy_hook(&hook_name);
     if is_heavy {
         eprintln!(
-            "[touring-daemon] heavy op: {} (priority={}, session={:?})",
+            "[touring-daemon] heavy op: {} (priority={}, session={:?}, peer={})",
             hook_name,
             priority,
-            req.session_id.as_deref()
+            req.session_id.as_deref(),
+            peer_label(req.peer_pid)
         );
     }
 
     let (resp_tx, resp_rx) = oneshot::channel::<String>();
+    // Kept for the failure messages below: `hook_name` moves into the command,
+    // and a failure that cannot name the operation it belongs to is the very
+    // ambiguity these branches exist to remove.
+    let hook_for_diag = hook_name.clone();
     let cmd = ProjectCommand::RunHook {
         hook_name,
         payload,
+        injection_level,
         response: resp_tx,
         enqueued_at: Instant::now(),
     };
@@ -1672,19 +2162,32 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         Ok(Err(_)) => {
             // Receiver dropped — actor thread exited (should not happen during
             // normal operation; indicates a prior panic or LRU eviction race).
+            //
+            // Named for the same reason the semaphore branch above is: a mute
+            // failure here is indistinguishable from a failure in the WORK the
+            // caller asked for. Observed 19/08/2026 on `analise` — a dead actor
+            // answered `index rebuild` AND a trivial `gate-metrics` with the
+            // identical "empty response payload", and two rounds went into
+            // suspecting the reindex before `gate-metrics` (which cannot take
+            // 5 minutes) exposed the daemon as the sick party. The cure is a
+            // daemon restart, so the message names it.
             tracing::warn!("[touring-daemon] project actor channel closed — dropping request");
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure(
+                "project actor is not running (it exited from a prior panic or an LRU eviction); \
+                 every request to this project will fail until the daemon is restarted: \
+                 `touring daemon-ctl restart` (add `--socket <proj>/.touring/daemon.sock` for a \
+                 per-project daemon)",
+            );
         }
         Err(_) => {
             crate::shared::gate_metrics::record_actor_send_timeout();
             tracing::debug!("[touring-daemon] actor send timeout — queue full");
-            return DaemonResponse {
-                output: String::new(),
-                success: false,
-            };
+            return protocol_failure(format_args!(
+                "project actor queue still full after {}s — the actor is busy with earlier work \
+                 (a heavy op such as `index rebuild` serializes the queue). Retry, or wait for \
+                 the in-flight operation to finish",
+                REQUEST_TIMEOUT.as_secs()
+            ));
         }
     }
 
@@ -1697,7 +2200,11 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
     // in production: Python direct reindex of 1.1M symbols = ~90s; full
     // blast-radius over a large file = ~30s; MCTS deep search = ~60s.
     let handler_budget = if is_heavy {
-        Duration::from_secs(300)
+        // Shared with the CLIENT, which waits `HEAVY_OP_CLIENT_FLOOR_SECS` (this
+        // budget plus the queueing before it) so the typed reply reaches it. Two
+        // independently calibrated numbers here is what let a 300 s server quit
+        // under a client willing to wait 1800 s — see `HEAVY_OP_BUDGET_SECS`.
+        Duration::from_secs(touring_foundation::HEAVY_OP_BUDGET_SECS)
     } else {
         Duration::from_secs(15)
     };
@@ -1710,11 +2217,16 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
         Ok(Err(_)) => {
             // oneshot sender was dropped before sending — actor likely panicked
             // mid-handler. Return failure; client can retry.
+            //
+            // This is the branch a panicking handler reaches, so it is the one
+            // whose message must send the reader to the panic itself: the
+            // backtrace is in the daemon's stderr, nowhere near the client.
             tracing::warn!("[touring-daemon] oneshot dropped — handler did not respond");
-            DaemonResponse {
-                output: String::new(),
-                success: false,
-            }
+            protocol_failure(format_args!(
+                "handler `{hook_for_diag}` did not respond — it most likely panicked mid-flight. \
+                 The backtrace is in the daemon stderr (~/.claude/touring/daemon.stderr.log); \
+                 the actor may need `touring daemon-ctl restart`"
+            ))
         }
         Err(_) => {
             // Handler exceeded its execution budget. Actor is still alive (and
@@ -1725,10 +2237,14 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
                 "[touring-daemon] handler exceeded {}s budget",
                 handler_budget.as_secs()
             );
-            DaemonResponse {
-                output: String::new(),
-                success: false,
-            }
+            // The distinction that matters to the caller: the WORK may still be
+            // completing. Only this client gave up, so re-running the same
+            // command can race the in-flight one.
+            budget_exceeded_failure(
+                &hook_for_diag.to_string(),
+                handler_budget.as_secs(),
+                is_heavy,
+            )
         }
     }
 }
@@ -1747,13 +2263,41 @@ async fn dispatch_request_async(req: DaemonRequest, runtime: &RuntimeMap) -> Dae
 /// gate-metrics, not per-project state (the same convention as the JDM/MCP
 /// self-dispatch sites). Pure + deterministic so it can be unit-tested without a
 /// live runtime.
+/// The one hook the dispatch answers without the project actor (decision 3-A).
+const OFF_ACTOR_STATUS_HOOK: &str = "cli-index-status";
+
+/// `index status` from committed state on the blocking pool — `None` when the
+/// project has no databases yet (the actor creates them). Counted in the same
+/// per-hook metrics and dispatch histogram as an actor-served call, so the
+/// latency the route exists to cut stays visible.
+async fn serve_status_off_actor(project_root: PathBuf) -> Option<String> {
+    let start = Instant::now();
+    let output = tokio::task::spawn_blocking(move || {
+        crate::cli_handlers_index::index_status_from_disk(&project_root)
+    })
+    .await
+    .ok()??;
+    let elapsed = start.elapsed();
+    // The same per-hook dispatch counter an actor-served call bumps (A8).
+    touring_foundation::gate_metrics::record_hook_dispatch_named(OFF_ACTOR_STATUS_HOOK);
+    if let Some((inv, lat)) = hook_metrics_map().get(OFF_ACTOR_STATUS_HOOK) {
+        inv.fetch_add(1, Ordering::Relaxed);
+        lat.fetch_add(elapsed.as_millis() as u64, Ordering::Relaxed);
+    }
+    crate::shared::gate_metrics::record_hook_dispatch_latency_us(elapsed.as_micros() as u64);
+    Some(output)
+}
+
 fn kpi_snapshot_request(project_root: String) -> DaemonRequest {
     DaemonRequest {
+        peer_pid: None,
         hook: "cli-kpi".to_string(),
         payload: serde_json::json!({ "snapshot": true }),
         project_root,
         session_id: None,
         priority: 0,
+        origin: None,
+        injection_level: None,
     }
 }
 
@@ -2050,3 +2594,134 @@ unsafe extern "C" {
 #[cfg(test)]
 #[path = "daemon_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "daemon_yield_tests.rs"]
+mod yield_tests;
+
+#[cfg(test)]
+mod s5_journal_tests {
+    /// S5 — o par start/settle é o que torna uma sub-chamada travada VISÍVEL.
+    ///
+    /// O teste afirma a propriedade que importa na leitura do journal: casar
+    /// `start` com `settle` pelo `origin` deixa órfãos que são exatamente as
+    /// sub-chamadas que não voltaram. Sem o `start`, "não voltou" e "nunca
+    /// aconteceu" produzem o mesmo journal — a ambiguidade que já fez este
+    /// workspace ler "parou de escrever" como "terminou".
+    #[test]
+    fn start_without_settle_identifies_a_stuck_subcall() {
+        let linhas = vec![
+            serde_json::json!({"phase": "start",  "origin": "r:code:1", "hook": "cli-index-find"}),
+            serde_json::json!({"phase": "settle", "origin": "r:code:1", "hook": "cli-index-find",
+                               "duration_ms": 3, "ok": true}),
+            serde_json::json!({"phase": "start",  "origin": "r:code:2", "hook": "cli-ast-blast"}),
+        ];
+        let iniciados: Vec<&str> = linhas
+            .iter()
+            .filter(|l| l["phase"] == "start")
+            .filter_map(|l| l["origin"].as_str())
+            .collect();
+        let concluidos: Vec<&str> = linhas
+            .iter()
+            .filter(|l| l["phase"] == "settle")
+            .filter_map(|l| l["origin"].as_str())
+            .collect();
+        let orfaos: Vec<&&str> = iniciados
+            .iter()
+            .filter(|o| !concluidos.contains(o))
+            .collect();
+        assert_eq!(orfaos, vec![&"r:code:2"], "a sub-chamada travada é o órfão");
+    }
+
+    /// Nenhum campo de conteúdo entra no journal — nem no start, nem no settle.
+    /// A regra é de segurança (uma recall pode devolver segredo), então vale
+    /// como invariante e não como convenção.
+    #[test]
+    fn no_content_field_is_journalled() {
+        const PROIBIDOS: &[&str] = &["output", "preview", "body", "content", "payload", "result"];
+        let fonte = include_str!("daemon.rs");
+        let inicio = fonte
+            .find("fn journal_subcall(")
+            .expect("journal_subcall existe");
+        let fim = fonte[inicio..]
+            .find("fn agora_secs")
+            .map_or(fonte.len(), |o| inicio + o);
+        let corpo = &fonte[inicio..fim];
+        for campo in PROIBIDOS {
+            assert!(
+                !corpo.contains(&format!("\"{campo}\":")),
+                "`{campo}` é conteúdo — o journal grava tamanho, nunca dado"
+            );
+        }
+        // e o que DEVE estar lá
+        for campo in ["payload_bytes", "output_bytes", "duration_ms", "ok"] {
+            assert!(corpo.contains(&format!("\"{campo}\":")), "falta `{campo}`");
+        }
+    }
+}
+
+/// A handler over budget answers with a failure the client can tell apart from a
+/// semantic error: the analise session read "handler `cli-memory-store` exceeded its
+/// 15s budget" as "destino inexistente?" because the payload carried only text
+/// (14/09/2026).
+#[cfg(test)]
+mod startup_identity_tests {
+    use super::startup_identity;
+
+    #[test]
+    fn the_startup_line_names_the_spawner_and_the_unit_that_owns_the_daemon() {
+        let line = startup_identity(
+            "pid=42 comm=touring-hook",
+            "0::/user.slice/user-1000.slice/user@1000.service/app.slice/routine-inbox-digest.service\n",
+        );
+        assert_eq!(
+            line,
+            "spawner=(pid=42 comm=touring-hook) cgroup=/user.slice/user-1000.slice/user@1000.service/app.slice/routine-inbox-digest.service"
+        );
+        assert_eq!(
+            startup_identity("unknown", ""),
+            "spawner=(unknown) cgroup=?"
+        );
+    }
+}
+
+#[cfg(test)]
+mod budget_failure_tests {
+    #[test]
+    fn a_budget_failure_is_typed_and_retryable() {
+        let response = super::budget_exceeded_failure("cli-memory-store", 15, false);
+        assert!(!response.success);
+        let v: serde_json::Value = serde_json::from_str(&response.output).expect("json");
+        assert_eq!(v["error_kind"], "budget_exceeded");
+        assert_eq!(v["handler"], "cli-memory-store");
+        assert_eq!(v["budget_secs"], 15);
+        assert_eq!(v["retryable"], true);
+        assert!(
+            v["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("exceeded its 15s budget")
+        );
+        assert_eq!(
+            v["still_running"], true,
+            "the actor never cancels: a light hook still runs, or waits its turn"
+        );
+    }
+
+    /// 14/09/2026: a 51k-file analise rebuild outlived its 1800 s budget and the
+    /// client got `retryable: true` while the walk went on. A re-run would wait in
+    /// the actor queue and start a SECOND full walk once the first ended. A heavy
+    /// hook's timeout says the work continues and must be waited for, not repeated.
+    #[test]
+    fn a_heavy_budget_failure_says_the_work_continues_and_is_not_retryable() {
+        let response = super::budget_exceeded_failure("cli-index-rebuild", 1800, true);
+        let v: serde_json::Value = serde_json::from_str(&response.output).expect("json");
+        assert_eq!(v["error_kind"], "budget_exceeded");
+        assert_eq!(v["retryable"], false, "{v}");
+        assert_eq!(v["still_running"], true, "{v}");
+        assert!(
+            v["error"].as_str().unwrap_or("").contains("do not re-run"),
+            "the message tells the caller to wait: {v}"
+        );
+    }
+}

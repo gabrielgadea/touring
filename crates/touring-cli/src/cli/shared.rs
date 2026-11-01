@@ -154,13 +154,38 @@ pub(crate) fn optional_column_select(
 /// S4 (2026-08-07): a pheromone that never evaporates inverts its own mechanism
 /// — a corrected lesson keeps guiding with the same weight as the correction.
 /// Superseded rows stay in the table for audit and simply stop surfacing, which
-/// is retirement, not deletion.
+/// is retirement, not deletion. The predicate itself has one home,
+/// `touring_intelligence::rl::memory::retirement`, shared with the reads that
+/// live outside this crate (`memory query`, the TF-IDF corpus, the MOC).
 pub(crate) fn superseded_filter(conn: &rusqlite::Connection, alias: &str) -> String {
-    if memory_column_present(conn, "superseded_by") {
-        format!(" AND {alias}superseded_by IS NULL")
-    } else {
-        String::new()
+    touring_intelligence::rl::memory::retirement::live_predicate(conn, alias)
+}
+
+/// Keys among `keys` that are retired, in the federation's own precedence:
+/// the first database that holds a key speaks for it, as in
+/// [`memory_recall_sql_federated`] (a key retired in another project but live
+/// here is live). Reads that merge channels drop these keys before ranking.
+pub(crate) fn retired_in_federation(
+    dbs: &[std::path::PathBuf],
+    keys: &[&str],
+) -> std::collections::HashSet<String> {
+    use touring_intelligence::rl::memory::retirement::retirement_of;
+    let mut undecided: Vec<&str> = keys.to_vec();
+    undecided.sort_unstable();
+    undecided.dedup();
+    let mut retired = std::collections::HashSet::new();
+    for db in dbs {
+        if undecided.is_empty() {
+            break;
+        }
+        let Ok(conn) = open_db_readonly(db) else {
+            continue;
+        };
+        let (held, retired_here) = retirement_of(&conn, &undecided);
+        retired.extend(retired_here);
+        undecided.retain(|key| !held.contains(*key));
     }
+    retired
 }
 
 /// Maps a recall result row (`key, value, tier, entry_type, outcome_reward`) to JSON.
@@ -197,7 +222,133 @@ pub(crate) fn memory_recall_row_to_json(
     ) {
         obj.insert("pinned".into(), serde_json::json!(true));
     }
+    // Self-echo detection (2026-08-29): `stored_at` lets a consumer tell a
+    // pre-existing lesson from one written DURING its own campaign — the CCE
+    // explorer suppresses the latter from its dry-tail, or the topic that
+    // writes memories about itself never dries ([1,0,0,1,…] measured live).
+    // The column is TEXT ("YYYY-MM-DD HH:MM:SS", UTC) on live DBs and INTEGER
+    // (epoch) on consolidated ones, so both shapes pass through verbatim;
+    // absent column / NULL / a 7-column caller row stay silent (an unknown
+    // age must stay unknown, never zero).
+    if let Ok(vref) = row.get_ref(7) {
+        let stored = match vref {
+            rusqlite::types::ValueRef::Text(t) => {
+                std::str::from_utf8(t).ok().map(|s| serde_json::json!(s))
+            }
+            rusqlite::types::ValueRef::Integer(i) => Some(serde_json::json!(i)),
+            _ => None,
+        };
+        if let (Some(v), Some(obj)) = (stored, out.as_object_mut()) {
+            obj.insert("stored_at".into(), v);
+        }
+    }
     Ok(out)
+}
+
+/// Opens a database for READING only — the one opener of every federated read.
+///
+/// Opening read-write cost two defects, both observed:
+///
+/// 1. **Deadlock under concurrency.** The `Drop` of a read-write connection on a
+///    WAL database enters `sqlite3WalClose` → `unixLock` for the checkpoint's
+///    exclusive lock, and threads that only read the same file fight it until
+///    the process stops. Captured under gdb on 24/08/2026 and fixed then in
+///    `cli_suggester` alone; the federated memory recall kept
+///    `Connection::open`, and on 14/09/2026 the `touring-dispatch` test binary
+///    hung again with threads in `sqlite3WalClose` / `sqlite3PagerSharedLock`
+///    and 123 descriptors on `~/.claude/touring/memory.db` (cross-audit R2).
+///    The daemon is multi-threaded too, so this is not a test-only hazard.
+/// 2. **Silent creation of another project's database**: `Connection::open`
+///    carries `SQLITE_OPEN_CREATE`, so probing a federated path that does not
+///    exist made an empty database there.
+pub(crate) fn open_db_readonly(
+    db: &std::path::Path,
+) -> Result<rusqlite::Connection, rusqlite::Error> {
+    rusqlite::Connection::open_with_flags(
+        db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY
+            | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX
+            | rusqlite::OpenFlags::SQLITE_OPEN_URI,
+    )
+}
+
+/// Backfills `stored_at` (by key, from the federated memory DBs) onto merged
+/// recall entries that lack it.
+///
+/// The RRF merge keeps the FIRST arm's object per key (SQL > ANN > TF-IDF) and
+/// never rewrites its fields — so the entries that carry an arm `score` (the
+/// only ones a ranking consumer accepts) were precisely the ones missing
+/// `stored_at`, and the self-echo suppression shipped for the SQL arm was
+/// unreachable on the production path. One choke point covers every arm,
+/// present and future, instead of chasing each row-builder. Same tolerance as
+/// the mapper: absent column / NULL / unknown key stay silent — an unknown age
+/// must stay unknown, never zero.
+pub(crate) fn memory_backfill_stored_at(
+    dbs: &[std::path::PathBuf],
+    entries: &mut [serde_json::Value],
+) {
+    let mut missing: std::collections::HashSet<String> = entries
+        .iter()
+        .filter(|e| e.get("stored_at").is_none())
+        .filter_map(|e| e.get("key").and_then(|k| k.as_str()).map(str::to_string))
+        .collect();
+    if missing.is_empty() {
+        return;
+    }
+    let mut found: std::collections::HashMap<String, serde_json::Value> =
+        std::collections::HashMap::new();
+    for db in dbs {
+        if missing.is_empty() {
+            break;
+        }
+        let Ok(conn) = open_db_readonly(db) else {
+            continue;
+        };
+        if !memory_column_present(&conn, "created_at") {
+            continue;
+        }
+        let Ok(mut stmt) = conn.prepare("SELECT created_at FROM memory_entries WHERE key = ?1")
+        else {
+            continue;
+        };
+        missing.retain(|key| {
+            let stored = stmt
+                .query_row(params![key], |row| {
+                    Ok(match row.get_ref(0) {
+                        Ok(rusqlite::types::ValueRef::Text(t)) => {
+                            std::str::from_utf8(t).ok().map(|s| serde_json::json!(s))
+                        }
+                        Ok(rusqlite::types::ValueRef::Integer(i)) => Some(serde_json::json!(i)),
+                        _ => None,
+                    })
+                })
+                .ok()
+                .flatten();
+            match stored {
+                Some(v) => {
+                    found.insert(key.clone(), v);
+                    false
+                }
+                None => true,
+            }
+        });
+    }
+    for e in entries.iter_mut() {
+        if e.get("stored_at").is_some() {
+            continue;
+        }
+        let Some(v) = e
+            .get("key")
+            .and_then(|k| k.as_str())
+            .and_then(|k| found.get(k))
+            .cloned()
+        else {
+            continue;
+        };
+        if let Some(obj) = e.as_object_mut() {
+            obj.insert("stored_at".into(), v);
+        }
+    }
 }
 
 /// FTS5 primary recall path — tokenized `MATCH` over `memories_fts`,
@@ -212,12 +363,13 @@ pub(crate) fn memory_recall_fts5(
     let reward_col = outcome_reward_select(conn, "e.");
     let importance_col = optional_column_select(conn, "e.", "importance");
     let pinned_col = optional_column_select(conn, "e.", "pinned");
+    let created_col = optional_column_select(conn, "e.", "created_at");
     let not_superseded = superseded_filter(conn, "e.");
     // S4 ranking: pinned first, then importance, then bm25. Both weights are
     // COALESCEd to a neutral floor so an unweighted entry is not punished for
     // having never been judged — it simply ranks by relevance, as before.
     let sql = format!(
-        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col}, {importance_col}, {pinned_col} \
+        "SELECT e.key, e.value, e.tier, e.entry_type, {reward_col}, {importance_col}, {pinned_col}, {created_col} \
          FROM memories_fts \
          JOIN memory_entries e ON e.rowid = memories_fts.rowid \
          WHERE memories_fts MATCH ?1{not_superseded} \
@@ -256,9 +408,10 @@ pub(crate) fn memory_recall_like(
     let reward_col = outcome_reward_select(conn, "");
     let importance_col = optional_column_select(conn, "", "importance");
     let pinned_col = optional_column_select(conn, "", "pinned");
+    let created_col = optional_column_select(conn, "", "created_at");
     let not_superseded = superseded_filter(conn, "");
     let sql = format!(
-        "SELECT key, value, tier, entry_type, {reward_col}, {importance_col}, {pinned_col} \
+        "SELECT key, value, tier, entry_type, {reward_col}, {importance_col}, {pinned_col}, {created_col} \
          FROM memory_entries \
          WHERE ({where_clause}){not_superseded} \
          ORDER BY COALESCE({pinned_col}, 0) DESC, COALESCE({importance_col}, 0) DESC \
@@ -296,7 +449,7 @@ pub(crate) fn memory_recall_sql(
     memory_db_path: &std::path::Path,
     query: &str,
 ) -> Vec<serde_json::Value> {
-    let conn = match rusqlite::Connection::open(memory_db_path) {
+    let conn = match open_db_readonly(memory_db_path) {
         Ok(c) => c,
         Err(e) => {
             tracing::debug!("memory recall connection failed: {}", e);
@@ -318,12 +471,12 @@ pub(crate) fn memory_recall_sql(
 // `touring_hook_runtime::embeddings` — re-imported here so every
 // `cli::shared::semantic_*` consumer path is unchanged.
 pub(crate) use touring_hook_runtime::embeddings::{
-    semantic_or_hash_embedding, semantic_text_embedding,
+    semantic_or_hash_embeddings, semantic_text_embedding,
 };
 
 /// arctic-embed-m query instruction prefix (Snowflake/snowflake-arctic-embed-m
 /// model card). Applied to the QUERY only — documents are embedded verbatim by
-/// [`semantic_or_hash_embedding`] — to preserve the query↔document asymmetry the
+/// [`touring_hook_runtime::embeddings::semantic_or_hash_embedding`] — to preserve the query↔document asymmetry the
 /// model was trained on. Without it, query and corpus vectors drift into the
 /// same region and cosine scores compress, degrading ranking.
 pub(crate) const ARCTIC_QUERY_PREFIX: &str =
@@ -611,6 +764,15 @@ pub(crate) fn ensure_decompose_tables(db: &crate::knowledge::FileKnowledgeDB) {
     );
     let _ = db.conn_ref().execute(
         "ALTER TABLE task_decompositions ADD COLUMN mirrored_to_cc INTEGER NOT NULL DEFAULT 1",
+        [],
+    );
+    // T3.1 (2026-08-19): resolved DECISION tickets are written back up to the map
+    // they belong to, so the parent stops describing a world its children already
+    // changed. Added here AND in `cli_handlers_decompose::ensure_decompose_tables`
+    // because both are live schema owners for the same database — whichever runs
+    // first must leave the column in place.
+    let _ = db.conn_ref().execute(
+        "ALTER TABLE task_decompositions ADD COLUMN resolutions TEXT",
         [],
     );
     let _ = db

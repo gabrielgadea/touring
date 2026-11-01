@@ -12,6 +12,7 @@
 //! - **<= 200 lines**: Anti-pattern if it grows beyond this.
 
 use std::sync::Arc;
+use touring_foundation::truncate_str;
 
 use tokio::runtime::Handle;
 use tokio::sync::broadcast::{self, Sender};
@@ -409,18 +410,14 @@ impl CortexDispatcher {
             HookEvent::PreBash { command, .. } => (
                 "Bash".to_string(),
                 true,
-                format!("pre_bash:{}", &command[..command.len().min(50)]),
+                format!("pre_bash:{}", truncate_str(command, 50)),
             ),
             HookEvent::PostBash {
                 command, exit_code, ..
             } => (
                 "Bash".to_string(),
                 *exit_code == 0,
-                format!(
-                    "post_bash:{}:{}",
-                    &command[..command.len().min(50)],
-                    exit_code
-                ),
+                format!("post_bash:{}:{}", truncate_str(command, 50), exit_code),
             ),
             HookEvent::SessionStart { session_id, .. } => (
                 "Session".to_string(),

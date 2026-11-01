@@ -46,17 +46,23 @@ enum FileKnowledgeCmd {
 }
 /// Entry point for `touring file-knowledge <subcommand>`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match FileKnowledgeCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<FileKnowledgeCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
     match cli.cmd {
         None => {
-            anyhow::bail!("Usage: touring file-knowledge extended <file_path>");
+            anyhow::bail!(
+                "missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>"
+            );
         }
         Some(FileKnowledgeCmd::Extended { file_path }) => {
             if file_path.is_empty() {
-                anyhow::bail!("Usage: touring file-knowledge extended <file_path>");
+                anyhow::bail!(
+                    "missing file path; run `touring file-knowledge --help` or use: touring file-knowledge extended <file>"
+                );
             }
             let output = daemon_query(
                 "cli-file-knowledge-extended",

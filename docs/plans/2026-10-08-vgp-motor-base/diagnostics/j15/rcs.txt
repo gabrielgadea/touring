@@ -1,0 +1,13 @@
+selo_antes rc=0
+hibrido rc=0
+30_4_102 v2 rc=0 2026-10-31T22:30:52-03:00
+8fd0efb0 v2 rc=1 2026-10-31T22:31:29-03:00
+30_4_102 V3 rc=1 timeouts_camada2=152/1064 2026-10-31T22:47:09-03:00
+hibrido_recuperado rc=0 2026-11-01T10:55:53-03:00
+8fd0efb0 V3 tentativa_interrompida=aguardando_calor_95C sem_json 2026-11-01T10:56:57-03:00
+hot rc=0 2026-11-01T11:04:27-03:00
+consolidar rc=1 2026-11-01T11:05:16-03:00
+8fd0efb0 V3 rc=3 timeouts_camada2=522/1064 2026-11-01T11:25:07-03:00
+selo_depois rc=0
+consolidacao_final rc=1 2026-11-01T11:25:58-03:00
+FIM

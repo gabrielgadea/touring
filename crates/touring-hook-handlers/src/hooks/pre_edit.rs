@@ -18,10 +18,9 @@ use crate::shared::cila::cila_budget_edit;
 use crate::shared::hook_helpers;
 use crate::shared::metadata_collector::FastMetadata;
 use crate::shared::parser_cache_global::global_cache;
-#[allow(unused_imports)]
-// ResultExt trait needed in scope for .unwrap_or_debug() calls on deref
-use crate::shared::result_ext::{OptionExt, ResultExt};
-use crate::shared::signal_pipeline::{SignalContext, SignalPipeline, StaticSignalLayer};
+// Extension trait in scope for the `.unwrap_or_debug()` calls below.
+use crate::shared::result_ext::OptionExt;
+use crate::shared::signal_pipeline::{SignalPipeline, StaticSignalLayer, context_for_edit};
 use crate::shared::signals::{blast_radius_signal, merge_signals_rrf};
 use touring_foundation::diagnostic::DiagnosticCode;
 use touring_foundation::truncate_str;
@@ -29,7 +28,9 @@ use touring_foundation::truncate_str;
 /// Flush the pre_edit parser cache at session boundaries.
 ///
 /// Called from `run_session_stop` to release all cached `Arc<SharedPipeline>`
-/// entries so the next session starts fresh (avoids stale pipeline state).
+/// entries so the next session starts fresh (avoids stale pipeline state). Its
+/// only caller lives in `session_hooks`, so it exists under the same feature.
+#[cfg(feature = "session-hooks")]
 pub(crate) fn flush_cache() {
     global_cache().clear();
 }
@@ -225,7 +226,7 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     }
 
     // Append touring suggestion if old_string spans an entire function
-    let suggestion = suggest_replace_symbol_body(old_string);
+    let suggestion = suggest_replace_symbol_body(old_string, &rel_path);
     if !suggestion.is_empty() {
         if !context.is_empty() {
             context.push_str(" | ");
@@ -239,32 +240,22 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // For Rust files: merge antipattern warnings and import suggestions via RRF so
     // items that rank high in both lists are surfaced first. Uses merge_signals_rrf
     // (unscored RRF) since both sources produce plain string lists.
-    // For non-Rust files: only import prediction applies.
-    if !new_string.is_empty() {
-        if rel_path.ends_with(".rs") {
-            let antipatterns = check_rust_antipatterns(new_string);
-            let unresolved: Vec<String> =
-                detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path)
-                    .into_iter()
-                    .take(3)
-                    .map(|s| format!("import needed: {s}"))
-                    .collect();
-            // RRF fusion: items present in both lists rank highest.
-            let merged = merge_signals_rrf(&[antipatterns, unresolved], 60.0);
-            for sig in &merged {
-                if !context.is_empty() {
-                    context.push_str(" | ");
-                }
-                context.push_str(sig);
+    // Non-Rust files get neither: see `predicts_imports`.
+    if !new_string.is_empty() && predicts_imports(&rel_path) {
+        let antipatterns = check_rust_antipatterns(new_string);
+        let unresolved: Vec<String> =
+            detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path)
+                .into_iter()
+                .take(3)
+                .map(|s| format!("import needed: {s}"))
+                .collect();
+        // RRF fusion: items present in both lists rank highest.
+        let merged = merge_signals_rrf(&[antipatterns, unresolved], 60.0);
+        for sig in &merged {
+            if !context.is_empty() {
+                context.push_str(" | ");
             }
-        } else {
-            let unresolved = detect_unresolved_types(new_string, &runtime.ctx.knowledge, &rel_path);
-            for suggestion in unresolved.iter().take(3) {
-                if !context.is_empty() {
-                    context.push_str(" | ");
-                }
-                context.push_str(&format!("import needed: {suggestion}"));
-            }
+            context.push_str(sig);
         }
     }
 
@@ -329,7 +320,12 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Replicates post_edit.rs:675 / post_write.rs:210 / pre_write.rs:309 pattern.
     // Always runs regardless of CILA gate — cognitive signals are pre-computed and cheap.
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = crate::shared::signals::enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = crate::shared::signals::enrich_with_cognitive(
+            cognitive,
+            file_path,
+            false,
+            crate::shared::signals::payload_session(input),
+        );
         if !enriched.is_empty() {
             if !context.is_empty() {
                 context.push_str(" | ");
@@ -431,15 +427,13 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
         if !states.is_empty()
             && let Ok(pensieve) = runtime.learning.pensieve.try_borrow()
         {
-            let penalty = match states.first() {
-                Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                _ => pensieve.check_known_failure_seq(&states),
+            let matched = match states.first() {
+                Some(&single) if states.len() == 1 => pensieve.check_known_failure_detail(single),
+                _ => pensieve.check_known_failure_seq_detail(&states),
             };
-            if let Some(sim) = penalty {
-                let sig = format!(
-                    "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
-                    sim * 100.0
-                );
+            if let Some(m) = matched {
+                // The notice names the command that failed on the similar path.
+                let sig = m.path_notice();
                 if !context.is_empty() {
                     context.push_str(" | ");
                 }
@@ -451,20 +445,107 @@ fn run_returning_impl(runtime: &HookRuntime, input: &serde_json::Value) -> HookR
     // Budget-aware assembly via SignalPipeline: sort by score, truncate to CILA budget.
     // Wrapping the assembled context in a single StaticSignalLayer gives consistent
     // budget enforcement across CILA levels without restructuring existing signal logic.
-    let context = if context.is_empty() {
+    // A2 (2026-09-02): analogous call sites of a call THIS edit changes —
+    // decision-matrix C08, before the edit lands (index step at construction;
+    // no changed call = no index work).
+    let cross_caller = crate::shared::cross_caller::CrossCallerLayer::for_edit(
+        &rel_path,
+        old_string,
+        new_string,
+        |name| call_sites(runtime, name),
+    );
+
+    // S6/S9 (2026-09-02): the file AS IT WILL BE — read once (guarded by
+    // size) and shared by the quality baseline (S6) and the Rust preview
+    // (S9, reused by the S4 cascade).
+    let current_source = {
+        let small_enough = std::fs::metadata(file_path)
+            .map(|m| m.len() as usize <= crate::shared::quality_signal::MAX_SOURCE_BYTES)
+            .unwrap_or(false);
+        if small_enough {
+            std::fs::read_to_string(file_path).unwrap_or_default()
+        } else {
+            String::new()
+        }
+    };
+    // S6: quality baseline of the file after the edit (symmetry with
+    // pre_write's `quality:`; `compose_quality_evolution` only sees the disk).
+    let quality_baseline = crate::shared::quality_signal::QualityBaselineLayer::for_edit(
+        &rel_path,
+        &current_source,
+        old_string,
+        new_string,
+    );
+    // S9: ONE parse of the file after the edit (public API surface, any
+    // tree-sitter language) — badge with the public API delta; the S4
+    // cascade reuses the same preview.
+    let api_preview = crate::shared::api_preview::ApiPreview::for_edit(
+        &rel_path,
+        &current_source,
+        old_string,
+        new_string,
+    );
+    let rust_badge = crate::shared::api_preview::ApiBadgeLayer::from_preview(api_preview.as_ref());
+    // S4 (2026-09-02, ★): public items this edit removes or re-signs, with
+    // their call sites (call graph of the "after" source + symbol index) —
+    // the callers A2 cannot see because no call expression changed.
+    let api_cascade = crate::shared::api_cascade_preview::ApiCascadePreviewLayer::for_edit(
+        &rel_path,
+        api_preview.as_ref(),
+        |name| call_sites(runtime, name),
+    );
+
+    let context = if context.is_empty()
+        && cross_caller.is_empty()
+        && quality_baseline.is_empty()
+        && rust_badge.is_empty()
+        && api_cascade.is_empty()
+    {
         String::new()
     } else {
         let budget = cila_budget_edit(cila_level);
-        let pipeline = SignalPipeline::new(budget).add_layer(StaticSignalLayer::new(
-            "pre_edit_assembled",
-            vec![(1.0_f32, context)],
-        ));
-        pipeline
-            .execute(
-                &SignalContext::new(&rel_path, "")
-                    .with_cila(cila_level as usize)
-                    .with_hook("pre_edit"),
+        let assembled = if context.is_empty() {
+            Vec::new()
+        } else {
+            vec![(1.0_f32, context)]
+        };
+        let pipeline = SignalPipeline::new(budget)
+            .add_layer(StaticSignalLayer::new("pre_edit_assembled", assembled))
+            // S1 (2026-09-01): ast-grep risk patterns over the proposed
+            // `new_string` (SignalContext v2) — risk seen BEFORE the edit lands.
+            .add_layer(
+                crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
             )
+            // S2-doc (2026-09-05): símbolos documentais do `new_string` proposto, relevância por nó.
+            .add_layer(
+                crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
+            // S2 (2026-09-01): F2.4 hardcoded secrets over the proposed
+            // `new_string` (P0) — before the edit lands.
+            .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
+            // A2 (2026-09-02): other call sites of a call this edit changes (C08).
+            .add_layer(cross_caller)
+            // S6 (2026-09-02): quality of the file after this edit.
+            .add_layer(quality_baseline)
+            // S8 (2026-09-02): CWE patterns over the proposed `new_string`
+            // (findings located as `new_string:L<n>`).
+            .add_layer(touring_hook_runtime::shared::scan::CweScanLayer)
+            // S9 (2026-09-02): semantic badge of the .rs after this edit.
+            .add_layer(rust_badge)
+            // S4 (2026-09-02, ★): API cascade of this edit (CILA ≥ 2).
+            .add_layer(api_cascade);
+        // S0 v2: old/new strings travel with the context (see signal_pipeline).
+        pipeline
+            .execute(&context_for_edit(
+                &rel_path,
+                old_string,
+                new_string,
+                cila_level as usize,
+            ))
             .unwrap_or_default()
     };
 
@@ -831,24 +912,24 @@ fn compose_edit_context_impl(
     // Mirrors pre_read/pre_write: surface related docstrings, symbol kinds, and
     // crate-origin siblings so Claude edits in context of the surrounding module.
     // Feature-gated (tantivy-fts is ON by default in touring-hooks).
+    // Only with a project root: `None` resolves to the legacy GLOBAL index that
+    // every project shares, so an edit with no runtime got "related docs" from
+    // another project (analise documents for `unknown.py`, 14/09/2026).
     #[cfg(feature = "tantivy-fts")]
-    {
-        if let Some((_, s)) = crate::shared::signals::tantivy_related_docs_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+    if let Some(root) = runtime.map(|r| r.project_root.as_path()) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_related_docs_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_kind_context_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_kind_context_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
-        if let Some((_, s)) = crate::shared::signals::tantivy_crate_origin_signal(
-            runtime.map(|r| r.project_root.as_path()),
-            file_path,
-        ) {
+        if let Some((_, s)) =
+            crate::shared::signals::tantivy_crate_origin_signal(Some(root), file_path)
+        {
             parts.push(s);
         }
     }
@@ -1229,14 +1310,35 @@ pub(crate) fn edit_spans_entire_function(old_string: &str) -> bool {
     has_fn_start && has_fn_end && line_count >= 3
 }
 
-/// If old_string spans an entire function, suggest using touring_ast_edit.
-pub(crate) fn suggest_replace_symbol_body(old_string: &str) -> String {
+/// If old_string spans an entire function, point at the structural rewrite the CLI offers.
+///
+/// It used to name the MCP tool `mcp__touring__touring_ast_edit`, which does not exist where
+/// the touring MCP server is disabled (the analise project, measured 27/09/2026 once S31 revived
+/// this handler) — a hint that names a tool the session cannot call is the D8 anti-pattern.
+/// `touring ast grep … --rewrite` exists in every setup and previews the rewrite by the AST;
+/// the file is derived, only the pattern and its replacement are left to the reader.
+pub(crate) fn suggest_replace_symbol_body(old_string: &str, rel_path: &str) -> String {
     if !edit_spans_entire_function(old_string) {
         return String::new();
     }
-    "💡 Touring: `mcp__touring__touring_ast_edit` é mais preciso \
-     para substituir funções completas — garante sintaxe e referências"
-        .to_string()
+    format!(
+        "💡 a edição cobre uma função inteira — prévia pela AST (sintaxe garantida): \
+         `touring ast grep {rel_path} '<padrão>' --rewrite '<novo>'`"
+    )
+}
+
+/// Whether the import prediction applies to `rel_path`.
+///
+/// `detect_unresolved_types` builds Rust `use` paths, so on any other language it emitted Rust
+/// syntax: a Python edit read "import needed: `use crate::.claude::hooks::gpu::metrics.py::Counter`"
+/// (27/09/2026, the first hour after S31 revived this handler).
+fn predicts_imports(rel_path: &str) -> bool {
+    rel_path.ends_with(".rs")
+}
+
+/// A `(symbol_name, module_file)` producer row a Rust file can `use`: its module file is Rust.
+fn is_rust_producer(row: &(String, String)) -> bool {
+    row.1.ends_with(".rs")
 }
 
 /// Check new_string content for known Rust anti-patterns when editing .rs files.
@@ -1244,7 +1346,7 @@ fn check_rust_antipatterns(new_string: &str) -> Vec<String> {
     let mut warnings: Vec<String> = Vec::new();
 
     // Pattern 1: Unsafe UTF-8 string slicing — &s[..N] or &s[..expr.min(N)]
-    // Matches: &foo[..100], &s[..s.len().min(N)], &bar[..bar.len().min(200)]
+    // Matches: &foo[..100], &s[..s.len().min(N)], truncate_str(&bar, 200)
     if new_string.contains("[..") && !new_string.contains("truncate_str") {
         // Check if it looks like string slicing (not array/vec slicing)
         let lines: Vec<&str> = new_string.lines().collect();
@@ -1339,16 +1441,24 @@ fn detect_unresolved_types(
         return Vec::new();
     }
 
-    // Step 2: Get all pub symbols from wiring_map and build known_modules list
+    // Step 2 (S3, 2026-09-02): producer rows for exactly these names — one
+    // indexed `IN` lookup instead of `all_pub_symbols()` scanning the whole
+    // wiring map on every edit; same-crate producers first.
+    // Only Rust producers: a `use` path into a `.py`/`.ts` module is no import a Rust file can
+    // make (27/09/2026: `Counter` in a doc comment resolved to `.claude/hooks/gpu/metrics.py`).
     let known_modules: Vec<(String, String)> = db
-        .all_pub_symbols()
+        .find_pub_symbols_by_name(&unresolved, Some(current_file))
         .unwrap_or_default()
         .into_iter()
-        .map(|e| (e.symbol_name, e.module_file))
+        .filter(is_rust_producer)
         .collect();
 
-    // Step 3: Use touring_code::ast::wiring::suggest_imports for suggestion construction (B2 fix)
-    let ast_suggestions = touring_code::ast::wiring::suggest_imports(&unresolved, &known_modules);
+    // Step 3: crate-aware `use` path (B2 fix → S3 `suggest_imports_for`)
+    let ast_suggestions = touring_code::ast::wiring::suggest_imports_for(
+        &unresolved,
+        &known_modules,
+        Some(current_file),
+    );
 
     // Step 4: Format as user-facing strings
     ast_suggestions
@@ -1364,40 +1474,23 @@ fn detect_unresolved_types(
 
 /// Check if a name is a common builtin type that does not need importing.
 fn is_rust_builtin(name: &str) -> bool {
-    matches!(
-        name,
-        "String"
-            | "Vec"
-            | "Option"
-            | "Result"
-            | "Box"
-            | "Arc"
-            | "Mutex"
-            | "RwLock"
-            | "HashMap"
-            | "HashSet"
-            | "BTreeMap"
-            | "BTreeSet"
-            | "VecDeque"
-            | "Path"
-            | "PathBuf"
-            | "Duration"
-            | "Instant"
-            | "Ok"
-            | "Err"
-            | "Some"
-            | "None"
-            | "Self"
-            | "Default"
-            | "Send"
-            | "Sync"
-            | "Clone"
-            | "Debug"
-            | "Display"
-            | "Serialize"
-            | "Deserialize"
-            | "Value"
-    )
+    // S3 (2026-09-02): one list for the three detectors (this copy, the
+    // `wiring.rs` one and the pre-write resolver) — they had drifted apart.
+    touring_code::ast::import_resolver::is_builtin_type_name(name)
+}
+
+/// `(file, line)` of every CALL SITE of `name` in the symbol index (A2).
+///
+/// Empty when the runtime has no symbol store or the index was built without
+/// reference extraction — the layer then stays silent instead of guessing.
+fn call_sites(runtime: &HookRuntime, name: &str) -> Vec<(String, usize)> {
+    runtime
+        .symbol_store()
+        .and_then(|store| store.find_references(name).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|loc| (loc.file_path, loc.line))
+        .collect()
 }
 
 /// Signal I-5: Build a callgraph context signal for a file being edited.
@@ -1406,23 +1499,21 @@ fn is_rust_builtin(name: &str) -> bool {
 /// delegates to `callgraph_enrichment::enrich_with_callgraph` for full
 /// caller/callee/hotspot enrichment, formatted via `format_callgraph_context`.
 ///
-/// Only fires for Rust and Python. Returns `None` on any I/O or parse error.
+/// Fires for every language the call graph has a front-end for (Rust, Python,
+/// TypeScript, JavaScript — `supports_call_graph`). Returns `None` on any I/O
+/// or parse error.
 fn callgraph_signal_for_file(file_path: &str) -> Option<String> {
-    // Detect language from extension — only Rust and Python supported
-    let lang_str = match std::path::Path::new(file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-    {
-        Some("rs") => "rust",
-        Some("py") => "python",
-        _ => return None,
-    };
+    // S10 (2026-09-02): gate on the library's own predicate, not on a local
+    // `.rs`/`.py` list — TS/JS were dispatched by `build_call_graph` and
+    // filtered out right here.
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(file_path))
+        .filter(|l| touring_code::ast::call_graph::supports_call_graph(*l))?;
+    let lang_str = lang.as_str();
 
     let source = std::fs::read_to_string(file_path).ok()?;
 
     // Find the symbol with the most callers — that's the highest-impact target.
     // Build call graph once to identify the hot symbol, then enrich it fully.
-    let lang: touring_code::ast::Lang = lang_str.parse().ok()?;
     let graph = touring_code::ast::call_graph::build_call_graph(&source, lang);
 
     let top_symbol: Option<String> = {

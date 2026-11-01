@@ -1,0 +1,89 @@
+hw-slot: aguardando — temp 94C > 88C
+FFFF                                                                     [100%]
+=================================== FAILURES ===================================
+_____________ test_duplicata_datada_vence_blob_e_respeita_o_corte ______________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f022d9bd350>
+
+    def test_duplicata_datada_vence_blob_e_respeita_o_corte(monkeypatch):
+        registros = [
+            registro("mesmo-id", "", "python3 -c 'x = 1'"),
+            registro("mesmo-id", DEPOIS, "python3 -c 'x = 1'"),
+            registro("mesmo-id", ANTES, "python3 -c 'x = 1'"),
+        ]
+        monkeypatch.setattr(cd.v5, "universo", lambda: registros)
+        monkeypatch.setattr(cd.v5, "monta", monta_fake)
+        pool, info = cd.pool_inline(CORTE, VAZIO)
+>       assert [r["ts"] for r in pool["c"]] == [ANTES]
+E       AssertionError: assert [''] == ['2026-10-01T10:00:00.000Z']
+E
+E         At index 0 diff: '' != '2026-10-01T10:00:00.000Z'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py:42: AssertionError
+___________ test_inline_sem_qualquer_instante_vira_exclusao_contada ____________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f022e63c9d0>
+
+    def test_inline_sem_qualquer_instante_vira_exclusao_contada(monkeypatch):
+        monkeypatch.setattr(cd.v5, "universo", lambda: [registro("sem-ts", "", "python3 -c 'x = 1'")])
+        monkeypatch.setattr(cd.v5, "monta", monta_fake)
+        pool, info = cd.pool_inline(CORTE, VAZIO)
+>       assert pool["c"] == []
+E       assert [{'tool_use_i...x = 1'", ...}] == []
+E
+E         Left contains one more item: {'tool_use_id': 'sem-ts', 'ts': '', 'session': 's1', 'command': "python3 -c 'x = 1'", ...}
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py:50: AssertionError
+_________ test_barreira_do_cache_nao_deixa_ts_vazio_atravessar_o_corte _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x7f022d9cf410>
+tmp_path = PosixPath('/tmp/pytest-of-gabrielgadea/pytest-383/test_barreira_do_cache_nao_dei0')
+
+    def test_barreira_do_cache_nao_deixa_ts_vazio_atravessar_o_corte(monkeypatch, tmp_path):
+        monkeypatch.setattr(cd, "STATE", {})
+        monkeypatch.setattr(cd, "CACHE", tmp_path / "cache.json")
+        monkeypatch.setattr(cd.c0, "varrer_transcripts", lambda: {})
+        monkeypatch.setattr(
+            cd.c0,
+            "universo_negativos",
+            lambda _indice: (
+                [f"/p/a.py@{DEPOIS}", "/p/a.py@", f"/p/a.py@{ANTES}"],
+                {"vistos": 1, "candidatos": 3},
+            ),
+        )
+        cd.ajustar_arquivo(CORTE, VAZIO, {}, 18, False)
+        filtrados, contagens = cd.c0.universo_negativos({})
+>       assert filtrados == [f"/p/a.py@{ANTES}"]
+E       AssertionError: assert ['/p/a.py@', ...0:00:00.000Z'] == ['/p/a.py@202...0:00:00.000Z']
+E
+E         At index 0 diff: '/p/a.py@' != '/p/a.py@2026-10-01T10:00:00.000Z'
+E         Left contains one more item: '/p/a.py@2026-10-01T10:00:00.000Z'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py:68: AssertionError
+___________ test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts ___________
+
+    def test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts():
+        indice = {
+            ARQ: [
+                evento_write(None, "api-request-blob"),
+                evento_write(TS, "assistant"),
+            ]
+        }
+        filtrados, contagens = c0.universo_negativos(indice)
+>       assert filtrados == [f"{ARQ}@{TS}"]
+E       AssertionError: assert ['/home/gabri...4:22:17.466Z'] == ['/home/gabri...4:22:17.466Z']
+E
+E         At index 0 diff: '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@' != '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@2026-10-27T14:22:17.466Z'
+E         Left contains one more item: '/home/gabrielgadea/projects/touring/client/hooks/tests/test_injection_policy_gate.py@2026-10-27T14:22:17.466Z'
+E         Use -v to get more diff
+
+/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_arquivo.py:42: AssertionError
+=========================== short test summary info ============================
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py::test_duplicata_datada_vence_blob_e_respeita_o_corte
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py::test_inline_sem_qualquer_instante_vira_exclusao_contada
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_inline.py::test_barreira_do_cache_nao_deixa_ts_vazio_atravessar_o_corte
+FAILED ../home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261031/test_ts_arquivo.py::test_arquivo_preserva_evento_datado_e_exclui_blob_sem_ts
+4 failed in 0.29s

@@ -1,0 +1,3 @@
+lock ocupado: /run/user/1000/touring-quality.lock
+segredo: deny em 0.12s (esperado deny) · limpo: allow em 0.11s (esperado allow) · fail-open novos: 0
+RC=0

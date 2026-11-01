@@ -1,0 +1,346 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (arquivo) 0.500 < 0.7 (40/80)",
+  "falso deny (arquivo) limite superior 95% 2.95% > 1% (0/100, taxa 0.000%) — n=100 não prova ≤ 1% nem com 0 falsos; exige n ≥ 299"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 0,
+   "n": 100,
+   "taxa": 0.0,
+   "limite_superior_95": 0.029513049607039932,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": -1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.5,
+  "inline": 0.0
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   40,
+   80
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   0,
+   80
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   0
+  ],
+  "inline": [
+   0,
+   0
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [],
+ "negativos": {
+  "arquivo": 100,
+  "inline": 0
+ },
+ "avisos_em_negativos": 0,
+ "defeito_de_corpus": [],
+ "p95_ms": 0.368811,
+ "chamadas": 180,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "ab2278bf4e3a",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_000",
+   "verdict": "allow"
+  },
+  {
+   "id": "b957b6d10a7e",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_001",
+   "verdict": "allow"
+  },
+  {
+   "id": "61bb9214a2ef",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_002",
+   "verdict": "allow"
+  },
+  {
+   "id": "bb323064a9d2",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_003",
+   "verdict": "allow"
+  },
+  {
+   "id": "8b1f5f738899",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_004",
+   "verdict": "allow"
+  },
+  {
+   "id": "240abaedb4b3",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_005",
+   "verdict": "allow"
+  },
+  {
+   "id": "394685f193d9",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_006",
+   "verdict": "allow"
+  },
+  {
+   "id": "8bbdc0d57fe5",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_007",
+   "verdict": "allow"
+  },
+  {
+   "id": "b0606673915b",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_008",
+   "verdict": "allow"
+  },
+  {
+   "id": "3f63118f229c",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_009",
+   "verdict": "allow"
+  },
+  {
+   "id": "4995a85a5b2e",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_010",
+   "verdict": "allow"
+  },
+  {
+   "id": "ced2bdafd4c1",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_011",
+   "verdict": "allow"
+  },
+  {
+   "id": "3a2af3975cf0",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_012",
+   "verdict": "allow"
+  },
+  {
+   "id": "edb9a3a88569",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_013",
+   "verdict": "allow"
+  },
+  {
+   "id": "616a13567f52",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_014",
+   "verdict": "allow"
+  },
+  {
+   "id": "e59def695f1c",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_015",
+   "verdict": "allow"
+  },
+  {
+   "id": "bdf5bec3b846",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_016",
+   "verdict": "allow"
+  },
+  {
+   "id": "5100faf8415a",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_017",
+   "verdict": "allow"
+  },
+  {
+   "id": "55403b99bce0",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_018",
+   "verdict": "allow"
+  },
+  {
+   "id": "b8aee947c6f3",
+   "origem": "semeado",
+   "classe": "import",
+   "esperado": "vgp_import_ausente_019",
+   "verdict": "allow"
+  },
+  {
+   "id": "109d583524b6",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_000",
+   "verdict": "allow"
+  },
+  {
+   "id": "e75d55c98fb9",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_001",
+   "verdict": "allow"
+  },
+  {
+   "id": "e13239ff4a5f",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_002",
+   "verdict": "allow"
+  },
+  {
+   "id": "4698882535b2",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_003",
+   "verdict": "allow"
+  },
+  {
+   "id": "64cfab95528b",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_004",
+   "verdict": "allow"
+  },
+  {
+   "id": "e21228e28358",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_005",
+   "verdict": "allow"
+  },
+  {
+   "id": "e59673e8e494",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_006",
+   "verdict": "allow"
+  },
+  {
+   "id": "db635135fa45",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_007",
+   "verdict": "allow"
+  },
+  {
+   "id": "821266bedff6",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_008",
+   "verdict": "allow"
+  },
+  {
+   "id": "3016de02b435",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_009",
+   "verdict": "allow"
+  },
+  {
+   "id": "b146fad217fd",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_010",
+   "verdict": "allow"
+  },
+  {
+   "id": "a04020721a9d",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_011",
+   "verdict": "allow"
+  },
+  {
+   "id": "ee3073b7e0ac",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_012",
+   "verdict": "allow"
+  },
+  {
+   "id": "815381771dfd",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_013",
+   "verdict": "allow"
+  },
+  {
+   "id": "9010a49218a8",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_014",
+   "verdict": "allow"
+  },
+  {
+   "id": "13414fe1a32a",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_015",
+   "verdict": "allow"
+  },
+  {
+   "id": "1bfb360da0a8",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_016",
+   "verdict": "allow"
+  },
+  {
+   "id": "61de16eedb1d",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_017",
+   "verdict": "allow"
+  },
+  {
+   "id": "bac0d86772d4",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_018",
+   "verdict": "allow"
+  },
+  {
+   "id": "0629cd1b2526",
+   "origem": "semeado",
+   "classe": "atributo",
+   "esperado": "vgp_atributo_ausente_019",
+   "verdict": "allow"
+  }
+ ]
+}

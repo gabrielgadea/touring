@@ -15,8 +15,11 @@ impl TouringServer {
     ///
     /// Supports: js/node, python, ts/bun, ruby, go, rust, perl, r, elixir, php, shell/bash, sh.
     ///
-    /// Forbidden calls are blocked (fs.write*, subprocess.run, eval, etc.) and returned
-    /// in `forbidden_calls` array.
+    /// Forbidden calls (fs.write*, subprocess.run, eval, etc.) are detected and returned
+    /// in the `forbidden_calls` array. By default they WARN (a `[CEG WARNING]` stderr
+    /// banner) and the run proceeds; `TOURING_CEG_FORBIDDEN_ENFORCE=1` upgrades the
+    /// policy to Block. Saying "blocked" here while the executor warned was the D8
+    /// text-vs-executor drift the analise-a2 field report caught (30/08/2026).
     ///
     /// Output is truncated at 1MB. Timeout defaults to 30s, max 120s.
     #[tool(
@@ -36,24 +39,34 @@ impl TouringServer {
             p.timeout_ms,
             p.cwd,
             p.allow_forbidden,
+            None, // tunables por chamada são superfície do `touring run` (CLI)
         )
         .await
         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = serde_json::json!({
-            "stdout": out.stdout,
-            "stderr": out.stderr,
-            "exit_code": out.exit_code,
-            "duration_ms": out.duration_ms,
-            "forbidden_calls": out.forbidden_calls,
-            "stdout_truncated": out.stdout_truncated,
-            "stderr_truncated": out.stderr_truncated,
-        });
+        // Cross-audit 04/09/2026 — este adaptador montava o proprio envelope com
+        // apenas os 7 campos base, enquanto `format_output` (o serializador que a
+        // propria doc dele diz servir "MCP consumers") ficava sem NENHUM chamador.
+        // O custo era do consumidor MCP: sem `success`, sem taxonomia de falha, sem
+        // `stored_path`/`retrieval_hint` — o localizador do spill nunca chegava a
+        // quem precisava dele para ler a saida elidida.
+        let mut output = crate::tools::ctx_execute_tools::format_output(Ok(&out));
         let gctx = self.graph_svc.resolve_ctx(None).await;
         self.graph_svc.inject(&mut output, &gctx);
         crate::tools::suggestions::append_to_response(&mut output, "touring_ctx_execute", 2);
         let text = serde_json::to_string_pretty(&output)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        Ok(CallToolResult::success(vec![Content::text(text)]))
+        // MCP: the program's failure is a TOOL-EXECUTION error, reported inside the
+        // result with `isError` so the model can read it and correct the program; a
+        // tool that cannot run at all stays a protocol error (`McpError` above).
+        // This returned `success` for every run until 18/09/2026.
+        let content = vec![Content::text(text)];
+        Ok(
+            if crate::tools::ctx_execute_tools::program_succeeded(&out) {
+                CallToolResult::success(content)
+            } else {
+                CallToolResult::error(content)
+            },
+        )
     }
 }

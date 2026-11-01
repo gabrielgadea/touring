@@ -1,0 +1,11 @@
+{
+  "phase": "W1",
+  "entities": [
+    {
+      "entity_id": "phase:W1",
+      "type": "phase",
+      "description": "d3 CODE-COMPLETE: taxonomia RunFailure{kind,phase,message} 6 kinds ortogonais (Timeout>OutputLimit>Exception, mensagens que ensinam), spill com locator+retrieval_hint (stored_path quando inline truncado; head/tail com marcador de elisao), budget duplo compute_ms via /proc/<pid>/stat (busy medido no substrato, poll 100ms, select 3 bracos), caps inline configuraveis por env. derive_run_outcome extraida (CC). Testes: executor 44/44 (2 novos budget), E2E 20/20 (4 novos taxonomia+spill), unit 10/10 (truncate migrado p/ head_tail), clippy 0"
+    }
+  ],
+  "relations": []
+}

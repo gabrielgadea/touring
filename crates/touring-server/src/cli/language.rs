@@ -49,7 +49,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         "rb" => cmd_detail(args, "ruby"),
         _ => {
             anyhow::bail!(
-                "Unknown language: '{}'. Use: list, rust, typescript, python, go, c, kotlin, swift, java, ruby, php",
+                "Unknown language '{}' — run `touring language list` to see all supported languages",
                 subcommand
             )
         }

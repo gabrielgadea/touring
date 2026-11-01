@@ -1,0 +1,11 @@
+{
+  "phase": "P0",
+  "entities": [
+    {
+      "entity_id": "phase:P0",
+      "type": "phase",
+      "description": "P0 reparo do caminho preferido: 4 defeitos corrigidos e provados vivos (gate.rs deriva o binario real em vez de pedir Run(any); --brief declara elided_lines; o nudge nao recorre sobre touring run; a fusao do G1 entrega comando inteiro ou nenhum). Refechado com --subtask apos o guard revelar que o fechamento anterior reportou dag_updated:true atualizando um subtask inexistente."
+    }
+  ],
+  "relations": []
+}

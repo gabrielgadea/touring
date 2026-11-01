@@ -1,0 +1,150 @@
+hw-slot: aguardando — temp 95C > 88C
+   Compiling touring-code v30.4.102 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 19.51s
+     Running unittests src/lib.rs (target/debug/deps/touring_code-91c008abebc4bd9a)
+
+running 4 tests
+test ast::wiring::tests::test_detect_unresolved_ignores_builtins ... ok
+test vgp::lang::python::tests::site_builtins_exit_e_quit_nao_geram_falso_deny ... ok
+test vgp::lang::python::tests::p0bd_os_demais_builtins_seguem_incertos_e_sem_receptor ... ok
+test ast::import_resolver::tests::s3_unresolved_type_references_skip_qualified_declared_imported_and_builtins ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 974 filtered out; finished in 0.00s
+
+     Running tests/bash_scanner_ctype.rs (target/debug/deps/bash_scanner_ctype-ee30e61836f37f8c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/cross_audit.rs (target/debug/deps/cross_audit-03c18c7a87f9bf55)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 31 filtered out; finished in 0.00s
+
+     Running tests/fuzz_parsers.rs (target/debug/deps/fuzz_parsers-357959581b065fea)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/integration_test.rs (target/debug/deps/integration_test-ff77c1d248ff4198)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/latency_p99_guard.rs (target/debug/deps/latency_p99_guard-b7989ee0751ac25e)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 5 filtered out; finished in 0.00s
+
+     Running tests/markdown_scanner_overflow.rs (target/debug/deps/markdown_scanner_overflow-a470430f0303eb54)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 7 filtered out; finished in 0.00s
+
+     Running tests/mockall_observer.rs (target/debug/deps/mockall_observer-10b299151a20a423)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 6 filtered out; finished in 0.00s
+
+     Running tests/parametric_multilang.rs (target/debug/deps/parametric_multilang-3a996ceaf5adedaa)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 58 filtered out; finished in 0.00s
+
+     Running tests/property_tests.rs (target/debug/deps/property_tests-f66087194dc682fd)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.00s
+
+     Running tests/proptest_parser_fuzz.rs (target/debug/deps/proptest_parser_fuzz-b6dfecb7b1146fdf)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s
+
+     Running tests/rusty_fork_isolation.rs (target/debug/deps/rusty_fork_isolation-5e343f170d6d14a1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 4 filtered out; finished in 0.00s
+
+     Running tests/semantics_tests.rs (target/debug/deps/semantics_tests-60abafdfcbb31f2b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 13 filtered out; finished in 0.00s
+
+     Running tests/snapshot_call_graph.rs (target/debug/deps/snapshot_call_graph-317761a110692cc3)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/snapshot_call_graph_scc.rs (target/debug/deps/snapshot_call_graph_scc-af02521a2a328e97)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 0.00s
+
+     Running tests/snapshot_complexity.rs (target/debug/deps/snapshot_complexity-115707df7648ca58)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/snapshot_complexity_async.rs (target/debug/deps/snapshot_complexity_async-1503a52e09787351)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/snapshot_imports.rs (target/debug/deps/snapshot_imports-79950389932065a6)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 2 filtered out; finished in 0.00s
+
+     Running tests/snapshot_module_tree.rs (target/debug/deps/snapshot_module_tree-a4a19b92f4221f70)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/snapshot_module_tree_deep.rs (target/debug/deps/snapshot_module_tree_deep-e721eb63fb5202b8)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/snapshot_pheromone_e2e.rs (target/debug/deps/snapshot_pheromone_e2e-c3324a730599df1b)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 10 filtered out; finished in 0.00s
+
+     Running tests/strategies_audit.rs (target/debug/deps/strategies_audit-ce42b76800de8aab)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 54 filtered out; finished in 0.00s
+
+     Running tests/ts_parse_budget.rs (target/debug/deps/ts_parse_budget-542e487d0b3388eb)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/wave5_code_gen_workflow_e2e.rs (target/debug/deps/wave5_code_gen_workflow_e2e-a4f4cd4d6744cec2)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 8 filtered out; finished in 0.00s

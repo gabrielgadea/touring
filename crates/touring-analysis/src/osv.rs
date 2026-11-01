@@ -127,8 +127,9 @@ pub fn offline_summary(dir: &std::path::Path) -> Option<String> {
     ecosystems.dedup();
     Some(format!(
         "OSV.dev coverage: {} manifest(s) [{}], {} dependencies → {} queries ready. \
-         Live multi-ecosystem lookup is opt-in/network (set TOURING_OSV_SCAN=1; \
-         POST {})",
+         Live lookup exists for PyPI only — F2.5 audits a Python root (uv.lock) via \
+         pip-audit when TOURING_OSV_SCAN=1 (S510); npm/Go stay offline (the {} batch \
+         is built, never sent)",
         inventory.manifests.len(),
         ecosystems.join(", "),
         inventory.total_dependencies(),
@@ -226,7 +227,9 @@ mod tests {
         assert!(summary.contains("Go"));
         assert!(summary.contains("npm"));
         assert!(summary.contains("2 dependencies"));
-        assert!(summary.contains("opt-in"));
+        // The network policy is declared — and truthfully: until S510 this said a
+        // live multi-ecosystem lookup was one env var away, and no code read it.
+        assert!(summary.contains("npm/Go stay offline"), "{summary}");
     }
 
     #[test]

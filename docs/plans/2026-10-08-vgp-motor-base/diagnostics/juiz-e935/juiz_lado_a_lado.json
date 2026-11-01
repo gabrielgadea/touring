@@ -1,0 +1,133 @@
+{
+ "tabela": [
+  [
+   "recall simbolo arquivo",
+   [
+    8,
+    13
+   ],
+   [
+    8,
+    13
+   ]
+  ],
+  [
+   "recall simbolo inline",
+   [
+    12,
+    27
+   ],
+   [
+    8,
+    20
+   ]
+  ],
+  [
+   "negativos arquivo/inline",
+   [
+    400,
+    300
+   ],
+   [
+    400,
+    274
+   ]
+  ],
+  [
+   "falsos deny (total)",
+   85,
+   88
+  ],
+  [
+   "falsos deny por balde",
+   {
+    "arquivo": 43,
+    "inline": 42
+   },
+   {
+    "arquivo": 48,
+    "inline": 40
+   }
+  ],
+  [
+   "avisos em negativos",
+   180,
+   180
+  ],
+  [
+   "p95 ms",
+   103.8,
+   110.3
+  ],
+  [
+   "chamadas",
+   762,
+   729
+  ],
+  [
+   "defeito de corpus (snap nao compila)",
+   [
+    "6dce9f68d2da",
+    "c72427be59bd",
+    "9c269d2c1bf5"
+   ],
+   []
+  ],
+  [
+   "erros do juiz",
+   0,
+   0
+  ],
+  [
+   "pendencias",
+   [
+    "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+    "falso deny (arquivo) 10.750% > 1% (43/400)",
+    "falso deny (inline) 14.000% > 1% (42/300)"
+   ],
+   [
+    "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+    "falso deny (arquivo) 12.000% > 1% (48/400)",
+    "falso deny (inline) 14.599% > 1% (40/274)"
+   ]
+  ]
+ ],
+ "negativos": {
+  "por_grupo": {
+   "inline/c": {
+    "removida e estava limpa": 16,
+    "falso -> falso (texto igual)": 15,
+    "limpa -> limpa (texto igual)": 60,
+    "removida e era falso deny": 2,
+    "limpa -> limpa (texto mudou)": 7,
+    "mudou de estrato c -> heredoc": 3
+   },
+   "inline/heredoc": {
+    "falso -> falso (texto igual)": 14,
+    "limpa -> limpa (texto igual)": 84,
+    "removida e estava limpa": 2
+   },
+   "inline/touring_run": {
+    "falso -> falso (texto igual)": 11,
+    "limpa -> limpa (texto igual)": 83,
+    "removida e estava limpa": 6
+   },
+   "tmp": {
+    "limpa -> limpa (texto igual)": 79,
+    "limpa -> falso (texto mudou)": 5,
+    "limpa -> limpa (texto mudou)": 2,
+    "falso -> falso (texto igual)": 14
+   }
+  },
+  "controle_atribuido_igual": true,
+  "falsos_vivo": 85,
+  "falsos_staging": 88
+ },
+ "positivos": {
+  "removidas": 11,
+  "removidas_que_reproduziam": 10,
+  "removidas_na_populacao_do_recall": 10,
+  "dessas_eram_perda": 3,
+  "dessas_eram_acerto": 7
+ }
+}

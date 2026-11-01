@@ -1,0 +1,579 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "recall de símbolo (arquivo) 0.615 < 0.7 (8/13)",
+  "recall de símbolo (inline) 0.444 < 0.7 (12/27)",
+  "falso deny (arquivo) 14.286% > 1% (11/77)",
+  "falso deny (inline) 2.116% > 1% (4/189)",
+  "p95 677.5 ms > 150.0 ms"
+ ],
+ "recall_simbolo": {
+  "arquivo": 0.6153846153846154,
+  "inline": 0.4444444444444444
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   8,
+   13
+  ],
+  "inline": [
+   12,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   3,
+   13
+  ],
+  "inline": [
+   12,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "188acd723905",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/sonda_cdn_css_tsx.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "r",
+     "linha": 45,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 46,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6e59fc8b807e",
+   "balde": "arquivo",
+   "path": "/tmp/semeado/probe_fontes.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "b",
+     "linha": 24,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "b",
+     "linha": 33,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "b",
+     "linha": 34,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "49aa1113dfdc",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/mutar_shell_inline.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 37,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "38c95e43c4cf",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/classificar_falsos_vgp.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "lig",
+     "linha": 66,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "lig",
+     "linha": 66,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "32b440d25f64",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/medir_linguagens_vgp.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 57,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "7518c2a2d672",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/cdn_vivos.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "r",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "r",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "a9d7cc295edd",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/medir_programa_inline.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 8,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "fh",
+     "linha": 31,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "c790fcd133ec",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/patch_proposta.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "8ca83fef80e7",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/e7c33fba-4d8d-4026-84db-fe7083ece971/scratchpad/patch_juiz_classe_erro.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "annotations",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e555722dcb68",
+   "balde": "arquivo",
+   "path": "/tmp/semeado/probe5_rede.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 32,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 33,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 33,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "40a40dfc08e7",
+   "balde": "arquivo",
+   "path": "/tmp/semeado/probe4_html.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 137,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 138,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e0ed7935c1f7",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 6,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "e",
+     "linha": 7,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "d306402602ef",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "ex",
+     "linha": 34,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "e2ede553b663",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 16,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "ddd010c3b179",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 9,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "d",
+     "linha": 11,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 77,
+  "inline": 189
+ },
+ "avisos_em_negativos": 42,
+ "defeito_de_corpus": [
+  "6dce9f68d2da",
+  "c72427be59bd",
+  "9c269d2c1bf5"
+ ],
+ "p95_ms": 677.5114599999999,
+ "chamadas": 328,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "9f72920a9343",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "nm_municipio",
+   "verdict": "allow"
+  },
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "9569137c7076",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "creator",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ec93649b1ac",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "scripts",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "warn"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "12f3fca9a950",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "DESBALANCEADO",
+   "verdict": "deny"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "f1e9ade97240",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "TODAS",
+   "verdict": "deny"
+  },
+  {
+   "id": "1549f702a1de",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "uf",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "d94f8090d150",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "st_m_size",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "warn"
+  },
+  {
+   "id": "091584efee91",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "__version__",
+   "verdict": "deny"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "c95d9b124cc5",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "packages",
+   "verdict": "deny"
+  },
+  {
+   "id": "8b7a3476e024",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "deny"
+  },
+  {
+   "id": "34511b9ac100",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "total",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  },
+  {
+   "id": "36a19de32b1a",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "tau_val_coverage",
+   "verdict": "allow"
+  }
+ ]
+}

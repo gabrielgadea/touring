@@ -30,7 +30,7 @@ commitments:
     direction: gte
     advisory: true
     source: "daemon:cli-learning-status:/ema_reward"
-    rationale: "EMA reward < 0.2 means the RL loop hasn't converged yet. ADVISORY (investigation 2026-07-01): the value lives in the in-memory OnlineRLEngine, which resets on every daemon restart and re-injects a synthetic 0.2 warmup — so the first post-restart samples sit deterministically just under the 0.2 threshold (0.179606 observed byte-identical across days). A non-advisory gate on this source fails structurally after every restart without signalling anything. Re-arm only if the EMA gains durable persistence."
+    rationale: "EMA reward < 0.2 means the RL loop hasn't converged yet. HISTÓRICO (2026-07-01): o valor vivia só em memória e zerava a cada restart (0.179606 sintético observado byte-idêntico por dias) — por isso virou advisory. ATUALIZADO 29/08/2026 (P1 retenção, wave onlinerl-sinal-em-volume): update_count/EMA agora persistem em .claude/data/online_rl_state.json com restore monotônico no boot — medido 0.84 pós-restart, não mais o warmup sintético. Segue advisory por prudência; candidato a re-armar como blocking após dias de série durável."
 
   - id: touring.cache.hit_ratio
     name: "Query cache hit ratio (W17/W18)"
@@ -61,33 +61,45 @@ commitments:
     source: "daemon:cli-gotcha-stats:/resolved"
     rationale: "Gotchas should be progressively resolved over time."
 
+  # `external:` sources document HOW to measure; `touring kpi` never runs them
+  # (a dashboard must not spawn a 10-minute llvm-cov). Record the measurement
+  # next to this contract as `docs/kpi/external/<id>.json` with a numeric
+  # `value` field (extra fields like `measured_at`/`command` are human audit
+  # trail); the kpi surfaces it while the file is <14 days old, else STUB.
+  # Until 2026-08-28 there was NO channel at all and these stayed STUB forever
+  # even after being measured.
   - id: touring.test.count
     name: "Total nextest count"
     threshold: 5100
     direction: gte
-    source: "external:cargo nextest --list-tests | wc -l"
-    rationale: "Test count is a leading indicator of confidence; do not regress."
+    source: "external:cargo nextest list 2>/dev/null | grep -c ': test$' # → docs/kpi/external/touring.test.count.json"
+    rationale: "Test count is a leading indicator of confidence; do not regress. First real measurement 2026-08-28: 15786."
 
   - id: touring.coverage.line
     name: "Line coverage (cargo llvm-cov)"
     threshold: 0.75
     direction: gte
-    source: "external:cargo llvm-cov --workspace --lcov --summary-only"
-    rationale: "75% line coverage is the minimum bar set by docs/ci-template.yml."
+    source: "external:cargo llvm-cov --workspace --lcov --summary-only # fraction → docs/kpi/external/touring.coverage.line.json"
+    rationale: "75% line coverage is the minimum bar set by docs/ci-template.yml. First real measurement 2026-08-28: 0.7528."
 
   # ─── Wave T2 (2026-04-25) — mutation testing ──────────────────────────────
   # Threshold ramps up per docs/mutation-testing.md (week 1-2 → month 3):
   #   week 1-2: 50  | week 3-4: 65  | month 2: 75  | month 3: 80 (target)
-  # Source reads the cached report written by `touring mutation-test` (T1).
-  # When the cache is empty (cache_miss / kind=cache_miss / kill_rate absent)
-  # the kpi handler returns 0.0 and this commitment fails, but the gate in
-  # run_full_audit.sh is advisory (skip-aware) so cold-start does not block.
+  # Source reads the cached report written by `touring mutation-test` (T1);
+  # `@touring-identity` is the package scope (the handler's cache is keyed per
+  # package). The kpi reads cache_only — kill_rate absent → STUB, and the run
+  # itself (~19 min for 134 mutants) is triggered explicitly:
+  #   touring mutation-test --package touring-identity
+  # Retarget note (2026-08-28): the original target `touring-ast` no longer
+  # exists as a crate (absorbed in refactors) — the commitment pointed at a
+  # ghost. touring-identity is the measured series (2026-08-20: 74.3% → 99.1%
+  # after the mutants nextest profile).
   - id: touring.mutation.kill_rate
-    name: "Mutation test kill_rate (touring-ast, advisory)"
+    name: "Mutation test kill_rate (touring-identity)"
     threshold: 50.0
     direction: gte
-    source: "daemon:cli-mutation-test:/kill_rate"
-    rationale: "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50% (advisory); ramps to 80% by month 3. See docs/mutation-testing.md."
+    source: "daemon:cli-mutation-test@touring-identity:/kill_rate"
+    rationale: "Mutation testing measures how many fault injections the test suite catches. Week 1-2 baseline is 50%; ramps to 80% by month 3. See docs/mutation-testing.md."
 
   # ─── Wave F1 (2026-06-28) — coupling telemetry (node ⑦) ───────────────────
   # The touring.coupling.* family measures the EFFECTIVENESS of the LLM↔Touring
@@ -161,6 +173,57 @@ commitments:
     source: "derived:adoption_ratio"
     rationale: "The mother coupling KPI (telemetry §9, F3): the prior-bash->prior-touring inversion. Among Bash invocations, the fraction that call `touring` vs raw-shell antipatterns (grep/cat/find/sed) — touring/(touring+antipattern) over the daemon lifetime. Unconditional (every Bash action), unlike F2's suggestion-gated uptake. gte 0.50 = touring is the default reach, not the exception (the prior has flipped). STUB until the first Bash action is classified."
 
+  - id: touring.code_mode.adoption_ratio
+    name: "Code-mode adoption — `touring run` executions per Bash action (W0 S-0.1)"
+    threshold: 0.10
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_adoption_ratio"
+    rationale: "The KPI that judges the code-mode plan (plano code-mode-total, 2026-08-24): code_mode_runs_count / bash_calls_total_count, both daemon-lifetime accumulators. Baseline measured 2026-08-24: 4% of 4037 Bash calls used `touring run` (evidence/diag_gate.py, 55 sessions). gte 0.10 = the gates + repertoire moved real usage beyond the baseline. STUB until the first Bash action is observed — a missing denominator is unknown, never zero (Lei L2)."
+
+  - id: touring.code_mode.economy_ratio
+    name: "Economia do code mode — programas que FUNDIRAM / programas rodados (P5b)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_economy_ratio"
+    rationale: "A metade que faltava à `adoption_ratio` (achado de Gabriel, 26/08/2026). Adoção mede o CANAL — e sobe igual quando o modelo funde dez inspeções numa chamada e quando embrulha dez leituras triviais, porque `scan_class_of` não reconhece `touring run` e nenhum gate vê a rota sancionada. Este mede a ECONOMIA: `economical/followed`, onde `economical` é o programa que tocou ≥2 alvos ou executou ≥2 operações. Fala da APRESENTAÇÃO, não da disciplina do modelo: sob `code` a atômica é negada, então a casca sobre um alvo é obrigatória — economia baixa com adoção alta é o retrato de um braço obedecido e caro. STUB abaixo de ARM_MIN_SAMPLE tomadas."
+
+  - id: touring.code_mode.arm_native
+    name: "Braço code-mode `native` — rota tomada / rota oferecida (sem colapso — inspeção atômica passa)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_arm_native"
+    rationale: "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado."
+
+  - id: touring.code_mode.arm_both
+    name: "Braço code-mode `both` — rota tomada / rota oferecida (advisory — a rota é sugerida, não imposta)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_arm_both"
+    rationale: "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado."
+
+  - id: touring.code_mode.arm_code
+    name: "Braço code-mode `code` — rota tomada / rota oferecida (colapso — a inspeção é negada com a rota escrita)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_arm_code"
+    rationale: "P2 (decisão (b) de Gabriel, 2026-08-26) — a evidência que autoriza PROMOVER a política da apresentação de default-OFF para armada. Numerador/denominador vêm de `<projeto>/.claude/touring/code_mode_arm.json`, a MESMA fonte que `arm_choice_from_counts` lê: mostrar aqui os contadores de `gate-metrics` seria exibir um número diferente do que decide, já que eles zeram a cada restart de daemon (medido 26/08: t3_turn_first_passed caiu 2 → 0 em dois minutos). STUB abaixo de ARM_MIN_SAMPLE (20) — amostra insuficiente é desconhecido, nunca adesão nula. A política só age com DOIS braços acima do piso e margem ≥ 0,05 entre eles, e jamais sobrescreve um `[code_mode] mode` declarado."
+
+  # Wire note (2026-08-28): the `inspect_burst_share` derived branch existed in
+  # kpi.rs since S3 (2026-08-27) with NO commitment declaring it — an orphan
+  # branch no `touring kpi` output ever showed. This entry is its consumer.
+  - id: touring.code_mode.inspect_burst_share
+    name: "Rajada de inspeção — negadas / (negadas + primeiras aprovadas) (S3)"
+    threshold: 0.75
+    direction: lte
+    advisory: true
+    source: "derived:inspect_burst_share"
+    rationale: "A leitura da recalibração S3 (27/08): que fração da inspeção atômica vira rajada negada (2ª chamada da mesma classe em 300s). Baseline histórico 77,5% do volume em rajadas ≥2; limiar provisório lte 0.75 — o veredito sobre o limiar precisa de dias de uso, não de mais uma medição hoje. None enquanto nenhuma inspeção foi observada: ausência de sinal é desconhecido, nunca zero (Lei L2)."
+
   - id: touring.coupling.pillar_induction_ratio
     name: "Coupling pillar-induction — pillar nudge followed / emitted (Task #6, armed-only)"
     threshold: 0.5
@@ -174,12 +237,12 @@ commitments:
   # investigation). File-derived per project; STUB where no artifacts exist.
 
   - id: touring.adw.explore_rounds_to_dry
-    name: "Explore rounds until CCE convergence (mean)"
-    threshold: 8
+    name: "Explore rounds per convergence episode (mean, last episode)"
+    threshold: 6
     direction: lte
     advisory: true
     source: "derived:adw_explore_rounds_to_dry"
-    rationale: "Measures the cost of honest exploration: mean rounds until the CCE ledger converges. Persistently above 8 suggests lenses are yielding too slowly or targets are unbounded."
+    rationale: "N2 (2026-09-23, recalibrado): mede o EPISÓDIO de convergência (cauda de rodadas após o último par seco), não a vida inteira do ledger — ledgers persistem entre sessões e cada re-exploração apensa rodadas, então rounds.len() cobrava re-visita como convergência lenta (mean 8.09 lifetime vs 2.33 por episódio, medido em 174 ledgers; p90 episódico 6 → limiar 6). A hipótese de cortar lente seca morreu na mesma data: economizaria 1 rodada em 174 ledgers; open_qs>0 em 0/63 ledgers longos. Acima de 6 por dias = lentes rendendo devagar de verdade ou alvo aberto."
 
   - id: touring.adw.plan_refine_iters
     name: "Plan refinement iterations (max)"
@@ -213,13 +276,81 @@ commitments:
     source: "derived:adw_zte_bypass_rate"
     rationale: "The conformal bypass must remain the audited exception. Above 0.5 the human gate is being skipped more often than exercised — tighten zte_warmup or review the confidence model."
 
+  # M0 (estratégia paralelização-agentes 29/08/2026): instrumentar ANTES de
+  # esperar adoção — as duas afordâncias de paralelismo eram invisíveis ao
+  # instrumento (journal sem discriminador do `parallel`; tier só estimado).
+
+  - id: touring.code_mode.parallel_runs
+    name: "Sandbox runs that used touring.parallel (distinct)"
+    threshold: 1
+    direction: gte
+    advisory: true
+    source: "derived:code_mode_parallel_runs"
+    rationale: "Adoption meter for in-sandbox fan-out: distinct runs whose sub-calls carry the ':par' origin stamp in run_subcalls.jsonl. STUB until the first parallel sub-call — zero adoption must be visible, never inferred."
+
+  - id: touring.adw.tiered_agent_share
+    name: "ADW agent starts with a declared tier (executed share)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:adw_tiered_agent_share"
+    rationale: "M5: the craft travels with the node — tier chosen per function (SOTA scout/planner, workhorse engineer). Measured over journaled agent node_started lines carrying the tier key; STUB until instrumented runs exist."
+
   - id: touring.flow.compliance_ratio
-    name: "Gated-flow OUTER compliance (artifact manifests complete at Stop)"
+    name: "Gated-flow OUTER compliance (complete among flows that STARTED, 14d)"
     threshold: 0.9
     direction: gte
     advisory: true
     source: "derived:flow_compliance"
-    rationale: "Fraction of Stop-gate evaluations where the flow's artifact manifest (diagnostic + ledger + strategy doc) was complete. Below 0.9 the orchestrator is reaching end-of-turn without the protocol evidence — the anti-regression meter for protocol-adherence-diagnosis:2026-07-23. STUB until a gated flow runs here."
+    rationale: "N1 (2026-09-23, recalibrado): compliance CONDICIONAL ao início — complete/started numa janela de 14d, onde started = complete OR present_ids não-vazio (58% da história não tem a chave; complete a implica). Antes media TODAS as avaliações armadas: 0.499, com strategy-outer 74% nunca-iniciado — pós-Opção-C (03/09) o Stop não bloqueia mais, então armar-e-abandonar é estado permitido pela política, não violação, e o abandono migrou para touring.flow.arm_yield. O anti-regressão do protocol-adherence-diagnosis:2026-07-23 segue: quem TRABALHOU o flow deve fechar o manifesto. STUB enquanto nada iniciar na janela."
+
+  - id: touring.flow.compliance_work_outer
+    name: "OUTER compliance do flow work-outer (14d, started-conditional)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_work_outer"
+    rationale: "N1 (2026-09-23): o flow default (2 artefatos: diagnostic + ledger) é o mais saudável — 14d em 23/09: 202/202 = 100%. Abaixo de 0.9 a esteira padrão está largando artefato. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.compliance_strategy_outer
+    name: "OUTER compliance do flow strategy-outer (14d, started-conditional)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_strategy_outer"
+    rationale: "N1 (2026-09-23): o flow explícito (3 artefatos, incl. strategy doc consolidada) é o devedor — 14d em 23/09: 228 armados → 77 iniciados → 3 completos = 3.9%. Limiar 0.5 provisório como meta de melhoria honesta; o veredito sobre ele pede dias de sinal, não uma medição. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.compliance_cross_audit
+    name: "OUTER compliance do flow cross-audit (14d, started-conditional)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:flow_compliance_cross_audit"
+    rationale: "N1 (2026-09-23): 1 artefato (audit-report) — 14d em 23/09: 14/14 = 100%. Abaixo de 0.9 a auditoria está terminando sem relatório. STUB sem flow iniciado na janela."
+
+  - id: touring.flow.arm_yield
+    name: "Arm yield — flows iniciados / armados (14d)"
+    threshold: 0.3
+    direction: gte
+    advisory: true
+    source: "derived:flow_arm_yield"
+    rationale: "N1 (2026-09-23): o complemento que a compliance started-conditional exclui por desenho, mantido visível em vez de escondido — que fração dos armamentos vira trabalho de fato. 14d em 23/09: 293/461 = 63.6%. Caindo, a heurística de armamento (loop_outer_arm) está disparando em turnos conversacionais demais. STUB sem flow armado na janela."
+
+  - id: touring.learning.policy_discrimination
+    name: "Política discrimina — estados multi-ação com dispersão de Q > 0.01"
+    threshold: 0.3
+    direction: gte
+    advisory: true
+    source: "derived:learning_policy_discrimination"
+    rationale: "P2 elos-exponenciais (29/08/2026): a QTable era um órgão quase write-only — treinada pelo trickle, pelo replay e pelo auto_learn (seco), consultada por ~nenhum decisor de produção (a doc do trait prometia 'using QTable' e a impl delega ao LinUCB). O consumidor já observado devolveu 0.990 constante para qualquer entrada (uma-execucao-nao-distingue-constante). Instrumentar ANTES de ligar a política a decisões (estratégia M0): fração dos estados multi-ação cuja dispersão max−min de Q supera 0.01, lida da learning_qtable do graph.db — a MESMA tabela que o replay treina (127 pares pós-backfill; eram 71). None/STUB sem estados multi-ação. Limiar 0.3 provisório: o veredito pede dias de sinal, não mais uma medição hoje."
+
+  - id: touring.learning.replay_share
+    name: "Corpus de outcomes recompensados já consumido pelo OnlineRL (replay offline)"
+    threshold: 0.9
+    direction: gte
+    advisory: true
+    source: "derived:learning_replay_share"
+    rationale: "P2 replay (29/08/2026, pendência 'motor girando a seco'): o corpus de outcomes com reward (820 na estreia) nunca alcançava o OnlineRLEngine — o trickle online funciona (+1/tool call, provado 7→19→20), mas o acumulado ficava no memory.db sem consumidor e o estado do engine zerava a cada restart (13→7 medido). Numerador: replayed_total do cursor durável `learning_replay_cursor.json`; denominador: numerador + pendentes contados AGORA no memory.db (mesma fonte que `touring learning replay` lê). None/STUB enquanto nada foi replayado e o corpus está invisível — ausência é desconhecido, nunca zero. Abaixo de 0.9: rode `touring learning replay`."
 
   - id: touring.memory.corpus_coverage
     name: "Memory entries reachable by ANN recall (indexed / stored)"
@@ -244,3 +375,62 @@ commitments:
     advisory: true
     source: "derived:memory_never_recalled_ratio"
     rationale: "Dead weight in the store: written once, never read. 0.200 at 2026-08-02. Rising means either the corpus is drifting again (see corpus_coverage) or entries are being written in a shape recall cannot match."
+
+  - id: touring.memory.graph_contract_share
+    name: "Curated nodes honouring the minimum graph contract (key shape + typed edge)"
+    threshold: 0.5
+    direction: gte
+    advisory: true
+    source: "derived:memory_graph_contract_share"
+    rationale: "P3 of the memory-graph contract (2026-08-30, Gabriel's directive via analise-e0): share of new semantic lesson/decision/diagnostico nodes (14-day window) with a deterministic <tipo>:<slug>:<date> key AND at least one typed memory_links edge. Measured reference corpus: 27/31 writers were islands. Advisory by the enforcement ladder — instrument before blocking; the store response's contract:{} advisory and the P2 structural rank make linking pay, this meter tells whether behaviour actually moved. STUB (null) when the window has no curated nodes."
+
+  - id: touring.memory.edge_density
+    name: "Typed edges created per new memory entry (14-day window)"
+    threshold: 0.05
+    direction: gte
+    advisory: true
+    source: "derived:memory_edge_density"
+    rationale: "P5 of the memory-graph contract (2026-08-30): the ruler that decides whether `memory suggest-links` derived suggestions may ever graduate to automatic — only measured behaviour promotes an affordance up the ladder. Edges counted from memory_links, entries from memory_entries, both in the same 14-day window. STUB (null) when no entries were created in the window."
+
+  - id: touring.memory.tag_coverage
+    name: "Memory entries carrying faceted hashtags (hashtag library)"
+    threshold: 0.9
+    direction: gte
+    advisory: false
+    source: "daemon:cli-memory-stats:/tag_coverage"
+    rationale: "The hashtag library only compounds when entries are faceted — an untagged entry is invisible to `#facet:value` filters and MOC communities. Backfilled to 1.0 on 2026-08-12 (7.393/7.393); every store path auto-tags since F1, so a fall below 0.9 means a write path is bypassing derivation (or the codetag sync silently broke)."
+
+  # ─── Validade de medição (analise-e0, 2026-08-30) ─────────────────────────────
+  # Fração das medições registradas que verificaram ao menos uma RELAÇÃO METAMÓRFICA
+  # e não a violaram. Nasce de `data/medicao_journal.jsonl` no projeto `analise`, no
+  # mesmo molde em que `code_mode_adherence` nasce do `run_journal`.
+  # Motivo: em 30/08/2026, 44,4% dos instrumentos ad-hoc de uma sessão não declaravam
+  # controle algum, e onze vereditos falsos saíram deles num único dia. Nenhuma
+  # garantia do stack tem o instrumento ad-hoc como objeto: `touring-quality` mede
+  # higiene, `judge_attest` mede IDENTIDADE do juiz, `eficacia_gates` mede gates.
+  # Abaixo de n=20 o produtor emite `value: null` — STUB com causa, jamais zero.
+  - id: touring.medicao.adherence
+    name: "Measurement adherence (metamorphic relations verified)"
+    threshold: 0.8
+    direction: gte
+    advisory: true
+    source: "external:cd ~/projects/analise && python3 -m scripts.medicao.adherence --emit docs/kpi/external/touring.medicao.adherence.json # → docs/kpi/external/touring.medicao.adherence.json"
+    rationale: "Um instrumento de medição não é medido por nenhuma outra régua: um predicado errado é código impecável para as 50 dims. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série — re-armar como blocking depois de dias de dado."
+
+  # ─── Aderência ao roteamento de modelos (roteamento, 2026-10-17) ───────────────
+  # A matriz de CLAUDE.md §17 manda busca/extração para subagente `haiku`; o gate
+  # `agent_model_gate.py` só exige que `model` EXISTA. Desde 08/10
+  # o haiku ficou com 0,2% dos tokens Anthropic (régua deduplicada por message.id) e
+  # nenhuma régua media o desvio. Esta mede o que é
+  # DECIDÍVEL por tipo: das chamadas `Explore`/`touring-scouter` que pediram `model`,
+  # a fração que pediu haiku (1 - desajustes/elegíveis). Um `general-purpose` que busca
+  # sob sonnet é invisível aqui — é um piso, não a prova do roteamento certo.
+  # Abaixo de 10 buscas decidíveis o produtor emite `value: null` + `detalhe` — STUB com
+  # causa, jamais zero. Fresco por 14 dias (mtime do arquivo): re-rodar o `source`.
+  - id: touring.routing.adherence
+    name: "Model routing adherence (search subagents on haiku)"
+    threshold: 0.8
+    direction: gte
+    advisory: true
+    source: "external:cd ~/projects/touring && python3 scripts/model_routing_adherence.py --emit docs/kpi/external/touring.routing.adherence.json # → docs/kpi/external/touring.routing.adherence.json"
+    rationale: "A matriz de roteamento (busca/extração → haiku) só existe se for medida: o gate de modelo exige o campo, não a escolha. Piso 0.80 espelha code_mode_adherence. ADVISORY porque o medidor nasce sem série e o piso é provisório — re-armar como blocking depois de dias de dado. Detalhe por tipo/modelo, tokens por família e sessões que delegaram: `python3 scripts/model_routing_adherence.py --json`."

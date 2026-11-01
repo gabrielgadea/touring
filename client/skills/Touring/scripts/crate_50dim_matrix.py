@@ -37,7 +37,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from report_contract import print_contract  # noqa: E402 — sibling module, path set above
-from arsenal_cli import resolve_crate, split_flags  # noqa: E402 — sibling, path set above
+from arsenal_cli import (  # noqa: E402 — sibling, path set above
+    require_quality_bin,
+    resolve_crate,
+    resolve_quality_bin,
+    split_flags,
+)
 
 USAGE = """crate_50dim_matrix.py — lossless 50-dim harness matrix for a crate
 
@@ -47,17 +52,15 @@ Usage: crate_50dim_matrix.py [--json] <crate> [out-slug]
   --json    emit the raw matrix to stdout as JSON (suppresses the human digest)
   -h,--help show usage"""
 
-# Portable, no session-specific hardcoded absolute path; override with the env var.
-BIN = os.environ.get("TOURING_QUALITY_BIN") or str(
-    Path.home() / ".claude/rust/target/release/touring-quality"
-)
+# Portable: $TOURING_QUALITY_BIN → PATH → each known workspace release target.
+# Resolved lazily below so an importer never dies on a missing binary.
+BIN = resolve_quality_bin() or ""
 # CLI args and CLI-derived constants materialize ONLY when run as a script — an
 # importer (pytest, a composing tool) must never inherit this process's argv
 # (pytest's -q/--collect-only leaked into split_flags → SystemExit) nor die on
 # an unresolvable default crate / missing binary at import (fixed 2026-07-23).
 if __name__ == "__main__":
-    if not Path(BIN).is_file():
-        raise SystemExit(f"touring-quality binary not found at {BIN}; run `update-touring` first")
+    BIN = require_quality_bin()
     _POS, _FLAGS = split_flags(sys.argv[1:], {"-j": "json", "--json": "json"})
     if "help" in _FLAGS:
         print(USAGE)

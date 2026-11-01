@@ -71,6 +71,34 @@ const NET_COMMANDS: &[&str] = &[
     "curl", "wget", "nc", "ncat", "socat", "ssh", "scp", "sftp", "rsync", "ftp", "telnet",
 ];
 
+/// Shell words that the shell itself executes — no `fork`/`exec`, so no
+/// subprocess capability is required to run them.
+///
+/// Measured motivation (2026-08-27): every shell word was being emitted as a
+/// `Capability::Run`, so `echo oi` and `cd /tmp` denied under `sandboxed` with
+/// the SAME composite (0.675) as `curl http://evil.test`. A gate that fires on
+/// 100% of legitimate runs carries no information, and the noise is what
+/// justified downgrading shell denials wholesale — which then threw the real
+/// network signal away with it (see `run.rs::gate_run`).
+///
+/// Deliberately EXCLUDED, though they are builtins too: `eval`, `exec`,
+/// `source`, `.` and `trap` — each executes text as code or replaces the
+/// process, so treating them as inert would launder exactly the construct an
+/// attacker reaches for. `command`/`builtin` are excluded for the same reason:
+/// they take a real command as argument.
+const SHELL_BUILTINS: &[&str] = &[
+    ":", "[", "[[", "alias", "break", "case", "cd", "continue", "declare", "do", "done", "echo",
+    "elif", "else", "esac", "export", "false", "fi", "for", "function", "if", "in", "let", "local",
+    "printf", "pwd", "read", "readonly", "return", "select", "set", "shift", "test", "then",
+    "true", "typeset", "unalias", "unset", "until", "while",
+];
+
+/// Whether `command` is a shell builtin that runs in-process (see
+/// [`SHELL_BUILTINS`] for why `eval`/`exec`/`source` are NOT here).
+fn is_shell_builtin(command: &str) -> bool {
+    SHELL_BUILTINS.contains(&command)
+}
+
 /// Source tokens that signal a subprocess spawn, across the sandbox languages.
 ///
 /// A bare `system(` covers the Python `os.system(...)`, C `system(...)` and
@@ -110,6 +138,14 @@ const NET_TOKENS: &[&str] = &[
 ];
 
 /// Source tokens that signal a filesystem write.
+///
+/// The `pathlib`/`os`/`shutil` entries below are the FAMILY, not a sample:
+/// measured live on 2026-09-02 (B5), `Path(...).write_bytes(b"x" * 8192)` wrote
+/// 8 KiB inside the sandbox and returned `forbidden_calls: []`, because only
+/// `.write(` was listed. Each added token is chosen for precision as well as
+/// recall — `os.rename`/`os.replace` stay qualified, since the bare `.rename(`
+/// and `.replace(` are dominated by `DataFrame.rename` and `str.replace`, which
+/// touch no filesystem (the B3 lesson, same day).
 const WRITE_TOKENS: &[&str] = &[
     ".write(",
     "writeFile",
@@ -121,9 +157,20 @@ const WRITE_TOKENS: &[&str] = &[
     "Files.write",
     "shutil.copy",
     "shutil.move",
+    "shutil.rmtree",
     "os.remove",
     "os.unlink",
     "os.mkdir",
+    "os.makedirs",
+    "os.rename",
+    "os.replace",
+    "os.rmdir",
+    "write_bytes(",
+    "write_text(",
+    "writelines(",
+    ".mkdir(",
+    ".touch(",
+    ".unlink(",
 ];
 
 /// Source tokens that signal an environment-variable read.
@@ -174,11 +221,69 @@ fn leading_command(segment: &str) -> Option<&str> {
 ///
 /// File-descriptor duplication (`2>&1`, `>&2`) is excluded — it redirects an
 /// fd, it does not name a file to write.
+/// Alvos de redirecionamento que NÃO persistem nada: escrever neles é
+/// descartar (ou reapontar um descritor), nunca criar/alterar um arquivo.
+///
+/// `2>/dev/null` é o idioma universal de silenciar stderr e aparecia em
+/// praticamente todo comando real. Contá-lo como `fs-write` fazia um comando
+/// legítimo somar `subprocess` + `fs-write` e negar DURO depois que o waiver
+/// passou a ser seletivo (27/08/2026) — o waiver cego anterior escondia isso.
+const NON_PERSISTENT_TARGETS: &[&str] = &[
+    "/dev/null",
+    "/dev/stdout",
+    "/dev/stderr",
+    "/dev/tty",
+    "/dev/fd/",
+];
+
+/// Whether the redirection target starting at `rest` merely discards output.
+fn redirects_to_the_void(rest: &str) -> bool {
+    let alvo = rest.trim_start().trim_start_matches(['"', '\'']);
+    NON_PERSISTENT_TARGETS.iter().any(|t| alvo.starts_with(t))
+}
+
+/// Comandos que escrevem por ARGUMENTO, sem redirect — o `>` não aparece, mas
+/// o arquivo é criado do mesmo jeito.
+///
+/// Ponto em aberto do S9, fechado em 27/08/2026. `dd if=/dev/zero of=alvo`
+/// persistia sem que `bash_writes_a_file` visse nada, porque a função só
+/// procurava o operador de redirecionamento. O sandbox contém o filesystem, então
+/// isto nunca foi um furo de contenção — era detecção incompleta, e um `fs-write`
+/// invisível é exatamente a classe que o waiver seletivo precisa enxergar para
+/// decidir certo.
+fn writes_via_argument(code: &str) -> bool {
+    const POR_ARGUMENTO: &[&str] = &[
+        "of=",       // dd
+        "--output=", // curl, sort, objcopy…
+        "--output ",
+        "-o ", // curl -o, gcc -o, sort -o
+        "--out-file=",
+    ];
+    // `-o` só conta depois de um verbo que realmente grava — senão `ls -o`
+    // (formato longo sem grupo) viraria escrita.
+    let tem_o_de_saida = code.contains(" -o ")
+        && [
+            "curl", "wget", "sort", "gcc", "cc", "objcopy", "ffmpeg", "tar",
+        ]
+        .iter()
+        .any(|v| code.contains(v));
+    POR_ARGUMENTO
+        .iter()
+        .filter(|p| **p != "-o ")
+        .any(|p| code.contains(*p))
+        || tem_o_de_saida
+}
+
 fn bash_writes_a_file(code: &str) -> bool {
-    if code.contains("tee ") || code.contains("| tee") {
+    // S24: scan what the SHELL reads — a `>` inside quotes or a heredoc body is data.
+    let masked = mask_shell_data(code);
+    if masked.contains("tee ") || masked.contains("| tee") {
         return true;
     }
-    let bytes = code.as_bytes();
+    if writes_via_argument(&masked) {
+        return true;
+    }
+    let bytes = masked.as_bytes();
     for (i, &b) in bytes.iter().enumerate() {
         if b != b'>' {
             continue;
@@ -193,6 +298,10 @@ fn bash_writes_a_file(code: &str) -> bool {
         while bytes.get(j).is_some_and(u8::is_ascii_whitespace) {
             j += 1;
         }
+        // `> /dev/null` descarta; não é escrita que alguém precise autorizar.
+        if code.get(j..).is_some_and(redirects_to_the_void) {
+            continue;
+        }
         if bytes.get(j).is_some_and(|c| {
             c.is_ascii_alphanumeric()
                 || matches!(c, b'/' | b'.' | b'_' | b'~' | b'$' | b'"' | b'\'')
@@ -203,11 +312,124 @@ fn bash_writes_a_file(code: &str) -> bool {
     false
 }
 
+/// Apaga redirecionamentos de DESCRITOR antes da segmentação.
+///
+/// `SHELL_SEPARATORS` inclui `&`, então `cmd 2>&1 | head` era partido em
+/// `["cmd 2>", "1 ", " head"]` e o `1` residual virava o nome de um programa —
+/// o X6 negava a "capability de subprocesso `1`". O `&` de um `>&` liga um
+/// descritor a outro; não separa comandos, e o dígito ao lado não é um binário.
+///
+/// Cobre `2>&1`, `>&2`, `1>&2`, `&>arquivo` e `&>>arquivo`. O redirect para
+/// ARQUIVO (`> saida.txt`) não é tocado aqui: quem o avalia é
+/// [`bash_writes_a_file`], sobre o código original.
+fn strip_fd_redirections(code: &str) -> String {
+    let b = code.as_bytes();
+    let mut saida = String::with_capacity(code.len());
+    let mut i = 0;
+    while i < b.len() {
+        // `&>` / `&>>` — redireciona ambos os descritores para o alvo
+        if b[i] == b'&' && b.get(i + 1) == Some(&b'>') {
+            saida.push(' ');
+            i += 2;
+            while b.get(i) == Some(&b'>') {
+                i += 1;
+            }
+            continue;
+        }
+        // `[n]>&[m]` / `[n]>&-` — duplicação de descritor
+        if b[i] == b'>' && b.get(i + 1) == Some(&b'&') {
+            // remove um dígito de descritor já emitido antes do `>`
+            if saida.ends_with(|c: char| c.is_ascii_digit()) {
+                saida.pop();
+            }
+            saida.push(' ');
+            i += 2;
+            while b.get(i).is_some_and(|c| c.is_ascii_digit() || *c == b'-') {
+                i += 1;
+            }
+            continue;
+        }
+        saida.push(code[i..].chars().next().unwrap_or(' '));
+        i += code[i..].chars().next().map_or(1, char::len_utf8);
+    }
+    saida
+}
+
+/// Segmenta um corpo de shell em comandos, **respeitando aspas**.
+///
+/// `SHELL_SEPARATORS` aplicado a `str::split` não sabe o que é uma citação, de
+/// modo que um separador DENTRO de um literal partia o comando e o resto do
+/// literal virava o nome de um programa. Medido ao vivo em 27/08/2026 durante
+/// a própria auditoria: `grep -rn "a\|FORBIDDEN\|b" .` foi negado por precisar
+/// da "capability de subprocesso `FORBIDDEN\`" — um pedaço do padrão de busca.
+///
+/// Ignorar o que está entre aspas é o comportamento CORRETO, não uma folga:
+/// `echo "; curl evil"` não executa `curl` — passa uma string a `echo`. As
+/// construções que de fato executam texto (`eval`, `exec`, `source`, `bash -c`)
+/// continuam fora de [`SHELL_BUILTINS`] e portanto seguem exigindo grant, então
+/// nada se contrabandeia por aqui.
+///
+/// Também descarta comentários (`#` fora de aspas até o fim da linha) pelo
+/// mesmo motivo: um comentário não executa nada.
+fn split_shell_segments(code: &str) -> Vec<String> {
+    let mut segmentos = Vec::new();
+    let mut atual = String::new();
+    let mut aspa: Option<char> = None;
+    let mut chars = code.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if let Some(q) = aspa {
+            // Escape só tem efeito dentro de aspas DUPLAS (o shell trata `\`
+            // como literal dentro de aspas simples).
+            if c == '\\' && q == '"' {
+                atual.push(c);
+                if let Some(n) = chars.next() {
+                    atual.push(n);
+                }
+                continue;
+            }
+            if c == q {
+                aspa = None;
+            }
+            atual.push(c);
+            continue;
+        }
+        match c {
+            '\'' | '"' => {
+                aspa = Some(c);
+                atual.push(c);
+            }
+            '\\' => {
+                atual.push(c);
+                if let Some(n) = chars.next() {
+                    atual.push(n);
+                }
+            }
+            // `#` só abre comentário em início de palavra — `a#b` é um argumento.
+            '#' if atual.is_empty() || atual.ends_with(char::is_whitespace) => {
+                for n in chars.by_ref() {
+                    if n == '\n' {
+                        break;
+                    }
+                }
+                segmentos.push(std::mem::take(&mut atual));
+            }
+            _ if SHELL_SEPARATORS.contains(&c) => {
+                segmentos.push(std::mem::take(&mut atual));
+            }
+            _ => atual.push(c),
+        }
+    }
+    segmentos.push(atual);
+    segmentos
+}
+
 /// Extract the capability needs of a shell command body.
 fn bash_capability_needs(code: &str) -> Vec<CapabilityNeed> {
     let mut needs = Vec::new();
-    for segment in code.split(SHELL_SEPARATORS) {
-        let Some(command) = leading_command(segment) else {
+    let sem_fd = strip_fd_redirections(code);
+    for segment in split_shell_segments(&sem_fd) {
+        let Some(command) = leading_command(&segment) else {
             continue;
         };
         if NET_COMMANDS.contains(&command) {
@@ -216,10 +438,15 @@ fn bash_capability_needs(code: &str) -> Vec<CapabilityNeed> {
                 CapabilityNeed::new(Capability::Net(HostScope::any()), command),
             );
         }
-        push_unique(
-            &mut needs,
-            CapabilityNeed::new(Capability::Run(CmdScope::new(command)), command),
-        );
+        // A builtin is executed BY the shell — no spawn, so no subprocess need.
+        // The segment split above means skipping `cd` in `cd /x && rm -rf /` does
+        // not hide the `rm`: that is a separate segment with its own command.
+        if !is_shell_builtin(command) {
+            push_unique(
+                &mut needs,
+                CapabilityNeed::new(Capability::Run(CmdScope::new(command)), command),
+            );
+        }
     }
     if bash_writes_a_file(code) {
         push_unique(
@@ -230,9 +457,229 @@ fn bash_capability_needs(code: &str) -> Vec<CapabilityNeed> {
     needs
 }
 
-/// The first token of `tokens` that appears anywhere in `code`.
+/// Apaga comentários e corpos de literais de string, preservando as quebras de
+/// linha.
+///
+/// A varredura de capability só deve enxergar o que o programa EXECUTA. Um
+/// comentário e o miolo de um literal não executam nada — mas `code.contains`
+/// não sabe disso, e o efeito foi medido por execução em 27/08/2026: o
+/// comentário `# socket` e o literal `print("a palavra socket")` eram AMBOS
+/// negados como pedido de rede.
+///
+/// Isto não abre contrabando. O único jeito de um literal virar código é passar
+/// por `eval` / `exec` / `compile` / `__import__`, e esses são pegos pela tabela
+/// independente de padrões proibidos
+/// (`touring_hooks_shared::forbidden_patterns`), que roda sobre o texto
+/// ORIGINAL. São duas redes com propósitos distintos, e só uma delas é lexical.
+///
+/// Cobre os idiomas de comentário das linguagens do sandbox (`#`, `//`, `/* */`)
+/// e as formas de string simples e tripla, com escape por contrabarra.
+fn blank_comments_and_literals(code: &str) -> String {
+    let b: Vec<char> = code.chars().collect();
+    let mut saida = String::with_capacity(code.len());
+    let mut i = 0usize;
+
+    // Um caractere apagado vira espaço, salvo a quebra de linha — preservá-la
+    // impede que duas linhas se fundam e criem um token que não existia.
+    let apagado = |c: char| if c == '\n' { '\n' } else { ' ' };
+
+    while i < b.len() {
+        // ── comentário até o fim da linha ────────────────────────────────────
+        if b[i] == '#' || (b[i] == '/' && b.get(i + 1) == Some(&'/')) {
+            while i < b.len() && b[i] != '\n' {
+                saida.push(' ');
+                i += 1;
+            }
+            continue;
+        }
+        // ── comentário de bloco ──────────────────────────────────────────────
+        if b[i] == '/' && b.get(i + 1) == Some(&'*') {
+            while i < b.len() && !(b[i] == '*' && b.get(i + 1) == Some(&'/')) {
+                saida.push(apagado(b[i]));
+                i += 1;
+            }
+            // O fechamento, quando existe; um bloco não fechado consome o resto.
+            for _ in 0..2 {
+                if i < b.len() {
+                    saida.push(' ');
+                    i += 1;
+                }
+            }
+            continue;
+        }
+        // ── literal de string ────────────────────────────────────────────────
+        if b[i] == '"' || b[i] == '\'' {
+            let aspa = b[i];
+            let triplo = b.get(i + 1) == Some(&aspa) && b.get(i + 2) == Some(&aspa);
+            let delim = if triplo { 3 } else { 1 };
+            for _ in 0..delim {
+                saida.push(' ');
+            }
+            i += delim;
+            while i < b.len() {
+                if b[i] == '\\' {
+                    saida.push(' ');
+                    i += 1;
+                    if i < b.len() {
+                        saida.push(apagado(b[i]));
+                        i += 1;
+                    }
+                    continue;
+                }
+                if b[i] == aspa
+                    && (!triplo || (b.get(i + 1) == Some(&aspa) && b.get(i + 2) == Some(&aspa)))
+                {
+                    for _ in 0..delim {
+                        saida.push(' ');
+                        i += 1;
+                    }
+                    break;
+                }
+                // Uma string de aspa única não atravessa a linha: se a linha
+                // acabou, o literal estava malformado — parar aqui em vez de
+                // engolir o resto do programa (fail-closed: o que sobra volta a
+                // ser varrido normalmente).
+                if !triplo && b[i] == '\n' {
+                    break;
+                }
+                saida.push(apagado(b[i]));
+                i += 1;
+            }
+            continue;
+        }
+        saida.push(b[i]);
+        i += 1;
+    }
+    saida
+}
+
+/// `true` quando a ocorrência em `pos` é o token INTEIRO, e não o pedaço de um
+/// identificador maior.
+///
+/// `subprocess_count = 3` continha `subprocess` e por isso pedia a capability de
+/// subprocesso; `websocket` pedia rede. A fronteira só é exigida do lado em que
+/// o token de fato termina em caractere de palavra — `system(` já se fecha.
+fn is_whole_token(code: &str, pos: usize, token: &str) -> bool {
+    let palavra = |c: char| c.is_alphanumeric() || c == '_';
+    let antes_ok = !token.starts_with(palavra)
+        || !matches!(code[..pos].chars().next_back(), Some(c) if palavra(c));
+    let depois_ok = !token.ends_with(palavra)
+        || !matches!(code[pos + token.len()..].chars().next(), Some(c) if palavra(c));
+    antes_ok && depois_ok
+}
+
+/// O primeiro token de `tokens` presente em `code` como token inteiro,
+/// desconsiderando comentários e literais de string.
+///
+/// Até 27/08/2026 isto era `code.contains(t)` — substring nua, em qualquer
+/// posição, inclusive dentro de um comentário. Três falsos positivos foram
+/// medidos por execução no mesmo minuto (`# socket`, `"a palavra socket"`,
+/// `subprocess_count`), todos NEGANDO a execução. Um gate que nega o caso comum
+/// ensina a contorná-lo, que é o oposto de uma afordância.
 fn first_token_in<'a>(code: &str, tokens: &[&'a str]) -> Option<&'a str> {
-    tokens.iter().copied().find(|t| code.contains(t))
+    let visivel = blank_comments_and_literals(code);
+    tokens.iter().copied().find(|t| {
+        let mut de = 0usize;
+        while let Some(rel) = visivel[de..].find(*t) {
+            let pos = de + rel;
+            if is_whole_token(&visivel, pos, t) {
+                return true;
+            }
+            de = pos + t.len().max(1);
+        }
+        false
+    })
+}
+
+/// Binários que uma chamada de subprocesso NOMEIA explicitamente no código.
+///
+/// `subprocess.run(["rg", …])`, `Popen(["fd", …])`, `os.system("rg foo")` e
+/// `Command::new("rg")` carregam todos o binário como o primeiro literal do
+/// argumento. Derivá-lo converte o pedido de `Run(any)` — que nenhum perfil
+/// deny-by-default pode conceder, por construção — em `Run("rg")`, que o
+/// allowlist de inspeção do perfil `Sandboxed` concede.
+///
+/// Devolve `(binários, houve_indecifrável)`. **Fail-closed**: se QUALQUER
+/// ocorrência de token de run não permitir derivar o binário, o segundo campo
+/// é `true` e o chamador mantém o pedido `Run(any)` ao lado dos derivados —
+/// um programa com `run(["rg"])` E `system(var)` continua pedindo `any`.
+/// Nenhum pedido é removido; o mecanismo só refina o que já era pedido.
+///
+/// Origem (2026-08-25): `touring run --lang python` não conseguia chamar `rg`
+/// enquanto a chamada `Bash` ao lado conseguia — o caminho preferido era mais
+/// fraco que o atômico, e a adoção de code mode pagava a conta.
+fn invoked_binaries(code: &str) -> (Vec<String>, bool) {
+    /// Janela de busca do literal após o token de chamada.
+    const LOOKAHEAD: usize = 80;
+    let mut bins: Vec<String> = Vec::new();
+    let mut underivable = false;
+
+    for token in RUN_TOKENS {
+        let mut from = 0usize;
+        while let Some(rel) = code[from..].find(token) {
+            let after = from + rel + token.len();
+            from = after;
+            let janela = &code[after..code.len().min(after + LOOKAHEAD)];
+            // O literal precisa estar na MESMA linha lógica da chamada.
+            let janela = janela.split('\n').next().unwrap_or("");
+            // Só POSIÇÃO DE CHAMADA conta. `import subprocess` menciona o token
+            // sem invocar nada — tratá-lo como invocação indecifrável fazia todo
+            // programa Python que importa o módulo pedir `Run(any)`, anulando a
+            // derivação inteira (o teste de ponta-a-ponta pegou isso).
+            let Some(args) = call_site_args(token, janela) else {
+                continue;
+            };
+            match first_string_literal(args).and_then(|lit| command_name(&lit)) {
+                Some(bin) => {
+                    if !bins.contains(&bin) {
+                        bins.push(bin);
+                    }
+                }
+                None => underivable = true,
+            }
+        }
+    }
+    (bins, underivable)
+}
+
+/// A região de argumentos, quando `token` está em POSIÇÃO DE CHAMADA em `linha`.
+///
+/// Um token que já termina em `(` (`system(`, `popen(`) abre a chamada por si.
+/// Caso contrário, aceita-se uma cadeia de atributos (`.run`, `::new`) até o
+/// `(`. `None` quando não há chamada — `import subprocess`, uma menção em
+/// comentário, o token dentro de outra string.
+fn call_site_args<'a>(token: &str, linha: &'a str) -> Option<&'a str> {
+    if token.ends_with('(') {
+        return Some(linha);
+    }
+    let cadeia = linha.find('(').filter(|abre| {
+        linha[..*abre]
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | ':'))
+    })?;
+    Some(&linha[cadeia + 1..])
+}
+
+/// Primeiro literal entre aspas (simples ou duplas) de `s`, sem as aspas.
+fn first_string_literal(s: &str) -> Option<String> {
+    let abre = s.find(['"', '\''])?;
+    let aspa = s.as_bytes()[abre] as char;
+    let resto = &s[abre + 1..];
+    let fecha = resto.find(aspa)?;
+    Some(resto[..fecha].to_string())
+}
+
+/// Nome de comando extraído de um literal (`"/usr/bin/rg -l x"` → `rg`).
+/// `None` quando o literal não é um nome de comando simples — interpolação,
+/// variável, caminho com espaço — caso em que o chamador falha fechado.
+fn command_name(literal: &str) -> Option<String> {
+    let primeiro = literal.split_whitespace().next()?;
+    let base = primeiro.rsplit('/').next()?;
+    let plausivel = !base.is_empty()
+        && base
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.'));
+    plausivel.then(|| base.to_string())
 }
 
 /// Extract the capability needs of an inline code body (`ctx_execute`,
@@ -240,10 +687,22 @@ fn first_token_in<'a>(code: &str, tokens: &[&'a str]) -> Option<&'a str> {
 fn code_capability_needs(code: &str) -> Vec<CapabilityNeed> {
     let mut needs = Vec::new();
     if let Some(tok) = first_token_in(code, RUN_TOKENS) {
-        push_unique(
-            &mut needs,
-            CapabilityNeed::new(Capability::Run(CmdScope::any()), tok),
-        );
+        let (bins, underivable) = invoked_binaries(code);
+        for bin in &bins {
+            push_unique(
+                &mut needs,
+                CapabilityNeed::new(
+                    Capability::Run(CmdScope::new(bin)),
+                    format!("{tok} → {bin}"),
+                ),
+            );
+        }
+        if bins.is_empty() || underivable {
+            push_unique(
+                &mut needs,
+                CapabilityNeed::new(Capability::Run(CmdScope::any()), tok),
+            );
+        }
     }
     if let Some(tok) = first_token_in(code, NET_TOKENS) {
         push_unique(
@@ -413,6 +872,248 @@ impl Execution<SandboxTested> {
 
 #[cfg(test)]
 mod tests {
+
+    /// Escrita por ARGUMENTO é escrita — o `>` não é a única forma de gravar.
+    ///
+    /// `dd if=/dev/zero of=alvo` era o ponto em aberto: persistia sem que o
+    /// classificador visse `fs-write`. O sandbox contém o FS, então nunca foi
+    /// furo de contenção — era detecção incompleta, e o waiver seletivo decide
+    /// com base nas classes que enxerga.
+    #[test]
+    fn writing_via_argument_counts_as_a_file_write() {
+        for cmd in [
+            "dd if=/dev/zero of=/tmp/alvo bs=1 count=1",
+            "curl -o /tmp/baixado http://x",
+            "curl --output=/tmp/baixado http://x",
+            "sort -o ordenado.txt entrada.txt",
+        ] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::FsWrite(_))),
+                "`{cmd}` grava arquivo por argumento: {needs:?}"
+            );
+        }
+    }
+
+    /// E um `-o` que NÃO é saída não vira escrita — `ls -o` é formato longo.
+    #[test]
+    fn a_dash_o_that_is_not_output_is_not_a_write() {
+        for cmd in ["ls -o", "ls -o /tmp", "ps -o pid,comm"] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                !needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::FsWrite(_))),
+                "`{cmd}` não grava nada: {needs:?}"
+            );
+        }
+    }
+
+    /// 2026-08-27 (P0) — `2>&1` não inventa um programa chamado `1`.
+    ///
+    /// `SHELL_SEPARATORS` inclui `&`, então `cmd 2>&1 | head` era partido em
+    /// `["cmd 2>", "1 ", " head"]` e o `1` residual virava nome de comando. O
+    /// X6 negava a "capability de subprocesso `1`". Latente desde sempre;
+    /// virou deny DURO quando o waiver deixou de ser cego, porque somava com o
+    /// `fs-write` que o `2>/dev/null` do mesmo comando produzia.
+    #[test]
+    fn fd_duplication_does_not_invent_a_command() {
+        for cmd in [
+            "ls 2>&1",
+            "ls 2>&1 | head",
+            "cmd 1>&2",
+            "cmd &>saida.txt",
+            "cmd 2>&-",
+        ] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            let nomes: Vec<&str> = needs.iter().map(|n| n.operation.as_str()).collect();
+            for fantasma in ["1", "2", "-"] {
+                assert!(
+                    !nomes.contains(&fantasma),
+                    "`{cmd}` inventou o comando `{fantasma}`: {nomes:?}"
+                );
+            }
+        }
+    }
+
+    /// O comando REAL sobrevive à limpeza dos redirects — o conserto não pode
+    /// cegar o classificador junto.
+    #[test]
+    fn stripping_fd_redirections_keeps_the_real_command() {
+        let needs = super::required_capabilities(
+            "curl http://x 2>&1 | tail -1",
+            super::ExecSurface::BashCommand,
+        );
+        assert!(
+            needs
+                .iter()
+                .any(|n| matches!(n.capability, super::Capability::Net(_))),
+            "o `curl` continua sendo rede: {needs:?}"
+        );
+        let needs = super::required_capabilities(
+            "rm -rf /tmp/x 2>/dev/null",
+            super::ExecSurface::BashCommand,
+        );
+        assert!(
+            needs.iter().any(|n| matches!(&n.capability,
+                super::Capability::Run(sc) if sc.matches(&super::CmdScope::new("rm")))),
+            "o `rm` continua exigindo grant: {needs:?}"
+        );
+    }
+
+    /// 2026-08-27 (P0) — `/dev/null` não é escrita de arquivo.
+    ///
+    /// `2>/dev/null` aparece em quase todo comando real. Contá-lo como
+    /// `fs-write` fazia um comando legítimo somar duas classes e negar duro.
+    #[test]
+    fn discarding_output_is_not_a_file_write() {
+        for cmd in [
+            "ls 2>/dev/null",
+            "cmd >/dev/null",
+            "cmd > /dev/null 2>&1",
+            "cmd >/dev/stdout",
+            "cmd 2>/dev/tty",
+        ] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                !needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::FsWrite(_))),
+                "`{cmd}` descarta a saída — não é escrita: {needs:?}"
+            );
+        }
+    }
+
+    /// E o redirect para ARQUIVO continua sendo escrita — o conserto distingue
+    /// descarte de persistência, não desliga a detecção.
+    #[test]
+    fn redirecting_to_a_real_file_is_still_a_write() {
+        for cmd in ["echo x > saida.txt", "cmd >> log.txt", "cmd > /tmp/dados"] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::FsWrite(_))),
+                "`{cmd}` persiste — é escrita: {needs:?}"
+            );
+        }
+    }
+
+    /// 2026-08-27 — builtins do shell não são spawn.
+    ///
+    /// Antes, TODA palavra virava `Capability::Run`, então `echo oi` negava com
+    /// o MESMO composite (0.675) que `curl http://evil.test`. Um gate que
+    /// dispara em 100% dos runs legítimos não carrega informação — e foi esse
+    /// ruído que justificou rebaixar todo deny de shell, jogando fora o sinal
+    /// de rede junto.
+    #[test]
+    fn shell_builtins_do_not_require_a_subprocess_grant() {
+        for cmd in [
+            "echo oi",
+            "cd /tmp",
+            "pwd",
+            "true",
+            "export X=1",
+            "printf %s x",
+        ] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                !needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::Run(_))),
+                "`{cmd}` é builtin — não pode exigir subprocess: {needs:?}"
+            );
+        }
+    }
+
+    /// O que NÃO é builtin continua exigindo o grant — senão o conserto teria
+    /// desligado o gate em vez de calibrá-lo.
+    #[test]
+    fn real_commands_still_require_a_subprocess_grant() {
+        for cmd in [
+            "rm -rf /tmp/x",
+            "curl http://x",
+            "python3 -c 1",
+            "dd if=/dev/zero",
+        ] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::Run(_))),
+                "`{cmd}` spawna processo — o grant é obrigatório"
+            );
+        }
+    }
+
+    /// `eval`/`exec`/`source` são builtins mas executam TEXTO como código: se
+    /// entrassem na lista, o construto que um atacante usa para se esconder
+    /// ficaria isento por definição.
+    #[test]
+    fn code_executing_builtins_are_not_waived() {
+        for cmd in ["eval \"$X\"", "exec /bin/sh", "source /tmp/x.sh"] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::Run(_))),
+                "`{cmd}` executa código — jamais isento"
+            );
+        }
+    }
+
+    /// Pular o builtin não pode esconder o que vem depois dele: `cd /x && rm -rf /`
+    /// é segmentado, e o `rm` tem o seu próprio need.
+    #[test]
+    fn a_builtin_prefix_does_not_hide_the_next_segment() {
+        let needs =
+            super::required_capabilities("cd /tmp && rm -rf /", super::ExecSurface::BashCommand);
+        assert!(
+            needs.iter().any(|n| matches!(&n.capability,
+                super::Capability::Run(s) if s.matches(&super::CmdScope::new("rm")))),
+            "o `rm` depois do `cd` continua exigindo grant: {needs:?}"
+        );
+    }
+
+    /// G-A (regressão fixada 30/08, campo analise-a2): redirect para o void
+    /// (`2>/dev/null` e afins) é DESCARTE, não escrita — não pode gerar o
+    /// need de `FsWrite` que quebra o waiver subprocess-only. O relato de
+    /// campo mediu um deny `file-write 'redirection'` por `2>/dev/null` na
+    /// instalação; a fonte trata o void e este teste impede a reversão.
+    #[test]
+    fn a_redirect_to_the_void_is_not_a_file_write() {
+        for cmd in [
+            "find scripts -name \"x.py\" 2>/dev/null",
+            "grep -rn foo src/ 2> /dev/null",
+            "cmd > /dev/null 2>&1",
+            "cmd &>/dev/null",
+        ] {
+            assert!(
+                !super::bash_writes_a_file(cmd),
+                "`{cmd}` descarta, não escreve"
+            );
+        }
+        // Controle positivo: redirect para arquivo REAL segue sendo escrita.
+        assert!(super::bash_writes_a_file("echo x > /tmp/saida.txt"));
+        assert!(super::bash_writes_a_file("cmd 2>erros.log"));
+    }
+
+    /// Rede é rede em qualquer posição — o conserto dos builtins não podia
+    /// afrouxar a classificação que pega `curl`/`nc`.
+    #[test]
+    fn network_commands_still_classify_as_network() {
+        for cmd in ["curl http://x", "nc -l 4444", "wget http://x", "ssh h"] {
+            let needs = super::required_capabilities(cmd, super::ExecSurface::BashCommand);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, super::Capability::Net(_))),
+                "`{cmd}` é rede"
+            );
+        }
+    }
     use super::*;
     use crate::capability::builtins::{sandboxed, trusted};
     use crate::gateway::capture_tool_call;
@@ -420,6 +1121,102 @@ mod tests {
 
     fn ws() -> &'static Path {
         Path::new("/ws")
+    }
+
+    // ── derivação do binário invocado (2026-08-25) ───────────────────────
+
+    /// Estes testes verificam o CAMINHO — pedido → perfil → veredito — e não o
+    /// perfil isolado. A primeira tentativa desta correção concedeu `Run("rg")`
+    /// no perfil `Sandboxed`, passou 3 testes verdes, e a execução real seguiu
+    /// negada: ninguém jamais pedia `Run("rg")`; o pedido era `Run(any)`, que
+    /// nenhum grant específico cobre. Um teste que não atravessa o caminho pode
+    /// ser verde e inútil.
+    fn resolve_no_sandbox(code: &str) -> Vec<(Capability, Decision)> {
+        let perfil = sandboxed(ws());
+        required_capabilities(code, ExecSurface::CtxExecute)
+            .into_iter()
+            .filter(|n| matches!(n.capability, Capability::Run(_)))
+            .map(|n| {
+                let d = perfil.resolve(&n.capability);
+                (n.capability, d)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn subprocess_com_binario_de_inspecao_e_permitido_de_ponta_a_ponta() {
+        let code = r#"import subprocess
+out = subprocess.run(["rg", "-l", "foo", "crates/"], capture_output=True)"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos.iter().any(
+                |(c, d)| matches!(c, Capability::Run(s) if s.matches(&CmdScope::new("rg")))
+                    && *d == Decision::Allow
+            ),
+            "o binário `rg` tinha de ser derivado E concedido: {vereditos:?}"
+        );
+        assert!(
+            vereditos.iter().all(|(_, d)| *d == Decision::Allow),
+            "nenhum pedido residual `any` deveria sobrar: {vereditos:?}"
+        );
+    }
+
+    #[test]
+    fn subprocess_com_binario_perigoso_segue_negado() {
+        let code = r#"import subprocess
+subprocess.run(["rm", "-rf", "/tmp/x"])"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(!vereditos.is_empty());
+        assert!(
+            vereditos.iter().all(|(_, d)| *d == Decision::Deny),
+            "`rm` derivado tem de ser negado pelo perfil Sandboxed: {vereditos:?}"
+        );
+    }
+
+    /// Fail-closed: binário indecifrável mantém o pedido `any`, que nenhum
+    /// perfil deny-by-default concede.
+    #[test]
+    fn binario_nao_derivavel_mantem_o_pedido_any() {
+        let code = "import os\nos.system(comando_da_variavel)";
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos
+                .iter()
+                .any(|(c, _)| matches!(c, Capability::Run(s) if *s == CmdScope::any())),
+            "sem literal não há derivação — o pedido `any` tem de permanecer"
+        );
+        assert!(vereditos.iter().all(|(_, d)| *d == Decision::Deny));
+    }
+
+    /// O caso que faria a correção virar um furo: um binário seguro derivado
+    /// AO LADO de uma invocação opaca não pode "limpar" o pedido conservador.
+    #[test]
+    fn derivavel_junto_com_opaco_ainda_pede_any() {
+        let code = r#"import subprocess, os
+subprocess.run(["rg", "foo"])
+os.system(alguma_variavel)"#;
+        let vereditos = resolve_no_sandbox(code);
+        assert!(
+            vereditos
+                .iter()
+                .any(|(c, _)| matches!(c, Capability::Run(s) if *s == CmdScope::any())),
+            "a invocação opaca tem de manter o `any`: {vereditos:?}"
+        );
+        assert!(
+            vereditos.iter().any(|(_, d)| *d == Decision::Deny),
+            "e o veredito global continua Deny"
+        );
+    }
+
+    #[test]
+    fn deriva_de_system_e_de_command_new() {
+        let (bins, _) = invoked_binaries("os.system(\"rg -n foo src/\")");
+        assert!(bins.contains(&"rg".to_string()), "os.system: {bins:?}");
+        let (bins, _) = invoked_binaries("std::process::Command::new(\"fd\")");
+        assert!(bins.contains(&"fd".to_string()), "Command::new: {bins:?}");
+        // Caminho absoluto reduz ao nome do comando.
+        let (bins, _) = invoked_binaries("subprocess.run([\"/usr/bin/rg\", \"x\"])");
+        assert!(bins.contains(&"rg".to_string()), "caminho: {bins:?}");
     }
 
     // ── required_capabilities — bash surface ──────────────────────────────
@@ -532,6 +1329,58 @@ mod tests {
                 .iter()
                 .any(|n| matches!(n.capability, Capability::Env(_)))
         );
+    }
+
+    /// B5 (2026-09-02) — the family, not a single idiom.
+    ///
+    /// Measured live against 30.4.32: `pathlib.Path(...).write_bytes(b"x"*8192)`
+    /// wrote 8 KiB inside the sandbox and came back with `forbidden_calls: []`,
+    /// because `WRITE_TOKENS` carried only `.write(`. A capability detector that
+    /// covers one spelling of an idiom covers none of it.
+    #[test]
+    fn required_capabilities_code_covers_the_whole_write_family() {
+        for src in [
+            "pathlib.Path('o.bin').write_bytes(b'x')",
+            "pathlib.Path('o.txt').write_text('x')",
+            "open('o.txt', 'w').writelines(['a'])",
+            "pathlib.Path('d').mkdir(parents=True)",
+            "pathlib.Path('o.txt').touch()",
+            "pathlib.Path('o.txt').unlink()",
+            "os.makedirs('d')",
+            "os.rename('a', 'b')",
+            "os.replace('a', 'b')",
+            "os.rmdir('d')",
+            "shutil.rmtree('d')",
+        ] {
+            let needs = required_capabilities(src, ExecSurface::CtxExecute);
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| matches!(n.capability, Capability::FsWrite(_))),
+                "no FsWrite for {src:?}: {needs:?}"
+            );
+        }
+    }
+
+    /// The other half of the same decision: widening the family must not turn
+    /// pure computation into a denied write (the B3 lesson — a detector is
+    /// worth its precision, not only its recall).
+    #[test]
+    fn required_capabilities_code_write_family_stays_precise() {
+        for src in [
+            "df = df.rename(columns={'a': 'b'})",
+            "s = s.replace('a', 'b')",
+            "payload = json.dumps({'write': 1})",
+            "total = len(rows)",
+        ] {
+            let needs = required_capabilities(src, ExecSurface::CtxExecute);
+            assert!(
+                !needs
+                    .iter()
+                    .any(|n| matches!(n.capability, Capability::FsWrite(_))),
+                "false FsWrite for {src:?}: {needs:?}"
+            );
+        }
     }
 
     #[test]
@@ -681,5 +1530,323 @@ mod tests {
                 .iter()
                 .any(|g| matches!(g.capability, Capability::FsWrite(_)))
         );
+    }
+
+    // ── Classificação léxica (auditoria cruzada 27/08/2026) ──────────────────
+    //
+    // Os três primeiros casos NÃO são hipotéticos: foram medidos por execução
+    // contra o binário instalado, cada um devolvendo um deny do X6.
+
+    /// Um comentário não executa nada — não pode pedir capability de rede.
+    #[test]
+    fn a_comment_mentioning_a_token_needs_nothing() {
+        let needs = code_capability_needs("# socket\nprint(1)\n");
+        assert!(needs.is_empty(), "comentário pediu {needs:?}");
+    }
+
+    /// Nem o miolo de um literal. Este é o caso que mais dói na prática: um
+    /// programa de code mode que PROCURA a palavra `socket` no repositório era
+    /// negado por citá-la.
+    #[test]
+    fn a_string_literal_mentioning_a_token_needs_nothing() {
+        let needs = code_capability_needs(r#"print("a palavra socket num literal")"#);
+        assert!(needs.is_empty(), "literal pediu {needs:?}");
+        let busca = code_capability_needs("alvo = 'subprocess'\nfor f in fs:\n    pass\n");
+        assert!(busca.is_empty(), "literal de aspa simples pediu {busca:?}");
+    }
+
+    /// Um identificador MAIOR que contém o token não é o token.
+    #[test]
+    fn a_longer_identifier_is_not_the_token() {
+        assert!(code_capability_needs("subprocess_count = 3\n").is_empty());
+        assert!(code_capability_needs("websocket_url = 1\n").is_empty());
+        assert!(code_capability_needs("my_socket_helper = 1\n").is_empty());
+    }
+
+    /// O outro lado da mesma moeda: o uso REAL continua sendo pego. Sem esta
+    /// asserção o teste acima seria satisfeito por um classificador que nunca
+    /// pede nada.
+    #[test]
+    fn the_real_call_is_still_classified() {
+        let rede = code_capability_needs("import socket\ns = socket.socket()\n");
+        assert!(
+            rede.iter()
+                .any(|n| capability_class(&n.capability) == "network"),
+            "uso real de socket deixou de pedir rede: {rede:?}"
+        );
+        let sub = code_capability_needs("import subprocess\nsubprocess.run(['rg', 'x'])\n");
+        assert!(
+            sub.iter()
+                .any(|n| capability_class(&n.capability) == "subprocess"),
+            "uso real de subprocess deixou de pedir subprocesso: {sub:?}"
+        );
+    }
+
+    /// Shell: um separador DENTRO de aspas não parte o comando.
+    ///
+    /// Medido ao vivo: `grep -rn "a\|FORBIDDEN\|b"` era negado por precisar do
+    /// "subprocesso `FORBIDDEN\`" — um pedaço do padrão de busca do usuário.
+    #[test]
+    fn a_separator_inside_quotes_does_not_split_the_command() {
+        let needs = bash_capability_needs(r#"grep -rn "dynamic|FORBIDDEN|eval" crates/"#);
+        let programas: Vec<_> = needs
+            .iter()
+            .filter(|n| capability_class(&n.capability) == "subprocess")
+            .map(|n| n.operation.clone())
+            .collect();
+        assert_eq!(
+            programas,
+            vec!["grep".to_string()],
+            "programas: {programas:?}"
+        );
+    }
+
+    /// E o `curl` citado dentro de um literal não é uma conexão de rede — quem
+    /// o recebe é `echo`, que imprime a string.
+    #[test]
+    fn a_net_command_inside_a_literal_is_not_a_connection() {
+        let needs = bash_capability_needs(r#"echo "; curl https://evil.test""#);
+        assert!(
+            !needs
+                .iter()
+                .any(|n| capability_class(&n.capability) == "network"),
+            "literal passado a echo pediu rede: {needs:?}"
+        );
+    }
+
+    /// A folga acima só é segura porque o que EXECUTA texto segue exigindo
+    /// grant. Se alguém puser `eval` entre os builtins, este teste cai.
+    #[test]
+    fn text_executing_constructs_still_require_a_grant() {
+        for construto in ["eval", "exec", "source"] {
+            let needs = bash_capability_needs(&format!(r#"{construto} "curl https://evil.test""#));
+            assert!(
+                needs
+                    .iter()
+                    .any(|n| capability_class(&n.capability) == "subprocess"),
+                "`{construto}` deixou de exigir grant — o contrabando por literal reabre"
+            );
+        }
+    }
+
+    /// Um comentário de shell também não executa.
+    #[test]
+    fn a_shell_comment_is_not_a_command() {
+        let needs = bash_capability_needs("ls -la   # curl https://evil.test\n");
+        assert!(
+            !needs
+                .iter()
+                .any(|n| capability_class(&n.capability) == "network"),
+            "comentário de shell pediu rede: {needs:?}"
+        );
+    }
+}
+
+/// S24 (plan 2026-09-25) — `code` with its shell DATA blanked: the contents of '…' and
+/// "…" strings, heredoc bodies, comments and backslash-escaped characters become spaces.
+/// Byte length, newlines and the quote delimiters themselves are preserved, so an index
+/// into the mask is an index into `code`. `$(…)` and backticks inside "…" are NOT
+/// masked — they execute. Consumers scan the mask for operators (`>`, `tee`, a bypass
+/// token) that only count when the SHELL would read them as such.
+pub fn mask_shell_data(code: &str) -> String {
+    let b = code.as_bytes();
+    let mut out = b.to_vec();
+    let mut i = 0;
+    let mut heredocs: Vec<(String, bool)> = Vec::new();
+    while i < b.len() {
+        match b[i] {
+            b'\\' => {
+                blank(&mut out, i + 1);
+                i += 2;
+            }
+            b'\'' => i = mask_single(b, &mut out, i),
+            b'"' => i = mask_double(b, &mut out, i),
+            b'#' if i == 0 || b[i - 1].is_ascii_whitespace() || b[i - 1] == b';' => {
+                while i < b.len() && b[i] != b'\n' {
+                    blank(&mut out, i);
+                    i += 1;
+                }
+            }
+            b'<' if b.get(i + 1) == Some(&b'<') && b.get(i + 2) != Some(&b'<') => {
+                let (next, delim) = heredoc_operator(b, i + 2);
+                if let Some(d) = delim {
+                    heredocs.push(d);
+                }
+                i = next;
+            }
+            b'\n' if !heredocs.is_empty() => {
+                i = mask_heredoc_bodies(b, &mut out, i + 1, &heredocs);
+                heredocs.clear();
+            }
+            _ => i += 1,
+        }
+    }
+    String::from_utf8(out).unwrap_or_else(|_| code.to_string())
+}
+
+fn blank(out: &mut [u8], i: usize) {
+    if let Some(c) = out.get_mut(i)
+        && *c != b'\n'
+    {
+        *c = b' ';
+    }
+}
+
+/// `'…'`: everything up to the closing quote is data. Returns the index after it.
+fn mask_single(b: &[u8], out: &mut [u8], open: usize) -> usize {
+    let mut i = open + 1;
+    while i < b.len() && b[i] != b'\'' {
+        blank(out, i);
+        i += 1;
+    }
+    i + 1
+}
+
+/// `"…"`: data except `$(…)` / backticks (they execute) and escapes.
+fn mask_double(b: &[u8], out: &mut [u8], open: usize) -> usize {
+    let mut i = open + 1;
+    while i < b.len() && b[i] != b'"' {
+        match b[i] {
+            b'\\' => {
+                blank(out, i);
+                blank(out, i + 1);
+                i += 2;
+            }
+            b'$' if b.get(i + 1) == Some(&b'(') => {
+                let mut depth = 0usize;
+                while i < b.len() {
+                    match b[i] {
+                        b'(' => depth += 1,
+                        b')' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                break;
+                            }
+                        }
+                        _ => {}
+                    }
+                    i += 1;
+                }
+                i += 1;
+            }
+            b'`' => {
+                i += 1;
+                while i < b.len() && b[i] != b'`' {
+                    i += 1;
+                }
+                i += 1;
+            }
+            _ => {
+                blank(out, i);
+                i += 1;
+            }
+        }
+    }
+    i + 1
+}
+
+/// After `<<`: optional `-`, blanks, optional quote/backslash, the WORD. Returns the index
+/// after the operator and `(WORD, strip_tabs)` when a delimiter was read.
+fn heredoc_operator(b: &[u8], mut i: usize) -> (usize, Option<(String, bool)>) {
+    let strip = b.get(i) == Some(&b'-');
+    if strip {
+        i += 1;
+    }
+    while b.get(i).is_some_and(|c| *c == b' ' || *c == b'\t') {
+        i += 1;
+    }
+    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"' | b'\\')) {
+        i += 1;
+    }
+    let start = i;
+    while b
+        .get(i)
+        .is_some_and(|c| c.is_ascii_alphanumeric() || matches!(c, b'_' | b'-' | b'.'))
+    {
+        i += 1;
+    }
+    let word = String::from_utf8_lossy(&b[start..i]).into_owned();
+    if b.get(i).is_some_and(|c| matches!(c, b'\'' | b'"')) {
+        i += 1;
+    }
+    (i, (!word.is_empty()).then_some((word, strip)))
+}
+
+/// Blank each pending heredoc body (in order) starting at `i`; the terminator line stays.
+fn mask_heredoc_bodies(b: &[u8], out: &mut [u8], mut i: usize, docs: &[(String, bool)]) -> usize {
+    for (word, strip) in docs {
+        while i < b.len() {
+            let end = b[i..]
+                .iter()
+                .position(|c| *c == b'\n')
+                .map_or(b.len(), |p| i + p);
+            let line = String::from_utf8_lossy(&b[i..end]);
+            let line = if *strip {
+                line.trim_start_matches('\t')
+            } else {
+                &line
+            };
+            if line == word.as_str() {
+                i = end + 1;
+                break;
+            }
+            for k in i..end {
+                blank(out, k);
+            }
+            i = end + 1;
+        }
+    }
+    i
+}
+
+/// S24 (plan 2026-09-25) — X6 reads `>` as a redirect only when the SHELL would.
+///
+/// Measured live on 25/09: `echo "$f -> x"` and a `grep -- "-->"` pattern were denied as
+/// "file-write capability 'redirection'", and a heredoc body holding `print(1 > 0)` too.
+/// A `>` inside quotes or inside a heredoc body is data. Controls: a real redirect —
+/// bare, quoted target, or the `cat > f <<EOF` that opens a heredoc — is still a write.
+#[cfg(test)]
+mod s24_shell_data_tests {
+    use super::*;
+
+    fn writes(code: &str) -> bool {
+        bash_capability_needs(code)
+            .iter()
+            .any(|n| n.operation == "redirection")
+    }
+
+    #[test]
+    fn ceg_x6_ignores_redirect_chars_inside_quotes() {
+        assert!(!writes(r#"echo "a -> b" && echo 'x >> y'"#));
+        assert!(!writes(r#"grep -n -- "-->" src/lib.rs"#));
+        assert!(!writes(r#"python3 -c "print(1 > 0)""#));
+    }
+
+    #[test]
+    fn heredoc_body_is_data_not_a_redirect() {
+        assert!(!writes(
+            "python3 - <<'EOF'\nprint(1 > 0)\nx = a >> 2\nEOF\necho done"
+        ));
+        assert!(!writes("python3 - <<EOF\nif a > b: pass\nEOF"));
+    }
+
+    #[test]
+    fn real_redirects_are_still_writes() {
+        assert!(writes("echo x > out.txt"));
+        assert!(writes(r#"echo x > "out file.txt""#));
+        assert!(writes("cat > script.py <<'EOF'\nprint(1)\nEOF"));
+        assert!(writes("echo \"quoted\" >> log.txt"));
+        assert!(!writes("ls 2>/dev/null"));
+        assert!(!writes(r#"ls > "/dev/null""#));
+    }
+
+    #[test]
+    fn mask_shell_data_preserves_length_and_delimiters() {
+        let code = "echo \"a > b\" 'c' <<'EOF'\nbody > x\nEOF\ntail";
+        let masked = mask_shell_data(code);
+        assert_eq!(masked.len(), code.len());
+        assert!(!masked.contains('>'), "{masked:?}");
+        assert!(masked.contains("\"     \""), "{masked:?}");
+        assert!(masked.ends_with("EOF\ntail"), "{masked:?}");
     }
 }

@@ -1,0 +1,45 @@
+{
+  "phase": "S-4",
+  "entities": [
+    {
+      "entity_id": "phase:S-4",
+      "type": "phase",
+      "description": "Congelamento, split e audit sample (commit e79a4e9e): n=180 (132/48), splits 66/24 por metade, 7+8 sess\u00f5es sem cruzar, MANIFEST.sha256 + --check que pega 1 byte. Teste herm\u00e9tico (R3_FAKE_REPO/EXTERNAL): provado dentro do sandbox e nativo, corpus real intacto por hash+mtime. Pacote cego = 179 (a2-00019 retido: rota vazia, Errata 4 E4.7)."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-4:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-4|produces|memory:loop:task_1790956285165149342:S-4:done",
+      "source": "phase:S-4",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-4:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-4:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-4:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-4:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-4:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}

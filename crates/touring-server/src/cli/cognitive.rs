@@ -44,7 +44,9 @@ enum CognitiveCmd {
 /// corresponding daemon query (`cli-cognitive-metrics`, `cli-cognitive-engines`, or
 /// `cli-mcts-search` with `mcts_rl`/`got_parallel` mode), printing the daemon's response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match CognitiveCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<CognitiveCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -61,7 +63,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         CognitiveCmd::Search { query } => {
             let q = query.join(" ");
             if q.is_empty() {
-                anyhow::bail!("Usage: touring cognitive search <query>");
+                anyhow::bail!(
+                    "missing query; run `touring cognitive --help` or use: touring cognitive search <query>"
+                );
             }
             let payload = serde_json::json!({ "query": q, "mode": "mcts_rl" });
             let output = daemon_query("cli-mcts-search", payload)?;
@@ -70,7 +74,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         CognitiveCmd::Explore { query } => {
             let q = query.join(" ");
             if q.is_empty() {
-                anyhow::bail!("Usage: touring cognitive explore <query>");
+                anyhow::bail!(
+                    "missing query; run `touring cognitive --help` or use: touring cognitive explore <query>"
+                );
             }
             let payload = serde_json::json!({ "query": q, "mode": "got_parallel" });
             let output = daemon_query("cli-mcts-search", payload)?;

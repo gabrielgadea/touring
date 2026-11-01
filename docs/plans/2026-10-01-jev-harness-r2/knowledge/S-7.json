@@ -1,0 +1,45 @@
+{
+  "phase": "S-7",
+  "entities": [
+    {
+      "entity_id": "phase:S-7",
+      "type": "phase",
+      "description": "Score-gate MEDIDO + wired: replay real 33q \u2014 score_gate tau=1.0 injeta 31,1% com MESMA eficacia do contexto cheio (top1 4, mrr 0,1212 \u2014 zero perda com 69% menos injecao); jev-rerank segue top1 5. Producao: _score_gate_with_jev no session_startup (TOURING_JEV_RECALL_MODE=score_gate, fail-open devolve todas), funcional OK (filtro+fail-open). Missing 20/39 fica no replay (lado sessao nao pode saber o que falta \u2014 honesto). 6/6 testes."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-7:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-7|produces|memory:loop:task_1790895761205640116:S-7:done",
+      "source": "phase:S-7",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-7:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-7:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-7:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-7:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-7:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

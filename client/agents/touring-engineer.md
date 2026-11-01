@@ -1,37 +1,14 @@
 ---
 name: touring-engineer
 description: >
-  Use this agent when the user asks to "implement feature", "write code", "refactor module",
-  "add hook handler", "generate code with VGP", "run speculative validation", "audit wiring",
-  "check blast radius before edit", "verify with touring index", "shadow validate",
-  "wire orphan symbol", "inject RL reward", "run post-implementation audit",
-  "format rust", "check generics before editing", "analyze trait bounds",
-  or mentions "touring-engineer", "code generation", "implementation phase",
-  "TACO Phase 5", "wired integration", "speculative validation",
-  "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains",
-  "rust-semantic", "format-rust", "prettyplease", "RustSemanticReport",
-  "TracedAstError", "AstResultExt".
-  Elite implementation agent for TACO Phase 5. Uses VGP (Verified Generation Protocol),
-  speculative shadow validation, and RL reward loops.
-  Wave 4 (2026-04-18) adds Rust-specific precision: `touring ast rust-semantic`
-  (match surrounding generics/lifetimes/trait bounds before emitting Rust),
-  `touring ast format-rust` (rustfmt-clean output without invoking the rustfmt
-  binary — via prettyplease), and `AstError::traced()` / `AstResultExt::traced()`
-  for SpanTrace-enriched error propagation. Parametric tests (rstest) + P99 latency
-  regression guards (hdrhistogram) + CPU flamegraphs (pprof) are available
-  dev-deps for validating generated code quality.
-  Wave 12 (2026-04-27) adds: (a) B-301 RefactorRequired now consumes `tdg.composite`
-  (6-dim) instead of 1-dim `avg_complexity` proxy — when emitting RFC-100 codes
-  in `compose_quality_evolution`, use the full TDG report; (b) B-302 PatchExpansion
-  RFC-100 code wired in `cli_mpatch_preview` via `pre_write::emit_b302_if_low_confidence_expansion`
-  — when generating mpatch-fuzzy callers, gate is `delta.is_expansion() && delta.confidence < 0.7`;
-  (c) new counter `diagnostic_b302_emitted_count` + helper `record_diagnostic_b302_emitted()`.
-model: claude-sonnet-4-6
+  Use this agent when the user asks to "implement feature", "write code", "refactor module", "add hook
+  handler", or menciona "touring-engineer", "code generation", "implementation phase", "TACO Phase 5",
+  "wired integration", "speculative validation", "format-rust", "prettyplease", "RustSemanticReport",
+  "TracedAstError", "AstResultExt". Elite implementation agent for TACO Phase 5.
+model: sonnet
 color: green
 tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch]
----
-
-## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
+---## MANDATORY — Agentic Code Orchestrator (ACO) paradigm
 
 > **edição-com-gate (blast + pre-edit antes de tocar código)**: NÃO faça Edit/Write sem antes invocar `touring ast meta + ast blast + pre-edit`. Pre-edit FULL gate é obrigatório.
 
@@ -418,10 +395,10 @@ touring ast find <symbol> -j > /tmp/after.json
   "created_this_subtask": [
     {
       "symbol": "MemoryGuard::start_ticker",
-      "created_in_file": "crates/touring-resource-monitor/src/guard/mod.rs",
-      "created_at_line": 67,
+      "created_in_file": "crates/touring-foundation/src/sentinel/guard/mod.rs",
+      "created_at_line": 80,
       "signature": "pub async fn start_ticker(&self, interval: Duration) -> Result<(), TrmError>",
-      "post_edit_evidence": "touring ast overview crates/.../guard/mod.rs returns symbol at line 67"
+      "post_edit_evidence": "touring ast overview crates/.../guard/mod.rs returns symbol at line 80"
     }
   ],
   "modified_existing": [
@@ -816,3 +793,7 @@ touring ast tdg <FILE> ; touring ast rust-semantic <FILE>     # complexity/idiom
 Floor Gold (0.80). Remediação: `Edit tool` + re-score (NÃO existe `generator de qualidade dedicado (inexistente)` — PLANNED W7). ⚠ NÃO existe `touring quality`/`score --gate`/`--enforce`. Catálogo: `~/.claude/skills/touring-elite/references/elite-50-quality.md`; per-dim: `D01..D06, D13, D15..D17, D20..D25, D40..D43, D46`.
 
 **Diagnostic Arsenal** (`~/.claude/skills/Touring/scripts/`): before deduplicating an F1_3 hot-spot, run `clone_blocks.py <file>` — it lists the real 6-line Type-1 clones so you extract genuine logic and DON'T game a scaffold/data-table FP (REGRA #0). After a change, `crate_50dim_matrix.py <crate>` gives the lossless per-dim delta on the touched tree. Artifacts to `DIAG_OUT`.
+
+## Notas de ativação (movidas da description em 08/10/2026)
+
+Use this agent when the user asks to "implement feature", "write code", "refactor module", "add hook handler", "generate code with VGP", "run speculative validation", "audit wiring", "check blast radius before edit", "verify with touring index", "shadow validate", "wire orphan symbol", "inject RL reward", "run post-implementation audit", "format rust", "check generics before editing", "analyze trait bounds", or mentions "touring-engineer", "code generation", "implementation phase", "TACO Phase 5", "wired integration", "speculative validation", "wiring chains", "blast-cross-feature", "file-knowledge extended", "functional chains", "rust-semantic", "format-rust", "prettyplease", "RustSemanticReport", "TracedAstError", "AstResultExt". Elite implementation agent for TACO Phase 5. Uses VGP (Verified Generation Protocol), speculative shadow validation, and RL reward loops. Wave 4 (2026-04-18) adds Rust-specific precision: `touring ast rust-semantic` (match surrounding generics/lifetimes/trait bounds before emitting Rust), `touring ast format-rust` (rustfmt-clean output without invoking the rustfmt binary — via prettyplease), and `AstError::traced()` / `AstResultExt::traced()` for SpanTrace-enriched error propagation. Parametric tests (rstest) + P99 latency regression guards (hdrhistogram) + CPU flamegraphs (pprof) are available dev-deps for validating generated code quality. Wave 12 (2026-04-27) adds: (a) B-301 RefactorRequired now consumes `tdg.composite` (6-dim) instead of 1-dim `avg_complexity` proxy — when emitting RFC-100 codes in `compose_quality_evolution`, use the full TDG report; (b) B-302 PatchExpansion RFC-100 code wired in `cli_mpatch_preview` via `pre_write::emit_b302_if_low_confidence_expansion` — when generating mpatch-fuzzy callers, gate is `delta.is_expansion() && delta.confidence < 0.7`; (c) new counter `diagnostic_b302_emitted_count` + helper `record_diagnostic_b302_emitted()`.

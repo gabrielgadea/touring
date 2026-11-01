@@ -10,6 +10,41 @@ name = "scout-perpetuo"
 description = "Perpetual scout: yield-adaptive explore cycles → tickets → act-vs-wait gate"
 entry = "cycle_loop"
 budget_tokens = 0
+# What this flow is FOR, so the portfolio can find it by intent rather than
+# by filename. `when_not_to_use` is not modesty: it is the field that lets a
+# search show a GAP instead of pitching the closest candidate.
+[purpose]
+# Etiqueta de curadoria (generic = vale em qualquer projeto; local = depende
+# de infra deste repo; hold = aguardando evidencia). adw-curation 28/08: zero runs em evidencia.
+curation = "hold"
+intent = "Keep scouting one topic on a yield-adaptive cadence, turning findings into tickets the factory can route"
+class = "create"
+when_to_use = [
+  "you want a standing demand generator instead of exploration as a one-off phase",
+  "the topic keeps producing findings and nobody is watching it continuously",
+]
+when_not_to_use = [
+  "a single question you want answered now — use explore-plan",
+  "executing the tickets it files: it generates demand, it does not satisfy it",
+]
+inputs = [
+  "topic",
+]
+produces = [
+  "tickets in the DAG",
+  "cadence state for the next cycle",
+]
+tags = [
+  "#kind:flow",
+  "#domain:exploration",
+  "#process:scout",
+]
+
+# Veredito de prior-art (por que ESTE fluxo existe em vez de outro).
+# Exploração como processo permanente com cadência adaptativa ao rendimento —
+# `explore-plan` é episódico e termina.
+prior_art_verdict = "create_new"
+
 
 # The runner counts NEW_FINDINGS printed by each cycle (Law L2); two dry cycles
 # in a row end this batch — the STATE keeps the backoff for the next batch.
@@ -18,18 +53,32 @@ type = "loop"
 body = "cycle"
 max_iters = 4
 dry_rounds = 2
-on_dry = "present"
-on_pass = "present"
+on_dry = "code_mode_replay"
+on_pass = "code_mode_replay"
 on_fail = "__fail__"
 
 [node.cycle]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py cycle --topic \"$1\"", "--", "{{vars.topic}}"]
 timeout_ms = 960000
 idempotent = true
 
+# W7 S-7.1 (plano code-mode-total): o replay dos instrumentos deixa de
+# depender de alguém lembrar — cada ciclo do scout mede adoção/rajadas/P9
+# contra a baseline congelada (S-0.2) e deltas significativos viram
+# NEW_FINDINGS (= demanda que o factory roteia). Probe: sem FACT= o nó falha,
+# mas o scout segue (observabilidade jamais derruba o gerador de demanda).
+[node.code_mode_replay]
+type = "probe"
+command = ["bash", "-c", "python3 $HOME/projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/replay_code_mode.py"]
+timeout_ms = 600000
+on_pass = "present"
+on_fail = "present"
+
 [node.present]
 type = "code"
+sandbox = true
 command = ["bash", "-c", "python3 ~/.claude/skills/Touring/scripts/scout_perpetuo.py status --topic \"$1\"", "--", "{{vars.topic}}"]
 timeout_ms = 30000
 idempotent = true

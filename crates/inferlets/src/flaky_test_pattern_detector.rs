@@ -57,7 +57,7 @@ pub struct FlakyTest {
 
 /// Output structure for flaky_test_pattern_detector.
 #[derive(Debug, Serialize)]
-pub struct Output {
+pub(crate) struct Output {
     /// Tests whose failure rate exceeded the threshold.
     pub flaky_tests: Vec<FlakyTest>,
     /// Total number of test runs parsed from the log.

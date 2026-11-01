@@ -1,0 +1,11 @@
+{
+  "phase": "P2",
+  "entities": [
+    {
+      "entity_id": "phase:P2",
+      "type": "phase",
+      "description": "probe do fix de resolucao de subtask id"
+    }
+  ],
+  "relations": []
+}

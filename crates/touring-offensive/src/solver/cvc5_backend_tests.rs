@@ -993,30 +993,6 @@ fn z3_cvc5_consistency_full_smoke() {
 // path.
 // ==================================================================
 
-/// Build a `TranslationContext` for use in unit tests.
-#[cfg(feature = "cvc5")]
-fn make_test_ctx<'a, 'tm>(
-    tm: &'tm cvc5::TermManager,
-    int_sort: &'a cvc5::Sort<'tm>,
-    bv_sort: &'a cvc5::Sort<'tm>,
-    array_sort: &'a cvc5::Sort<'tm>,
-    vars: &'a mut HashMap<String, cvc5::Term<'tm>>,
-    bv_vars: &'a mut HashMap<String, cvc5::Term<'tm>>,
-    array_vars: &'a mut HashMap<String, cvc5::Term<'tm>>,
-    array_counter: &'a mut u32,
-) -> TranslationContext<'a, 'tm> {
-    TranslationContext {
-        tm,
-        int_sort,
-        bv_sort,
-        array_sort,
-        vars,
-        bv_vars,
-        array_vars,
-        array_counter,
-    }
-}
-
 /// #1 — BV Constant: `cvc5.tm.mk_bv(32, v)` should produce a BV
 /// term with the expected sort.
 #[cfg(feature = "cvc5")]
@@ -1030,16 +1006,16 @@ fn cvc5_bv_translation_unit_test_constant() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let const_expr = SymbolExpr {
         name: String::new(),
@@ -1062,16 +1038,16 @@ fn cvc5_bv_translation_unit_test_variable_decl() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let var_expr = var("x");
     let first = ctx.declare_bv_var(&var_expr.name);
@@ -1097,16 +1073,16 @@ fn cvc5_bv_translation_unit_test_int_variable_decl() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let first = ctx.declare_int_var("y");
     let second = ctx.declare_int_var("y");
@@ -1133,16 +1109,16 @@ fn cvc5_bv_translation_unit_test_coerce_to_int() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let bv_const = tm.mk_bv(BV_WIDTH, 5);
     assert!(bv_const.sort().is_bv(), "bv_const should be BV sort");
@@ -1167,16 +1143,16 @@ fn cvc5_bv_translation_unit_test_coerce_to_bv() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let int_const = tm.mk_integer(7);
     assert!(
@@ -1201,16 +1177,16 @@ fn cvc5_bv_translation_unit_test_coerce_identity() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let bv_const = tm.mk_bv(BV_WIDTH, 3);
     let coerced_bv = ctx.coerce_to_bv(&bv_const);
@@ -1241,16 +1217,16 @@ fn cvc5_bv_translation_unit_test_8_variants_smoke() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     // Constant + Variable
     let _ = ctx.translate_symbol_bv(&SymbolExpr {
@@ -1321,16 +1297,16 @@ fn cvc5_bv_translation_unit_test_var_identity() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let first = ctx.declare_int_var("a");
     let second = ctx.declare_int_var("a");
@@ -1363,16 +1339,16 @@ fn cvc5_array_translation_unit_test_declare_array_var() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let first = ctx.declare_array_var("arr");
     let second = ctx.declare_array_var("arr");
@@ -1409,16 +1385,16 @@ fn cvc5_array_translation_unit_test_fresh_const_array() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     let a1 = ctx.fresh_const_array(0);
     let a2 = ctx.fresh_const_array(0);
@@ -1460,16 +1436,16 @@ fn cvc5_array_translation_unit_test_select_store_real_semantics() {
     let mut array_vars: HashMap<String, cvc5::Term<'_>> = HashMap::new();
     let mut array_counter: u32 = 0;
     let array_sort = tm.mk_array_sort(int_sort.clone(), int_sort.clone());
-    let mut ctx = make_test_ctx(
-        &tm,
-        &int_sort,
-        &bv_sort,
-        &array_sort,
-        &mut vars,
-        &mut bv_vars,
-        &mut array_vars,
-        &mut array_counter,
-    );
+    let mut ctx = TranslationContext {
+        tm: &tm,
+        int_sort: &int_sort,
+        bv_sort: &bv_sort,
+        array_sort: &array_sort,
+        vars: &mut vars,
+        bv_vars: &mut bv_vars,
+        array_vars: &mut array_vars,
+        array_counter: &mut array_counter,
+    };
 
     // Build: arr[i]  (real Kind::Select, int result)
     let arr = var("arr");

@@ -210,6 +210,52 @@ fn test_append_note() {
     assert_eq!(result2.notes.as_deref(), Some("Bug with enum; Fixed in v2"));
 }
 
+/// V0e5 (09/10/2026): an append-only note kept a red test run at the head of `notes`
+/// (the readers show its first 100–120 bytes) for 17 min after newer runs. A writer
+/// that owns a segment REPLACES it: one current segment, at the head, other writers'
+/// segments untouched, `notes` bounded however many times it runs.
+#[test]
+fn test_replace_owned_note_keeps_one_current_segment_at_the_head() {
+    let (_tmp, db) = test_db();
+    db.upsert(&FileKnowledge {
+        file_path: "t.py".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    for n in ["A: old", "quality: CC=2", "A: older", "Bug with enum"] {
+        db.append_note("t.py", n).unwrap();
+    }
+    let owns = |s: &str| s.starts_with("A:");
+    db.replace_owned_note("t.py", &owns, "A: newest").unwrap();
+    let notes = db.lookup("t.py").unwrap().unwrap().notes.unwrap();
+    assert_eq!(notes, "A: newest; quality: CC=2; Bug with enum");
+    for i in 0..50 {
+        db.replace_owned_note("t.py", &owns, &format!("A: run {i}"))
+            .unwrap();
+    }
+    let notes = db.lookup("t.py").unwrap().unwrap().notes.unwrap();
+    assert_eq!(
+        notes, "A: run 49; quality: CC=2; Bug with enum",
+        "bounded: {notes}"
+    );
+}
+
+/// The quality writer keeps its contract (tail placement) on the shared body.
+#[test]
+fn test_replace_quality_note_still_replaces_at_the_tail() {
+    let (_tmp, db) = test_db();
+    db.upsert(&FileKnowledge {
+        file_path: "q.rs".to_string(),
+        ..Default::default()
+    })
+    .unwrap();
+    db.append_note("q.rs", "quality: CC=9").unwrap();
+    db.append_note("q.rs", "Bug").unwrap();
+    db.replace_quality_note("q.rs", "quality: CC=3").unwrap();
+    let notes = db.lookup("q.rs").unwrap().unwrap().notes.unwrap();
+    assert_eq!(notes, "Bug; quality: CC=3");
+}
+
 #[test]
 fn test_stats() {
     let (_tmp, db) = test_db();
@@ -1058,7 +1104,10 @@ fn test_migration_v8_to_v9_is_idempotent() {
                 .unwrap(),
             SCHEMA_VERSION
         );
-        assert!(table_exists(&db.conn, schema_guard::TABLE_WIRING_UNRESOLVED));
+        assert!(table_exists(
+            &db.conn,
+            schema_guard::TABLE_WIRING_UNRESOLVED
+        ));
     }
 }
 
@@ -1193,10 +1242,198 @@ fn test_migrate_schema_directly_is_idempotent() {
 #[test]
 fn test_schema_version_drift_guard() {
     assert_eq!(
-        SCHEMA_VERSION, 10,
+        SCHEMA_VERSION,
+        12, // v12 = S22; migration test: legacy_rows_are_labelled_unverified_by_the_migration
         "SCHEMA_VERSION changed to {} — bump this guard AND add a fixture/migration test \
              (see Master Plan C.W2.P3.T9: build_v7_fixture + \
              test_migration_v7_to_v8_upgrades_schema_and_preserves_data)",
         SCHEMA_VERSION
+    );
+}
+
+/// v11 (13/09/2026): every `WHERE consumer_file = ?` on `wiring_map` ran a full
+/// scan — the column's only index was partial (`WHERE consumer_file IS NULL`),
+/// which equality cannot use. The analise rebuild purging ~18k files scanned
+/// 99.310 rows per file and read 268 GB through the page cache in under an
+/// hour. Fresh and upgraded databases must both answer these filters from an
+/// index.
+#[test]
+fn consumer_file_filters_on_wiring_map_use_an_index() {
+    fn plans(conn: &Connection) -> Vec<String> {
+        let t = schema_guard::TABLE_WIRING_MAP;
+        [
+            format!("DELETE FROM {t} WHERE consumer_file = 'x'"),
+            format!("DELETE FROM {t} WHERE consumer_file = 'x' AND contract_source != 'y'"),
+            format!("SELECT contract_source FROM {t} WHERE consumer_file = 'x' ORDER BY 1"),
+        ]
+        .iter()
+        .map(|sql| {
+            let mut stmt = conn.prepare(&format!("EXPLAIN QUERY PLAN {sql}")).unwrap();
+            stmt.query_map([], |r| r.get::<_, String>(3))
+                .unwrap()
+                .map(Result::unwrap)
+                .collect::<Vec<_>>()
+                .join(" | ")
+        })
+        .collect()
+    }
+    let tmp = tempfile::tempdir().unwrap();
+    let fresh = FileKnowledgeDB::new(&tmp.path().join("fresh.db")).unwrap();
+    for plan in plans(&fresh.conn) {
+        assert!(!plan.contains("SCAN"), "fresh database scans: {plan}");
+    }
+    let (_tmp8, v8) = build_v8_fixture();
+    let upgraded = FileKnowledgeDB::new(&v8).unwrap();
+    for plan in plans(&upgraded.conn) {
+        assert!(!plan.contains("SCAN"), "upgraded database scans: {plan}");
+    }
+}
+
+/// S22 — provenance of bash outcomes (plan 2026-09-25).
+fn s22_fail(cmd: &str) -> BashOutcome {
+    BashOutcome {
+        command: cmd.into(),
+        command_short: cmd.into(),
+        command_hash: String::new(),
+        exit_code: 1,
+        success: false,
+        error_pattern: Some("boom".into()),
+        file_context: None,
+        executed_at: String::new(),
+    }
+}
+
+#[test]
+fn recent_bash_outcomes_for_session_scopes_by_session() {
+    let (_tmp, db) = test_db();
+    db.record_bash_outcome_with_origin(&s22_fail("a-cmd"), Some("sess-a"), "PostToolUseFailure")
+        .unwrap();
+    db.record_bash_outcome_with_origin(&s22_fail("b-cmd"), Some("sess-b"), "PostToolUseFailure")
+        .unwrap();
+    db.record_bash_outcome(&s22_fail("legacy-cmd")).unwrap();
+    let mine: Vec<String> = db
+        .recent_bash_outcomes_for_session("sess-a", 10)
+        .unwrap()
+        .into_iter()
+        .map(|o| o.command_short)
+        .collect();
+    assert_eq!(
+        mine,
+        vec!["a-cmd".to_string()],
+        "other sessions and unverified rows must not leak"
+    );
+}
+
+#[test]
+fn legacy_rows_are_labelled_unverified_by_the_migration() {
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("legacy.db");
+    drop(FileKnowledgeDB::new(&path).unwrap());
+    {
+        let conn = rusqlite::Connection::open(&path).unwrap();
+        // A pre-S22 database: v11 and no provenance columns.
+        conn.execute_batch(
+            "PRAGMA user_version = 11;
+             DROP INDEX IF EXISTS idx_bash_outcomes_session;
+             ALTER TABLE bash_outcomes DROP COLUMN origin_event;
+             ALTER TABLE bash_outcomes DROP COLUMN session_id;
+             INSERT INTO bash_outcomes (command, command_short, exit_code, success)
+                 VALUES ('printf x', 'printf', 3, 0);",
+        )
+        .unwrap();
+    }
+    let db = FileKnowledgeDB::new(&path).unwrap();
+    let origin: String = db
+        .conn_ref()
+        .query_row(
+            "SELECT origin_event FROM bash_outcomes WHERE command = 'printf x'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(origin, "legacy_unverified");
+}
+
+// C7 (2026-10-17): `prevented_errors` has no production producer, so the raw
+// column is a fabricated zero. Reporting it as "0 prevented in N hits" is a
+// lie by omission (law L2: an absent signal is not a zero).
+
+#[test]
+fn unmeasured_prevented_is_reported_as_null_not_zero() {
+    let (_tmp, db) = test_db();
+    let id = db
+        .add_gotcha("bridge", "test gotcha", "warning", None)
+        .unwrap();
+    for _ in 0..3 {
+        db.increment_gotcha_hit(id);
+    }
+    let (_total, hits, raw) = db.gotcha_stats();
+    assert!(hits >= 3, "hits are displays and DO accumulate: {hits}");
+    assert_eq!(raw, 0, "the raw column stays 0 — nothing ever wrote it");
+    assert_eq!(db.reported_prevented(raw), None, "0 must not be reported");
+    assert!(!db.prevented_measured());
+    let note = db.prevented_note().expect("the note names what is missing");
+    assert!(note.contains("increment_gotcha_prevented"), "{note}");
+
+    // Even a test-only write to the column must not surface while unmeasured:
+    // the gate is the PRODUCER's existence, not the column's value.
+    db.increment_gotcha_prevented(id);
+    let (_, _, raw) = db.gotcha_stats();
+    assert_eq!(raw, 1);
+    assert_eq!(db.reported_prevented(raw), None);
+}
+
+/// Every `.rs` under a `src/` directory of the workspace crates, minus build
+/// output and test-only files.
+fn production_sources(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if path.is_dir() {
+            if !matches!(
+                name.as_str(),
+                "target" | ".git" | ".claude" | "node_modules" | "tests"
+            ) {
+                production_sources(&path, out);
+            }
+        } else if name.ends_with(".rs") && name != "tests.rs" && !name.ends_with("_tests.rs") {
+            out.push(path);
+        }
+    }
+}
+
+#[test]
+fn prevented_flag_matches_the_existence_of_a_production_producer() {
+    let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let mut files = Vec::new();
+    production_sources(&crates, &mut files);
+    assert!(
+        files.len() > 100,
+        "the scan must really cover the workspace"
+    );
+    let definition = std::path::Path::new("knowledge").join("gotchas.rs");
+    let producers: Vec<String> = files
+        .iter()
+        .filter(|f| !f.ends_with(&definition))
+        .filter_map(|f| {
+            let text = std::fs::read_to_string(f).ok()?;
+            text.lines()
+                .any(|l| {
+                    let l = l.trim_start();
+                    !l.starts_with("//")
+                        && l.contains("increment_gotcha_prevented(")
+                        && !l.contains("fn increment_gotcha_prevented")
+                })
+                .then(|| f.display().to_string())
+        })
+        .collect();
+    assert_eq!(
+        !producers.is_empty(),
+        FileKnowledgeDB::PREVENTED_MEASURED,
+        "PREVENTED_MEASURED must be true iff production code calls \
+         increment_gotcha_prevented (callers: {producers:?})"
     );
 }

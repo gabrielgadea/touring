@@ -1,0 +1,45 @@
+{
+  "phase": "D3",
+  "entities": [
+    {
+      "entity_id": "phase:D3",
+      "type": "phase",
+      "description": "Analise profunda dos 4 itens de narrativa do CLAUDE.md com o texto condensado ESCRITO para cada um e o destino de cada trecho removido: item 8 53->12, item 10 52->14, item 12 26->4, item 13 66->11; total 197->41, arquivo 332->~176. Criterio de corte: invariante (muda o que alguem faz hoje) e gotcha caro ficam; narrativa vai para o arquivo canonico que ja existe. O item 10 e o caso mais claro porque ja aponta para code-mode-operational.md como corpo canonico. Nao aplicada: o conteudo e de Gabriel, aprovacao item a item."
+    },
+    {
+      "entity_id": "memory:loop:task_1788360579582461575:D3:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788360579582461575",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788360579582461575",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:D3|produces|memory:loop:task_1788360579582461575:D3:done",
+      "source": "phase:D3",
+      "type": "produces",
+      "target": "memory:loop:task_1788360579582461575:D3:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D3:done|generated-by|loop:loop:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D3:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788360579582461575"
+    },
+    {
+      "relation_id": "memory:loop:task_1788360579582461575:D3:done|generated-by|dag:decomp:task_1788360579582461575",
+      "source": "memory:loop:task_1788360579582461575:D3:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788360579582461575"
+    }
+  ]
+}

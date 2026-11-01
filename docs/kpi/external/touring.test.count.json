@@ -1,0 +1,6 @@
+{
+  "value": 15786,
+  "measured_at": "2026-08-28T10:30:00-03:00",
+  "command": "cargo nextest list (workspace)",
+  "note": "First real measurement (exercise-idle-infra debut, curadoria 28/08). Floor is 5100."
+}

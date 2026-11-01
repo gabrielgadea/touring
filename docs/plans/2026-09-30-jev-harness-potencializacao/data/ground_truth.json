@@ -1,0 +1,1261 @@
+{
+  "status": "OK",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-10-01T01:29:49+00:00",
+  "intent": "Integrar decisões tipadas Jev (TypeSafe System One: Choice/Score/Noul) ao harness Touring: adapter jev_client fail-open com cache+journal, baselines G2 no corpus G1, instrumentação de decisão em KPI, aluno Laya para intent→CILA, portfólio W5 (skill-picker, correção de tags, pré-review 7-Noul, relevância recall, dedupe)",
+  "duration_ms": 2208,
+  "daemon_degraded": false,
+  "extracted": {
+    "symbols": [
+      "TypeSafe",
+      "jev_client"
+    ],
+    "paths": []
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 2,
+    "gotchas_found": 0,
+    "lessons_applied": 10,
+    "orphan_count": 1,
+    "paths_inspected": 0
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.87"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=7"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{\"Medium\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}},\"by_project\":{\"/home/gabrielgadea/projects/analise\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0,\"weighted_score\":1.0}},\"by_session\":{\"9105f79c-7d21-4688-89c5-2a57a0ba1b29\":{\"failure_count\":1,\"last_failure_ts\":1790637296,\"open_until_ts\":0}}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (13 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "ok",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=100346 producers=12508 consumers=87838 pub=11554 kind_unknown=0 non_wireable=0 unread=0 abs_paths=0"
+      },
+      {
+        "name": "index_generation",
+        "status": "ok",
+        "detail": "generation 45 complete at 2026-09-24 00:43:15 (5409 files, 94804 symbols)"
+      },
+      {
+        "name": "gpu_embeddings",
+        "status": "ok",
+        "detail": "cuda — 1431 texts embedded on the GPU by this daemon"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "code_mode": {
+      "adoption_ratio": 7.305555555555555,
+      "bash_calls": 216,
+      "gates": {
+        "g10_exec_burst": {
+          "denied": 1,
+          "followed": 1
+        },
+        "g1_burst": {
+          "denied": 5,
+          "followed": 1
+        },
+        "g2_pipe_exit": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "denied": 34,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "denied": 34,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g9_sed_inline": {
+          "denied": 0,
+          "followed": 0
+        }
+      },
+      "runs": 1578
+    },
+    "composite_health_score": 0.4682,
+    "daemon_health": {
+      "components": [
+        {
+          "name": "knowledge_db",
+          "note": "always initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "linucb_bandit",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "symbol_store",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "crdt_graph",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "predictor",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "cognitive_runtime",
+          "note": "initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "enrichment_pipeline",
+          "note": "auto-triggered at session-start",
+          "status": "active"
+        },
+        {
+          "name": "gotcha_db",
+          "note": "integrated in knowledge_db",
+          "status": "healthy"
+        }
+      ],
+      "healthy_count": 7,
+      "total_count": 8
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 40,
+      "activity_post_write_count": 138,
+      "activity_pre_compact_count": 33,
+      "activity_pre_edit_count": 561,
+      "actor_budget_timeout_count": 0,
+      "actor_queue_wait": {
+        "count": 113980,
+        "max_us": 11247615,
+        "p50_us": 73,
+        "p90_us": 113,
+        "p999_us": 925183,
+        "p99_us": 153
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 5,
+      "adoption_touring_count": 16,
+      "ann_search_latency": {
+        "count": 265,
+        "max_us": 121087,
+        "p50_us": 9455,
+        "p90_us": 10847,
+        "p999_us": 121087,
+        "p99_us": 92031
+      },
+      "antipattern_converted_count": 0,
+      "bash_calls_total_count": 216,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 0,
+      "ceg_captured_count": 176,
+      "ceg_fast_path_count": 75,
+      "ceg_sandboxed_count": 0,
+      "code_mode_arm_followed_both_count": 0,
+      "code_mode_arm_followed_code_count": 1,
+      "code_mode_arm_followed_native_count": 0,
+      "code_mode_arm_offered_both_count": 0,
+      "code_mode_arm_offered_code_count": 3,
+      "code_mode_arm_offered_native_count": 0,
+      "code_mode_bytes_elided_total": 3267447,
+      "code_mode_runs_count": 1578,
+      "code_mode_subcall_bytes_total": 9502,
+      "code_mode_subcalls_count": 6,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 0,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 761,
+      "e3_counterfactual_observed_count": 0,
+      "embedding_cuda_fallback_count": 0,
+      "embedding_cuda_fallback_reason": "",
+      "embedding_device": "cuda",
+      "embedding_latency": {
+        "count": 1432,
+        "max_us": 94399,
+        "p50_us": 3281,
+        "p90_us": 11895,
+        "p999_us": 33375,
+        "p99_us": 19727
+      },
+      "embedding_texts_cpu_count": 0,
+      "embedding_texts_cuda_count": 1432,
+      "enrichment_context_bytes_total": 788753,
+      "enrichment_emit_count": 691,
+      "enrichment_mean_bytes_per_emit": 1141.465991316932,
+      "exec_heredoc_inline_seen_count": 8,
+      "g10_write_run_pair_denied_count": 0,
+      "g1_inspect_burst_denied_count": 3,
+      "g1_inspect_first_passed_count": 8,
+      "g1_post_deny_other_count": 0,
+      "g1_post_deny_same_class_count": 1,
+      "g4_observed_count": 552,
+      "g5_observed_count": 1,
+      "gate_events": {
+        "g10_exec_burst": {
+          "bypassed": 0,
+          "denied": 1,
+          "emitted": 0,
+          "followed": 1
+        },
+        "g1_burst": {
+          "bypassed": 0,
+          "denied": 5,
+          "emitted": 0,
+          "followed": 1
+        },
+        "g2_pipe_exit": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "bypassed": 0,
+          "denied": 34,
+          "emitted": 34,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "bypassed": 0,
+          "denied": 34,
+          "emitted": 70,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g9_sed_inline": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        }
+      },
+      "gate_fatigue": {
+        "bypass_ratio": 0.0,
+        "bypassed_total": 0,
+        "denied_total": 74,
+        "per_gate": [
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 5,
+            "fp_candidate": false,
+            "gate": "g1_burst"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g2_pipe_exit"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g3_edit_sem_read"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 34,
+            "fp_candidate": false,
+            "gate": "g6_redundant"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 34,
+            "fp_candidate": false,
+            "gate": "g7_reinspect"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g8_loop_rewrite"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g9_sed_inline"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 1,
+            "fp_candidate": false,
+            "gate": "g10_exec_burst"
+          }
+        ]
+      },
+      "gate_metrics_daily_flush_count": 13,
+      "health_delta_compute_count": 102,
+      "health_delta_improvement_count": 0,
+      "health_delta_outstanding": 595,
+      "health_delta_record_count": 697,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 0,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_by_name": {
+        "ceg-observe": 243,
+        "cli-ast-blast": 21,
+        "cli-ast-find": 13,
+        "cli-ast-meta": 35,
+        "cli-ast-overview": 9,
+        "cli-code-mode-run": 1578,
+        "cli-decompose-add": 31,
+        "cli-decompose-claim": 1,
+        "cli-decompose-create": 7,
+        "cli-decompose-get": 330,
+        "cli-decompose-ready": 8,
+        "cli-decompose-ticket": 1,
+        "cli-decompose-update": 25,
+        "cli-e2e": 5,
+        "cli-experiment-record": 111,
+        "cli-flywheel-status": 3360,
+        "cli-gate-metrics": 3418,
+        "cli-gotcha-match": 1,
+        "cli-health-delta-status": 3357,
+        "cli-incremental-status": 3358,
+        "cli-index-find": 67,
+        "cli-index-ingest": 31,
+        "cli-index-status": 3417,
+        "cli-kpi": 19072,
+        "cli-learning-reward": 119,
+        "cli-learning-status": 60271,
+        "cli-memory-credit": 17,
+        "cli-memory-link": 944,
+        "cli-memory-links": 15,
+        "cli-memory-query": 1236,
+        "cli-memory-recall": 166,
+        "cli-memory-store": 771,
+        "cli-memory-unlink": 29,
+        "cli-predict-action": 1,
+        "cli-resource-monitor-status": 3357,
+        "cli-session-list": 3358,
+        "cli-suggest": 791,
+        "cli-tantivy-search": 2,
+        "cli-wiring-cycles": 1,
+        "cli-wiring-impact": 14,
+        "cli-wiring-modules": 1,
+        "cli-wiring-orphans": 34,
+        "cli-wiring-status": 3360,
+        "cwd-changed": 33,
+        "enter-plan-mode": 33,
+        "exit-plan-mode": 33,
+        "instructions-loaded": 394,
+        "post-bash": 207,
+        "post-compact": 33,
+        "post-edit": 40,
+        "post-read": 49,
+        "post-tool-batch": 88,
+        "post-tool-failure": 1,
+        "post-tool-rl": 128,
+        "post-write": 138,
+        "pre-bash": 142,
+        "pre-compact": 33,
+        "pre-edit": 561,
+        "pre-edit-prevention": 627,
+        "pre-glob": 33,
+        "pre-grep": 33,
+        "pre-read": 561,
+        "pre-write": 697,
+        "session-start": 53,
+        "session-stop": 21,
+        "subagent-start": 33,
+        "subagent-stop": 5,
+        "task-completed": 34,
+        "task-created": 34,
+        "task-sync-create": 33,
+        "task-sync-delete": 33,
+        "task-sync-get": 33,
+        "task-sync-list": 33,
+        "task-sync-output": 33,
+        "task-sync-stop": 135,
+        "task-sync-update": 33,
+        "teammate-idle": 34
+      },
+      "hook_dispatch_latency": {
+        "count": 117396,
+        "max_us": 14303231,
+        "p50_us": 731,
+        "p90_us": 586751,
+        "p999_us": 901631,
+        "p99_us": 709631
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "m3_delegation_advised_count": 0,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 1683.2421875,
+      "memory_virt_mb": 28912207.140625,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 62,
+      "native_injection_code_route_count": 7,
+      "native_injection_followed_count": 7,
+      "native_injection_resisted_count": 552,
+      "phrase_query_match_count": 571,
+      "pillar_induction_emitted_count": 1,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.06546644844517185,
+      "pre_edit_full": 571,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.21505376344086025,
+      "pre_write_full": 146,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 107,
+      "query_cache_hit_ratio": 0.030123873873873875,
+      "query_cache_invalidate_count": 7,
+      "query_cache_miss_count": 3445,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 9305412,
+      "rkyv_dispatch_count": 111987,
+      "rkyv_dispatch_latency": {
+        "count": 111986,
+        "max_us": 14303231,
+        "p50_us": 929,
+        "p90_us": 590335,
+        "p999_us": 916991,
+        "p99_us": 712191
+      },
+      "rkyv_mean_bytes": 83.09368051648852,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 111986,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 130,
+      "suggestion_uptake_followed_count": 0,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 197,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 72,
+      "tantivy_stream_flush_count": 44,
+      "tantivy_stream_flush_docs_count": 72,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 10804,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 797,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 231,
+      "workflow_antipattern_detected_count": 68
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 102,
+      "improvement_count": 0,
+      "outstanding": 595,
+      "record_count": 697,
+      "recovery_count": 0,
+      "regression_count": 0,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.14960629921259844,
+      "file_count": 5415,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 319335,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 5415,
+      "index_generation": {
+        "detail": "generation 45 complete at 2026-09-24 00:43:15 (5409 files, 94804 symbols)",
+        "files": 5409,
+        "finished_at": "2026-09-24 00:43:15",
+        "generation": 45,
+        "owner_pid": 1574377,
+        "started_at": "2026-09-24 00:37:52",
+        "state": "complete",
+        "symbols": 94804
+      },
+      "initialized": true,
+      "symbol_count": 319335
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.9923564626835294,
+        "update_count": 8
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "corpus_pending": 4,
+      "ema_reward": 0.12063286524357553,
+      "last_td_error": 0.7405351784277459,
+      "linucb_loaded": true,
+      "mean_td_error": 1.79278125,
+      "update_count": 47394
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.48430941606744893,
+        "cycle_count": 16,
+        "max_depth": 12,
+        "modularity_q": 0.16680708191240773,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2502,
+        "total_functions": 15510,
+        "total_nodes": 1401
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.058823529411764705,
+        "depth": 0.4,
+        "equality": 0.5156905839325511,
+        "modularity": 0.4445380546082718,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3519,
+      "signal_normalized": 0.3518696777257125
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-09-24T03:17:25.619219979+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:02.597085125+00:00",
+          "objective": "",
+          "session_id": "31",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:45:17.371599589+00:00"
+        },
+        {
+          "created_at": "2026-08-31T17:14:07.230842782+00:00",
+          "objective": "",
+          "session_id": "27",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:43:55.449751163+00:00"
+        },
+        {
+          "created_at": "2026-08-31T15:47:43.952933671+00:00",
+          "objective": "",
+          "session_id": "26",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:35.389687622+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:46:02.575573405+00:00",
+          "objective": "",
+          "session_id": "29",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:13.088781713+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:35:15.929264938+00:00",
+          "objective": "",
+          "session_id": "28",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:38:24.356049974+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:00.176903804+00:00",
+          "objective": "",
+          "session_id": "30",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:37:37.913050531+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:36.791698024+00:00",
+          "objective": "",
+          "session_id": "25",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:36:58.845654394+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:19.702827263+00:00",
+          "objective": "",
+          "session_id": "24",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:35:00.412769017+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:02.038133072+00:00",
+          "objective": "",
+          "session_id": "23",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:34:10.023717399+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:30:47.910615451+00:00",
+          "objective": "",
+          "session_id": "22",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:33:14.134498601+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:50.978686499+00:00",
+          "objective": "",
+          "session_id": "21",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:32:45.269227323+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:37.656923416+00:00",
+          "objective": "",
+          "session_id": "20",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:19:48.249461566+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:20.173475648+00:00",
+          "objective": "Verificar type=code em fragments ADW antes de recomendar C",
+          "session_id": "19",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:16:32.858191716+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:06.232865776+00:00",
+          "objective": "",
+          "session_id": "18",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:11:53.996622097+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:52.995482838+00:00",
+          "objective": "",
+          "session_id": "17",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:53:17.145950302+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:39.982530919+00:00",
+          "objective": "Persistir explanation.md + v4 digest em memória",
+          "session_id": "16",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:52:14.508842671+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:26.860222833+00:00",
+          "objective": "Explicar Top-5 Aprimoramentos + 5 Candidatas",
+          "session_id": "15",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:32:27.956670056+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:50.420715266+00:00",
+          "objective": "",
+          "session_id": "14",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:22:19.649507388+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:27.095782624+00:00",
+          "objective": "",
+          "session_id": "12",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:21:33.295885734+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 1765,
+        "detail": {
+          "_elided_array_len": 1051
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 7791,
+        "bash_count": 9129,
+        "coedit_pairs": 14610,
+        "edit_count": 2981,
+        "gotcha_count": 13,
+        "relation_count": 31970,
+        "task_metrics_count": 396
+      },
+      "module_count": 1486,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 761,
+      "total_consumers": 8938,
+      "total_pub_symbols": 8833
+    }
+  },
+  "e2e": {
+    "version": "30.4.87",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1790818188",
+    "overall_score": 0.856520147420714,
+    "overall_status": "pass",
+    "total_duration_ms": 575,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 0.8480143408714838,
+        "weight": 2.0,
+        "duration_ms": 39,
+        "metrics": {
+          "coverage_pct": "74.7",
+          "disk_files": 7252,
+          "indexed_files": 5415,
+          "knowledge_files": 5509,
+          "relation_count": 31970,
+          "symbol_count": 319335,
+          "symbols_per_file": 58.97229916897507,
+          "tantivy_commits": 14,
+          "tantivy_docs": 113047,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 2198,
+          "tantivy_upserts": 253
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "pass",
+        "score": 0.8090977510931578,
+        "weight": 2.0,
+        "duration_ms": 246,
+        "metrics": {
+          "avg_integration_score": 0.9160447723935925,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "90.3",
+          "functional_chains": 152,
+          "modules_below_threshold": 69,
+          "orphan_count": 1276,
+          "orphan_rate_pct": "9.7",
+          "total_consumers": 87838,
+          "total_pub_symbols": 13152,
+          "wiring_score": 0.8090977510931578
+        },
+        "issues": [],
+        "tests_run": 4,
+        "tests_passed": 4
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 34,
+        "metrics": {
+          "access_count": 7791,
+          "active_gotchas": 0,
+          "avg_line_count": 794.09511708114,
+          "avg_symbol_density": 0.08025702510132193,
+          "bash_outcome_count": 9129,
+          "coedit_pairs": 14610,
+          "edit_history_count": 2981,
+          "file_knowledge_count": 5509,
+          "gotcha_hit_rate_pct": "2983138.5",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 48,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 7791,
+            "bash_count": 9129,
+            "coedit_pairs": 14610,
+            "edit_count": 2981,
+            "gotcha_count": 13,
+            "relation_count": 31970,
+            "task_metrics_count": 396
+          },
+          "knowledge_score": 0.998257396986749,
+          "language_distribution": {
+            "c": 3,
+            "css": 7,
+            "example": 1,
+            "graphql": 1,
+            "html": 4,
+            "javascript": 1086,
+            "json": 264,
+            "jsonc": 1,
+            "jsonl": 1,
+            "log": 3,
+            "markdown": 1014,
+            "out": 12,
+            "output": 165,
+            "python": 472,
+            "rust": 2141,
+            "scm": 1,
+            "service": 3,
+            "shell": 77,
+            "timer": 1,
+            "toml": 147,
+            "txt": 42,
+            "typescript": 28,
+            "unknown": 6,
+            "yaml": 29
+          },
+          "languages": 24,
+          "memory_entries": 19824
+        },
+        "issues": [
+          "48 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7757999999999999,
+        "weight": 2.0,
+        "duration_ms": 229,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 0,
+          "languages": {
+            "json": 2,
+            "markdown": 7,
+            "python": 3,
+            "rust": 5,
+            "shell": 5,
+            "toml": 3,
+            "yaml": 5
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 758
+        },
+        "issues": [],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 1.5,
+        "duration_ms": 22,
+        "metrics": {
+          "antipattern_rate_pct": "0.0",
+          "avg_error_coverage": "0.052",
+          "avg_quality_score": "0.951",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 0,
+          "max_complexity": 64,
+          "top_offenders": [],
+          "total_antipatterns": 0,
+          "total_unwraps": 9
+        },
+        "issues": [],
+        "tests_run": 30,
+        "tests_passed": 30
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 3,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.12063286524357553,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 47394
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 5,
+      "phases_warned": 1,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 82,
+      "total_issues": 1,
+      "top_issues": [
+        "[KNOWLEDGE] 48 hot file(s) edited 3+ times in 7d"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 0,
+        "hit_rate": 0.14960629921259844,
+        "hits": 38,
+        "misses": 216
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 2,
+      "detail": {
+        "cycle_count": 2,
+        "cycles": {
+          "_elided_array_len": 2
+        }
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 416
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 761,
+      "diagnostics": {
+        "_elided_array_len": 761
+      },
+      "internal_only": {
+        "_elided_array_len": 2545
+      },
+      "internal_only_count": 2545,
+      "orphan_count": 761,
+      "orphans": {
+        "_elided_array_len": 761
+      },
+      "resolution": {
+        "heuristic_edges": 76944,
+        "name_only_candidates": 6311,
+        "origin_breakdown": [
+          {
+            "origin": "ast_declared",
+            "rows": 12510
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 10892
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 76944
+          }
+        ],
+        "top_unresolved_modules_debt_only": {
+          "_elided_array_len": 10
+        },
+        "unresolved_by_class": [
+          {
+            "call_sites": 5697,
+            "class": "external"
+          },
+          {
+            "call_sites": 401,
+            "class": "scope_keyword"
+          },
+          {
+            "call_sites": 174,
+            "class": "workspace_unresolved"
+          },
+          {
+            "call_sites": 22,
+            "class": "unmeasured"
+          },
+          {
+            "call_sites": 17,
+            "class": "ambiguous_alias"
+          }
+        ],
+        "unresolved_samples": {
+          "_elided_array_len": 5
+        }
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 761,
+      "findings": {
+        "_elided_array_len": 761
+      }
+    }
+  },
+  "wiring_orphans": {
+    "_elided_array_len": 761
+  },
+  "evolution_drift": {},
+  "memory_lessons": [
+    {
+      "key": "research:jev-system-one:2026-09-22",
+      "links": [
+        {
+          "direction": "in",
+          "dst": "research:jev-system-one:2026-09-22",
+          "rel": "extends",
+          "src": "estrategia:potencializacao-jev-harness:2026-09-30"
+        }
+      ],
+      "score": 0.3126020394448118,
+      "source": "ann",
+      "stored_at": "2026-09-22 11:26:28",
+      "value": "Jev (TypeSafe AI, jev-1.13.0, lançado 15/09/2026) é função de decisão hospedada, não LLM: state (texto/JSON, 32k+maior pergunta; 64k total) + perguntas tipadas Choice(≤255 opções, probabilities+confidence)/Score(2-10 níveis)/Noul(P(sim)); todas as perguntas de uma chamada rodam em paralelo e isoladas; ~100ms; US$0,042/MTok só entrada; RLCD (calibração de grupo, não individual); sem fine-tuning, só texto, inglês primário (pt-BR com acurácia menor); SDK python typesafe-sdk (2 breaking changes em 7 dias), JS @typesafe-ai/sdk; sem SDK Rust. Encaixe no Touring (predicado de 5 cláusulas: resposta fechada, julgamento semântico, custo real hoje, erro gateável, dado pode sair+latência cabe): C1 factory.py llm_route (claude -p haiku 120s 'Reply ONLY with JSON'; 6 regras regex em inglês; 23 ADWs com intent/when_not_to_use = critérios contrastivos what/not_for) → cascata regra→Jev(conf≥τ)→haiku; C2 filtro de relevância Noul antes de injetar memórias (candidata dentro das instructions, state pequeno); C3 tags facetadas (Choice por faceta); C4 dedupe scout/memórias. Anti-usos: CEG/gates de segurança (adversarial), wiring (compilador), juiz de convergência (reprodutibilidade), contagem/datas, hooks de 1ms, geração. Bloqueio: sem TYPESAFE_API_KEY na máquina; próximo passo = spike F1 comparativo (Jev × regex/haiku × reranker local RTX4060) com dados do histórico. Doc: docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md"
+    },
+    {
+      "key": "estrategia:otimizacao-jev-touring:2026-09-23",
+      "links": [
+        {
+          "direction": "in",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "estrategia:potencializacao-jev-harness:2026-09-30"
+        },
+        {
+          "direction": "in",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "resultado:g1-revisao-corpus:2026-09-24"
+        },
+        {
+          "direction": "in",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "resultado:otimizacao-jev-touring-n1-n6:2026-09-23"
+        },
+        {
+          "direction": "in",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "diagnostico:snippet-reuse-e-descoberta:2026-09-23"
+        },
+        {
+          "direction": "in",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "licao:system1-screening-por-classe-de-fluxo:2026-09-23"
+        }
+      ],
+      "score": 0.31803216172031445,
+      "source": "ann",
+      "stored_at": "2026-09-23 22:19:47",
+      "value": "Pesquisa notebook JEV (7 vídeos) x KPIs vivos x estratégia v2. Veredito: (1) screening System-1 entra por CLASSE de fluxo — ajuda bugfix/review (-41% output tokens Sonnet5), prejudica criação (+61% input Opus5) → metadado [purpose] class nas specs ADW (N5); (2) 4 lacunas sem modelo: corpus_coverage 0.597 (reindex em curso), graph_contract 0.0, code_mode_reuse FAIL 0.146, flow.compliance 0.499 → N0-N6 antes de G2; (3) chave TypeSafe segue UNSET; professor-Claude cobre dado sensível. Doc: docs/plans/2026-09-23-jev-touring-otimizacao/strategy-2026-09-23-jev-touring-otimizacao.md"
+    },
+    {
+      "key": "licao:system1-screening-por-classe-de-fluxo:2026-09-23",
+      "links": [
+        {
+          "direction": "out",
+          "dst": "estrategia:otimizacao-jev-touring:2026-09-23",
+          "rel": "extends",
+          "src": "licao:system1-screening-por-classe-de-fluxo:2026-09-23"
+        }
+      ],
+      "score": 0.29062989838479947,
+      "source": "ann",
+      "stored_at": "2026-09-23 22:21:47",
+      "value": "Benchmarks do JEV Gateway (7 vídeos, fonte 3P, notebook JEV 23/09): screening System-1 AJUDA bugfix/review (Sonnet 5 bugfix: -41% output tokens, -48% input, 25% mais rápido; Astra bugfix: -39% tempo) e PREJUDICA criação (Opus 5 feature: +61% input tokens, 83% mais lento). Unidade de decisão = CLASSE do fluxo. Antes de qualquer integração: metadado [purpose] class nas specs ADW (N5). Nunca transversal."
+    },
+    {
+      "key": "T02 varredura harness Jev: chave em ~/.config/typesafe/env (27/09) mas 0 TYPESAFE* no daemon e typesafe-sdk ausente; R6 resolvido no papel, aberto no fato. Volumes 7d: 191,4 prompts humanos/dia (o ponto de decisao de maior volume, e o que o keyword mais erra per G1), 5 recalls/dia por SDK, 1,1 tickets/dia de factory. Tags: 0 sem tag mas 0 revisadas por humano -> o alvo e corrigir 34,6% (~6.800 memorias), nao preencher ausentes. kpi/ gate-metrics nao tem nenhuma metrica de recall/intent/fallback: o G4 nao tem onde ser lido.",
+      "score": 0.35639039950256596,
+      "source": "ann",
+      "stored_at": "2026-10-01 01:11:14",
+      "value": "kind:lesson purpose:scan scope:jev-harness status:open"
+    },
+    {
+      "key": "report:phase:task_1790097198101133178:S5",
+      "score": 0.28041696548461914,
+      "source": "tfidf:memory",
+      "stored_at": "2026-09-22 17:48:43",
+      "value": "report:phase:task_1790097198101133178:S5 OKF: S5 — phase report (2026-09-22-jev-system-one) — /home/gabrielgadea/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/S5.md"
+    },
+    {
+      "key": "report:diagnostic:touring-20260923T185710",
+      "score": 0.3021365764303916,
+      "source": "ann",
+      "stored_at": "2026-09-23 21:57:10",
+      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T185710.md"
+    },
+    {
+      "key": "report:phase:task_1790097198101133178:G0",
+      "score": 0.28041696548461914,
+      "source": "tfidf:memory",
+      "stored_at": "2026-09-23 00:48:48",
+      "value": "report:phase:task_1790097198101133178:G0 OKF: G0 — phase report (2026-09-22-jev-system-one) — /home/gabrielgadea/projects/touring/docs/plans/2026-09-22-jev-system-one/phases/G0.md"
+    },
+    {
+      "key": "report:diagnostic:touring-20260923T200801",
+      "score": 0.2993178187174365,
+      "source": "ann",
+      "stored_at": "2026-09-23 23:08:01",
+      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T200801.md"
+    },
+    {
+      "key": "report:phase:task_1790203324709596117:N1",
+      "score": 0.27835720777511597,
+      "source": "tfidf:memory",
+      "stored_at": "2026-09-23 22:54:58",
+      "value": "report:phase:task_1790203324709596117:N1 OKF: N1 — phase report (2026-09-23-jev-touring-otimizacao) — docs/plans/2026-09-23-jev-touring-otimizacao/phases/N1.md"
+    },
+    {
+      "key": "report:diagnostic:touring-20260923T202200",
+      "score": 0.29776772856713185,
+      "source": "ann",
+      "stored_at": "2026-09-23 23:22:00",
+      "value": "OKF: Diagnostic — /home/gabrielgadea/projects/touring — docs/plans/2026-09-23-jev-touring-otimizacao/diagnostics/touring-20260923T202200.md"
+    }
+  ],
+  "gotcha_per_file": {},
+  "vgp_verifications": [
+    {
+      "name": "jev_client",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "TypeSafe",
+      "verified": false,
+      "suggestion": ""
+    }
+  ],
+  "ast_overviews": {},
+  "ast_blasts": {}
+}

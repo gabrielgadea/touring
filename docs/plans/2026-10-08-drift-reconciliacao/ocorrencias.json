@@ -1,0 +1,3143 @@
+{
+ "C1": {
+  "30.4.90": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-01-a7.md",
+    "linha": 109,
+    "trecho": "3. Após a prova: cortar **30.4.90** (sequencing acordado: prova no dev → release → segunda medição no caminho toolchain)."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-03.md",
+    "linha": 54,
+    "trecho": "**Atribuição do achado A: inconclusiva.** A mediana do `cli-suggest` é 2–3 ms em todas as fases e o pior dia sem shadow (01/10) é exatamente"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-04.md",
+    "linha": 283,
+    "trecho": "A toolchain 30.4.91 era um snapshot anterior a todos os consertos deste relatório, e os projetos pinados ainda estavam na 30.4.90. A 30.4.92"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-04.md",
+    "linha": 291,
+    "trecho": "**Prova por projeto, com o binário do próprio projeto e um controle negativo** (`docs/plans/2026-10-05-work-outer/prove_projects.py`, sem ef"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 127,
+    "trecho": "2) release 30.4.90 (toolchain passa a carregar o touring com fix)"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/plan.md",
+    "linha": 15,
+    "trecho": "> Level: **L3** | Registry: 30.4.89 → 30.4.90+ | Scope: 10 subtasks | Bundle: [index](/index.md)"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 763,
+    "trecho": "**E14.6 — recontagem independente do `touring-a4` (M23) e o envelope do `post-tool-rl` (03/10/2026 00:57:56 -03:00; ordem pelo git: `7cc3ac3"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 121,
+    "trecho": "6. **Propagação**: 30.4.91 só no daemon global; pinados seguem na 30.4.90 (decidido: esperar um release com ganho; o r3 não traz ganho aos p"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 90,
+    "trecho": "- **Release 30.4.91 NÃO propagado** aos projetos pinados (analise, konverter seguem na 30.4.90)."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 15,
+    "trecho": "> Level: **L3** (cli_suggester.rs blast 22; prompt_enhance.rs 48 não é tocado) | Registry: 30.4.90 → 30.4.91 | Scope: 14 subtasks"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 21,
+    "trecho": "- e2e **0.8573** (30.4.90, mediana n=5 = 0,857) · doctor ok · release **30.4.90** em produção (global, analise, konverter)."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 21,
+    "trecho": "- e2e **0.8573** (30.4.90, mediana n=5 = 0,857) · doctor ok · release **30.4.90** em produção (global, analise, konverter)."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 171,
+    "trecho": "- **Change**: bump 30.4.90 → 30.4.91 **antes** do build (lição `bump-de-versao-antes-do-build`); `hw-slot --class rust -- update-touring` (r"
+   }
+  ],
+  "30.4.45": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1687,
+    "trecho": "### Release 30.4.45 e a prova do cgroup"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1689,
+    "trecho": "Suíte completa antes da release: 16.367 testes, 0 falhas. Duas tentativas em background foram mortas pelo harness por \"low memory\" com 44 GB"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1693,
+    "trecho": "Juiz de convergência na 30.4.45: qualidade Platinum 0,9374 sem bloqueios, órfãos 1.553 (linha de base 1.560), zero P0, `cargo check` verde; "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1700,
+    "trecho": "- Autostart de daemon por hook dentro de um serviço systemd oneshot deixa o singleton global refém do cgroup da unit; provado ao vivo na rel"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1758,
+    "trecho": "- **2-A ao vivo:** os três daemons novos (global, analise, konverter) estão em `app.slice/run-p….scope`, com o spawner `touring-cli` registr"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 194,
+    "trecho": "Rodada 8: SIGSEGV do daemon provado sob ASan (dois defeitos no scanner md), cessão cooperativa provada ao vivo, produtores de wiring, selo d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "linha": 19,
+    "trecho": "Rodada 8: SIGSEGV do daemon provado sob ASan (dois defeitos no scanner md), cessão cooperativa provada ao vivo, produtores de wiring, selo d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "linha": 43,
+    "trecho": "| release.30.4.45 | prova 40/40; analise e konverter lock=30.4.45 | `touring-release45` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "linha": 43,
+    "trecho": "| release.30.4.45 | prova 40/40; analise e konverter lock=30.4.45 | `touring-release45` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
+    "linha": 75,
+    "trecho": "- `Bash: grep -n '^version = \"30.4' Cargo.toml; grep -c '30.4.45' Cargo.lock; cat /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
+    "linha": 76,
+    "trecho": "- `Bash: touring run --lang bash --timeout-ms 30000 --code 'grep -n \"^version = \\\"30.4\" Cargo.toml; grep -c \"30.4.45\" Cargo.lock; tail -8 /t"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
+    "linha": 81,
+    "trecho": "- `Bash: python3 - <<'EOF' import pathlib p=pathlib.Path(\"Cargo.toml\"); s=p.read_text() assert s.count('version = \"30.4.45\"')==1 p.write_tex"
+   }
+  ],
+  "30.4.40": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1536,
+    "trecho": "`scripts/propagate-release.sh 30.4.40` levou analise e konverter à versão nova, com prova comportamental 39/39. O rebuild de cada um falhou,"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/index.md",
+    "linha": 41,
+    "trecho": "Sete rodadas. Rodada 7: `.claude/` e raízes-companheiras (rules, commands, agents, skills, memória do projeto e de `~`) indexadas sob `@comp"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 174,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "linha": 4,
+    "trecho": "description: \"Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konv"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "linha": 19,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   }
+  ],
+  "30.4.61": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 416,
+    "trecho": "27. **As três formas que a árvore e o layout não alcançam (30.4.61, 19/09/2026)**. A primeira"
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 435,
+    "trecho": "30.4.61 eram todos INLINE, por dois defeitos distintos. (a) **O conjunto errado respondia"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 312,
+    "trecho": "## 30.4.61 — as três formas que a árvore e o layout não alcançam (19/09/2026)"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 384,
+    "trecho": "### A medição da 30.4.61"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 390,
+    "trecho": "| classe | 30.4.59 | 30.4.60 | 30.4.61 | critério |"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 452,
+    "trecho": "Os 8 residuais da 30.4.61 eram todos módulo INLINE, mas por **dois** defeitos distintos, não um."
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 474,
+    "trecho": "| classe | 30.4.60 | 30.4.61 | 30.4.62 |"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 489,
+    "trecho": "registrado na 30.4.61."
+   }
+  ],
+  "30.4.33": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 40,
+    "trecho": "| Wiring orphan count (baseline REGRA #0) | **1.759** — medido 02/09 ~11:00, DEPOIS da wave 14 de outra sessão (v30.4.33 corrigiu 4 furos do"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 100,
+    "trecho": "- **Trabalho concorrente (02/09)**: outra sessão entregou a wave 14 (v30.4.33: tmp privado por run, `run_journal` v2, escada de trust automá"
+   }
+  ],
+  "30.4.58": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 353,
+    "trecho": "24. **Defeitos relatados pelo analise (18/09/2026, 30.4.58)**. (a) **Aresta nunca cruza"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 1,
+    "trecho": "# Os defeitos que o analise relatou — 18/09/2026 (30.4.57 → 30.4.58)"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 158,
+    "trecho": "1. `touring update --project ~/projects/analise` para 30.4.58 (feito pelo"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 175,
+    "trecho": "## 30.4.58 publicada, e o juiz que não chegava ao fim"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 177,
+    "trecho": "O juiz `--rust-full` da 30.4.58 levou quatro execuções até o exit 0. Nenhuma das três"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 195,
+    "trecho": "- **r4:** exit 0, com 8 jobs, 8 threads de teste e o walker corrigido. A 30.4.58 foi"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "linha": 75,
+    "trecho": "Suíte completa do `touring-cli` verde: 568 testes, 0 falhas. Agora o bump para **30.4.58**. Vejo onde a versão aparece, seguindo o padrão da"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 54,
+    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; ls -la $L/juiz-30.4.58-2026-09-18.rc 2>&1 | tail -1; systemctl --user is-active touring-"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 56,
+    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; date +%T; cat $L/juiz-30.4.58-2026-09-18.rc 2>&1; systemctl --user is-active touring-jui"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 84,
+    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 84,
+    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; cp $L/juiz-30.4.58-2026-09-18.log $L/juiz-30.4.58-2026-09-18-r3-hang.log 2>/dev/null; sy"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 85,
+    "trecho": "- `Monitor: L=/home/gabrielgadea/.claude/touring/logs; U=touring-juiz-30458-r4; warned=\"\"; until [ -f \"$L/juiz-30.4.58-2026-09-18.rc\" ]; do "
+   }
+  ],
+  "30.4.41": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1541,
+    "trecho": "13. **A prova comportamental do release herdava estado entre execuções.** Na 30.4.41 ela reprovou 38/39 duas vezes. O comentário afirmava le"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1621,
+    "trecho": "| toolchains 30.4.13-30.4.41 | ~6,6 GB | `touring toolchain remove`; 30.4.42 e 30.4.43 (locks do analise e do konverter) ficaram |"
+   }
+  ],
+  "30.4.88": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/FINAL-REPORT.md",
+    "linha": 110,
+    "trecho": "| 3. Propagação | update-touring (daemon novo) + **30.4.88 completa e verificada** (analise+konverter) → **KPI `decision` VIVO** (jev_calls_"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "linha": 4,
+    "trecho": "description: Baseline day-0 medido em produção (30.4.88/89): intent journal com rotas, 1.178 chamadas Jev na janela, recall 93/0. O gerador "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "linha": 21,
+    "trecho": "| intent journal (hoje) | **16 linhas** | tráfego real desde a 30.4.88 |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 32,
+    "trecho": "- 2026-10-01T09:30 — Laya vivo na GPU (init 18,7s, quente 14,9ms; warning de temperaturas inválidas → W4.3 confirmado). **W4.2 em execução**"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 34,
+    "trecho": "- 2026-10-01T12:40 — **Propagação 30.4.88 COMPLETA e verificada** (analise+konverter): shim serve toolchain 30.4.88 — **S-3.2 VIVO em produç"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 34,
+    "trecho": "- 2026-10-01T12:40 — **Propagação 30.4.88 COMPLETA e verificada** (analise+konverter): shim serve toolchain 30.4.88 — **S-3.2 VIVO em produç"
+   }
+  ],
+  "30.4.46": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 306,
+    "trecho": "- `cargo test --workspace --no-fail-fast`: 1 falha em 231 binários, `binary_e2e::version_matches_crate_version`. O binário release ainda era"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1754,
+    "trecho": "### Release 30.4.46, as provas ao vivo e o juiz"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1756,
+    "trecho": "Oito suítes dos crates tocados rodaram antes da release: 4.988 testes, 0 falhas. A propagação terminou com prova comportamental 40/40, e ana"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1767,
+    "trecho": "Juiz na 30.4.46: **CONVERGED, exit 0**. Qualidade Platinum 0,9375, sem dimensão truncada, zero P0, órfãos 1.553 contra a linha de base de 1."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 198,
+    "trecho": "Rodada 9: 1-A companheiras fora do wiring, 2-A daemon em scope systemd próprio, 3-A index status fora do ator; 4.988 testes, 6 mutantes mort"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R9-decisoes.md",
+    "linha": 19,
+    "trecho": "Rodada 9: 1-A companheiras fora do wiring, 2-A daemon em scope systemd próprio, 3-A index status fora do ator; 4.988 testes, 6 mutantes mort"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R9-decisoes.md",
+    "linha": 28,
+    "trecho": "| release | 30.4.46, prova comportamental 40/40 | `?` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md",
+    "linha": 21,
+    "trecho": "A release 30.4.46 está no gate 1/6 (check, clippy, espelho `client/`). Aviso quando chegar à troca dos daemons e à prova ao vivo do scope."
+   }
+  ],
+  "30.4.48": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 3,
+    "trecho": "> **Estado: pausa humana cumprida (14/09, ~19:45). Gabriel aprovou os lotes L1-L6, a variante `.gitignore` no L2 e a release 30.4.48 com avi"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 114,
+    "trecho": "## Fase 5: correções aplicadas (aprovação de Gabriel: L1-L6, `.gitignore`, release 30.4.48)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 197,
+    "trecho": "## Fase 7: release 30.4.48, juiz e segunda remediação"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 199,
+    "trecho": "### Release 30.4.48 e pós-release (14/09, 23:07–23:14)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 203,
+    "trecho": "| `propagate-release.sh 30.4.48` | rc=0 · build 7m08 · verify limpo (PID 4138845) · analise e konverter 30.4.47 → 30.4.48 · prova comportame"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 203,
+    "trecho": "| `propagate-release.sh 30.4.48` | rc=0 · build 7m08 · verify limpo (PID 4138845) · analise e konverter 30.4.47 → 30.4.48 · prova comportame"
+   }
+  ],
+  "30.4.65": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 484,
+    "trecho": "máquina (30.4.64 → 30.4.65, 22/09/2026)**. (a) O `prompt_enhance` classificava"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 51,
+    "trecho": "Causa raiz da prova 38/40 encontrada e corrigida: o daemon herdava TOURING_CODE_MODE=native do shell que o reiniciou, desligando os gates de"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/phases/G0b.md",
+    "linha": 19,
+    "trecho": "Causa raiz da prova 38/40 encontrada e corrigida: o daemon herdava TOURING_CODE_MODE=native do shell que o reiniciou, desligando os gates de"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "linha": 860,
+    "trecho": "a causa raiz virou código (30.4.65) — os **dois** launchers do daemon removem as"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "linha": 174,
+    "trecho": "esquema de aposentadoria (30.4.65) praticamente não foi exercido."
+   }
+  ],
+  "30.4.34": [
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 113,
+    "trecho": "## 2026-09-02T10:20:00-03:00 — C5 e o fecho das provas ao vivo (30.4.34)"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 121,
+    "trecho": "GREEN depois). Prova ao vivo em 30.4.34: `memory query \"#process:auto-harvest\"` devolve o corpo"
+   }
+  ],
+  "30.4.64": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 484,
+    "trecho": "máquina (30.4.64 → 30.4.65, 22/09/2026)**. (a) O `prompt_enhance` classificava"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 40,
+    "trecho": "- **2026-09-22T21:50** — Lista do G0 estendida de 8 para 14 prefixos (medida no corpus). Versão 30.4.64 propagada: toolchain default e os 3 "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 45,
+    "trecho": "G0 entregue e vivo: filtro determinístico de payload automático no prompt-enhance (14 prefixos medidos no corpus do G1, 6 testes novos inclu"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/phases/G0.md",
+    "linha": 19,
+    "trecho": "G0 entregue e vivo: filtro determinístico de payload automático no prompt-enhance (14 prefixos medidos no corpus do G1, 6 testes novos inclu"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "linha": 615,
+    "trecho": "**Estado em 22/09/2026, 21h50:** G0 **entregue e vivo** (versão 30.4.64 propagada aos três"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 36,
+    "trecho": "Dry-run correto (consumidores: `analise` e `konverter`). Antes da execução real, subo a versão do workspace para 30.4.64, para que o binário"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 40,
+    "trecho": "A propagação está no build (compilou `touring-hook-runtime` já em 30.4.64, ou seja, deve levar a lista estendida — vou confirmar por medição"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 48,
+    "trecho": "| toolchain default | 30.4.64 nos três projetos (touring, analise, konverter) |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 60,
+    "trecho": "5. Propagação 30.4.64 e prova ao vivo: notificação, mensagem de outra sessão e `<bash-stdout>` saem com `skipped`; \"fix the KeyError on line"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 74,
+    "trecho": "O juiz de convergência saiu com exit 0 (DAG 7/7, qualidade 0,954, 0 P0, 13 documentos sem link quebrado). Nada foi commitado: estão fora do "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 91,
+    "trecho": "- `Bash: TOURING_CODE_MODE=native timeout 900 scripts/propagate-release.sh 30.4.64 --dry-run 2>&1 | tail -30`"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 95,
+    "trecho": "- `Bash: TOURING_CODE_MODE=native scripts/propagate-release.sh 30.4.64 > /tmp/claude-1000/-home-gabrielgadea-projects-touring/b824294f-30ac-"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "linha": 62,
+    "trecho": "| **G0** — filtro de payload automático | ✅ entregue e vivo (30.4.64) | `strategy-…-jev-system-one.md:621` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "linha": 25,
+    "trecho": "- **G0 ✅** (30.4.64: filtro `AUTOMATED_PAYLOAD_PREFIXES`, `crates/touring-hook-runtime/src/prompt_enhance.rs:379`) · **G1 ✅** (corpus 800 pr"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/strategy-2026-09-30-jev-harness-potencializacao.md",
+    "linha": 33,
+    "trecho": "- **O plano G0–G5 segue certo; o que faltava era a torneira.** G0 ✅ (30.4.64), G1 ✅ (corpus rotulado:"
+   }
+  ],
+  "30.4.53": [
+   {
+    "arquivo": "docs/audits/b4-wiring-python-2026-09-15.md",
+    "linha": 125,
+    "trecho": "## Medição viva depois da 30.4.53 (analise-08, geração 11 do índice)"
+   },
+   {
+    "arquivo": "docs/audits/b4-wiring-python-2026-09-15.md",
+    "linha": 130,
+    "trecho": "| Família | gen 9/10 (30.4.52) | gen 11 (30.4.53) | |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 304,
+    "trecho": "2. **Conserto do wiring Python** pedido pela analise-08: **feito em 15/09** (`b4-wiring-python-2026-09-15.md`), na 30.4.52. Visibilidade de "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "linha": 125,
+    "trecho": "- `Bash: sed -i '151s/version = \"30.4.53\"/version = \"30.4.54\"/' Cargo.toml && sed -n '148,153p' Cargo.toml && git add Cargo.toml && git comm"
+   }
+  ],
+  "30.4.30": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/HISTORICO-CLAUDE-MD.md",
+    "linha": 30,
+    "trecho": "(02/09, toolchain 30.4.30 propagada, trace vivo)**: o `post-bash` **nunca era lançado** — o"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 123,
+    "trecho": "## Atualização 01/09 ~23:45 BRT — propagação 30.4.30 + **causa-raiz F0.3 FECHADA**"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 125,
+    "trecho": "- `scripts/propagate-release.sh 30.4.30`: build release 6m45s → update-touring (daemon global reiniciado) → toolchain"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 126,
+    "trecho": "congelada/default → `analise` e `konverter` 30.4.29→30.4.30 → prova comportamental **39/39** → verify OK."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 171,
+    "trecho": "30.4.30 gravaria falso sucesso)."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 159,
+    "trecho": "- Bump `Cargo.toml` 30.4.29 → 30.4.30 e `scripts/propagate-release.sh 30.4.30` disparado (gates → build release + update-touring → freeze → "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 159,
+    "trecho": "- Bump `Cargo.toml` 30.4.29 → 30.4.30 e `scripts/propagate-release.sh 30.4.30` disparado (gates → build release + update-touring → freeze → "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 162,
+    "trecho": "## 2026-09-01T23:45:00-03:00 — propagação 30.4.30 verificada · causa-raiz F0.3 FECHADA"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 164,
+    "trecho": "- Propagação: build release 6m45s · update-touring (daemon global PID novo, 30.4.30) · toolchain congelada e default · `analise`/`konverter`"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 164,
+    "trecho": "- Propagação: build release 6m45s · update-touring (daemon global PID novo, 30.4.30) · toolchain congelada e default · `analise`/`konverter`"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-01-work-outer/strategy-2026-09-02-if-pre-post-bash.md",
+    "linha": 41,
+    "trecho": "Gabriel (dono do `settings.json`, global: toda sessão e projeto, incl. `analise`/`konverter` via shim 30.4.30) · sessões CC concorrentes · d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 339,
+    "trecho": "> Requires: analise pinned toolchain >=30.4.30 with the W2 binary propagated; Python >=3.11 `.venv`; lexhub API (INFERENCE, verify first)."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 345,
+    "trecho": "- **Source truth**: analise está pinado em 30.4.30 com `code_mode_signal_use` ativo (CLAUDE.md regra 12); a suíte exige `.venv` (memória ana"
+   }
+  ],
+  "30.4.31": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 195,
+    "trecho": "- **Pendências desta wave**: reindex + `loop_converged` exit 0 → bump `30.4.31` + `propagate-release.sh` → registrar"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 190,
+    "trecho": "- Próximos passos: bump `30.4.31` + `propagate-release.sh`; registrar `touring-hook post-bash` em `PostToolUseFailure` (settings.json); prov"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md",
+    "linha": 20,
+    "trecho": "| W | 4 furos do detector de wiring (free calls no `.scm`, `super`/`self` resolvidos, `./` canonizado + migração, `record_inferred_consumers"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 38,
+    "trecho": "- 3 furos: (1) query de chamadas sem funcao livre; (2) `super::`/`self::` resolvidos a partir da raiz do crate; (3) universo legado `./crate"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 42,
+    "trecho": "W fechado: 4 furos do detector de orfaos corrigidos sob TDD — (1) query tree-sitter sem chamada livre f() (rust_method_calls.scm +free_fn); "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2.md",
+    "linha": 19,
+    "trecho": "W fechado: 4 furos do detector de orfaos corrigidos sob TDD — (1) query tree-sitter sem chamada livre f() (rust_method_calls.scm +free_fn); "
+   }
+  ],
+  "30.4.51": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 257,
+    "trecho": "19. **Embeddings em GPU (15/09/2026, 30.4.51)**. O embedder (arctic-embed-m, fastembed/ONNX)"
+   },
+   {
+    "arquivo": "docs/audits/canvas-d-shell-2026-09-15.md",
+    "linha": 114,
+    "trecho": "Antes de qualquer mudança, com o motor 30.4.51 da fonte:"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 265,
+    "trecho": "Os dois mortos em cascata foram removidos depois da propagação da 30.4.49. A 30.4.51 (embeddings em GPU, publicada pela touring-61 no global"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 288,
+    "trecho": "Com o W4 movido: `dag_done` ✅ 16/16 · `quality_gold` ✅ Platinum 0,938 · `no_p0_fail` ✅ · `cargo_green` ✅ (árvore já com a GPU 30.4.51 da tou"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 303,
+    "trecho": "9. **E4 corrigido no detector (15/09, decisão de Gabriel \"Precisão no detector\")**: os 3 antipadrões do workspace eram `print(` em `cidata_g"
+   }
+  ],
+  "30.4.54": [
+   {
+    "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "linha": 65,
+    "trecho": "**30.4.54** rodando: bump feito antes do build (a lição do `cargo_green`), gates em andamento, depois toolchain e cada projeto consumidor. S"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "linha": 125,
+    "trecho": "- `Bash: sed -i '151s/version = \"30.4.53\"/version = \"30.4.54\"/' Cargo.toml && sed -n '148,153p' Cargo.toml && git add Cargo.toml && git comm"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "linha": 127,
+    "trecho": "- `Bash: cat > /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad/c_bump.txt <<'EOF' chore"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789753655.md",
+    "linha": 34,
+    "trecho": "- **Teste quebrado:** o juiz reprovou `unused_pub_symbols` no crate `inferlets`. O teste só passava por causa do defeito que o `009f1d9e` (1"
+   }
+  ],
+  "30.4.57": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 342,
+    "trecho": "tokens vizinhos (`method_calls::macro_token`, 30.4.57), fonte única do despacho F9, das refs de"
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 419,
+    "trecho": "árvore** — a lição da 30.4.57, agora para caminhos: `handler: |args| super::activity::run(args)`"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 1,
+    "trecho": "# As decisões dos órfãos, executadas — 18/09/2026 (30.4.55 → 30.4.57)"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 119,
+    "trecho": "## D15 — dentro de uma macro não há árvore (30.4.57)"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 151,
+    "trecho": "| | geração 33 (30.4.55) | geração 34 (30.4.56) | geração 35 (30.4.57) |"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 212,
+    "trecho": "30.4.57: clippy do touring-code + suítes completas de touring-code (768), -hook-runtime (457),"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 1,
+    "trecho": "# Os defeitos que o analise relatou — 18/09/2026 (30.4.57 → 30.4.58)"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 3,
+    "trecho": "A sessão `analise-0e` mediu cinco defeitos do Touring 30.4.57 no repositório analise"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 138,
+    "trecho": "`learning reward <tool> -0.5` lia `-0` como flag desconhecida, verificado na 30.4.57."
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 164,
+    "trecho": "4. Não rodar `index rebuild` com a 30.4.57, porque ele recriaria as arestas da inferência."
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 329,
+    "trecho": "**(a) Dentro da macro não há árvore — 47 dos 65 (72%).** É a lição da 30.4.57, agora para"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789753655.md",
+    "linha": 34,
+    "trecho": "- **Teste quebrado:** o juiz reprovou `unused_pub_symbols` no crate `inferlets`. O teste só passava por causa do defeito que o `009f1d9e` (1"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "linha": 61,
+    "trecho": "**D1 concluído.** Aviso a `analise-0e` sobre o achado que muda o plano de lá: as 15.758 arestas não vieram do repair, e um `index rebuild` c"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "linha": 137,
+    "trecho": "- `Bash: git grep -nE '30\\.4\\.57' -- ':!docs/**' ':!*.md' ':!Cargo.lock' | head -20; echo \"Cargo.lock: $(git grep -c '30.4.57' -- Cargo.lock"
+   }
+  ],
+  "30.4.68": [
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790296447.md",
+    "linha": 27,
+    "trecho": "- **Wheel nova** verificada na venv 3.12 (3 casos exatos, controle certo, js intacto 0,184): sha256 `954c94ff…` — entra no pacote da 30.4.68"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790296447.md",
+    "linha": 29,
+    "trecho": "**30.4.68 — 8 commits prontos** (5 wiring/rito + CLK + stub + KS). Decisões suas vivas: a janela (coordenador aguarda analise parar) · os 10"
+   }
+  ],
+  "30.4.43": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1522,
+    "trecho": "| `tantivy search` e `unified`, após o rebuild da 30.4.43 | 9 | 11 | 6 | 10 | 14 | 7 | 6 | 63/75 |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1524,
+    "trecho": "O avaliador offline e o daemon deram o mesmo número em todas as células, o que valida o instrumento. Em hit@3 o total ao vivo é 69 de 75. Ap"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1621,
+    "trecho": "| toolchains 30.4.13-30.4.41 | ~6,6 GB | `touring toolchain remove`; 30.4.42 e 30.4.43 (locks do analise e do konverter) ficaram |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1629,
+    "trecho": "`scripts/propagate-release.sh 30.4.44`: a primeira tentativa abortou no gate do espelho `client/`, antes de qualquer build (a regra de higie"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1703,
+    "trecho": "- O `--timeout` do cliente não chega ao orçamento de hook leve do daemon. Levar o valor no pedido muda o layout do `IpcRequest` do rkyv, e u"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/index.md",
+    "linha": 41,
+    "trecho": "Sete rodadas. Rodada 7: `.claude/` e raízes-companheiras (rules, commands, agents, skills, memória do projeto e de `~`) indexadas sob `@comp"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 174,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 190,
+    "trecho": "Reprodução do SIGSEGV tentada e NEGATIVA: 3 rebuilds em processo (probe debug) de uma cópia por hardlink da árvore do touring com LD_PRELOAD"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/S2.md",
+    "linha": 19,
+    "trecho": "Reprodução do SIGSEGV tentada e NEGATIVA: 3 rebuilds em processo (probe debug) de uma cópia por hardlink da árvore do touring com LD_PRELOAD"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "linha": 4,
+    "trecho": "description: \"Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konv"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "linha": 19,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   }
+  ],
+  "30.4.91": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-03.md",
+    "linha": 54,
+    "trecho": "**Atribuição do achado A: inconclusiva.** A mediana do `cli-suggest` é 2–3 ms em todas as fases e o pior dia sem shadow (01/10) é exatamente"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-04.md",
+    "linha": 279,
+    "trecho": "**Prova:** teste unitário `the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it` (33 verdes em `cli::common`). No executo"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-04.md",
+    "linha": 283,
+    "trecho": "A toolchain 30.4.91 era um snapshot anterior a todos os consertos deste relatório, e os projetos pinados ainda estavam na 30.4.90. A 30.4.92"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 349,
+    "trecho": "> O shadow está ligado desde 15:09:22 (daemon 30.4.91). O S4 foi executado e **não foi demonstrável** pelo método"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 466,
+    "trecho": "**E9.1 — desenho.** Três projetos descartáveis idênticos (`/tmp/r3s4/{on,off,ctl}`), toolchain 30.4.91 (a que tem os"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 761,
+    "trecho": "**O que isto corrige no E14.3:** (a) \"a mediana é 3 ms em todas as fases\" vale **só para o `cli-suggest`**; no `post-tool-rl` a mediana **su"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 785,
+    "trecho": "**O que isto não prova: a causa.** A atribuição segue inconclusiva (E14.3, E14.5): a release 30.4.91 e a flag entraram no mesmo instante e n"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 4,
+    "trecho": "description: \"Evidência viva do shadow A1/A2 na release 30.4.91: eventos reais, pipeline até o kpi, entrega S1–S6, comandos de reprodução e "
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 31,
+    "trecho": "Release 30.4.91 (commit `d4f62279`), daemon `touring-daemon` PID 2546525 reiniciado às 15:09 BRT com ambiente limpo (sem `TOURING_R3_SHADOW`"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 121,
+    "trecho": "6. **Propagação**: 30.4.91 só no daemon global; pinados seguem na 30.4.90 (decidido: esperar um release com ganho; o r3 não traz ganho aos p"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 45,
+    "trecho": "## 2. Entrega (S1–S6) — release 30.4.91, shadow ligado às 15:09:22 BRT"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 50,
+    "trecho": "| **S1b** envelope de latência | **NÃO PASSA** (leitura definitiva com o 1º dia ON completo, 03/10 21:01: Errata 15, E15.1; antes: passou co"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 73,
+    "trecho": "- *P3 `MAX_PENDING` descarta oferta sem linha*: **corrigido no código** (68d70d0f): RED com o valor exato do defeito (`left: 0, right: 6`) →"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 82,
+    "trecho": "- **A correção do `MAX_PENDING` (oferta deslocada por capacidade agora fecha 1 linha `replaced`) está no código e testada, mas o daemon em e"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 90,
+    "trecho": "- **Release 30.4.91 NÃO propagado** aos projetos pinados (analise, konverter seguem na 30.4.90)."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 96,
+    "trecho": "(só o B-L com texto truncado; feito, §7); (3) a unit `r3-shadow-evaluator` fica **até 15:09 de 03/10** (o que fazer depois foi decidido em s"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/log.md",
+    "linha": 54,
+    "trecho": "Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapsh"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/log.md",
+    "linha": 54,
+    "trecho": "Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapsh"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/log.md",
+    "linha": 58,
+    "trecho": "Provas de entrega executadas ao vivo na 30.4.91 e gravadas: S1a/S1b/S2/S5/S6 PASSAM; S3 interino; S4 fraco (pre-bash 1/200) e anulado (cli-s"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/phases/S-12.md",
+    "linha": 4,
+    "trecho": "description: \"Provas de entrega executadas ao vivo na 30.4.91 e gravadas: S1a/S1b/S2/S5/S6 PASSAM; S3 interino; S4 fraco (pre-bash 1/200) e "
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/phases/S-12.md",
+    "linha": 19,
+    "trecho": "Provas de entrega executadas ao vivo na 30.4.91 e gravadas: S1a/S1b/S2/S5/S6 PASSAM; S3 interino; S4 fraco (pre-bash 1/200) e anulado (cli-s"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/phases/S-13.md",
+    "linha": 4,
+    "trecho": "description: \"Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/phases/S-13.md",
+    "linha": 19,
+    "trecho": "Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapsh"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/phases/S-13.md",
+    "linha": 19,
+    "trecho": "Release 30.4.91 (commit d4f62279): propagate-release --stop-before-propagate rc=0 em 8min37s (gates, build, rótulo, testes pós-build, snapsh"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 15,
+    "trecho": "> Level: **L3** (cli_suggester.rs blast 22; prompt_enhance.rs 48 não é tocado) | Registry: 30.4.90 → 30.4.91 | Scope: 14 subtasks"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 169,
+    "trecho": "#### S-13 [W6] Release 30.4.91 (global) + ligar o shadow só no projeto [P0] [confidence: FACT]"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 171,
+    "trecho": "- **Change**: bump 30.4.90 → 30.4.91 **antes** do build (lição `bump-de-versao-antes-do-build`); `hw-slot --class rust -- update-touring` (r"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 173,
+    "trecho": "- **Test**: `touring --version` = 30.4.91, `touring daemon-ctl status` (exe não deletado), `touring doctor -j` 9/9, `touring e2e -j` sem reg"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 206,
+    "trecho": "S10 --> S13[S-13 release 30.4.91]"
+   }
+  ],
+  "30.4.56": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 340,
+    "trecho": "(30.4.56) — `internal_only`, nunca órfão; a edição apagava essas arestas até o"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 81,
+    "trecho": "### D9 refinado (30.4.56): chamada, não campo; o arquivo, não os testes"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 94,
+    "trecho": "\"rótulo não prova build\" (`propagacao-rotulo-nao-prova-build`), então viram a **30.4.56**."
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 121,
+    "trecho": "A geração 34 (30.4.56) trouxe um NEW que não estava nas decisões: `ImpactCategory::signal_prefix`."
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 151,
+    "trecho": "| | geração 33 (30.4.55) | geração 34 (30.4.56) | geração 35 (30.4.57) |"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 210,
+    "trecho": "30.4.56: clippy `-D warnings` do workspace + suítes completas de touring-hooks-core (656), -code"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 16,
+    "trecho": "estrutural. É o defeito \"substring onde devia ser palavra\" que a 30.4.56 corrigiu no"
+   }
+  ],
+  "30.4.28": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 299,
+    "trecho": "| touring (source) | 30.4.28 | PID 3582033, healthy | 3/8 (ratio 0.375) | 27 passed |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 300,
+    "trecho": "| analise | 30.4.28 | per-project, healthy | 3/8 (ratio 0.375) | 26 passed |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 301,
+    "trecho": "| konverter | 30.4.28 | per-project, healthy | 3/8 (ratio 0.375) | 26 passed |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 303,
+    "trecho": "All 3 pin targets on `30.4.28` (git `4cb6470`); toolchain installed"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 304,
+    "trecho": "natively in `~/.touring/toolchains/30.4.28/` (commit `8d4cda0`)."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 315,
+    "trecho": "- `toolchain-propagation-30.4.28-2026-09-01`"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-31-retomar-decisao-drift.md",
+    "linha": 23,
+    "trecho": "O loop anterior (`fc95f28`, 26/08) **fechou com sucesso** (5/5 done, Platinum 0.9183). A decisão pendente entre **(a) F4/F5** (revisar ARCHI"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-31-retomar-decisao-drift.md",
+    "linha": 43,
+    "trecho": "| Versão do workspace | 30.4.14 | **30.4.28** | +14 releases |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-31-retomar-decisao-drift.md",
+    "linha": 130,
+    "trecho": "- **5 lessons de drift** documentadas no memory nos últimos 4 meses (wasm32 build, daemon deleted, env-clear sandbox, trigger-inertes, find-"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/log.md",
+    "linha": 29,
+    "trecho": "Propagação 30.4.28 completa: 1ª tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_MIN_STACK=16777"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/log.md",
+    "linha": 29,
+    "trecho": "Propagação 30.4.28 completa: 1ª tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_MIN_STACK=16777"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/log.md",
+    "linha": 33,
+    "trecho": "Antes/depois fechado com a sonda EXATA da peer analise-94, no daemon per-project do analise (env -u TOURING_DAEMON_SOCKET, .touring/bin/tour"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/phases/P3.md",
+    "linha": 4,
+    "trecho": "description: \"Propagação 30.4.28 completa: 1ª tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_M"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/phases/P3.md",
+    "linha": 19,
+    "trecho": "Propagação 30.4.28 completa: 1ª tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_MIN_STACK=16777"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/phases/P3.md",
+    "linha": 19,
+    "trecho": "Propagação 30.4.28 completa: 1ª tentativa morreu em SIGSEGV do rustc (LLVM, touring-bindings, build release); retry com RUST_MIN_STACK=16777"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/phases/P4.md",
+    "linha": 19,
+    "trecho": "Antes/depois fechado com a sonda EXATA da peer analise-94, no daemon per-project do analise (env -u TOURING_DAEMON_SOCKET, .touring/bin/tour"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-30-mundos-da-criacao/strategy-2026-08-30-landlock-superficie-instrucao.md",
+    "linha": 4,
+    "trecho": "description: \"Estratégia aprovada em execução: grant read-only por subcaminho de ~/.claude/{skills,rules,agents,commands}+CLAUDE.md no sandb"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/HISTORICO-CLAUDE-MD.md",
+    "linha": 38,
+    "trecho": "`30.4.28` propagada nativamente em 01/09/2026 (commit `8d4cda0`); 3 projetos"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/HISTORICO-CLAUDE-MD.md",
+    "linha": 39,
+    "trecho": "pinados (touring + analise + konverter) em 30.4.28 com `code_mode_signal_use`"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "linha": 38,
+    "trecho": "3. **se** definirmos um canal de leitura read-only respeitando Landlock (SEG-2 já concedeu `~/.claude/{skills,rules,agents,commands}` read-o"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "linha": 73,
+    "trecho": "> **Contenção**: o canal DEVE respeitar Landlock (read-only no `~/.claude/{skills,rules,agents,commands}` via SEG-2 já concedido em 30.4.28;"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 60,
+    "trecho": "3 projetos pinados em `30.4.28` (mesmo git hash `4cb6470`):"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 63,
+    "trecho": "| touring (source) | 30.4.28 ✅ | PID 3582033 ✅ | `{used:3, total:8, ratio:0.375}` | 27 passed / 0 failed |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 64,
+    "trecho": "| analise | 30.4.28 ✅ | per-project ✅ | `{used:3, total:8, ratio:0.375}` | 26 passed / 0 failed |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 65,
+    "trecho": "| konverter | 30.4.28 ✅ | per-project ✅ | `{used:3, total:8, ratio:0.375}` | 26 passed / 0 failed |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 68,
+    "trecho": "- `8d4cda0` deploy: toolchain 30.4.28 propagation nativa via propagate-release.sh"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 4,
+    "trecho": "description: \"P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analis"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md",
+    "linha": 22,
+    "trecho": "| 1 | **SEG-2 já concedeu `~/.claude/{skills,rules,agents,commands}` RO** | release 30.4.28, lesson `landlock-superficie-instrucao-seg2` | O"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md",
+    "linha": 141,
+    "trecho": "- Source facts: `crates/touring-quality/src/builtins/best_practices.rs` (BestPracticesGate), `.touring/touring.toml [code_mode] mode = \"code"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md",
+    "linha": 18,
+    "trecho": "- Commits: `4cb6470` (código F1-F6), `52023cb` (fix deploy bin stale — daemon linka touring-cli estático), `8d4cda0` (toolchain 30.4.28 prop"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md",
+    "linha": 19,
+    "trecho": "- Deploy: toolchain 30.4.28 nativa em `~/.touring/toolchains/30.4.28/`, 3 projetos pinados (touring/analise/konverter) verificados por compo"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md",
+    "linha": 19,
+    "trecho": "- Deploy: toolchain 30.4.28 nativa em `~/.touring/toolchains/30.4.28/`, 3 projetos pinados (touring/analise/konverter) verificados por compo"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-work-outer/diagnostics/touring-20260831T121328.md",
+    "linha": 41,
+    "trecho": "| C1 versões | 36 stale | Versões citadas (vs 30.4.28) | BAIXA — confusão, mas usuário descobre |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-work-outer/diagnostics/touring-20260831T121328.md",
+    "linha": 46,
+    "trecho": "Em **5 dias** (30.4.14 → 30.4.28): 27 commits, 14 releases, **561 stale signals detectados**."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-work-outer/strategy-2026-08-31-drift-coverage-options.md",
+    "linha": 97,
+    "trecho": "**C1 (versões)**: regex simples — substituir `v30.4.X` onde X != 28 por `v30.4.28`."
+   }
+  ],
+  "30.4.67": [
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790259438.md",
+    "linha": 23,
+    "trecho": "## `--by-priority` alinhada — commit `8b6db2e5`, na janela 30.4.67"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790259438.md",
+    "linha": 25,
+    "trecho": "**O conserto ficou estrutural**: como o delegate (wayfinder) agora emite `queue_order(priority, id)` — a ordem exata do claim — o wrapper **"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790259438.md",
+    "linha": 28,
+    "trecho": "**Estado da fila do decompose** (tudo na janela 30.4.67, coordenador avisado): `claim --subtask` → guard hitl + recusa nomeada → ordem única"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790259438.md",
+    "linha": 50,
+    "trecho": "- `Bash: touring memory store 'fix:by-priority-verdadeira-por-construcao:2026-09-24' '30.4.67 (touring-36, REGRA #21): --by-priority NÃO era"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790285643.md",
+    "linha": 26,
+    "trecho": "- Pendência `pendencia:create-priority-validacao:2026-09-24` será fechada junto com o commit (8º da janela 30.4.67)."
+   }
+  ],
+  "30.4.93": [
+   {
+    "arquivo": "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md",
+    "linha": 107,
+    "trecho": "touring-b4. 4. Release **30.4.93**: `python3 docs/elite_aggregate.py --check` (pré-voo) → bump `[workspace.package]"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md",
+    "linha": 109,
+    "trecho": "30.4.93`, avisando a analise-92 UMA linha antes do `touring update --project` (ela pediu) e a analise-97."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md",
+    "linha": 127,
+    "trecho": "- **analise-92**: aguarda a 30.4.93 para revalidar painel, `status -j` e `$TOURING_DAEMON_SOCKET`; DAG dela"
+   }
+  ],
+  "30.4.5": [
+   {
+    "arquivo": "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "linha": 125,
+    "trecho": "- `Bash: sed -i '151s/version = \"30.4.53\"/version = \"30.4.54\"/' Cargo.toml && sed -n '148,153p' Cargo.toml && git add Cargo.toml && git comm"
+   }
+  ],
+  "30.4.69": [
+   {
+    "arquivo": "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790333505.md",
+    "linha": 56,
+    "trecho": "**4 commits na 30.4.69** (branch `feat/2026-09-16-shell-quality-wiring-python`):"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790349177.md",
+    "linha": 35,
+    "trecho": "Série da 30.4.69: `13c8eb84 → 8af213b1 → ba2cec3e → faf2c833 → e76f9d6d → 6daaa966 → a6f973b9 → 817a4082 → 88bb6923 → 5d9d856a`. Reporte ao "
+   }
+  ],
+  "30.4.29": [
+   {
+    "arquivo": "crates/touring-server/.claude/CLAUDE.md",
+    "linha": 179,
+    "trecho": "### Wave PostToolUse-wiring P1/P2 (01/09/2026, v30.4.29)"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "linha": 101,
+    "trecho": "--from-source ~/projects/touring 30.4.29+ --force` (incorpora eventuais"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 61,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 65,
+    "trecho": "P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 65,
+    "trecho": "P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 4,
+    "trecho": "description: \"P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analis"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 4,
+    "trecho": "description: \"P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analis"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "linha": 19,
+    "trecho": "P4 done: commit a87e65b + bump 30.4.29 + propagate-release.sh completo (exit 0): toolchain 30.4.29 congelada e default, analise 30.4.28->30."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P5-medicao-real.md",
+    "linha": 4,
+    "trecho": "description: \"P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde e"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P5-medicao-real.md",
+    "linha": 19,
+    "trecho": "P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P5-medicao-real.md",
+    "linha": 19,
+    "trecho": "P5 done: prova comportamental FAIL=0 nas 6 provas do p5_verify.sh — touring 30.4.29 (A), orchestrate executa com exit 0 onde era SyntaxError"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 26,
+    "trecho": "b74ac0a f3cd1b3`. Deploy LOCAL de F0/A1 feito (update-touring); toolchain **30.4.29**"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 99,
+    "trecho": "- Nada commitado ainda; nenhum deploy/restart (binários vivos = toolchain 30.4.29)."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 126,
+    "trecho": "congelada/default → `analise` e `konverter` 30.4.29→30.4.30 → prova comportamental **39/39** → verify OK."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 22,
+    "trecho": "F0 done: (1) template orchestrate grava nome CANONICO (typed name ou reverse-alias; forward alias so no transporte — pin de 1 ocorrencia); ("
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 67,
+    "trecho": "da strategy. Defeitos colaterais achados: standalone `post-bash` morto na toolchain 30.4.29; `read_stdin` degrada mudo."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 81,
+    "trecho": "- Sem deploy/restart (decisão de Gabriel): binários live seguem toolchain 30.4.29. Próximo: propagar (`propagate-release.sh` ou"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 159,
+    "trecho": "- Bump `Cargo.toml` 30.4.29 → 30.4.30 e `scripts/propagate-release.sh 30.4.30` disparado (gates → build release + update-touring → freeze → "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 160,
+    "trecho": "- Instrumentos que só existem no binário novo: `hook_dispatch_by_name` em `touring gate-metrics -j` (vazio no daemon 30.4.29) e `hooks_compl"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 160,
+    "trecho": "- Instrumentos que só existem no binário novo: `hook_dispatch_by_name` em `touring gate-metrics -j` (vazio no daemon 30.4.29) e `hooks_compl"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 164,
+    "trecho": "- Propagação: build release 6m45s · update-touring (daemon global PID novo, 30.4.30) · toolchain congelada e default · `analise`/`konverter`"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/phases/F0-fix-medicao-alias-kpi-entrega.md",
+    "linha": 19,
+    "trecho": "F0 done: (1) template orchestrate grava nome CANONICO (typed name ou reverse-alias; forward alias so no transporte — pin de 1 ocorrencia); ("
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/strategy-2026-09-01-sinais-ativos-pre-write.md",
+    "linha": 96,
+    "trecho": "2. O processo `touring-hook post-bash` **é spawnado** (monitor `/proc`: binário da toolchain 30.4.29, ppid=claude,"
+   }
+  ],
+  "30.4.87": [
+   {
+    "arquivo": "docs/plans/2026-09-27-fila-do-daemon/ticket.md",
+    "linha": 33,
+    "trecho": "Confundido em parte pela carga dos builds de 27/09 à tarde (releases 30.4.86 e 30.4.87)."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-27-fila-do-daemon/ticket.md",
+    "linha": 35,
+    "trecho": "**Custo por chamada, isolado** (20 chamadas iguais, binário 30.4.87, arquivo de 265 linhas): p95 pre-read 78 ms,"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "linha": 181,
+    "trecho": "versão viva `touring 30.4.87` (git `25753268`), **18 releases** no período."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "linha": 656,
+    "trecho": "- `touring --version` 30.4.87 · `touring kpi -j` (12 famílias) · `touring gate-metrics -j` (196 chaves)"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 15,
+    "trecho": "- 2026-09-30T22:07 — sessão touring-a7 abre o loop (`/loop-engineering` de Gabriel): health gate OK (30.4.87, 9/9, CUDA), scout perpétuo exe"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "linha": 17,
+    "trecho": "> **Level**: L3 (contém refactor em arquivo de blast_radius 46) | **Registry**: v30.4.87 → v30.5.x | **Scope**: 6 fases, 19 entregáveis atôm"
+   }
+  ],
+  "30.4.47": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 14,
+    "trecho": "- a release 30.4.47 propagada."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 78,
+    "trecho": "| D (RD1), B (RB1) | O `touring` aborta (134) por defeito do D1. | Ambiente: fora da janela da queda, `touring index find` → rc=0 e `touring"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 203,
+    "trecho": "| `propagate-release.sh 30.4.48` | rc=0 · build 7m08 · verify limpo (PID 4138845) · analise e konverter 30.4.47 → 30.4.48 · prova comportame"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 202,
+    "trecho": "- **H5:** release 30.4.47 depois das correções (reinicia os daemons de analise e konverter)."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 210,
+    "trecho": "- **H5:** release 30.4.47 com aviso às sessões."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 302,
+    "trecho": "### Gates do workspace (30.4.47)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 306,
+    "trecho": "- `cargo test --workspace --no-fail-fast`: 1 falha em 231 binários, `binary_e2e::version_matches_crate_version`. O binário release ainda era"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 309,
+    "trecho": "### Release 30.4.47 propagada, e o que o deploy revelou no `update-touring`"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 311,
+    "trecho": "`scripts/propagate-release.sh 30.4.47` terminou com rc=0: gate do espelho (345 arquivos), build de 8 min 22 s, toolchain congelada, canal de"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14.md",
+    "linha": 311,
+    "trecho": "`scripts/propagate-release.sh 30.4.47` terminou com rc=0: gate do espelho (345 arquivos), build de 8 min 22 s, toolchain congelada, canal de"
+   },
+   {
+    "arquivo": "docs/audits/dag-mentia-sobre-si-2026-09-19.md",
+    "linha": 35,
+    "trecho": "já em 30.4.62 contra um subtask que pedia \"release 30.4.47\". Todos **feitos**,"
+   }
+  ],
+  "30.4.44": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1627,
+    "trecho": "### Release 30.4.44"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1629,
+    "trecho": "`scripts/propagate-release.sh 30.4.44`: a primeira tentativa abortou no gate do espelho `client/`, antes de qualquer build (a regra de higie"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1629,
+    "trecho": "`scripts/propagate-release.sh 30.4.44`: a primeira tentativa abortou no gate do espelho `client/`, antes de qualquer build (a regra de higie"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1633,
+    "trecho": "Rebuild do analise na 30.4.44 pelo socket global, disparado pela sessão dele. Com `index status` reportando `building`:"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1640,
+    "trecho": "Antes da 30.4.44, essas chamadas ficavam na fila do ator até estourar o orçamento de 15 s."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1665,
+    "trecho": "`touring e2e -j` na 30.4.44: 0,8256 (`pass`), abaixo da linha de base de 0,8749 do CLAUDE.md. O diagnóstico de wiring antes e depois do depl"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1675,
+    "trecho": "### S5 · O rebuild do analise na 30.4.44, pelo daemon do projeto"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1703,
+    "trecho": "- O `--timeout` do cliente não chega ao orçamento de hook leve do daemon. Levar o valor no pedido muda o layout do `IpcRequest` do rkyv, e u"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 194,
+    "trecho": "Rodada 8: SIGSEGV do daemon provado sob ASan (dois defeitos no scanner md), cessão cooperativa provada ao vivo, produtores de wiring, selo d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "linha": 19,
+    "trecho": "Rodada 8: SIGSEGV do daemon provado sob ASan (dois defeitos no scanner md), cessão cooperativa provada ao vivo, produtores de wiring, selo d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 21,
+    "trecho": "Três subagentes seguem rodando: A1, a fila do ator; A2 a A4, os ajustes da CLI; e A5, o `scripts/` no Python. Uma reprodução do crash, com c"
+   }
+  ],
+  "30.4.55": [
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 1,
+    "trecho": "# As decisões dos órfãos, executadas — 18/09/2026 (30.4.55 → 30.4.57)"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 93,
+    "trecho": "Os dois refinamentos mudam o comportamento do daemon: republicar a 30.4.55 com outro binário seria o"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 98,
+    "trecho": "A 30.4.55 passou a julgar cada comando da linha, e o prefixo estático `rm ` ainda lia texto cru com"
+   },
+   {
+    "arquivo": "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "linha": 151,
+    "trecho": "| | geração 33 (30.4.55) | geração 34 (30.4.56) | geração 35 (30.4.57) |"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 110,
+    "trecho": "defeito da 30.4.55 do Rust, na forma Python."
+   }
+  ],
+  "30.4.42": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1545,
+    "trecho": "O teto de memória virou `TOURING_REBUILD_MEMORY_HARD_MB`, com padrão 3.000 e piso de 500, lido do ambiente do daemon. O rebuild do analise n"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1621,
+    "trecho": "| toolchains 30.4.13-30.4.41 | ~6,6 GB | `touring toolchain remove`; 30.4.42 e 30.4.43 (locks do analise e do konverter) ficaram |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1629,
+    "trecho": "`scripts/propagate-release.sh 30.4.44`: a primeira tentativa abortou no gate do espelho `client/`, antes de qualquer build (a regra de higie"
+   }
+  ],
+  "30.4.75": [
+   {
+    "arquivo": "docs/code-mode.md",
+    "linha": 164,
+    "trecho": "**O G6 (repetição byte-idêntica) também é por ator desde 26/09 (`daa295cd`, 30.4.75).** Ficou"
+   }
+  ],
+  "30.4.86": [
+   {
+    "arquivo": "docs/plans/2026-09-27-fila-do-daemon/ticket.md",
+    "linha": 33,
+    "trecho": "Confundido em parte pela carga dos builds de 27/09 à tarde (releases 30.4.86 e 30.4.87)."
+   }
+  ],
+  "30.4.32": [
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md",
+    "linha": 29,
+    "trecho": "## Provado ao vivo (30.4.32/33, não por rótulo de versão)"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/index.md",
+    "linha": 33,
+    "trecho": "Estado: decisão de Gabriel = **B + C** (Canvas 1) e **W antes de rejulgar** (Canvas 2). W done; B1..C4 completed (código verde). Falta: depl"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 82,
+    "trecho": "Deploy 30.4.32 (build 7m11s, `update-touring --no-build` restart limpo, daemon 3097078). A prova comportamental confirmou **B1** — o filho v"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 97,
+    "trecho": "X6 WRITE_TOKENS so casava .write( — Path().write_bytes(b'x'*8192) escreveu 8KiB no sandbox com forbidden_calls vazio (medido ao vivo em 30.4"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/B5.md",
+    "linha": 19,
+    "trecho": "X6 WRITE_TOKENS so casava .write( — Path().write_bytes(b'x'*8192) escreveu 8KiB no sandbox com forbidden_calls vazio (medido ao vivo em 30.4"
+   }
+  ],
+  "30.4.52": [
+   {
+    "arquivo": "docs/audits/b4-wiring-python-2026-09-15.md",
+    "linha": 5,
+    "trecho": "pedido pela analise-08, na release 30.4.52, sem tocar nos arquivos do juiz. DAG"
+   },
+   {
+    "arquivo": "docs/audits/b4-wiring-python-2026-09-15.md",
+    "linha": 71,
+    "trecho": "## Depois do deploy (30.4.52)"
+   },
+   {
+    "arquivo": "docs/audits/b4-wiring-python-2026-09-15.md",
+    "linha": 130,
+    "trecho": "| Família | gen 9/10 (30.4.52) | gen 11 (30.4.53) | |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 304,
+    "trecho": "2. **Conserto do wiring Python** pedido pela analise-08: **feito em 15/09** (`b4-wiring-python-2026-09-15.md`), na 30.4.52. Visibilidade de "
+   }
+  ],
+  "30.4.62": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 434,
+    "trecho": "28. **A declaração vence a inferência (30.4.62, 19/09/2026)**. Os 8 módulos que sobraram da"
+   },
+   {
+    "arquivo": "docs/audits/dag-mentia-sobre-si-2026-09-19.md",
+    "linha": 35,
+    "trecho": "já em 30.4.62 contra um subtask que pedia \"release 30.4.47\". Todos **feitos**,"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 450,
+    "trecho": "## 30.4.62 — a declaração vence a inferência (19/09/2026)"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 474,
+    "trecho": "| classe | 30.4.60 | 30.4.61 | 30.4.62 |"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 507,
+    "trecho": "A primeira tentativa da 30.4.62 falhou no link com `No space left on device`: o disco estava a"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 45,
+    "trecho": "G0 entregue e vivo: filtro determinístico de payload automático no prompt-enhance (14 prefixos medidos no corpus do G1, 6 testes novos inclu"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/phases/G0.md",
+    "linha": 19,
+    "trecho": "G0 entregue e vivo: filtro determinístico de payload automático no prompt-enhance (14 prefixos medidos no corpus do G1, 6 testes novos inclu"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "linha": 841,
+    "trecho": "uma toolchain default instalada (era 30.4.62), o build novo fica inerte: o gate do G0"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 33,
+    "trecho": "Isso fecha o diagnóstico: **todas as sessões rodam a toolchain imutável 30.4.62**, enquanto a fonte e o build de dev estão em 30.4.63 com o "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 44,
+    "trecho": "A mesma falha aparece com o binário **anterior** (30.4.62), então é pré-existente e não regressão do G0. Verifico agora o estado real da pro"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 62,
+    "trecho": "**Dois gotchas que custaram tempo e viraram memória.** O `update-touring` não alcança sessão nenhuma quando há toolchain default: o shim ser"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 73,
+    "trecho": "A prova comportamental do code mode passa em 38 de 40 asserções. As duas que falham são do gate de rajada (\"2ª da mesma classe é NEGADA\" e \""
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 125,
+    "trecho": "- `Bash: TOURING_CODE_MODE=native TOURING_BIN=$HOME/.touring/toolchains/30.4.62/bin/touring timeout 600 python3 scripts/prova_code_mode_ceg."
+   }
+  ],
+  "30.4.35": [
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "linha": 24,
+    "trecho": "Versão final **30.4.35**, propagada e provada por comportamento."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "linha": 150,
+    "trecho": "Rótulo de versão nunca prova build. Depois de propagar 30.4.35, a prova foi um deny ao vivo em cada"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "linha": 152,
+    "trecho": "prova; \"30.4.35\" no cabeçalho não é."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 165,
+    "trecho": "## 2026-09-02T11:35:00-03:00 — fecho: 30.4.35 propagada e provada por comportamento"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 167,
+    "trecho": "`propagate-release.sh 30.4.35` exit 0 (6 gates). Prova ao vivo contra os binários instalados, nunca por rótulo:"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 175,
+    "trecho": "| analise | 30.4.35, deny B5 ao vivo |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 176,
+    "trecho": "| konverter | 30.4.35, deny B5 ao vivo |"
+   }
+  ],
+  "30.4.49": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 231,
+    "trecho": "3. **Release 30.4.49 com aviso**."
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 252,
+    "trecho": "**Deploy local 30.4.49 + rebuild (geração 24):** `update-touring` rc=0 · 5.115 arquivos · 91.625 símbolos · linhas de consumidor 71.211 → 71"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 254,
+    "trecho": "### Release 30.4.49 (15/09, depois dos gates)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 258,
+    "trecho": "| `propagate-release.sh 30.4.49` | rc=0 · analise e konverter com `lock=30.4.49` e `touring 30.4.49` · prova comportamental 40/40 · analise-"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 258,
+    "trecho": "| `propagate-release.sh 30.4.49` | rc=0 · analise e konverter com `lock=30.4.49` e `touring 30.4.49` · prova comportamental 40/40 · analise-"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 258,
+    "trecho": "| `propagate-release.sh 30.4.49` | rc=0 · analise e konverter com `lock=30.4.49` e `touring 30.4.49` · prova comportamental 40/40 · analise-"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 265,
+    "trecho": "Os dois mortos em cascata foram removidos depois da propagação da 30.4.49. A 30.4.51 (embeddings em GPU, publicada pela touring-61 no global"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 290,
+    "trecho": "Vigia do R2-24 até 15:32: toda troca de dono do socket global desde as 13:14 coincide com um `update-touring` (propagações 30.4.49 às 14:03–"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md",
+    "linha": 22,
+    "trecho": "- Binário `touring 30.4.49`, daemon saudável, circuit breaker zerado, ator do projeto responde em 21 ms."
+   }
+  ],
+  "30.4.59": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 374,
+    "trecho": "25. **Resíduos do purge no analise (18/09/2026, 30.4.59)**. (a) **Importar não é usar**"
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 382,
+    "trecho": "dry-run da 30.4.59 creditaria `pub use` e desfaria a decisão). Quem importa PELA fachada"
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 397,
+    "trecho": "Narrativa: `docs/audits/defeitos-analise-2026-09-18.md` §30.4.59."
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 409,
+    "trecho": "`///` que dizia \"long-orphaned\"); (b) a regra do reexporte é a mesma da 30.4.59 — caminho que"
+   },
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 431,
+    "trecho": "módulos como \"só reexporte\" que a regra da 30.4.59 conta como uso (o arquivo TAMBÉM nomeia o"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 198,
+    "trecho": "## 30.4.59 — os resíduos do purge"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 226,
+    "trecho": "- **Efeito medido no touring** (rebuild da 30.4.59): órfãos de 735 para 773 (+38, todos"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 228,
+    "trecho": "- **Reexporte usado no próprio arquivo é uso.** O primeiro juiz da 30.4.59 reprovou com"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 296,
+    "trecho": "- a regra do reexporte é a mesma da 30.4.59: caminho que só um `pub use` nomeia não credita;"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 363,
+    "trecho": "pelo mesmo motivo da 30.4.59."
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 371,
+    "trecho": "30.4.59 — um reexporte que o arquivo TAMBÉM nomeia no próprio código é uso. O caso conferido à mão"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 390,
+    "trecho": "| classe | 30.4.59 | 30.4.60 | 30.4.61 | critério |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "linha": 37,
+    "trecho": "O juiz r4 está rodando, o subagente mapeia a 30.4.59 e a `analise-0e` já recebeu o retorno dos resíduos."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 48,
+    "trecho": "Enquanto a 30.4.59 compila (update-touring em background), documento a rodada: item 25 no `CLAUDE.md` do projeto e uma seção nova no documen"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 82,
+    "trecho": "- `Bash: LOG=~/.claude/touring/logs/update-touring-30.4.59-$(date +%H%M%S).log; echo \"$LOG\"; CARGO_BUILD_JOBS=16 update-touring > \"$LOG\" 2>&"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 87,
+    "trecho": "- `Bash: LOG=$(ls -t ~/.claude/touring/logs/update-touring-30.4.59-* | head -1); timeout 580 bash -c \"until grep -q '^EXIT=' '$LOG'; do slee"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 90,
+    "trecho": "- `Monitor: LOG=$(ls -t ~/.claude/touring/logs/index-rebuild-30.4.59-* | head -1); until grep -q '^EXIT=' \"$LOG\" 2>/dev/null; do sleep 15; d"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 93,
+    "trecho": "- `Bash: touring memory store \"decisao:importar-nao-e-usar-2026-09-18\" \"Gabriel 18/09/2026: reexporte não é consumo, em Python e Rust. Imple"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 94,
+    "trecho": "- `Bash: LOG=$(ls -t ~/.claude/touring/logs/index-rebuild-30.4.59-* | head -1); timeout 590 bash -c \"until grep -q '^EXIT=' '$LOG'; do sleep"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 96,
+    "trecho": "- `Bash: python3 scripts/sync-client-skills.py --check 2>&1 | tail -1; LOG=~/.claude/touring/logs/propagate-30.4.59-$(date +%H%M%S).log; ech"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 97,
+    "trecho": "- `Monitor: LOG=$(ls -t ~/.claude/touring/logs/propagate-30.4.59-* | head -1); tail -n +1 -f \"$LOG\" | grep --line-buffered -E 'ERRO|FAIL|── "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "linha": 98,
+    "trecho": "- `Bash: LOG=$(ls -t ~/.claude/touring/logs/propagate-30.4.59-* | head -1); timeout 590 bash -c \"until grep -q '^EXIT=' '$LOG'; do sleep 15;"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789775728.md",
+    "linha": 61,
+    "trecho": "- `Bash: L=/home/gabrielgadea/.claude/touring/logs; S=$L/build-test-30.4.59c.sh; cat > \"$S\" <<'EOF' #!/usr/bin/env bash # Final 30.4.59 buil"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 28,
+    "trecho": "2. Um caminho de reexporte puro não credita nada, pela mesma regra da 30.4.59."
+   }
+  ],
+  "30.4.63": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 454,
+    "trecho": "29. **O DAG mentia sobre si (30.4.63, 19/09/2026)**. Um censo do DAG vivo mostrou 554"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 33,
+    "trecho": "Isso fecha o diagnóstico: **todas as sessões rodam a toolchain imutável 30.4.62**, enquanto a fonte e o build de dev estão em 30.4.63 com o "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 62,
+    "trecho": "**Dois gotchas que custaram tempo e viraram memória.** O `update-touring` não alcança sessão nenhuma quando há toolchain default: o shim ser"
+   }
+  ],
+  "30.4.39": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-03.md",
+    "linha": 15,
+    "trecho": "0 ms, binário 30.4.39."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 297,
+    "trecho": "Prova contra o hook vivo em 30.4.39, oito passos na ordem do desenho:"
+   }
+  ],
+  "30.4.60": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 399,
+    "trecho": "26. **A travessia credita o módulo (opção B, decisão de Gabriel 19/09/2026, 30.4.60)**. Só a"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 276,
+    "trecho": "## 30.4.60 — a travessia credita o módulo (opção B)"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 314,
+    "trecho": "**A medição depois da 30.4.60.** Ciclo completo verde (fmt, clippy, build, `cargo test"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 390,
+    "trecho": "| classe | 30.4.59 | 30.4.60 | 30.4.61 | critério |"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 399,
+    "trecho": "RÁPIDO — 306 s contra 322 s da 30.4.60 — apesar da caminhada nova, porque a investigação do"
+   },
+   {
+    "arquivo": "docs/audits/defeitos-analise-2026-09-18.md",
+    "linha": 474,
+    "trecho": "| classe | 30.4.60 | 30.4.61 | 30.4.62 |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 22,
+    "trecho": "Confirmado: **opção B**, com pai→filho como `internal_only`. Abro a rodada 30.4.60. Primeiro registro o DAG e o marker, depois mapeio onde o"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 39,
+    "trecho": "O ciclo da 30.4.60 está rodando (gates, build, testes, propagação, rebuild e a medição com o instrumento do analise). Enquanto isso, documen"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 46,
+    "trecho": "- `Bash: T=$(touring decompose create feature \"30.4.60: opção B do pub mod — crédito por travessia de caminho (decisão de Gabriel 19/09), pa"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 91,
+    "trecho": "- `Bash: systemd-run --user --unit=touring-cycle-30460 --collect --same-dir /home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.sh 2>&1; s"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 94,
+    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^test rc=' $R 2>/dev"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 95,
+    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^propagate rc=' $R 2"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md",
+    "linha": 99,
+    "trecho": "- `Bash: R=/home/gabrielgadea/.claude/touring/logs/cycle-30.4.60.log; timeout 580 bash -c \"until grep -qE '^CYCLE_EXIT=|^rebuild rc=' $R 2>/"
+   }
+  ],
+  "30.4.89": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/FINAL-REPORT.md",
+    "linha": 110,
+    "trecho": "| 3. Propagação | update-touring (daemon novo) + **30.4.88 completa e verificada** (analise+konverter) → **KPI `decision` VIVO** (jev_calls_"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/FINAL-REPORT.md",
+    "linha": 126,
+    "trecho": "- **S-4.5**: relatório de produção de 7 dias — gate temporal, começa quando a flag liga em produção (30.4.89 + opt-in)."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "linha": 52,
+    "trecho": "- **Para produção**: o binário com W4.4 precisa da próxima propagação (30.4.89)"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "linha": 36,
+    "trecho": "1. Gabriel liga `TOURING_LAYA_INTENT` em produção quando quiser (a toolchain 30.4.89 já tem o W4.4) + habilita `artifacts/laya-student.servi"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 36,
+    "trecho": "- 2026-10-01T13:30 — S-5.4 (rerank recall atrás de flag) implementada: 6/6 testes + prova viva (46 candidatos reranqueados). DAG: **22/24 do"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "linha": 38,
+    "trecho": "- 2026-10-01T13:40 — **Propagação 30.4.89 completa e verificada** (prova 40/40; analise+konverter). W4.4 na toolchain (flag-off). **F2.1 do "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "linha": 18,
+    "trecho": "> **Status 01/10 13:30**: ✅ done — W0–W3 completas, S-4.1–4.4 (aluno treinado+integrado), S-5.1–5.4, S-5.6, S-5.7 · ⏳ S-4.5 (gate temporal: "
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/plan.md",
+    "linha": 15,
+    "trecho": "> Level: **L3** | Registry: 30.4.89 → 30.4.90+ | Scope: 10 subtasks | Bundle: [index](/index.md)"
+   }
+  ],
+  "30.4.37": [
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 218,
+    "trecho": "## 2026-09-02T17:30:00-03:00 — as três decisões, fechadas e medidas (30.4.37)"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 251,
+    "trecho": "responderam 30.4.37 com o deny ao vivo."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/D1.md",
+    "linha": 26,
+    "trecho": "| prova ao vivo 30.4.37 | delta {used:-2, worst_duration_ms_p99:+84} contra sdksignal-report-f4.json | `manual` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/RETOMAR-AQUI.md",
+    "linha": 30,
+    "trecho": "- **O binário já é 30.4.37** (o diagnóstico deste bundle foi tirado numa versão anterior, às 06:29)."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/log.md",
+    "linha": 21,
+    "trecho": "- 2026-09-02T12:37:59-03:00 — Sessão encerrada por ordem de Gabriel (execução seguirá em outra sessão). DAG verificada em disco (19 subtasks"
+   }
+  ]
+ },
+ "C3": {},
+ "C4": {
+  "adicionando": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/criacao.md",
+    "linha": 78,
+    "trecho": "> Estenda a cadeia atual de hooks do touring adicionando 15 handlers novos aos eventos que JÁ EXISTEM (`PreToolUse`/`PostToolUse`/`SessionSt"
+   }
+  ],
+  "context7": [
+   {
+    "arquivo": "docs/audits/causa-raiz-instrumento-2026-10-01.md",
+    "linha": 151,
+    "trecho": "consulta — e `touring context7` **não existe** como subcomando (verificado)."
+   }
+  ],
+  "module": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 145,
+    "trecho": "| clap | 4.5 | subcomando `touring module` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 310,
+    "trecho": "#### S-12 ∥: **ModuleRegistry** + `touring module list|explain|map` + mapa feature→mecanismo [P0] [confidence: FACT]"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 313,
+    "trecho": "- **Change**: registry in-process (built-ins declarados via `inventory`-like lista estática + manifests carregados de `.touring/modules/*.to"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 313,
+    "trecho": "- **Change**: registry in-process (built-ins declarados via `inventory`-like lista estática + manifests carregados de `.touring/modules/*.to"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 313,
+    "trecho": "- **Change**: registry in-process (built-ins declarados via `inventory`-like lista estática + manifests carregados de `.touring/modules/*.to"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 317,
+    "trecho": "- **Enables**: diff zero no núcleo para módulo novo (S-14 prova); `touring module new` (S-17)."
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 363,
+    "trecho": "#### S-17 ∥: Spec do contrato, cookbook feature→mecanismo, `touring module new`, 2º módulo com diff zero [P1] [confidence: FACT]"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 364,
+    "trecho": "- **File**: `docs/modules/CONTRACT.md`, `docs/modules/cookbook.md` (novos); CLI `touring module new <name> --lang python|rust` (template com"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 366,
+    "trecho": "- **Change**: CONTRACT.md com os schemas JSON-RPC (S-13) e a tabela evento × modo; cookbook com 10+ linhas feature → módulo → evento geradas"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/strategy-2026-09-02-touring-proxima-geracao.md",
+    "linha": 133,
+    "trecho": "| **W2 Contrato** | `trait Module` (subscribe · observe · process · inject · measure = os 5 estágios), registry, taxonomia de eventos com mo"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/strategy-2026-09-02-touring-proxima-geracao.md",
+    "linha": 135,
+    "trecho": "| **W4 Publicação** | spec do contrato, cookbook feature→mecanismo, template `touring module new`, 2º módulo (prova de diff zero por terceir"
+   }
+  ],
+  "daemon_ctl": [
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789408719.md",
+    "linha": 66,
+    "trecho": "- `Bash: cd /home/gabrielgadea/projects/touring; timeout 590 cargo test -p touring-server --bin touring daemon_ctl 2>&1 | grep -E \"^test .*("
+   }
+  ],
+  "reseala": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1646,
+    "trecho": "Correção na fonte (entra na próxima release): o rebuild canoniza raiz e `--dir`, recusa diretório inexistente (`dir_not_found`) ou fora do p"
+   }
+  ],
+  "scan": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 120,
+    "trecho": "$ ./target/debug/touring scan crates/touring-server/src/cli/pub_api.rs"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 272,
+    "trecho": "| `touring scan` | 6.42 ms | **8.86 ms** | 9.10 ms | 6.76 ms | <100ms ✅ |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 339,
+    "trecho": "[executed] ./target/debug/touring scan ...                                  → JSON output"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "linha": 178,
+    "trecho": "- **S8** detector único `touring_code::cwe_scan::detect_cwes` (hook-runtime re-exporta; `touring scan vulnerabilities`"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 23,
+    "trecho": "./target/debug/touring scan crates/touring-server/src/cli/scan.rs"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 32,
+    "trecho": "| `touring scan` | 50 | 6.42 ms | **8.86 ms** | 9.10 ms | 6.76 ms | <100ms | ✅ 11× melhor |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 188,
+    "trecho": "- Defeitos pré-existentes flagrados pelos REDs e corrigidos: (a) `post_bash` lia `tool_input.stdout` (campo inexistente no payload do CC) — "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 183,
+    "trecho": "| **Comando** | `touring scan vulnerabilities \"$ARGUMENTS.tool_input.file_path\" --json | jq '{cwes: [.[] | {id, severity, line}], p0_block: "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 185,
+    "trecho": "| **VGP** | **FALTA** — `touring scan` subcmd não existe (F1.5 cria) |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 441,
+    "trecho": "| H6 | scan_vulnerabilities | `touring scan vulnerabilities` | ❌ **F1.5 criar** |"
+   }
+  ],
+  "pro": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "linha": 28,
+    "trecho": "1. **NÃO** é \"transportar tudo do touring pro sandbox\" — Landlock medido nega `~/.claude` (Permission denied medido 30/08/2026); há um limit"
+   }
+  ],
+  "exclui": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1450,
+    "trecho": "O workspace touring exclui `client/`. O espelho é gerado a partir de `~/.claude` e as companheiras indexam o original. Com os dois, cada reg"
+   }
+  ],
+  "dizia": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1644,
+    "trecho": "Depois do deploy, o doctor do touring dizia \"generation 18 complete (0 files, 0 symbols)\"; a 12 tinha 5.269 arquivos. As gerações 13-18 vier"
+   }
+  ],
+  "find": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 304,
+    "trecho": "| **Comando** | `touring find references \"$ARGUMENTS.tool_input.file_path\" --json | jq '{references: [.[] | {file, line, kind}]}'` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 306,
+    "trecho": "| **VGP** | **FALTA** — `touring find references` subcmd não existe (F1.5 cria) |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 446,
+    "trecho": "| H11 | find_references | `touring find references` | ❌ **F1.5 criar** |"
+   }
+  ],
+  "classify-intent": [
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "linha": 827,
+    "trecho": "4. **`touring classify-intent --help` não mostra ajuda:** classifica a string \"--help\""
+   }
+  ],
+  "target": [
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789775728.md",
+    "linha": 38,
+    "trecho": "- `Bash: ls -la --time-style=+%H:%M:%S target/debug/touring target/release/touring 2>&1 | awk '{print $6, $7}'; touring run --lang python --"
+   }
+  ],
+  "rebuild": [
+   {
+    "arquivo": "crates/touring-hook-handlers/README.md",
+    "linha": 58,
+    "trecho": "never a standalone `cargo build` (the touring rebuild protocol: `update-touring` owns kill → build → install →"
+   }
+  ],
+  "timeout": [
+   {
+    "arquivo": "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "linha": 100,
+    "trecho": "- `Bash: TOURING_PROJECT_ROOT=/home/gabrielgadea/projects/touring timeout 900 cargo test -p touring-hook-runtime --lib a_reexported_path_wir"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "linha": 125,
+    "trecho": "- `Bash: TOURING_CODE_MODE=native TOURING_BIN=$HOME/.touring/toolchains/30.4.62/bin/touring timeout 600 python3 scripts/prova_code_mode_ceg."
+   }
+  ],
+  "pub-api": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 115,
+    "trecho": "$ ./target/debug/touring pub-api --file crates/touring-server/src/cli/pub_api.rs"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 223,
+    "trecho": "6. **`touring pub-api --file` exigia old/new** → aceito sem (stubs MVP)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 271,
+    "trecho": "| `touring pub-api` | 6.88 ms | **9.00 ms** | 9.33 ms | 7.11 ms | <100ms ✅ |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 338,
+    "trecho": "[executed] ./target/debug/touring pub-api --file ...                        → JSON output"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 22,
+    "trecho": "./target/debug/touring pub-api --file crates/touring-server/src/cli/pub_api.rs"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 31,
+    "trecho": "| `touring pub-api` | 50 | 6.88 ms | **9.00 ms** | 9.33 ms | 7.11 ms | <100ms | ✅ 11× melhor |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 128,
+    "trecho": "| **Comando** | `touring pub-api diff --old <git_hash_before> --new <git_hash_after> --file \"$ARGUMENTS.tool_input.file_path\" --json` |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 130,
+    "trecho": "| **VGP** | **FALTA** — `touring pub-api` subcmd não existe; precisa ser criado em F1.5 |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 145,
+    "trecho": "**Teste de aceitação**: Após F1.5 criar `touring pub-api diff`, validar Edit adiciona fn pública, `additive_count=1, breaking_count=0`."
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 439,
+    "trecho": "| H4 | pub_api_diff | `touring pub-api diff` | ❌ **F1.5 criar** |"
+   }
+  ],
+  "foi": [
+   {
+    "arquivo": "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790333505.md",
+    "linha": 64,
+    "trecho": "Todos os gates verdes: storage 281/281, cli 8/8, dispatch 1340/1340, clippy `-D warnings` nos 3 crates, provas por mutação em cada peça. Dae"
+   }
+  ],
+  "logo": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1558,
+    "trecho": "- **Um SIGSEGV do daemon global sem reprodução.** No rebuild do touring logo após o último deploy, o daemon morreu com SIGSEGV num salto par"
+   }
+  ],
+  "identity": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 125,
+    "trecho": "$ ./target/debug/touring identity --canonical-name touring.test"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 273,
+    "trecho": "| `touring identity` | 6.34 ms | **8.91 ms** | 9.39 ms | 6.86 ms | <100ms ✅ |"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "linha": 340,
+    "trecho": "[executed] ./target/debug/touring identity --canonical-name touring.test   → JSON output"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 24,
+    "trecho": "./target/debug/touring identity --canonical-name touring.test"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "linha": 33,
+    "trecho": "| `touring identity` | 50 | 6.34 ms | **8.91 ms** | 9.39 ms | 6.86 ms | <100ms | ✅ 11× melhor |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 332,
+    "trecho": "| **Comando** | `touring identity derive --canonical-name \"<symbol>\" --admission \"<criteria>\" --json | jq '{entity_id, deterministic: true}'"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 334,
+    "trecho": "| **VGP** | **FALTA** — `touring identity derive` subcmd não existe (F1.5 cria, crate `touring-identity` existe) |"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md",
+    "linha": 447,
+    "trecho": "| H12 | entity_id | `touring identity derive` | ❌ **F1.5 criar** |"
+   }
+  ],
+  "dispara": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md",
+    "linha": 61,
+    "trecho": "- Hook `PostToolUse` no touring dispara sync para arquivo espelho (read-only para o sandbox)"
+   }
+  ],
+  "voltaram": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "linha": 190,
+    "trecho": "| **S31: os 4 handlers touring voltaram a disparar** (um `if` por extensão) e foram para o settings do projeto | `c4a684f5` | **[I] (0,90)**"
+   }
+  ],
+  "deixa": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/criacao.md",
+    "linha": 24,
+    "trecho": "A finalidade última: **o touring deixa de ser um CLI com curadoria, e vira um ambiente assistido por sinais estruturais em cada tool_use** —"
+   }
+  ],
+  "tenham": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/criacao.md",
+    "linha": 20,
+    "trecho": "**Para que** o programador humano e o agente IA que usam o touring tenham, aoEditar/Ler/Escrever código, **a mesma visão estrutural** que um"
+   }
+  ],
+  "injetam": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "linha": 14,
+    "trecho": "Quero que venha a existir **um canal de leitura read-only** que exponha, dentro do sandbox do code mode, **os mesmos sinais que os hooks do "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "linha": 69,
+    "trecho": "> Construa um **canal de leitura read-only** que exponha, dentro do sandbox do code mode, **exatamente os mesmos sinais** que os 24 hooks do"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md",
+    "linha": 16,
+    "trecho": "Construir um **canal de leitura read-only** dentro do sandbox do code mode que exponha exatamente os mesmos sinais que os 24 hooks do tourin"
+   }
+  ],
+  "reconstruiu": [
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1547,
+    "trecho": "Releases desta etapa: 30.4.40, 30.4.41, 30.4.42 e 30.4.43, cada uma com gates, `update-touring` e `propagate-release.sh`. A 30.4.43 terminou"
+   }
+  ],
+  "segue": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 53,
+    "trecho": "P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGN"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md",
+    "linha": 19,
+    "trecho": "P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGN"
+   }
+  ],
+  "entrega": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/analise-comparativa-57-vs-hooks.md",
+    "linha": 114,
+    "trecho": "1. **A criação Briah está validada** — o abismo que Gabriel percebeu é mensurável: 72% dos sinais que o CLI touring entrega NUNCA chegam ao "
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/criacao.md",
+    "linha": 16,
+    "trecho": "A criação nasce para **fechar o abismo mensurável** que a análise comparativa 57-vs-hooks revelou em 31/08 15:35 — **41 gaps (72%)** dos sin"
+   }
+  ]
+ },
+ "C5": {
+  "touring-modules": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 424,
+    "trecho": "cd ~/projects/analise && .venv/bin/python -m pytest scripts/touring_modules -q"
+   }
+  ],
+  "touring-proxima-geracao": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 438,
+    "trecho": "python3 ~/.claude/skills/loop-engineering/scripts/loop_converged.py --task <task_id> --scope $PWD --bundle docs/plans/2026-09-02-touring-pro"
+   }
+  ],
+  "touring-run": [
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "linha": 198,
+    "trecho": "# espera: stdout /tmp/touring-run-*, campo \"tmp_bytes\": 8192"
+   }
+  ],
+  "touring-b4": [
+   {
+    "arquivo": "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md",
+    "linha": 80,
+    "trecho": "# avaliadores cegos: labels-f9.jsonl (touring-f9) e labels-b4.jsonl (touring-b4), {\"id\",\"label\"} CORRUPT|LEGIT|UNCLEAR"
+   }
+  ],
+  "touring-f9": [
+   {
+    "arquivo": "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md",
+    "linha": 80,
+    "trecho": "# avaliadores cegos: labels-f9.jsonl (touring-f9) e labels-b4.jsonl (touring-b4), {\"id\",\"label\"} CORRUPT|LEGIT|UNCLEAR"
+   }
+  ],
+  "touring-language": [
+   {
+    "arquivo": "crates/touring-code/.claude/CLAUDE.md",
+    "linha": 98,
+    "trecho": "use touring_language::X     → use touring_code::languages::X"
+   }
+  ],
+  "touring-quality-score": [
+   {
+    "arquivo": "docs/audits/motor-de-qualidade-morre-2026-09-16.md",
+    "linha": 23,
+    "trecho": "stderr: touring-quality-score: line 89: 2383957 Segmentation fault  nice -n 19 timeout 600 …"
+   }
+  ],
+  "touring-module": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 422,
+    "trecho": "cargo test -p touring-module            # a partir da W2"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 433,
+    "trecho": "crates/touring-module/src/lib.rs crates/touring-module/src/bridge.rs; do"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 433,
+    "trecho": "crates/touring-module/src/lib.rs crates/touring-module/src/bridge.rs; do"
+   }
+  ]
+ },
+ "C6": {
+  "TOURING_JEV_RECALL_MODE": [
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "linha": 60,
+    "trecho": "Score-gate MEDIDO + wired: replay real 33q — score_gate tau=1.0 injeta 31,1% com MESMA eficacia do contexto cheio (top1 4, mrr 0,1212 — zero"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "linha": 78,
+    "trecho": "- Entregas: S-1 w44 (FITTED=None honesto; curva; expectativa da estratégia corrigida) · S-2 shadow-matrix VIVA em produção (+warmup 685ms) ·"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/phases/S-7.md",
+    "linha": 19,
+    "trecho": "Score-gate MEDIDO + wired: replay real 33q — score_gate tau=1.0 injeta 31,1% com MESMA eficacia do contexto cheio (top1 4, mrr 0,1212 — zero"
+   }
+  ],
+  "TOURING_REBUILD_MEMORY_HARD_MB": [
+   {
+    "arquivo": "crates/touring-cli/.claude/CLAUDE.md",
+    "linha": 221,
+    "trecho": "3000..=16000 MB, unless `TOURING_REBUILD_MEMORY_HARD_MB` is set in the DAEMON's"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1545,
+    "trecho": "O teto de memória virou `TOURING_REBUILD_MEMORY_HARD_MB`, com padrão 3.000 e piso de 500, lido do ambiente do daemon. O rebuild do analise n"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 174,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 178,
+    "trecho": "Docs e fechamento da rodada 7: analysis.md v8 com §30 (31 seções; proveniência blake2b16 da v7 completa 862f564b94fbd542ab73cfc80fe3f91c), i"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "linha": 19,
+    "trecho": "Propagação 30.4.40→30.4.43 para analise e konverter (prova comportamental 40/40, versões verificadas). Rebuilds provados: konverter geração "
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y5.md",
+    "linha": 19,
+    "trecho": "Docs e fechamento da rodada 7: analysis.md v8 com §30 (31 seções; proveniência blake2b16 da v7 completa 862f564b94fbd542ab73cfc80fe3f91c), i"
+   }
+  ],
+  "TOURING_SDK_SIGNAL_MIRROR": [
+   {
+    "arquivo": "crates/touring-server/.claude/CLAUDE.md",
+    "linha": 159,
+    "trecho": "No-op if `TOURING_SDK_SIGNAL_MIRROR` env is unset. Fail-soft on"
+   },
+   {
+    "arquivo": "crates/touring-server/.claude/CLAUDE.md",
+    "linha": 192,
+    "trecho": "→ the spawn funnel exports `TOURING_SDK_SIGNAL_MIRROR` + pre-creates the"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "linha": 128,
+    "trecho": "- Conditional on `TOURING_SDK_SIGNAL_MIRROR` env (no-op without it)"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "linha": 53,
+    "trecho": "P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGN"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md",
+    "linha": 19,
+    "trecho": "P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TOURING_SDK_SIGN"
+   }
+  ],
+  "TOURING_PROSE_GATE_MODE": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 520,
+    "trecho": "bloqueia. `TOURING_PROSE_GATE_MODE=block` bloqueia só o `SendMessage` (crases são o escape), e"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-integridade-prosa/README.md",
+    "linha": 26,
+    "trecho": "- **Modo:** `TOURING_PROSE_GATE_MODE=shadow` (default) registra e devolve um aviso que nomeia caractere, codepoint e"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-integridade-prosa/README.md",
+    "linha": 98,
+    "trecho": "somar às 25 e rodar `--criterion` de novo. A promoção ao bloqueio é `TOURING_PROSE_GATE_MODE=block` no bloco `env` do"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-integridade-prosa/pre-registro.md",
+    "linha": 97,
+    "trecho": "- Modo: `TOURING_PROSE_GATE_MODE=shadow|block` (default `shadow`). Em `block`, só o `SendMessage` bloqueia."
+   }
+  ],
+  "TOURING_R3_SHADOW": [
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-03.md",
+    "linha": 46,
+    "trecho": "| **C** | P2 | **Guard silencioso nos testes do A2.** `cli_suggester_tests.rs` tem 9 `if env_flag_is_set() { return; }` (linhas 4756 a 4981)"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-10-03.md",
+    "linha": 61,
+    "trecho": "| Contraste com a flag forçada | `TOURING_R3_SHADOW=1 cargo test …` | A2 `cli`: 11 passam (**vácuo**); A1 `hook-runtime`: 9 falham (alto); A"
+   },
+   {
+    "arquivo": "docs/audits/decompose-fechamento-2026-10-03.md",
+    "linha": 131,
+    "trecho": "`/proc/<pid>/environ`: sem `TOURING_CODE_MODE` nem `TOURING_R3_SHADOW`. `touring doctor` 9/9 e"
+   },
+   {
+    "arquivo": "docs/audits/decompose-fechamento-2026-10-03.md",
+    "linha": 232,
+    "trecho": "`TOURING_R3_SHADOW`): uma sonda real (`task_1791116724800024594`: uma falha, um retry concluído, uma"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 123,
+    "trecho": "Flag de ativação **default OFF** (`TOURING_R3_SHADOW`). O shadow NUNCA altera o que é injetado nem o"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 31,
+    "trecho": "Release 30.4.91 (commit `d4f62279`), daemon `touring-daemon` PID 2546525 reiniciado às 15:09 BRT com ambiente limpo (sem `TOURING_R3_SHADOW`"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "linha": 78,
+    "trecho": "| Correção dos testes Rust, `hw-slot --class rust` | cargo | ambiente limpo **18 passam**; `TOURING_R3_SHADOW=1` **9 falham em voz alta** (a"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "linha": 70,
+    "trecho": "- *P2 testes Rust viram no-op verde com `TOURING_R3_SHADOW` no ambiente*: **confirmado e maior que o relatado** (9 testes, não 4, incl. o \"c"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/data/EVENT-CONTRACT.md",
+    "linha": 23,
+    "trecho": "**Flag:** `TOURING_R3_SHADOW` (`1`/`true` liga) **ou** `[shadow] r3 = true` em `.touring/touring.toml`; precedência"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 51,
+    "trecho": "**Dependências — versões e flags.** Rust: **zero dependências novas** (`serde_json` e `std` já presentes). Python ≥ 3.11 (ambiente: 3.14), s"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 64,
+    "trecho": "- **Change**: define 3 tipos de linha JSONL — `a2_offer_closed` (modo, `offered_secs`, até 3 `cmd_head` ≤ 80 chars, `baseline_value`, `close"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "linha": 127,
+    "trecho": "- **Change**: com `TOURING_R3_SHADOW` ligado, `RouteOffer` acumula até 3 `cmd_head` (≤ 80 chars) dos Bash seguintes; ao **fechar** (consumid"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-work-outer/turns/turn-24006143-f69-1791086642.md",
+    "linha": 42,
+    "trecho": "- **Ao vivo (daemon final, PID 40670):** `doctor` 9/9 e `kind_unknown=0`. O ambiente do daemon não tem `TOURING_CODE_MODE` nem `TOURING_R3_S"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-05-work-outer/turns/turn-24006143-f69-1791210642.md",
+    "linha": 67,
+    "trecho": "- `Bash: set -o pipefail; scripts/hw-slot --class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE cargo test -q -p touring-server the_"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-05-work-outer/turns/turn-24006143-f69-1791210642.md",
+    "linha": 69,
+    "trecho": "- `Bash: scripts/hw-slot --class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE cargo test -q -p touring-server the_global_json_flag_"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-05-work-outer/turns/turn-24006143-f69-1791210642.md",
+    "linha": 72,
+    "trecho": "- `Bash: scripts/hw-slot --class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE bash -c 'cargo test -q -p touring-server --bin tourin"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-05-work-outer/turns/turn-24006143-f69-1791210642.md",
+    "linha": 78,
+    "trecho": "- `Bash: scripts/hw-slot --class rust -- env -u TOURING_R3_SHADOW -u TOURING_CODE_MODE cargo test -q -p touring-server --lib > /tmp/claude-1"
+   }
+  ],
+  "TOURING_TANTIVY_COVERAGE_FIELDS": [
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 66,
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-412"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 67,
+    "trecho": "- `Bash: timeout 1200 env TOURING_TANTIVY_COVERAGE_FIELDS=all python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-412"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 72,
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-gabrielgadea-p"
+   }
+  ],
+  "TOURING_TANT": [
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 71,
+    "trecho": "- `Bash: CARGO_BUILD_JOBS=8 cargo build -p touring-cli --features tantivy-fts --example search_eval 2>&1 | grep -E \"^error\" -A8 | head -20; "
+   }
+  ],
+  "TOURING_QUALITY_BIN": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 287,
+    "trecho": "`TOURING_QUALITY_BIN` num `CARGO_TARGET_DIR` separado: `target/release/touring-quality` serve todas"
+   },
+   {
+    "arquivo": "docs/audits/canvas-d-shell-2026-09-15.md",
+    "linha": 190,
+    "trecho": "juiz; as medições usaram `target/canvas-d-engine` via `TOURING_QUALITY_BIN`, sem tocar no compartilhado."
+   }
+  ],
+  "TOURING_TANTIVY_": [
+   {
+    "arquivo": "crates/touring-cli/.claude/CLAUDE.md",
+    "linha": 210,
+    "trecho": "(`TOURING_TANTIVY_*`) and every value was chosen by `examples/search_eval.rs`"
+   }
+  ],
+  "TOURING_R3_EVENTS_FILE": [
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 493,
+    "trecho": "o Claude Code faz; sem ela o cliente infere a raiz errada); só o ON recebe `TOURING_R3_EVENTS_FILE=/tmp/r3s4/on-events.jsonl`"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 561,
+    "trecho": "o `touring-a4` contou 92 com um padrão mais estreito), idêntico nos 3 braços. `TOURING_R3_EVENTS_FILE` existe só no ON porque é o tratamento"
+   }
+  ],
+  "TOURING_JEV_INTENT": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "linha": 172,
+    "trecho": "- **Change**: flag `TOURING_JEV_INTENT` (default-OFF, molde `TOURING_PILLAR_INDUCTION_ARMED`); aluno decide quando confidence ≥ τ (de S-4.3)"
+   }
+  ],
+  "TOURING_RUN_KEEP_TMP": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 185,
+    "trecho": "(`TOURING_RUN_KEEP_TMP=1` preserva para autópsia). **Gotcha ao mexer no CEG**: rulesets"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "linha": 29,
+    "trecho": "| **B1** | Tmp privado por run: `RunTmp` cria `/tmp/touring-run-*`, o filho recebe `TMPDIR` apontado para ele, o Landlock troca `/tmp`+`/var"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "linha": 50,
+    "trecho": "CEG: tmp PRIVADO por run (RunTmp touring-run-*, TMPDIR apontado para ele, Landlock troca /tmp,/var/tmp pelo dir do run + /dev), limpeza medi"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/B1.md",
+    "linha": 19,
+    "trecho": "CEG: tmp PRIVADO por run (RunTmp touring-run-*, TMPDIR apontado para ele, Landlock troca /tmp,/var/tmp pelo dir do run + /dev), limpeza medi"
+   }
+  ],
+  "TOURING_TDD_ENFORCE": [
+   {
+    "arquivo": "docs/plans/2026-09-01-skill-aprimoramento/explanation.md",
+    "linha": 699,
+    "trecho": "- Integration com pre-edit hook do Touring (`TOURING_TDD_ENFORCE=1`)"
+   }
+  ],
+  "TOURING_TANTIVY_WORD_COVERA": [
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 65,
+    "trecho": "- `Bash: timeout 3000 python3 /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad/q1_grid.p"
+   }
+  ],
+  "TOURING_REBUILD_SEARCH_DOCS": [
+   {
+    "arquivo": "crates/touring-cli/.claude/CLAUDE.md",
+    "linha": 226,
+    "trecho": "`TOURING_REBUILD_SEARCH_DOCS=0` leaves search documents to `tantivy reindex`"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1540,
+    "trecho": "12. **Guarda de memória contava páginas reclamáveis.** Uma sonda em processo (`examples/rebuild_memory_probe.rs`, escopo systemd de 8 GB, sé"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/log.md",
+    "linha": 178,
+    "trecho": "Docs e fechamento da rodada 7: analysis.md v8 com §30 (31 seções; proveniência blake2b16 da v7 completa 862f564b94fbd542ab73cfc80fe3f91c), i"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/phases/Y5.md",
+    "linha": 19,
+    "trecho": "Docs e fechamento da rodada 7: analysis.md v8 com §30 (31 seções; proveniência blake2b16 da v7 completa 862f564b94fbd542ab73cfc80fe3f91c), i"
+   }
+  ],
+  "TOURING_LAYA_INTENT": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "linha": 4,
+    "trecho": "description: W4.2 treino RLCD do laya-multilingual no corpus G1 (800/800 itens, 4 épocas, PagedAdamW8bit após OOM R15) → acurácia 0.608 no t"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "linha": 24,
+    "trecho": "| Integração (W4.4) | `student_classify` no `prompt_enhance.rs` (TcpStream, timeout 200 ms, fail-open); flag `TOURING_LAYA_INTENT` (default-"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "linha": 40,
+    "trecho": "→ TOURING_LAYA_INTENT ligado?"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "linha": 36,
+    "trecho": "1. Gabriel liga `TOURING_LAYA_INTENT` em produção quando quiser (a toolchain 30.4.89 já tem o W4.4) + habilita `artifacts/laya-student.servi"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/plan.md",
+    "linha": 68,
+    "trecho": "- **Change**: check nomeado `starvation_gate`: `keyword_fallback_rate` em janela 7d **com `TOURING_LAYA_INTENT=1`** > 0,95 → `unmet` + próxi"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/strategy-2026-10-01-jev-harness-r2.md",
+    "linha": 53,
+    "trecho": "Quando Gabriel ligar `TOURING_LAYA_INTENT`: o KPI `decision` vigia `keyword_fallback_rate`;"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/strategy-2026-10-01-jev-harness-r2.md",
+    "linha": 85,
+    "trecho": "2. **W5** junto com o opt-in de Gabriel (`TOURING_LAYA_INTENT`)."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-work-outer/turns/turn-3d51ad73-b86-1790942048.md",
+    "linha": 23,
+    "trecho": "Panics reveladores: o teste **puro** `test_classify_with_details_debug` retornou `Code` (o que o stub do *outro* teste responde) em vez de `"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-work-outer/turns/turn-3d51ad73-b86-1790942048.md",
+    "linha": 24,
+    "trecho": "**Causa-raiz provada (2 lados da mesma corrida)**: `classify_with_details:188` chama `student_classify` em TODO classify — o leitor paralelo"
+   }
+  ],
+  "TOURING_CILA_BUDGET_": [
+   {
+    "arquivo": "docs/plans/2026-09-04-economia-de-contexto/plan.md",
+    "linha": 280,
+    "trecho": "- **Test**: `test_suggester_ceiling_responds_to_touring_cila_budget_env` — o teto do suggester responde a `TOURING_CILA_BUDGET_*`."
+   }
+  ],
+  "TOURING_CEG_SEMANTIC_GATE": [
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "linha": 64,
+    "trecho": "Semantic bash gate VIVO: comando novel zdbt -> score 1,52/2 (aluno local 48ms) como advisory; conhecidos nunca chamam. 461/461 runtime + 129"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/phases/S-8.md",
+    "linha": 19,
+    "trecho": "Semantic bash gate VIVO: comando novel zdbt -> score 1,52/2 (aluno local 48ms) como advisory; conhecidos nunca chamam. 461/461 runtime + 129"
+   }
+  ],
+  "TOURING_CILA_BUDGET_TURN": [
+   {
+    "arquivo": "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "linha": 263,
+    "trecho": "- **Change**: `turn_injection_ceiling(cila_level)` na MESMA função de cila.rs (simetria com os três tetos existentes; default 3× o teto de w"
+   }
+  ],
+  "TOURING_DAEMON_CODE_MODE": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 500,
+    "trecho": "`TOURING_DAEMON_CODE_MODE=<modo>`. Diagnóstico em 1 comando:"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 47,
+    "trecho": "- **2026-09-22T22:40** — Correção da causa raiz nos **dois** launchers: `daemon_spawn::PER_COMMAND_RELAXATIONS` (Rust) e `env -u` em `launch"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/log.md",
+    "linha": 51,
+    "trecho": "Causa raiz da prova 38/40 encontrada e corrigida: o daemon herdava TOURING_CODE_MODE=native do shell que o reiniciou, desligando os gates de"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/phases/G0b.md",
+    "linha": 19,
+    "trecho": "Causa raiz da prova 38/40 encontrada e corrigida: o daemon herdava TOURING_CODE_MODE=native do shell que o reiniciou, desligando os gates de"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "linha": 863,
+    "trecho": "`TOURING_DAEMON_CODE_MODE` e um guard que prova que as duas rotas limpam."
+   }
+  ],
+  "TOURING_TANTIVY_WORD_COVERAGE": [
+   {
+    "arquivo": "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md",
+    "linha": 72,
+    "trecho": "- `Bash: timeout 3000 env TOURING_TANTIVY_COVERAGE_FIELDS=all TOURING_TANTIVY_WORD_COVERAGE=12 python3 /tmp/claude-1000/-home-gabrielgadea-p"
+   }
+  ],
+  "TOURING_DAEMON_SCOPE": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 218,
+    "trecho": "subiu. Sem manager, ou com `TOURING_DAEMON_SCOPE=0|false|off`, o spawn é direto; o"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "linha": 1733,
+    "trecho": "- `TOURING_DAEMON_SCOPE=0` força o spawn direto."
+   }
+  ],
+  "TOURING_SDK_SIGN": [
+   {
+    "arquivo": "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md",
+    "linha": 4,
+    "trecho": "description: \"P2 done: fio completo do mirror no sandbox. SandboxConfig.sdk_signal_mirror (novo campo) -> funil spawn_and_capture exporta TO"
+   }
+  ],
+  "TOURING_PROSE_GATE_DISABLED": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 522,
+    "trecho": "04/10 deu 25 e 0,391). Kill switch humano `TOURING_PROSE_GATE_DISABLED=1`. A resposta no chat e"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-integridade-prosa/README.md",
+    "linha": 28,
+    "trecho": "- **Kill switch humano:** `TOURING_PROSE_GATE_DISABLED=1`."
+   },
+   {
+    "arquivo": "docs/plans/2026-10-04-integridade-prosa/pre-registro.md",
+    "linha": 98,
+    "trecho": "- Kill switch humano: `TOURING_PROSE_GATE_DISABLED=1`."
+   }
+  ],
+  "TOURING_EMBED_DEVICE": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 259,
+    "trecho": "`TOURING_EMBED_DEVICE=auto|cuda|cpu` (default `auto`; `cuda` nunca cai para CPU),"
+   }
+  ],
+  "TOURING_NO_DAEMON": [
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/HISTORICO-CLAUDE-MD.md",
+    "linha": 28,
+    "trecho": "`tests/feature_parity_standalone.rs` (cfg + binário real com `TOURING_NO_DAEMON=1`);"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "linha": 97,
+    "trecho": "Causa-raiz: all-hooks da fachada touring-hooks so encaminhava a touring-dispatch/all-hooks e nunca ligava pre-hooks/post-hooks/session-hooks"
+   },
+   {
+    "arquivo": "docs/plans/2026-08-31-complementacao-hooks/phases/F0.3c-standalone-post-bash-parity.md",
+    "linha": 19,
+    "trecho": "Causa-raiz: all-hooks da fachada touring-hooks so encaminhava a touring-dispatch/all-hooks e nunca ligava pre-hooks/post-hooks/session-hooks"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "linha": 64,
+    "trecho": "Semantic bash gate VIVO: comando novel zdbt -> score 1,52/2 (aluno local 48ms) como advisory; conhecidos nunca chamam. 461/461 runtime + 129"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "linha": 78,
+    "trecho": "- Entregas: S-1 w44 (FITTED=None honesto; curva; expectativa da estratégia corrigida) · S-2 shadow-matrix VIVA em produção (+warmup 685ms) ·"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-01-jev-harness-r2/phases/S-8.md",
+    "linha": 19,
+    "trecho": "Semantic bash gate VIVO: comando novel zdbt -> score 1,52/2 (aluno local 48ms) como advisory; conhecidos nunca chamam. 461/461 runtime + 129"
+   },
+   {
+    "arquivo": "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "linha": 336,
+    "trecho": "**E5.3 — S4 tem o alcance dito** *(a prova standalone foi ANULADA pela E6.1, porque o standalone não emite `cli-suggest`; a prova de ponta a"
+   }
+  ],
+  "TOURING_EMBED_CUDA_MEM_MB": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 260,
+    "trecho": "arena por daemon `TOURING_EMBED_CUDA_MEM_MB` (2048). Medido na RTX 4060: query 8,7→2,3 ms,"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-22-jev-system-one/research/digest-laya-local.md",
+    "linha": 326,
+    "trecho": "- **[INFERÊNCIA do código]** No upstream em CUDA, o `build_model` cria o módulo em FP32 e o `load_state_dict` copia os pesos FP16 do arquivo"
+   }
+  ],
+  "TOURING_QUALITY_LOCK_WAIT_SECS": [
+   {
+    "arquivo": "CLAUDE.md",
+    "linha": 226,
+    "trecho": "lock com espera (`TOURING_QUALITY_LOCK_WAIT_SECS`, exit 75 ao estourar),"
+   }
+  ],
+  "TOURING_LOG_DIR": [
+   {
+    "arquivo": "crates/touring-server/.claude/CLAUDE.md",
+    "linha": 122,
+    "trecho": "- **File logs** (`file-logs`): `TOURING_LOG_DIR`, else `~/.claude/touring/logs`,"
+   },
+   {
+    "arquivo": "docs/audits/cross-audit-2026-09-14-r2.md",
+    "linha": 118,
+    "trecho": "| L1 | R2-1 | `watcher.rs`: `is_ignored` com `matched_path_or_any_parents` (guarda de raiz); `DropReporter` conta descartes e emite um `warn"
+   }
+  ],
+  "TOURING_JEV_RECALL_RERANK": [
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/s54-replay/report.md",
+    "linha": 4,
+    "trecho": "description: Replay do recall real com rerank Jev (1 chamada Noul por query) sobre o split de teste congelado — direção e magnitude, não sig"
+   },
+   {
+    "arquivo": "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/s54-replay/report.md",
+    "linha": 38,
+    "trecho": "Por isso a S-5.4 virou **flag opt-in** (`TOURING_JEV_RECALL_RERANK`, default OFF)"
+   }
+  ]
+ }
+}

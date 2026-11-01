@@ -1,0 +1,37 @@
+[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m versão    : 30.4.93
+[33m[propagate] WARN[0m modo DRY-RUN — nada será aplicado
+
+[1m── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito ──[0m
+  [33m[dry-run][0m cargo check --workspace && cargo clippy --workspace -- -D warnings
+  [33m[dry-run][0m python3 scripts/sync-client-skills.py --check
+  [33m[dry-run][0m python3 docs/gen_reference.py --validate
+  [33m[dry-run][0m python3 -m pytest scripts/test_update_touring.py -q
+  [33m[dry-run][0m python3 -m pytest scripts/test_touring_quality_score.py -q
+  [33m[dry-run][0m python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)
+  [33m[dry-run][0m scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot, 1 re-medição)
+
+[1m── 2/6 BUILD — update-touring (kill → build → install dual-target → restart → verify) ──[0m
+  [33m[dry-run][0m update-touring
+[33m[propagate] WARN[0m dry-run: a checagem de rótulo não roda (build simulado)
+
+[1m── 3/6 FREEZE — snapshot imutável em ~/.touring/toolchains/30.4.93 ──[0m
+  [33m[dry-run][0m touring toolchain install --from-source /home/gabrielgadea/projects/touring 30.4.93 --force
+
+[1m── 4/6 DEFAULT — canal default → 30.4.93 ──[0m
+  [33m[dry-run][0m touring toolchain default 30.4.93
+
+[1m── 5/6 PROPAGATE — canal 30.4.93 para cada projeto consumidor (fonte permanece em 'dev') ──[0m
+touring update: FAILED /home/gabrielgadea/projects/analise: toolchain 30.4.93 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.93). Run `touring toolchain install` first.
+[2m2026-10-09T00:17:27.987659Z[0m [31mERROR[0m [2mtouring[0m[2m:[0m update failed: 1 project(s) failed to update — run `touring help` for details
+[33m[propagate] WARN[0m esperado em dry-run: toolchain 30.4.93 ainda não instalada (o passo 3/6 a criaria)
+touring update: FAILED /home/gabrielgadea/projects/konverter: toolchain 30.4.93 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.93). Run `touring toolchain install` first.
+[2m2026-10-09T00:17:28.001241Z[0m [31mERROR[0m [2mtouring[0m[2m:[0m update failed: 1 project(s) failed to update — run `touring help` for details
+[33m[propagate] WARN[0m esperado em dry-run: toolchain 30.4.93 ainda não instalada (o passo 3/6 a criaria)
+[1m[propagate][0m projetos alcançados: 2
+
+[1m── 5.5/6 PROVA — contrato de code mode + CEG contra o binário instalado ──[0m
+  [33m[dry-run][0m (a prova roda apenas em execução real)
+
+[1m── 6/6 VERIFY — versão resolvida por projeto ──[0m
+  [33m[dry-run][0m (verificação roda apenas em execução real)

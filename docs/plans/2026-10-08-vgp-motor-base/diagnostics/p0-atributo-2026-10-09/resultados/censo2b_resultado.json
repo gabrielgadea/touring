@@ -1,0 +1,10690 @@
+{
+ "PIL.AvifImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.BdfFontFile": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.BlpImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.BmpImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.BufrStubImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.ContainerIO": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.CurImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.DcxImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.DdsImagePlugin": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 86,
+  "n_buracos": 25,
+  "buracos": [
+   "DDPF_ALPHA",
+   "DDPF_ALPHAPIXELS",
+   "DDPF_FOURCC",
+   "DDPF_LUMINANCE",
+   "DDPF_PALETTEINDEXED8",
+   "DDPF_RGB",
+   "DDSCAPS2_CUBEMAP",
+   "DDSCAPS2_CUBEMAP_NEGATIVEX",
+   "DDSCAPS2_CUBEMAP_NEGATIVEY",
+   "DDSCAPS2_CUBEMAP_NEGATIVEZ",
+   "DDSCAPS2_CUBEMAP_POSITIVEX",
+   "DDSCAPS2_CUBEMAP_POSITIVEY",
+   "DDSCAPS2_CUBEMAP_POSITIVEZ",
+   "DDSCAPS2_VOLUME",
+   "DDSCAPS_COMPLEX",
+   "DDSCAPS_MIPMAP",
+   "DDSCAPS_TEXTURE",
+   "DDSD_CAPS",
+   "DDSD_DEPTH",
+   "DDSD_HEIGHT"
+  ]
+ },
+ "PIL.EpsImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.ExifTags": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.FitsImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.FliImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.FontFile": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.FtexImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.GbrImagePlugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "PIL.GdImageFile": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 110,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.abc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.base_protocol": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 107,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 46,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_middleware_digest_auth": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_middlewares": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_proto": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_reqrep": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 75,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.client_ws": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.compression_utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.connector": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 70,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.cookiejar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.formdata": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.hdrs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 92,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.helpers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 109,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.http": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "aiohttp.http_exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.autogenerate": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.autogenerate.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.autogenerate.render": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.autogenerate.rewriter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.command": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.context": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 19,
+  "n_buracos": 18,
+  "buracos": [
+   "begin_transaction",
+   "configure",
+   "create_module_class_proxy",
+   "execute",
+   "get_bind",
+   "get_context",
+   "get_head_revision",
+   "get_head_revisions",
+   "get_impl",
+   "get_revision_argument",
+   "get_starting_revision_argument",
+   "get_tag_argument",
+   "get_x_argument",
+   "is_offline_mode",
+   "is_transactional_ddl",
+   "requires_connection",
+   "run_migrations",
+   "static_output"
+  ]
+ },
+ "alembic.ddl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.impl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.mssql": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.mysql": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.oracle": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.postgresql": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 55,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.ddl.sqlite": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "alembic.environment": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 31,
+  "buracos": [
+   "Any",
+   "Callable",
+   "Collection",
+   "Column",
+   "CompareServerDefault",
+   "CompareType",
+   "ContextManager",
+   "Dict",
+   "EnvironmentContext",
+   "FetchedValue",
+   "IncludeNameFn",
+   "IncludeObjectFn",
+   "List",
+   "Literal",
+   "Mapping",
+   "MigrationContext",
+   "MutableMapping",
+   "NameFilterParentNames",
+   "NameFilterType",
+   "OnVersionApplyFn"
+  ]
+ },
+ "alembic.migration": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 33,
+  "buracos": [
+   "Any",
+   "Callable",
+   "Collection",
+   "ContextManager",
+   "Dict",
+   "EncodedIO",
+   "Engine",
+   "HeadMaintainer",
+   "Iterable",
+   "Iterator",
+   "List",
+   "MigrationContext",
+   "MigrationInfo",
+   "MigrationStep",
+   "MockEngineStrategy",
+   "Optional",
+   "RevisionStep",
+   "Set",
+   "StampStep",
+   "TYPE_CHECKING"
+  ]
+ },
+ "anthropic": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 74,
+  "n_buracos": 27,
+  "buracos": [
+   "AnthropicBedrock",
+   "AnthropicVertex",
+   "AsyncAnthropicBedrock",
+   "AsyncAnthropicVertex",
+   "AsyncMessageStream",
+   "AsyncMessageStreamManager",
+   "BetaAsyncMessageStream",
+   "BetaAsyncMessageStreamManager",
+   "BetaContentBlockStopEvent",
+   "BetaInputJsonEvent",
+   "BetaMessageStopEvent",
+   "BetaMessageStream",
+   "BetaMessageStreamEvent",
+   "BetaMessageStreamManager",
+   "BetaTextEvent",
+   "ContentBlockStopEvent",
+   "InputJsonEvent",
+   "MessageStopEvent",
+   "MessageStream",
+   "MessageStreamEvent"
+  ]
+ },
+ "anthropic.lib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.lib.foundry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 47,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.pagination": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.resources": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.resources.completions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.resources.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 122,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.anthropic_beta_param": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.base64_image_source_param": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.base64_pdf_source_param": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_api_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_authentication_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_billing_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_error_response": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_gateway_timeout_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anthropic.types.beta_invalid_request_error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 87,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.abc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.from_thread": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.functools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.itertools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.lowlevel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.pytest_plugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.buffered": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.file": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.memory": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.stapled": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.text": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.streams.tls": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.to_interpreter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.to_process": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "anyio.to_thread": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr.converters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr.filters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr.setters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "attr.validators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bcrypt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 47,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.builder": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 45,
+  "n_buracos": 3,
+  "buracos": [
+   "HTMLParserTreeBuilder",
+   "LXMLTreeBuilder",
+   "LXMLTreeBuilderForXML"
+  ]
+ },
+ "bs4.css": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.dammit": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.diagnose": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.element": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 57,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.filter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "bs4.formatter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cachetools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cachetools.func": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cachetools.keys": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "certifi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "certifi.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.backend_ctypes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.cffi_opcode": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 84,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.commontypes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.cparser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.ffiplatform": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.gen_src": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.lock": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.model": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 40,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.pkgconfig": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.recompiler": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 103,
+  "n_buracos": 83,
+  "buracos": [
+   "CLASS_NAME",
+   "CffiOp",
+   "F_CHECK_FIELDS",
+   "F_EXTERNAL",
+   "F_OPAQUE",
+   "F_PACKED",
+   "F_UNION",
+   "G_FLAGS",
+   "OP_ARRAY",
+   "OP_BITFIELD",
+   "OP_CONSTANT",
+   "OP_CONSTANT_INT",
+   "OP_CPYTHON_BLTN_N",
+   "OP_CPYTHON_BLTN_O",
+   "OP_CPYTHON_BLTN_V",
+   "OP_DLOPEN_CONST",
+   "OP_DLOPEN_FUNC",
+   "OP_ENUM",
+   "OP_EXTERN_PYTHON",
+   "OP_FUNCTION"
+  ]
+ },
+ "cffi.setuptools_ext": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.vengine_cpy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.vengine_gen": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cffi.verifier": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.cd": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.constant": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.legacy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.md": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "charset_normalizer.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 64,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 50,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.decorators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.formatting": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.globals": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.shell_completion": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.termui": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.testing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.types": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "click.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cloudpickle": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 47,
+  "n_buracos": 47,
+  "buracos": [
+   "CellType",
+   "ChainMap",
+   "CloudPickler",
+   "DEFAULT_PROTOCOL",
+   "DELETE_GLOBAL",
+   "EXTENDED_ARG",
+   "Enum",
+   "GLOBAL_OPS",
+   "HAVE_ARGUMENT",
+   "LOAD_GLOBAL",
+   "OrderedDict",
+   "PYPY",
+   "Pickler",
+   "STORE_GLOBAL",
+   "abc",
+   "builtin_code_type",
+   "builtins",
+   "copyreg",
+   "dataclasses",
+   "dis"
+  ]
+ },
+ "cloudpickle.cloudpickle": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 47,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cloudpickle.cloudpickle_fast": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.annotate": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.bytecode": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.cmdline": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 46,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.collector": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.context": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.control": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 77,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.data": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.debug": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 59,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.disposition": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.env": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.execfile": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.files": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.html": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 52,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "coverage.inorout": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.cobblestone": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.fernet": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.hazmat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.utils": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 154,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.certificate_transparency": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.extensions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 80,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.general_name": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.name": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.ocsp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.oid": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "cryptography.x509.verification": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.easter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.parser.isoparser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.relativedelta": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.rrule": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.tz": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 18,
+  "buracos": [
+   "EPOCH",
+   "EPOCHORDINAL",
+   "OrderedDict",
+   "TZFILES",
+   "TZPATHS",
+   "ZERO",
+   "bisect",
+   "datetime",
+   "os",
+   "six",
+   "string_types",
+   "struct",
+   "sys",
+   "time",
+   "tzname_in_python2",
+   "tzrangebase",
+   "warn",
+   "weakref"
+  ]
+ },
+ "dateutil.tz.tz": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.zoneinfo": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dateutil.zoneinfo.rebuild": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.detect": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.logger": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.objtypes": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.pointers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.session": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.settings": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.source": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "dill.temp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.build": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.container": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.daemon": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.exec_api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.image": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.network": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.plugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.secret": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.service": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.swarm": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.api.volume": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.auth": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docker.constants": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.blkcntnr": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.comments": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.dml": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.dml.color": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.document": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.drawing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.dml": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.section": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.shape": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.style": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.table": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.enum.text": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "docx.image": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.curves": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.der": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.ecdh": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.ecdsa": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 61,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.eddsa": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.ellipticcurve": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.keys": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.numbertheory": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.rfc6979": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.ssh": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "ecdsa.util": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.applications": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 48,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.background": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.concurrency": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.datastructures": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.dependencies": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.dependencies.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.dependencies.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 91,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.encoders": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.exception_handlers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.logger": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.middleware": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.middleware.asyncexitstack": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.middleware.cors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.middleware.gzip": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fastapi.middleware.httpsredirect": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "filelock": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "filelock.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "filelock.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.afmLib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.agl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.annotations": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib.CFF2ToCFF": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib.CFFToCFF2": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 119,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib.specializer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib.transforms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.cffLib.width": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib.builder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib.geometry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib.table_builder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.colorLib.unbuilder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fontTools.config": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 8,
+  "buracos": [
+   "AbstractConfig",
+   "ConfigAlreadyRegisteredError",
+   "ConfigError",
+   "ConfigUnknownOptionError",
+   "ConfigValueParsingError",
+   "ConfigValueValidationError",
+   "Option",
+   "Options"
+  ]
+ },
+ "fontTools.cu2qu": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 2,
+  "buracos": [
+   "curve_to_quadratic",
+   "curves_to_quadratic"
+  ]
+ },
+ "frozenlist": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.archive": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.asyn": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.caching": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.callbacks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.compression": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.dircache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.generic": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.implementations": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.implementations.arrow": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.implementations.asyn_wrapper": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.implementations.cache_mapper": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "fsspec.implementations.cache_metadata": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "h11": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "httpcore": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 49,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "httpx": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 66,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": true,
+  "n_runtime": 424,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.auth": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.download": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.hf": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.jobs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.lfs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.repo": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.repo_files": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.system": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.upload": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.cli.upload_large_folder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.commands": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.commands.delete_cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.commands.download": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.commands.env": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "huggingface_hub.commands.huggingface_cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.configuration": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.control": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 150,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.database": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 55,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.entry_points": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra.array_api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 71,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra.cli": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra.dateutil": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra.numpy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 70,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "hypothesis.extra.pytestplugin": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 29,
+  "buracos": [
+   "EXPLAIN_OPTION",
+   "FAILING_EXAMPLES_KEY",
+   "LOAD_PROFILE_OPTION",
+   "PRINT_STATISTICS_OPTION",
+   "SEED_OPTION",
+   "STATS_KEY",
+   "StoringReporter",
+   "VERBOSITY_OPTION",
+   "base64",
+   "fixtures",
+   "fnmatch",
+   "json",
+   "load",
+   "notice_initialization_restarted",
+   "os",
+   "pytest",
+   "pytest_addoption",
+   "pytest_collection_modifyitems",
+   "pytest_configure",
+   "pytest_ignore_collect"
+  ]
+ },
+ "hypothesis.extra.pytz": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.codec": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.idnadata": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.intranges": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.package_data": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "idna.uts46data": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "iniconfig": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "iniconfig.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.classes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.completion": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.completion_cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.environment": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.file_name": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.helpers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.interpreter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.keywords": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.project": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.replstartup": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.api.strings": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.common": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jedi.debug": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.async_utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.bccache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.compiler": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.constants": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.debug": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.defaults": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.environment": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.ext": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.filters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 96,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.idtracking": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.lexer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 78,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.loaders": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.meta": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.nativetypes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.nodes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 78,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jinja2.optimizer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.backports": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.compressor": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.disk": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.executor": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.externals": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.func_inspect": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.hashing": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.logger": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.memory": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.numpy_pickle": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.numpy_pickle_compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.numpy_pickle_utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.parallel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 55,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.pool": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "joblib.testing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.benchmarks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.benchmarks.import_benchmark": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.benchmarks.nested_schemas": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.benchmarks.subcomponents": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.protocols": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jsonschema.validators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.algorithms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 80,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.api_jwk": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.api_jws": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.api_jwt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.help": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.jwk_set_cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.jwks_client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.types": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "jwt.warnings": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "loguru": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.ElementInclude": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.builder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.cssselect": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.doctestcompare": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.ElementSoup": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 50,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.builder": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 137,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.defs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.diff": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.formfill": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.html.soupparser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.includes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.isoschematron": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "lxml.pyclasslookup": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ast": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.cmd": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.codegen": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.autohandler": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.beaker_cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.extract": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.preprocessors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.pygmentplugin": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.ext.turbogears": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.filters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "mako.lexer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.blockparser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.blockprocessors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.abbr": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.admonition": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.attr_list": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.codehilite": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.def_list": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.extra": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.fenced_code": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.footnotes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.legacy_attrs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.legacy_em": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.md_in_html": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.meta": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markdown.extensions.nl2br": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "markupsafe": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 49,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.animation": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.artist": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.axes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.axis": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.backend_bases": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 57,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.backend_managers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.backend_tools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.backends": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "matplotlib.backends.backend_agg": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 8,
+  "buracos": [
+   "FigureCanvas",
+   "FigureManager",
+   "Show",
+   "backend_version",
+   "draw_if_interactive",
+   "new_figure_manager",
+   "new_figure_manager_given_figure",
+   "show"
+  ]
+ },
+ "msgpack": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 10,
+  "buracos": [
+   "BufferFull",
+   "ExtraData",
+   "FormatError",
+   "OutOfData",
+   "PackException",
+   "PackOverflowError",
+   "PackValueError",
+   "StackError",
+   "UnpackException",
+   "UnpackValueError"
+  ]
+ },
+ "msgpack.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "msgpack.ext": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "msgpack.fallback": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "multidict": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 932,
+  "n_buracos": 930,
+  "buracos": [
+   "AmbiguousSolution",
+   "ArborescenceIterator",
+   "DiGraph",
+   "EdgePartition",
+   "ExceededMaxIterations",
+   "Graph",
+   "GraphMLReader",
+   "GraphMLWriter",
+   "HasACycle",
+   "LCF_graph",
+   "LFR_benchmark_graph",
+   "MultiDiGraph",
+   "MultiGraph",
+   "NetworkXAlgorithmError",
+   "NetworkXError",
+   "NetworkXException",
+   "NetworkXNoCycle",
+   "NetworkXNoPath",
+   "NetworkXNotImplemented",
+   "NetworkXPointlessConcept"
+  ]
+ },
+ "networkx.algorithms": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 466,
+  "n_buracos": 427,
+  "buracos": [
+   "EdgePartition",
+   "NetworkXTreewidthBoundExceeded",
+   "NotATree",
+   "PlanarEmbedding",
+   "SpanningTreeIterator",
+   "adamic_adar_index",
+   "all",
+   "all_pairs_all_shortest_paths",
+   "all_pairs_bellman_ford_path",
+   "all_pairs_bellman_ford_path_length",
+   "all_pairs_dijkstra",
+   "all_pairs_dijkstra_path",
+   "all_pairs_dijkstra_path_length",
+   "all_pairs_lowest_common_ancestor",
+   "all_pairs_shortest_path",
+   "all_pairs_shortest_path_length",
+   "all_shortest_paths",
+   "all_simple_edge_paths",
+   "all_simple_paths",
+   "all_topological_sorts"
+  ]
+ },
+ "networkx.algorithms.asteroidal": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.boundary": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.bridges": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.broadcasting": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.chains": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.chordal": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.clique": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.cluster": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.communicability_alg": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.covering": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.cuts": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.cycles": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.d_separation": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.dag": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "networkx.algorithms.distance_measures": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 481,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.char": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 53,
+  "n_buracos": 53,
+  "buracos": [
+   "add",
+   "array",
+   "asarray",
+   "capitalize",
+   "center",
+   "chararray",
+   "compare_chararrays",
+   "count",
+   "decode",
+   "encode",
+   "endswith",
+   "equal",
+   "expandtabs",
+   "find",
+   "greater",
+   "greater_equal",
+   "index",
+   "isalnum",
+   "isalpha",
+   "isdecimal"
+  ]
+ },
+ "numpy.core": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.arrayprint": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.defchararray": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.einsumfunc": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.fromnumeric": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.function_base": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.getlimits": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.multiarray": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.numeric": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.numerictypes": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.overrides": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.records": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.shape_base": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.core.umath": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.ctypeslib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "numpy.doc.ufuncs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 102,
+  "n_buracos": 15,
+  "buracos": [
+   "Audio",
+   "ChatCompletion",
+   "Completion",
+   "Customer",
+   "Deployment",
+   "Edit",
+   "Embedding",
+   "Engine",
+   "ErrorObject",
+   "File",
+   "FineTune",
+   "FineTuningJob",
+   "Image",
+   "Model",
+   "Moderation"
+  ]
+ },
+ "openai.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.helpers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.helpers.local_audio_player": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.helpers.microphone": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.lib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.lib.azure": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.pagination": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 96,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.batches": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.completions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.embeddings": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.files": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.images": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.moderations": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.videos": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 48,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openai.resources.webhooks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.cell": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.cell.cell": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.cell.read_only": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.cell.rich_text": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.cell.text": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.area_chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.axis": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.bar_chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.bubble_chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.chartspace": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.data_source": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.descriptors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.error_bar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.label": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.layout": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "openpyxl.chart.legend": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.licenses": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.markers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 31,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.metadata": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.requirements": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.specifiers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.tags": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "packaging.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 109,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.arrays": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.compat.compressors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.compat.pickle_compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.compat.pyarrow": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.accessor": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.algorithms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 75,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.apply": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 61,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.arraylike": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.common": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 59,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.config_init": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 84,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.construction": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 46,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pandas.core.flags": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.file_io": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.grammar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.normalizer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.pgen2": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.pgen2.generator": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.pgen2.grammar_parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.diff": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.pep8": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.prefix": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.token": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.tokenize": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 44,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "parso.python.tree": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 57,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.android": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.macos": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.unix": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "platformdirs.windows": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pluggy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.action": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.axis": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.category": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.data": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.datalabel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.legend": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.marker": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.plot": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.point": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.series": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.xlsx": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.chart.xmlwriter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.dml": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pptx.dml.chtfmt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "psutil": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 111,
+  "n_buracos": 17,
+  "buracos": [
+   "RLIMIT_AS",
+   "RLIMIT_CORE",
+   "RLIMIT_CPU",
+   "RLIMIT_DATA",
+   "RLIMIT_FSIZE",
+   "RLIMIT_LOCKS",
+   "RLIMIT_MEMLOCK",
+   "RLIMIT_MSGQUEUE",
+   "RLIMIT_NICE",
+   "RLIMIT_NOFILE",
+   "RLIMIT_NPROC",
+   "RLIMIT_RSS",
+   "RLIMIT_RTPRIO",
+   "RLIMIT_RTTIME",
+   "RLIMIT_SIGPENDING",
+   "RLIMIT_STACK",
+   "RLIM_INFINITY"
+  ]
+ },
+ "pycparser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pycparser.ast_transforms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pycparser.c_ast": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pycparser.c_generator": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pycparser.c_lexer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pycparser.c_parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic": {
+  "marcado": true,
+  "star": true,
+  "getattr": true,
+  "dynamic": true,
+  "n_runtime": 149,
+  "n_buracos": 101,
+  "buracos": [
+   "AllowInfNan",
+   "AmqpDsn",
+   "AnyHttpUrl",
+   "AnyUrl",
+   "AnyWebsocketUrl",
+   "AwareDatetime",
+   "Base64Bytes",
+   "Base64Encoder",
+   "Base64Str",
+   "Base64UrlBytes",
+   "Base64UrlStr",
+   "BaseModel",
+   "ByteSize",
+   "ClickHouseDsn",
+   "CockroachDsn",
+   "DirectoryPath",
+   "Discriminator",
+   "EmailStr",
+   "EncodedBytes",
+   "EncodedStr"
+  ]
+ },
+ "pydantic.alias_generators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.aliases": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.annotated_handlers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.class_validators": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.color": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.config": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.dataclasses": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.datetime_parse": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.decorator": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.class_validators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.copy_internals": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.decorator": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.json": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 33,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.parse": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pydantic.deprecated.tools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.cmdline": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.console": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.filter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.filters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.bbcode": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.groff": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.html": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.img": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.irc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.latex": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.other": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.pangomarkup": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.rtf": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.svg": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pygments.formatters.terminal": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 233,
+  "n_buracos": 220,
+  "buracos": [
+   "ABC",
+   "And",
+   "Any",
+   "AtLineStart",
+   "AtStringStart",
+   "C",
+   "Callable",
+   "CaselessKeyword",
+   "CaselessLiteral",
+   "Char",
+   "CharsNotIn",
+   "CloseMatch",
+   "Combine",
+   "DebugExceptionAction",
+   "DebugStartAction",
+   "DebugSuccessAction",
+   "DelimitedList",
+   "Diagnostics",
+   "Dict",
+   "Each"
+  ]
+ },
+ "pyparsing.actions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.ai": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.common": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 159,
+  "n_buracos": 152,
+  "buracos": [
+   "ABC",
+   "And",
+   "Any",
+   "AtLineStart",
+   "AtStringStart",
+   "Callable",
+   "CaselessKeyword",
+   "CaselessLiteral",
+   "Char",
+   "CharsNotIn",
+   "CloseMatch",
+   "Combine",
+   "DebugExceptionAction",
+   "DebugStartAction",
+   "DebugSuccessAction",
+   "Diagnostics",
+   "Dict",
+   "Each",
+   "Empty",
+   "Enum"
+  ]
+ },
+ "pyparsing.core": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 154,
+  "n_buracos": 21,
+  "buracos": [
+   "OnlyOnce",
+   "ParseAction",
+   "ParseBaseException",
+   "ParseException",
+   "ParseFatalException",
+   "ParseSyntaxException",
+   "RecursiveGrammarException",
+   "col",
+   "line",
+   "lineno",
+   "matchOnlyAtCol",
+   "match_only_at_col",
+   "ppu",
+   "removeQuotes",
+   "remove_quotes",
+   "replaceWith",
+   "replace_with",
+   "withAttribute",
+   "withClass",
+   "with_attribute"
+  ]
+ },
+ "pyparsing.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.helpers": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 208,
+  "n_buracos": 150,
+  "buracos": [
+   "ABC",
+   "And",
+   "Any",
+   "AtLineStart",
+   "AtStringStart",
+   "Callable",
+   "CaselessKeyword",
+   "CaselessLiteral",
+   "Char",
+   "CharsNotIn",
+   "CloseMatch",
+   "Combine",
+   "DebugExceptionAction",
+   "DebugStartAction",
+   "DebugSuccessAction",
+   "DelimitedList",
+   "Diagnostics",
+   "Dict",
+   "Each",
+   "Empty"
+  ]
+ },
+ "pyparsing.results": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.testing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.tools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.tools.cvt_pyparsing_pep8_names": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.unicode": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.util": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyparsing.warnings": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.actions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.annotations": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.constants": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 44,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.filters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 62,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.generic": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 37,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.pagerange": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.papersizes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.types": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pypdf.xmp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.aoi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs.coordinate_operation": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs.coordinate_system": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs.crs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs.datum": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.crs.enums": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.datadir": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.enums": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.geod": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.network": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.proj": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.sync": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.transformer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pyproj.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytest": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 87,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz.lazy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz.reference": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz.tzfile": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "pytz.tzinfo": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 80,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.cluster": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 103,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 80,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.lock": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.retry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.sentinel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.asyncio.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.auth": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.auth.err": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.auth.idp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.auth.token": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.auth.token_manager": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.background": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.backoff": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.cache": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "redis.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 61,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "referencing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "referencing.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "referencing.jsonschema": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "referencing.retrieval": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "referencing.typing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "regex": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 58,
+  "n_buracos": 57,
+  "buracos": [
+   "A",
+   "ASCII",
+   "B",
+   "BESTMATCH",
+   "D",
+   "DEBUG",
+   "DEFAULT_VERSION",
+   "DOTALL",
+   "E",
+   "ENHANCEMATCH",
+   "F",
+   "FULLCASE",
+   "I",
+   "IGNORECASE",
+   "L",
+   "LOCALE",
+   "M",
+   "MULTILINE",
+   "Match",
+   "P"
+  ]
+ },
+ "requests": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.adapters": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 47,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.auth": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.certs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 40,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.cookies": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.help": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.hooks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 69,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.packages": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.sessions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 50,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.status_codes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.structures": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "requests.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 87,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.abc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.align": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.ansi": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.bar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.box": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.cells": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.color": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.color_triplet": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.columns": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.console": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 103,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.constrain": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.containers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.control": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.default_styles": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.diagnose": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.emoji": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rich.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.asn1": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.common": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.key": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.parallel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.pem": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.pkcs1": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.pkcs1_v2": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.prime": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.randnum": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.transform": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "rsa.util": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.cluster": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.cluster.hierarchy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 46,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.cluster.vq": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.constants": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 165,
+  "n_buracos": 163,
+  "buracos": [
+   "Avogadro",
+   "Boltzmann",
+   "Btu",
+   "Btu_IT",
+   "Btu_th",
+   "ConstantWarning",
+   "G",
+   "Julian_year",
+   "N_A",
+   "Planck",
+   "R",
+   "Rydberg",
+   "Stefan_Boltzmann",
+   "Wien",
+   "acre",
+   "alpha",
+   "angstrom",
+   "arcmin",
+   "arcminute",
+   "arcsec"
+  ]
+ },
+ "scipy.constants.codata": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 8,
+  "buracos": [
+   "ConstantWarning",
+   "c",
+   "find",
+   "k",
+   "physical_constants",
+   "precision",
+   "unit",
+   "value"
+  ]
+ },
+ "scipy.constants.constants": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 154,
+  "n_buracos": 154,
+  "buracos": [
+   "Avogadro",
+   "Boltzmann",
+   "Btu",
+   "Btu_IT",
+   "Btu_th",
+   "G",
+   "Julian_year",
+   "N_A",
+   "Planck",
+   "R",
+   "Rydberg",
+   "Stefan_Boltzmann",
+   "Wien",
+   "acre",
+   "alpha",
+   "angstrom",
+   "arcmin",
+   "arcminute",
+   "arcsec",
+   "arcsecond"
+  ]
+ },
+ "scipy.datasets": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.differentiate": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 8,
+  "buracos": [
+   "array_namespace",
+   "eim",
+   "np",
+   "warnings",
+   "xp_capabilities",
+   "xp_copy",
+   "xp_promote",
+   "xpx"
+  ]
+ },
+ "scipy.fft": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.fftpack": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.fftpack.basic": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 8,
+  "buracos": [
+   "fft",
+   "fft2",
+   "fftn",
+   "ifft",
+   "ifft2",
+   "ifftn",
+   "irfft",
+   "rfft"
+  ]
+ },
+ "scipy.fftpack.helper": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 5,
+  "buracos": [
+   "fftfreq",
+   "fftshift",
+   "ifftshift",
+   "next_fast_len",
+   "rfftfreq"
+  ]
+ },
+ "scipy.fftpack.pseudo_diffs": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 10,
+  "buracos": [
+   "cc_diff",
+   "cs_diff",
+   "diff",
+   "hilbert",
+   "ihilbert",
+   "itilbert",
+   "sc_diff",
+   "shift",
+   "ss_diff",
+   "tilbert"
+  ]
+ },
+ "scipy.fftpack.realtransforms": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 8,
+  "buracos": [
+   "dct",
+   "dctn",
+   "dst",
+   "dstn",
+   "idct",
+   "idctn",
+   "idst",
+   "idstn"
+  ]
+ },
+ "scipy.integrate": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 17,
+  "buracos": [
+   "IntegrationWarning",
+   "ODEintWarning",
+   "complex_ode",
+   "cumulative_simpson",
+   "cumulative_trapezoid",
+   "dblquad",
+   "fixed_quad",
+   "newton_cotes",
+   "nquad",
+   "ode",
+   "odeint",
+   "qmc_quad",
+   "quad",
+   "romb",
+   "simpson",
+   "tplquad",
+   "trapezoid"
+  ]
+ },
+ "scipy.integrate.dop": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "scipy.integrate.lsoda": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 67,
+  "n_buracos": 64,
+  "buracos": [
+   "FacetGrid",
+   "JointGrid",
+   "PairGrid",
+   "axes_style",
+   "barplot",
+   "blend_palette",
+   "boxenplot",
+   "boxplot",
+   "catplot",
+   "choose_colorbrewer_palette",
+   "choose_cubehelix_palette",
+   "choose_dark_palette",
+   "choose_diverging_palette",
+   "choose_light_palette",
+   "clustermap",
+   "color_palette",
+   "countplot",
+   "crayon_palette",
+   "cubehelix_palette",
+   "dark_palette"
+  ]
+ },
+ "seaborn.algorithms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.axisgrid": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.categorical": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.cm": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 12,
+  "n_buracos": 12,
+  "buracos": [
+   "crest",
+   "crest_r",
+   "flare",
+   "flare_r",
+   "icefire",
+   "icefire_r",
+   "mako",
+   "mako_r",
+   "rocket",
+   "rocket_r",
+   "vlag",
+   "vlag_r"
+  ]
+ },
+ "seaborn.colors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.colors.crayons": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.colors.xkcd_rgb": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.distributions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 30,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external.appdirs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external.docscrape": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external.husl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external.kde": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.external.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.matrix": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.miscplot": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "seaborn.objects": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 156,
+  "n_buracos": 141,
+  "buracos": [
+   "BufferCapStyle",
+   "BufferJoinStyle",
+   "GeometryType",
+   "STRtree",
+   "area",
+   "boundary",
+   "bounds",
+   "box",
+   "buffer",
+   "build_area",
+   "centroid",
+   "clip_by_rect",
+   "concave_hull",
+   "constrained_delaunay_triangles",
+   "contains",
+   "contains_properly",
+   "contains_xy",
+   "convex_hull",
+   "count_coordinates",
+   "coverage_invalid_edges"
+  ]
+ },
+ "shapely.affinity": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.algorithms": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.algorithms.cga": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.algorithms.polylabel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.constructive": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 38,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.coordinates": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.coords": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.creation": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.decorators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.collection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.geo": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.linestring": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.multilinestring": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "shapely.geometry.multipoint": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 252,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.connectors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.connectors.aioodbc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.connectors.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.connectors.pyodbc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.cyextension": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.dialects": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.characteristics": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.create": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.cursor": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 61,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.default": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 55,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.events": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.interfaces": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 63,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.mock": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.processors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sqlalchemy.engine.reflection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 39,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.applications": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.authentication": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.background": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.concurrency": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.convertors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.datastructures": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 36,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.endpoints": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.formparsers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.authentication": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.cors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.errors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "starlette.middleware.gzip": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.covtype": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.data": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.distributed_estimation": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.elastic_net": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.l1_cvxopt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.l1_slsqp": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.l1_solvers_common": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.model": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 35,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.optimizer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.transform": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.base.wrapper": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.compat": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.compat.matplotlib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.compat.numpy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "statsmodels.compat.pandas": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog": {
+  "marcado": true,
+  "star": false,
+  "getattr": true,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.contextvars": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.dev": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 46,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.processors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 43,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.stdlib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 42,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.testing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.threadlocal": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.tracebacks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.types": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "structlog.typing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 901,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.abc": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 82,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.algebras": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.algebras.quaternion": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.ask": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.ask_generated": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.assume": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.cnf": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 29,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.facts": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.lra_satask": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.refine": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.satask": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.sathandlers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.assumptions.wrapper": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.benchmarks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.benchmarks.bench_discrete_log": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "sympy.benchmarks.bench_meijerint": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 63,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tabulate": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tabulate.version": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 68,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.after": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.asyncio.retry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.before": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.before_sleep": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.nap": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.retry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.stop": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tenacity.wait": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tiktoken": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tiktoken.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tiktoken.load": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tiktoken.model": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tiktoken.registry": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 27,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.api": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.container": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.items": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 55,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.parser": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 51,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.source": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.toml_char": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.toml_document": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tomlkit.toml_file": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.auto": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.autonotebook": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.bells": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.concurrent": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.discord": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.itertools": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.logging": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.telegram": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.contrib.utils_worker": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.gui": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "tqdm.notebook": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 15,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 67,
+  "n_buracos": 60,
+  "buracos": [
+   "All",
+   "Any",
+   "BaseDescriptor",
+   "Bool",
+   "Bytes",
+   "CBool",
+   "CBytes",
+   "CComplex",
+   "CFloat",
+   "CInt",
+   "CLong",
+   "CRegExp",
+   "CUnicode",
+   "Callable",
+   "CaselessStrEnum",
+   "ClassBasedTraitType",
+   "Complex",
+   "Container",
+   "DefaultHandler",
+   "Dict"
+  ]
+ },
+ "traitlets.config": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 70,
+  "n_buracos": 68,
+  "buracos": [
+   "Any",
+   "AnyLogger",
+   "Application",
+   "ApplicationError",
+   "ArgumentError",
+   "ArgvType",
+   "Bool",
+   "Bunch",
+   "ClassesType",
+   "ConfigFileNotFound",
+   "Configurable",
+   "ConfigurableError",
+   "Container",
+   "DeferredConfig",
+   "DeferredConfigString",
+   "Dict",
+   "Enum",
+   "HasTraits",
+   "IS_PYTHONW",
+   "Instance"
+  ]
+ },
+ "traitlets.config.application": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 58,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.config.argcomplete_config": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.config.configurable": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.config.loader": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.config.manager": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.config.sphinxdoc": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.log": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.traitlets": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 95,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.bunch": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.decorators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.descriptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.getargspec": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.importstring": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.nested_update": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "traitlets.utils.sentinel": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 28,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.colors": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.completion": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 26,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.main": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 82,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.models": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.params": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.rich_utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 100,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.testing": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "typer.utils": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 23,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 50,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.connectionpool": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 49,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.contrib": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.contrib.socks": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.exceptions": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 45,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.fields": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.filepost": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.http2": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.http2.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.http2.probe": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.poolmanager": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 32,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.response": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 41,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.util": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 20,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.util.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.util.proxy": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "urllib3.util.request": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 16,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 76,
+  "n_buracos": 14,
+  "buracos": [
+   "AbortHandshake",
+   "BasicAuthWebSocketServerProtocol",
+   "InvalidStatusCode",
+   "RedirectHandshake",
+   "WebSocketClientProtocol",
+   "WebSocketCommonProtocol",
+   "WebSocketProtocolError",
+   "WebSocketServer",
+   "WebSocketServerProtocol",
+   "WebSocketURI",
+   "basic_auth_protocol_factory",
+   "framing",
+   "handshake",
+   "parse_uri"
+  ]
+ },
+ "websockets.asyncio": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 0,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.async_timeout": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.client": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 56,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.compatibility": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 47,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.messages": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.asyncio.server": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 44,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.auth": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 2,
+  "buracos": [
+   "BasicAuthWebSocketServerProtocol",
+   "basic_auth_protocol_factory"
+  ]
+ },
+ "websockets.cli": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.client": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 53,
+  "n_buracos": 3,
+  "buracos": [
+   "WebSocketClientProtocol",
+   "connect",
+   "unix_connect"
+  ]
+ },
+ "websockets.connection": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.datastructures": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.exceptions": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 33,
+  "n_buracos": 4,
+  "buracos": [
+   "AbortHandshake",
+   "InvalidStatusCode",
+   "RedirectHandshake",
+   "WebSocketProtocolError"
+  ]
+ },
+ "websockets.extensions": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.extensions.base": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "websockets.extensions.permessage_deflate": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 34,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.arguments": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 10,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.caching": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.decorators": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.importer": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.patches": {
+  "marcado": true,
+  "star": false,
+  "getattr": false,
+  "dynamic": true,
+  "n_runtime": 13,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.proxies": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.signature": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.synchronization": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 19,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.weakrefs": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "wrapt.wrappers": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 11,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.app": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_area": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_bar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_column": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_doughnut": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_line": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_pie": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 2,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_radar": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_scatter": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_stock": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 1,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chart_title": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 4,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.chartsheet": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.color": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.comments": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 9,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.contenttypes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 8,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "xlsxwriter.core": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yaml": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 88,
+  "n_buracos": 59,
+  "buracos": [
+   "AliasEvent",
+   "AliasToken",
+   "AnchorToken",
+   "BaseDumper",
+   "BaseLoader",
+   "BlockEndToken",
+   "BlockEntryToken",
+   "BlockMappingStartToken",
+   "BlockSequenceStartToken",
+   "CBaseDumper",
+   "CBaseLoader",
+   "CDumper",
+   "CFullLoader",
+   "CLoader",
+   "CSafeDumper",
+   "CSafeLoader",
+   "CUnsafeLoader",
+   "CollectionEndEvent",
+   "CollectionNode",
+   "CollectionStartEvent"
+  ]
+ },
+ "yaml.composer": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 19,
+  "buracos": [
+   "AliasEvent",
+   "CollectionEndEvent",
+   "CollectionNode",
+   "CollectionStartEvent",
+   "DocumentEndEvent",
+   "DocumentStartEvent",
+   "Event",
+   "MappingEndEvent",
+   "MappingNode",
+   "MappingStartEvent",
+   "Node",
+   "NodeEvent",
+   "ScalarEvent",
+   "ScalarNode",
+   "SequenceEndEvent",
+   "SequenceNode",
+   "SequenceStartEvent",
+   "StreamEndEvent",
+   "StreamStartEvent"
+  ]
+ },
+ "yaml.constructor": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 8,
+  "buracos": [
+   "CollectionNode",
+   "MappingNode",
+   "Mark",
+   "MarkedYAMLError",
+   "Node",
+   "ScalarNode",
+   "SequenceNode",
+   "YAMLError"
+  ]
+ },
+ "yaml.cyaml": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 24,
+  "n_buracos": 14,
+  "buracos": [
+   "BaseConstructor",
+   "BaseRepresenter",
+   "BaseResolver",
+   "Constructor",
+   "ConstructorError",
+   "FullConstructor",
+   "Representer",
+   "RepresenterError",
+   "Resolver",
+   "SafeConstructor",
+   "SafeRepresenter",
+   "Serializer",
+   "SerializerError",
+   "UnsafeConstructor"
+  ]
+ },
+ "yaml.dumper": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 13,
+  "n_buracos": 10,
+  "buracos": [
+   "BaseRepresenter",
+   "BaseResolver",
+   "Emitter",
+   "EmitterError",
+   "Representer",
+   "RepresenterError",
+   "Resolver",
+   "SafeRepresenter",
+   "Serializer",
+   "SerializerError"
+  ]
+ },
+ "yaml.emitter": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 18,
+  "n_buracos": 14,
+  "buracos": [
+   "AliasEvent",
+   "CollectionEndEvent",
+   "CollectionStartEvent",
+   "DocumentEndEvent",
+   "DocumentStartEvent",
+   "Event",
+   "MappingEndEvent",
+   "MappingStartEvent",
+   "NodeEvent",
+   "ScalarEvent",
+   "SequenceEndEvent",
+   "SequenceStartEvent",
+   "StreamEndEvent",
+   "StreamStartEvent"
+  ]
+ },
+ "yaml.error": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 3,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yaml.events": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 14,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yaml.loader": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 16,
+  "buracos": [
+   "BaseConstructor",
+   "BaseResolver",
+   "Composer",
+   "ComposerError",
+   "Constructor",
+   "ConstructorError",
+   "FullConstructor",
+   "Parser",
+   "ParserError",
+   "Reader",
+   "ReaderError",
+   "Resolver",
+   "SafeConstructor",
+   "Scanner",
+   "ScannerError",
+   "UnsafeConstructor"
+  ]
+ },
+ "yaml.nodes": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 5,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yaml.parser": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 40,
+  "n_buracos": 37,
+  "buracos": [
+   "AliasEvent",
+   "AliasToken",
+   "AnchorToken",
+   "BlockEndToken",
+   "BlockEntryToken",
+   "BlockMappingStartToken",
+   "BlockSequenceStartToken",
+   "CollectionEndEvent",
+   "CollectionStartEvent",
+   "DirectiveToken",
+   "DocumentEndEvent",
+   "DocumentEndToken",
+   "DocumentStartEvent",
+   "DocumentStartToken",
+   "Event",
+   "FlowEntryToken",
+   "FlowMappingEndToken",
+   "FlowMappingStartToken",
+   "FlowSequenceEndToken",
+   "FlowSequenceStartToken"
+  ]
+ },
+ "yaml.reader": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 6,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yaml.representer": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 17,
+  "n_buracos": 8,
+  "buracos": [
+   "CollectionNode",
+   "MappingNode",
+   "Mark",
+   "MarkedYAMLError",
+   "Node",
+   "ScalarNode",
+   "SequenceNode",
+   "YAMLError"
+  ]
+ },
+ "yaml.resolver": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 12,
+  "n_buracos": 8,
+  "buracos": [
+   "CollectionNode",
+   "MappingNode",
+   "Mark",
+   "MarkedYAMLError",
+   "Node",
+   "ScalarNode",
+   "SequenceNode",
+   "YAMLError"
+  ]
+ },
+ "yaml.scanner": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 25,
+  "n_buracos": 21,
+  "buracos": [
+   "AliasToken",
+   "AnchorToken",
+   "BlockEndToken",
+   "BlockEntryToken",
+   "BlockMappingStartToken",
+   "BlockSequenceStartToken",
+   "DirectiveToken",
+   "DocumentEndToken",
+   "DocumentStartToken",
+   "FlowEntryToken",
+   "FlowMappingEndToken",
+   "FlowMappingStartToken",
+   "FlowSequenceEndToken",
+   "FlowSequenceStartToken",
+   "KeyToken",
+   "ScalarToken",
+   "StreamEndToken",
+   "StreamStartToken",
+   "TagToken",
+   "Token"
+  ]
+ },
+ "yaml.serializer": {
+  "marcado": true,
+  "star": true,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 22,
+  "n_buracos": 19,
+  "buracos": [
+   "AliasEvent",
+   "CollectionEndEvent",
+   "CollectionNode",
+   "CollectionStartEvent",
+   "DocumentEndEvent",
+   "DocumentStartEvent",
+   "Event",
+   "MappingEndEvent",
+   "MappingNode",
+   "MappingStartEvent",
+   "Node",
+   "NodeEvent",
+   "ScalarEvent",
+   "ScalarNode",
+   "SequenceEndEvent",
+   "SequenceNode",
+   "SequenceStartEvent",
+   "StreamEndEvent",
+   "StreamStartEvent"
+  ]
+ },
+ "yaml.tokens": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 21,
+  "n_buracos": 0,
+  "buracos": []
+ },
+ "yarl": {
+  "marcado": false,
+  "star": false,
+  "getattr": false,
+  "dynamic": false,
+  "n_runtime": 7,
+  "n_buracos": 0,
+  "buracos": []
+ }
+}

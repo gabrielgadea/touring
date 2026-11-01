@@ -1,0 +1,36 @@
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-lsp v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-lsp)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 9.12s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_lsp-ae08b18b1756e1f2)
+
+running 11 tests
+test mapping::tests::parse_references_roundtrip ... ok
+test mapping::tests::parse_references_handles_error_envelope ... ok
+test mapping::tests::parse_references_handles_no_definition ... ok
+test mapping::tests::parse_rename_edits_conflict_yields_none ... ok
+test mapping::tests::parse_rename_edits_flattens_preview ... ok
+test mapping::tests::parse_rename_edits_malformed_yields_empty ... ok
+test mapping::tests::references_payload_is_1based_workspace_scoped ... ok
+test mapping::tests::rename_payload_carries_new_name_and_scope ... ok
+test tests::mapping_is_reachable_in_default_build ... ok
+test tests::smoke_re_exports_compile ... ok
+test types::tests::item_new_round_trip ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/integration_test.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/integration_test-fd4b61d992d9deac)
+
+running 2 tests
+test integration_result_alias_compiles ... ok
+test integration_item_construction ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests touring_lsp
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

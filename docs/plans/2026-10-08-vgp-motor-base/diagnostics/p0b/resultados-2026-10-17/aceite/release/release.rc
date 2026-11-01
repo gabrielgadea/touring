@@ -1,0 +1,9 @@
+build 1 rc=0
+sha256 4047373ff48b02f557fd6c5fc62d62615bca36ec1b719699ed87119c7c645570
+congelado em /home/gabrielgadea/.claude/touring/vgp/binarios/4047373f (cmp rc=0)
+touch das 5 fontes 2026-10-17T11:34:04-03:00
+build 2 rc=0
+4047373ff48b02f557fd6c5fc62d62615bca36ec1b719699ed87119c7c645570  /home/gabrielgadea/projects/touring/target/wt-p0b/release/touring
+cmp build 2 x congelado rc=0
+REPRODUZIVEL: build 2 == congelado
+FIM

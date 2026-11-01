@@ -1,0 +1,45 @@
+{
+  "phase": "F4-sdk-tipada-protocol",
+  "entities": [
+    {
+      "entity_id": "phase:F4-sdk-tipada-protocol",
+      "type": "phase",
+      "description": "F4 SDK tipada Protocol entregue: injetado record_hook_call + wrap de query() no template Python (crates/touring-server/src/cli/run.rs:298). Mirror sink fail-soft (exception nunca aborta programa). Touring-server build verde (4m45s); 1572/1572 lib tests verdes. Cada touring.run().query() agora cronometra + escreve mirror line \u2014 quando touringrunning realmente tocar o SDK, signal_use counts vao subir. Schema em concordancia com sdk.rs SignalReport.hooks keys (8 hooks canonicos)."
+    },
+    {
+      "entity_id": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788196388043002698",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788196388043002698",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F4-sdk-tipada-protocol|produces|memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done",
+      "source": "phase:F4-sdk-tipada-protocol",
+      "type": "produces",
+      "target": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done|generated-by|loop:loop:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788196388043002698"
+    },
+    {
+      "relation_id": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done|generated-by|dag:decomp:task_1788196388043002698",
+      "source": "memory:loop:task_1788196388043002698:F4-sdk-tipada-protocol:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788196388043002698"
+    }
+  ]
+}

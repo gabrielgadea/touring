@@ -1,0 +1,5 @@
+build rc=0
+f55ec4b5e027055a349bd5fa82a5f9d386ea97a8c8627177a9e8d7967f347117  /home/gabrielgadea/projects/touring/target/vgp-judge/release/touring
+f55ec4b5e027055a349bd5fa82a5f9d386ea97a8c8627177a9e8d7967f347117  /home/gabrielgadea/.claude/touring/vgp/binarios/f55ec4b5/touring
+cmp rc=0
+FIM

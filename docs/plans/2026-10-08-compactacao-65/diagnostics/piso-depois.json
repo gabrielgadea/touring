@@ -1,0 +1,83 @@
+{
+ "instruction_chars": 115228,
+ "instruction_files": 22,
+ "rules_always_loaded": [
+  "~/.claude/rules/TACO-subagent.md",
+  "~/.claude/rules/VP-Scout.md",
+  "~/.claude/rules/code-elaboration-directives.md",
+  "~/.claude/rules/code-execution-gateway.md",
+  "~/.claude/rules/elite-50-quality.md",
+  "~/.claude/rules/entity-identity.md",
+  "~/.claude/rules/file-metadata-first.md",
+  "~/.claude/rules/git-safety-protocol.md",
+  "~/.claude/rules/tool-combination-patterns.md",
+  "~/.claude/rules/touring-4-pillars.md",
+  "~/.claude/rules/touring-cli-index.md",
+  "~/.claude/rules/touring-decision-matrix.md",
+  "~/.claude/rules/touring-elite.md",
+  "~/.claude/rules/touring-per-project.md",
+  "~/.claude/rules/touring-process-hygiene.md",
+  "~/.claude/rules/touring-rebuild.md",
+  "~/projects/analise/.claude/rules/00-core-governance.md",
+  "~/projects/analise/.claude/rules/taco-identity.md"
+ ],
+ "agent_description_chars": 7829,
+ "agents": 26,
+ "agent_description_top": [
+  [
+   492,
+   "antt-document-processor.md"
+  ],
+  [
+   453,
+   "erickson-paradox-reformulator.md"
+  ],
+  [
+   451,
+   "touring-scouter.md"
+  ],
+  [
+   412,
+   "touring-architect.md"
+  ],
+  [
+   391,
+   "touring-engineer.md"
+  ],
+  [
+   389,
+   "touring-auditor.md"
+  ]
+ ],
+ "plugin_mcp_disabled": [
+  "plugin:brand-voice:gong",
+  "plugin:brand-voice:granola",
+  "plugin:data:definite",
+  "plugin:data:hex",
+  "plugin:design:atlassian",
+  "plugin:design:figma",
+  "plugin:design:intercom",
+  "plugin:design:linear",
+  "plugin:design:notion",
+  "plugin:figma:figma-desktop",
+  "plugin:finance:slack",
+  "plugin:github:github",
+  "plugin:knowledge-catalog:dataplex",
+  "plugin:legal:docusign",
+  "plugin:legal:egnyte",
+  "plugin:marketing:ahrefs",
+  "plugin:marketing:amplitude",
+  "plugin:marketing:amplitude-eu",
+  "plugin:marketing:canva",
+  "plugin:marketing:klaviyo",
+  "plugin:marketing:similarweb",
+  "plugin:marketing:supermetrics",
+  "plugin:playwright:playwright",
+  "plugin:productivity:clickup",
+  "plugin:productivity:monday",
+  "plugin:render:render",
+  "plugin:serena:serena",
+  "plugin:stripe:stripe",
+  "plugin:vercel:vercel"
+ ]
+}

@@ -1,0 +1,30 @@
+itens 98 · triagens 98 · vereditos {'não-reproduz': 77, 'recusa-correta': 4, 'falso-positivo-do-instrumento': 12, 'ambiental': 5}
+  FALTA 62ada24a19ad: o replay falhou ou mostra a classe fora do frame (rc=1: '"stderr": "Traceback (most recent call last):\\n  File \\"<frozen runpy>\\", line 198, in _ru'); a triagem não cita
+  FALTA f5bd946daf20: o replay falhou ou mostra a classe fora do frame (rc=1: '2026-10-08T20:46:25.637349Z  INFO ceg::enforcement: CEG sandbox enforcement — rlimit: 3 pe'); a triagem não cita
+  FALTA 006bce36d346: o replay REPRODUZ ValueError no frame agregador_pesquisas.py:166 — não-reproduz é falso
+  FALTA 6e177fab3f98: o replay falhou ou mostra a classe fora do frame (rc=0: '20115205926\\n    ajustes.publico.fracao_do_peso_por_instituto.Veritá        0.156228716462'); a triagem não cita
+  FALTA 2d37f4dd1875: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/6b89222e-1b8e-4b19-b2dd-14aad7de77c5/scratchpad/expl/l3_abrir.py']
+  FALTA 84ffe5ad9fde: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/6b89222e-1b8e-4b19-b2dd-14aad7de77c5/scratchpad/expl/l3_abrir.py']
+  FALTA 2d9820ca5ac1: o replay falhou ou mostra a classe fora do frame (rc=0: 'rc 0'); a triagem não cita
+  FALTA bcbda47c9ce4: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e/scratchpad/medir_comboio_do_vigia.py']
+  FALTA 018c91fc55f7: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/gerar_pedido.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/inventario_commits.py']
+  FALTA f262f6534dd1: o replay falhou ou mostra a classe fora do frame (rc=0: 'tests/hooks_contract/test_updated_input_writers.py:106: AssertionError'); a triagem não cita
+  FALTA f489a3f0c5e1: o replay falhou ou mostra a classe fora do frame (rc=0: "AttributeError: 'NoneType' object has no attribute '__dict__'. Did you mean: '__dir__'?"); a triagem não cita
+  FALTA 45d15e348126: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/regioes/gerar_analise_manuela.py']
+  FALTA c4257139f5a7: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mpr_c2.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/critica_r14/quorum.py']
+  FALTA ab045fcda628: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mpr_c2.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/critica_r14/quorum.py']
+  FALTA 9f99cfbc102c: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mpr_c2.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/critica_r14/quorum.py']
+  FALTA 904e7e48ccfa: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mpr_c2.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/critica_r14/quorum.py']
+  FALTA d009a5d0b257: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/conciliacao/mpr_c2.py', '/tmp/claude-1000/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29/scratchpad/critica_r14/quorum.py']
+  FALTA f37106dc1d70: o replay falhou ou mostra a classe fora do frame (rc=1: '[*] 2 fixable with the `--fix` option.'); a triagem não cita
+  FALTA e8dee5723c9b: o replay REPRODUZ AttributeError no frame grafo_gravacao.py:121 — não-reproduz é falso
+  FALTA 3c4357735843: o replay reproduz KeyError no frame do item — o instrumento acertou, não é falso positivo
+  FALTA 581946021651: o replay REPRODUZ PermissionError no frame plugins_layout.py:19 — não-reproduz é falso
+  FALTA f79b31fc43f7: o replay REPRODUZ FileNotFoundError no frame compact_docs.py:6 — não-reproduz é falso
+  FALTA fc833d62510b: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/d76068e1-b5b1-4c5b-a40b-fd9c0d29b29e/scratchpad/calibragem.py']
+  FALTA 7398bfbbc5b3: não-reproduz replay sem reconstruir /tmp: ['/tmp/claude-1000/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44/scratchpad/calibrar_rss.py']
+  FALTA ced0dd58e696: o replay REPRODUZ TypeError no frame o5_dados.py:872 — não-reproduz é falso
+  FALTA 3576db261904: o replay falhou ou mostra a classe fora do frame (rc=0: '"stdout": "Traceback (most recent call last):\\n  File \\"/home/gabrielgadea/projects/tourin'); a triagem não cita
+  FALTA c2e3da31104b: o replay falhou ou mostra a classe fora do frame (rc=1: "AttributeError: 'list' object has no attribute 'keys'"); a triagem não cita
+  FALTA d36ccb24d7af: não-reproduz replay sem reconstruir /tmp: ['/tmp/g2-re.json']
+veredito: 28 pendências

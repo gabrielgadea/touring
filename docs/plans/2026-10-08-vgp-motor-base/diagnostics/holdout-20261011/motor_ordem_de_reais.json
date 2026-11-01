@@ -1,0 +1,44 @@
+{
+ "0dcf0bab45c5": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 1,
+  "resto_do_veredito_identico": true
+ },
+ "15d469304a03": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 10,
+  "resto_do_veredito_identico": true
+ },
+ "2463291faf76": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 10,
+  "resto_do_veredito_identico": true
+ },
+ "34511b9ac100": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 7,
+  "resto_do_veredito_identico": true
+ },
+ "8b7a3476e024": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 7,
+  "resto_do_veredito_identico": true
+ },
+ "c876d78f82ee": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 8,
+  "resto_do_veredito_identico": false
+ },
+ "cda03737f157": {
+  "chamadas": 10,
+  "ordens_distintas_de_reais": 10,
+  "conjuntos_distintos_de_reais": 9,
+  "resto_do_veredito_identico": false
+ }
+}

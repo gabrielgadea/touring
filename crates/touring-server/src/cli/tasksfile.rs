@@ -69,7 +69,9 @@ enum TasksfileCmd {
 /// Returns an error if a required file argument is missing, file I/O fails,
 /// an unknown subcommand is given, or the daemon is unreachable.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match TasksfileCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<TasksfileCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -81,8 +83,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             task_type,
         } => {
             #[allow(clippy::needless_borrow)]
-            let yaml_content = std::fs::read_to_string(expand_path(&file))
-                .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
+            let yaml_content = std::fs::read_to_string(expand_path(&file)).map_err(|e| {
+                anyhow::anyhow!(
+                    "cannot read tasksfile {} ({}); verify file exists and check YAML syntax",
+                    file,
+                    e
+                )
+            })?;
             let task_id_val = match task_id {
                 Some(id) => serde_json::json!(id),
                 None => serde_json::Value::Null,
@@ -116,8 +123,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         TasksfileCmd::Validate { file } => {
             #[allow(clippy::needless_borrow)]
-            let yaml_content = std::fs::read_to_string(expand_path(&file))
-                .map_err(|e| anyhow::anyhow!("Failed to read '{}': {}", file, e))?;
+            let yaml_content = std::fs::read_to_string(expand_path(&file)).map_err(|e| {
+                anyhow::anyhow!(
+                    "cannot read tasksfile {} ({}); verify file exists and check YAML syntax",
+                    file,
+                    e
+                )
+            })?;
             let payload = serde_json::json!({
                 "hook": "cli-tasksfile-validate",
                 "yaml": yaml_content,

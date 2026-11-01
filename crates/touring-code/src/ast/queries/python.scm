@@ -48,3 +48,16 @@
     (assignment
       left: (identifier) @name)) @assignment)
 
+
+;; Top-level tuple-unpacked assignments: `A, B = 1, 2` / `(a, b) = 1, 2` bind EVERY
+;; name (26/09/2026: `PRESIDENTE, GOVERNADOR, SENADOR, PREFEITO = …` left all four
+;; out of the symbol table, and their consumers read as phantoms).
+(module
+  (expression_statement
+    (assignment
+      left: (pattern_list (identifier) @name))) @assignment)
+
+(module
+  (expression_statement
+    (assignment
+      left: (tuple_pattern (identifier) @name))) @assignment)

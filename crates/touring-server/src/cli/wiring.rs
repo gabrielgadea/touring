@@ -35,6 +35,20 @@ enum WiringCmd {
         /// Include structured W-100/W-103 diagnostic codes (Wave Q4 RFC-100).
         #[arg(long)]
         diagnostics: bool,
+        /// Trusted edges only (H2): a symbol consumed solely by name-matching
+        /// (`ast_inferred`) reports as orphan — the honest "provably unused".
+        #[arg(long)]
+        trusted: bool,
+    },
+    /// Ingest compiler-resolved edges from `rust-analyzer scip` (H2).
+    ///
+    /// Writes `scip_resolved` rows into wiring_map (method calls, generic
+    /// dispatch, re-export identity — the edges name-matching cannot see).
+    /// Explicit command by design: the SCIP build takes seconds to minutes.
+    ScipIngest {
+        /// Read a pre-generated SCIP index instead of running rust-analyzer.
+        #[arg(long)]
+        file: Option<std::path::PathBuf>,
     },
     /// List all module wiring integration scores.
     Modules,
@@ -100,10 +114,16 @@ enum WiringCmd {
         /// Render as termtree tree.
         #[arg(long)]
         tree: bool,
+        /// Trusted edges only (H2): excludes `ast_inferred` name-matching —
+        /// the source of every phantom SCC (measured 2026-08-12: 7→0).
+        #[arg(long)]
+        trusted: bool,
     },
-    /// Repair wiring consumer tracking (backfill missing entries).
+    /// Repair Rust consumer tracking from `use` lines (backfill missing
+    /// entries). Rust producers only: other languages are wired by
+    /// `touring index rebuild`. `--dry-run` shows a sample of the edges.
     Repair {
-        /// Preview only — do not write changes.
+        /// Preview only — do not write changes (the reply carries a sample).
         #[arg(long)]
         dry_run: bool,
         /// Maximum repairs per run.
@@ -113,6 +133,27 @@ enum WiringCmd {
         /// to page past genuine orphans, whose NULL rows remain by design).
         #[arg(long)]
         offset: Option<u64>,
+        /// Remove the `.rs` → non-Rust edges earlier repairs wrote (false by
+        /// construction: a Rust `use` names Rust items) and restore the
+        /// orphan rows they replaced. Combine with `--dry-run` to preview.
+        #[arg(long)]
+        purge_cross_language: bool,
+        /// Remove PHANTOM consumer edges: rows whose kind is `unknown` and
+        /// whose producer exists nowhere — never resolvable by any repair, so
+        /// they only pollute the doctor's wiring_diagnostic (24/09/2026,
+        /// touring-36: 8 of them, permanent by construction) — and rows whose
+        /// symbol is a Rust scope keyword (`super`/`self`/`Self`/`crate`),
+        /// whatever their kind, since a keyword names nothing (04/10/2026: 31
+        /// of them, kind `extern`). Combine with `--dry-run` to preview.
+        #[arg(long)]
+        purge_phantom: bool,
+        /// Resolve consumer kinds (the producers + definers passes) without a
+        /// full rebuild — the step `index rebuild` runs when it seals (9.6 s
+        /// against 39 min on the analise, 25/09/2026). `extern` is branded only
+        /// over a sealed generation; refused while a rebuild is in progress.
+        /// Combine with `--dry-run` to preview.
+        #[arg(long)]
+        resolve_kinds: bool,
     },
 }
 
@@ -128,23 +169,34 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // `run_audit` elide large arrays. `parse_global_flags` returns the filtered
     // argv (globals removed) and is the same path `status` uses.
     let (flags, args) = super::common::parse_global_flags(args);
-    let cli = match WiringCli::try_parse_from(args.iter().skip(1)) {
-        Ok(c) => c,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<WiringCli, _, _>(args.iter().skip(1)) {
+            Ok(c) => c,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(WiringCmd::Status) {
         WiringCmd::Status => query_and_print("cli-wiring-status", serde_json::json!({})),
 
-        WiringCmd::Orphans { diagnostics } => {
+        WiringCmd::Orphans {
+            diagnostics,
+            trusted,
+        } => {
             // Wave Q4 (RFC-100): `--diagnostics` flag opts into structured
             // W-100/W-103 diagnostic codes alongside the legacy orphan list.
-            let payload = if diagnostics {
-                serde_json::json!({"diagnostics": true})
-            } else {
-                serde_json::json!({})
-            };
+            let payload = serde_json::json!({
+                "diagnostics": diagnostics,
+                "trusted": trusted,
+            });
             query_and_print("cli-wiring-orphans", payload)
+        }
+
+        WiringCmd::ScipIngest { file } => {
+            let payload = match file {
+                Some(f) => serde_json::json!({ "file": f.to_string_lossy() }),
+                None => serde_json::json!({}),
+            };
+            query_and_print("cli-wiring-scip-ingest", payload)
         }
 
         WiringCmd::Modules => query_and_print("cli-wiring-modules", serde_json::json!({})),
@@ -165,7 +217,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         } => {
             if let Some(syms) = symbols {
                 if syms.is_empty() {
-                    anyhow::bail!("--symbols=<csv> requires at least one symbol");
+                    anyhow::bail!(
+                        "--symbols=<csv> requires at least one symbol — run `touring help` for details"
+                    );
                 }
                 let payload = serde_json::json!({ "orphan_symbols": syms });
                 query_and_print("cli-wiring-suggest", payload)
@@ -236,10 +290,12 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             min_depth,
             format,
             tree,
+            trusted,
         } => {
             let payload = serde_json::json!({
                 "min_depth": min_depth,
-                "format": format
+                "format": format,
+                "trusted": trusted
             });
             let output = daemon_query("cli-wiring-cycles", payload)?;
             if tree {
@@ -254,15 +310,37 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             dry_run,
             limit,
             offset,
+            purge_cross_language,
+            purge_phantom,
+            resolve_kinds,
         } => {
             let payload = serde_json::json!({
                 "dry_run": dry_run,
                 "limit": limit,
                 "offset": offset,
+                "purge_cross_language": purge_cross_language,
+                "purge_phantom": purge_phantom,
+                "resolve_kinds": resolve_kinds,
             });
-            query_and_print("cli-repair-wiring", payload)
+            println!(
+                "{}",
+                bounded_reply(&daemon_query("cli-repair-wiring", payload)?)
+            );
+            Ok(())
         }
     }
+}
+
+/// Pretty-print a reply whose arrays are bounded by construction, never
+/// elided. The repair's `sample` holds at most ten edges and exists to be READ
+/// before anything is written; the `wiring` family's default `--brief` turned
+/// it into `{"_elided_array_len": 10}` on the dry run and the real run alike
+/// (18/09/2026, analise). Invalid JSON passes through verbatim.
+fn bounded_reply(output: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(output)
+        .ok()
+        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+        .unwrap_or_else(|| output.to_string())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -521,7 +599,7 @@ mod tests {
     #[test]
     fn parses_orphans_without_flag() {
         let cli = WiringCli::try_parse_from(["wiring", "orphans"]).unwrap();
-        let WiringCmd::Orphans { diagnostics } = cli.cmd.unwrap() else {
+        let WiringCmd::Orphans { diagnostics, .. } = cli.cmd.unwrap() else {
             panic!("expected Orphans")
         };
         assert!(!diagnostics);
@@ -530,7 +608,7 @@ mod tests {
     #[test]
     fn parses_orphans_with_diagnostics_flag() {
         let cli = WiringCli::try_parse_from(["wiring", "orphans", "--diagnostics"]).unwrap();
-        let WiringCmd::Orphans { diagnostics } = cli.cmd.unwrap() else {
+        let WiringCmd::Orphans { diagnostics, .. } = cli.cmd.unwrap() else {
             panic!("expected Orphans")
         };
         assert!(diagnostics);
@@ -686,6 +764,7 @@ mod tests {
             min_depth,
             format,
             tree,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Cycles")
@@ -716,6 +795,9 @@ mod tests {
             dry_run,
             limit,
             offset,
+            purge_cross_language,
+            purge_phantom,
+            resolve_kinds,
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -723,6 +805,85 @@ mod tests {
         assert!(dry_run);
         assert!(limit.is_none());
         assert!(offset.is_none());
+        assert!(!purge_cross_language);
+        assert!(!purge_phantom);
+        assert!(!resolve_kinds);
+    }
+
+    #[test]
+    fn parses_repair_resolve_kinds() {
+        let cli = WiringCli::try_parse_from(["wiring", "repair", "--resolve-kinds", "--dry-run"])
+            .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            resolve_kinds,
+            purge_phantom,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run);
+        assert!(resolve_kinds);
+        assert!(!purge_phantom);
+    }
+
+    #[test]
+    fn parses_repair_purge_cross_language() {
+        let cli =
+            WiringCli::try_parse_from(["wiring", "repair", "--purge-cross-language", "--dry-run"])
+                .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            purge_cross_language,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run && purge_cross_language);
+    }
+
+    #[test]
+    fn parses_repair_purge_phantom() {
+        let cli = WiringCli::try_parse_from(["wiring", "repair", "--purge-phantom", "--dry-run"])
+            .unwrap();
+        let WiringCmd::Repair {
+            dry_run,
+            purge_phantom,
+            ..
+        } = cli.cmd.unwrap()
+        else {
+            panic!("expected Repair")
+        };
+        assert!(dry_run && purge_phantom);
+    }
+
+    /// The repair's ten-edge sample is over the 512-byte elision threshold, so
+    /// the family's default `--brief` hid it on the dry run it exists for.
+    #[test]
+    fn a_bounded_repair_reply_is_never_elided() {
+        let sample: Vec<serde_json::Value> = (0..10)
+            .map(|i| {
+                serde_json::json!({
+                    "module_file": format!("crates/pkg/src/module_{i}.rs"),
+                    "symbol_name": format!("Symbol{i}"),
+                    "consumer_file": format!("crates/app/src/consumer_{i}.rs"),
+                })
+            })
+            .collect();
+        let reply = serde_json::json!({ "status": "dry_run", "edges": 18035, "sample": sample })
+            .to_string();
+        assert!(
+            super::super::common::maybe_slim_json(&reply, true).contains("_elided_array_len"),
+            "the default brief path elides this reply"
+        );
+
+        let shown: serde_json::Value =
+            serde_json::from_str(&bounded_reply(&reply)).expect("pretty JSON");
+        assert_eq!(shown["sample"].as_array().map(Vec::len), Some(10));
+        assert_eq!(shown["edges"], 18035);
+        assert_eq!(bounded_reply("not json"), "not json");
     }
 
     #[test]
@@ -732,6 +893,7 @@ mod tests {
             dry_run,
             limit,
             offset,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")
@@ -750,6 +912,7 @@ mod tests {
             dry_run,
             limit,
             offset,
+            ..
         } = cli.cmd.unwrap()
         else {
             panic!("expected Repair")

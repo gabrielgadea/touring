@@ -1,0 +1,135 @@
+{
+ "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/reconhecedor_cargo_estendido.py",
+ "sha_antes": "8c5bb9df6d44c95c93227b49f86aeacf51f1aff4fe9fd8ed681d4083d62e843c",
+ "sha_depois": "8c5bb9df6d44c95c93227b49f86aeacf51f1aff4fe9fd8ed681d4083d62e843c",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "falhas": [],
+  "resumo": "23 passed in 0.04s"
+ },
+ "mutantes_mortos": "11/11",
+ "mutantes": [
+  {
+   "mutante": "r1",
+   "descricao": "hw-slot nao e envoltorio",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code]",
+    "test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code]",
+    "test_reconhece_o_cargo_atras_dos_envoltorios[hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace]",
+    "test_o_original_nao_reconhece_o_que_o_estendido_reconhece",
+    "test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos",
+    "test_instala_e_restaura_no_gerador"
+   ],
+   "resumo": "6 failed, 17 passed in 0.06s",
+   "morto": true
+  },
+  {
+   "mutante": "r2",
+   "descricao": "env -u consome 1 token so",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace]",
+    "test_reconhece_o_cargo_atras_dos_envoltorios[env -u A -u B VAR=1 cargo build --release]",
+    "test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos"
+   ],
+   "resumo": "3 failed, 20 passed in 0.15s",
+   "morto": true
+  },
+  {
+   "mutante": "r3",
+   "descricao": "bash -c nao abre o script",
+   "rc": 1,
+   "falhas": [
+    "test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos",
+    "test_bash_c_com_varios_cargos_e_separadores"
+   ],
+   "resumo": "2 failed, 21 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r4",
+   "descricao": "os separadores somem",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code]",
+    "test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos",
+    "test_bash_c_com_varios_cargos_e_separadores"
+   ],
+   "resumo": "3 failed, 20 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r5",
+   "descricao": "fica sempre com o transformado",
+   "rc": 1,
+   "falhas": [
+    "test_nunca_devolve_menos_que_o_analisador_original"
+   ],
+   "resumo": "1 failed, 22 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r6",
+   "descricao": "timeout nao pula a duracao",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace]",
+    "test_reconhece_o_cargo_atras_dos_envoltorios[timeout -k 5 600 cargo nextest run]"
+   ],
+   "resumo": "2 failed, 21 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r7",
+   "descricao": "taskset -c consome 1 token so",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release]"
+   ],
+   "resumo": "1 failed, 22 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r8",
+   "descricao": "instalar nao troca o analisador",
+   "rc": 1,
+   "falhas": [
+    "test_instala_e_restaura_no_gerador"
+   ],
+   "resumo": "1 failed, 22 passed in 0.07s",
+   "morto": true
+  },
+  {
+   "mutante": "r9",
+   "descricao": "VAR=valor nao e envoltorio",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release]"
+   ],
+   "resumo": "1 failed, 22 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r10",
+   "descricao": "nice -n consome 1 token so",
+   "rc": 1,
+   "falhas": [
+    "test_reconhece_o_cargo_atras_dos_envoltorios[nohup nice -n 19 cargo test -p x]"
+   ],
+   "resumo": "1 failed, 22 passed in 0.05s",
+   "morto": true
+  },
+  {
+   "mutante": "r11",
+   "descricao": "o cd do script de dentro se perde",
+   "rc": 1,
+   "falhas": [
+    "test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos",
+    "test_bash_c_com_varios_cargos_e_separadores"
+   ],
+   "resumo": "2 failed, 21 passed in 0.05s",
+   "morto": true
+  }
+ ]
+}

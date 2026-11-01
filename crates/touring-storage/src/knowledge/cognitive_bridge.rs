@@ -67,6 +67,26 @@ impl KnowledgeSource for ThreadSafeKnowledgeDB {
         })
         .unwrap_or_default()
     }
+    fn recent_bash_outcomes_for_session(
+        &self,
+        session_id: &str,
+        limit: usize,
+    ) -> Vec<BashOutcomeRecord> {
+        self.with(|db| {
+            db.recent_bash_outcomes_for_session(session_id, limit)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|o| BashOutcomeRecord {
+                    command_short: o.command_short,
+                    exit_code: i32::try_from(o.exit_code).unwrap_or(i32::MAX),
+                    success: o.success,
+                    error_pattern: o.error_pattern,
+                    file_context: o.file_context,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+    }
     fn coedit_pairs(&self) -> Vec<CoEditPair> {
         self.with(|db| {
             let result = db.conn_ref().prepare(&format!(

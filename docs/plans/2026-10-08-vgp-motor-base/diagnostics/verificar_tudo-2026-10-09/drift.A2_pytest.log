@@ -1,0 +1,31 @@
+....E.E...                                                               [100%]
+==================================== ERRORS ====================================
+____________ ERROR at teardown of test_scan_check_total_reconciled _____________
+
+    @pytest.fixture
+    def errors():
+        """Modo pytest: cada teste recebe uma lista; o teardown falha com os FAILs."""
+        errs: list = []
+        yield errs
+>       assert not errs, "\n".join(str(e) for e in errs)
+E       AssertionError: FAIL scan --check stale total: expected 391, got 392
+E       assert not ['FAIL scan --check stale total: expected 391, got 392']
+
+scripts/test_drift_coverage.py:133: AssertionError
+_____________ ERROR at teardown of test_scan_categories_breakdown ______________
+
+    @pytest.fixture
+    def errors():
+        """Modo pytest: cada teste recebe uma lista; o teardown falha com os FAILs."""
+        errs: list = []
+        yield errs
+>       assert not errs, "\n".join(str(e) for e in errs)
+E       AssertionError: FAIL sum(C1+C3+C4+C5+C6): expected 391, got 392
+E         FAIL C1 versions: expected 82, got 83
+E       assert not ['FAIL sum(C1+C3+C4+C5+C6): expected 391, got 392', 'FAIL C1 versions: expected 82, got 83']
+
+scripts/test_drift_coverage.py:133: AssertionError
+=========================== short test summary info ============================
+ERROR scripts/test_drift_coverage.py::test_scan_check_total_reconciled - Asse...
+ERROR scripts/test_drift_coverage.py::test_scan_categories_breakdown - Assert...
+8 passed, 2 errors in 22.15s

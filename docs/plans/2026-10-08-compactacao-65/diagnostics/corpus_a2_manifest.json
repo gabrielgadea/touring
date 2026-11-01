@@ -1,0 +1,18 @@
+{
+ "criterio": "12 maiores transcripts do projeto analise com mtime > 2h (sessoes encerradas; janela fixa)",
+ "extraido_em": "2026-10-08T16:41:30-0300",
+ "arquivos": [
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/9105f79c-7d21-4688-89c5-2a57a0ba1b29.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/b585cb63-79d4-475c-b412-01949bf09c44.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/fde12f4c-a367-468e-ab30-0439fc525e39.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/21d0610b-7a4c-43af-87b7-a0c82a17b50e.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/52bc5aaa-b95d-4b17-bd5f-4a847d305265.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/6146d0ea-a49e-4bb9-9a86-eec303962452.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/8bbe3855-2b24-4e4d-8266-2313f2999fec.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/1fab72d4-bb38-4f70-acf8-8d340476f879.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/ab65af20-ede1-459d-9e09-f6b595e96d9f.jsonl",
+  "/home/gabrielgadea/.claude/projects/-home-gabrielgadea-projects-analise/0909c80d-b7b9-43e3-997b-3657c8f93cf8.jsonl"
+ ]
+}

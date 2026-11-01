@@ -2,7 +2,7 @@
 name = "touring-hooks"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "Compatibility façade over touring-dispatch + touring-hooks-core, plus the touring-hook / touring-daemon binaries (daemon-lib-rearch Phases C+D)"
 license.workspace = true
 
@@ -20,7 +20,7 @@ path = "src/daemon_main.rs"
 # consumers (the server crate pins 6 of these explicitly). NOTE: the server's
 # architecture guard greps this file for its own crate name as a raw
 # substring, so do not name it here.
-# hooks-active gates the HOOKS_MODE flag here (B.4) AND forwards so the
+# hooks-active forwards so the
 # dispatch default set stays feature-controlled (the dep is declared with
 # default-features = false — without that, `--no-default-features` on this
 # façade could never reproduce the monolith's stubs-only benchmark build).
@@ -28,7 +28,13 @@ hooks-active = ["touring-dispatch/hooks-active"]
 hooks-noop = ["touring-dispatch/hooks-noop"]
 default = ["hooks-active", "all-hooks", "templates", "shadow-workspace", "quantization", "u4-quantization", "persistence", "gpu-compute", "tantivy-fts", "inferlets-wasm", "rkyv-ipc", "nlp-enrichment", "inventory-registry", "capnp-server", "semantic-embeddings", "txn_lock_enforcement"]
 capnp-server = ["touring-dispatch/capnp-server"]
-all-hooks = ["touring-dispatch/all-hooks"]
+# F0.3c (2026-09-01): `all-hooks` MUST also enable this crate's OWN hook
+# features — the standalone `match` arms in `src/main.rs` are gated on
+# `cfg(feature = "pre-hooks" | "post-hooks" | …)` of THIS crate. Forwarding
+# only to touring-dispatch compiled every standalone arm out, so a hook that
+# missed the daemon fast-path answered `unknown subcommand` (silent loss of
+# 42/47 live post-bash deliveries). Guard: tests/feature_parity_standalone.rs.
+all-hooks = ["touring-dispatch/all-hooks", "pre-hooks", "post-hooks", "session-hooks", "utilities"]
 pre-hooks = ["touring-dispatch/pre-hooks"]
 post-hooks = ["touring-dispatch/post-hooks"]
 session-hooks = ["touring-dispatch/session-hooks"]
@@ -53,10 +59,16 @@ txn_lock_enforcement = ["touring-dispatch/txn_lock_enforcement"]
 semantic-embeddings = ["touring-dispatch/semantic-embeddings"]
 
 [dependencies]
+touring-pyright = { path = "../touring-pyright" } # VGP camada 2: pool pyright opt-in por processo (daemon liga; hook standalone não)
 touring-dispatch = { path = "../touring-dispatch", default-features = false }
 # Direct dep so the binaries can name `touring_hook_runtime::hook_runtime::HookDispatchError`
 # (the unified hook-dispatch error type) in their `match subcommand` arms.
 touring-hook-runtime = { path = "../touring-hook-runtime" }
+# S-4p (26/10/2026): o subcomando stateless `dedup-stdin` do binário touring-hook
+# aplica `injection_dedup::dedup_hook_output` à saída dos hooks Python (processos
+# separados, fora do run_hook_command do daemon). Já está no grafo por via
+# transitiva (touring-dispatch), então o custo de build é zero.
+touring-hooks-shared = { path = "../touring-hooks-shared" }
 # Used directly by the two binaries (main.rs / daemon_main.rs).
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "sync", "signal"] }
@@ -67,6 +79,10 @@ tracing-subscriber = { workspace = true }
 # depends on THIS crate, so the daemon cannot borrow it without a cycle.
 tiktoken-rs = { workspace = true }
 
+# Promovido de dev-dependencies em 19/08/2026: o binário `touring-hook` usa
+# `truncate_str` no truncamento de contexto. Já estava no grafo por via
+# transitiva (touring-analysis, touring-code), então o custo de build é zero.
+touring-foundation = { path = "../touring-foundation" }
 [dev-dependencies]
 # The 57 integration suites referenced these crates directly when they were
 # production deps of the monolith — they remain available to tests only.
@@ -82,7 +98,6 @@ touring-simd = { path = "../touring-simd", features = ["cortex-integration", "gp
 touring-code = { path = "../touring-code" }
 touring-intelligence = { path = "../touring-intelligence" }
 touring-capnp-server = { path = "../touring-capnp-server" }
-touring-foundation = { path = "../touring-foundation" }
 uuid = { workspace = true, features = ["v4"] }
 serial_test = { workspace = true }
 criterion = { workspace = true }

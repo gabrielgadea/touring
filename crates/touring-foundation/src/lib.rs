@@ -35,7 +35,12 @@ pub mod alloc;
 pub mod char_classes;
 pub mod checkpoint;
 pub mod chunker;
+pub mod cila;
+pub mod code_mode;
 pub mod config;
+/// Where a spawned daemon lives: its own session and, with a systemd user
+/// manager, its own scope (decision 2-A, 14/09/2026).
+pub mod daemon_spawn;
 // conflict peeled to touring-resilience crate (A4 P1, 2026-06-15)
 pub mod diagnostic;
 pub mod drift;
@@ -48,16 +53,31 @@ pub mod feedback;
 /// `crate::` dep is `memory_stats_probe` (also in the kernel now) — belongs in the kernel.
 pub mod gate_metrics;
 pub mod gate_metrics_snapshot;
+pub mod gitignore;
 pub mod governor;
 
 /// Shared BM25 ranking math (one scorer for every intent-ranked corpus).
 pub mod text_rank;
 
-/// Capability Portfolio — prior-art discovery keyed by purpose.
-pub mod portfolio;
+/// Secret redaction + invisible/control-character stripping for model-visible text
+/// (the memory write path and recall output share this one implementation).
+pub mod text_sanitize;
+
 pub mod hash;
 pub mod health;
 pub mod health_events;
+/// A taxonomia canônica de famílias de injeção (a REGUA): migrada de
+/// `touring-cli::cli::context_budget` na S-4 (26/10/2026) para que a régua e a
+/// política leiam a MESMA tabela — o mesmo movimento do `cila`.
+pub mod injection_family;
+/// Diário do que a política de injeção CORTOU (S-3, 27/10/2026): JSONL
+/// append-only sob `~/.claude/touring/`, escrito pelos processos de hook
+/// efêmeros e lido pelo `touring kpi` (`context_budget`).
+pub mod injection_journal;
+/// Política de injeção de contexto dos hooks — o interruptor
+/// `TOURING_HOOK_INJECTION`, nativo (S-4, 26/10/2026). Espelho Python:
+/// `client/hooks/injection_policy.py`.
+pub mod injection_policy;
 /// Session-insight value types (`ErrorPatternInsight`, `EditedFileInsight`) shared by
 /// the knowledge data layer and the hooks session-insights layer (relocated A5, 2026-06-15).
 pub mod insights;
@@ -76,12 +96,15 @@ pub mod migration;
 /// Generic moka cache builders + stats (relocated from touring-hooks-shared in
 /// A5 step-2, 2026-06-15; generic infra belongs in the kernel).
 pub mod moka_policies;
+pub mod orchestrate_allowlist;
 pub mod plugin;
+/// Capability Portfolio — prior-art discovery keyed by purpose.
+pub mod portfolio;
 pub mod profile;
 /// Process-wide moka-backed query result cache (string-keyed memoization +
 /// single-flight `get_with` + path-scoped invalidation). Generic cache infra
 /// relocated from touring-hooks-shared (A5 Path-A step-3, 2026-06-16): its only
-/// `crate::` dep is `gate_metrics` (now in the kernel); `SymbolEntry` is local.
+/// `crate::` dep is `gate_metrics` (now in the kernel). Keys carry the scope.
 pub mod query_cache;
 pub mod schema;
 /// DDL table-validation helpers (relocated from touring-analysis::e2e in A5, 2026-06-15;
@@ -89,6 +112,15 @@ pub mod schema;
 pub mod schema_guard;
 pub mod security;
 pub mod shared;
+/// The "So what?" invariant as ONE executable predicate over any injected block
+/// (I-4, 31/10/2026) — measured by `touring kpi` → `context_budget`, never enforced
+/// here.
+pub mod so_what;
+/// Synthetic sessions (test-harness ids) — observed, never learned from.
+pub mod synthetic_session;
+/// The lifecycle vocabulary of a DAG task — the scaffold stages a mirrored
+/// task is born with, and the statuses that mean it is over.
+pub mod task_lifecycle;
 /// Core domain types — [`crate::CILALevel`], [`crate::MemoryTier`],
 /// `crate::TodoKind`, `crate::EdgeConfidence`, and the
 /// `truncate_str` UTF-8 safe string helper.
@@ -177,7 +209,10 @@ pub use shared::domain_circuit::{
     SharedDomainCircuitBreaker,
 };
 pub use shared::pool::ConnectionPool;
-pub use types::{CILALevel, MemoryTier, truncate_str};
+pub use types::{
+    CILALevel, HEAVY_OP_BUDGET_SECS, HEAVY_OP_CLIENT_FLOOR_SECS, MemoryTier, is_heavy_hook,
+    truncate_str,
+};
 
 /// Result type alias for Touring operations.
 pub type Result<T> = std::result::Result<T, TouringError>;

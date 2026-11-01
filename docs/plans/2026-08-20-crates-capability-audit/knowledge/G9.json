@@ -1,0 +1,11 @@
+{
+  "phase": "G9",
+  "entities": [
+    {
+      "entity_id": "phase:G9",
+      "type": "phase",
+      "description": "G9: a causa NAO era guarda de tempo na suite, como o deliverable dizia. mutants.toml rodava --profile ci, e o perfil ci retenta 3x com backoff exponencial e da slow-timeout 90s x3 = ate 270s por teste, enquanto o cargo-mutants mata em 60s. Sob mutacao uma falha E o sinal de kill: retentativas convertem kill em TIMEOUT. Criado [profile.mutants] em .config/nextest.toml (retries=0, fail-fast=true, slow-timeout 20s x1) e mutants.toml aponta para ele. RESULTADO, comparacao controlada (mesmos 135 mutantes, --no-shuffle, mesma ordem): timeouts 16->2 (efeito do PERFIL), missed 28->1 (efeito dos testes de G7/G11), kill_rate 74.3%->99.1% - PASSA o limiar de 80%. Total 135->134 porque a remocao do codigo morto de schema.rs em G11 eliminou um sitio de mutacao. O UNICO sobrevivente e registry.rs:266 >->=, exatamente o mutante que declarei EQUIVALENTE em G7 e expliquei por que nenhum teste pode mata-lo - a corrida completa confirmou a previsao. Os 2 timeouts (283:43 e parse_kind arm file) foram ambos provados mortos por mutacao manual em G7/G11; sao quase certamente artefato de contencao de CPU (eu rodava cargo check e clippy em paralelo). 3 guardas em test_mutants_config.py provadas por mutacao: voltar ao perfil ci, tirar retries=0 ou tirar fail-fast - cada uma reprova."
+    }
+  ],
+  "relations": []
+}

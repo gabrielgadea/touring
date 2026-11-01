@@ -1,0 +1,103 @@
+[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m versão    : 30.4.97
+
+[1m── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados ──[0m
+  base: commit de release dfe0fd1e (release 30.4.95: V0e5 (S3 avisa, /proc ptrace, nota de teste)
+  3000 arquivo(s) tocados desde o release (commits + árvore de trabalho); 2740 fora de qualquer pacote
+  AVISO: .cargo/mutants.toml, Cargo.lock, Cargo.toml mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate
+    Checking ring v0.17.14
+    Checking ort-sys v2.0.0-rc.12
+   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Checking ort v2.0.0-rc.12
+    Checking rustls-webpki v0.103.13
+    Checking rustls v0.23.41
+    Checking tokio-rustls v0.26.4
+    Checking ureq v3.3.0
+    Checking hyper-rustls v0.27.9
+    Checking reqwest v0.12.28
+    Checking hf-hub v0.5.0
+    Checking fastembed v5.17.2
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+    Checking opentelemetry-http v0.31.0
+    Checking opentelemetry-otlp v0.31.1
+    Checking touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
+    Checking touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+    Checking touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
+    Checking touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
+    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web)
+    Checking touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
+    Checking touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 17.34s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+    Checking tokio-rustls v0.26.4
+   Compiling touring-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Checking hyper-rustls v0.27.9
+    Checking reqwest v0.12.28
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+    Checking touring-resilience v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+    Checking opentelemetry-http v0.31.0
+    Checking opentelemetry-otlp v0.31.1
+    Checking touring-storage v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
+    Checking touring-code v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Checking touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+    Checking touring-bindings v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-ceg v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-rl v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
+    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
+    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
+    Checking touring-web v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-web)
+    Checking touring-hooks-core v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
+    Checking touring-hook-runtime v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+    Checking touring-hook-handlers v30.4.97 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+    Checking touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+    Checking touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+    Checking touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+    Checking touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 43.09s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+❌ DRIFT  1 arquivo(s) fora de sincronia (376 iguais)
+   desatualizado no espelho skills/loop-engineering/scripts/judge.attest.json
+
+   corrigir: python3 scripts/sync-client-skills.py --apply
+[31m[propagate] ERRO[0m espelho client/ fora de sincronia — rode: python3 scripts/sync-client-skills.py --apply
+propagate rc=1

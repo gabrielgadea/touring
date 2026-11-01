@@ -1,0 +1,239 @@
+{
+  "status": "OK",
+  "script": "dimension_scorer",
+  "timestamp": "2026-10-01T01:44:09+00:00",
+  "source": "/home/gabrielgadea/projects/touring/docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+  "ground_truth_used": false,
+  "composite_current": 5.89,
+  "composite_target": 9.0,
+  "composite_delta": 3.11,
+  "below_threshold": [
+    "scalability",
+    "performance",
+    "functionality",
+    "integration",
+    "dependencies",
+    "potentiation"
+  ],
+  "dimensions": [
+    {
+      "name": "precision",
+      "current": 10.0,
+      "target": 10.0,
+      "delta": 0.0,
+      "hits": 195,
+      "density": 65.88,
+      "base_score": 10.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "1.2",
+        "0.1",
+        "30.4",
+        "6%",
+        "90%",
+        "10%",
+        "40 req/s",
+        "p50",
+        "p99",
+        "blake2b"
+      ],
+      "recommendations": [
+        "Replace prose 'around line N' with exact `file:LINE` from `touring ast find`.",
+        "Embed function signatures verbatim.",
+        "Add numeric targets (P50/P99/RPS) with units."
+      ]
+    },
+    {
+      "name": "scalability",
+      "current": 3.0,
+      "target": 8.5,
+      "delta": 5.5,
+      "hits": 10,
+      "density": 3.38,
+      "base_score": 3.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "Scalability",
+        "factory",
+        "Registry",
+        "registry",
+        "batch"
+      ],
+      "recommendations": [
+        "Replace one-off branches with trait + registry pattern.",
+        "Document horizontal-scaling strategy.",
+        "Identify which subtask creates an extension point."
+      ]
+    },
+    {
+      "name": "performance",
+      "current": 5.0,
+      "target": 8.5,
+      "delta": 3.5,
+      "hits": 19,
+      "density": 6.42,
+      "base_score": 5.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "latency",
+        "p50",
+        "p99",
+        "req/s",
+        "benchmark",
+        "bench",
+        "O(1)"
+      ],
+      "recommendations": [
+        "Declare P99 latency target + workload.",
+        "Name the criterion bench that proves the claim.",
+        "Add complexity O() for hot paths."
+      ]
+    },
+    {
+      "name": "functionality",
+      "current": 5.0,
+      "target": 8.5,
+      "delta": 3.5,
+      "hits": 23,
+      "density": 7.77,
+      "base_score": 5.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "8 Skill",
+        "1 skill",
+        "feature",
+        "orchestrat",
+        "pipeline",
+        "engine",
+        "System",
+        "system"
+      ],
+      "recommendations": [
+        "Wire every orphan listed by `touring wiring orphans -j` or document why deferred.",
+        "Add capability matrix per change.",
+        "Name new pub symbols and their consumers."
+      ]
+    },
+    {
+      "name": "quality",
+      "current": 8.0,
+      "target": 10.0,
+      "delta": 2.0,
+      "hits": 61,
+      "density": 20.61,
+      "base_score": 8.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "clippy",
+        "Safe",
+        "safe",
+        "test_sdk_version_pinned",
+        "test_jev_client",
+        "test_reads_env_file_when_env_unset",
+        "assert"
+      ],
+      "recommendations": [
+        "Every change names a test (`test_*`) + the assertion.",
+        "Remove every `unwrap()` from the diff.",
+        "Add the error branch in the same subtask."
+      ]
+    },
+    {
+      "name": "detail",
+      "current": 8.0,
+      "target": 10.0,
+      "delta": 2.0,
+      "hits": 72,
+      "density": 24.32,
+      "base_score": 8.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        ".py",
+        ".md",
+        ".rs",
+        ".json",
+        ".toml",
+        "loc",
+        "file:",
+        "implementation",
+        "```bash",
+        "schema"
+      ],
+      "recommendations": [
+        "Embed input + output schemas for every API change.",
+        "Enumerate edge cases (null, empty, oversize, timeout).",
+        "Show the concrete pseudocode inline."
+      ]
+    },
+    {
+      "name": "integration",
+      "current": 5.0,
+      "target": 8.5,
+      "delta": 3.5,
+      "hits": 24,
+      "density": 8.11,
+      "base_score": 5.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "Integrat",
+        "->",
+        "pipeline"
+      ],
+      "recommendations": [
+        "Run `touring wiring audit -j` and map each subtask to a connection.",
+        "Diagram new cross-module flows (Mermaid).",
+        "Name the caller(s) of every new pub symbol."
+      ]
+    },
+    {
+      "name": "dependencies",
+      "current": 4.0,
+      "target": 8.5,
+      "delta": 4.5,
+      "hits": 14,
+      "density": 4.73,
+      "base_score": 4.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "v30.4",
+        "v30.5",
+        "v1.2",
+        "pin",
+        "require"
+      ],
+      "recommendations": [
+        "Pin every version explicitly (no wildcards).",
+        "Document required feature flags.",
+        "Note MSRV / Python version range."
+      ]
+    },
+    {
+      "name": "potentiation",
+      "current": 5.0,
+      "target": 8.5,
+      "delta": 3.5,
+      "hits": 24,
+      "density": 8.11,
+      "base_score": 5.0,
+      "authoring_lift": 0.0,
+      "lift_meta": {},
+      "evidence": [
+        "evolv",
+        "Enables"
+      ],
+      "recommendations": [
+        "Every subtask must have non-empty Enables (REGRA #0).",
+        "Rewrite dead-end subtasks as hooks / extension points.",
+        "Identify compounding effects in the matrix."
+      ]
+    }
+  ]
+}

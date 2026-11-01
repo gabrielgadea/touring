@@ -1,0 +1,217 @@
+{
+ "positivos": {
+  "n": 26,
+  "achados_sem_overlay": 10,
+  "achados_com_overlay": 10
+ },
+ "por_classe": {
+  "atributo": {
+   "n": 3,
+   "achados_sem_overlay": 2,
+   "achados_com_overlay": 2
+  },
+  "import": {
+   "n": 11,
+   "achados_sem_overlay": 5,
+   "achados_com_overlay": 5
+  },
+  "kwarg": {
+   "n": 1,
+   "achados_sem_overlay": 1,
+   "achados_com_overlay": 1
+  },
+  "nome": {
+   "n": 11,
+   "achados_sem_overlay": 2,
+   "achados_com_overlay": 2
+  }
+ },
+ "perdidos_sem_overlay": 16,
+ "recuperados_com_overlay": 0,
+ "ainda_perdidos": [
+  {
+   "id": "16398209bb21",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "veredito": "warn",
+   "outros": [
+    "classify",
+    "compose",
+    "Intent"
+   ]
+  },
+  {
+   "id": "378ac0f7a5cf",
+   "classe": "atributo",
+   "nome": "with",
+   "veredito": "warn",
+   "outros": [
+    "session_context",
+    "attest",
+    "derive"
+   ]
+  },
+  {
+   "id": "500cda2f6836",
+   "classe": "import",
+   "nome": "Capability",
+   "veredito": "warn",
+   "outros": [
+    "Decided",
+    "Gated"
+   ]
+  },
+  {
+   "id": "53a9e211e5b8",
+   "classe": "nome",
+   "nome": "compose_details",
+   "veredito": "warn",
+   "outros": [
+    "knowledge",
+    "runtime",
+    "IntentClassifier"
+   ]
+  },
+  {
+   "id": "54839a2c04bb",
+   "classe": "nome",
+   "nome": "cli_decompose_finalize",
+   "veredito": "warn",
+   "outros": [
+    "has_cycle"
+   ]
+  },
+  {
+   "id": "6072f2975dca",
+   "classe": "import",
+   "nome": "Self",
+   "veredito": "warn",
+   "outros": [
+    "RESOLVED",
+    "drop"
+   ]
+  },
+  {
+   "id": "670ac2ee6654",
+   "classe": "import",
+   "nome": "serial_test",
+   "veredito": "warn",
+   "outros": [
+    "gates_limpo",
+    "GateOverrides",
+    "code_mode_gates_with"
+   ]
+  },
+  {
+   "id": "6c6a484e7a77",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "veredito": "warn",
+   "outros": [
+    "classify",
+    "compose",
+    "Intent"
+   ]
+  },
+  {
+   "id": "6e79fd7a1a9c",
+   "classe": "nome",
+   "nome": "cli_decompose_ready",
+   "veredito": "warn",
+   "outros": [
+    "has_cycle"
+   ]
+  },
+  {
+   "id": "72d01144b53e",
+   "classe": "nome",
+   "nome": "refresh_parent_status",
+   "veredito": "warn",
+   "outros": [
+    "has_cycle"
+   ]
+  },
+  {
+   "id": "75709ed1e368",
+   "classe": "import",
+   "nome": "retirement",
+   "veredito": "warn",
+   "outros": [
+    "entry_keys_with_all_tags"
+   ]
+  },
+  {
+   "id": "89cf17e67da6",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "veredito": "warn",
+   "outros": [
+    "classify",
+    "compose",
+    "Intent"
+   ]
+  },
+  {
+   "id": "a26c5f06ffef",
+   "classe": "import",
+   "nome": "retirement",
+   "veredito": "warn",
+   "outros": [
+    "entry_keys_with_all_tags"
+   ]
+  },
+  {
+   "id": "c1cf0f44877a",
+   "classe": "import",
+   "nome": "pending_for",
+   "veredito": "warn",
+   "outros": [
+    "gates_limpo",
+    "GateOverrides",
+    "code_mode_gates_with"
+   ]
+  },
+  {
+   "id": "d64661f05b97",
+   "classe": "nome",
+   "nome": "cli_index_ingest",
+   "veredito": "warn",
+   "outros": [
+    "query_cache",
+    "map_loc",
+    "ResetGuard"
+   ]
+  },
+  {
+   "id": "e89397b12181",
+   "classe": "nome",
+   "nome": "compose_details",
+   "veredito": "warn",
+   "outros": [
+    "knowledge",
+    "runtime",
+    "IntentClassifier"
+   ]
+  }
+ ],
+ "perdidos_depois_que_antes_achava": [],
+ "negativos": {
+  "n": 275,
+  "deny_sem_overlay": 0,
+  "deny_com_overlay": 0,
+  "com_aviso_sem_overlay": 199,
+  "com_aviso_com_overlay": 198,
+  "erros_do_motor": 0
+ },
+ "veredito_por_rotulo_com_overlay": {
+  "positivos": {
+   "warn": 26
+  },
+  "negativos": {
+   "warn": 198,
+   "unknown": 47,
+   "allow": 30
+  }
+ },
+ "erros_do_motor_nos_positivos": 0
+}

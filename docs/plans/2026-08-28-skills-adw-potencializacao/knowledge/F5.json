@@ -1,0 +1,11 @@
+{
+  "phase": "F5",
+  "entities": [
+    {
+      "entity_id": "phase:F5",
+      "type": "phase",
+      "description": "profile_to_adw verificado por execucao: spec tema-livre gerado (7 nos: parallel+5 lentes+juiz, human-approve composto), lint 0 errors 0 warnings; juiz escreve attest (nao e leitor puro) \u2014 silencio do lint readonly_sem_sandbox CORRETO; nada a corrigir, gerador sao"
+    }
+  ],
+  "relations": []
+}

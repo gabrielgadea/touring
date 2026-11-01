@@ -1,0 +1,207 @@
+{
+ "modo": "ws",
+ "n_perdidos": 13,
+ "por_causa": {
+  "glob_super": 4,
+  "metodo": 1,
+  "caminho_crate_do_proprio_crate": 3,
+  "cross_crate": 1,
+  "caminho_de_outro_crate": 3,
+  "import_com_caminho_do_proprio_crate": 1
+ },
+ "por_causa_algum_fator": {
+  "glob_super": 4,
+  "bash_crate": 7,
+  "cross_crate": 12,
+  "metodo": 1,
+  "nome_no_overlay": 9,
+  "caminho_crate_do_proprio_crate": 3,
+  "caminho_de_outro_crate": 3,
+  "import_com_caminho_do_proprio_crate": 1
+ },
+ "itens": [
+  {
+   "id": "16398209bb21",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "uso": "is_automated_payload(sample),",
+   "causa": "glob_super",
+   "tambem": [
+    "bash_crate",
+    "cross_crate"
+   ],
+   "n_overlays": 150,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "378ac0f7a5cf",
+   "classe": "atributo",
+   "nome": "with",
+   "uso": "rt.ctx.knowledge.with(|db| db.upsert(&row)).expect(\"db\").expect(\"seed knowledge\");",
+   "causa": "metodo",
+   "tambem": [
+    "bash_crate",
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 507,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "500cda2f6836",
+   "classe": "import",
+   "nome": "Capability",
+   "uso": "Capability::Net(scope) if !scope.is_any() => format!(\" ({scope})\"),",
+   "causa": "glob_super",
+   "tambem": [
+    "nome_no_overlay"
+   ],
+   "n_overlays": 42,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "54839a2c04bb",
+   "classe": "nome",
+   "nome": "cli_decompose_finalize",
+   "uso": "let new_result = crate::cli_handlers_decompose::cli_decompose_finalize(rt, payload);",
+   "causa": "caminho_crate_do_proprio_crate",
+   "tambem": [
+    "bash_crate",
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 121,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "6072f2975dca",
+   "classe": "import",
+   "nome": "Self",
+   "uso": "db.workspace_root().map(|r| Self::source_declares(Some(r), \"src/blind.rs\", \"GRAFIAS\"))",
+   "causa": "cross_crate",
+   "tambem": [
+    "nome_no_overlay"
+   ],
+   "n_overlays": 157,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "670ac2ee6654",
+   "classe": "import",
+   "nome": "serial_test",
+   "uso": "use serial_test::serial;",
+   "causa": "caminho_de_outro_crate",
+   "tambem": [
+    "cross_crate"
+   ],
+   "n_overlays": 231,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "6c6a484e7a77",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "uso": "assert!(is_automated_payload(\"\\n  <task-notification>\\nAgent finished\"));",
+   "causa": "glob_super",
+   "tambem": [
+    "bash_crate",
+    "cross_crate"
+   ],
+   "n_overlays": 150,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "6e79fd7a1a9c",
+   "classe": "nome",
+   "nome": "cli_decompose_ready",
+   "uso": "let result = crate::cli_handlers_decompose::cli_decompose_ready(rt, &delegate_payload);",
+   "causa": "caminho_crate_do_proprio_crate",
+   "tambem": [
+    "bash_crate",
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 121,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "72d01144b53e",
+   "classe": "nome",
+   "nome": "refresh_parent_status",
+   "uso": "crate::cli_handlers_decompose::refresh_parent_status(db, task_id, &now)",
+   "causa": "caminho_crate_do_proprio_crate",
+   "tambem": [
+    "bash_crate",
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 121,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "75709ed1e368",
+   "classe": "import",
+   "nome": "retirement",
+   "uso": "let live = touring_intelligence::rl::memory::retirement::live_predicate(conn, \"e.\");",
+   "causa": "caminho_de_outro_crate",
+   "tambem": [
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 341,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "89cf17e67da6",
+   "classe": "nome",
+   "nome": "is_automated_payload",
+   "uso": "!is_automated_payload(prompt),",
+   "causa": "glob_super",
+   "tambem": [
+    "bash_crate",
+    "cross_crate"
+   ],
+   "n_overlays": 150,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "a26c5f06ffef",
+   "classe": "import",
+   "nome": "retirement",
+   "uso": "let retired = touring_intelligence::rl::memory::retirement::retired_keys(&conn);",
+   "causa": "caminho_de_outro_crate",
+   "tambem": [
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 341,
+   "bash_proprio": false,
+   "classe_a": null
+  },
+  {
+   "id": "c1cf0f44877a",
+   "classe": "import",
+   "nome": "pending_for",
+   "uso": "use crate::cli_suggester::r3_a2::{Registry, pending_for, test_sink};",
+   "causa": "import_com_caminho_do_proprio_crate",
+   "tambem": [
+    "cross_crate",
+    "nome_no_overlay"
+   ],
+   "n_overlays": 231,
+   "bash_proprio": false,
+   "classe_a": null
+  }
+ ]
+}

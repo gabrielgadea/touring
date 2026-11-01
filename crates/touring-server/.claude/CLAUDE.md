@@ -10,23 +10,23 @@ All 17 features are in `default`:
 
 | Feature | Purpose |
 |---------|---------|
-| `wasm-plugins` | WASM plugin runner via touring-wasm |
+| `wasm-plugins` | WASM plugin runner via touring-bindings |
 | `l7b-alpha` | L7-B inferlets, job spawning, health gates |
-| `async-memory` | Async pattern clustering via touring-learning |
+| `async-memory` | Async pattern clustering via touring-intelligence |
 | `scip-emit` | SCIP index emission for code intelligence |
 | `simd-fuzzy` | SIMD fuzzy matching via touring-simd |
-| `rl-integration` | RL reward sink via touring-learning |
-| `mcts-synthesis` | MCTS synthesis via touring-cognitive |
+| `rl-integration` | RL reward sink via touring-generator |
+| `mcts-synthesis` | MCTS synthesis via touring-generator |
 | `syn-quote` | Syn quote macro for code generation |
-| `cognitive-nexus` | Cognitive nexus via touring-cognitive |
+| `cognitive-nexus` | Cognitive nexus via touring-generator |
 | `analysis-gate` | Wiring + quality gates via touring-analysis |
-| `nlp-reranking` | NLP reranking via touring-antt |
+| `nlp-reranking` | NLP reranking via touring-generator |
 | `observability` | Tracing telemetry, console, OTLP |
 | `memory-integration` | Memory provider for generator |
 | `generator-wasm-sandbox` | WASM sandbox adapter for generator |
 | `generator-zero-copy` | Zero-copy snapshot via rkyv |
 | `ebpf-telemetry` | eBPF syscall telemetry (Linux only) |
-| `prod-allocator` | Mimalloc global allocator (touring-core/mimalloc-allocator) |
+| `prod-allocator` | Mimalloc global allocator (touring-foundation/mimalloc-allocator) |
 | `console` | tokio-console instrumentation (port 6669) |
 | `otlp` | OpenTelemetry OTLP export |
 | `file-logs` | Daily-rotated tracing-appender logs |
@@ -73,7 +73,7 @@ internal rayon pool of `StreamingMCTS` does the multi-core work.
 
 Two recurring boot warnings were silenced:
 
-1. **eBPF init**: `touring-telemetry` now logs at `info!` (was `warn!`)
+1. **eBPF init**: `touring-foundation::telemetry` (feature `ebpf-telemetry`) now logs at `info!` (was `warn!`)
    when the compiled `.bpf.o` bytecode is absent — this is the expected
    state on workstations. Only real faults (kernel headers, map access)
    stay at `warn!`.
@@ -96,12 +96,50 @@ cargo clippy -p touring-server -- -D warnings  # must be 0
 
 `touring` — not `touring-server`. The package name is `touring-server` but the binary is `touring`.
 
+## Exit codes (14/09/2026)
+
+| Code | Meaning |
+|---|---|
+| `0` | success |
+| `1` | any other failure (message on stderr) |
+| `75` | `EX_TEMPFAIL`: a LIGHT daemon handler exceeded its 15 s budget (`retryable: true`) — retry later. stdout carries the daemon payload `{"error":…,"error_kind":"budget_exceeded","handler":…,"budget_secs":…,"still_running":true,"retryable":true}`. The daemon never cancels: the work may still complete, so check the result before repeating. `touring exec` also uses 75 when another execution holds its lock. |
+| `79` | A HEAVY handler (`index rebuild`, `mutation-test`) exceeded its 1800 s budget (`HEAVY_OP_BUDGET_SECS`) and keeps running (`retryable: false`, same payload on stdout). Do not re-run: a second call waits for the running walk and then repeats it. Poll `touring index status`. Outside the sysexits range on purpose (decision H2, 14/09/2026). |
+
+A script tells "busy" from a semantic error by the exit code, never by parsing
+the stderr text (`DAEMON_BUSY_EXIT_CODE` / `DAEMON_STILL_RUNNING_EXIT_CODE` in
+`src/daemon_client.rs`). A heavy call waits `HEAVY_OP_CLIENT_FLOOR_SECS` (the
+budget plus 60 s) so the typed reply arrives before the socket read gives up;
+if the read still times out, the message says to poll, never to retry. Memory
+commands (`cli-memory-*` except `reindex`) no longer queue behind `index
+rebuild`: the project actor serves them between files
+(`touring_hook_runtime::actor_yield`). `index status` never enters the actor
+queue at all (decision 3-A, 14/09/2026): the dispatch answers it from committed
+state through read-only SQLite connections, so it answers during the rebuild's
+sealing phase too, where no yield point exists.
+
+## Logs, OTLP and learning state (cross-audit 14/09/2026, rodada 2)
+
+- **File logs** (`file-logs`): `TOURING_LOG_DIR`, else `~/.claude/touring/logs`,
+  daily rotation, 7 files kept (`LOG_FILES_KEPT`). The default was `/tmp`, a tmpfs:
+  the index watcher logged one `ERROR` per dropped event and wrote 25,5 GB in a day,
+  filling `/tmp` for every process on the machine (R2-1).
+- **OTLP** exports only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set; with no collector
+  the batch processor logged an `ExportError` per flush (R2-16).
+- **Learning state** (Wilson, drift, QTable) and the hook events it learns from live
+  in graph.db (`learning_db_path`), for the loader and the evolution loop alike. The
+  loop used the RLM memory path: it never found an event and every save failed with
+  `no such table: learning_qtable` (R2-10).
+- **Client wait** (`daemon_client::wait_plan`) is computed per call. The heavy floor
+  and flag used to live in process statics, so in the long-lived MCP server one heavy
+  call left every later light call waiting ~31 min (R2-7).
+
 ## File layout
 
 | Path | Purpose |
 |------|---------|
 | `src/main.rs` | Binary entry point |
 | `src/cli/` | CLI subcommand implementations |
+| `src/cli/run.rs` | `--orchestrate` mode + code-mode-sinal F4 template (`record_hook_call` + `query()` wrap, lines ~298+) |
 | `src/server/` | MCP server + tools (86 tools) |
 | `src/plugins/` | WASM plugin runner |
 | `src/tools/` | Tool implementations (generator_tools, cluster_tools, etc.) |
@@ -110,3 +148,49 @@ cargo clippy -p touring-server -- -D warnings  # must be 0
 | `src/context_compiler.rs` | Context compression for LLM prompts |
 | `build.rs` | Build metadata (vergen-gix, build-info) |
 | `tests/binary_e2e.rs` | E2E tests that spawn the touring binary |
+
+## Code-mode-sinal F4 — `--orchestrate` template (01/09/2026)
+
+`src/cli/run.rs` owns the `touring run --orchestrate` prelude (Python
+Protocol stub auto-injected into the sandbox). **F4** added two methods:
+
+1. **`record_hook_call(hook, duration_ms, success=True)`** (line ~298):
+   append-only sink to `~/.claude/touring/sdk_signal_mirror.jsonl`.
+   No-op if `TOURING_SDK_SIGNAL_MIRROR` env is unset. Fail-soft on
+   write errors (never aborts the program).
+
+2. **Wrap of `query()`**: every RPC call now records its own duration
+   + success flag via `record_hook_call` — populating the per-hook
+   call counts that `touring kpi -j` exposes as `code_mode_signal_use`.
+
+The schema mirrors `crates/touring-code/src/sdk_signal_mirror.rs::HookCallEntry`
+byte-for-byte (Rust source of truth). Schema-drift fails the
+`signal_report_from_journal_and_mirror` roundtrip.
+
+**Critical lesson (lesson:executor-do-comando-nao-e-o-binario-buildado, applied 01/09)**:
+edits to this template require `cargo build --release --workspace`
++ `update-touring --no-build` (or a full `update-touring`, which runs that build;
+the daemon embeds `touring-cli` via static link). Partial rebuilds leave the
+daemon running a stale `cli-kpi` handler that returns `null` for fields defined
+in the rebuilt sub-crate. `-p touring-server` is itself partial: `touring-daemon`
+lives in `touring-hooks`, and the `touring` it writes unifies features differently
+(04/10/2026: 1,4 MB smaller under the same 26-feature `--version` line).
+
+### Wave PostToolUse-wiring P1/P2 (01/09/2026, v30.4.29)
+
+- **P1 — the template is Python that RUNS**: `try = None` shipped inside
+  `record_hook_call` and every `--orchestrate` run died with a SyntaxError
+  at template line 167 while 1572 unit tests stayed green — nothing handed
+  the rendered text to a real interpreter. Guard tests now do:
+  `orchestrate_python_sdk_compiles_as_real_python` (renders `py_sdk()` and
+  runs `python3 -m py_compile` on it) and
+  `orchestrate_python_sdk_avoids_dynamic_import` (`__import__` tripped the
+  CEG's own forbidden-call detector — the product flagging its own template).
+- **P2 — the mirror env is WIRED**: `run.rs` sets
+  `RunTunables.sdk_signal_mirror = default_mirror_path(HOME)` on every
+  `--orchestrate` run → `ctx_execute_impl` → `SandboxConfig.sdk_signal_mirror`
+  → the spawn funnel exports `TOURING_SDK_SIGNAL_MIRROR` + pre-creates the
+  file + grants a FILE-level Landlock write rule (`touring-ceg
+  sandbox_executor.rs`; `~/.claude/touring` itself stays read-only — proven
+  by the negative-control test). Before P2 nothing set the env, so
+  `record_hook_call` always no-oped in production.

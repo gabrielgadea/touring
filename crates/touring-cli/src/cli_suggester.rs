@@ -63,7 +63,7 @@ use crate::action_signature::ActionSignature;
 use crate::runtime::HookRuntime;
 use crate::workflow::{
     WorkflowEnrichment, WorkflowState, advise_next_step, conversion_for, detect_antipattern,
-    detect_stage, validate_glob_pattern,
+    detect_stage, exit_code_through_pipe, validate_glob_pattern,
 };
 
 // Needed by Slice 2 retrieval helpers (fail-open DB queries).
@@ -77,6 +77,11 @@ use rusqlite;
 const SUGGESTION_TTL_SECS: u64 = 300;
 const CACHE_MAX_CAPACITY: u64 = 4096;
 
+/// Teto de projetos com τ conformal memoizado simultaneamente. Um daemon atende
+/// poucos projetos por janela; o limite existe para que o cache não cresça
+/// indefinidamente num processo que vive muito mais que qualquer sessão.
+const CONFORMAL_TAU_MAX_PROJECTS: u64 = 64;
+
 fn cache() -> &'static moka::sync::Cache<u64, ()> {
     static CACHE: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
     CACHE.get_or_init(|| {
@@ -87,8 +92,15 @@ fn cache() -> &'static moka::sync::Cache<u64, ()> {
     })
 }
 
-fn input_hash(tool_name: &str, tool_input: &Value) -> u64 {
+/// P1/S-1.1 (2026-09-04) → APOSENTADO na S8 (2026-10-08): a dedupe por conteúdo
+/// deste emissor vive agora em `touring_hooks_shared::injection_dedup`, aplicada
+/// na saída central do daemon (`run_hook_command`), com a validade da ÉPOCA de
+/// compactação em vez do TTL de 300 s — e por SEÇÃO, não só por bloco. Os testes
+/// dela (primeira emissão, referência, isolamento entre sessões, vazio, blocos
+/// pequenos) cobrem os mesmos cenários do antigo `content_dedup_tests`.
+fn input_hash(project_root: &Path, tool_name: &str, tool_input: &Value) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut hasher);
     tool_name.hash(&mut hasher);
     // Hash the compact JSON representation — stable for identical inputs.
     tool_input.to_string().hash(&mut hasher);
@@ -101,9 +113,26 @@ fn input_hash(tool_name: &str, tool_input: &Value) -> u64 {
 /// `(tool_name, tool_input)` hash. Lets each generic banner fire at most once
 /// per TTL window (high-signal-rare), cutting banner-blindness from repeated
 /// non-specific suggestions.
-fn cluster_dedupe_key(cluster: &str) -> u64 {
+///
+/// The key is scoped by `project_root`, because [`cache`] is a process-wide
+/// `static` and the daemon that evaluates this hook is long-lived and serves
+/// **more than one project**. Keyed by cluster alone, a banner emitted while
+/// working in project A silently suppressed the same banner in project B — for
+/// a reader who had never seen it. "Once per window" is a property of one
+/// project's reader, not of the process.
+///
+/// The same scoping is what makes the e2e suite honest. Those tests exercise
+/// the REAL production clusters (`anti-pattern-bash-edit`, `system-health-
+/// precheck`), so they cannot dodge the collision by inventing a unique cluster
+/// name the way the unit tests below do; sharing one process, whichever test
+/// reached a cluster first consumed it and its neighbour asserted over an empty
+/// suggestion. Each test builds its runtime in its own tempdir, so scoping by
+/// root restores the isolation `make_runtime` already promised (found by a
+/// flaky `cli_suggester_e2e`, 24/08/2026).
+fn cluster_dedupe_key(project_root: &Path, cluster: &str) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{1}cluster\u{1}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
     cluster.hash(&mut hasher);
     hasher.finish()
 }
@@ -134,11 +163,11 @@ fn f7_actuator_armed() -> bool {
 /// Marking happens here rather than on emit because `run` has no early-return
 /// between this gate and the point a suggestion is emitted, so the two are
 /// equivalent — and this keeps `run`'s control flow flat.
-fn cluster_dedupe_gate(classifier: &ClassifierOutput) -> ClusterDecision {
+fn cluster_dedupe_gate(project_root: &Path, classifier: &ClassifierOutput) -> ClusterDecision {
     if classifier.carries_input_specific_signal() {
         return ClusterDecision::Proceed;
     }
-    let key = cluster_dedupe_key(&classifier.cluster);
+    let key = cluster_dedupe_key(project_root, &classifier.cluster);
     if cache().get(&key).is_some() {
         return ClusterDecision::Suppress;
     }
@@ -158,10 +187,10 @@ fn cluster_dedupe_gate(classifier: &ClassifierOutput) -> ClusterDecision {
 /// so the "repeated scanning" signal reflects the *current* burst of activity.
 const CODE_MODE_WINDOW_SECS: u64 = 180;
 
-/// Scan count at which the Code Mode hint fires. Set to 3 (not the literal "2nd")
-/// to favour precision: by the 3rd atomic search in one window the repeated-scan
-/// pattern is unambiguous, cutting false positives on an incidental 2nd grep.
-const CODE_MODE_SCAN_THRESHOLD: u32 = 3;
+/// Scan count at which the Code Mode hint fires. Tightened 3→2 (29/08, ordem de
+/// Gabriel): with G1_DENY_AT now at 3, the hint must speak BEFORE the deny —
+/// the 2nd atomic search is the last chance to teach without blocking.
+const CODE_MODE_SCAN_THRESHOLD: u32 = 2;
 
 /// Per-window counter of repeated scan operations, keyed by [`scan_class_key`].
 /// Value is the running count within the live [`CODE_MODE_WINDOW_SECS`] window.
@@ -179,9 +208,10 @@ fn scan_counter() -> &'static moka::sync::Cache<u64, u32> {
 /// [`input_hash`] and [`cluster_dedupe_key`] (a distinct `\u{2}` control-byte
 /// tag that cannot appear in a tool name or cluster id), so the counter never
 /// collides with the anti-spam or banner-dedupe caches.
-fn scan_class_key() -> u64 {
+fn scan_class_key(project_root: &Path) -> u64 {
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     "\u{2}code-mode-scan\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
     hasher.finish()
 }
 
@@ -196,8 +226,8 @@ fn crosses_threshold(prev: u32, threshold: u32) -> bool {
 /// threshold-crossing edge (fire once, then suppress until the window expires).
 /// The get-then-insert is non-atomic, but a benign race only risks a duplicate
 /// nudge under heavy concurrency — acceptable for a fail-open advisory hook.
-fn scan_window_crosses_threshold() -> bool {
-    let key = scan_class_key();
+fn scan_window_crosses_threshold(project_root: &Path) -> bool {
+    let key = scan_class_key(project_root);
     let prev = scan_counter().get(&key).unwrap_or(0);
     scan_counter().insert(key, prev.saturating_add(1));
     crosses_threshold(prev, CODE_MODE_SCAN_THRESHOLD)
@@ -229,12 +259,22 @@ pub fn classify_confidence(tool_name: &str, tool_input: &Value) -> Option<f32> {
 fn conformal_gate_threshold(rt: &HookRuntime) -> f32 {
     use crate::conformal::{ConformalCalibrator, DEFAULT_ALPHA, LEGACY_THRESHOLD};
 
-    static CACHE: OnceLock<std::sync::Mutex<Option<(f32, std::time::Instant)>>> = OnceLock::new();
-    let cell = CACHE.get_or_init(|| std::sync::Mutex::new(None));
-    if let Ok(guard) = cell.lock()
-        && let Some((tau, at)) = *guard
-        && at.elapsed().as_secs() < SUGGESTION_TTL_SECS
-    {
+    // Memoizado POR PROJETO. O τ é destilado do substrato de `rt` — os outcomes
+    // daquele projeto — e o daemon que hospeda este cache é longo-vivo, servindo
+    // mais de um. Numa célula única, o τ do primeiro projeto a chegar governava
+    // a régua de disparo dos demais por 300 s: o gate mais consequente do hook
+    // (decide se a sugestão sai) respondia a dados de outro repositório.
+    // `moka` (o mesmo mecanismo dos demais caches deste módulo) dá teto e
+    // expiração nativos: um mapa sem limite cresceria uma entrada por projeto
+    // pela vida inteira de um daemon longo-vivo, e o TTL viraria checagem manual.
+    static CACHE: OnceLock<moka::sync::Cache<std::path::PathBuf, f32>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CONFORMAL_TAU_MAX_PROJECTS)
+            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
+            .build()
+    });
+    if let Some(tau) = cache.get(&rt.project_root) {
         return tau;
     }
 
@@ -257,9 +297,7 @@ fn conformal_gate_threshold(rt: &HookRuntime) -> f32 {
         LEGACY_THRESHOLD as f32
     };
 
-    if let Ok(mut guard) = cell.lock() {
-        *guard = Some((tau, std::time::Instant::now()));
-    }
+    cache.insert(rt.project_root.clone(), tau);
     tau
 }
 
@@ -295,7 +333,7 @@ pub struct EnrichmentData {
     pub dependent_count: Option<u32>,
     /// Number of pub symbols defined in the file.
     pub pub_symbol_count: Option<u32>,
-    /// Cognitive complexity score for the file in [0.0, 1.0].
+    /// Code-quality score for the file in [0.0, 1.0] — **higher is better**.
     ///
     /// Sourced from `knowledge.get_cognitive_enrichment(file_path)` (field 0 of
     /// the returned `CognitiveScores` tuple). `None` when the file has no
@@ -303,8 +341,18 @@ pub struct EnrichmentData {
     /// `file_hint` is present in the classifier output.
     ///
     /// Used by `ActionSignature::from_pre_tool_with_cognitive` to set the
-    /// `HiComplexity` qualifier when `cognitive_score > 0.7`.
-    pub cognitive_score: Option<f32>,
+    /// `HiComplexity` qualifier when the score is LOW (see `QUALITY_LOW_THRESHOLD`).
+    ///
+    /// The direction is the producer's, not this comment's: `analyze_quality`
+    /// (`touring-code/src/ast/quality.rs`) declares *"All scores are in [0.0, 1.0]
+    /// where higher is better"* and computes PENALTIES — high cyclomatic complexity
+    /// subtracts. This field used to be called `cognitive_score` and this doc used to
+    /// call it a "complexity score", which is how `ActionSignature` came to fire
+    /// `HiComplexity` on the CLEANEST files and never on the messiest (measured
+    /// 03/09/2026: README.md 1.000, cli_suggester.rs 0.352 at 5791 lines with a CC=23
+    /// function). A consumer that re-documents what it consumes creates a copy; this
+    /// one was born wrong. Read the producer, not this line.
+    pub quality_score: Option<f32>,
 
     /// Workflow-stage advice string injected by P8.7 (workflow intelligence).
     ///
@@ -450,18 +498,29 @@ fn is_rust_file(path: &str) -> bool {
 
 fn extract_first_symbol_in_text(text: &str) -> Option<String> {
     // PascalCase first
-    let pascal = regex_first_match(r"\b[A-Z][A-Za-z0-9_]{2,}\b", text);
+    let pascal = regex_find_non_assignment(r"\b[A-Z][A-Za-z0-9_]{2,}\b", text);
     if let Some(p) = pascal {
         return Some(p);
     }
     // snake_case with at least one underscore
-    regex_first_match(r"\b[a-z][a-z0-9_]*_[a-z0-9_]+[a-z0-9]\b", text)
+    regex_find_non_assignment(r"\b[a-z][a-z0-9_]*_[a-z0-9_]+[a-z0-9]\b", text)
 }
 
-/// Lightweight regex match using the `regex` crate already present in deps.
-fn regex_first_match(pattern: &str, text: &str) -> Option<String> {
+/// S8 (2026-10-08), defeito (a) visto ao vivo: um token seguido de `=` é uma
+/// ATRIBUIÇÃO de ambiente (`TOURING_CODE_MODE=native …`), nunca um símbolo —
+/// antes, o primeiro PascalCase do comando era a var e o MUST saía
+/// `touring index find TOURING_CODE_MODE -j`. A forma `env VAR=val cmd` é coberta
+/// pelo mesmo `=`. O resto do comportamento (PascalCase primeiro, depois
+/// snake_case) não muda.
+fn regex_find_non_assignment(pattern: &str, text: &str) -> Option<String> {
     let re = regex::Regex::new(pattern).ok()?;
-    re.find(text).map(|m| m.as_str().to_string())
+    for m in re.find_iter(text) {
+        if text[m.end()..].starts_with('=') {
+            continue; // VAR=val — atribuição, não símbolo
+        }
+        return Some(m.as_str().to_string());
+    }
+    None
 }
 
 /// Heuristic file-path extraction from a bash command — picks the first token
@@ -484,13 +543,15 @@ fn classify(tool_name: &str, tool_input: &Value) -> Option<ClassifierOutput> {
         "Read" => classify_read(tool_input),
         "Edit" | "NotebookEdit" => classify_edit(tool_input),
         "Write" => classify_write(tool_input),
-        "Task" => classify_task(tool_input),
+        // Claude Code renamed the sub-agent tool `Task` → `Agent`; the hook payload carries the
+        // new name (the model gate keys on it). `Task` stays for older payloads and replays.
+        "Agent" | "Task" => classify_task(tool_input),
         "WebFetch" | "WebSearch" => classify_webfetch(tool_input),
         _ => None,
     }
 }
 
-/// Classifier for `Task` tool invocations (agent delegation).
+/// Classifier for `Agent` tool invocations (agent delegation; `Task` is the legacy name).
 ///
 /// Returns `Some` for any non-empty task input so that Phase 1/2 lesson
 /// retrieval is unlocked for agent-spawning operations.  Fail-open: malformed
@@ -631,6 +692,85 @@ fn classify_webfetch(tool_input: &Value) -> Option<ClassifierOutput> {
     })
 }
 
+/// The DESTRUCTIVE verbs of REGRA #11 v2, mirroring the EXECUTOR —
+/// `~/.claude/hooks/block_git.sh` (`DESTRUCTIVE_RE` plus the `stash` and
+/// `restore` special cases). This list exists so the text this nudge
+/// DECLARES and the predicate that actually DENIES the command derive from
+/// the same source (D8: enforcement lives in the executor, and the prompt
+/// never promises what the executor does not apply). `scripts/
+/// test_git_nudge_matches_executor.py` reads the shell regex and fails if
+/// the two drift apart.
+pub(crate) const GIT_DESTRUCTIVE_VERBS: &[&str] = &[
+    "reset --hard",
+    "reset --merge",
+    "reset --keep",
+    "checkout --",
+    "checkout -f",
+    "switch --discard-changes",
+    "clean -f",
+    "rebase",
+    "push --force",
+    "push -f",
+    "branch -D",
+    "filter-branch",
+    "filter-repo",
+    "reflog expire",
+    "gc --prune",
+    "stash",
+    "restore",
+];
+
+/// True when `command` belongs to the DESTRUCTIVE class of REGRA #11 v2.
+///
+/// Mirrors the executor's carve-outs exactly: `stash list`/`stash show` are
+/// read-only; `restore --staged` (without `--worktree`) only unstages; plain
+/// `reset` (mixed/soft) never touches the working tree; `clean -n` is a
+/// dry-run. Anything already carrying the deliberate per-command token is not
+/// re-gated — the ritual happened upstream.
+pub(crate) fn git_is_destructive(command: &str) -> bool {
+    if command.contains("GIT_DESTRUCTIVE_OK=1") {
+        return false;
+    }
+    // Descarte barato — e a razão de ser da lista estar AQUI, no caminho de
+    // execução, e não só na documentação: se nenhum verbo declarado aparece
+    // sequer como substring, não há o que testar. Uma lista que o predicado
+    // não percorre é declaração que envelhece em silêncio, exatamente o que
+    // este arquivo passou a guardar contra (D8).
+    if !GIT_DESTRUCTIVE_VERBS.iter().any(|verb| {
+        // Só o primeiro token: a lista declara "reset --hard", mas o descarte
+        // pergunta apenas se a palavra `reset` aparece no comando.
+        let head = verb.split_whitespace().next().unwrap_or(verb);
+        command.contains(head)
+    }) {
+        return false;
+    }
+    let re = match regex::Regex::new(
+        r"git\s+(reset\s+[^|;&]*--(hard|merge|keep)|checkout[^|;&]*(\s--(\s|$)|\s-f\b|\s--force\b|\s\.\s*$)|switch\s+[^|;&]*--discard-changes|clean\s+[^|;&]*(-[a-z]*f|--force)|rebase\b|push[^|;&]*(\s--force(-with-lease)?\b|\s-f\b)|branch[^|;&]*\s-D\b|filter-branch\b|filter-repo\b|reflog\s+expire|gc\s+[^|;&]*--prune)",
+    ) {
+        Ok(re) => re,
+        Err(_) => return false,
+    };
+    if re.is_match(command) {
+        return true;
+    }
+    // `git stash`: every mutating form is gated; only list/show are read-only.
+    let stash_hit = regex::Regex::new(r"git\s+stash\b")
+        .ok()
+        .zip(regex::Regex::new(r"git\s+stash\s+(list|show)\b").ok())
+        .is_some_and(|(s, ro)| s.is_match(command) && !ro.is_match(command));
+    if stash_hit {
+        return true;
+    }
+    // `git restore` discards worktree changes unless it is purely --staged.
+    regex::Regex::new(r"git\s+restore\b")
+        .ok()
+        .zip(regex::Regex::new(r"git\s+restore\s+[^|;&]*--staged").ok())
+        .zip(regex::Regex::new(r"git\s+restore\s+[^|;&]*--worktree").ok())
+        .is_some_and(|((r, s), w)| {
+            r.is_match(command) && (!s.is_match(command) || w.is_match(command))
+        })
+}
+
 fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     let command = tool_input.get("command").and_then(|v| v.as_str())?;
     if command.is_empty() {
@@ -638,7 +778,7 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
     }
 
     // Pattern 1: grep/rg for a symbol-like token.
-    if (command.starts_with("grep") || command.starts_with("rg ") || command.starts_with("rg\t"))
+    if matches!(resolved_verb(command), Some("grep") | Some("rg"))
         && command.contains(' ')
         && let Some(sym) = extract_first_symbol_in_text(command)
     {
@@ -780,12 +920,15 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
 
     // Pattern 5: destructive inline edits (sed -i, awk -i inplace, perl -pi,
     // rm + heredoc) — anti-pattern, route to touring-native tooling.
-    if regex::Regex::new(
-        r"(sed\s+-i|awk\s+-i\s+inplace|perl\s+-pi|rm\s+.*&&\s*(?:cat|echo|printf)\s*>)",
-    )
-    .ok()
-    .map(|re| re.is_match(command))
-    .unwrap_or(false)
+    // O predicado da escrita cega é UM SÓ — o mesmo do gate G9 (âncora em
+    // posição de comando): antes o regex solto casava a PROSA `sed -i`
+    // dentro de outro comando (observado vivo 26/08 num `decompose update`
+    // cujo texto citava o padrão) — advisory barulhento ensina a ignorar.
+    if is_inline_blind_edit(command)
+        || regex::Regex::new(r"rm\s+.*&&\s*(?:cat|echo|printf)\s*>")
+            .ok()
+            .map(|re| re.is_match(command))
+            .unwrap_or(false)
     {
         let target = inline_edit_target(command).unwrap_or_else(|| "<file>".to_string());
         return Some(ClassifierOutput {
@@ -811,36 +954,70 @@ fn classify_bash(tool_input: &Value) -> Option<ClassifierOutput> {
         });
     }
 
-    // Pattern 6: git command — REGRA #11 prohibits git in TACO.
-    if regex::Regex::new(r"^\s*git\s+")
+    // Pattern 6: git — REGRA #11 v2 (Gabriel, 2026-08-23) PERMITS git. Only
+    // the DESTRUCTIVE class is gated, and it is gated by a RITUAL, not a ban.
+    // Until 2026-08-25 this arm claimed "git is prohibited … block_git.sh will
+    // reject this command", which was false twice over for `git status`: the
+    // ban was revoked, and the guard allows read-only/additive git. A nudge
+    // that misstates the executor is the D8 anti-pattern inside the product.
+    if regex::Regex::new(r"^\s*(\w+=\S+\s+)*git\s+")
         .ok()
         .map(|re| re.is_match(command))
         .unwrap_or(false)
     {
-        return Some(ClassifierOutput {
-            cluster: "regra-11-git-prohibited".into(),
-            must: vec![
-                cmd(
-                    "touring memory recall \"<topic>\"",
-                    "history substitute (git log replacement)",
-                ),
-                cmd(
-                    "touring status -j",
-                    "current state (git status replacement)",
-                ),
-            ],
-            should: vec![cmd(
-                "touring ast blast <file>",
-                "diff/impact view (git diff replacement)",
-            )],
-            may: vec![],
-            reason: "REGRA #11 — git is prohibited in TACO. Touring is the source \
-                     of truth; the block_git.sh hook will reject this command."
-                .into(),
-            confidence: 0.99,
-            symbol_hint: None,
-            file_hint: None,
-        });
+        if git_is_destructive(command) {
+            return Some(ClassifierOutput {
+                cluster: "regra-11-git-destructive".into(),
+                must: vec![
+                    cmd(
+                        "git status --porcelain && git stash list",
+                        "(1) MEDIR — nomear os arquivos que a operação pode descartar",
+                    ),
+                    cmd(
+                        "git checkout -b safety/$(date +%F)-<slug> && git add -A \
+                         && git commit -m \"WIP safety pre-<op>\"",
+                        "(2) SNAPSHOT — commit WIP; stash como guarda segue BANIDO \
+                         (destruiu 162 módulos em 06/04/2026)",
+                    ),
+                    cmd(
+                        "GIT_DESTRUCTIVE_OK=1 <o mesmo comando>",
+                        "(4) EXECUTAR — token por-comando, jamais exportado na sessão",
+                    ),
+                ],
+                should: vec![cmd(
+                    "touring memory store \"pre-<op>:<ts>\" \"<estado em risco>\" --tier semantic",
+                    "snapshot semântico do que o git não versiona (DBs, hooks, untracked)",
+                )],
+                may: vec![],
+                reason: "REGRA #11 v2 — git é PERMITIDO, mas esta operação é da classe \
+                         DESTRUTIVA: exige o ritual anti-perda (medir → snapshot → \
+                         confirmar) ANTES do token. O executor `block_git.sh` NEGA \
+                         este comando enquanto não carregar GIT_DESTRUCTIVE_OK=1. \
+                         Confirmar com Gabriel se: force-push, histórico publicado, \
+                         ou mudanças que esta sessão não criou."
+                    .into(),
+                confidence: 0.99,
+                symbol_hint: None,
+                file_hint: None,
+            });
+        }
+        // Read-only / additive git: o executor PERMITE, nada é exigido, e o
+        // silêncio é a resposta correta.
+        //
+        // Houve aqui um arm `regra-11-git-safe` (MAY informativo, confiança
+        // 0.55) sugerindo `memory recall`/`status` como complemento. Ele nunca
+        // executou: `select_classifier` descarta tudo abaixo do gate conformal
+        // (`LEGACY_THRESHOLD = 0.7`), então o arm era código inerte —
+        // aparentemente correto, provadamente morto. Descoberto no cross-audit
+        // de 26/08 pelo teste E2E (o unitário não pegava, porque exercita
+        // `classify_bash` ANTES do gate).
+        //
+        // Inflar a confiança para furar o gate seria a correção errada: `git
+        // status` é dos comandos mais frequentes que existem, e um banner nele
+        // taxa o caso comum sem exigir ação nenhuma — o oposto da invariante
+        // de densidade. O valor da REGRA #11 v2 está no arm DESTRUTIVO, que
+        // tem 0.99 e passa folgado.
+        return None;
     }
 
     // Pattern 7: pgrep / ps for touring daemon — point to doctor.
@@ -1248,6 +1425,14 @@ fn intent_for_new_file(file: &str, content: Option<&str>) -> Option<String> {
     if let Some(body) = content {
         for line in body.lines().take(12) {
             let t = line.trim();
+            // C3 (2026-09-02): a codetag (`# #tags: kind:script …`) is a FACET
+            // line, not a purpose — used as the intent it sent the portfolio
+            // hunting for "kind:script purpose:diagnostic" and returned an
+            // unrelated `cofre.py` on every Write of a tagged script. Skip it
+            // (and the shebang) so the docstring below wins.
+            if t.contains("#tags:") || t.starts_with("#!") {
+                continue;
+            }
             let prose = t
                 .strip_prefix("//!")
                 .or_else(|| t.strip_prefix(TRIPLE_D))
@@ -1456,13 +1641,15 @@ fn enrich(rt: &HookRuntime, classifier: &ClassifierOutput) -> EnrichmentData {
             data.pub_symbol_count = Some(syms.len() as u32);
         }
 
-        // Cognitive complexity score — from `cognitive_enrichment` table.
-        // `get_cognitive_enrichment` returns `Option<CognitiveScores>` where
-        // CognitiveScores = (cognitive_score: f64, complexity_signal: f64,
-        //                     fan_in_signal: f64, fan_out_signal: f64, doc_signal: f64).
-        // We take field 0 and cast to f32.  Fail-open: any error → None.
+        // Code-QUALITY score (higher is better) — from the `cognitive_enrichment`
+        // table, field 0 of `CognitiveScores` = (quality_score, complexity_signal,
+        // fan_in_signal, fan_out_signal, doc_signal). Written by `post_edit` from
+        // `analyze_quality`, whose doc declares the direction; do not paraphrase it
+        // here — a consumer that re-documents what it consumes creates a copy, and
+        // that copy is how this value came to be read backwards until 04/09/2026.
+        // Fail-open: any error → None.
         if let Ok(Some(scores)) = rt.ctx.knowledge.get_cognitive_enrichment(&rel) {
-            data.cognitive_score = Some(scores.0 as f32);
+            data.quality_score = Some(scores.0 as f32);
         }
     }
 
@@ -1505,9 +1692,21 @@ fn workflow_enrichment_hint(classifier: &ClassifierOutput) -> Option<String> {
     we.stage_label = Some(stage.label().to_owned());
     let advice = advise_next_step(stage, None);
     we.next_step_hint = Some(advice.next_step.to_owned());
+    // The counter that measures this path. Until 2026-08-20 it was incremented
+    // only from `touring-ceg/gateway/metrics.rs` and the manual `touring gate`
+    // verb — never from here, the hook that fires on every session. Result:
+    // `workflow_advice_emitted_count` read 0 while advice was being injected
+    // ~10x in a 25-minute window, and `workflow_antipattern_detected_count`
+    // read 0 next to a non-zero `adoption_antipattern_count`: two counters for
+    // the same phenomenon, one fed from a cold path and one from none.
+    crate::shared::gate_metrics::record_workflow_advice_emitted();
 
     // Antipattern conversion hint (Bash only) — advisory Warn, never Deny.
     if let Some(ap) = detect_antipattern(&sig, &state) {
+        // Counted on DETECTION, which is what the counter's name says —
+        // surfacing is a separate decision (`should_surface`) and would
+        // undercount the detector by however often it stays quiet.
+        crate::shared::gate_metrics::record_workflow_antipattern_detected();
         let cv = conversion_for(ap.kind);
         if cv.should_surface() {
             we.antipattern_hint = Some(cv.as_hint());
@@ -1785,7 +1984,7 @@ fn query_edit_failures(
                LIMIT ?3";
     let mut out: Vec<(String, f64)> = Vec::new();
     for db in knowledge_dbs {
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = open_lessons_db_readonly(db) else {
             continue;
         };
         let Ok(mut stmt) = conn.prepare(sql) else {
@@ -1803,11 +2002,24 @@ fn query_edit_failures(
     out
 }
 
+/// Abre um DB de lições para LEITURA APENAS: o abridor único
+/// [`crate::cli::shared::open_db_readonly`], cuja doc registra os dois defeitos
+/// (deadlock no `sqlite3WalClose` e criação silenciosa de DB alheio).
+fn open_lessons_db_readonly(db: &std::path::Path) -> Result<rusqlite::Connection, rusqlite::Error> {
+    crate::cli::shared::open_db_readonly(db)
+}
+
 /// Federated query of `bash_outcomes` for failed runs of `command_short`,
 /// across every knowledge DB in `knowledge_dbs`. Returns
 /// `(command_short, error_pattern, executed_at)` tuples, at most `limit` rows
 /// per DB; the caller derives age via [`age_days_from_sqlite`]. Fail-open per
 /// DB.
+///
+/// S22 (25/09/2026): only VERIFIED failures teach — rows whose `origin_event` is
+/// `PostToolUseFailure`. Text-inferred rows (82.7% false among the judged legacy
+/// sample, PT4) never become lessons. A DB on a schema older than v12 has no
+/// `origin_event` column, hence no verified failures: it contributes nothing, and
+/// the skip is traced so that absence is never read as "no failures".
 fn query_bash_failures(
     knowledge_dbs: &[std::path::PathBuf],
     command_short: &str,
@@ -1817,15 +2029,20 @@ fn query_bash_failures(
                FROM bash_outcomes
                WHERE command_short = ?1 AND success = 0
                  AND error_pattern IS NOT NULL
+                 AND origin_event = 'PostToolUseFailure'
                ORDER BY executed_at DESC
                LIMIT ?2";
     let mut out: Vec<(String, String, String)> = Vec::new();
     for db in knowledge_dbs {
-        let Ok(conn) = rusqlite::Connection::open(db) else {
+        let Ok(conn) = open_lessons_db_readonly(db) else {
             continue;
         };
-        let Ok(mut stmt) = conn.prepare(sql) else {
-            continue;
+        let mut stmt = match conn.prepare(sql) {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                tracing::debug!(db = %db.display(), error = %e, "lessons: DB skipped (pre-v12 schema has no verified failures)");
+                continue;
+            }
         };
         let rows = stmt.query_map(rusqlite::params![command_short, limit as i64], |row| {
             let cmd_short: String = row.get(0)?;
@@ -1858,18 +2075,21 @@ fn collect_memory_lessons_one_db(
     mem_db_path: &std::path::Path,
     sig: &ActionSignature,
 ) -> Vec<LessonItem> {
-    let conn = match rusqlite::Connection::open(mem_db_path) {
+    let conn = match open_lessons_db_readonly(mem_db_path) {
         Ok(c) => c,
         Err(_) => return Vec::new(),
     };
     // Match keys like `outcome:<tool_class>:<intent_class>:failure` OR
     // `outcome:<tool_class>:*:failure` (broader class match).
     let key_prefix = format!("outcome:{}:%:failure", sig.tool_class);
-    let mut stmt =
-        match conn.prepare("SELECT key, value FROM memory_entries WHERE key LIKE ?1 LIMIT 15") {
-            Ok(s) => s,
-            Err(_) => return Vec::new(),
-        };
+    // A retired lesson (`--supersedes`) is not injected as a lesson.
+    let live = touring_intelligence::rl::memory::retirement::live_predicate(&conn, "");
+    let mut stmt = match conn.prepare(&format!(
+        "SELECT key, value FROM memory_entries WHERE key LIKE ?1{live} LIMIT 15"
+    )) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
     stmt.query_map(rusqlite::params![key_prefix], |row| {
         let key: String = row.get(0)?;
         let value: String = row.get(1)?;
@@ -1884,7 +2104,12 @@ fn collect_memory_lessons_one_db(
                 } else {
                     0.7 // plain / cross-class
                 };
-                let text = format!("Past failure [{}]: {}", key, truncate(&value, 80));
+                // C6 (01/11/2026): this text is injected as hook context, so the
+                // stored value is cleaned on the way out like every other memory
+                // reader (`memory recall`/`query`/`list` already do) — a row
+                // written before the write-side guard must not reach the model raw.
+                let clean = touring_foundation::text_sanitize::sanitize_memory_text(&value).text;
+                let text = format!("Past failure [{}]: {}", key, truncate(&clean, 80));
                 let score = severity_weight("warning")
                     * recency_weight(0.0) // no timestamp in memory_entries
                     * frequency_weight(1)
@@ -1965,7 +2190,13 @@ fn retrieve_and_render_lessons(
     sig: &ActionSignature,
     enrichment: &EnrichmentData,
 ) -> Option<String> {
-    const LESSON_BUDGET: usize = 800;
+    // P3/S-3.2 (2026-09-04) — sob a escala canônica, não uma constante própria.
+    // Este é o ÚNICO orçamento de INJEÇÃO deste arquivo: `BUDGET` (rajada
+    // python-inline) e `G1_BODY_BUDGET` dimensionam o PROGRAMA que o remédio
+    // entrega, e encolhê-los cortaria a correção em vez do ruído — o plano os
+    // listava junto e a leitura desfez o engano. 800 é o mesmo valor de antes;
+    // o que muda é a fonte, agora com os overrides `TOURING_CILA_BUDGET_*`.
+    let lesson_budget = touring_foundation::cila::cila_budget_read(0);
 
     // Collect from all sources — each is independently fail-open.
     let mut all: Vec<LessonItem> = Vec::new();
@@ -1981,7 +2212,7 @@ fn retrieve_and_render_lessons(
     }
     all.extend(collect_gotcha_lessons(enrichment));
 
-    let ranked = rank_and_trim(all, LESSON_BUDGET);
+    let ranked = rank_and_trim(all, lesson_budget);
     if ranked.is_empty() {
         return None;
     }
@@ -2091,16 +2322,180 @@ enum CodeModeKind {
 
 /// True iff `command` starts an atomic content/file search that `ctx_execute`
 /// could fold into one pass.
+/// `VAR=valor` de prefixo (inclusive o bypass `TOURING_GATE_OK=1`): a classe é
+/// do comando executado, não do ambiente que o precede. Predicado idêntico ao
+/// que `scan_class_of` sempre usou — extraído para os 5 sítios dividirem.
+fn is_env_assignment(t: &str) -> bool {
+    t.contains('=')
+        && t.chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+}
+
+/// Wrapper de execução reconhecido pelo resolvedor: flags que tomam valor +
+/// quantos posicionais o PRÓPRIO wrapper consome (a duração do `timeout`, a
+/// máscara do `taskset`, a prioridade do `chrt`).
+struct WrapperSpec {
+    value_flags: &'static [&'static str],
+    positionals: usize,
+}
+
+/// S1 (26/08/2026) — os classificadores liam o 1º token: `time grep`,
+/// `nice -n 5 find`, `sudo cat`, `env F=1 rg` escapavam de TODOS os gates e
+/// nudges ao mesmo tempo (a cobertura nascia zero onde a classe nasce).
+fn wrapper_spec(verb: &str) -> Option<WrapperSpec> {
+    Some(match verb {
+        "env" => WrapperSpec {
+            value_flags: &["-u", "--unset", "-C", "--chdir", "-S", "--split-string"],
+            positionals: 0,
+        },
+        "time" => WrapperSpec {
+            value_flags: &["-o", "--output", "-f", "--format"],
+            positionals: 0,
+        },
+        "nice" => WrapperSpec {
+            value_flags: &["-n", "--adjustment"],
+            positionals: 0,
+        },
+        "ionice" => WrapperSpec {
+            value_flags: &["-c", "-n", "-p", "-P"],
+            positionals: 0,
+        },
+        "sudo" => WrapperSpec {
+            value_flags: &[
+                "-u", "-g", "-h", "-p", "-C", "-r", "-t", "-T", "-U", "-D", "-R", "--user",
+                "--group", "--host", "--prompt", "--role", "--type", "--chdir", "--chroot",
+            ],
+            positionals: 0,
+        },
+        "command" | "builtin" => WrapperSpec {
+            value_flags: &[],
+            positionals: 0,
+        },
+        "timeout" => WrapperSpec {
+            value_flags: &["-s", "--signal", "-k", "--kill-after"],
+            positionals: 1,
+        },
+        "stdbuf" => WrapperSpec {
+            value_flags: &["-i", "-o", "-e"],
+            positionals: 0,
+        },
+        "taskset" => WrapperSpec {
+            value_flags: &["-c", "--cpu-list"],
+            positionals: 1,
+        },
+        "chrt" => WrapperSpec {
+            value_flags: &[],
+            positionals: 1,
+        },
+        _ => return None,
+    })
+}
+
+/// Consome o wrapper em `toks[i]` (verbo + flags + posicionais dele) e devolve
+/// o índice seguinte; `i` inalterado quando `toks[i]` não é wrapper. Flag
+/// idêntica à da tabela consome o valor no token seguinte (`-n 5`); a forma
+/// colada (`-n5`) e a longa com `=` (`--signal=KILL`) consomem um só token.
+fn skip_wrapper(toks: &[&str], i: usize) -> usize {
+    let Some(spec) = toks.get(i).and_then(|v| wrapper_spec(v)) else {
+        return i;
+    };
+    let mut j = i + 1;
+    let mut positionals = spec.positionals;
+    while j < toks.len() {
+        let t = toks[j];
+        if is_env_assignment(t) {
+            j += 1; // `sudo FOO=1 cmd` / as atribuições do próprio `env`
+            continue;
+        }
+        if t.starts_with('-') && t != "-" {
+            j += if spec.value_flags.contains(&t) { 2 } else { 1 };
+            continue;
+        }
+        if positionals > 0 {
+            positionals -= 1;
+            j += 1;
+            continue;
+        }
+        break; // o verbo real
+    }
+    j
+}
+
+/// Tokens a partir do VERBO REAL: prefixos `VAR=valor` e wrappers de execução
+/// (`env`/`time`/`nice`/`sudo`/`command`/`builtin`/`timeout`/`stdbuf`/
+/// `ionice`/`taskset`/`chrt`, encadeados em qualquer ordem) removidos. Vazio
+/// quando o comando é só invólucro (`env` puro imprime o ambiente). Um único
+/// resolvedor para todos os classificadores — consertar um sítio só mascarou
+/// o defeito uma vez (memória `definer-module-cinco-sitios`); não duas.
+fn resolved_tokens<'a, 'b>(toks: &'b [&'a str]) -> &'b [&'a str] {
+    let mut i = 0;
+    while i < toks.len() {
+        if is_env_assignment(toks[i]) {
+            i += 1;
+            continue;
+        }
+        let j = skip_wrapper(toks, i);
+        if j == i {
+            break;
+        }
+        i = j;
+    }
+    &toks[i..]
+}
+
+/// Segmentos de comando separados por operadores de sequência (`&&`, `||`,
+/// `;`, nova linha). Ingênuo quanto a aspas (`grep 'a;b'` corta dentro da
+/// aspa) — seguro para CLASSIFICAÇÃO: o verbo do segmento não muda com o
+/// corte, que é o único uso (S1, 26/08).
+fn command_segments(cmd: &str) -> Vec<&str> {
+    cmd.split(['\n', ';'])
+        .flat_map(|part| part.split("&&"))
+        .flat_map(|part| part.split("||"))
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .collect()
+}
+
+/// Tokens efetivos: segmenta por operadores de sequência, pula segmentos
+/// `cd <dir>` (prefixo de navegação — `cd /x && grep foo` é `grep`), e
+/// resolve wrappers no primeiro segmento que não é só navegação. Tudo `cd`
+/// (ou nada) devolve vazio. É o resolved_tokens + a lacuna que a estratégia
+/// S1 nomeou (`cd <dir> (&&|;\n)`) e a primeira entrega deixou passar.
+fn effective_tokens(cmd: &str) -> Vec<&str> {
+    for seg in command_segments(cmd) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            Some(&"cd") => continue, // prefixo de navegação — o próximo decide
+            // Segmento que resolve para NADA (`P=x` sozinho, `env` puro): o
+            // próximo segmento decide. Sem este braço, `P=x\npython3 f.py`
+            // devolvia vazio e TODA classificação morria no assignment —
+            // provado ao vivo (29/08): 12 execuções python atrás de
+            // `VAR=...\n` e zero denies do G10 no turno de 60 do `analise`.
+            None => continue,
+            _ => return rest.to_vec(),
+        }
+    }
+    Vec::new()
+}
+
+/// O verbo real de `command` — primeiro token depois de segmentos, prefixos
+/// `cd` e wrappers.
+fn resolved_verb(command: &str) -> Option<&str> {
+    effective_tokens(command).first().copied()
+}
+
 fn is_scan_command(command: &str) -> bool {
-    let c = command.trim_start();
-    c.starts_with("grep ")
-        || c.starts_with("grep\t")
-        || c.starts_with("rg ")
-        || c.starts_with("rg\t")
-        || c.starts_with("egrep ")
-        || c.starts_with("fgrep ")
-        || c.starts_with("ag ")
-        || (c.starts_with("find ") && c.contains("-name"))
+    let rest = effective_tokens(command);
+    let Some(&verb) = rest.first() else {
+        return false;
+    };
+    match verb {
+        "grep" | "rg" | "egrep" | "fgrep" | "ag" => rest.len() > 1,
+        "find" => rest[1..].iter().any(|t| t.contains("-name")),
+        _ => false,
+    }
 }
 
 /// True iff `command` contains an explicit shell iteration construct that fans a
@@ -2121,6 +2516,15 @@ fn code_mode_kind(tool_name: &str, tool_input: &Value) -> Option<CodeModeKind> {
     match tool_name {
         "Bash" => {
             let command = tool_input.get("command").and_then(|v| v.as_str())?;
+            // O comando JÁ É code mode — não há o que induzir. Sem este guard o
+            // nudge recebia `touring run --lang python --code '…'` e emitia como
+            // MUST `touring run --lang bash --code 'touring run --lang python …'`,
+            // ensinando o antipadrão que ele existe para evitar (observado 6× na
+            // sessão de 25/08/2026). O mesmo guard já protegia
+            // `loop_rewrite_candidate`; faltava na porta dos nudges.
+            if command.contains("touring run") || command.contains("touring exec") {
+                return None;
+            }
             if is_shell_loop(command) {
                 Some(CodeModeKind::Loop)
             } else if is_scan_command(command) {
@@ -2151,36 +2555,37 @@ fn code_mode_command(tool_name: &str, tool_input: &Value) -> Option<String> {
     ))
 }
 
-/// Extract the iterated glob from a `for VAR in GLOB …` loop — the one piece of an
-/// arbitrary shell loop that IS mechanically derivable. The per-item body is not
-/// (it needs a bash parser), so it stays a marked placeholder downstream: honest
-/// density, never a guessed translation. `None` for numeric / command-substitution
-/// loops (no glob to carry).
-fn loop_glob(command: &str) -> Option<String> {
-    let after_in = command.split(" in ").nth(1)?;
-    let first = after_in
-        .split(';')
-        .next()?
-        .split_whitespace()
-        .next()?
-        .trim_matches(|c| c == '"' || c == '\'');
-    (first.contains('*') || first.contains('/')).then(|| first.to_string())
-}
+// `loop_glob` + `loop_code_mode_command` REMOVIDAS em 25/08/2026 (P1).
+//
+// Extraíam o glob real de um `for … in GLOB` e montavam um programa python cujo
+// corpo era `# then your per-file op over files`. A premissa era que o corpo do
+// laço "não é derivável sem um parser bash" — verdadeira para TRADUZIR o laço,
+// falsa para EXECUTÁ-LO: `bash_code_mode_command` leva o laço verbatim para o
+// sandbox e roda, sem traduzir nada. Um remédio com placeholder é meio remédio,
+// e a métrica que importa é se o snippet substitui as N chamadas.
+// REGRA #0: removidas de fato, não silenciadas por atributo de supressão.
 
-/// Specialize a loop into a concrete `touring run` carrying the real glob (so the
-/// nudge shows the actual file set, per the injection-density invariant); the
-/// per-file op is the one marked placeholder. `None` when no glob is derivable —
-/// the caller then falls back to the fully-generic template.
-fn loop_code_mode_command(command: &str) -> Option<String> {
-    let glob = loop_glob(command)?;
-    let args = serde_json::json!([glob]);
-    // Double quotes inside the python body: the whole snippet is wrapped in
-    // single quotes on the shell line, so embedded single quotes would split
-    // the wrapper and break the suggested command (density invariant demands
-    // a RUNNABLE nudge, not merely a specific one).
-    let code = "import glob,sys; files=glob.glob(sys.argv[1],recursive=True); print(len(files),\"files\")  # then your per-file op over files; print only the digest";
+/// E4 (2026-08-24) — a shell loop whose body invokes `touring adw run` is a
+/// CAMPAIGN written by hand: no predicate, no curve, no fail-closed signal,
+/// invisible to the journal. The runner owns flow iteration
+/// (`adw.py::cmd_campaign`); the nudge carries the real flow name when it is
+/// derivable. Measured origin: this session's own `for i in 2 3 4; do touring
+/// adw run error-teach …` — the anti-pattern the layer exists to replace.
+fn campaign_code_mode_command(command: &str) -> Option<String> {
+    if !command.contains("touring adw run") {
+        return None;
+    }
+    let flow = command
+        .split("touring adw run")
+        .nth(1)?
+        .split_whitespace()
+        .next()
+        .filter(|w| !w.starts_with('-'))
+        .unwrap_or("<flow>")
+        .to_string();
     Some(format!(
-        "touring run --lang python --args '{args}' --code '{code}'"
+        "touring adw campaign {flow} --until '<CODE predicate; exit 0 = converged; \
+         may print METRIC=<float>>' --max-rounds 8"
     ))
 }
 
@@ -2191,15 +2596,26 @@ fn loop_code_mode_command(command: &str) -> Option<String> {
 /// IS derivable, just as bash). Embedded single quotes use the `'\''` shell idiom;
 /// over-long commands are capped so the nudge stays dense (high signal-to-token).
 fn bash_code_mode_command(command: &str) -> String {
-    const MAX: usize = 200;
-    let body: String = if command.chars().count() > MAX {
-        let head: String = command.chars().take(MAX).collect();
-        format!("{head}…")
+    // Duas ordens do Gabriel reconciliadas pelo tamanho:
+    // (25/08/2026, emenda) o snippet tem de SUBSTITUIR as chamadas — um snippet
+    // cortado não substitui nada → o laço CURTO vai VERBATIM e roda.
+    // (08/10/2026, S8, defeito (c) medido pela analise-6b): acima de ~160 chars o
+    // eco inteiro custa tanto quanto a chamada — o MUST cita o começo + `…`. Não é
+    // placeholder: o começo é o valor real, e o corpo completo está na chamada que
+    // o modelo acabou de escrever (injection-density invariant segue: nada de
+    // `<...>` quando o valor é derivável).
+    let escaped = command.replace('\'', r"'\''");
+    if command.chars().count() > 160 {
+        let head: String = command
+            .trim()
+            .chars()
+            .take(160)
+            .collect::<String>()
+            .replace('\'', r"'\''");
+        format!("touring run --lang bash --code '{head}…'")
     } else {
-        command.to_string()
-    };
-    let escaped = body.replace('\'', r"'\''");
-    format!("touring run --lang bash --code '{escaped}'")
+        format!("touring run --lang bash --code '{escaped}'")
+    }
 }
 
 /// The most specific `touring run` command for a fired Code Mode kind: a scan
@@ -2209,7 +2625,19 @@ fn specialized_command(kind: &CodeModeKind, tool_name: &str, tool_input: &Value)
     match kind {
         CodeModeKind::Scan => code_mode_command(tool_name, tool_input),
         CodeModeKind::Loop => {
-            loop_code_mode_command(tool_input.get("command").and_then(Value::as_str)?)
+            let command = tool_input.get("command").and_then(Value::as_str)?;
+            // E4 precedence: a loop over `touring adw run` is a hand-written
+            // campaign — the runner owns flow iteration, not the shell.
+            //
+            // Fora esse caso, a especialização em python foi REMOVIDA (P1,
+            // 25/08/2026). Ela carregava o glob real mas deixava o corpo como
+            // `# then your per-file op over files` — e um snippet que conta
+            // arquivos e depois manda o leitor escrever a operação não
+            // substitui as N chamadas, que é o que a emenda do Gabriel exige.
+            // Devolvendo `None`, o chamador cai em `bash_code_mode_command`,
+            // que leva o laço VERBATIM para o sandbox: zero tradução, zero
+            // placeholder, e roda. É a mesma derivação que o G8 já usava.
+            campaign_code_mode_command(command)
         }
     }
 }
@@ -2257,8 +2685,9 @@ fn scan_glob(path: &str, glob: Option<&str>) -> String {
 /// after the command word is the pattern (unquoted); a later token containing `/` is
 /// the path; `--include=GLOB` narrows the filter.
 fn parse_grep_command(command: &str) -> Option<(String, String)> {
-    let mut toks = command.split_whitespace();
-    let _verb = toks.next()?; // grep / rg / egrep / …
+    let rest = effective_tokens(command);
+    let mut toks = rest.iter().copied();
+    let _verb = toks.next()?; // grep / rg / egrep / … (o verbo REAL, pós-cd/wrappers)
     let mut pattern: Option<String> = None;
     let mut path = ".";
     for t in toks {
@@ -2312,6 +2741,822 @@ fn find_name_glob(command: &str) -> Option<String> {
 /// The file an inline `sed -i`/`awk -i inplace`/`perl -pi` edit targets — the last
 /// path-like token (skips flags and the substitution script). Lets the Edit tool /
 /// ast-meta nudge carry the real path instead of `<file>`. `None` when not derivable.
+/// N3a (26/08/2026) — escrita cega inline: `sed -i`/`sed --in-place`/
+/// `awk -i inplace`/`perl -pi` EM POSIÇÃO DE COMANDO (início, `|`, `;`,
+/// `&&`/`&`, `$(`, nova linha). A âncora em posição de comando separa a
+/// invocação do texto — `echo "rode sed -i aqui"` é prosa, não escrita.
+/// Lacuna conhecida (documentada, fora do escopo N3a): `find -exec sed -i`
+/// e `xargs sed -i` não estão em posição de comando.
+fn is_inline_blind_edit(cmd: &str) -> bool {
+    static RE: OnceLock<regex::Regex> = OnceLock::new();
+    RE.get_or_init(|| {
+        regex::Regex::new(
+            r"(?:^|[|;&\n]|\$\()\s*(?:sed\s+-[a-zA-Z]*i(?:\.\S*)?(?:\s|$)|sed\s+--in-place\b|awk\s+-i\s+inplace\b|perl\s+-pi\b)",
+        )
+        .expect("G9 regex compila")
+    })
+    .is_match(cmd)
+}
+
+/// S4 (26/08) — classe do executor homogêneo (R4): `python3`/
+/// `.venv/bin/python3`/`pytest` & cia — a rajada desenrolada que nenhum gate
+/// nomeava (75 chamadas seriadas na sessão dc87e4e0, 5,8% adoção).
+/// `python3 -c` fica de fora (o advisory CEG é o dono do inline). Mutação
+/// marcada fica de fora por construção (P2.3): redirect de shell,
+/// instaladores, git, rm — o marcador é a calibração, não prova de pureza
+/// (a limitação é documentada, como no G8).
+/// A visão do comando que o filtro de mutação inspeciona: corpos de heredoc
+/// removidos (são DADO alimentando stdin, não comando) e redirects inofensivos
+/// de FD/descarte neutralizados (`2>&1`, `2>/dev/null`, `>/dev/null`, …) — eles
+/// não gravam arquivo nenhum. O `>` que sobrar é redirect real (escrita), e o
+/// comando continua fora da rajada exec, como os testes exigem. Furo provado
+/// ao vivo (29/08): as execuções python do turno de 60 do `analise` carregavam
+/// `2>&1`/`2>/dev/null` e o `contains(">")` sobre o blob inteiro anulava a
+/// classe — o G10 ficou mudo o turno todo ("verificador usa menos que o
+/// extrator", mais uma encarnação).
+fn mutation_scan_view(cmd: &str) -> String {
+    // 1) corta corpos de heredoc: da linha após `<<MARKER` até a linha MARKER.
+    let mut kept: Vec<&str> = Vec::new();
+    let mut skip_until: Option<String> = None;
+    for line in cmd.lines() {
+        if let Some(marker) = &skip_until {
+            if line.trim() == marker.as_str() {
+                skip_until = None;
+            }
+            continue;
+        }
+        kept.push(line);
+        if let Some(pos) = line.find("<<")
+            && !line[pos..].starts_with("<<<")
+        {
+            let raw = line[pos + 2..].trim_start_matches('-').trim();
+            let marker = raw
+                .split_whitespace()
+                .next()
+                .unwrap_or("")
+                .trim_matches(|c| c == '\'' || c == '"');
+            if !marker.is_empty() {
+                skip_until = Some(marker.to_string());
+            }
+        }
+    }
+    let mut s = kept.join("\n");
+    // 2) neutraliza redirects que não gravam nada (ordem: os prefixados por FD
+    // antes do genérico, senão o replace parcial deixa o dígito para trás).
+    for inofensivo in [
+        "2>&1",
+        "1>&2",
+        "2>/dev/null",
+        "2> /dev/null",
+        "&>/dev/null",
+        "&> /dev/null",
+        ">/dev/null",
+        "> /dev/null",
+    ] {
+        s = s.replace(inofensivo, " ");
+    }
+    s
+}
+
+fn exec_class_of(cmd: &str) -> Option<&'static str> {
+    const MUTATING: &[&str] = &[
+        ">",
+        "| tee",
+        "pip install",
+        "setup.py install",
+        "rm ",
+        "mv ",
+        "cp ",
+        "git ",
+        "kill",
+        "chmod",
+        "chown",
+        "curl",
+        "wget",
+        "ssh",
+        "docker",
+        "systemctl",
+        "touch ",
+        "mkdir",
+    ];
+    let scan = mutation_scan_view(cmd);
+    if MUTATING.iter().any(|m| scan.contains(m)) {
+        return None;
+    }
+    let rest = effective_tokens(cmd);
+    let verb = rest.first()?;
+    let base = verb.rsplit('/').next()?;
+    if base == "python" || base == "python3" || base.starts_with("python3.") {
+        // Inline (`-c` / `- <<EOF`) entrou na rajada em 29/08 (aperto de
+        // Gabriel) como classe PRÓPRIA: a exclusão histórica existia porque o
+        // R9 esmagaria heredoc multi-linha no remédio — o python-inline tem
+        // remédio 1:1 (o corpo verbatim em `touring run --lang python`), então
+        // a razão caiu. Os 5 heredocs do turno de 60 do analise estavam fora.
+        if matches!(rest.get(1), Some(&"-c") | Some(&"-")) {
+            return Some("python-inline");
+        }
+        return Some("python");
+    }
+    if base.starts_with("pytest") {
+        return Some("pytest");
+    }
+    None
+}
+
+/// S4 — janela da rajada de execução: 600s. O passo de uma suíte de testes
+/// (minutos por chamada) é mais lento que o de uma rajada de inspeção (180s
+/// do G1) — a janela curta nunca veria o 10º passo.
+const EXEC_BURST_WINDOW_SECS: u64 = 600;
+/// S4 — disparo da rajada de execução homogênea. Nasceu em 10 (R4: sessões
+/// reais iam a 30-75); **aperto 29/08 (ordem de Gabriel): 10→5** — 5 já pagou
+/// 4 round-trips, e o uso pontual legítimo (2-3 pytest de debug) segue fora.
+const EXEC_BURST_DENY_AT: u32 = 5;
+
+/// S5 (29/08) — janela do par write→run: a mesma da rajada de execução.
+const WRITE_RUN_WINDOW_SECS: u64 = 600;
+/// S5 — disparo do par write→run: escrever um script e executá-lo em seguida
+/// é o loop execute-observe por definição (28 pares no turno de 60 do
+/// `analise`, todos invisíveis porque cada metade é individualmente legítima).
+/// **Aperto 29/08 (ordem de Gabriel): 3→2** — o 1º par sempre passa (criar e
+/// testar UM script é legítimo); o 2º na mesma janela JÁ é o loop. O limiar
+/// baixo não taxa o caso comum: pytest/gates/tools nunca casam — o path que
+/// eles executam não foi escrito via `cat >`/`tee` na janela.
+const WRITE_RUN_DENY_AT: u32 = 2;
+
+/// Paths de script escritos via `cat >`/`tee` na janela, por (projeto,
+/// sessão, path).
+fn written_scripts_ledger() -> &'static moka::sync::Cache<u64, ()> {
+    static C: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(WRITE_RUN_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// Contagem de pares write→run por projeto (+ os paths, para o remédio).
+fn write_run_pair_ledger() -> &'static moka::sync::Cache<u64, (u32, Vec<String>)> {
+    static C: OnceLock<moka::sync::Cache<u64, (u32, Vec<String>)>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(WRITE_RUN_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// A sessão entra na chave (30/08/2026): os ledgers vivem no daemon, um
+/// processo só para N sessões CC — chaveado por (projeto, tag), um deny nesta
+/// sessão carregava comandos de OUTRA (medido pela peer `analise-a2`: paths de
+/// scratchpad alheios no remédio) e inflava a contagem de quem não fez a
+/// rajada. O custo: a rajada distribuída entre 2 sessões deixa de somar — o
+/// desenho certo, cada sessão responde pelo próprio loop.
+fn write_run_key(project_root: &Path, session: &str, tag: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut h);
+    session.hash(&mut h);
+    tag.hash(&mut h);
+    h.finish()
+}
+
+fn is_script_path(p: &str) -> bool {
+    let p = p.trim_matches(|c| c == '\'' || c == '"');
+    p.ends_with(".py") || p.ends_with(".sh")
+}
+
+fn clean_script_path(p: &str) -> String {
+    p.trim_matches(|c| c == '\'' || c == '"').to_string()
+}
+
+/// O path de script (.py/.sh) que este comando ESCREVE via `cat >`/`tee`.
+/// Varre a VIEW (corpos de heredoc removidos): um `cat > y.py` dentro do
+/// corpo é dado, não escrita.
+fn script_write_target(cmd: &str) -> Option<String> {
+    let view = mutation_scan_view(cmd);
+    for seg in command_segments(&view) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            Some(&"cat") => {
+                let mut it = rest[1..].iter().copied();
+                while let Some(t) = it.next() {
+                    if t == ">" || t == ">>" {
+                        if let Some(p) = it.next()
+                            && is_script_path(p)
+                        {
+                            return Some(clean_script_path(p));
+                        }
+                    } else if let Some(p) = t.strip_prefix(">>").or_else(|| t.strip_prefix('>'))
+                        && !p.is_empty()
+                        && is_script_path(p)
+                    {
+                        return Some(clean_script_path(p));
+                    }
+                }
+            }
+            Some(&"tee") => {
+                if let Some(p) = rest[1..].iter().find(|t| !t.starts_with('-'))
+                    && is_script_path(p)
+                {
+                    return Some(clean_script_path(p));
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+/// Os paths de script que este comando EXECUTA diretamente (python/bash/sh),
+/// em QUALQUER segmento — o padrão real do `analise` (24 dos 60) escrevia E
+/// executava no MESMO tool_use multi-linha (`cat > x.py <<EOF…EOF` +
+/// `python3 x.py`), e um detector que só olha o primeiro verbo efetivo vê o
+/// `cat` e nunca o run. Varre a VIEW (heredoc fora); segmento com redirect
+/// real de saída é pulado — o remédio `--file` não reproduziria a escrita.
+fn script_run_targets(cmd: &str) -> Vec<String> {
+    let view = mutation_scan_view(cmd);
+    let mut out: Vec<String> = Vec::new();
+    for seg in command_segments(&view) {
+        if seg.contains('>') {
+            continue;
+        }
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        let Some(verb) = rest.first() else { continue };
+        let base = verb.rsplit('/').next().unwrap_or(verb);
+        let interpretador = base == "bash"
+            || base == "sh"
+            || base == "python"
+            || base == "python3"
+            || base.starts_with("python3.");
+        if !interpretador {
+            continue;
+        }
+        if let Some(arg) = rest[1..].iter().find(|t| !t.starts_with('-'))
+            && is_script_path(arg)
+            && !out.iter().any(|p| p == &clean_script_path(arg))
+        {
+            out.push(clean_script_path(arg));
+        }
+    }
+    out
+}
+
+/// O corpo do programa inline (`python3 -c '<code>'` ou `python3 - <<'M'`),
+/// para o remédio 1:1 da classe `python-inline`.
+fn python_inline_body(cmd: &str) -> Option<String> {
+    // heredoc: corpo entre a linha pós-`<<MARKER` e a linha MARKER
+    if let Some(pos) = cmd.find("<<")
+        && !cmd[pos..].starts_with("<<<")
+    {
+        let first_line_end = pos + cmd[pos..].find('\n')?;
+        let marker = cmd[pos + 2..first_line_end]
+            .trim_start_matches('-')
+            .split_whitespace()
+            .next()?
+            .trim_matches(|c| c == '\'' || c == '"')
+            .to_string();
+        let body: Vec<&str> = cmd[first_line_end + 1..]
+            .lines()
+            .take_while(|l| l.trim() != marker)
+            .collect();
+        return Some(body.join("\n"));
+    }
+    // -c: o literal após a flag (heurística: o par de aspas externo)
+    let idx = cmd.find(" -c ")?;
+    let rest = cmd[idx + 4..].trim();
+    let quote = rest.chars().next().filter(|c| *c == '\'' || *c == '"')?;
+    let inner = &rest[1..];
+    let end = inner.rfind(quote)?;
+    Some(inner[..end].to_string())
+}
+
+/// Remédio 1:1 do inline: o MESMO corpo em `touring run --lang python --code`.
+/// Sem fusão — a razão histórica de excluir o heredoc da rajada era o R9
+/// esmagar multi-linha; com remédio próprio ela caiu (aperto 29/08).
+#[cfg(test)]
+fn python_inline_remedy(cmd: &str) -> String {
+    python_inline_remedy_via(cmd, &g10_route::Route::Sandboxed)
+}
+
+/// O remédio 1:1 do inline sobre a ROTA que executa o corpo (G10ROTA, 30.4.97): a Sandboxed é o
+/// `touring run` simples; a Trusted leva a elevação POR COMANDO (`TOURING_TRUSTED_OK=1` no próprio
+/// comando) e a flag `--allow-forbidden`. Para a Sandboxed a saída é byte-idêntica à de sempre.
+fn python_inline_remedy_via(cmd: &str, rota: &g10_route::Route) -> String {
+    let cabeca = format!(
+        "{}touring run {}--lang python --code",
+        rota.env_prefix(),
+        rota.run_flags()
+    );
+    match python_inline_body(cmd) {
+        Some(b) if !b.is_empty() && b.len() <= 1500 => {
+            format!("{cabeca} '{}'", b.replace('\'', "'\\''"))
+        }
+        _ => format!("{cabeca} '<o corpo do seu heredoc/-c, verbatim>'"),
+    }
+}
+
+/// A rota que executa o corpo do python-inline negado pelo G10: a pergunta é do EXECUTOR
+/// (`g10_route`), não do gate. Fora de `python-inline` o remédio é o R9 em bash — sem corpo
+/// python a inspecionar, a rota é a de sempre.
+fn g10_inline_route(project_root: &Path, class: &str, cmd: &str) -> g10_route::Route {
+    if class != "python-inline" {
+        return g10_route::Route::Sandboxed;
+    }
+    match python_inline_body(cmd) {
+        Some(corpo) if !corpo.trim().is_empty() => {
+            g10_route::route_for(project_root, "python", &corpo)
+        }
+        _ => g10_route::Route::Sandboxed,
+    }
+}
+
+/// A abertura do remédio do G10: a de sempre na rota Sandboxed; nas demais, a frase que explica
+/// por que a rota difere — ANTES do comando, para que quem copia o comando já tenha lido o porquê.
+fn g10_lead(rota: &g10_route::Route, project_root: &Path) -> String {
+    let explicacao = rota.explanation(project_root);
+    if explicacao.is_empty() {
+        " — a rajada desenrolada JÁ é o programa; rode-o de uma vez:".to_string()
+    } else {
+        format!(" — a rajada desenrolada JÁ é o programa.{explicacao} Rode-o de uma vez:")
+    }
+}
+
+/// O deny do G10 quando NENHUMA rota de `touring run` executa o corpo: diz isso, cita o destino ou
+/// a recusa do executor, e nomeia a saída que funciona (o bypass por-comando, nativo) como a
+/// linha pronta do PRÓPRIO comando negado. Não há comando de `touring run` para colar — nomear um
+/// que falha foi o defeito.
+fn g10_unrunnable_deny(
+    n: u32,
+    class: &str,
+    rota: &g10_route::Route,
+    project_root: &Path,
+    cmd: &str,
+) -> String {
+    format!(
+        "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` na janela \
+         de {EXEC_BURST_WINDOW_SECS}s).{} {}",
+        rota.explanation(project_root),
+        bypass_next_step(cmd)
+    )
+}
+
+/// A classe do python-inline READ-ONLY dentro da rajada de inspeção (aperto
+/// 29/08, ordem de Gabriel: *"read-only cai na rajada de inspeção"*). Distinta
+/// no ledger — a chave é por classe — e fora de `CODE_MODE_COLLAPSED_CLASSES`,
+/// que documenta as classes que `scan_class_of` emite; esta vem do CORPO do
+/// programa, não do nome do comando.
+const PY_INLINE_INSPECT_CLASS: &str = "python-inline";
+
+/// Indícios de que um corpo python NÃO é leitura pura — deny-list
+/// conservadora: escrita em FS, modos mutantes de `open`, subprocesso, rede,
+/// import/exec dinâmico e DB (abrir SQLite muda estado de lock mesmo lendo).
+/// Falso "escritor" (a marca aparece numa string inocente) só devolve o
+/// comando ao G10, mais frouxo — a direção segura; o inverso rotearia um
+/// escritor para o deny de inspeção.
+const PY_INLINE_WRITER_MARKS: &[&str] = &[
+    ".write(",
+    ".writelines(",
+    "write_text(",
+    "write_bytes(",
+    ".unlink(",
+    ".touch(",
+    ".chmod(",
+    ".rename(",
+    ".rmdir(",
+    "os.remove",
+    "os.rename",
+    "os.replace",
+    "os.rmdir",
+    "os.removedirs",
+    "os.mkdir",
+    "os.makedirs",
+    "os.symlink",
+    "os.link",
+    "os.truncate",
+    "os.putenv",
+    "shutil.",
+    "tempfile.",
+    "mode='w",
+    "mode=\"w",
+    "mode='a",
+    "mode=\"a",
+    "mode='x",
+    "mode=\"x",
+    "subprocess",
+    "os.system",
+    "os.popen",
+    "os.exec",
+    "os.spawn",
+    "pty.",
+    "socket",
+    "urllib",
+    "requests",
+    "http.client",
+    "httpx",
+    "ftplib",
+    "smtplib",
+    "exec(",
+    "eval(",
+    "__import__",
+    "importlib",
+    "sqlite3",
+    "dbm.",
+    "shelve",
+];
+
+/// `Some(PY_INLINE_INSPECT_CLASS)` quando o comando é um python-inline cujo
+/// corpo é leitura pura — e portanto INSPEÇÃO, sujeita à rajada 2ª/300s. Um
+/// corpo inextraível ou com qualquer marca de escrita fica de fora (G10 é o
+/// backstop, 5ª/600s).
+fn python_inline_readonly_class(cmd: &str) -> Option<&'static str> {
+    if exec_class_of(cmd) != Some("python-inline") {
+        return None;
+    }
+    let body = python_inline_body(cmd)?;
+    if body.is_empty()
+        || PY_INLINE_WRITER_MARKS.iter().any(|m| body.contains(m))
+        || py_open_mutating_mode(&body)
+    {
+        return None;
+    }
+    Some(PY_INLINE_INSPECT_CLASS)
+}
+
+/// `open(...)` com 2º argumento LITERAL contendo `w`/`a`/`x`/`+` — o modo
+/// mutante. Um `open(f)`/`open(f, encoding=…)` é leitura e passa; a marca por
+/// aspas soltas (`'w'`) foi tentada e mordeu o próprio teste (`re.findall(
+/// "x", …)` classificava escritor). Falso positivo residual (uma vírgula de
+/// outra chamada seguida de literal com w/a/x) só devolve o comando ao G10.
+fn py_open_mutating_mode(body: &str) -> bool {
+    let mut rest = body;
+    while let Some(i) = rest.find("open(") {
+        let after = &rest[i + 5..];
+        if let Some(c) = after.find(',') {
+            let tail = after[c + 1..].trim_start();
+            if let Some(q) = tail.chars().next().filter(|ch| *ch == '\'' || *ch == '"') {
+                let inner = &tail[1..];
+                if let Some(end) = inner.find(q)
+                    && inner[..end].contains(['w', 'a', 'x', '+'])
+                {
+                    return true;
+                }
+            }
+        }
+        rest = after;
+    }
+    false
+}
+
+/// A rajada de python-inline fundida: os CORPOS na ordem, um programa. O
+/// contrato de orçamento é o do R9 — inteiro ou fora, jamais truncado; o
+/// segundo elemento conta os omitidos.
+fn python_inline_burst_program(cmds: &[String]) -> (String, usize) {
+    const BUDGET: usize = 4000;
+    let mut out = String::new();
+    let mut omitidos = 0usize;
+    for cmd in cmds {
+        let Some(body) = python_inline_body(cmd).filter(|b| !b.is_empty()) else {
+            omitidos += 1;
+            continue;
+        };
+        let piece = body.replace('\'', "'\\''");
+        if out.len() + piece.len() + 40 > BUDGET {
+            omitidos += 1;
+            continue;
+        }
+        if !out.is_empty() {
+            out.push_str("\n\n# --- proximo comando da rajada ---\n");
+        }
+        out.push_str(&piece);
+    }
+    (out, omitidos)
+}
+
+/// S5 — o gate do par write→run. `None` = sem decisão (o fluxo segue).
+/// O corpo, com os overrides injetados (ver `GateOverrides`).
+fn write_run_pair_gate_with(
+    project_root: &Path,
+    session: &str,
+    cmd: &str,
+    ovr: &GateOverrides,
+) -> Option<String> {
+    use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
+    // 1 par por comando, mesmo com múltiplos runs no tool_use: o que se conta
+    // é o PASSO do loop execute-observe, não o número de interpretações.
+    let path = script_run_targets(cmd).into_iter().find(|p| {
+        written_scripts_ledger()
+            .get(&write_run_key(project_root, session, p))
+            .is_some()
+    })?;
+    let pkey = write_run_key(project_root, session, "\u{0}write-run-pares");
+    let (n, mut paths) = write_run_pair_ledger().get(&pkey).unwrap_or_default();
+    let n = n + 1;
+    if paths.len() < 8 {
+        paths.push(path.clone());
+    }
+    if n < WRITE_RUN_DENY_AT || ovr.code_gates_disabled {
+        write_run_pair_ledger().insert(pkey, (n, paths));
+        return None;
+    }
+    write_run_pair_ledger().invalidate(&pkey);
+    record_gate_event(GateId::G10, GateEvent::Denied);
+    crate::shared::gate_metrics::record_g10_write_run_pair_denied();
+    pending_g10().insert(session.to_string(), ());
+    // `--lang` é obrigatório no CLI: sem ele a rota emitida NÃO EXECUTA
+    // (medido pela peer analise-a2, 30/08 — clap rejeita e o deny vira erro
+    // opaco, o antipadrão E4 cometido pelo próprio enforcement). is_script_path
+    // só aceita .py/.sh, então o else é python.
+    let lang = if path.ends_with(".sh") {
+        "bash"
+    } else {
+        "python"
+    };
+    // G10ROTA (30.4.97): o script JÁ está em disco — o executor julga o CONTEÚDO dele. Um script
+    // que escreve não roda no Sandboxed (X6 `file-write`), e a rota `--file` nomeada falharia
+    // exatamente como a do exec-burst; a pergunta é do executor (D8), como lá.
+    let rota = g10_script_route(project_root, lang, &path);
+    if !rota.runs() {
+        return Some(deny_response(format!(
+            "[G10 write→run] {n}º script escrito-e-executado na janela de \
+             {WRITE_RUN_WINDOW_SECS}s (`{path}`).{} {}",
+            rota.explanation(project_root),
+            bypass_next_step(cmd)
+        )));
+    }
+    let comando = format!(
+        "{}touring run {}--lang {lang} --file {path} --timeout-ms 60000",
+        rota.env_prefix(),
+        rota.run_flags()
+    );
+    let porque = rota.explanation(project_root);
+    Some(deny_response(format!(
+        "[G10 write→run] {n}º script escrito-e-executado na janela de \
+         {WRITE_RUN_WINDOW_SECS}s (`{path}`) — o loop execute-observe manual \
+         paga 2 round-trips por passo; o script JÁ está em disco, rode o MESMO \
+         arquivo {onde} sem reescrever nada:{porque}\n  \
+         {comando}\n\
+         O sandbox devolve só o que o script imprime (digest no contexto, \
+         íntegra no spill), e um `touring run` zera a janela. Bypass \
+         por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
+        onde = if matches!(rota, g10_route::Route::Sandboxed) {
+            "no sandbox"
+        } else {
+            "na rota que o executor aceita"
+        }
+    )))
+}
+
+/// A rota do script `path` (já em disco): lê o CONTEÚDO — é ele que o X6 julga. Ilegível, vazio ou
+/// grande demais para o gate inspecionar → a rota de sempre (sem evidência não há o que mudar).
+fn g10_script_route(project_root: &Path, lang: &str, path: &str) -> g10_route::Route {
+    const TETO: u64 = 256 * 1024;
+    let p = Path::new(path);
+    let abs = if p.is_absolute() {
+        p.to_path_buf()
+    } else {
+        project_root.join(p)
+    };
+    if std::fs::metadata(&abs).is_ok_and(|m| m.len() > TETO) {
+        return g10_route::Route::Sandboxed;
+    }
+    match std::fs::read_to_string(&abs) {
+        Ok(conteudo) if !conteudo.trim().is_empty() => {
+            g10_route::route_for(project_root, lang, &conteudo)
+        }
+        _ => g10_route::Route::Sandboxed,
+    }
+}
+
+type ExecBurstEntry = (u32, Vec<String>);
+
+fn exec_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, ExecBurstEntry>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(EXEC_BURST_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// S3 — janela da rajada de INSPEÇÃO, derivada de medição e não de intuição.
+///
+/// Medido em 115 transcripts desde 01/08/2026 (`scripts/s3_burst_distribution.py`),
+/// sobre as 1.118 chamadas das classes que o modo `code` negava por lista fixa:
+///
+/// | janela | isoladas | volume em rajada ≥2 |
+/// |---|---|---|
+/// | 60s  | 41,6% | 58,4% |
+/// | 120s | 32,1% | 67,9% |
+/// | **300s** | **22,5%** | **77,5%** |
+/// | 600s | 17,8% | 82,2% |
+///
+/// 300s é o joelho: de 300 para 600 a janela DOBRA para comprar 4,7 pontos de
+/// volume, e cada segundo a mais é uma chance de agrupar duas inspeções que não
+/// têm nada a ver uma com a outra — um falso positivo de rajada é exatamente a
+/// fricção no caso comum que o S3 existe para remover.
+const INSPECT_BURST_WINDOW_SECS: u64 = 300;
+
+/// S3 — a 2ª avisa (D, 09/10/2026: antes negava); a 1ª executa intacta.
+///
+/// A medição é inequívoca no limiar: com janela de 300s, 77,5% do volume das
+/// classes de inspeção está em rajadas de tamanho ≥ 2. Deixar a isolada passar
+/// renuncia a 22,5% dos denies e preserva os outros 77,5% — o oposto do que a
+/// lista fixa fazia, que era cobrar 100% da fricção para capturar o mesmo 77,5%.
+/// É a regra que o próprio DeepSeek documentou e que o T3-B já declarava sem
+/// nunca conseguir aplicar: *"forcing every edit through a program taxes the
+/// common case"*.
+const INSPECT_BURST_ADVISE_AT: u32 = 2;
+
+/// Ledger da rajada de inspeção — mesmo formato do G10, janela própria.
+fn inspect_burst_ledger() -> &'static moka::sync::Cache<u64, ExecBurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, ExecBurstEntry>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(INSPECT_BURST_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// Sessão na chave pela mesma razão de [`write_run_key`]: o ledger é do
+/// daemon, e sem ela a janela vazava entre sessões CC do mesmo projeto.
+fn inspect_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}s3-inspect\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// As classes de inspeção que o ledger da rajada acompanha — TODAS as que
+/// [`scan_class_of`] reconhece.
+///
+/// A lista fixa que existia aqui (`grep`/`cat`/`find`) errava nos DOIS sentidos,
+/// e a mesma medição mostra as duas pontas: `find` é 56,2% isolada e não tem
+/// UMA rajada ≥3 em 115 transcripts — negá-la por classe era fricção pura; já
+/// `sed-n` (408 chamadas, 81,4% do volume em rajada) e `ls` (338, 71,3%)
+/// passavam sempre, e eram o maior volume fan-out não capturado. O predicado de
+/// rajada dispensa a lista: ele discrimina pelo que a classe FAZ nesta janela,
+/// não pelo nome dela.
+const CODE_MODE_COLLAPSED_CLASSES: &[&str] = &["grep", "cat", "find", "ls", "wc", "sed-n"];
+
+/// Sessão na chave pela mesma razão de [`write_run_key`].
+fn exec_burst_key(project_root: &Path, session: &str, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g10-exec\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// S4 — deny de G10 pendente por sessão: o próximo `touring run` fecha o
+/// continuation-check (a conversão é o programa agregado).
+fn pending_g10() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// S4 — o programa R9 (exec-agregado): as N chamadas REAIS, verbatim e na
+/// mesma ordem, cada uma seguida do veredito `[ok]`/`[FALHOU N]` (a execução
+/// continua nas falhas), RESUMO final — a íntegra fica no spill quando estoura.
+///
+/// Em BASH, não python (30/08/2026): o template anterior era `--lang python`
+/// com `import subprocess` — a capability que o X6 negava sob Sandboxed, e o
+/// deny do G10 emitia uma rota que o gate seguinte barrava (medido pela peer
+/// `analise-a2`). No mesmo dia Gabriel estendeu o waiver subprocess-only a
+/// toda linguagem, então o template python voltaria a executar — mas bash
+/// segue sendo a forma certa AQUI: os comandos viajam verbatim, 1:1, sem a
+/// camada de reescrita em subprocess que o modelo teria de conferir. Rede e
+/// padrões destrutivos seguem hard-deny em toda lang. `--timeout-ms` viaja
+/// explícito (E4): N ferramentas reais não cabem no default de 30s.
+/// Os comandos de uma rajada que JÁ rodaram, como linhas de comentário (1ª linha, até
+/// 120 chars). Fonte única do S212 para o G10 e o G1: repeti-los repetia o efeito
+/// (uma escrita de memória, um commit) — eles são contexto, nunca passo.
+fn comentarios_ja_executados(executed: &[String]) -> String {
+    let mut corpo = String::new();
+    for cmd in executed {
+        let first: String = cmd.lines().next().unwrap_or("").chars().take(120).collect();
+        corpo.push_str("# já executado (não repetir): ");
+        corpo.push_str(&first);
+        corpo.push('\n');
+    }
+    corpo
+}
+
+fn r9_exec_program(executed: &[String], pending: &str) -> String {
+    // S212 (25/09/2026): the commands of the burst that ALREADY ran travel as context
+    // comments (first line only) — re-running them repeated their effects (a memory
+    // write, a commit). Only the denied command is a step.
+    let mut corpo = comentarios_ja_executados(executed);
+    corpo.push_str("falhas=0\n");
+    let mut ordem = 0usize;
+    let cmds = [pending.to_string()];
+    for cmd in &cmds {
+        let cabe = corpo.chars().count() + cmd.chars().count() + 64 <= G1_BODY_BUDGET;
+        if !cabe {
+            continue; // inteiro ou fora, jamais truncado (mesma regra do R9 antigo)
+        }
+        ordem += 1;
+        corpo.push_str(&format!("echo \"== {ordem}/{} ==\"\n", cmds.len()));
+        corpo.push_str(cmd);
+        corpo.push_str(&format!(
+            " || {{ echo \"[FALHOU {ordem}] exit=$?\"; falhas=$((falhas+1)); }}\n"
+        ));
+    }
+    corpo.push_str(&format!(
+        "echo \"RESUMO: $(( {ordem} - falhas ))/{ordem} ok\""
+    ));
+    format!(
+        "touring run --lang bash --timeout-ms 120000 --code '{}'",
+        corpo.replace('\'', "'\\''")
+    )
+}
+
+/// S6 (26/08) — intent de prior-art derivado da rajada real: a classe do
+/// executor + os alvos recorrentes (BM25 precisa dos termos do TRABALHO,
+/// não da forma da rajada). Máx 6 termos — intent longo dilui o ranking.
+fn exec_burst_intent(class: &str, cmds: &[String]) -> String {
+    /// Componente de trabalho (dir ou pedaço de stem): ≥2 chars, não-dígito,
+    /// dedup. Tokens de caminho INTEIROS não entram — `tests/test_1.py`
+    /// diluiria o intent em termos que nenhum propósito contém (medido vivo:
+    /// 6 termos → required_matches 3 → 2 matches → o portfolio calado com o
+    /// artefato certo na prateleira).
+    fn push_componente(t: &str, termos: &mut Vec<String>) {
+        let t = t.trim_matches(|c: char| !c.is_alphanumeric() && c != '_' && c != '-');
+        if t.len() >= 2 && !t.chars().all(|c| c.is_ascii_digit()) && !termos.iter().any(|x| x == t)
+        {
+            termos.push(t.to_string());
+        }
+    }
+    let mut termos: Vec<String> = vec![class.to_string()];
+    'outer: for cmd in cmds.iter().take(8) {
+        for tok in effective_tokens(cmd).into_iter().skip(1) {
+            let limpo = tok.trim_matches(|c: char| "'\"()[]{},".contains(c));
+            if limpo.starts_with('-') {
+                continue;
+            }
+            if limpo.contains('/') || limpo.contains('.') {
+                let sem_ext = limpo.split('.').next().unwrap_or(limpo);
+                for parte in sem_ext.split('/') {
+                    for pedaco in parte.split(['_', '-']) {
+                        push_componente(pedaco, &mut termos);
+                    }
+                }
+                if termos.len() >= 6 {
+                    break 'outer;
+                }
+            }
+        }
+    }
+    termos.join(" ")
+}
+
+/// S6 — o prior art mais próximo da rajada, instanciado: quando o portfólio
+/// tem um programa que JÁ funcionou para este intent, a rota vem escrita E
+/// vem de um artefato real (a diferença para o esqueleto R9, que é genérico
+/// por construção). Fail-open em todas as direções: sem índice, sem entrada,
+/// sem entry_point, ou entry_point com placeholder não-derivável → `None` e
+/// o deny sai só com o R9 (o comportamento anterior, honesto).
+fn portfolio_remedy_for_burst(class: &str, cmds: &[String]) -> Option<String> {
+    let index = portfolio_index()?;
+    portfolio_remedy_for_burst_on(class, cmds, &index)
+}
+
+/// O corpo, com o índice por parâmetro — testes carregam do scratch via
+/// `store::load_from`, sem `set_var` (ver `GateOverrides`).
+fn portfolio_remedy_for_burst_on(
+    class: &str,
+    cmds: &[String],
+    index: &touring_foundation::portfolio::store::PortfolioIndex,
+) -> Option<String> {
+    if index.is_empty() {
+        return None;
+    }
+    let intent = exec_burst_intent(class, cmds);
+    let answer = touring_foundation::portfolio::query::answer(index, &intent, 1);
+    let top = answer.prior_art.first()?;
+    let entry_point = top.entry.entry_point.as_deref()?;
+    if entry_point.contains('<') {
+        return None; // placeholder não-derivável: apresentar seria fabricar
+    }
+    Some(format!(
+        "\n  prior art (programa que já funcionou para este trabalho): {entry_point} \
+         — {} · score {:.2}",
+        top.entry.display_path, top.score
+    ))
+}
+
 fn inline_edit_target(command: &str) -> Option<String> {
     command
         .split_whitespace()
@@ -2370,11 +3615,20 @@ fn code_mode_output(kind: &CodeModeKind, tool_name: &str, tool_input: &Value) ->
             )]
         })
         .unwrap_or_default();
+    // W2 d1/S-2.4 — the 1-line SDK signature form (P23: ~53 tok, calibrated);
+    // the full byte-stable contract stays on demand behind `--sdk-stub`.
+    let may = vec![cmd(
+        "touring run --lang python --orchestrate --code '<uses touring.index_find(sym) | \
+         ast_blast(f) | ast_overview(f) | wiring_status() | wiring_impact(sym,d) | \
+         memory_recall(q) | tantivy_search(q) | search(q)>'",
+        "orchestrate: the script queries the daemon in-sandbox (full typed contract: \
+         touring run --sdk-stub)",
+    )];
     ClassifierOutput {
         cluster: cluster.into(),
         must,
         should,
-        may: vec![],
+        may,
         reason: reason.into(),
         confidence: 0.95,
         symbol_hint: None,
@@ -2387,11 +3641,15 @@ fn code_mode_output(kind: &CodeModeKind, tool_name: &str, tool_input: &Value) ->
 /// the window threshold; `None` otherwise. Bypasses the conformal gate by design
 /// — detection is precise (explicit syntax or a counted burst), unlike the fuzzy
 /// regex classifier the gate guards.
-fn detect_code_mode(tool_name: &str, tool_input: &Value) -> Option<ClassifierOutput> {
+fn detect_code_mode(
+    project_root: &Path,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<ClassifierOutput> {
     match code_mode_kind(tool_name, tool_input)? {
         CodeModeKind::Loop => Some(code_mode_output(&CodeModeKind::Loop, tool_name, tool_input)),
         CodeModeKind::Scan => {
-            if scan_window_crosses_threshold() {
+            if scan_window_crosses_threshold(project_root) {
                 Some(code_mode_output(&CodeModeKind::Scan, tool_name, tool_input))
             } else {
                 None
@@ -2408,7 +3666,7 @@ fn select_classifier(
     tool_name: &str,
     tool_input: &Value,
 ) -> Option<ClassifierOutput> {
-    if let Some(code_mode) = detect_code_mode(tool_name, tool_input) {
+    if let Some(code_mode) = detect_code_mode(&rt.project_root, tool_name, tool_input) {
         return Some(code_mode);
     }
     let gate = conformal_gate_threshold(rt);
@@ -2433,14 +3691,26 @@ fn pending_suggestion() -> &'static moka::sync::Cache<String, ()> {
     })
 }
 
-/// F2 — session key for the uptake cache. Claude Code threads `session_id` into
-/// every hook payload; absent it (non-CC callers), a single shared slot is used.
+/// ACTOR key of every per-session window (F2 uptake cache, G1/G3/G7/G10/G11, T3-B).
+///
+/// S23 (25/09/2026): the actor is `(session_id, agent_id)`. A subagent inherits its
+/// parent's `session_id`, so keying by session alone let a subagent's greps and bypasses
+/// spend its parent's windows (measured live). A payload without `session_id` gets its own
+/// `"anon"` key — never a slot shared with real sessions (was `"default"`).
 fn session_key(payload: &Value) -> String {
-    payload
+    let session = payload
         .get("session_id")
         .and_then(|v| v.as_str())
-        .unwrap_or("default")
-        .to_string()
+        .filter(|s| !s.is_empty())
+        .unwrap_or("anon");
+    match payload
+        .get("agent_id")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    {
+        Some(agent) => format!("{session}\u{2}agent:{agent}"),
+        None => session.to_string(),
+    }
 }
 
 /// F2 — did the current action follow a coupling redirect? True when the tool is
@@ -2487,9 +3757,51 @@ fn classify_adoption(tool_name: &str, tool_input: &Value) -> Option<AdoptionClas
     None
 }
 
-/// F3 — classify the current action and fold it into the adoption_ratio counters.
+/// F3 — classify the current action and fold it into the adoption_ratio counters;
+/// also counts EVERY `Bash` action into the code-mode adoption denominator
+/// (W0 S-0.1 — unconditional, before classification, so the denominator sees
+/// all actions, not just the classified subsets).
 /// Extracted from `run` to keep the hot path flat. Fail-open + infallible.
+/// N5 (26/08) — a classe da ESCOLHA no eixo da injeção nativa ("use Bash
+/// rather than dedicated tools"): `followed` (Bash onde Grep/Glob/Read
+/// existia), `resisted` (a tool dedicada), `code_route` (touring run/exec).
+/// Pura — testável sem tocar os contadores; espelho 1:1 do
+/// `classify_tool_call` em scripts/n5_injection_kpi.py (paridade guardada
+/// pelos mesmos casos nos dois lados).
+fn native_injection_class(tool_name: &str, tool_input: &Value) -> Option<&'static str> {
+    match tool_name {
+        "Grep" | "Glob" | "Read" => Some("resisted"),
+        "Bash" => {
+            let cmd = tool_input.get("command").and_then(Value::as_str)?;
+            if cmd.contains("touring run") || cmd.contains("touring exec") {
+                Some("code_route")
+            } else if matches!(scan_class_of(cmd), Some("grep" | "find" | "cat" | "sed-n")) {
+                Some("followed")
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// N5 — registra a escolha ANTES de qualquer gate: um deny posterior não
+/// apaga o sinal da pressão (o KPI mede escolhas, não execuções). Global por
+/// daemon; a taxa POR SESSÃO vem do minerador scripts/n5_injection_kpi.py.
+fn record_native_injection(tool_name: &str, tool_input: &Value) {
+    use crate::shared::gate_metrics as gm;
+    match native_injection_class(tool_name, tool_input) {
+        Some("followed") => gm::record_native_injection_followed(),
+        Some("resisted") => gm::record_native_injection_resisted(),
+        Some("code_route") => gm::record_native_injection_code_route(),
+        _ => {}
+    }
+}
+
 fn record_adoption(tool_name: &str, tool_input: &Value) {
+    if tool_name == "Bash" {
+        crate::shared::gate_metrics::record_bash_call();
+    }
     match classify_adoption(tool_name, tool_input) {
         Some(AdoptionClass::Touring) => crate::shared::gate_metrics::record_adoption_touring(),
         Some(AdoptionClass::Antipattern) => {
@@ -2497,6 +3809,2621 @@ fn record_adoption(tool_name: &str, tool_input: &Value) {
         }
         None => {}
     }
+}
+
+// ── W1 (plano code-mode-total) — gates de code mode com EXECUTOR ─────────────
+//
+// G2 (exit-code-through-pipe) e G6 (redundant-exact-call): os dois gates da
+// simulação com FP ~zero (68 e 46 disparos / 55 sessões). Diferem de todo o
+// resto deste arquivo num ponto: NEGAM (`permissionDecision: deny`) com o
+// remédio derivado do comando REAL — afordância, não persuasão (D8: o
+// enforcement mora no executor; nudges MUST conf 0.95 foram ignorados na
+// própria sessão que os emitiu). Orçamento: < 1ms (scan de bytes + moka).
+
+// ── G11 (2026-09-02) — orçamento do bypass ──────────────────────────────────
+//
+// O token de bypass é por-comando e legítimo. O que não era medido é a SÉRIE:
+// medido no autor desta wave, 72 Bash num turno com zero `touring run` e 64
+// bypasses. Um desvio mais barato que a rota sancionada é uma afordância na
+// direção errada — e nenhum nudge corrige um custo. Este gate faz o segundo
+// bypass custar, e faz a rota sancionada ser o que recarrega o direito.
+
+/// Janela do orçamento, alinhada à do G10 (o gate de execução em rajada).
+const G11_WINDOW_SECS: u64 = 600;
+
+/// Bypasses ESTRITAMENTE seguidos tolerados. `1` significa: o primeiro passa, o
+/// segundo colado no primeiro não.
+const G11_MAX_STRICT_RUN: u32 = 1;
+
+/// Bypasses tolerados desde o último uso da rota sancionada, ainda que
+/// intercalados por comandos neutros. `2` significa: o terceiro não passa.
+const G11_MAX_SINCE_ROUTE: u32 = 2;
+
+/// Contas do orçamento de bypass de um escopo, dentro da janela.
+///
+/// São DUAS contas porque as duas regras são distintas, e uma só as confundia:
+/// medido na estreia, um bypass separado por um comando neutro era negado como
+/// "dois seguidos", que não era verdade.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct BypassBudget {
+    /// Bypasses colados um no outro; qualquer outro comando zera.
+    pub(crate) strict_run: u32,
+    /// Bypasses desde o último `touring run`; só a rota sancionada zera.
+    pub(crate) since_route: u32,
+}
+
+/// A decisão do G11 sobre um bypass que ACABOU de ser cobrado.
+///
+/// `None` libera. `Some(regra)` nega, e a regra nomeada entra na razão do deny —
+/// um gate mudo degrada o retry (a lição dos gates falantes, A5).
+#[must_use]
+pub(crate) fn bypass_verdict(budget: BypassBudget) -> Option<&'static str> {
+    if budget.strict_run > G11_MAX_STRICT_RUN {
+        return Some("dois bypasses seguidos");
+    }
+    if budget.since_route > G11_MAX_SINCE_ROUTE {
+        return Some("terceiro bypass sem usar a rota");
+    }
+    None
+}
+
+/// Ledger do orçamento, por escopo, com a mesma expiração dos demais gates.
+fn bypass_ledger() -> &'static moka::sync::Cache<u64, BypassBudget> {
+    static LEDGER: OnceLock<moka::sync::Cache<u64, BypassBudget>> = OnceLock::new();
+    LEDGER.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(256)
+            .time_to_live(std::time::Duration::from_secs(G11_WINDOW_SECS))
+            .build()
+    })
+}
+
+/// Chave do ledger: o escopo, como nos demais gates deste módulo.
+fn bypass_key(project_root: &Path, actor: &str) -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}code-mode-bypass\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Cobra um bypass e devolve as contas já atualizadas.
+fn charge_bypass(project_root: &Path, actor: &str) -> BypassBudget {
+    let key = bypass_key(project_root, actor);
+    let prev = bypass_ledger().get(&key).unwrap_or_default();
+    let next = BypassBudget {
+        strict_run: prev.strict_run.saturating_add(1),
+        since_route: prev.since_route.saturating_add(1),
+    };
+    bypass_ledger().insert(key, next);
+    next
+}
+
+/// A rota sancionada foi usada: o crédito volta inteiro.
+fn credit_sanctioned_route(project_root: &Path, actor: &str) {
+    bypass_ledger().invalidate(&bypass_key(project_root, actor));
+}
+
+/// Um comando que não é bypass quebra a sequência ESTRITA, e só ela.
+///
+/// A conta `since_route` sobrevive de propósito: caso contrário, bastaria
+/// intercalar um `echo` entre os bypasses para zerar o orçamento, que é
+/// exatamente a série espaçada que a R2 existe para impedir.
+fn break_strict_run(project_root: &Path, actor: &str) {
+    let key = bypass_key(project_root, actor);
+    if let Some(prev) = bypass_ledger().get(&key)
+        && prev.strict_run > 0
+    {
+        bypass_ledger().insert(
+            key,
+            BypassBudget {
+                strict_run: 0,
+                since_route: prev.since_route,
+            },
+        );
+    }
+}
+
+/// `true` quando o comando É a rota sancionada (um programa único no sandbox).
+fn is_sanctioned_route(cmd: &str) -> bool {
+    // S24: a path-qualified binary (`.touring/bin/touring run`, the per-project one) is the
+    // same route — it was never credited, so a project's own binary looked like a bypass.
+    cmd.split(|c: char| c.is_whitespace() || ";|&(".contains(c))
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|w| (w[0] == "touring" || w[0].ends_with("/touring")) && w[1] == "run")
+}
+
+/// Token de bypass POR-COMANDO: viaja no próprio comando (o padrão
+/// `GIT_DESTRUCTIVE_OK` — cada uso é uma decisão, nunca um estado exportado).
+const GATE_BYPASS_TOKEN: &str = "TOURING_GATE_OK=1";
+
+/// Kill switch global (humano; env do DAEMON — exige `touring daemon-ctl
+/// restart` para valer, como `TOURING_PILLAR_INDUCTION_ARMED`).
+/// A decisão pura do kill switch HUMANO — injetável: a matriz de
+/// hermeticidade da analise-6b (08/10) mediu 29 testes vermelhos com
+/// `TOURING_CODE_GATES_DISABLED=1` no ambiente — liam o switch do processo.
+fn code_gates_disabled_from(v: Option<&str>) -> bool {
+    v == Some("1")
+}
+
+fn code_gates_disabled() -> bool {
+    code_gates_disabled_from(std::env::var("TOURING_CODE_GATES_DISABLED").ok().as_deref())
+}
+
+/// W1 S-1.2 — comandos de estado vivo: chamadas idênticas legitimamente
+/// retornam resultados diferentes (saúde, daemon, working tree, contadores).
+/// Allowlist EXPLÍCITA, não heurística; ampliar só com dado (S-7.2).
+const G6_LIVE_STATE_ALLOWLIST: &[&str] = &[
+    "touring doctor",
+    "touring status",
+    "touring daemon-ctl",
+    "touring gate-metrics",
+    "touring kpi",
+    "git status",
+    "git diff",
+];
+
+fn g6_allowlisted(cmd: &str) -> bool {
+    let trimmed = cmd.trim_start();
+    G6_LIVE_STATE_ALLOWLIST
+        .iter()
+        .any(|p| trimmed.starts_with(p))
+}
+
+/// Longest single-line command a reason inlines as a ready-to-paste bypass line; beyond it the
+/// reason points at the command it already shows instead of repeating it.
+const READY_LINE_MAX_CHARS: usize = 600;
+
+/// The bypass line for `cmd`: the per-command token in front of the SAME command, ready to
+/// paste. `None` when the command cannot travel on one line (heredoc, multi-line) or is too
+/// long to paste without error.
+fn ready_bypass_line(cmd: &str) -> Option<String> {
+    let c = cmd.trim();
+    (!c.is_empty() && !c.contains('\n') && c.chars().count() <= READY_LINE_MAX_CHARS)
+        .then(|| format!("{GATE_BYPASS_TOKEN} {c}"))
+}
+
+/// The closing sentence of a reason whose next step is the bypass itself (a G10 deny with no
+/// runnable route): the ready line when the command fits on one line, the rule otherwise.
+fn bypass_next_step(cmd: &str) -> String {
+    match ready_bypass_line(cmd) {
+        Some(line) => {
+            format!("Rode exatamente (bypass por-comando, contado como bypassed):\n  {line}")
+        }
+        None => format!(
+            "Bypass por-comando: prefixe o comando negado, verbatim, com {GATE_BYPASS_TOKEN} \
+             (contado como bypassed)."
+        ),
+    }
+}
+
+/// G6 — the three legitimate next steps after a byte-identical repeat, shared by the advisory
+/// and the deny. Measured before the 27/10/2026 deploy: all 24 denials came from one session
+/// whose first runs had all succeeded with the same result size and no call in between (the
+/// redundant case, not live state), and in 21 the next call carried the same bytes — the model
+/// acknowledged the gate in prose and re-emitted the command. The reason therefore hands over
+/// the one command that is NOT a blind retry: the bypass line for the case where the state
+/// changed outside the Edit/Write epoch this gate watches (build, git, daemon, a background
+/// task). The token is per-command and charged to the G11 budget; both facts are stated.
+fn g6_next_steps(cmd: &str) -> String {
+    let bypass = match ready_bypass_line(cmd) {
+        Some(line) => format!("rode exatamente:\n  {line}"),
+        None => format!("prefixe o comando abaixo, verbatim, com `{GATE_BYPASS_TOKEN} `."),
+    };
+    format!(
+        "Próximo passo, escolha um: (1) o dado já basta — use o resultado acima e siga, sem \
+         rodar de novo; (2) precisa de OUTRO recorte — mude o comando de verdade (outro padrão, \
+         intervalo ou arquivo), ou reúna os recortes numa única chamada `touring run`; (3) o \
+         estado mudou sem passar por Edit/Write (build, git, daemon, processo, log, rede, tarefa \
+         em background, outra sessão) — repetir é legítimo, {bypass}\n\
+         O bypass é por-comando e conta no G11 (o 2º seguido é negado; um `touring run` \
+         recarrega o crédito)."
+    )
+}
+
+/// The G6 advisory (first repeat): the call still runs, the next identical one is denied.
+fn g6_advisory_text(cmd: &str) -> String {
+    format!(
+        "[G6 redundant-exact-call] comando byte-idêntico há <{SUGGESTION_TTL_SECS}s sem nenhuma \
+         mutação no meio — o resultado já está no seu contexto. Esta cópia executou; a PRÓXIMA \
+         idêntica será negada.\n{}",
+        g6_next_steps(cmd)
+    )
+}
+
+/// The G6 deny (second repeat onwards). The command is echoed only when the bypass line cannot
+/// carry it whole (multi-line or over `READY_LINE_MAX_CHARS`).
+fn g6_deny_reason(cmd: &str) -> String {
+    let comando = if ready_bypass_line(cmd).is_some() {
+        String::new()
+    } else {
+        let inicio: String = cmd.chars().take(200).collect();
+        format!("\nComando: {inicio}")
+    };
+    format!(
+        "[G6 redundant-exact-call] repetição byte-idêntica em {SUGGESTION_TTL_SECS}s sem mutação \
+         no meio — o resultado idêntico já está no seu contexto (retry cego, 5 casos medidos).\n\
+         {}\nProibido: reemitir este comando sem mudar nada — a próxima cópia idêntica é negada \
+         de novo.{comando}",
+        g6_next_steps(cmd)
+    )
+}
+
+/// W1 S-1.2 — ledger de repetição exata: input-hash → (repetições, época de
+/// mutação do projeto na primeira vista). TTL espelha o anti-spam (300s).
+/// G6 ledger key: the session AND the input. A blind retry is the same session repeating
+/// what it already holds in context; another session running the same command has never
+/// seen the result. Keyed by input alone, fresh sessions were denied as "retries" of each
+/// other (26/09/2026 — the contract suite, one session per call, within 300 s).
+fn g6_key(project_root: &Path, session: &str, tool_name: &str, tool_input: &Value) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    tool_name.hash(&mut hasher);
+    tool_input.to_string().hash(&mut hasher);
+    hasher.finish()
+}
+
+fn g6_seen() -> &'static moka::sync::Cache<u64, (u32, u64)> {
+    static C: OnceLock<moka::sync::Cache<u64, (u32, u64)>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(SUGGESTION_TTL_SECS))
+            .build()
+    })
+}
+
+/// W1 — época de mutação por projeto: todo Edit/Write a avança. Uma repetição
+/// G6 vista numa época mais velha é stale (a árvore mudou) e NUNCA dispara —
+/// mata a classe ler-depois-de-editar de falso positivo por construção.
+fn mutation_epoch() -> &'static moka::sync::Cache<String, u64> {
+    static C: OnceLock<moka::sync::Cache<String, u64>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CONFORMAL_TAU_MAX_PROJECTS)
+            .build()
+    })
+}
+
+/// W1 S-1.4 — deny de G2 pendente por sessão: a próxima chamada Bash com
+/// `pipefail` dentro de 60s conta como `followed` (o contrato pillar_induction).
+/// N3a — deny de G9 pendente por sessão: a próxima chamada Edit/Write da
+/// sessão fecha o continuation-check (a conversão é o Edit com os 17 gates).
+fn pending_g9() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+fn pending_g2() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+// ── W2 (plano code-mode-total) — G1: teeth no contador de rajada ─────────────
+
+/// W2 S-2.1 — a inspeção repetida da MESMA classe na janela nega (o advisory
+/// legado fala uma antes). 90% de precisão-proxy medida na 4ª (51/55 sessões);
+/// **aperto 29/08 (ordem de Gabriel): 4→3** — na 3ª o padrão já é inequívoco
+/// (o mesmo racional do CODE_MODE_SCAN_THRESHOLD) e o custo do FP segue 1 bypass.
+const G1_DENY_AT: u32 = 3;
+/// W2 S-2.3 — piso de precisão viva abaixo do qual o G1 se autodemove a
+/// advisory (F7: demote é código, não reunião)…
+const G1_DEMOTE_FLOOR: f64 = 0.70;
+/// …desde que haja volume real: um punhado de eventos iniciais nunca demove.
+const G1_DEMOTE_MIN_EVENTS: u64 = 100;
+
+/// S213 — whether `cmd` APPENDS to a file (`>>` or `tee -a`/`--append`), read after the CEG
+/// shell mask so a `>>` inside quotes or a heredoc body is data, not a redirect.
+fn appends_to_a_file(cmd: &str) -> bool {
+    let masked = touring_ceg::gateway::gate::mask_shell_data(cmd);
+    masked.contains(">>") || masked.contains("tee -a") || masked.contains("tee --append")
+}
+
+/// W2 S-2.1 — classe da inspeção atômica (a taxonomia da simulação). `None`
+/// para comandos que não são inspeção — a rajada só conta o que inspeciona.
+fn scan_class_of(cmd: &str) -> Option<&'static str> {
+    // Verbo REAL pós-segmentos/prefixos-cd/wrappers (S1, 26/08): `time grep`
+    // é `grep`, `cd /x && cat f` é `cat` — antes o 1º token decidia, e
+    // `time`/`nice`/`sudo`/`env`/`cd` anulavam a classe para os 4 gates que
+    // consomem este classificador de uma vez só.
+    // S213: an APPENDING command is never inspection — the burst remedy replays the
+    // commands it fuses, and an append replayed duplicates what it wrote (observed live:
+    // `cat t.rs >> src/x.rs && cargo test`). An overwrite redirect stays inspection (P2.3):
+    // replaying it is idempotent. Read through the CEG shell mask — quoted/heredoc is data.
+    if appends_to_a_file(cmd) {
+        return None;
+    }
+    // S213b (26/09/2026): a SEQUENCE is inspection only if every step inspects — the
+    // class came from the first real verb alone, so `grep x f; cargo clippy …` was
+    // `grep` and the remedy replayed a 20-minute clippy (observed live); a `touring
+    // memory store` in its place would have been a replayed write. Navigation,
+    // assignments and `echo`-style separators are neutral; the class is the first
+    // reading step's.
+    let mut class = None;
+    for seg in command_segments(cmd) {
+        let toks: Vec<&str> = seg.split_whitespace().collect();
+        let rest = resolved_tokens(&toks);
+        match rest.first() {
+            None => {}
+            Some(verb) if NEUTRAL_SEQUENCE_STEPS.contains(verb) => {}
+            Some(_) => {
+                let step = step_class(rest)?;
+                class.get_or_insert(step);
+            }
+        }
+    }
+    class
+}
+
+/// Steps that neither inspect nor do work — they never break an inspection sequence.
+const NEUTRAL_SEQUENCE_STEPS: &[&str] = &["cd", "echo", "printf", "pwd", "true"];
+
+/// The inspection class of ONE step (its wrapper-resolved tokens), or `None` when the
+/// step does something other than inspect.
+fn step_class(rest: &[&str]) -> Option<&'static str> {
+    let first = *rest.first()?;
+    match first {
+        "grep" | "rg" => Some("grep"),
+        // P2.3 (calibração 25/08, 1.312 chamadas reais): `cat > f`/`cat >> f`
+        // (heredoc de escrita) é T4 — escrita — não inspeção. O prefixo sozinho
+        // negava 27 escritas (20,6% do que a matriz pegaria) sob o modo `code`,
+        // que nega na 1ª chamada. Se o primeiro operando não-flag já é um
+        // redirect, não há arquivo de leitura: não é classe `cat`.
+        "cat" | "head" | "tail" | "less" => {
+            // O primeiro operando REAL decide: flags (`-n`) — e o argumento
+            // das que tomam valor (`-n 5`, `-c +3`) — são transparentes. Se o
+            // que sobra já começa com `>`, não há arquivo de leitura.
+            let mut it = rest[1..].iter().copied().peekable();
+            let mut primeiro_operando: Option<&str> = None;
+            while let Some(t) = it.next() {
+                if t == "-n" || t == "-c" {
+                    it.next(); // o argumento da flag, não um operando
+                    continue;
+                }
+                if t.starts_with('-') {
+                    continue;
+                }
+                primeiro_operando = Some(t);
+                break;
+            }
+            match primeiro_operando {
+                Some(op) if op.starts_with('>') => None,
+                _ => Some("cat"),
+            }
+        }
+        "find" | "fd" => Some("find"),
+        "ls" => Some("ls"),
+        "wc" => Some("wc"),
+        // `-n` do sed, não do invólucro: `nice -n 5 sed 5p f` NÃO é sed-n
+        // (com o verbo resolvido, o `contains` no comando inteiro herdaria o
+        // `-n` do `nice` — o bug latente que a resolução expõe).
+        "sed" if rest[1..].contains(&"-n") => Some("sed-n"),
+        _ => None,
+    }
+}
+
+/// W2 — ledger da rajada por (projeto, classe): contagem + os comandos REAIS
+/// acumulados (cap 8) — eles viram o corpo do programa no remédio do deny.
+/// TTL = a janela do contador legado (o mesmo sinal, agora com memória).
+/// Entrada da rajada: `(contagem, comandos, época de mutação da última inserção)`.
+///
+/// A época entrou junto com a calibração por similaridade: sem ela, uma
+/// releitura DEPOIS de um Edit era negada como repetição — e reler o que
+/// acabou de mudar é legítimo, não redundância. É a mesma proteção que o G6 já
+/// tinha (`mutation_epoch`), agora estendida ao gatilho novo. O teste
+/// `g6_mutacao_no_meio_reseta_a_repeticao` pegou a regressão.
+type BurstEntry = (u32, Vec<String>, u64);
+
+fn burst_ledger() -> &'static moka::sync::Cache<u64, BurstEntry> {
+    static C: OnceLock<moka::sync::Cache<u64, BurstEntry>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(CODE_MODE_WINDOW_SECS))
+            .build()
+    })
+}
+
+fn burst_key(project_root: &Path, actor: &str, class: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g1-burst\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
+    class.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// W2 S-2.3 — deny de G1 pendente por sessão (guarda a CLASSE negada): a
+/// próxima chamada da sessão fecha o continuation-check do A/B.
+fn pending_g1() -> &'static moka::sync::Cache<String, String> {
+    static C: OnceLock<moka::sync::Cache<String, String>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+/// Resposta advisory do PreToolUse (additionalContext, nunca bloqueia).
+fn advisory_response(context: String) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": context,
+        }
+    })
+    .to_string()
+}
+
+// ── W3 (plano code-mode-total) — gates de MODO: G3 e G7 + telemetria G4/G5 ───
+
+/// W3 S-3.1 — G3: streak de Edits sem Read recente, POR SESSÃO (modo de
+/// sessão, não população: 336 disparos concentrados em 15/55 sessões; os 11
+/// erros `edit_string_not_found` medidos são o dano vivo).
+fn g3_streak() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// W3 S-3.1 — (sessão, arquivo) lidos recentemente; um Edit de arquivo lido
+/// não conta streak.
+fn g3_read_files() -> &'static moka::sync::Cache<u64, ()> {
+    static C: OnceLock<moka::sync::Cache<u64, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+fn g3_read_key(project_root: &Path, session: &str, file: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g3-read\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    session.hash(&mut hasher);
+    file.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Files above this are not scanned for the Read-window hint (the deny path stays cheap).
+const G3_WINDOW_MAX_BYTES: u64 = 2 * 1024 * 1024;
+/// Context lines kept on each side of the Edit's `old_string` in the Read-window hint.
+const G3_WINDOW_CONTEXT_LINES: usize = 5;
+/// Files shorter than this are read whole: a window would save nothing.
+const G3_WINDOW_MIN_FILE_LINES: usize = 80;
+
+/// The Read window (1-based `offset`, `limit`) that covers the first occurrence of an Edit's
+/// `old_string` with a little context — the lines the model must see to write the Edit right.
+/// `None` when the file is unreadable, large, short, or does not contain `old_string` (the
+/// reason then names the plain `Read`). Measured before the 27/10/2026 deploy: 589 of 607 Edits
+/// after a PARTIAL Read succeeded, against 67 of 70 after a full one, so a window is a valid
+/// Read for the harness.
+fn g3_read_window(project_root: &Path, fp: &str, old_string: &str) -> Option<(usize, usize)> {
+    if old_string.is_empty() {
+        return None;
+    }
+    let path = Path::new(fp);
+    let full = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        project_root.join(path)
+    };
+    let meta = std::fs::metadata(&full).ok()?;
+    if !meta.is_file() || meta.len() > G3_WINDOW_MAX_BYTES {
+        return None;
+    }
+    let text = std::fs::read_to_string(&full).ok()?;
+    let total = text.split('\n').count();
+    if total < G3_WINDOW_MIN_FILE_LINES {
+        return None;
+    }
+    let at = text.find(old_string)?;
+    let first = 1 + text[..at].matches('\n').count();
+    let span = 1 + old_string.trim_end_matches('\n').matches('\n').count();
+    let offset = first.saturating_sub(G3_WINDOW_CONTEXT_LINES).max(1);
+    let limit = (first - offset) + span + G3_WINDOW_CONTEXT_LINES;
+    (offset > 1 || limit < total).then_some((offset, limit))
+}
+
+/// The exact `Read` call a G3 reason hands over for an Edit of `fp`: the window over the Edit's
+/// own `old_string` when it can be derived, the plain file otherwise.
+fn g3_read_call(project_root: &Path, fp: &str, tool_input: &Value) -> String {
+    let old_string = tool_input
+        .get("old_string")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    match g3_read_window(project_root, fp, old_string) {
+        Some((offset, limit)) => format!("Read {fp} offset={offset} limit={limit}"),
+        None => format!("Read {fp}"),
+    }
+}
+
+/// The G3 advisory (first unread Edit): the Edit still runs, the second one in a row is denied.
+fn g3_advisory_text(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
+    let leitura = g3_read_call(project_root, fp, tool_input);
+    format!(
+        "[G3 edit-sem-read] Edit de {fp} sem Read recente (advisory {n}/1 — o 2º seguido nega). \
+         Próximo passo: `{leitura}` antes do Edit — só a ferramenta Read do arquivo exato conta \
+         (cat/sed/grep via Bash não); o Read zera o contador."
+    )
+}
+
+/// The G3 deny. Measured before the 27/10/2026 deploy: in 37 of 40 denials the session had
+/// already looked at the file through Bash only, and 9 of the 40 were answered with another
+/// unread Edit — so the reason says what counts as a Read and what stays forbidden meanwhile.
+fn g3_deny_reason(project_root: &Path, fp: &str, n: u32, tool_input: &Value) -> String {
+    let leitura = g3_read_call(project_root, fp, tool_input);
+    format!(
+        "[G3 edit-sem-read] {n}º Edit sem Read recente nesta sessão — os 11 erros \
+         `edit_string_not_found` medidos nascem exatamente aqui. Próximo passo, exatamente: \
+         `{leitura}`, e só então o Edit. Só a ferramenta Read do arquivo exato conta: \
+         cat/sed/grep via Bash e o Read de OUTRO arquivo não registram {fp}. Proibido até lá: \
+         Edit de {fp} ou de qualquer outro arquivo ainda não lido."
+    )
+}
+
+/// W3 S-3.2 — G7: contagem de releituras do MESMO arquivo por projeto (os
+/// campeões medidos: adw.py 39×, cli_suggester.rs 32× — o sinal mais direto de
+/// programa-faltando). 2ª → advisory com R1 instanciado; 3ª → deny
+/// (aperto 29/08, ordem de Gabriel: era 3ª/5ª — "5 é muito frouxo").
+fn g7_seen() -> &'static moka::sync::Cache<u64, u32> {
+    static C: OnceLock<moka::sync::Cache<u64, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// V0e3 (09/10/2026) — o esqueleto R1 pelo CAMINHO REAL quando existe (medido
+/// pela 6b: o deny citava `<r1_varredura_agregado.py>`, um placeholder, e o
+/// advisory `r1_varredura_agregado.py`, um relativo inexistente — a recusa
+/// apontava para um arquivo que não existia, D8). Espelha o `_r1_route()` do
+/// loop_stop_guard.py (a parte Python, feita na mesma noite): sem o arquivo,
+/// só a consulta à memória — nunca um placeholder.
+fn r1_skeleton_path() -> Option<std::path::PathBuf> {
+    let p = std::env::var_os("HOME").map(std::path::PathBuf::from)?.join(
+        "projects/touring/docs/plans/2026-08-24-code-mode-antecipa/evidence/repertorio/r1_varredura_agregado.py",
+    );
+    p.is_file().then_some(p)
+}
+
+/// A rota R1 para o alvo `fp`: o esqueleto real instanciado quando existe, a
+/// query de memória quando não.
+fn r1_route_for(fp: &str) -> String {
+    let query = "`touring memory query \"#kind:snippet #process:code-mode\"`";
+    match r1_skeleton_path() {
+        Some(p) => format!(
+            "touring run --lang python --args '[\"{fp}\"]' --file {} (outros esqueletos: {query})",
+            p.display()
+        ),
+        None => format!("esqueletos de varredura em {query}"),
+    }
+}
+
+fn g7_key(project_root: &Path, actor: &str, file: &str) -> u64 {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    "\u{2}g7-target\u{2}".hash(&mut hasher);
+    project_root.hash(&mut hasher);
+    actor.hash(&mut hasher);
+    file.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// 30.4.97 (G7G3G9) — (mtime, tamanho) de um arquivo: o que o harness do Claude Code compara no
+/// «File has been modified since read, either by the user or by a linter. Read it again before
+/// attempting to write it.»
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct FileStamp {
+    mtime_ns: u128,
+    len: u64,
+}
+
+/// O carimbo de `fp` agora; `None` quando o arquivo não existe ou não se deixa medir (o G7 então
+/// segue contando como sempre contou — sem medição não há o que afirmar).
+fn file_stamp(project_root: &Path, fp: &str) -> Option<FileStamp> {
+    let path = Path::new(fp);
+    let meta = if path.is_absolute() {
+        std::fs::metadata(path)
+    } else {
+        std::fs::metadata(project_root.join(path))
+    }
+    .ok()?;
+    let mtime_ns = meta
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_nanos();
+    Some(FileStamp {
+        mtime_ns,
+        len: meta.len(),
+    })
+}
+
+/// O carimbo visto na ÚLTIMA leitura de cada (projeto, sessão, arquivo) — mesma chave e mesma
+/// janela do `g7_seen`, que ele governa.
+fn g7_stamps() -> &'static moka::sync::Cache<u64, FileStamp> {
+    static C: OnceLock<moka::sync::Cache<u64, FileStamp>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(CACHE_MAX_CAPACITY)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// Carimba esta leitura e, se o arquivo MUDOU desde a leitura que o ledger lembra, zera a
+/// contagem do G7: reler um arquivo alterado por fora da ferramenta Edit (python, linter, outra
+/// sessão) não é re-inspeção — é o refresh que o harness exige antes do próximo Edit. Só uma
+/// mudança MEDIDA conta (carimbo anterior e atual existem e diferem); arquivo inalterado ou não
+/// mensurável segue contando, e a 3ª leitura dele continua negada.
+fn g7_refresh_if_changed(project_root: &Path, key: u64, fp: &str) -> Option<FileStamp> {
+    let stamp = file_stamp(project_root, fp);
+    if matches!((stamp, g7_stamps().get(&key)), (Some(agora), Some(antes)) if agora != antes) {
+        g7_seen().invalidate(&key);
+    }
+    if let Some(s) = stamp {
+        g7_stamps().insert(key, s);
+    }
+    stamp
+}
+
+/// A rota de edição que o deny do G7 nomeia (D8: a frase só sai quando é verdadeira). O deny só
+/// dispara com o arquivo inalterado desde a leitura registrada (`g7_refresh_if_changed` zera a
+/// contagem quando ele muda), e o ledger do G3 foi alimentado por esta mesma leitura: o `Edit`
+/// direto passa no G3 e o harness o aceita. Sem carimbo (arquivo não mensurável) a afirmação
+/// «não mudou» não tem lastro — a frase não sai.
+fn g7_edit_route_note(fp: &str, measured: bool) -> String {
+    if !measured {
+        return String::new();
+    }
+    format!(
+        " Para EDITAR {fp}: Edit direto — o arquivo não mudou desde a leitura registrada, então o \
+         G3 e o harness a aceitam; se ele mudar, a releitura é liberada."
+    )
+}
+
+/// V0e3 (09/10/2026) — os fragmentos de path de um comando: quebra em todo
+/// char que não é de path e fica com os fragmentos que contêm `/`. O reset do
+/// G7 nunca funcionava no caso real porque o `trim_matches` das pontas cobria
+/// só `'\"[]{},` — um path citado DENTRO de código (`Path("/…")`, o run
+/// 1791491632099 da 6b) não casava a chave gravada e a leitura seguinte era
+/// negada com a promessa falsa na mensagem (D8).
+fn path_fragments(cmd: &str) -> impl Iterator<Item = &str> {
+    cmd.split(|c: char| !(c.is_alphanumeric() || matches!(c, '.' | '/' | '_' | '-' | '~')))
+        .filter(|frag| frag.len() > 1 && frag.contains('/'))
+}
+
+/// M3 (estratégia paralelização-agentes 29/08/2026) — arquivos DISTINTOS
+/// lidos pela sessão na janela de 1h. O gatilho ≥10 é o medido do blog
+/// subagents-in-claude-code ("exploring ten or more files" → subagente;
+/// razão nº 1: isolamento de contexto — 50 arquivos lidos voltam como 3
+/// conclusões). Dispara UMA vez, no exato 10º arquivo novo; advisory, nunca
+/// deny — delegar é juízo da sessão, não do gate.
+fn m3_distinct_reads() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// M3 — quantos arquivos distintos disparam o advisory de delegação.
+const M3_DELEGATION_AT: u32 = 10;
+
+/// W3 S-3.3 — G4 (telemetria): a sessão localizou algo (Grep/Glob) há pouco?
+fn g4_last_locate() -> &'static moka::sync::Cache<String, ()> {
+    static C: OnceLock<moka::sync::Cache<String, ()>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(120))
+            .build()
+    })
+}
+
+/// W3 S-3.3 — G5 (telemetria): streak de Edits/Writes da sessão; zera na
+/// primeira ação Bash e, se a rajada terminou ≥3 sem validação, 1 advisory.
+fn g5_edit_streak() -> &'static moka::sync::Cache<String, u32> {
+    static C: OnceLock<moka::sync::Cache<String, u32>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(3600))
+            .build()
+    })
+}
+
+/// W6 S-6.3 — linha ADICIONADA de comentário com modal contrafactual e nenhum
+/// run_id na vizinhança: a afirmação nunca exercitada (o pior erro de 24/08).
+fn counterfactual_comment(added: &str) -> bool {
+    const MODAIS: &[&str] = &["seria ", "quebraria", "impediria", "faria com que"];
+    added.lines().any(|l| {
+        let t = l.trim_start();
+        let comentario = t.starts_with("//") || t.starts_with('#') || t.starts_with('*');
+        comentario && MODAIS.iter().any(|m| t.contains(m)) && !t.contains("run-")
+    })
+}
+
+/// W2 S-2.3 — decide deny vs advisory a partir da precisão VIVA. Pura, para o
+/// teste não depender dos contadores globais de processo.
+fn g1_should_deny(precision: Option<(f64, u64)>) -> bool {
+    !matches!(precision,
+        Some((p, volume)) if volume >= G1_DEMOTE_MIN_EVENTS && p < G1_DEMOTE_FLOOR)
+}
+
+/// A forma em que as ferramentas chegam ao modelo NESTE escopo.
+///
+/// A definição canônica mora em [`touring_foundation::code_mode`] porque DOIS
+/// executores a impõem — este hook (`PreToolUse`) e o handshake MCP
+/// (`touring-server::server::apply_curation`, S1 TRANSPORT). Duplicar o tipo e
+/// o parser recriaria a falha que este workspace já pagou duas vezes: sítios da
+/// mesma regra que divergem (2026-08-23) e uma declaração que promete o que o
+/// executor não aplica (achado D8, 2026-08-25).
+pub(crate) use touring_foundation::code_mode::CodeModePresentation;
+
+// **Calibração REVISTA pelo S3 (27/08/2026) — a lista fixa saiu, o predicado
+// de rajada entrou.** A tabela abaixo é a de 25/08 (1.312 chamadas), mantida
+// porque foi ela que motivou a revisão, com o dado de 27/08 ao lado
+// (115 transcripts, janela 300s, `scripts/s3_burst_distribution.py`):
+//
+// | classe | colapsava? | chamadas | % isoladas | % volume em rajada ≥2 |
+// |---|---|---|---|---|
+// | `grep`  | sim  | 770 | 12,6% | 87,4% |
+// | `sed-n` | NÃO  | 408 | 18,6% | 81,4% |
+// | `ls`    | NÃO  | 338 | 28,7% | 71,3% |
+// | `cat`   | sim  | 316 | 26,6% | 73,4% |
+// | `wc`    | NÃO  |  34 | 67,6% | 32,4% |
+// | `find`  | sim  |  32 | 56,2% | 43,8% (zero rajadas ≥3) |
+//
+// A lista fixa errava nos dois sentidos ao mesmo tempo: negava `find`, que é
+// majoritariamente isolada e não produziu UMA rajada ≥3 em 115 transcripts, e
+// deixava passar `sed-n` e `ls`, que juntas somam 746 chamadas com ~76% do
+// volume em rajada. Nome de classe não prediz fan-out; o que prediz é o que a
+// classe está fazendo NESTA janela — e isso um contador responde, uma lista não.
+//
+// Os níveis por classe são exatamente o desenho que o DeepSeek ADIOU (*"its
+// design depends on evidence about how models split usage under `both`"*). A
+// evidência que faltava a eles é esta tabela: rodamos em `both` instrumentado,
+// e depois medimos de novo para corrigir a nossa própria primeira leitura.
+
+/// Resolve a apresentação: **prefixo do comando → env do hook → alias → projeto → default**.
+///
+/// Duas verdades medidas (25/08) moram nesta ordem:
+///
+/// 1. **Exportar no shell da tool Bash NÃO chega ao hook.** O processo do hook
+///    e o shell que executa o comando são IRMÃOS spawnados pelo Claude Code —
+///    `export TOURING_CODE_MODE=…` num é invisível ao outro. A env que esta
+///    função lê com `std::env::var` é a do processo do hook (a do daemon que
+///    o spawnou), não a "da sessão" do operador.
+/// 2. **A via que atravessa é a linha de comando.** É assim que
+///    `TOURING_GATE_OK=1 <cmd>` já funciona: o hook lê o prefixo `VAR=valor`
+///    do próprio comando. Por isso o nível mais externo é o prefixo — útil
+///    sobretudo para RELAXAR por-comando (`TOURING_CODE_MODE=native grep …`),
+///    simétrico ao token de bypass.
+///
+/// `TOURING_CODE_ONLY=1` continua valendo como alias de `Code` (compatibilidade
+/// com o piloto S-8.1), agora com o escopo e a calibração que lhe faltavam — ele
+/// negava TODA classe, `ls` inclusive.
+///
+/// Os níveis «env do hook» e «alias» chegam INJETADOS (`CodeModeEnv`), nunca
+/// lidos do processo no meio da resolução: a matriz de hermeticidade da
+/// analise-6b (08/10) mediu 15 testes vermelhos sob `TOURING_CODE_MODE=native`
+/// no ambiente — liam `Native` do ambiente em vez do caso sob teste (o env
+/// vence o `touring.toml` do projeto scratch, por precedência documentada).
+#[derive(Default, Clone)]
+pub(crate) struct CodeModeEnv {
+    /// Valor de `TOURING_CODE_MODE` (crú — o parse é parte do comportamento).
+    pub mode: Option<String>,
+    /// Valor de `TOURING_CODE_ONLY` (o alias legado de `Code`).
+    pub code_only_alias: Option<String>,
+}
+
+impl CodeModeEnv {
+    fn from_env() -> Self {
+        Self {
+            mode: std::env::var("TOURING_CODE_MODE").ok(),
+            code_only_alias: std::env::var("TOURING_CODE_ONLY").ok(),
+        }
+    }
+
+    /// A decisão pura dos níveis env+alias — testável sem tocar o processo.
+    fn resolve(&self) -> Option<CodeModePresentation> {
+        // parse() é o parser canônico (trim + unquote): um valor entre aspas
+        // também resolve.
+        if let Some(m) = self.mode.as_deref().and_then(CodeModePresentation::parse) {
+            return Some(m);
+        }
+        if self.code_only_alias.as_deref() == Some("1") {
+            return Some(CodeModePresentation::Code);
+        }
+        None
+    }
+}
+
+fn code_mode_presentation_with(
+    project_root: &Path,
+    cmd: &str,
+    env: &CodeModeEnv,
+) -> CodeModePresentation {
+    for token in cmd.split_whitespace() {
+        let Some((nome, valor)) = token.split_once('=') else {
+            break;
+        };
+        if !nome
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        {
+            break;
+        }
+        if nome == "TOURING_CODE_MODE" {
+            match CodeModePresentation::parse(valor) {
+                Some(m) => return m,
+                None => break, // valor inválido não cala os níveis seguintes
+            }
+        }
+    }
+    if let Some(m) = env.resolve() {
+        return m;
+    }
+    // A declaração humana vence SEMPRE: prefixo, env, alias e `touring.toml` já
+    // decidiram acima. A política só preenche o espaço que o humano deixou em
+    // aberto — sobrescrever uma declaração explícita não seria aprender, seria
+    // desobedecer.
+    resolve_with_policy(
+        project_presentation(project_root),
+        code_mode_arm_armed(),
+        arm_counts_durable(project_root),
+    )
+}
+
+/// Lê `[code_mode] mode` de `<root>/.touring/touring.toml`.
+///
+/// Delega ao parser canônico do `touring-foundation` — o mesmo que o handshake
+/// MCP consulta, para que a apresentação declarada e a imposta nunca possam
+/// divergir. Reexportado no escopo do módulo porque os testes o consultam
+/// diretamente.
+pub(crate) use touring_foundation::code_mode::project_presentation;
+
+/// Orçamento total, em chars, do corpo do programa que o remédio entrega.
+const G1_BODY_BUDGET: usize = 3000;
+
+/// Funde a rajada acumulada num corpo de programa executável.
+///
+/// Devolve `(corpo, omitidos)`. A regra é **comando inteiro ou nenhum**: um
+/// comando que não cabe no orçamento é DESCARTADO, jamais truncado.
+///
+/// Origem (2026-08-25, observado ao vivo nesta função): cada comando entrava
+/// com `cmd.chars().take(240)`, então uma rajada de greps longos produzia um
+/// programa cortado no meio de um caminho (`crates/tou'`) — sintaticamente
+/// plausível, com aspas equilibradas, e que **não roda**. Um comando truncado
+/// é pior que um ausente: o ausente aparece na contagem que o remédio declara;
+/// o truncado se disfarça de programa completo. A emenda do Gabriel (25/08) é
+/// exatamente esta — a injeção tem de entregar o snippet que SUBSTITUI as N
+/// chamadas, e um snippet que falha não substitui nada.
+fn fuse_burst_program(cmds: &[String]) -> (String, usize) {
+    let mut corpo = String::new();
+    let mut omitidos = 0usize;
+    for cmd in cmds {
+        let cabe = corpo.chars().count() + cmd.chars().count() + 1 <= G1_BODY_BUDGET;
+        if cabe {
+            if !corpo.is_empty() {
+                corpo.push('\n');
+            }
+            corpo.push_str(cmd);
+        } else {
+            omitidos += 1;
+        }
+    }
+    (corpo.replace('\'', "'\\''"), omitidos)
+}
+
+// r3 shadow, A2 — ciclo de vida da oferta de rota, só observado (plan 2026-10-02-jev-harness-r3, S-8).
+mod r3_a2;
+// G10ROTA (30.4.97): qual rota do `touring run` EXECUTA o programa que o deny está para nomear.
+mod g10_route;
+
+/// A rota escrita que a apresentação entregou ao modelo, com o braço que a produziu.
+///
+/// Contadores de FREQUÊNCIA dizem com que assiduidade um gate age e nada sobre
+/// se agir funcionou — telemetria sem consumidor de aprendizado (medido
+/// 25/08/2026: zero políticas os liam; os contadores do T3-B eram o caso
+/// exemplar, e o gate inteiro saiu no S10). Esta é a metade que faltava: a
+/// apresentação vigente vira o braço, e o comando seguinte vira a recompensa.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RouteOffer {
+    /// `native` | `code` | `both` — a apresentação em vigor quando a rota saiu.
+    pub mode: String,
+    /// Quando foi oferecida (secs desde o UNIX_EPOCH).
+    pub offered_secs: u64,
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
+}
+
+/// Reivindica a rota pendente deste (projeto, sessão) — UMA vez.
+///
+/// Mesma disciplina dos ledgers de decisão e de casos: uma oferta reivindicada
+/// some, para que duas leituras nunca creditem a mesma decisão duas vezes. A
+/// sessão sai da MESMA `session_key` do pre e do close, ou pre e post estariam
+/// falando de turnos diferentes com a mesma cara.
+pub fn take_route_offer(project_root: &Path, payload: &Value) -> Option<RouteOffer> {
+    let key = format!("{}\u{2}{}", project_root.display(), session_key(payload));
+    let offer = route_offers().get(&key)?;
+    route_offers().invalidate(&key);
+    Some(offer)
+}
+
+/// O que um programa de code mode COMPROU em round-trips.
+///
+/// `adoption_ratio` responde "usou a ferramenta certa?" e nada sobre "a chamada
+/// valia um round-trip?" — mede o CANAL, não a ECONOMIA (achado de Gabriel,
+/// 26/08/2026: `scan_class_of` não reconhece `touring run`, então N programas
+/// diferentes e triviais somam N adoções e zero avisos).
+///
+/// Um programa que inspeciona UM alvo com UMA operação não fundiu nada: é uma
+/// chamada atômica com uma casca. Isso não é indisciplina do modelo — sob a
+/// apresentação `code` a chamada atômica é NEGADA, então a casca é obrigatória.
+/// Por isso a economia é lida como CUSTO DA APRESENTAÇÃO e não como falta do
+/// modelo: é o número que impede o braço `code` de parecer ótimo só porque
+/// todos obedecem, quando cada obediência custa um round-trip.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ProgramShape {
+    /// Uma operação sobre um alvo — a casca não comprou nada.
+    Trivial,
+    /// Fundiu `n` operações/alvos numa chamada só.
+    Fused(usize),
+}
+
+/// Verbos de inspeção reconhecidos no corpo, em qualquer linguagem.
+const INSPECTION_VERBS: [&str; 12] = [
+    "grep", "rg", "cat", "head", "tail", "sed", "awk", "ls", "wc", "find", "stat", "jq",
+];
+
+/// Extrai o corpo de `touring run … --code '<corpo>'`.
+///
+/// Sem o corpo não há o que classificar, e `None` mantém o comportamento
+/// anterior — jamais adivinhar a forma de um programa que não se leu.
+pub(crate) fn extract_run_body(cmd: &str) -> Option<&str> {
+    let idx = cmd.find("--code")?;
+    let resto = &cmd[idx + "--code".len()..];
+    let resto = resto.trim_start();
+    let aspa = resto.chars().next()?;
+    if aspa != '\'' && aspa != '"' {
+        return None;
+    }
+    let corpo = &resto[aspa.len_utf8()..];
+    // A PRIMEIRA aspa igual fecha, não a última. `rfind` capturava além do
+    // corpo quando o comando externo trazia mais aspas depois — medido ao vivo
+    // em 26/08: `… --code 'cat X' 2>/dev/null | python3 -c "…print('…')"`
+    // devolvia um corpo que incluía o pipe inteiro, e o `/dev/null` de dentro
+    // dele contava como um segundo alvo: um programa trivial era classificado
+    // como fusão. Em shell, string entre aspas simples não contém a própria
+    // aspa, então a primeira É a de fechamento.
+    let fim = corpo.find(aspa)?;
+    Some(&corpo[..fim])
+}
+
+/// Classifica o corpo pelo que ele funde. Puro — mais fácil de testar do que
+/// de contornar.
+///
+/// Dois eixos, e o MAIOR decide: quantas operações de inspeção o corpo executa,
+/// e quantos alvos distintos ele toca. Um `grep` sobre três arquivos fundiu
+/// três; três `sed` sobre o mesmo arquivo fundiram três. Um de cada não fundiu
+/// nada.
+pub(crate) fn program_shape(body: &str) -> ProgramShape {
+    // Casar PALAVRA, não substring: `body.matches("rg")` conta 1 dentro de
+    // "Cargo.toml", e `cat /a/Cargo.toml` — um arquivo, uma operação — era
+    // classificado como fusão de duas. O teste pegou; a medição ao vivo teria
+    // levado semanas para revelar, porque o número errado é plausível.
+    let ops = body
+        .split(|c: char| c.is_whitespace() || matches!(c, ';' | '|' | '&' | '(' | ')' | '"' | '\''))
+        .filter(|t| INSPECTION_VERBS.contains(&t.trim_start_matches("$(")))
+        .count()
+        // `open(` é chamada de função (Python), não token isolado.
+        + body.matches("open(").count();
+    let alvos: std::collections::BTreeSet<&str> = body
+        .split(|c: char| c.is_whitespace() || c == '"' || c == '\'' || c == '(' || c == ')')
+        .filter(|t| t.contains('/') && t.len() > 3 && !t.starts_with('-'))
+        // Dispositivos e descritores não são alvos de inspeção: `2>/dev/null`
+        // é plumbing do shell, e contá-lo fazia um programa de um arquivo
+        // parecer que tocava dois (medido ao vivo em 26/08).
+        .filter(|t| {
+            !t.trim_start_matches(['>', '<', '&', '1', '2'])
+                .starts_with("/dev/")
+        })
+        .collect();
+    let fundido = ops.max(alvos.len());
+    if fundido <= 1 {
+        ProgramShape::Trivial
+    } else {
+        ProgramShape::Fused(fundido)
+    }
+}
+
+/// O que o modelo fez com a rota que recebeu — puro, para ser mais fácil de
+/// testar do que de contornar.
+///
+/// `Some(1.0)` rodou o programa; `Some(0.0)` recusou a rota com um token de
+/// relaxamento; `None` fez outra coisa — e isso NÃO é veredito. Ausência de
+/// sinal é desconhecido, jamais zero: a mesma leitura fail-closed que o nó
+/// `loop` aplica a `NEW_FINDINGS`.
+///
+/// A ordem importa: `TOURING_CODE_MODE=native touring run …` **rodou** o
+/// programa. Ter relaxado o gate no caminho não desfaz o fato de a rota ter
+/// sido tomada.
+pub fn classify_route_outcome(cmd: &str) -> Option<f64> {
+    // `TOURING_T3_FUSE_DISABLED=1` saiu com o T3-B (S10, 27/08): reconhecer um
+    // kill switch que não desliga nada ensinaria o modelo a digitá-lo.
+    const BYPASS: [&str; 3] = [
+        "TOURING_CODE_MODE=native",
+        "TOURING_GATE_OK=1",
+        "TOURING_CODE_GATES_DISABLED=1",
+    ];
+    if cmd.contains("touring run ") || cmd.contains("touring exec ") {
+        // A rota foi tomada — mas COMPROU alguma coisa? Um programa que
+        // inspeciona um alvo com uma operação é uma chamada atômica com casca:
+        // o canal está certo e a economia é nula. Creditar 1.0 aqui ensinaria
+        // ao braço que `code` é ótimo porque todos obedecem, quando cada
+        // obediência custou um round-trip (achado de Gabriel, 26/08).
+        //
+        // 0.5 e não 0.0: sob `code` a chamada atômica é NEGADA, então a casca é
+        // obrigatória. Punir como recusa culparia o modelo pela política — o
+        // custo é da apresentação, e é dela que o número tem de falar.
+        return Some(match extract_run_body(cmd).map(program_shape) {
+            Some(ProgramShape::Trivial) => 0.5,
+            _ => 1.0,
+        });
+    }
+    if BYPASS.iter().any(|t| cmd.contains(t)) {
+        return Some(0.0);
+    }
+    None
+}
+
+/// Semeia uma oferta de rota — só para teste, pela MESMA chave do runtime.
+///
+/// Um teste que montasse a chave por conta própria provaria que a sua fórmula
+/// funciona, não que a do gate funciona.
+#[cfg(test)]
+pub fn turn_ledger_insert_for_test(project_root: &Path, payload: &Value, offer: RouteOffer) {
+    let key = format!("{}\u{2}{}", project_root.display(), session_key(payload));
+    route_offers().insert(key, offer);
+}
+
+/// Nome estável do braço. É a chave dos contadores e da memória — mudá-lo
+/// renomeia o braço e zera a evidência acumulada sem avisar ninguém.
+pub(crate) fn presentation_label(p: CodeModePresentation) -> &'static str {
+    p.label()
+}
+
+/// Registra que a apresentação acabou de entregar uma rota escrita.
+///
+/// Escritor ÚNICO do campo `route`: dois sítios gravando a mesma oferta seriam
+/// duas versões da mesma decisão, e a primeira divergência entre eles só
+/// apareceria como um braço aprendendo o oposto do que aconteceu — a classe de
+/// `comentario-afirma-simetria-inexistente`.
+pub(crate) fn record_route_offer(project_root: &Path, session: &str, mode: CodeModePresentation) {
+    let label = presentation_label(mode);
+    let key = format!("{}\u{2}{session}", project_root.display());
+    let offered_secs = now_secs();
+    route_offers().insert(
+        key,
+        RouteOffer {
+            mode: label.to_string(),
+            offered_secs,
+        },
+    );
+    // `bump_arm` é o escritor único: ele grava a vista durável E a volátil.
+    bump_arm(project_root, label, ArmAxis::Offered);
+    // r3 shadow (observe-only, default OFF): fecha como `replaced` a oferta que ainda
+    // estava pendente nesta sessão e abre a nova. Nada aqui altera o que foi gravado acima.
+    r3_a2::on_offer(project_root, session, label, offered_secs);
+}
+
+/// Onde vive a evidência DURÁVEL do braço, por projeto.
+///
+/// Medido em 26/08/2026: `t3_turn_first_passed_count` caiu de 2 para 0 em dois
+/// minutos, sem nada acontecer além de um restart de daemon. Os contadores de
+/// `gate-metrics` são telemetria de processo — e uma política com piso de
+/// amostra que lesse dali NUNCA alcançaria o piso entre deploys: existiria,
+/// estaria armada, e não escolheria nada. Exatamente o modo de falha que este
+/// plano inteiro cataloga. A decisão lê disco; a telemetria segue observando.
+/// Ofertas de rota pendentes, por (projeto, sessão).
+///
+/// Cache PRÓPRIO e não um campo do `TurnBurst`: guardá-la lá fazia
+/// `record_route_offer` chamar `get(...).unwrap_or_default()` num deny
+/// code-mode onde o turno muitas vezes NÃO existe — e o default tem
+/// `first_passed = false`, então a oferta inseria um turno falso e a fusão T3
+/// seguinte nunca disparava. Os testes pegaram isso como vítima alternando
+/// entre dois vizinhos, a assinatura de estado global compartilhado.
+///
+/// A separação também é semântica: a oferta sobrevive ao `turn_gate_close` de
+/// propósito (o fim do turno é quando o desfecho fica observável, não quando se
+/// esquece dele) — sinal de que nunca foi estado de turno.
+fn route_offers() -> &'static moka::sync::Cache<String, RouteOffer> {
+    static C: OnceLock<moka::sync::Cache<String, RouteOffer>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(1024)
+            .time_to_live(Duration::from_secs(60))
+            .build()
+    })
+}
+
+fn arm_store_path(project_root: &Path) -> std::path::PathBuf {
+    project_root.join(".claude/touring/code_mode_arm.json")
+}
+
+/// Evidência DURÁVEL das famílias de medição sem arquivo próprio — S3 (rajada
+/// de inspeção) e pillar-induction. R2 (29/08, ordem de Gabriel): os KPIs
+/// `inspect_burst_share` e `pillar_induction_ratio` liam contadores de
+/// processo que zeram a cada restart do daemon (3 deploys num dia = 3 apagões
+/// da amostra) — a mesma classe que fez a decisão do braço ler
+/// `code_mode_arm.json`. Mesmo contrato do arm: leitura ilegível ⇒ zeros (o
+/// consumidor fica calado), falha de escrita ⇒ warn, nunca silêncio.
+fn durable_evidence_path(project_root: &Path) -> std::path::PathBuf {
+    project_root.join(".claude/touring/durable_gate_evidence.json")
+}
+
+/// O arquivo inteiro como JSON; ausente/corrompido ⇒ objeto vazio (evidência
+/// que não se pode ler é evidência que não existe).
+pub(crate) fn read_durable_evidence(project_root: &Path) -> serde_json::Value {
+    std::fs::read_to_string(durable_evidence_path(project_root))
+        .ok()
+        .and_then(|t| serde_json::from_str(&t).ok())
+        .filter(serde_json::Value::is_object)
+        .unwrap_or_else(|| serde_json::json!({}))
+}
+
+/// `+1` em `<family>.<field>`, read-modify-write no arquivo durável. Chamado
+/// ao lado do contador volátil correspondente — o vivo alimenta o
+/// `gate-metrics` da sessão, o durável alimenta o KPI que precisa de DIAS.
+pub(crate) fn bump_durable_evidence(project_root: &Path, family: &str, field: &str) {
+    let mut v = read_durable_evidence(project_root);
+    let Some(obj) = v.as_object_mut() else { return };
+    let fam = obj
+        .entry(family.to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !fam.is_object() {
+        *fam = serde_json::json!({});
+    }
+    let Some(f) = fam.as_object_mut() else { return };
+    let n = f.get(field).and_then(Value::as_u64).unwrap_or(0);
+    f.insert(field.to_string(), serde_json::json!(n + 1));
+    let path = durable_evidence_path(project_root);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    if let Err(e) = std::fs::write(&path, v.to_string()) {
+        tracing::warn!(
+            target: "touring::kpi",
+            "durable gate evidence write failed at {}: {e}",
+            path.display()
+        );
+    }
+}
+
+/// TTL curto: `code_mode_presentation` roda em todo PreToolUse, e ler o arquivo
+/// a cada chamada trocaria um problema de durabilidade por um de latência.
+fn arm_cache() -> &'static moka::sync::Cache<String, ArmCounts> {
+    static C: OnceLock<moka::sync::Cache<String, ArmCounts>> = OnceLock::new();
+    C.get_or_init(|| {
+        moka::sync::Cache::builder()
+            .max_capacity(64)
+            .time_to_live(Duration::from_secs(5))
+            .build()
+    })
+}
+
+const ARM_NAMES: [&str; 3] = ["native", "both", "code"];
+
+fn arm_index(mode: &str) -> Option<usize> {
+    ARM_NAMES.iter().position(|n| *n == mode)
+}
+
+/// Lê o arquivo. Ausente, ilegível ou corrompido ⇒ zeros: evidência que não se
+/// pode ler é evidência que não existe, e zeros deixam a política calada (que é
+/// o comportamento seguro), em vez de inventar uma escolha.
+/// `(oferecidas, tomadas, economicas)` por braço.
+///
+/// Três números e não dois porque obediência e economia são eixos DIFERENTES:
+/// `tomadas/oferecidas` responde "seguiram a rota?" (o canal) e
+/// `economicas/tomadas` responde "a rota comprou round-trips?" (a economia).
+/// Fundi-los num só faria um braço obedecido e caro parecer excelente — o
+/// defeito que Gabriel apontou na `adoption_ratio`.
+pub(crate) type ArmCounts = [(u64, u64, u64); 3];
+
+fn read_arm_file(project_root: &Path) -> ArmCounts {
+    let mut out = [(0u64, 0u64, 0u64); 3];
+    let Ok(txt) = std::fs::read_to_string(arm_store_path(project_root)) else {
+        return out;
+    };
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) else {
+        return out;
+    };
+    for (i, nome) in ARM_NAMES.iter().enumerate() {
+        if let Some(par) = v.get(*nome) {
+            out[i].0 = par.get("offered").and_then(Value::as_u64).unwrap_or(0);
+            out[i].1 = par.get("followed").and_then(Value::as_u64).unwrap_or(0);
+            out[i].2 = par.get("economical").and_then(Value::as_u64).unwrap_or(0);
+        }
+    }
+    out
+}
+
+fn write_arm_file(project_root: &Path, counts: &ArmCounts) {
+    let path = arm_store_path(project_root);
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let mut obj = serde_json::Map::new();
+    for (i, nome) in ARM_NAMES.iter().enumerate() {
+        obj.insert(
+            (*nome).to_string(),
+            serde_json::json!({
+                "offered": counts[i].0,
+                "followed": counts[i].1,
+                "economical": counts[i].2,
+            }),
+        );
+    }
+    // Falha de escrita NÃO pode ser silenciosa. Se o diretório não for
+    // gravável, a evidência fica em zero para sempre e a política se cala —
+    // indistinguível de "ainda não há amostra". Um `warn` é a diferença entre
+    // um bug diagnosticável e mais um mecanismo que existe e nunca dispara.
+    if let Err(e) = std::fs::write(&path, serde_json::Value::Object(obj).to_string()) {
+        tracing::warn!(
+            path = %path.display(),
+            error = %e,
+            "P2: evidência do braço code-mode não pôde ser persistida — a política \
+             ficará calada e isso NÃO é ausência de amostra"
+        );
+    }
+}
+
+/// Evidência durável do projeto, com cache curto.
+pub(crate) fn arm_counts_full(project_root: &Path) -> ArmCounts {
+    let key = project_root.display().to_string();
+    if let Some(c) = arm_cache().get(&key) {
+        return c;
+    }
+    let counts = read_arm_file(project_root);
+    arm_cache().insert(key, counts);
+    counts
+}
+
+/// O par `(oferecidas, tomadas)` que a POLÍTICA lê. A economia é reportada
+/// (KPI) mas ainda não escolhe braço: mudar o critério de escolha é decisão de
+/// Gabriel, não efeito colateral de ter passado a medir.
+pub(crate) fn arm_counts_durable(project_root: &Path) -> [(u64, u64); 3] {
+    let full = arm_counts_full(project_root);
+    [
+        (full[0].0, full[0].1),
+        (full[1].0, full[1].1),
+        (full[2].0, full[2].1),
+    ]
+}
+
+/// Incrementa um eixo do braço e persiste.
+///
+/// **Orçamento**: este arquivo declara `< 1ms (scan de bytes + moka)` para o
+/// caminho quente, e aqui há I/O de disco. Os dois únicos chamadores estão
+/// DENTRO de ramos de deny (a fusão T3 e o deny code-mode), então a leitura +
+/// escrita de ~200 bytes é paga só quando um gate age — nunca nas chamadas que
+/// passam, que são a esmagadora maioria. O orçamento do caminho comum segue
+/// intacto; quem paga é o evento raro que produz a evidência.
+///
+/// Relê o arquivo antes de somar (não o cache): dois daemons per-project ou
+/// duas sessões no mesmo projeto somariam sobre uma cópia velha e uma das duas
+/// contagens sumiria. Continua havendo uma janela de corrida entre a leitura e
+/// a escrita — aceitável para um contador de evidência, e declarada aqui em vez
+/// de descoberta depois como número que não bate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ArmAxis {
+    /// A apresentação entregou uma rota.
+    Offered,
+    /// O modelo tomou a rota (o canal).
+    Followed,
+    /// A rota tomada fundiu round-trips (a economia).
+    Economical,
+}
+
+fn bump_arm(project_root: &Path, mode: &str, eixo: ArmAxis) {
+    let Some(i) = arm_index(mode) else { return };
+    let mut counts = read_arm_file(project_root);
+    // Escritor ÚNICO da contagem do braço. A evidência DURÁVEL (o arquivo, que
+    // sobrevive ao restart e alimenta a política) e a VOLÁTIL (os átomos que
+    // `gate-metrics -j` publica) são duas VISTAS DA MESMA decisão — não dois
+    // registros independentes. Até 26/08 elas eram mantidas por dois call
+    // sites adjacentes: funcionava por vizinhança, não por construção, e um
+    // terceiro ponto de oferta que chamasse só um dos dois faria as vistas
+    // divergirem em silêncio (a política aprendendo de um número que o
+    // operador não vê em `gate-metrics`, ou o inverso). É a mesma regra que a
+    // docstring de `record_route_offer` já impunha ao campo `route`, aplicada
+    // ao vizinho que ela não cobria. Provado por
+    // `bump_arm_mantem_duravel_e_volatil_em_sincronia`.
+    match eixo {
+        ArmAxis::Offered => {
+            counts[i].0 = counts[i].0.saturating_add(1);
+            touring_foundation::gate_metrics_snapshot::record_code_mode_arm_offered(mode);
+        }
+        ArmAxis::Followed => {
+            counts[i].1 = counts[i].1.saturating_add(1);
+            touring_foundation::gate_metrics_snapshot::record_code_mode_arm_followed(mode);
+        }
+        // Economia não tem contador atômico correspondente: `gate-metrics`
+        // publica canal (oferecida/tomada), e a economia é derivada no KPI a
+        // partir da forma do programa. Sem par volátil, nada a sincronizar.
+        ArmAxis::Economical => counts[i].2 = counts[i].2.saturating_add(1),
+    }
+    write_arm_file(project_root, &counts);
+    arm_cache().insert(project_root.display().to_string(), counts);
+}
+
+/// P2 (decisão (b), 26/08/2026) — a política só age quando ARMADA.
+///
+/// Default-OFF, como o `f7_actuator_armed`: sem a env, nenhum sinal é lido e o
+/// comportamento é byte-idêntico ao de antes. Armar é decisão humana, e é o
+/// gate de promoção que o survey MSR exige além da fronteira do verificador —
+/// aqui o sinal (o modelo seguiu a rota?) é produzido pelo próprio sistema
+/// dirigido, então autonomia sem humano degradaria com a iteração.
+fn code_mode_arm_armed() -> bool {
+    std::env::var("TOURING_CODE_MODE_ARM_ARMED").is_ok_and(|v| v != "0")
+}
+
+/// A precedência final, PURA: declaração humana > política armada > default.
+///
+/// Extraída de `code_mode_presentation` porque a invariante que mais importa
+/// aqui — "a política nunca sobrescreve o que o humano declarou" — só era
+/// testável mutando `TOURING_CODE_MODE_ARM_ARMED` no processo. E a var passou a
+/// ser lida também pelo caminho da fusão, então essa mutação vazava para testes
+/// concorrentes: `turn_gate_ignora_o_que_nao_e_fanout` falhava em paralelo e
+/// passava com `--test-threads=1` (a assinatura de estado global). Um predicado
+/// puro é mais fácil de testar do que de contornar, e não tem vítima.
+pub(crate) fn resolve_with_policy(
+    declarado: Option<CodeModePresentation>,
+    armada: bool,
+    counts: [(u64, u64); 3],
+) -> CodeModePresentation {
+    if let Some(d) = declarado {
+        return d;
+    }
+    if armada && let Some(escolhido) = arm_choice_from_counts(counts) {
+        return escolhido;
+    }
+    CodeModePresentation::Both
+}
+
+/// Piso de amostra por braço — COMPARTILHADO com o KPI que reporta a evidência.
+///
+/// Uma cópia do número em cada lado divergiria no primeiro ajuste, e aí o
+/// painel diria "pronto para promover" enquanto a política ainda se cala (ou o
+/// contrário). O juiz e o medidor têm de ler o mesmo predicado.
+pub(crate) const ARM_MIN_SAMPLE: u64 = 20;
+
+/// Escolhe o braço pela evidência medida — ou `None` quando ela é fina.
+///
+/// Puro, para ser mais fácil de testar do que de contornar. Duas regras:
+///
+/// * **Piso de amostra** (`ARM_MIN_SAMPLE`): abaixo dele "a melhor taxa" é
+///   ruído amostral, e promover ruído é exatamente o que `default-OFF +
+///   promoção medida` existe para impedir.
+/// * **Comparação exige ao menos DOIS braços** com amostra. Um único braço
+///   acima do piso não é uma escolha: é o único que existe, e "escolher" o
+///   único observado seria confirmar a configuração vigente chamando isso de
+///   aprendizado.
+///
+/// Exploração — oferecer deliberadamente um braço sub-amostrado para aprender
+/// sobre ele — NÃO está aqui de propósito: significaria degradar a
+/// apresentação para colher dado, o que é outra decisão humana.
+pub(crate) fn arm_choice_from_counts(counts: [(u64, u64); 3]) -> Option<CodeModePresentation> {
+    let arms = [
+        CodeModePresentation::Native,
+        CodeModePresentation::Both,
+        CodeModePresentation::Code,
+    ];
+    let mut elegiveis: Vec<(f64, CodeModePresentation)> = Vec::new();
+    for (i, (offered, followed)) in counts.iter().enumerate() {
+        if *offered >= ARM_MIN_SAMPLE {
+            elegiveis.push((*followed as f64 / *offered as f64, arms[i]));
+        }
+    }
+    if elegiveis.len() < 2 {
+        return None;
+    }
+    elegiveis.sort_by(|a, b| b.0.total_cmp(&a.0));
+    let (melhor, vice) = (elegiveis[0], elegiveis[1]);
+    // Margem mínima: uma diferença dentro do ruído NÃO é evidência. Sem ela,
+    // `max_by` desempataria pela ordem do vetor e a apresentação mudaria por
+    // acaso — trocar o gate de um projeto no desempate é o oposto de "promoção
+    // por evidência medida". Empate ⇒ silêncio ⇒ o default declarado prevalece.
+    const ARM_MIN_MARGIN: f64 = 0.05;
+    if melhor.0 - vice.0 < ARM_MIN_MARGIN {
+        return None;
+    }
+    Some(melhor.1)
+}
+
+/// Reivindica a rota pendente **apenas quando há veredito** — o par
+/// (braço, recompensa) pronto para o depósito.
+///
+/// Classificar antes de reivindicar não é preferência de estilo: uma oferta
+/// reivindicada some. Com a ordem invertida, o primeiro PostToolUse de QUALQUER
+/// ferramenta — um `Read`, que nem carrega comando — consumia a oferta sem
+/// veredito, e o `touring run` logo em seguida já não achava nada para creditar.
+/// Deixar a regra no chamador a perderia no segundo chamador; aqui ela é
+/// estrutural.
+pub fn claim_route_reward(
+    project_root: &Path,
+    payload: &Value,
+    cmd: &str,
+) -> Option<(RouteOffer, f64)> {
+    let decision = claim_route_reward_decision(project_root, payload, cmd);
+    // r3 shadow (observe-only, default OFF): a decisão acima já está tomada e é devolvida
+    // por valor, intocada — o shadow só a OBSERVA para fechar o ciclo de vida da oferta.
+    r3_a2::on_outcome(
+        project_root,
+        payload,
+        cmd,
+        decision.as_ref().map(|(_, v)| *v),
+    );
+    decision
+}
+
+/// A decisão de produção de [`claim_route_reward`] — o corpo original, sem o shadow.
+fn claim_route_reward_decision(
+    project_root: &Path,
+    payload: &Value,
+    cmd: &str,
+) -> Option<(RouteOffer, f64)> {
+    let value = classify_route_outcome(cmd)?;
+    let offer = take_route_offer(project_root, payload)?;
+    if value > 0.0 {
+        bump_arm(project_root, &offer.mode, ArmAxis::Followed);
+        // 1.0 é o programa que FUNDIU; 0.5 é a casca sobre uma chamada só.
+        if value >= 1.0 {
+            bump_arm(project_root, &offer.mode, ArmAxis::Economical);
+        }
+    }
+    Some((offer, value))
+}
+
+/// W2 S-2.1 — o gate de rajada. `Some(resposta)` curto-circuita; `None` deixa
+/// o fluxo (inclusive o advisory legado da 3ª busca) seguir.
+/// Fração de tokens que dois comandos compartilham (Jaccard sobre o multiconjunto
+/// de tokens), em `[0.0, 1.0]`.
+///
+/// Calibração proposta por Gabriel (26/08/2026): *"se o comando repetir pelo
+/// menos 50% do comando anterior"*. Preenche um buraco real entre os gates —
+/// o G6 pega só o byte-idêntico, o G7 só a re-inspeção do MESMO arquivo, e o G1
+/// só ao acumular N da mesma classe. `grep X a.rs` seguido de `grep X b.rs` é a
+/// assinatura canônica do fan-out serial e não era pego por nenhum deles.
+///
+/// Jaccard sobre tokens, e não prefixo comum: `sed -n 1,20p f` vs
+/// `sed -n 40,60p f` compartilham quase tudo mas divergem cedo no texto, e um
+/// prefixo os julgaria distintos. A ordem também não deve importar — o que
+/// interessa é quanto do trabalho se repete.
+pub(crate) fn command_similarity(a: &str, b: &str) -> f64 {
+    let toks = |c: &str| -> std::collections::BTreeSet<String> {
+        c.split_whitespace().map(str::to_string).collect()
+    };
+    let (ta, tb) = (toks(a), toks(b));
+    if ta.is_empty() || tb.is_empty() {
+        return 0.0;
+    }
+    let inter = ta.intersection(&tb).count() as f64;
+    let uniao = ta.union(&tb).count() as f64;
+    inter / uniao
+}
+
+/// Limiar da calibração por similaridade (Gabriel, 26/08/2026).
+pub(crate) const G1_SIMILARITY_AT: f64 = 0.5;
+
+/// O orçamento de parede da chamada que a reescrita do G1 substitui (09/10/2026).
+/// A reescrita herdava os 30 s padrão do `touring run`; a chamada original tinha o
+/// do Bash — o `timeout` dela, ou 120 s — e morria aos 30 s (`exit_code -2`, medido
+/// num laço de espera de 600 s). Em background o Bash não tem teto: vale o máximo
+/// do `touring run`. A folga deixa o envelope voltar antes do teto externo.
+fn rewrite_wall_ms(tool_input: &Value) -> u64 {
+    const BASH_DEFAULT_MS: u64 = 120_000;
+    const RUN_MAX_MS: u64 = 600_000;
+    const FOLGA_MS: u64 = 5_000;
+    if tool_input.get("run_in_background").and_then(Value::as_bool) == Some(true) {
+        return RUN_MAX_MS;
+    }
+    let externo = tool_input
+        .get("timeout")
+        .and_then(Value::as_u64)
+        .unwrap_or(BASH_DEFAULT_MS);
+    externo.saturating_sub(FOLGA_MS).clamp(1_000, RUN_MAX_MS)
+}
+
+/// O `updatedInput` de uma reescrita: a chamada original com SÓ o `command`
+/// trocado (09/10/2026). O `updatedInput` SUBSTITUI o input — medido ao vivo: duas
+/// chamadas com `run_in_background: true` e `timeout: 600000` reescritas pelo G2
+/// voltaram "did not complete within its 120s timeout and was moved to the
+/// background". Usado pelas três reescritas (G1, G2, G8).
+fn rewritten_input(tool_input: &Value, command: String) -> Value {
+    let mut novo = tool_input.as_object().cloned().unwrap_or_default();
+    novo.insert("command".to_string(), Value::String(command));
+    Value::Object(novo)
+}
+
+/// Declara o orçamento de parede num programa `touring run --lang bash …` já
+/// montado (o do G8 sai de [`loop_rewrite_candidate`], que não conhece a chamada).
+fn with_wall_budget(programa: String, wall_ms: u64) -> String {
+    match programa.strip_prefix("touring run --lang bash ") {
+        Some(resto) => format!("touring run --lang bash --timeout-ms {wall_ms} {resto}"),
+        None => programa,
+    }
+}
+
+/// O corpo, com os overrides injetados (ver `GateOverrides`).
+fn burst_gate_with(
+    project_root: &Path,
+    session: &str,
+    cmd: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
+) -> Option<String> {
+    use crate::shared::gate_metrics::{
+        GateEvent, GateId, g1_live_precision, record_g1_continuation, record_gate_event,
+    };
+    let class = scan_class_of(cmd);
+    // S-2.3: a primeira chamada pós-deny fecha o continuation-check. Seguir o
+    // REMÉDIO (`touring run`) conta como acerto E como followed: converter a
+    // rajada é o melhor desfecho do gate — contá-lo como "other" demoveria um
+    // gate funcionando (visto vivo no primeiríssimo deny do G1, 2026-08-25).
+    if let Some(denied_class) = pending_g1().remove(session) {
+        let seguiu_remedio = cmd.contains("touring run");
+        if seguiu_remedio {
+            record_gate_event(GateId::G1, GateEvent::Followed);
+        }
+        record_g1_continuation(seguiu_remedio || class == Some(denied_class.as_str()));
+    }
+    let class = class?;
+    // S24: a command naming a path the sandbox cannot reach is not fusible into
+    // `touring run` — counting it would deny toward a route that fails.
+    if !unreachable_in_sandbox(project_root, cmd).is_none() {
+        return None;
+    }
+    let key = burst_key(project_root, session, class);
+    let epoca_atual = mutation_epoch()
+        .get(&project_root.display().to_string())
+        .unwrap_or(0);
+    let (count, mut cmds, epoca_anterior) =
+        burst_ledger()
+            .get(&key)
+            .unwrap_or((0, Vec::new(), epoca_atual));
+    let count = count.saturating_add(1);
+    // O comando entra INTEIRO (nunca cortado). O ledger é a memória da rajada;
+    // no programa do disparo os já executados viram comentário (S212) e só o
+    // comando que disparou roda — inclusive quando ele não coube aqui.
+    if cmds.len() < 8 && cmd.chars().count() <= G1_BODY_BUDGET {
+        cmds.push(cmd.to_string());
+    }
+    burst_ledger().insert(key, (count, cmds.clone(), epoca_atual));
+    // Calibração por SIMILARIDADE: o G1 esperava `G1_DENY_AT` chamadas da mesma
+    // classe. Uma variação pequena da chamada anterior já é a mesma inspeção
+    // repetida — não é preciso esperar a quarta para saber que a rajada é uma
+    // só. Dispara na SEGUNDA quando ≥ 50% dos tokens se repetem.
+    let similaridade = if cmds.len() >= 2 && epoca_anterior == epoca_atual {
+        command_similarity(&cmds[cmds.len() - 2], cmd)
+    } else {
+        0.0
+    };
+    let quase_igual = similaridade >= G1_SIMILARITY_AT;
+    if count < G1_DENY_AT && !quase_igual {
+        return None;
+    }
+    if ovr.code_gates_disabled {
+        record_gate_event(GateId::G1, GateEvent::Bypassed);
+        return None;
+    }
+    // Um disparo por lote (o mesmo contrato do G10: «zera para a próxima rajada — um
+    // deny por lote, nunca fadiga»): TODO disparo consome a rajada — advisory, reescrita
+    // ou deny. O que o disparo levou foi consumido e a próxima inspeção começa outra; sem
+    // isto cada inspeção seguinte refundia o ledger inteiro (até 8 comandos). `cmds`
+    // abaixo é a cópia local, então o programa do disparo não depende do ledger.
+    burst_ledger().invalidate(&key);
+    // S212 no G1 (09/10/2026, medido ao vivo no 30.4.95): o ledger termina no comando
+    // que disparou, e tudo antes dele JÁ rodou nativo. Fundir o ledger inteiro
+    // reexecutava esses comandos no sandbox a cada inspeção seguinte; e um comando
+    // acima do orçamento nem entrava no ledger, então a reescrita rodava os antigos e
+    // PERDIA o atual. O invariante é o do G10: o que já rodou viaja como comentário, e
+    // o comando que disparou é o único passo — sempre presente, nunca cortado.
+    let executados: Vec<String> = match cmds.split_last() {
+        Some((ultimo, antes)) if ultimo == cmd => antes.to_vec(),
+        _ => cmds.clone(),
+    };
+    let mut corpo = comentarios_ja_executados(&executados);
+    corpo.push_str(cmd);
+    let wall_ms = rewrite_wall_ms(tool_input);
+    let programa = format!(
+        "touring run --lang bash --timeout-ms {wall_ms} --code '{}'",
+        corpo.replace('\'', "'\\''")
+    );
+    if !g1_should_deny(ovr.g1_precision.unwrap_or_else(g1_live_precision)) {
+        // Autodemovido por dado vivo (S-2.3): a tese continua falsificável.
+        record_gate_event(GateId::G1, GateEvent::Emitted);
+        return Some(g1_advisory_response(count, class, &programa));
+    }
+    // V0e1: o Denied e o pending_g1 desceram para o caminho do deny clássico
+    // (abaixo do rewrite) — o rewrite não é um turno cego e não entra no
+    // continuation-check.
+    // A razão DECLARADA tem de ser a do gatilho que disparou. Com a calibração
+    // por similaridade, um deny na 2ª chamada exibindo "90% das rajadas ≥4"
+    // justificaria o bloqueio por uma estatística que não se aplica a ele — o
+    // anti-padrão D8 (o anúncio promete o que o executor não fez) dentro do
+    // próprio gate.
+    let motivo = if quase_igual && count < G1_DENY_AT {
+        format!(
+            "repete {:.0}% dos tokens da inspeção anterior da mesma classe, sem \
+             mutação no meio — é a mesma varredura variada, não uma pergunta nova",
+            similaridade * 100.0
+        )
+    } else {
+        format!(
+            "{count}ª inspeção da classe `{class}` desde o último disparo (janela de \
+             {CODE_MODE_WINDOW_SECS}s) — 90% das rajadas ≥{G1_DENY_AT} continuavam \
+             iguais (51 disparos/55 sessões)"
+        )
+    };
+    let hint = snippet_hint_for_program(&programa, project_root);
+    // V0e1 (09/10/2026 — aprovado por Gabriel; medido pela 6b: G1 = 46% das
+    // negações e menos da metade segue a rota): o gate EXECUTA a rota em vez de
+    // negar — a rajada acumulada vira o `updatedInput` do `touring run` e o
+    // executor a roda no sandbox (spike S-8.6: updatedInput honrado). Quem o
+    // sandbox não alcança nem chega aqui (o check S24 acima devolve None → a
+    // chamada original roda nativa: o fallback é estrutural, nunca um zero
+    // silencioso). Kill switch humano: TOURING_G1_REWRITE_DISABLED=1.
+    if !ovr.g1_rewrite_disabled {
+        record_gate_event(GateId::G1, GateEvent::Emitted);
+        record_gate_event(GateId::G1, GateEvent::Followed);
+        return Some(g1_rewrite_response(
+            &motivo,
+            &hint,
+            executados.len(),
+            tool_input,
+            programa,
+        ));
+    }
+    record_gate_event(GateId::G1, GateEvent::Denied);
+    // um deny encerra o turno cego: a próxima chamada é a RESPOSTA do modelo
+    // ao deny (o continuation-check A/B vive dela chegando ao burst_gate).
+    pending_g1().insert(session.to_string(), class.to_string());
+    Some(deny_response(format!(
+        "[G1 rajada-de-inspeção] {motivo}. Rode-o como programa — os já executados da \
+         rajada vêm como comentário e NUNCA são repetidos:\n  {programa}{hint}\nBypass \
+         por-comando: prefixe {GATE_BYPASS_TOKEN} (reseta a janela e é contado)."
+    )))
+}
+
+/// O advisory do G1 quando a precisão viva o autodemove (S-2.3): só `additionalContext`,
+/// e o comando segue NATIVO e intacto. O texto antigo («a rajada acumulada já é o
+/// programa») soava como ordem de rodar o programa — repetindo o comando que acabara de
+/// rodar. Agora o programa é declarado o FORMATO da próxima rajada, nunca um passo
+/// pendente desta.
+fn g1_advisory_response(count: u32, class: &str, programa: &str) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "additionalContext": format!(
+                "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de \
+                 {G1_DEMOTE_FLOOR}] {count}ª inspeção `{class}` desde o último disparo. \
+                 ESTE comando roda NATIVO e intacto — não o repita. O programa abaixo é \
+                 o FORMATO para a próxima rajada: junte as inspeções seguintes num só \
+                 `touring run`:\n  {programa}"
+            ),
+        }
+    })
+    .to_string()
+}
+
+/// A reescrita do G1 (V0e1). O `permissionDecisionReason` de um `allow` vai só para o
+/// log de debug (code.claude.com/docs/en/hooks, "For "allow" and "defer", written to
+/// the debug log only") — nem o modelo nem o usuário o veem. O modelo, que recebe a
+/// saída do sandbox no lugar da do seu comando, precisa do `additionalContext` (que só
+/// o `defer` ignora; teto de 10.000 chars) — sem ele a saída parecia "de outra
+/// chamada" (medido 09/10).
+fn g1_rewrite_response(
+    motivo: &str,
+    hint: &str,
+    ja_executados: usize,
+    tool_input: &Value,
+    programa: String,
+) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+            "permissionDecisionReason": format!(
+                "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. Só o comando que \
+                 disparou executa no sandbox; os {ja_executados} já executados vêm como \
+                 comentário.{hint}"
+            ),
+            "additionalContext": format!(
+                "[G1 rajada-de-inspeção → REESCRITO no sandbox] {motivo}. Este comando rodou \
+                 como `touring run` (a saída vem no JSON do sandbox). Os {ja_executados} \
+                 anterior(es) da rajada já tinham rodado e aparecem só como comentário — NÃO \
+                 rodaram de novo. Na próxima rajada, junte as inspeções em 1 programa."
+            ),
+            "updatedInput": rewritten_input(tool_input, programa),
+        }
+    })
+    .to_string()
+}
+
+/// Resposta de deny do PreToolUse (contrato Claude Code): a razão carrega o
+/// remédio derivado do comando REAL (injection-density — nunca placeholder).
+fn deny_response(reason: String) -> String {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": reason,
+        }
+    })
+    .to_string()
+}
+
+/// N6 (2026-09-23) — o programa fundido do deny encontra a escada: quando um
+/// bloco parecido JÁ existe, a razão o entrega (afordância por construção, D8),
+/// e a rajada negada vira descoberta em vez de só reescrita. A régua media o
+/// contrário: `ladder_enrolled` 390 × `ladder_reused` 10 — descoberta falha
+/// no momento exato da ação. Read-only; `None` em qualquer erro (testável com
+/// um banco em memória).
+fn snippet_hint_line(conn: &rusqlite::Connection, program: &str) -> Option<String> {
+    let m = touring_intelligence::rl::memory::snippet_stats::similar_snippets(conn, program, 1)
+        .ok()?
+        .into_iter()
+        .next()?;
+    Some(format!(
+        "\nJá há um bloco parecido na escada: `{}` (sim {:.0}%, {} exec, {}) — \
+         `touring memory recall \"{}\"` cobre sem reescrever.",
+        m.entry_key,
+        m.similarity * 100.0,
+        m.executions,
+        m.trust.badge(),
+        m.entry_key,
+    ))
+}
+
+/// O wrapper de I/O: abre o memory.db do projeto somente-leitura e devolve ""
+/// em qualquer falha — um deny jamais falha POR CAUSA da dica.
+fn snippet_hint_for_program(program: &str, root: &Path) -> String {
+    let db = touring_foundation::TouringConfig::memory_db_canonical(root);
+    if !db.exists() {
+        return String::new();
+    }
+    rusqlite::Connection::open_with_flags(
+        &db,
+        rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .ok()
+    .and_then(|conn| snippet_hint_line(&conn, program))
+    .unwrap_or_default()
+}
+
+/// G8 — o laço de inspeção pura vira UMA varredura no sandbox.
+///
+/// Devolve o comando reescrito, ou `None` quando o laço não é candidato. Puro
+/// (sem I/O) para ser exercitável em unit test — o predicado que decide precisa
+/// ser mais fácil de testar do que de contornar.
+///
+/// Entra: `for`/`while` cujo corpo só inspeciona (grep/cat/head/tail/ls/find/
+/// echo/wc/awk/sed/jq/stat/basename). Fica de fora, por construção, tudo que
+/// tem efeito (kill, git, cargo, rm, mv, install, deploy), redireciona para
+/// arquivo, usa heredoc (o corpo é dado, não programa) ou já é code mode.
+pub(crate) fn loop_rewrite_candidate(cmd: &str) -> Option<String> {
+    if std::env::var("TOURING_G8_REWRITE_DISABLED").map(|v| v == "1") == Ok(true) {
+        return None;
+    }
+    let trimmed = cmd.trim();
+    // Já é code mode / master CLI — nada a converter.
+    if trimmed.contains("touring run") || trimmed.contains("touring exec") {
+        return None;
+    }
+    // Heredoc: o corpo é DADO (mesma razão do G2), e o quoting não sobrevive.
+    if trimmed.contains("<<") {
+        return None;
+    }
+    // Aspas simples desbalanceadas quebrariam o `--code '...'`.
+    if !trimmed.matches('\'').count().is_multiple_of(2) {
+        return None;
+    }
+    // Precisa de um laço de verdade — `for x in` / `while `.
+    let has_loop = trimmed.split(['\n', ';', '|', '&']).any(|part| {
+        let p = part.trim_start();
+        p.starts_with("for ") && p.contains(" in ") || p.starts_with("while ")
+    });
+    if !has_loop {
+        return None;
+    }
+    // Qualquer verbo com efeito colateral tira o comando do escopo.
+    const EFFECTFUL: &[&str] = &[
+        "kill",
+        "pkill",
+        "git ",
+        "cargo",
+        "rm ",
+        "mv ",
+        "cp ",
+        "install",
+        "update-touring",
+        "npm",
+        "make ",
+        "chmod",
+        "chown",
+        "mkdir",
+        "touch ",
+        "tee ",
+        "curl",
+        "wget",
+        "ssh",
+        "docker",
+        "systemctl",
+        "sudo",
+        "python3 -c",
+        "python3 -m",
+        "pip",
+        ">>",
+        "> /",
+    ];
+    if EFFECTFUL.iter().any(|verb| trimmed.contains(verb)) {
+        return None;
+    }
+    // Limite de tamanho: acima disso o comando reescrito polui mais do que ajuda.
+    if trimmed.len() > 1200 {
+        return None;
+    }
+    let escaped = trimmed.replace('\'', r"'\''");
+    Some(format!("touring run --lang bash --code '{escaped}'"))
+}
+
+/// Overrides dos pontos que leem env global, como objeto nomeado (diretriz A2)
+/// — produção usa `from_env()`; testes constroem o literal e NUNCA tocam o env
+/// do processo (a race medida em 08/10 pela analise-6b: `set_var` num teste vaza
+/// para os outros testes em threads paralelas do mesmo binário — 41/150 rodadas
+/// no `dedupe_`; é por isso que o Rust 2024 marcou `set_var` como unsafe).
+#[derive(Default, Clone)]
+pub(crate) struct GateOverrides {
+    /// TOURING_G2_REWRITE_DISABLED=1 → o G2 nega em vez de reescrever.
+    pub g2_rewrite_disabled: bool,
+    /// TOURING_G1_REWRITE_DISABLED=1 → o G1 (rajada de inspeção) volta ao deny
+    /// clássico em vez de reescrever para o `touring run` (V0e1: o default é
+    /// EXECUTAR a rota via updatedInput).
+    pub g1_rewrite_disabled: bool,
+    /// TOURING_PORTFOLIO_DIR → o portfólio lido de outro dir (testes/scratch).
+    pub portfolio_dir: Option<std::path::PathBuf>,
+    /// Os níveis «env» + «alias» da resolução do code mode (TOURING_CODE_MODE /
+    /// TOURING_CODE_ONLY) — lidos uma vez aqui, nunca no meio do gate.
+    pub code_mode_env: CodeModeEnv,
+    /// TOURING_CODE_GATES_DISABLED=1 → o kill switch humano desliga TODOS os
+    /// gates (29 testes liam isso do ambiente — matriz da 6b, 08/10).
+    pub code_gates_disabled: bool,
+    /// Precisão viva do G1 INJETADA (`(precisão, volume)`): `None` lê o contador global
+    /// (`g1_live_precision()`, o comportamento de produção; `from_env` nunca o preenche);
+    /// `Some(x)` fixa o dado — o ramo advisory do G1 só dispara com precisão abaixo do
+    /// piso, e o contador global não é controlável por um teste.
+    pub g1_precision: Option<Option<(f64, u64)>>,
+}
+
+impl GateOverrides {
+    fn from_env() -> Self {
+        Self {
+            g2_rewrite_disabled: std::env::var("TOURING_G2_REWRITE_DISABLED")
+                .map(|v| v == "1")
+                .unwrap_or(false),
+            g1_rewrite_disabled: std::env::var("TOURING_G1_REWRITE_DISABLED")
+                .map(|v| v == "1")
+                .unwrap_or(false),
+            portfolio_dir: std::env::var("TOURING_PORTFOLIO_DIR")
+                .ok()
+                .map(std::path::PathBuf::from),
+            code_mode_env: CodeModeEnv::from_env(),
+            code_gates_disabled: code_gates_disabled(),
+            g1_precision: None,
+        }
+    }
+}
+
+/// W1 — G2 + G6 num só passe. `Some(resposta)` curto-circuita `run`; `None`
+/// segue para os classificadores. Corre ANTES do anti-spam: um deny repetido
+/// jamais pode ser engolido pelo cache de sugestões. Recebe `project_root`
+/// cru (não `HookRuntime`) para ser testável em unit tests.
+pub(crate) fn code_mode_gates(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+) -> Option<String> {
+    code_mode_gates_with(
+        project_root,
+        session,
+        tool_name,
+        tool_input,
+        &GateOverrides::from_env(),
+    )
+}
+
+/// A cadeia de gates com o veredito MAIS SEVERO (30.4.97, ordem G5/G9): nenhum advisory
+/// curto-circuita a cadeia. Os gates que só avisam depositam o texto em `avisos` e a avaliação
+/// segue; o deny aplicável (qualquer posição na cadeia) vence, e o aviso vai junto no texto dele.
+fn code_mode_gates_with(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
+) -> Option<String> {
+    let mut avisos: Vec<String> = Vec::new();
+    let veredito = code_mode_gates_chain(
+        project_root,
+        session,
+        tool_name,
+        tool_input,
+        ovr,
+        &mut avisos,
+    );
+    // A regra de precedência mora em UM lugar, compartilhado com os handlers pre-bash/edit/write:
+    // deny > reescrita/advisory da cadeia > avisos soltos, e o aviso nunca se perde.
+    touring_hook_runtime::verdict::merge_pretool_json(veredito, avisos)
+}
+
+fn code_mode_gates_chain(
+    project_root: &Path,
+    session: &str,
+    tool_name: &str,
+    tool_input: &Value,
+    ovr: &GateOverrides,
+    avisos: &mut Vec<String>,
+) -> Option<String> {
+    use crate::shared::gate_metrics::{GateEvent, GateId, record_gate_event};
+    let project = project_root.display().to_string();
+    // Toda mutação avança a época do projeto (G6 nunca dispara através dela).
+    if matches!(tool_name, "Edit" | "Write" | "NotebookEdit") {
+        // G9 (N3a): a conversão do deny é o Edit com gates — a próxima
+        // Edit/Write/NotebookEdit da sessão fecha o continuation-check.
+        if pending_g9().remove(session).is_some() {
+            record_gate_event(GateId::G9, GateEvent::Followed);
+        }
+        let epoch = mutation_epoch().get(&project).unwrap_or(0);
+        mutation_epoch().insert(project.clone(), epoch + 1);
+        // G5 (telemetria): a rajada de edits cresce; o fim dela é a primeira
+        // ação Bash (onde o advisory único pode falar).
+        let streak = g5_edit_streak().get(session).unwrap_or(0);
+        g5_edit_streak().insert(session.to_string(), streak.saturating_add(1));
+        // W3 S-3.1 — G3: Edit sem Read recente do arquivo, POR SESSÃO.
+        // Write fica FORA do gate: criação não tem o que ler e overwrite já
+        // exige Read no harness — o G3 negou um Write de criação vivo em
+        // 24/08 (strategy doc). O conteúdo escrito é conhecido pela sessão,
+        // então o Write REGISTRA o arquivo como lido (Edit seguinte passa).
+        if let Some(fp) = tool_input.get("file_path").and_then(Value::as_str) {
+            if tool_name == "Write" {
+                g3_read_files().insert(g3_read_key(project_root, session, fp), ());
+            } else if g3_read_files()
+                .get(&g3_read_key(project_root, session, fp))
+                .is_some()
+            {
+                g3_streak().insert(session.to_string(), 0);
+            } else if !ovr.code_gates_disabled {
+                let n = g3_streak().get(session).unwrap_or(0).saturating_add(1);
+                g3_streak().insert(session.to_string(), n);
+                // Aperto 29/08 (ordem de Gabriel): 1 advisory e o 2º seguido
+                // nega — editar sem ler é a origem dos edit_string_not_found;
+                // um aviso basta.
+                if n >= 2 {
+                    record_gate_event(GateId::G3, GateEvent::Denied);
+                    return Some(deny_response(g3_deny_reason(
+                        project_root,
+                        fp,
+                        n,
+                        tool_input,
+                    )));
+                }
+                record_gate_event(GateId::G3, GateEvent::Emitted);
+                return Some(advisory_response(g3_advisory_text(
+                    project_root,
+                    fp,
+                    n,
+                    tool_input,
+                )));
+            }
+        }
+        // W6 S-6.3 — contrafactual em comentário adicionado (advisory, NUNCA
+        // deny: prosa em comentário tem falso positivo real).
+        let adicionado = tool_input
+            .get("new_string")
+            .or_else(|| tool_input.get("content"))
+            .and_then(Value::as_str)
+            .unwrap_or("");
+        if counterfactual_comment(adicionado) {
+            crate::shared::gate_metrics::record_e3_counterfactual();
+            return Some(advisory_response(
+                "[E3 contrafactual-sem-endereço] comentário adicionado afirma o que \
+                 ACONTECERIA sem citar um run_id — a classe do arm_marker de 24/08 \
+                 (afirmação falsa nunca exercitada). Exercite (probe FACT= / touring \
+                 run) e cite o run, ou remova o modal."
+                    .to_string(),
+            ));
+        }
+        return None;
+    }
+    if tool_name == "Read" {
+        let fp = tool_input.get("file_path").and_then(Value::as_str)?;
+        // M3 — o ledger (sessão, arquivo) do G3 já distingue arquivo novo de
+        // releitura; um miss aqui É um arquivo distinto novo na janela.
+        let g3k = g3_read_key(project_root, session, fp);
+        let arquivo_novo = g3_read_files().get(&g3k).is_none();
+        g3_read_files().insert(g3k, ());
+        g3_streak().insert(session.to_string(), 0);
+        if arquivo_novo {
+            let distintos = m3_distinct_reads()
+                .get(session)
+                .unwrap_or(0)
+                .saturating_add(1);
+            m3_distinct_reads().insert(session.to_string(), distintos);
+            // Exatamente no limiar (== e não >=): 1 advisory por janela.
+            if distintos == M3_DELEGATION_AT && !ovr.code_gates_disabled {
+                crate::shared::gate_metrics::record_m3_delegation_advised();
+                return Some(advisory_response(format!(
+                    "[M3 delegação] {M3_DELEGATION_AT}º arquivo DISTINTO lido nesta janela — \
+                     exploração desta largura paga o isolamento de contexto: delegue a 1-3 \
+                     subagentes read-only (Explore/general-purpose), cada um com objetivo + \
+                     formato de saída + fronteiras, e receba só as conclusões (50 arquivos \
+                     lidos voltam como 3 achados). Leitura larga paraleliza; ESCRITA fica \
+                     serial no contexto principal — decisões paralelas conflitam. Cadeia \
+                     dependente (passo 2 precisa do output integral do passo 1) também fica \
+                     no contexto único. Advisory único por sessão/1h."
+                )));
+            }
+        }
+        // G4 (telemetria, nunca deny): leitura sem localizar antes.
+        if g4_last_locate().get(session).is_none() {
+            crate::shared::gate_metrics::record_g4_observed();
+        }
+        // W3 S-3.2 — G7: re-inspeção do MESMO alvo.
+        let key = g7_key(project_root, session, fp);
+        // 30.4.97 (G7G3G9): reler um arquivo que MUDOU desde a leitura que o ledger lembra não é
+        // re-inspeção — é a releitura que o harness exige («File has been modified since read»)
+        // antes do próximo Edit. Contar essa leitura fechava o círculo: python escreve o arquivo
+        // (o G9 empurra para lá), o Edit fica obsoleto, e o Read que o destrava era o 3º.
+        let stamp = g7_refresh_if_changed(project_root, key, fp);
+        let n = g7_seen().get(&key).unwrap_or(0).saturating_add(1);
+        g7_seen().insert(key, n);
+        if !ovr.code_gates_disabled {
+            if n >= 3 {
+                record_gate_event(GateId::G7, GateEvent::Denied);
+                let rota = r1_route_for(fp);
+                let edicao = g7_edit_route_note(fp, stamp.is_some());
+                return Some(deny_response(format!(
+                    "[G7 re-inspeção] {n}ª leitura de {fp} na janela — reler é o sinal \
+                     mais direto de programa-faltando (campeões medidos: adw.py 39×, \
+                     cli_suggester.rs 32×). Varra de uma vez (R1): {rota}.{edicao} \
+                     Um `touring run` citando {fp} reseta o gate."
+                )));
+            }
+            if n == 2 {
+                record_gate_event(GateId::G7, GateEvent::Emitted);
+                let rota = r1_route_for(fp);
+                return Some(advisory_response(format!(
+                    "[G7 re-inspeção] 2ª leitura de {fp} na janela — programa-faltando? \
+                     R1 instanciado: {rota} (a 3ª leitura nega)."
+                )));
+            }
+        }
+        return None;
+    }
+    if matches!(tool_name, "Grep" | "Glob") {
+        g4_last_locate().insert(session.to_string(), ());
+        return None;
+    }
+    if tool_name != "Bash" {
+        return None;
+    }
+    let cmd = tool_input.get("command").and_then(Value::as_str)?;
+    // G7 reset: um `touring run` citando um caminho zera a contagem daquele alvo.
+    if cmd.contains("touring run") {
+        for frag in path_fragments(cmd) {
+            g7_seen().invalidate(&g7_key(project_root, session, frag));
+        }
+    }
+    // G5 (telemetria): a primeira ação Bash encerra a rajada de edits; se ela
+    // tinha >=3 e este comando não é validação, UM advisory (nunca durante).
+    let g5 = g5_edit_streak().get(session).unwrap_or(0);
+    if g5 > 0 {
+        g5_edit_streak().insert(session.to_string(), 0);
+        const VALIDA: &[&str] = &[
+            "cargo check",
+            "cargo test",
+            "cargo clippy",
+            "pytest",
+            "touring e2e",
+            "npm test",
+            "adw lint",
+            "adw test",
+        ];
+        if g5 >= 3 && !VALIDA.iter().any(|m| cmd.contains(m)) {
+            crate::shared::gate_metrics::record_g5_observed();
+            // Advisory: NÃO curto-circuita a cadeia (30.4.97) — um deny aplicável adiante
+            // (G9 `sed -i` cego, G2, G6…) vence e leva este texto junto.
+            avisos.push(format!(
+                "[G5 telemetria] rajada de {g5} edits terminou sem build/teste — P9 \
+                 medido em 17%. Valide agora (cargo check/test no crate tocado); a \
+                 regressão silenciosa nasce aqui."
+            ));
+        }
+    }
+    // followed (S-1.4): houve deny de G2 nesta sessão e o comando agora traz
+    // pipefail — a conversão canônica foi adotada.
+    if pending_g2().remove(session).is_some() && cmd.contains("pipefail") {
+        record_gate_event(GateId::G2, GateEvent::Followed);
+    }
+    // G11 — a rota sancionada devolve o crédito ANTES de qualquer cobrança, para
+    // que um turno que alterna programa e bypass nunca acumule dívida.
+    if is_sanctioned_route(cmd) {
+        credit_sanctioned_route(project_root, session);
+    } else if !has_bypass_token(cmd) {
+        break_strict_run(project_root, session);
+    }
+    if has_bypass_token(cmd) {
+        // O orçamento é cobrado ANTES da isenção: o token continua legítimo, mas
+        // a SÉRIE passa a custar. O deny do G11 não é bypassável de propósito —
+        // um bypass que se auto-libera não é orçamento; a saída é o kill switch
+        // humano no env do daemon, que exige decisão fora do turno.
+        let budget = charge_bypass(project_root, session);
+        if !ovr.code_gates_disabled
+            && let Some(rule) = bypass_verdict(budget)
+        {
+            record_gate_event(GateId::G1, GateEvent::Emitted);
+            return Some(deny_response(format!(
+                "[G11 orçamento de bypass] {rule}: {} seguido(s), {} desde a última rota, janela {}s. \
+                 O token é por-comando, não uma rota. Use a rota sancionada — funda a \
+                 família numa varredura única: `touring run --lang bash --file <script>` \
+                 — e o crédito volta inteiro. Sem saída por prefixo: o kill switch é \
+                 humano (`TOURING_CODE_GATES_DISABLED=1` no env do daemon + restart).",
+                budget.strict_run, budget.since_route, G11_WINDOW_SECS
+            )));
+        }
+        if exit_code_through_pipe(cmd) {
+            record_gate_event(GateId::G2, GateEvent::Bypassed);
+        }
+        if is_inline_blind_edit(cmd) {
+            record_gate_event(GateId::G9, GateEvent::Bypassed);
+        }
+        if exec_class_of(cmd).is_some() {
+            record_gate_event(GateId::G10, GateEvent::Bypassed);
+        }
+        // G1: o bypass consciente reseta a janela da classe (S-2.2) — a
+        // exploração legítima recomeça do zero, e o evento fica contado.
+        if let Some(class) = scan_class_of(cmd) {
+            let key = burst_key(project_root, session, class);
+            if matches!(burst_ledger().get(&key), Some((n, _, _)) if n >= G1_DENY_AT - 1) {
+                record_gate_event(GateId::G1, GateEvent::Bypassed);
+            }
+            burst_ledger().invalidate(&key);
+        }
+        return None;
+    }
+    // G2 — heredoc é DADO (o corpo não executa como pipeline DESTE shell);
+    // pular evita negar a escrita de um teste que apenas CONTÉM o padrão.
+    if !cmd.contains("<<") && exit_code_through_pipe(cmd) {
+        if ovr.code_gates_disabled {
+            record_gate_event(GateId::G2, GateEvent::Bypassed);
+            return None;
+        }
+        // S-8.6 (spike SUPORTADO, provado vivo 2026-08-25: o rewrite A4
+        // `cat`→highlight trocou um comando real desta sessão): o Claude Code
+        // honra `updatedInput` de hook de settings.json. O G2 então CORRIGE em
+        // vez de negar — zero fricção, correção garantida pelo executor (o
+        // teto da afordância). `Followed` é registrado junto com `Emitted`
+        // porque a adoção é do executor, não uma esperança.
+        if !ovr.g2_rewrite_disabled {
+            record_gate_event(GateId::G2, GateEvent::Emitted);
+            record_gate_event(GateId::G2, GateEvent::Followed);
+            return Some(
+                serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "allow",
+                        "permissionDecisionReason":
+                            "[G2 exit-code-through-pipe → REESCRITO] `$?` após pipe \
+                             leria o status do último estágio; `set -o pipefail; ` \
+                             prefixado (spike S-8.6: updatedInput honrado).",
+                        "updatedInput": rewritten_input(tool_input, format!("set -o pipefail; {cmd}")),
+                    }
+                })
+                .to_string(),
+            );
+        }
+        record_gate_event(GateId::G2, GateEvent::Denied);
+        pending_g2().insert(session.to_string(), ());
+        let remedy = if cmd.len() <= 1500 {
+            format!("set -o pipefail; {cmd}")
+        } else {
+            "set -o pipefail; <o mesmo comando, verbatim>".to_string()
+        };
+        return Some(deny_response(format!(
+            "[G2 exit-code-through-pipe] `$?` depois de um pipe lê o status do ÚLTIMO \
+             estágio (tail/jq), não do programa medido — 68 casos na simulação de 55 \
+             sessões; 3 cometidos pela própria sessão que desenhou este gate. \
+             Reexecute exatamente:\n  {remedy}\nOu remova o pipe e leia o exit \
+             direto. Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+        )));
+    }
+    // G9 (N3a, 2026-08-26) — escrita cega inline negada com a rota derivada:
+    // o advisory Pattern 5 falava e o comando executava igual (advisory ≠
+    // gate — adoção medida de um não transfere para o outro). Heredoc é
+    // dado (o corpo não executa neste shell). ANTES do G8: um laço com
+    // `sed -i` é negado aqui, não reescrito para o sandbox.
+    if !cmd.contains("<<") && is_inline_blind_edit(cmd) {
+        if ovr.code_gates_disabled {
+            record_gate_event(GateId::G9, GateEvent::Bypassed);
+            return None;
+        }
+        record_gate_event(GateId::G9, GateEvent::Denied);
+        pending_g9().insert(session.to_string(), ());
+        let target = inline_edit_target(cmd).unwrap_or_else(|| "<o arquivo>".to_string());
+        let cmd_remedio = if cmd.len() <= 1500 {
+            cmd.replace('\'', r"'\''") // aspas escapadas — a rota cola no shell (lição G8)
+        } else {
+            "<o mesmo comando, verbatim>".to_string()
+        };
+        return Some(deny_response(format!(
+            "[G9 escrita-cega-inline] `sed -i`/`awk -i inplace`/`perl -pi` editam às \
+             cegas — zero dos 17 gates do Edit (VGP, blast_radius, TDG, snapshot \
+             atômico, gotcha). Rotas:\n  \
+             1 arquivo:   Edit tool em `{target}` (old_string → new_string, gates completos)\n  \
+             mesmo comando, sandbox: touring run --lang bash --code '{cmd_remedio}'\n  \
+             estrutural (N arquivos): touring ast grep {target} '<pattern>' --rewrite '<replacement>' \
+             (ast-grep — metavars $VAR, NÃO regex de sed)\n  \
+             Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed)."
+        )));
+    }
+    // G8 — laço de INSPEÇÃO reescrito para o sandbox (2026-08-25).
+    //
+    // Medido no transcript desta própria sessão (1433 tool calls): das 453
+    // oportunidades de code mode, as outras classes ou já estão cobertas ou
+    // não compensam. Apertar o limiar da rajada é fricção sem ganho (a mediana
+    // de rajada é 1); converter grep para o índice serviria a ~3% (56% dos
+    // greps são regex estrutural, que o índice não responde). Os laços, não:
+    // 44 casos reais em 47 detectados (94% de precisão), e o programa está
+    // ESCRITO no comando — foi decidido inteiro e partido em N round-trips.
+    //
+    // O remédio é o do G2, que se provou vivo: REESCREVER, não negar. Só
+    // laços de inspeção pura entram: o sandbox aplica capabilities por
+    // comando — `run-1787620774532-346193` registrou "X6 denied the subprocess
+    // capability 'echo' under profile 'Sandboxed'" —, então um laço que mata
+    // processo, faz git ou compila fica de fora por construção.
+    if let Some(rewritten) =
+        loop_rewrite_candidate(cmd).filter(|_| unreachable_in_sandbox(project_root, cmd).is_none())
+    {
+        if ovr.code_gates_disabled {
+            record_gate_event(GateId::G8, GateEvent::Bypassed);
+        } else {
+            record_gate_event(GateId::G8, GateEvent::Emitted);
+            record_gate_event(GateId::G8, GateEvent::Followed);
+            let rewritten = with_wall_budget(rewritten, rewrite_wall_ms(tool_input));
+            return Some(
+                serde_json::json!({
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "allow",
+                        "permissionDecisionReason":
+                            "[G8 laço-de-inspeção → REESCRITO] o laço já É o programa; \
+                             uma varredura no sandbox devolve só o agregado (Anthropic \
+                             CodeAct). Kill switch humano: TOURING_G8_REWRITE_DISABLED=1.",
+                        "updatedInput": rewritten_input(tool_input, rewritten),
+                    }
+                })
+                .to_string(),
+            );
+        }
+    }
+    // S5 (29/08) — o par write→run: `cat >`/`tee` de um script registra o
+    // alvo; a execução do MESMO path na janela conta um par. Nasceu do turno
+    // de 60 Bash do `analise` (28 pares, todos invisíveis: a escrita é T4
+    // sancionada e a execução avulsa não acumulava) — o G-turno só falou no
+    // Stop, com o custo já pago. Aqui o colapso acontece DURANTE o turno.
+    if let Some(path) = script_write_target(cmd) {
+        written_scripts_ledger().insert(write_run_key(project_root, session, &path), ());
+    }
+    if let Some(deny) = write_run_pair_gate_with(project_root, session, cmd, ovr) {
+        return Some(deny);
+    }
+    // G10 (S4, 2026-08-26) — rajada de execução homogênea (R4): N seriadas do
+    // mesmo interpretador com 0 `touring run` na janela. O laço desenrolado
+    // vira 1 programa (R9). Um `touring run` entre elas zera a contagem — a
+    // condição "0 run" é a prova de que a rota já foi oferecida e ignorada.
+    // DEPOIS do G8: um laço escrito é reescrito lá; aqui é a rajada serial.
+    if let Some(class) =
+        exec_class_of(cmd).filter(|_| unreachable_in_sandbox(project_root, cmd).is_none())
+    {
+        if class == "python-inline" {
+            // telemetria S5: cada inline visto conta — a calibração segue
+            // medindo mesmo com a classe agora dentro da rajada.
+            crate::shared::gate_metrics::record_exec_heredoc_inline_seen();
+        }
+        let key = exec_burst_key(project_root, session, class);
+        let (n, mut cmds) = exec_burst_ledger().get(&key).unwrap_or_default();
+        let n = n + 1;
+        if cmds.len() < 16 {
+            cmds.push(cmd.to_string());
+        }
+        if n < EXEC_BURST_DENY_AT {
+            exec_burst_ledger().insert(key, (n, cmds));
+        } else if ovr.code_gates_disabled {
+            record_gate_event(GateId::G10, GateEvent::Bypassed);
+            return None;
+        } else {
+            record_gate_event(GateId::G10, GateEvent::Denied);
+            pending_g10().insert(session.to_string(), ());
+            // zera para a próxima rajada — um deny por lote, nunca fadiga
+            exec_burst_ledger().invalidate(&key);
+            // G10ROTA (30.4.97): qual rota do `touring run` EXECUTA este corpo? A pergunta é do
+            // executor (D8) — o deny que nomeia um comando que o X6 recusa ensina a falhar.
+            let rota = g10_inline_route(project_root, class, cmd);
+            if !rota.runs() {
+                return Some(deny_response(g10_unrunnable_deny(
+                    n,
+                    class,
+                    &rota,
+                    project_root,
+                    cmd,
+                )));
+            }
+            // python-inline tem remédio 1:1 (o corpo do PRÓPRIO comando); as
+            // demais classes fundem a rajada acumulada via R9.
+            let programa = if class == "python-inline" {
+                python_inline_remedy_via(cmd, &rota)
+            } else {
+                // S212: the ledger ends with the denied command; everything before it
+                // already ran and must not be replayed.
+                let executed: Vec<String> = match cmds.split_last() {
+                    Some((last, before)) if last == cmd => before.to_vec(),
+                    _ => cmds.clone(),
+                };
+                r9_exec_program(&executed, cmd)
+            };
+            // S6 — a rajada real consulta o portfólio: quando há um programa
+            // que já funcionou para este trabalho, o deny entrega os dois
+            // (o esqueleto agregado + o prior art instanciado).
+            let prior = match &ovr.portfolio_dir {
+                Some(dir) => touring_foundation::portfolio::store::load_from(dir)
+                    .ok()
+                    .and_then(|idx| portfolio_remedy_for_burst_on(class, &cmds, &idx)),
+                None => portfolio_remedy_for_burst(class, &cmds),
+            }
+            .unwrap_or_default();
+            // N6 — e a escada entrega o bloco parecido, quando existe.
+            let hint = snippet_hint_for_program(&programa, project_root);
+            let lead = g10_lead(&rota, project_root);
+            return Some(deny_response(format!(
+                "[G10 exec-burst] {n}ª chamada seriada do executor `{class}` (0 `touring run` \
+                 na janela de {}s){lead}\n  \
+                 {programa}\nSó o comando negado roda; os já executados da rajada vêm como \
+                 comentário e NUNCA são repetidos (denies subprocess-only são advisory em \
+                 `--lang bash` — o sandbox contém o filesystem); veredito na saída, íntegra \
+                 no spill. Os próximos comandos do lote entram no MESMO programa.{prior}{hint} \
+                 Bypass por-comando: prefixe {GATE_BYPASS_TOKEN} (contado como bypassed).",
+                EXEC_BURST_WINDOW_SECS
+            )));
+        }
+    } else if cmd.contains("touring run") || cmd.contains("touring exec") {
+        if pending_g10().remove(session).is_some() {
+            record_gate_event(GateId::G10, GateEvent::Followed);
+        }
+        for class in ["python", "pytest", "python-inline"] {
+            exec_burst_ledger().invalidate(&exec_burst_key(project_root, session, class));
+        }
+        // S5 — a rota seguida zera o par write→run junto (mesma razão do S3
+        // abaixo: sem isto o próximo script legítimo herdaria uma contagem de
+        // um loop que o modelo JÁ converteu em programa).
+        write_run_pair_ledger().invalidate(&write_run_key(
+            project_root,
+            session,
+            "\u{0}write-run-pares",
+        ));
+        // S3 — a rota foi seguida: a janela de inspeção zera junto. Sem isto o
+        // ledger seguiria contando uma rajada que o modelo JÁ converteu em
+        // programa, e o próximo `grep` legítimo levaria um deny herdado de uma
+        // rajada que não existe mais.
+        for class in CODE_MODE_COLLAPSED_CLASSES {
+            inspect_burst_ledger().invalidate(&inspect_burst_key(project_root, session, class));
+            // G1 — o contrato da sessão ("um `touring run` na janela zera a contagem")
+            // valia só para o S3: medido 09/10, uma rajada de 18:49 ainda era refundida
+            // às 18:55 depois de um `touring run`.
+            burst_ledger().invalidate(&burst_key(project_root, session, class));
+        }
+        inspect_burst_ledger().invalidate(&inspect_burst_key(
+            project_root,
+            session,
+            PY_INLINE_INSPECT_CLASS,
+        ));
+    }
+    // S3 (27/08/2026) — o colapso do modo `code` deixou de ser POR CLASSE e
+    // passou a ser POR RAJADA. A 1ª inspeção de uma classe na janela executa
+    // intacta; a 2ª em diante volta como UM programa com as duas fundidas.
+    //
+    // O que mudou e por quê: o braço P2c negava na PRIMEIRA chamada de
+    // `grep`/`cat`/`find`. Medindo 115 transcripts (`s3_burst_distribution.py`),
+    // 22,5% dessas chamadas são isoladas — para elas o deny cobrava um
+    // round-trip inteiro e devolvia a MESMA leitura, que é a definição de
+    // taxar o caso comum. Os outros 77,5% estão em rajadas ≥2, e esses o
+    // predicado continua pegando, agora com o programa fundido em vez do
+    // comando único reescrito.
+    //
+    // O predicado também é o que finalmente ENTREGA a promessa que o T3-B fazia
+    // e nunca cumpriu (`t3_turn_fused = 0`): "a 1ª executa intacta, as K−1
+    // voltam como 1 programa". O T3-B pendurava isso no fechamento de turno, um
+    // evento que este modelo de execução não produz; aqui é um contador com
+    // TTL, que ocorre. Mutação/build seguem passando (scan_class_of só
+    // reconhece inspeção), e um `touring run` na janela zera o ledger — a
+    // contagem prova que a rota foi oferecida e não usada.
+    let apresentacao = code_mode_presentation_with(project_root, cmd, &ovr.code_mode_env);
+    // Aperto 29/08 (ordem de Gabriel): python-inline READ-ONLY é inspeção e
+    // cai na MESMA rajada — usado como leitura, o interpretador ganhava 4
+    // passes onde `cat` ganha 1 (o G10 só nega na 5ª/600s). A classificação é
+    // pelo CORPO (deny-list conservadora): qualquer indício de escrita/rede/
+    // subprocesso mantém o comando no G10 — falha na direção frouxa, nunca
+    // roteia um escritor ao deny de inspeção.
+    let inspect_class = scan_class_of(cmd)
+        .filter(|c| CODE_MODE_COLLAPSED_CLASSES.contains(c))
+        .or_else(|| python_inline_readonly_class(cmd));
+    let mut s3_avisou = false;
+    if apresentacao == CodeModePresentation::Code
+        && let Some(class) = inspect_class
+        && !ovr.code_gates_disabled
+        && unreachable_in_sandbox(project_root, cmd).is_none()
+    {
+        let key = inspect_burst_key(project_root, session, class);
+        let (n, mut cmds) = inspect_burst_ledger().get(&key).unwrap_or_default();
+        let n = n + 1;
+        if cmds.len() < 16 {
+            cmds.push(cmd.to_string());
+        }
+        // D (09/10/2026, ordem do Gabriel — §8 da V0e5): a rajada AVISA, nunca
+        // nega. Medido: 1.272 negações do S3 em 24 h, o maior gate de fricção. O
+        // lote NÃO zera no aviso — as seguintes da mesma rajada contam em
+        // silêncio (um aviso por rajada, nunca fadiga); só um `touring run` ou a
+        // janela sem inspeção o rearmam (o TTL renova a cada inserção).
+        inspect_burst_ledger().insert(key, (n, cmds.clone()));
+        if n < INSPECT_BURST_ADVISE_AT {
+            // A isolada passa em SILÊNCIO: um nudge aqui devolveria pela porta
+            // dos fundos a fricção que o predicado acabou de tirar da frente.
+            crate::shared::gate_metrics::record_g1_inspect_first_passed();
+            bump_durable_evidence(project_root, "s3", "first_passed");
+        } else if n > INSPECT_BURST_ADVISE_AT {
+            bump_durable_evidence(project_root, "s3", "in_burst");
+        } else {
+            // python-inline funde os CORPOS (o remédio 1:1 por comando já
+            // existia; a rajada junta-os na ordem); as classes shell do S3 seguem
+            // no R9 via fuse_burst_program. O G1 NÃO usa mais o fuse_burst_program:
+            // ele manda os já executados como comentário (S212) e só o comando que
+            // disparou como passo.
+            let (programa, omitidos, lang) = if class == PY_INLINE_INSPECT_CLASS {
+                let (p, o) = python_inline_burst_program(&cmds);
+                (p, o, "python")
+            } else {
+                let (p, o) = fuse_burst_program(&cmds);
+                (p, o, "bash")
+            };
+            record_route_offer(project_root, session, apresentacao);
+            record_gate_event(GateId::G1, GateEvent::Emitted);
+            crate::shared::gate_metrics::record_g1_inspect_burst_advised();
+            bump_durable_evidence(project_root, "s3", "advised");
+            let nota_omissao = if omitidos > 0 {
+                format!(
+                    " ({omitidos} comando(s) não coube(ram) no orçamento e foram OMITIDOS \
+                     — inteiro ou fora, jamais truncado: rode-os à parte)"
+                )
+            } else {
+                String::new()
+            };
+            // N6 — a escada entrega o bloco parecido, quando existe: a rajada
+            // avisada vira descoberta, não só rota.
+            let hint = snippet_hint_for_program(&programa, project_root);
+            // Advisory: segue a cadeia até o G6 (30.4.97) — a repetição byte-idêntica que o G6
+            // nega vence o aviso. O G1 NÃO volta a decidir esta chamada (`s3_avisou`): na
+            // 2ª inspeção a rajada só AVISA, por ordem do Gabriel (09/10/2026, D).
+            avisos.push(format!(
+                "[CODE MODE · rajada] aviso — {n}ª inspeção `{class}` em {}s, executada \
+                 nativa. Se a próxima também for inspeção, rode o lote de uma vez:\n  \
+                 touring run --lang {lang} --code '{programa}'\n{nota_omissao}{hint}",
+                INSPECT_BURST_WINDOW_SECS
+            ));
+            s3_avisou = true;
+        }
+    }
+    // `native` cala a indução inteira: o escopo declarou que não quer ser
+    // empurrado, e um nudge que ele não pediu é o custo sem a contrapartida.
+    if apresentacao == CodeModePresentation::Native {
+        return None;
+    }
+    // G6 — repetição byte-idêntica dentro da janela TTL, sem mutação no meio.
+    // ANTES do T3-B: retry cego byte-idêntico é o sinal mais específico e o G6
+    // o consome inteiro (advisory → deny); o que passa daqui é inspeção NOVA.
+    if !g6_allowlisted(cmd) {
+        let h = g6_key(project_root, session, tool_name, tool_input);
+        let epoch = mutation_epoch().get(&project).unwrap_or(0);
+        match g6_seen().get(&h) {
+            None => g6_seen().insert(h, (0, epoch)),
+            Some((repeats, seen_epoch)) if seen_epoch == epoch => {
+                if ovr.code_gates_disabled {
+                    record_gate_event(GateId::G6, GateEvent::Bypassed);
+                    return None;
+                }
+                g6_seen().insert(h, (repeats + 1, epoch));
+                if repeats == 0 {
+                    record_gate_event(GateId::G6, GateEvent::Emitted);
+                    // O G6 CONSOME a repetição idêntica inteira (advisory → deny): o G1 adiante
+                    // trata inspeção NOVA, então este advisory encerra a cadeia — por desenho.
+                    return Some(
+                        serde_json::json!({
+                            "hookSpecificOutput": {
+                                "hookEventName": "PreToolUse",
+                                "additionalContext": g6_advisory_text(cmd),
+                            }
+                        })
+                        .to_string(),
+                    );
+                }
+                record_gate_event(GateId::G6, GateEvent::Denied);
+                // um deny encerra o turno cego: a próxima chamada é a RESPOSTA
+                // do modelo ao deny, não continuação de um batch paralelo.
+                return Some(deny_response(g6_deny_reason(cmd)));
+            }
+            // época mudou: a árvore mutou desde a primeira vista — fresh.
+            Some((_, _)) => g6_seen().insert(h, (0, epoch)),
+        }
+    }
+
+    // S10 (2026-08-27) — o T3-B foi REMOVIDO daqui. Medido ao vivo: 3 chamadas
+    // Bash de classes distintas no mesmo turno deram `t3_turn_first_passed = 3`
+    // e `t3_turn_fused = 0` — cada uma era "a primeira", porque o PostToolUse
+    // fecha o turno entre elas. O gate mantinha estado por sessão e NUNCA
+    // decidia. O predicado de rajada do S3 entrega o que ele prometia, com uma
+    // janela de TEMPO (300s) em vez de um turno que sempre fecha.
+    // G1 — rajada de inspeções atômicas da MESMA classe (W2 teeth): decidida
+    // depois do G2 (o defeito de leitura vem antes do hábito) e antes do G6.
+    if s3_avisou {
+        return None;
+    }
+    if let Some(resp) = burst_gate_with(project_root, session, cmd, tool_input, ovr) {
+        return Some(resp);
+    }
+    None
 }
 
 // ── Task #6 — pillar induction (the active layer of the compounding structure) ──
@@ -2614,7 +6541,7 @@ fn master_cli_command(command: &str) -> Option<(String, String, Option<String>)>
 /// from scratch (Reflexo #3). Conservative: only raw-shell search of knowledge
 /// surfaces, never code identifiers.
 fn is_memory_search(command: &str) -> bool {
-    let first = command.split_whitespace().next().unwrap_or("");
+    let first = resolved_verb(command).unwrap_or("");
     let is_search = matches!(first, "grep" | "rg" | "ag" | "egrep" | "ugrep");
     is_search
         && [
@@ -2759,7 +6686,7 @@ fn pending_pillar() -> &'static moka::sync::Cache<String, ()> {
 /// and the Task #6 pillar layer (a master/recall command, precise predicate).
 /// Extracted from `run` to keep its control flow flat. Fail-open: pure cache ops
 /// + Relaxed atomics, no error path.
-fn eval_uptake(session: &str, tool_name: &str, tool_input: &Value) {
+fn eval_uptake(project_root: &Path, session: &str, tool_name: &str, tool_input: &Value) {
     if pending_suggestion().remove(session).is_some()
         && action_is_touring_redirect(tool_name, tool_input)
     {
@@ -2767,6 +6694,7 @@ fn eval_uptake(session: &str, tool_name: &str, tool_input: &Value) {
     }
     if pending_pillar().remove(session).is_some() && action_followed_pillar(tool_name, tool_input) {
         crate::shared::gate_metrics::record_pillar_induction_followed();
+        bump_durable_evidence(project_root, "pillar", "followed");
     }
 }
 
@@ -2790,7 +6718,7 @@ fn resolve_classifier(
 /// redirect counter always, plus the Task #6 per-pillar counter + parallel marker
 /// when `is_pillar`. Extracted from `run` to keep it under the complexity gate.
 /// Fail-open: counter calls + cache inserts are infallible.
-fn record_emission(context_len: usize, session: String, is_pillar: bool) {
+fn record_emission(project_root: &Path, context_len: usize, session: String, is_pillar: bool) {
     crate::shared::gate_metrics::record_enrichment_emitted(context_len);
     // F2: this emission is a redirect suggestion — count it and arm the uptake
     // measurement for this session's next action.
@@ -2800,6 +6728,7 @@ fn record_emission(context_len: usize, session: String, is_pillar: bool) {
     // precise per-pillar follow-through (parallel cache so F2 is undisturbed).
     if is_pillar {
         crate::shared::gate_metrics::record_pillar_induction_emitted();
+        bump_durable_evidence(project_root, "pillar", "emitted");
         pending_pillar().insert(session, ());
     }
 }
@@ -2828,7 +6757,7 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // early returns so a non-emitting call still closes the prior suggestion's loop.
     // Fail-open: pure cache + atomic ops, no error path.
     let session = session_key(payload);
-    eval_uptake(&session, tool_name, tool_input);
+    eval_uptake(&rt.project_root, &session, tool_name, tool_input);
 
     // F3 adoption_ratio (doc §9, the mother coupling KPI): classify EVERY Bash
     // action — touring-canonical vs raw-shell antipattern — BEFORE the anti-spam /
@@ -2837,8 +6766,28 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // count). Fail-open: pure classification + Relaxed atomics, no error path.
     record_adoption(tool_name, tool_input);
 
+    // N5 — eixo da injeção nativa: mesma disciplina (antes dos gates, sem
+    // early-return): cada PreToolUse é uma escolha no eixo.
+    record_native_injection(tool_name, tool_input);
+
+    // W1 — gates com executor (G2 deny + G6 escalada): decididos ANTES do
+    // anti-spam, porque um deny repetido nunca pode ser engolido pelo cache.
+    let gate_resp = code_mode_gates(&rt.project_root, &session, tool_name, tool_input);
+    // S-11 / D1 (27/10/2026) — o trio do canal de ferramentas medido na emissão: o deny
+    // (qual gate, qual classe) e a classificação da chamada SEGUINTE (recovered /
+    // repeated / denied_again). Fail-open: estado em memória, sem I/O, sem pânico.
+    touring_hooks_shared::tool_trio::observe_pre_call(
+        &session,
+        tool_name,
+        tool_input,
+        gate_resp.as_deref(),
+    );
+    if let Some(resp) = gate_resp {
+        return resp;
+    }
+
     // TTL cache: anti-spam for identical (tool, input) pairs.
-    let h = input_hash(tool_name, tool_input);
+    let h = input_hash(&rt.project_root, tool_name, tool_input);
     if cache().get(&h).is_some() {
         return "{}".into();
     }
@@ -2857,7 +6806,10 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // carries no input-specific signal fires at most once per TTL window. The
     // input-hash cache above still anti-spams identical inputs; symbol/file-
     // specific suggestions are never deduped (each is fresh signal).
-    if matches!(cluster_dedupe_gate(&classifier), ClusterDecision::Suppress) {
+    if matches!(
+        cluster_dedupe_gate(&rt.project_root, &classifier),
+        ClusterDecision::Suppress
+    ) {
         return "{}".into();
     }
 
@@ -2891,13 +6843,13 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
     // Compute the ActionSignature and append its key as an observable line.
     // `from_pre_tool_with_cognitive` / `to_key` are infallible pure functions (no error
     // path), so this additive step cannot affect the hook's normal output.
-    // Slice 3 Part 1: thread cognitive_score into the signature so HiComplexity
+    // Slice 3 Part 1: thread quality_score into the signature so HiComplexity
     // can trigger when no blast-radius signal is present.
     let sig = ActionSignature::from_pre_tool_with_cognitive(
         tool_name,
         tool_input,
         suggestion.enrichment.dependent_count,
-        suggestion.enrichment.cognitive_score,
+        suggestion.enrichment.quality_score,
         suggestion.enrichment.gotcha_matches.len(),
         suggestion.enrichment.file_is_indexed,
         suggestion.enrichment.symbol_in_index,
@@ -2919,12 +6871,39 @@ pub fn run(rt: &HookRuntime, payload: &Value) -> String {
 
     cache().insert(h, ());
 
+    // P1/S-1.1 → S8 (2026-10-08): a referência de bloco repetido migrou para a
+    // dedupe por seção com validade de ÉPOCA de compactação, aplicada no ponto
+    // central de saída do daemon (`run_hook_command`, touring-dispatch) — cobre
+    // este handler E todos os outros da dispatch table. O TTL de 300 s que havia
+    // aqui (moka, `repeat_reference`) reemitia o bloco inteiro a cada 5 min
+    // embora a primeira cópia continuasse no contexto até a compactação.
+
+    // P3/S-3.3 — o orçamento do TURNO. O teto por chamada (`cila_budget_*`) nunca
+    // limitou o custo real, porque um turno são muitas chamadas: 26,6 % da janela
+    // em injeção, 6 650 B/turno medidos, com nenhuma chamada perto do próprio
+    // teto. Estourado o orçamento, cai a racionalização e ficam as diretivas — a
+    // ordem declarada em `turn_budget`, não uma escolha caso a caso.
+    {
+        use touring_hooks_shared::turn_budget::{
+            charge_turn, directives_only, spent_this_turn, turn_budget,
+        };
+        let root = &rt.project_root;
+        if spent_this_turn(root, &session) + context.len() > turn_budget()
+            && let Some(cut) = directives_only(&context)
+        {
+            context = cut;
+        }
+        // Cobra o que a janela PAGOU, depois de qualquer elisão.
+        charge_turn(root, &session, context.len());
+    }
+
     // TR-2 — STR observability: record enrichment bytes only when context is
     // non-empty. `context.len()` is the UTF-8 byte length of additionalContext,
-    // used as a token-count proxy for the Signal-to-Token Ratio metric.
+    // used as a token-count proxy for the Signal-to-Token Ratio metric. Runs
+    // AFTER the dedup so the counter reports what the window actually paid.
     // Fail-open: the counter call is infallible (~1 ns, Relaxed atomic).
     if !context.is_empty() {
-        record_emission(context.len(), session, is_pillar);
+        record_emission(&rt.project_root, context.len(), session, is_pillar);
     }
 
     emit(tool_name, tool_input, &context)
@@ -2957,5 +6936,971 @@ fn emit(tool_name: &str, tool_input: &Value, context: &str) -> String {
 // ── Tests ────────────────────────────────────────────────────────────────────
 
 #[cfg(test)]
+// ── Helpers de hermeticidade para TODOS os mods de teste (inline ou não) ─────
+//
+// Medido pela analise-6b em 08/10: os testes liam `TOURING_CODE_MODE` e
+// `TOURING_CODE_GATES_DISABLED` do AMBIENTE do processo — 15 vermelhos sob
+// `native`, 8 sob `code`, 29 sob o kill switch, todos falsos (o env vence o
+// `touring.toml` do scratch por precedência documentada). O gate com ambiente
+// LIMPO injetado afirma o comportamento que o teste declara, não o do shell
+// que invocou o cargo test.
+#[cfg(test)]
+pub(crate) fn gates_limpo(proj: &Path, sess: &str, tool: &str, input: &Value) -> Option<String> {
+    code_mode_gates_with(proj, sess, tool, input, &GateOverrides::default())
+}
+
+/// A resolução de apresentação sem os níveis «env» do processo (mesma razão).
+#[cfg(test)]
+pub(crate) fn apresentacao_limpa(proj: &Path, cmd: &str) -> CodeModePresentation {
+    code_mode_presentation_with(proj, cmd, &CodeModeEnv::default())
+}
+
+/// A resolução com o nível «env» INJETADO — para afirmar a PRECEDÊNCIA
+/// (prefixo > env > alias > projeto > default) sem depender do ambiente.
+#[cfg(test)]
+pub(crate) fn apresentacao_com_env(proj: &Path, cmd: &str, mode: &str) -> CodeModePresentation {
+    code_mode_presentation_with(
+        proj,
+        cmd,
+        &CodeModeEnv {
+            mode: Some(mode.to_string()),
+            ..Default::default()
+        },
+    )
+}
+
+/// O burst gate com ambiente limpo injetado (os mods `actor_isolation_tests` e
+/// `s24_route_tests` o chamam direto).
+#[cfg(test)]
+pub(crate) fn burst_gate_limpo(proj: &Path, sess: &str, cmd: &str) -> Option<String> {
+    burst_gate_with(
+        proj,
+        sess,
+        cmd,
+        &serde_json::json!({ "command": cmd }),
+        &GateOverrides::default(),
+    )
+}
+
+#[cfg(test)]
 #[path = "cli_suggester_tests.rs"]
 mod tests;
+
+/// Gates da 30.4.97 (G10ROTA · G7G3G9): os casos reais do `analise` como testes.
+#[cfg(test)]
+mod gates97_tests;
+
+#[cfg(test)]
+mod intent_codetag_tests {
+    use super::intent_for_new_file;
+
+    /// C3 (2026-09-02): the codetag line is a facet list, not a purpose. With
+    /// it first, the intent sent to the portfolio was "#tags: kind:script
+    /// purpose:diagnostic …" and the answer was an unrelated `cofre.py`; the
+    /// docstring is the purpose and must win, shebang or codetag before it.
+    #[test]
+    fn codetag_and_shebang_never_become_the_intent() {
+        let content = "#!/usr/bin/env python3\n# #tags: kind:script purpose:diagnostic domain:code-mode lang:python\n\"\"\"One-shot census of /tmp usage and code-mode adherence.\"\"\"\nimport os\n";
+        let intent =
+            intent_for_new_file("/tmp/claude-1000/s/scratchpad/diag_tmp.py", Some(content))
+                .expect("docstring intent");
+        assert!(intent.starts_with("One-shot census"), "got {intent}");
+        assert!(!intent.contains("#tags:"), "got {intent}");
+    }
+
+    #[test]
+    fn without_a_docstring_the_stem_words_remain_the_intent() {
+        let content = "# #tags: kind:script lang:python\nprint(1)\n";
+        assert_eq!(
+            intent_for_new_file("scripts/generate_pdf_report.py", Some(content)).as_deref(),
+            Some("generate pdf report")
+        );
+    }
+}
+
+/// G11 (2026-09-02) — o orçamento do bypass, com as duas contas separadas.
+#[cfg(test)]
+mod g11_bypass_budget_tests {
+    use super::*;
+
+    #[test]
+    fn the_first_bypass_passes() {
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 1,
+        };
+        assert_eq!(bypass_verdict(b), None);
+    }
+
+    #[test]
+    fn two_in_a_row_are_denied_by_the_strict_rule() {
+        let b = BypassBudget {
+            strict_run: 2,
+            since_route: 2,
+        };
+        assert_eq!(bypass_verdict(b), Some("dois bypasses seguidos"));
+    }
+
+    /// O caso que a conta estrita NÃO pega: um comando neutro entre os bypasses.
+    /// A estreia ao vivo negava este como "dois seguidos", que era falso — e um
+    /// gate falante que nomeia a regra errada ensina a correção errada.
+    #[test]
+    fn an_interleaved_pair_is_not_a_strict_run() {
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 2,
+        };
+        assert_eq!(bypass_verdict(b), None, "dois espaçados ainda passam");
+    }
+
+    #[test]
+    fn the_third_without_the_route_is_denied_even_when_spaced() {
+        let b = BypassBudget {
+            strict_run: 1,
+            since_route: 3,
+        };
+        assert_eq!(bypass_verdict(b), Some("terceiro bypass sem usar a rota"));
+    }
+
+    #[test]
+    fn the_sanctioned_route_is_recognised() {
+        assert!(is_sanctioned_route("touring run --lang bash --file x.sh"));
+        assert!(is_sanctioned_route(
+            "  touring run --lang python --code 'x'"
+        ));
+        assert!(!is_sanctioned_route("touring index find X"));
+        assert!(!is_sanctioned_route("grep -rn foo src/"));
+    }
+
+    #[test]
+    fn a_neutral_command_breaks_only_the_strict_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        charge_bypass(root, "t");
+        break_strict_run(root, "t");
+        let after = charge_bypass(root, "t");
+        assert_eq!(
+            after,
+            BypassBudget {
+                strict_run: 1,
+                since_route: 2
+            },
+            "o comando neutro zera a sequência estrita e preserva a conta da rota"
+        );
+        assert_eq!(bypass_verdict(after), None);
+    }
+
+    #[test]
+    fn the_route_credits_both_counts_back() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        charge_bypass(root, "t");
+        charge_bypass(root, "t");
+        credit_sanctioned_route(root, "t");
+        let after = charge_bypass(root, "t");
+        assert_eq!(
+            after,
+            BypassBudget {
+                strict_run: 1,
+                since_route: 1
+            }
+        );
+    }
+}
+
+#[cfg(test)]
+mod snippet_hint_tests {
+    //! N6 (2026-09-23): the deny delivers a similar ladder block when one
+    //! exists — and stays silent, never fabricated, when none does.
+    use super::{snippet_hint_for_program, snippet_hint_line};
+    use touring_intelligence::rl::memory::snippet_stats::record_execution;
+
+    fn mem_with_body(key: &str, body: &str) -> rusqlite::Connection {
+        let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
+        conn.execute_batch("CREATE TABLE memory_entries (key TEXT PRIMARY KEY, value TEXT);")
+            .expect("entries table");
+        conn.execute(
+            "INSERT INTO memory_entries (key, value) VALUES (?1, ?2)",
+            rusqlite::params![key, body],
+        )
+        .expect("insert body");
+        for _ in 0..12 {
+            record_execution(&conn, key, true, "sig-x").expect("record");
+        }
+        conn
+    }
+
+    #[test]
+    fn the_deny_delivers_a_similar_block_when_one_exists() {
+        let conn = mem_with_body(
+            "snippet:varre-pubs",
+            "for f in crates/*/src/lib.rs; do grep -n pub $f; done",
+        );
+        let line = snippet_hint_line(
+            &conn,
+            "for f in crates/*/src/main.rs; do grep -n pub $f; done",
+        )
+        .expect("a similar block exists for this program");
+        assert!(line.contains("snippet:varre-pubs"), "{line}");
+        assert!(line.contains("memory recall"), "{line}");
+    }
+
+    #[test]
+    fn empty_ladder_is_silent_never_fabricated() {
+        let conn = rusqlite::Connection::open_in_memory().expect("mem db");
+        conn.execute_batch("CREATE TABLE memory_entries (key TEXT PRIMARY KEY, value TEXT);")
+            .expect("t");
+        assert!(snippet_hint_line(&conn, "echo hello world").is_none());
+    }
+
+    #[test]
+    fn missing_db_is_empty_never_an_error() {
+        let root = std::path::Path::new("/definitely/not/a/project/root/xyz");
+        assert_eq!(snippet_hint_for_program("anything", root), "");
+    }
+}
+
+/// S23 (plan 2026-09-25) — every code-mode window belongs to ONE actor: (session, agent).
+///
+/// Measured live on 25/09: the G1/G7/G10/G11 windows mixed this session's commands with
+/// its subagents' and with OTHER sessions of the same project (a first read denied as a
+/// "3rd"; a bypass budget spent by someone else). Each test uses its own project root:
+/// the ledgers are process-global caches and the tests run in parallel.
+#[cfg(test)]
+mod actor_isolation_tests {
+    use super::*;
+    // Shim hermético (matriz da 6b, 08/10): `burst_gate` aqui é o limpo injetado.
+    use super::burst_gate_limpo as burst_gate;
+    use super::gates_limpo as code_mode_gates;
+    use serde_json::json;
+
+    fn denied(out: &Option<String>) -> bool {
+        out.as_deref()
+            .is_some_and(|s| s.contains("\"permissionDecision\":\"deny\""))
+    }
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
+    }
+
+    #[test]
+    fn actor_key_separates_subagents_and_defaults_to_anon() {
+        let parent = session_key(&json!({"session_id": "s-1"}));
+        let child = session_key(&json!({"session_id": "s-1", "agent_id": "agent-x"}));
+        assert_ne!(
+            parent, child,
+            "a subagent must not share its parent's windows"
+        );
+        assert_eq!(session_key(&json!({})), "anon");
+        assert_eq!(session_key(&json!({"session_id": ""})), "anon");
+    }
+
+    #[test]
+    fn g7_counter_isolated_per_session_and_agent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s23_g7_probe.py"});
+        let owner = session_key(&json!({"session_id": "s23-g7-owner"}));
+        let _ = code_mode_gates(root, &owner, "Read", &read);
+        let _ = code_mode_gates(root, &owner, "Read", &read);
+        let other = session_key(&json!({"session_id": "s23-g7-other"}));
+        assert!(
+            !denied(&code_mode_gates(root, &other, "Read", &read)),
+            "another session's 1st read denied"
+        );
+        let agent = session_key(&json!({"session_id": "s23-g7-owner", "agent_id": "agent-x"}));
+        assert!(
+            !denied(&code_mode_gates(root, &agent, "Read", &read)),
+            "a subagent's 1st read denied"
+        );
+    }
+
+    #[test]
+    fn g7_third_read_same_actor_still_denied() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s23_g7_same.py"});
+        let me = session_key(&json!({"session_id": "s23-g7-same"}));
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        assert!(
+            denied(&code_mode_gates(root, &me, "Read", &read)),
+            "isolation disabled the gate for its own actor"
+        );
+    }
+
+    /// S-11 / D1: a REAL gate denial feeds the tool-channel trio. The gate tag is read from
+    /// the same `[G<n> …]` prefix the model sees, an allowed call is not a denial, and the
+    /// trio's session key is the one these gates use (a denial and the call that follows it
+    /// must land in the same session, subagents included).
+    #[test]
+    fn real_gate_denial_is_read_by_the_tool_trio() {
+        use touring_hooks_shared::tool_trio::{deny_gate_of, session_key as trio_session_key};
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let read = json!({"file_path": "/tmp/s11_trio_g7.py"});
+        for payload in [
+            json!({}),
+            json!({"session_id": ""}),
+            json!({"session_id": "s11-trio"}),
+            json!({"session_id": "s11-trio", "agent_id": "agent-z"}),
+        ] {
+            assert_eq!(trio_session_key(&payload), session_key(&payload));
+        }
+        let me = session_key(&json!({"session_id": "s11-trio-g7", "agent_id": "agent-z"}));
+        let first = code_mode_gates(root, &me, "Read", &read);
+        assert_eq!(first.as_deref().and_then(deny_gate_of), None);
+        let _ = code_mode_gates(root, &me, "Read", &read);
+        let third = code_mode_gates(root, &me, "Read", &read);
+        assert!(
+            denied(&third),
+            "the 3rd read in the window is the G7 denial"
+        );
+        assert_eq!(
+            deny_gate_of(third.as_deref().unwrap_or_default()).as_deref(),
+            Some("G7")
+        );
+    }
+
+    #[test]
+    fn burst_window_isolated_per_agent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let owner = session_key(&json!({"session_id": "s23-g1"}));
+        let _ = burst_gate(root, &owner, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &owner, "grep -rn beta crates/");
+        let agent = session_key(&json!({"session_id": "s23-g1", "agent_id": "agent-y"}));
+        assert!(
+            !denied(&burst_gate(root, &agent, "grep -c gamma README.md")),
+            "a subagent inherited the parent's burst"
+        );
+        assert!(
+            rewritten(&burst_gate(root, &owner, "grep -l delta docs/x.md")),
+            "the owner's own 3rd inspection must still rewrite into one sandbox run"
+        );
+    }
+
+    #[test]
+    fn g1_burst_window_is_per_session() {
+        // S217 (25/09/2026): the G1 remedy once listed ANOTHER CC session's commands in
+        // the same project and proposed re-running them here (observed before S23).
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let a = session_key(&json!({"session_id": "s217-a"}));
+        let b = session_key(&json!({"session_id": "s217-b"}));
+        let _ = burst_gate(root, &a, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &a, "grep -rn beta crates/");
+        assert!(
+            !denied(&burst_gate(root, &b, "grep -c gamma README.md")),
+            "session B inherited session A's burst"
+        );
+        let _ = burst_gate(root, &b, "grep -l delta docs/x.md");
+        let third = burst_gate(root, &b, "grep -n epsilon src/e.rs");
+        assert!(
+            rewritten(&third),
+            "control: B's own third inspection rewrites"
+        );
+        let remedy = third.unwrap_or_default();
+        assert!(
+            !remedy.contains("alpha") && !remedy.contains("beta"),
+            "B's remedy carries A's commands: {remedy}"
+        );
+    }
+
+    /// V0e1 (09/10/2026 — aprovado por Gabriel; medido pela 6b: G1 = 46% das
+    /// negações e menos da metade segue a rota): o G1 EXECUTA a rota em vez de
+    /// negar — a rajada acumulada vira o `updatedInput` de um `touring run` e o
+    /// executor a roda no sandbox (spike S-8.6: updatedInput honrado). Controle
+    /// positivo do brief: a rajada AINDA colapsa — mas para a execução.
+    #[test]
+    fn g1_rewrites_the_burst_into_one_sandbox_run() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "v0e1-rewrite"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let out = burst_gate(root, &me, "grep -l gamma docs/x.md").expect("a 3ª inspeção colapsa");
+        assert!(
+            out.contains("\"permissionDecision\":\"allow\""),
+            "o G1 reescreve em vez de negar: {out}"
+        );
+        assert!(out.contains("updatedInput"), "sem o rewrite: {out}");
+        assert!(
+            out.contains("touring run --lang bash --timeout-ms 115000 --code '"),
+            "o updatedInput não é o programa sandbox com o orçamento da chamada: {out}"
+        );
+        // O programa carrega a rajada REAL inteira (injection-density) — os
+        // três comandos fundidos, nunca um template.
+        for c in [
+            "grep -n alpha src/a.rs",
+            "grep -rn beta crates/",
+            "grep -l gamma docs/x.md",
+        ] {
+            assert!(out.contains(c), "o programa perdeu `{c}`: {out}");
+        }
+        assert!(!out.contains("\"deny\""), "o deny clássico vazou: {out}");
+    }
+
+    /// V0e1 — o kill switch humano: TOURING_G1_REWRITE_DISABLED=1 volta ao deny
+    /// clássico. Injetado via GateOverrides (NUNCA set_var — a race medida pela
+    /// 6b em 08/10).
+    #[test]
+    fn g1_rewrite_disabled_falls_back_to_the_classic_deny() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let ovr = GateOverrides {
+            g1_rewrite_disabled: true,
+            ..Default::default()
+        };
+        let me = session_key(&json!({"session_id": "v0e1-killswitch"}));
+        let _ = super::burst_gate_with(
+            root,
+            &me,
+            "grep -n alpha src/a.rs",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        let _ = super::burst_gate_with(
+            root,
+            &me,
+            "grep -rn beta crates/",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        let out = super::burst_gate_with(
+            root,
+            &me,
+            "grep -l gamma docs/x.md",
+            &serde_json::Value::Null,
+            &ovr,
+        );
+        assert!(
+            denied(&out),
+            "com o kill switch o deny clássico volta: {out:?}"
+        );
+        // Controle positivo: sem o switch, a MESMA rajada reescreve.
+        let me2 = session_key(&json!({"session_id": "v0e1-killswitch-ctl"}));
+        let _ = burst_gate(root, &me2, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me2, "grep -rn beta crates/");
+        assert!(rewritten(&burst_gate(
+            root,
+            &me2,
+            "grep -l gamma docs/x.md"
+        )));
+    }
+
+    #[test]
+    fn bypass_budget_isolated_per_actor() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let token = GATE_BYPASS_TOKEN;
+        let bash = |c: &str| json!({"command": format!("{token} {c}")});
+        let a = session_key(&json!({"session_id": "s23-g11-a"}));
+        let _ = code_mode_gates(root, &a, "Bash", &bash("ls /tmp"));
+        let _ = code_mode_gates(root, &a, "Bash", &bash("ls /var"));
+        let b = session_key(&json!({"session_id": "s23-g11-b"}));
+        assert!(
+            !denied(&code_mode_gates(root, &b, "Bash", &bash("ls /etc"))),
+            "B's first bypass was charged to A's budget"
+        );
+    }
+}
+
+/// V0e5 (09/10/2026) — entries of ANOTHER process's `/proc/<pid>/` that the sandbox
+/// cannot read while a native shell can: guarded by the kernel's ptrace access mode
+/// (proc(5)), not by landlock — `/proc` itself is a read root. Measured on 30.4.94
+/// against a live daemon, sandbox × native; listed only where the two DIVERGE
+/// (`stack`, `syscall`, `pagemap`, `mem` fail on both sides, so they say nothing;
+/// `cmdline`, `status`, `stat`, `comm`, `limits` and the `fd/` listing read on both).
+const PTRACE_GUARDED_PROC_ENTRIES: &[&str] = &[
+    "environ",
+    "maps",
+    "smaps",
+    "smaps_rollup",
+    "auxv",
+    "cwd",
+    "exe",
+    "root",
+    "io",
+    "map_files",
+];
+/// Directories whose LISTING reads in the sandbox but whose entries (`fd/3`) do not.
+const PTRACE_GUARDED_PROC_DIR_ENTRIES: &[&str] = &["fd", "fdinfo"];
+
+/// The `/proc/<pid>/<entry>` token, when `<pid>` is another process (a literal, `$p`,
+/// `${pid}` or a glob — anything but `self`/`thread-self`) and `<entry>` is guarded.
+fn ptrace_guarded_proc_entry(tok: &str) -> Option<std::path::PathBuf> {
+    let (pid, tail) = tok.strip_prefix("/proc/")?.split_once('/')?;
+    if pid == "self" || pid == "thread-self" {
+        return None;
+    }
+    let mut parts = tail.split('/');
+    let entry = parts.next().unwrap_or("");
+    let below = parts.next().is_some_and(|p| !p.is_empty());
+    let guarded = PTRACE_GUARDED_PROC_ENTRIES.contains(&entry)
+        || (below && PTRACE_GUARDED_PROC_DIR_ENTRIES.contains(&entry));
+    guarded.then(|| std::path::PathBuf::from(tok))
+}
+
+/// S24 (plan 2026-09-25) — the first path `cmd` names that a sandboxed program cannot
+/// reach, judged by the CEG's own landlock table
+/// ([`touring_ceg::gateway::sandbox_executor::sandbox_can_reach`] — one predicate, D8).
+///
+/// A command naming such a path is never rewritten into `touring run` nor denied toward
+/// it (G1/G8/G10/T3-B): the route would not execute. Measured 25/09: the gate rewrote a
+/// `.touring/bin/touring decompose …` loop into a run that failed with "Permission
+/// denied" and still reported `success: true`.
+fn unreachable_in_sandbox(project_root: &Path, cmd: &str) -> Option<std::path::PathBuf> {
+    let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+    for raw in cmd.split(|c: char| c.is_whitespace() || ";|&()<>`".contains(c)) {
+        let tok = raw.trim_matches(|c: char| "'\"{}[],".contains(c));
+        let tok = tok.rsplit_once('=').map_or(tok, |(_, v)| v);
+        if let Some(guarded) = ptrace_guarded_proc_entry(tok) {
+            return Some(guarded);
+        }
+        if tok.is_empty() || tok.contains("://") || !(tok.contains('/') || tok.starts_with('~')) {
+            continue;
+        }
+        let expanded = match (
+            tok.strip_prefix("~/")
+                .or_else(|| tok.strip_prefix("$HOME/")),
+            &home,
+        ) {
+            (Some(rest), Some(h)) => h.join(rest),
+            _ => std::path::PathBuf::from(tok),
+        };
+        let path = if expanded.is_absolute() {
+            expanded
+        } else {
+            project_root.join(expanded)
+        };
+        // Only an EXISTING path is evidence: a missing one fails inside or outside the
+        // sandbox alike, so it says nothing about capability (keeps `/x/a.rs` fixtures fusible).
+        if path.exists() && !touring_ceg::gateway::sandbox_executor::sandbox_can_reach(&path) {
+            return Some(path);
+        }
+    }
+    None
+}
+
+/// S24 — the bypass token counts only where the SHELL reads it (a command prefix), never
+/// inside a heredoc body or a quoted string: a test file whose text mentions the token was
+/// charged as a bypass and denied by G11 on 25/09.
+fn has_bypass_token(cmd: &str) -> bool {
+    touring_ceg::gateway::gate::mask_shell_data(cmd).contains(GATE_BYPASS_TOKEN)
+}
+
+/// S24 (plan 2026-09-25) — the route is capability-aware and reads shell, not bytes.
+#[cfg(test)]
+mod s24_route_tests {
+    use super::*;
+    // Shim hermético (matriz da 6b, 08/10): `burst_gate` aqui é o limpo injetado.
+    use super::burst_gate_limpo as burst_gate;
+    use serde_json::json;
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
+    }
+
+    fn project_with_outside_binary() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let bin = dir.path().join(".touring").join("bin");
+        std::fs::create_dir_all(&bin).expect("mkdir");
+        // `/root` exists on every Linux box and is never a sandbox root.
+        std::os::unix::fs::symlink("/root", bin.join("touring")).expect("symlink");
+        dir
+    }
+
+    /// V0e5 (09/10/2026): `/proc` IS a sandbox read root, yet ANOTHER process's
+    /// ptrace-guarded entries are not readable from inside — measured on 30.4.94
+    /// against a live daemon, sandbox × native. Rewritten into the sandbox,
+    /// `tr '\0' '\n' < /proc/$p/environ` returned rc 0 with an empty answer; such a
+    /// command must run native. The pid can be a literal, `$p`, `${pid}` or a glob.
+    #[test]
+    fn another_process_ptrace_guarded_proc_entry_is_unreachable() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        for cmd in [
+            "tr '\\0' '\\n' < /proc/$p/environ",
+            "readlink /proc/1234/exe",
+            "cat /proc/*/maps",
+            "ls -l /proc/${pid}/cwd",
+            "readlink /proc/$p/fd/3",
+            "cat /proc/1234/fdinfo/0",
+        ] {
+            assert!(
+                unreachable_in_sandbox(root, cmd).is_some(),
+                "a ptrace-guarded entry of another process was judged reachable: {cmd}"
+            );
+        }
+        // Control: what the sandbox DOES read stays fusible — the same process, the
+        // unguarded entries, and the fd directory listing itself.
+        for cmd in [
+            "head -1 /proc/cpuinfo",
+            "cat /proc/self/environ",
+            "cat /proc/$p/status",
+            "cat /proc/1234/cmdline",
+            "ls /proc/$p/fd",
+        ] {
+            assert!(
+                unreachable_in_sandbox(root, cmd).is_none(),
+                "a /proc read the sandbox performs was judged unreachable: {cmd}"
+            );
+        }
+    }
+
+    #[test]
+    fn code_mode_does_not_rewrite_commands_outside_sandbox_capability() {
+        let dir = project_with_outside_binary();
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-rewrite"}));
+        let cmd = "for s in a b c; do .touring/bin/touring decompose ready $s; done";
+        let out = code_mode_gates(root, &me, "Bash", &json!({"command": cmd}));
+        assert!(
+            !rewritten(&out),
+            "rewrote into a run the sandbox cannot execute: {out:?}"
+        );
+        assert!(unreachable_in_sandbox(root, cmd).is_some());
+    }
+
+    #[test]
+    fn burst_of_unreachable_commands_is_not_fused_toward_the_sandbox() {
+        let dir = project_with_outside_binary();
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-burst"}));
+        for c in [
+            "cat .touring/bin/touring",
+            "cat .touring/bin/touring x",
+            "cat .touring/bin/touring y",
+        ] {
+            // Fallback estrutural (V0e1): nem deny nem rewrite — a chamada
+            // original roda nativa. Nunca um zero silencioso.
+            let out = burst_gate(root, &me, c);
+            assert!(
+                out.is_none(),
+                "fused a command the sandbox cannot read: {c} → {out:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn code_mode_still_fuses_grep_burst_inside_project() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-control"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        assert!(
+            rewritten(&burst_gate(root, &me, "grep -l gamma docs/x.md")),
+            "control: in-project burst still fused"
+        );
+    }
+
+    #[test]
+    fn bypass_token_inside_heredoc_is_data_not_a_bypass() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "s24-heredoc"}));
+        let cmd = format!("cat > t.rs <<'EOF'\nlet x = \"{GATE_BYPASS_TOKEN} ls\";\nEOF");
+        for _ in 0..3 {
+            let out = code_mode_gates(root, &me, "Bash", &json!({"command": cmd}));
+            assert!(
+                // The G11 verdict is identified by its structured prefix: other gates' advisories
+                // legitimately NAME the G11 (the G6 one states the bypass cost).
+                !out.as_deref().is_some_and(|s| s.contains("[G11 ")),
+                "data charged as bypass: {out:?}"
+            );
+        }
+        assert!(
+            has_bypass_token(&format!("{GATE_BYPASS_TOKEN} ls")),
+            "control: a real prefix still counts"
+        );
+    }
+
+    #[test]
+    fn path_qualified_touring_run_is_the_sanctioned_route() {
+        assert!(is_sanctioned_route(
+            ".touring/bin/touring run --lang bash --file x.sh"
+        ));
+        assert!(is_sanctioned_route(
+            "/home/u/.local/bin/touring run --code 'ls'"
+        ));
+        assert!(!is_sanctioned_route("echo touring running"));
+    }
+}
+
+/// G1 sem replay (09/10/2026) — medido ao vivo no 30.4.95: a reescrita fundia o ledger
+/// INTEIRO, então os comandos que já tinham rodado nativos rodavam de novo no sandbox a
+/// cada inspeção seguinte (a mesma linha saiu `66:` e depois `70:` após um patch no meio:
+/// reexecução, não eco), e um `touring run` não zerava a janela do G1. O invariante é o
+/// do G10 (S212): o que já rodou viaja como comentário; só o comando que disparou roda.
+#[cfg(test)]
+mod g1_no_replay_tests {
+    use super::burst_gate_limpo as burst_gate;
+    use super::*;
+    use serde_json::json;
+
+    fn rewritten_code(out: &Option<String>) -> String {
+        let v: Value = serde_json::from_str(out.as_deref().expect("gate fired")).expect("json");
+        let cmd = v["hookSpecificOutput"]["updatedInput"]["command"]
+            .as_str()
+            .expect("updatedInput.command")
+            .to_string();
+        let ini = cmd.find("--code '").expect("--code") + "--code '".len();
+        cmd[ini..cmd.len() - 1].replace("'\\''", "'")
+    }
+
+    fn executable_lines(code: &str) -> Vec<String> {
+        code.lines()
+            .filter(|l| !l.trim_start().starts_with('#') && !l.trim().is_empty())
+            .map(str::to_string)
+            .collect()
+    }
+
+    fn three_inspections(root: &Path, me: &str) -> Option<String> {
+        let _ = burst_gate(root, me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, me, "grep -rn beta crates/");
+        burst_gate(root, me, "grep -l gamma docs/x.md")
+    }
+
+    #[test]
+    fn g1_rewrite_runs_only_the_triggering_command() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-only-trigger"}));
+        let out = three_inspections(dir.path(), &me);
+        let code = rewritten_code(&out);
+        assert_eq!(
+            executable_lines(&code),
+            vec!["grep -l gamma docs/x.md".to_string()],
+            "the commands that already ran must not run again:\n{code}"
+        );
+        assert!(
+            code.contains("# já executado (não repetir): grep -n alpha src/a.rs"),
+            "what already ran travels as context:\n{code}"
+        );
+    }
+
+    #[test]
+    fn g1_rewrite_tells_the_model_what_happened() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-tells-model"}));
+        let out = three_inspections(dir.path(), &me).expect("rewritten");
+        let v: Value = serde_json::from_str(&out).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap_or("");
+        assert!(
+            ctx.contains("[G1") && ctx.contains("NÃO rodaram de novo"),
+            "an allow's reason reaches only the user; the model needs the context: {out}"
+        );
+    }
+
+    #[test]
+    fn g1_rewrite_consumes_the_burst() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-consumes"}));
+        assert!(
+            three_inspections(dir.path(), &me).is_some(),
+            "control: the third fires"
+        );
+        // SAME class: the ledger is per class, so a `wc` here would pass on the old code too.
+        let next = burst_gate(dir.path(), &me, "grep -c delta README.md");
+        assert!(
+            !rewritten(&next),
+            "a fired burst is consumed — the next inspection starts a new one: {next:?}"
+        );
+    }
+
+    #[test]
+    fn touring_run_zeroes_the_g1_window() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "g1-touring-run"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let _ = code_mode_gates(
+            root,
+            &me,
+            "Bash",
+            &json!({"command": "touring run --lang bash --code 'true'"}),
+        );
+        let out = burst_gate(root, &me, "grep -l gamma docs/x.md");
+        assert!(
+            !rewritten(&out),
+            "session contract: a `touring run` in the window zeroes the count: {out:?}"
+        );
+    }
+
+    #[test]
+    fn g1_never_drops_an_oversized_triggering_command() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = dir.path();
+        let me = session_key(&json!({"session_id": "g1-oversized"}));
+        let _ = burst_gate(root, &me, "grep -n alpha src/a.rs");
+        let _ = burst_gate(root, &me, "grep -rn beta crates/");
+        let grande = format!("grep -n '{}' src/a.rs", "x".repeat(G1_BODY_BUDGET));
+        let out = burst_gate(root, &me, &grande);
+        assert!(
+            !rewritten(&out) || rewritten_code(&out).contains(&grande),
+            "the command that fired can never vanish from the rewrite"
+        );
+    }
+
+    /// Seis `grep` DISSIMILARES (Jaccard < 0,5 entre vizinhos — nenhum dispara por
+    /// similaridade): só a contagem dispara, e cada disparo consome a rajada.
+    const SEIS_GREPS: [&str; 6] = [
+        "grep -n alpha src/a.rs",
+        "grep -rn beta crates/",
+        "grep -l gamma docs/x.md",
+        "grep -c delta README.md",
+        "grep -w epsilon lib/zeta.py",
+        "grep -i omega tests/eta.toml",
+    ];
+
+    fn seis_inspecoes(root: &Path, me: &str) -> Vec<Option<String>> {
+        SEIS_GREPS
+            .iter()
+            .map(|cmd| burst_gate(root, me, cmd))
+            .collect()
+    }
+
+    /// Teste de GUARDA (já passa antes do conserto: o `invalidate` existe no caminho da
+    /// reescrita): um disparo por lote — a 3ª e a 6ª reescrevem, as demais passam, e o
+    /// programa do 2º lote carrega SÓ o 6º como passo (4º e 5º viram comentário; o 1º, de
+    /// outro lote, não reaparece).
+    #[test]
+    fn g1_fires_once_per_lot() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-once-per-lot"}));
+        let saidas = seis_inspecoes(dir.path(), &me);
+        let disparos: Vec<usize> = saidas
+            .iter()
+            .enumerate()
+            .filter(|(_, o)| rewritten(o))
+            .map(|(i, _)| i + 1)
+            .collect();
+        assert_eq!(
+            disparos,
+            vec![3, 6],
+            "um disparo por lote: reescreve exatamente na 3ª e na 6ª: {saidas:?}"
+        );
+        let code = rewritten_code(&saidas[5]);
+        assert_eq!(
+            executable_lines(&code),
+            vec![SEIS_GREPS[5].to_string()],
+            "no 2º lote só o 6º comando é passo:\n{code}"
+        );
+        for ja in [SEIS_GREPS[3], SEIS_GREPS[4]] {
+            assert!(
+                code.contains(&format!("# já executado (não repetir): {ja}")),
+                "o {ja:?} do lote viaja como comentário:\n{code}"
+            );
+        }
+        assert!(
+            !code.contains(SEIS_GREPS[0]),
+            "o 1º comando é do lote anterior (já consumido) e não reaparece:\n{code}"
+        );
+    }
+
+    /// O advisory autodemovido deixa claro que ESTE comando roda NATIVO e intacto (nada a
+    /// repetir) e que o programa mostrado é o FORMATO da próxima rajada — o texto antigo
+    /// ("A rajada acumulada já é o programa") sugeria rodá-lo, repetindo o comando.
+    #[test]
+    fn g1_advisory_says_this_command_runs_native() {
+        let msg = g1_advisory_response(3, "grep", "touring run --lang bash --code 'x'");
+        let v: Value = serde_json::from_str(&msg).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .expect("additionalContext");
+        assert!(ctx.contains("NATIVO"), "este comando roda nativo: {ctx}");
+        assert!(
+            ctx.contains("próxima rajada"),
+            "o programa é o formato da próxima rajada: {ctx}"
+        );
+        assert!(
+            !ctx.contains("rode-o"),
+            "o advisory não manda repetir o comando: {ctx}"
+        );
+        assert!(
+            ctx.contains(&format!(
+                "[G1 rajada — AUTODEMOVIDO a advisory: precisão viva abaixo de {G1_DEMOTE_FLOOR}]"
+            )),
+            "o prefixo do advisory é preservado: {ctx}"
+        );
+        assert!(
+            ctx.contains("touring run --lang bash --code 'x'"),
+            "o programa viaja no contexto: {ctx}"
+        );
+    }
+
+    /// A razão por contagem diz «desde o último disparo»: o ledger zera a cada disparo, e
+    /// a 6ª inspeção da sessão é a 3ª do lote — a contagem parte do último disparo, não
+    /// da janela de 180s inteira.
+    #[test]
+    fn g1_count_reason_counts_since_last_fire() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-since-last-fire"}));
+        let saidas = seis_inspecoes(dir.path(), &me);
+        let v: Value =
+            serde_json::from_str(saidas[5].as_deref().expect("a 6ª dispara")).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .expect("additionalContext");
+        assert!(
+            ctx.contains("3ª inspeção da classe `grep` desde o último disparo"),
+            "a 6ª da sessão é a 3ª do lote — e o texto diz desde quando: {ctx}"
+        );
+    }
+
+    /// O ramo advisory (precisão viva abaixo do piso) também consome o lote: a 3ª
+    /// inspeção devolve só `additionalContext`, e a 4ª da mesma classe começa outra
+    /// rajada (None). Sem o `invalidate` antes do advisory, a 4ª refundia o ledger
+    /// inteiro e disparava de novo — fadiga, a regra do G10 («um aviso por lote»).
+    #[test]
+    fn g1_advisory_branch_also_consumes_the_lot() {
+        // Controle do instrumento: (0.0, 10_000) força MESMO o advisory — lido das
+        // constantes de demoção e do predicado de produção, não suposto.
+        let precisao = (0.0_f64, 10_000_u64);
+        assert!(
+            precisao.1 >= G1_DEMOTE_MIN_EVENTS && precisao.0 < G1_DEMOTE_FLOOR,
+            "a precisão injetada tem de estar abaixo do piso {G1_DEMOTE_FLOOR} com volume \
+             ≥ {G1_DEMOTE_MIN_EVENTS}"
+        );
+        assert!(
+            !g1_should_deny(Some(precisao)),
+            "o predicado de produção tem de autodemover com esse dado"
+        );
+        let ovr = GateOverrides {
+            g1_precision: Some(Some(precisao)),
+            ..Default::default()
+        };
+        let dir = tempfile::tempdir().expect("tempdir");
+        let me = session_key(&json!({"session_id": "g1-advisory-consumes"}));
+        let fire =
+            |cmd: &str| burst_gate_with(dir.path(), &me, cmd, &json!({"command": cmd}), &ovr);
+        assert!(fire(SEIS_GREPS[0]).is_none(), "a 1ª passa");
+        assert!(fire(SEIS_GREPS[1]).is_none(), "a 2ª passa");
+        let terceira = fire(SEIS_GREPS[2]).expect("a 3ª dispara");
+        let v: Value = serde_json::from_str(&terceira).expect("json");
+        let ctx = v["hookSpecificOutput"]["additionalContext"]
+            .as_str()
+            .unwrap_or("");
+        assert!(
+            ctx.contains("AUTODEMOVIDO"),
+            "o disparo é o advisory autodemovido: {terceira}"
+        );
+        assert!(
+            !terceira.contains("updatedInput") && !terceira.contains("permissionDecision"),
+            "advisory não reescreve nem decide — o comando roda nativo: {terceira}"
+        );
+        let quarta = fire(SEIS_GREPS[3]);
+        assert!(
+            quarta.is_none(),
+            "o disparo consumiu o lote: a 4ª da mesma classe começa outra rajada: {quarta:?}"
+        );
+    }
+
+    fn rewritten(out: &Option<String>) -> bool {
+        out.as_deref().is_some_and(|s| s.contains("updatedInput"))
+    }
+}

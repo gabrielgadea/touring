@@ -60,7 +60,20 @@ pub struct OutputSummary {
     pub counts: BTreeMap<String, u32>,
     /// First K + last K lines (head/tail retention) when no errors dominate.
     pub head_tail: Vec<String>,
-    /// `true` when the full output was clipped (full available on-demand by `content_hash`).
+    /// Linhas não-vazias da saída que o digest **não** carrega.
+    ///
+    /// É um piso: conta a elisão por LINHA (o miolo que head/tail descarta, e o
+    /// excedente de `MAX_ERROR_LINES`). A elisão por CARACTERE se autodeclara —
+    /// `clip` anexa `…` na própria linha.
+    pub elided_lines: u64,
+    /// `true` quando o que você está lendo **não é a saída inteira** — seja
+    /// porque a captura foi cortada a montante, seja porque o digest elidiu
+    /// linhas (`elided_lines > 0`).
+    ///
+    /// Até 25/08/2026 este campo repassava apenas o corte de captura, então um
+    /// programa de 30 linhas voltava com 6 e `truncated: false` (medido). Um
+    /// sinal que diz "nada foi perdido" enquanto 80% se perdeu é pior que
+    /// nenhum sinal — é a família `sinais-de-progresso-que-mentem`.
     pub truncated: bool,
 }
 
@@ -77,6 +90,7 @@ impl OutputSummary {
             file_refs: Vec::new(),
             counts: BTreeMap::new(),
             head_tail: Vec::new(),
+            elided_lines: 0,
             truncated: false,
         }
     }
@@ -226,6 +240,13 @@ pub fn summarize_output(output: &str, exit_code: i32, truncated: bool) -> Output
             .collect();
     }
 
+    // O que o digest realmente carrega vs o que a saída tinha. `head_tail` e
+    // `error_lines` são mutuamente exclusivos por construção acima, então a
+    // soma não conta duas vezes.
+    let non_empty = lines.iter().filter(|l| !l.trim().is_empty()).count();
+    let carregadas = head_tail.len() + error_lines.len();
+    let elided_lines = non_empty.saturating_sub(carregadas) as u64;
+
     OutputSummary {
         exit_code,
         total_bytes,
@@ -233,7 +254,9 @@ pub fn summarize_output(output: &str, exit_code: i32, truncated: bool) -> Output
         file_refs,
         counts,
         head_tail,
-        truncated,
+        elided_lines,
+        // Fail-loud: qualquer perda — de captura OU de digest — é declarada.
+        truncated: truncated || elided_lines > 0,
     }
 }
 
@@ -246,6 +269,12 @@ mod tests {
         let s = summarize_output("compiling\nFinished in 2s\n", 0, false);
         assert!(s.error_lines.is_empty());
         assert!(!s.head_tail.is_empty()); // head/tail retained for context
+        // O digest nunca afirma completude que não tem.
+        assert_eq!(
+            s.truncated,
+            s.elided_lines > 0,
+            "sem corte de captura, `truncated` é exatamente `elided_lines > 0`"
+        );
         assert!(!s.is_failure());
     }
 

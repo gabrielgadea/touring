@@ -1,0 +1,11 @@
+{
+  "phase": "W4",
+  "entities": [
+    {
+      "entity_id": "phase:W4",
+      "type": "phase",
+      "description": "W4 completa: 4 predicados de loop (dry/fixpoint/covered/calibrated), n\u00f3s probe (FACT= com run_id no journal + {{nodes.X.facts.k}} interpol\u00e1vel) e control (aprova bom E reprova ruim, CONTROL= emitido pelo runner), 4 lints da honestidade, retry_with_feedback ([gate feedback] verbatim no prompt do retry), fam\u00edlia RAW_EDGE_FIELDS unificada nos 4 walkers. 220 testes (201\u2192220, 0 skip), biblioteca 6/6 lint-clean com control_waived declarado nos j\u00faris, exerc\u00edcio real via touring adw run (fixpoint convergiu com stable_streak=2)."
+    }
+  ],
+  "relations": []
+}

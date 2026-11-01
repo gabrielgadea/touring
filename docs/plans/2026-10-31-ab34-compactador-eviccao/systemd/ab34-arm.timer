@@ -1,0 +1,10 @@
+[Unit]
+Description=AB34: batimento horário (a 1ª execução do dia arma a célula); Persistent dispara ao religar se a máquina dormiu na hora
+
+[Timer]
+OnCalendar=*-*-* *:00:30
+Persistent=true
+Unit=ab34-arm.service
+
+[Install]
+WantedBy=timers.target

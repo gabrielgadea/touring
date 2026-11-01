@@ -1,0 +1,21 @@
+negações de hook/guard: 3892 em 346 transcripts
+gate                                           n  sessões  reincide≤5min  rota seguida  ferramentas
+G1 rajada-de-inspeção                       1782      303           38%          44%  {'Bash': 1782}
+G7 re-inspeção (3ª leitura)                  460      118           20%          48%  {'Read': 460}
+G3 edit sem Read recente                     436       49           40%          51%  {'Edit': 436}
+python_pre_gate (F82 etc.)                   404       46           43%          85%  {'Edit': 364, 'Write': 40}
+G11 orçamento de bypass                      172       79           15%          39%  {'Bash': 172}
+OUTER · efeito (1ª mudança do turno)         127       28           13%          82%  {'Edit': 100, 'Write': 27}
+write→run (script escrito-e-executado)       122       75           10%          34%  {'Bash': 122}
+escrita cega inline (sed -i/awk/perl)        120       62            2%          72%  {'Bash': 120}
+rm guard                                      97       50            2%          21%  {'Bash': 96, 'Write': 1}
+touring-quality-block-all                     64       30           16%          48%  {'Write': 57, 'Edit': 7}
+permissão do Claude Code (não é hook do Touring)    33        7           52%           0%  {'Bash': 33}
+git (block_git / protocolo)                   27        8           41%          41%  {'Bash': 27}
+guard de segurança sem rota (dd, pipe→shell, --force, Windows delete)    19       15            5%           0%  {'Bash': 19}
+gate de prosa (CJK)                           14        4           21%         100%  {'Write': 14}
+gate de preservação de sintaxe (parses today)     4        3            0%          75%  {'Edit': 4}
+guard de rm (redação «Recursive deletion: flag»)     4        4            0%          25%  {'Bash': 4}
+redundant-exact-call (retry cego)              4        1           50%           0%  {'Bash': 4}
+agent_model_gate                               2        1            0%          50%  {'Agent': 2}
+guard de chmod (remove todas as permissões)     1        1            0%           0%  {'Bash': 1}

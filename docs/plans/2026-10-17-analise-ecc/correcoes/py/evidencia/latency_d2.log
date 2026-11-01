@@ -1,0 +1,5 @@
+git status (no bypass)                     median   87.8 ms  p90   96.6 ms
+git commit -m x (no bypass)                median   83.1 ms  p90  104.7 ms
+commit -n, repo WITH hooks (deny)          median  134.4 ms  p90  150.2 ms
+commit -n, repo WITHOUT hooks (allow)      median  157.7 ms  p90  172.8 ms
+commit -n + bypass token (allow)           median   82.4 ms  p90   99.4 ms

@@ -8,6 +8,7 @@
 //! unchanged.
 
 use tokio::sync::oneshot;
+use touring_foundation::injection_policy::InjectionLevel;
 
 /// Actor-pattern command sent to the per-project runtime task.
 ///
@@ -26,6 +27,9 @@ pub enum ProjectCommand {
         hook_name: String,
         /// JSON payload passed to the hook handler.
         payload: serde_json::Value,
+        /// Client session's injection level. `None` preserves the daemon's
+        /// environment for legacy requests and non-hook transports.
+        injection_level: Option<InjectionLevel>,
         /// Channel on which the handler's serialized output is returned.
         response: oneshot::Sender<String>,
         /// Instant the command was enqueued. The actor measures

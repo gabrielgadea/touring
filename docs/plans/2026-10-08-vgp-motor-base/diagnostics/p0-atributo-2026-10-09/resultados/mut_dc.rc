@@ -1,0 +1,12 @@
+7fb2c562e57d188c  /home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code/src/vgp/checks.rs
+e121c6e0a8f2ee01  /home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code/src/vgp/modules.rs
+c61ff1e34c33fd06  /home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code/src/vgp/checks/tests.rs
+marcador criado 2026-10-10T11:13:38-03:00
+mutantes rc=0
+restaurado checks.rs (cmp rc=0)
+restaurado modules.rs (cmp rc=0)
+restaurado checks/tests.rs (cmp rc=0)
+ls: cannot access '/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code/src/vgp/*.orig_mut': No such file or directory
+ls: cannot access '/home/gabrielgadea/projects/touring-wt-vgp-attr/crates/touring-code/src/vgp/checks/*.orig_mut': No such file or directory
+marcador removido 2026-10-10T11:16:05-03:00
+FIM

@@ -1,0 +1,107 @@
+[
+  {
+    "id": "D16",
+    "estado": "confirmado",
+    "comando": "grep -n \"^tools:\" ~/.claude/agents/touring-auditor.md",
+    "saida_chave": "11:tools: [Bash, Glob, Grep, Read, Edit, Write, LS, WebFetch, WebSearch, TodoWrite]",
+    "nota": "Auditor tem Edit e Write. Confirmado por leitura do frontmatter; não há bloqueio de escrita no corpo."
+  },
+  {
+    "id": "D17",
+    "estado": "confirmado",
+    "comando": "sed -n 28,34p ~/.claude/agents/touring-scouter.md",
+    "saida_chave": "echo \"$RESULT_JSON\" > /tmp/scouter-output.json",
+    "nota": "Caminho fixo em /tmp, sem mktemp nem umask. Não localizei o santa-loop.md do ECC, então a comparação com ECC não foi verificada."
+  },
+  {
+    "id": "D18",
+    "estado": "confirmado",
+    "comando": "touring daemon-ctl status",
+    "saida_chave": "exe: .../target/release/touring-daemon (deleted) (deleted — rebuild ran without restart); daemon PID: 731793",
+    "nota": "Daemon segue com binário apagado. Não reiniciado, conforme REGRA #19 e o próprio brief."
+  },
+  {
+    "id": "D19",
+    "estado": "confirmado",
+    "comando": "touring status -j | sessions (contagem em python)",
+    "saida_chave": "count 20; sem_objetivo 17; ids numéricos 14..31; max updated_at fora dos fixtures = 2026-09-01T16:45",
+    "nota": "Fixtures wave24-test e wave24-warmup são os únicos atualizados em 18/10. O resource_monitor não foi reexaminado."
+  },
+  {
+    "id": "D20",
+    "estado": "confirmado",
+    "comando": "python3 -I ~/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py --criterion",
+    "saida_chave": "IndexError: list index out of range (linha 473, Path(argv[2]))",
+    "nota": "Sem o argumento de arquivo, o script cai em traceback. O código não tem checagem de uso antes do argv[2]."
+  },
+  {
+    "id": "D21",
+    "estado": "confirmado",
+    "comando": "grep -rn \"CREATE TRIGGER\" crates scripts client | wc -l; grep -rn 'RAISE[(]' crates scripts client | wc -l",
+    "saida_chave": "14 CREATE TRIGGER (ex.: memory_fts_ai, symbol_fts_ai); 0 RAISE(",
+    "nota": "Nenhum trigger de imutabilidade. Os 14 são de sincronia FTS. Os 14 incluem o trigger de teste em handlers/tests.rs."
+  },
+  {
+    "id": "D22",
+    "estado": "parcial",
+    "comando": "git worktree list | wc -l; ls memory/ | grep -E 'copiar-worktree|entrega-partida'",
+    "saida_chave": "22 linhas (21 worktrees de agente + o principal); as duas memórias existem",
+    "nota": "Número citado de 20 não bate: são 22 linhas (21 de agente). A parte de integração por cópia com duas quebras registradas está nas memórias."
+  },
+  {
+    "id": "D23",
+    "estado": "corrigido",
+    "comando": "readlink -f ~/.claude/hooks/agent_model_gate.py; sed -n 40,62p client/hooks/agent_model_gate.py",
+    "saida_chave": "~/.claude/hooks/agent_model_gate.py -> client/hooks/agent_model_gate.py; def _fit_decision (linha 268) com fit:busca-exige-haiku e fit:opus-fica-na-sessao-principal",
+    "nota": "A versão viva já julga o ajuste modelo×tarefa. A memória roteamento-de-modelo-so-exige-presenca ('aceita QUALQUER model') está desatualizada e deve ser corrigida."
+  },
+  {
+    "id": "D24",
+    "estado": "confirmado",
+    "comando": "grep -n \"13\\.\" ~/.claude/CLAUDE.md; ls ~/.claude/rules ~/.claude/skills | grep -i hyg",
+    "saida_chave": "CLAUDE.md:175 '#13 SKILL HYGIENE ... (skill-hygiene.md em redação)'; nenhum skill-hygiene em rules/ nem skills/",
+    "nota": "Corpo da regra 13 inexistente. Não verifiquei se package_skill.py está ligado a alguma etapa."
+  },
+  {
+    "id": "D25",
+    "estado": "parcial",
+    "comando": "python3 lê inventario-ecc.json (adaptadores['.agents']); sed -n 70,96p scripts/inventario_ecc.py",
+    "saida_chave": "ident() = nome-base (linha 74); .agents: 107 arquivos, com_par_na_fonte 45; 46 openai.yaml, tem_par=False em todos",
+    "nota": "Mecanismo confirmado (pareamento por nome-base, max sobre candidatos). Mas o exemplo de par falso openai.yaml→terminal-opener não aparece: o inventário registra 0 de 46 com par. Contagem é 107, não 108."
+  },
+  {
+    "id": "D26",
+    "estado": "confirmado",
+    "comando": "sed -n 1915,1928p crates/touring-cli/src/cli/handlers/index.rs; grep -n \"read failed\" crates/touring-cli/src/cli/ast.rs",
+    "saida_chave": "index.rs:1919 unwrap_or(Lang::Rust) e 1920 read_to_string.unwrap_or_default; 1926 inject_reward(\"cli-ast-quality\", reward, \"measured_overall_score\"); ast.rs:496 'read failed'",
+    "nota": "Confirmado por leitura do código. Não rodei 'ast quality' (grava reward, vedado pelo brief). O ast tdg tem o erro explícito, como descrito."
+  },
+  {
+    "id": "D27",
+    "estado": "confirmado",
+    "comando": "sed -n 790,804p crates/touring-code/src/ast/quality.rs; grep -n count_occurrences quality.rs; sed -n 300,318p crates/touring-cli/src/cli/ast.rs",
+    "saida_chave": "quality.rs:364 count_occurrences(source, \".unwrap()\") sobre o arquivo inteiro, sem máscara de comentário nem cfg(test); ast.rs:316 .unwrap_or(0.0)",
+    "nota": "Substring no arquivo inteiro e fallback 0.0 confirmados. Controle com 'ast quality' não executado (grava reward); a evidência é de código."
+  },
+  {
+    "id": "D28",
+    "estado": "confirmado",
+    "comando": "sed -n 122,140p crates/touring-hook-runtime/src/ceg_impls.rs; grep -rn redact_secrets crates | grep -v ceg",
+    "saida_chave": "parse_memory_store_payload só checa key e value vazios; redact_secrets só em touring-server/src/ingest/transcript_miner.rs:74,533",
+    "nota": "Caminho de store (CLI, hook, agente) não redige segredo. Só a mineração de transcript redige."
+  },
+  {
+    "id": "D29",
+    "estado": "confirmado",
+    "comando": "python3 conta hook em ~/.claude/touring/hook_trace.jsonl; grep SubagentStart/Stop em ~/.claude/settings.json",
+    "saida_chave": "923.548 linhas; subagent-stop 7970 vs subagent-start 2044 (3,9x); chaves sem tool_use_id; 1 entrada em cada hook no settings",
+    "nota": "Direção confirmada. A razão agora é 3,9x, não 2,96x: o log cresceu. Sem tool_use_id, duplicata não se distingue de chamada paralela."
+  },
+  {
+    "id": "D30",
+    "estado": "parcial",
+    "comando": "touring-quality score <fixture>.rs --dims F1.6; idem <fixture>.ts; controle rust_pos.rs",
+    "saida_chave": "rust_ctl.rs 0.850 (Gold), unwrap=0 expect=0 panic=0; ts_ctl.ts 1.000 (Diamond); controle rust_pos.rs unwrap=1 expect=1 panic=1 -> 0.000",
+    "nota": "Rust reproduz 0,850. O TS não reproduz 0,850: o catch vazio ficou em 1,000 (Diamond). A falha do F1.6 está confirmada: o silencioso passa."
+  }
+]

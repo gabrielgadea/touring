@@ -1,0 +1,7 @@
+recall de símbolo · arquivo 12/13 · inline 23/27 | forma (fora) {'arquivo': [1, 11], 'inline': [0, 13]} | falsos deny 9 em {'arquivo': 600, 'inline': 600} | avisos em negativos 76 | p95 1013.8 ms | chamadas 1264 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 4/600 · taxa 0.667% · limite_superior_95 1.52% (teto 1%; o n=600 admite até 1 falso(s)) · LIMITE ACIMA DO TETO
+  falso deny (inline): 5/600 · taxa 0.833% · limite_superior_95 1.74% (teto 1%; o n=600 admite até 1 falso(s)) · LIMITE ACIMA DO TETO
+  PENDENTE: falso deny (arquivo) limite superior 95% 1.52% > 1% (4/600, taxa 0.667%) — com n=600 o teto admite no máximo 1 falso(s)
+  PENDENTE: falso deny (inline) limite superior 95% 1.74% > 1% (5/600, taxa 0.833%) — com n=600 o teto admite no máximo 1 falso(s)
+  PENDENTE: p95 1013.8 ms > 1000.0 ms
+veredito: NÃO PRONTO

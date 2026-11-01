@@ -1,0 +1,85 @@
+hw-slot: aguardando — temp 97C > 88C
+[1m[propagate][0m workspace : /home/gabrielgadea/projects/touring
+[1m[propagate][0m versão    : 30.4.96
+[33m[propagate] WARN[0m gates pulados (--skip-gates)
+
+[1m── 2/6 BUILD — update-touring (kill → build → install dual-target → restart → verify) ──[0m
+  [1m$[0m update-touring
+[update-touring] =================================================================
+[update-touring] update-touring start  CLEAN=false NO_BUILD=false NO_KILL=false NO_RESTART=false VERIFY_ONLY=false
+[update-touring] daemon stopped via daemon-ctl (siblings untouched)
+[update-touring] socket held by live daemon PID 751583 — nothing stale to clean
+[update-touring] cargo build --release --workspace
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+   Compiling pyo3-ffi v0.29.0
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+   Compiling touring-contracts v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-contracts)
+   Compiling touring-orchestration v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
+   Compiling pyo3 v0.29.0
+   Compiling numpy v0.29.0
+   Compiling touring-hooks-saga v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-saga)
+   Compiling touring-pyright v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+   Compiling touring-resilience v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+   Compiling touring-identity v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-identity)
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-code)
+   Compiling touring-server v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-license v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-license)
+   Compiling touring-search-fusion-bench v0.1.0 (/home/gabrielgadea/projects/touring/benches)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+   Compiling touring-lsp v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+   Compiling touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
+   Compiling touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
+   Compiling touring-web-server v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
+   Compiling touring-web v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-web)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+   Compiling touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+   Compiling touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+   Compiling touring-integration-tests v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-integration-tests)
+    Finished `release` profile [optimized + debuginfo] target(s) in 9m 46s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+[update-touring] installing symlinks across 2 target dirs
+[update-touring]   /home/gabrielgadea/.local/bin/touring -> /home/gabrielgadea/projects/touring/target/release/touring
+[update-touring]   /home/gabrielgadea/.local/bin/touring-hook -> /home/gabrielgadea/projects/touring/target/release/touring-hook
+[update-touring]   /home/gabrielgadea/.local/bin/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
+[update-touring]   /home/gabrielgadea/.local/bin/libonnxruntime_providers_shared.so -> /home/gabrielgadea/projects/touring/target/release/libonnxruntime_providers_shared.so
+[update-touring]   /home/gabrielgadea/.local/bin/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/projects/touring/target/release/libonnxruntime_providers_cuda.so
+[update-touring]   /home/gabrielgadea/.claude/hooks/touring -> /home/gabrielgadea/projects/touring/target/release/touring
+[update-touring]   /home/gabrielgadea/.claude/hooks/touring-hook = walk-up shim (from /home/gabrielgadea/projects/touring/scripts/hooks/touring-hook-shim.sh)
+[update-touring]   /home/gabrielgadea/.claude/hooks/touring-daemon -> /home/gabrielgadea/projects/touring/target/release/touring-daemon
+[update-touring]   /home/gabrielgadea/.claude/hooks/libonnxruntime_providers_shared.so -> /home/gabrielgadea/projects/touring/target/release/libonnxruntime_providers_shared.so
+[update-touring]   /home/gabrielgadea/.claude/hooks/libonnxruntime_providers_cuda.so -> /home/gabrielgadea/projects/touring/target/release/libonnxruntime_providers_cuda.so
+[update-touring] daemon restarted via daemon-ctl (fresh binary, siblings untouched)
+[update-touring] running touring doctor
+[update-touring] doctor: 5/5 OK
+[update-touring]   PID 42698: /home/gabrielgadea/projects/touring/target/release/touring-daemon
+[update-touring] done
+[update-touring]   - Reconnect MCP via /mcp dialog if Claude Code session is open
+[update-touring]   - Logs: /home/gabrielgadea/.claude/touring/update.log
+[1m[propagate][0m rótulo OK: o binário declara 30.4.96
+
+[1m── 3/6 FREEZE — snapshot imutável em ~/.touring/toolchains/30.4.96 ──[0m
+  [1m$[0m touring toolchain install --from-source /home/gabrielgadea/projects/touring 30.4.96 --force
+touring toolchain: installed 30.4.96 (from source /home/gabrielgadea/projects/touring, force=true)
+
+[1m── 4/6 DEFAULT — canal default → 30.4.96 ──[0m
+  [1m$[0m touring toolchain default 30.4.96
+touring toolchain: default → 30.4.96
+
+[1m── PAUSA — gates, build, freeze e default concluídos; passo 5 NÃO executado ──[0m
+[1m[propagate][0m nenhum daemon de projeto foi tocado. Quando o dono de cada projeto liberar:
+[1m[propagate][0m   scripts/propagate-release.sh 30.4.96 --skip-gates --skip-build --skip-freeze
+PROPAGATE_RC=0

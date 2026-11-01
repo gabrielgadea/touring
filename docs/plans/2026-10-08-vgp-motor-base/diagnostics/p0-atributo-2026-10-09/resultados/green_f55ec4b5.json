@@ -1,0 +1,122 @@
+{
+ "numpy np.array+np.where | proj": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "numpy np.array+np.where | tmp": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "numpy np.array+np.where | inline": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "PIL Image.LANCZOS | proj": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "PIL Image.LANCZOS | tmp": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "PIL Image.LANCZOS | inline": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "rust_bridge.RUST_AVAILABLE | proj": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "rust_bridge.RUST_AVAILABLE | tmp": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "rust_bridge.RUST_AVAILABLE | inline": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "CTL np.arrai (deve ser deny) | proj": {
+  "verdict": "warn",
+  "achados": [
+   [
+    "warn",
+    "atributo",
+    "arrai"
+   ]
+  ]
+ },
+ "CTL np.arrai (deve ser deny) | tmp": {
+  "verdict": "deny",
+  "achados": [
+   [
+    "deny",
+    "atributo",
+    "arrai"
+   ]
+  ]
+ },
+ "CTL np.arrai (deve ser deny) | inline": {
+  "verdict": "deny",
+  "achados": [
+   [
+    "deny",
+    "atributo",
+    "arrai"
+   ]
+  ]
+ },
+ "CTL os.path.join (deve ser allow) | proj": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "CTL os.path.join (deve ser allow) | tmp": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "CTL os.path.join (deve ser allow) | inline": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "OBS os.pathh | proj": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "OBS os.pathh | tmp": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "OBS os.pathh | inline": {
+  "verdict": "allow",
+  "achados": []
+ },
+ "OBS math.sqr (stdlib fechado) | proj": {
+  "verdict": "deny",
+  "achados": [
+   [
+    "deny",
+    "atributo",
+    "sqr"
+   ]
+  ]
+ },
+ "OBS math.sqr (stdlib fechado) | tmp": {
+  "verdict": "deny",
+  "achados": [
+   [
+    "deny",
+    "atributo",
+    "sqr"
+   ]
+  ]
+ },
+ "OBS math.sqr (stdlib fechado) | inline": {
+  "verdict": "deny",
+  "achados": [
+   [
+    "deny",
+    "atributo",
+    "sqr"
+   ]
+  ]
+ }
+}

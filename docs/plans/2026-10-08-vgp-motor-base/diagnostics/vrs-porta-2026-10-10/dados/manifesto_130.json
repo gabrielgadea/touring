@@ -1,0 +1,527 @@
+{
+ "raiz": "/home/gabrielgadea/projects/touring-wt-semeado",
+ "commit": "88c7cc8b",
+ "n": 130,
+ "arquivos": [
+  {
+   "arquivo": "crates/touring-code/benches/flamegraph_profile.rs",
+   "sha256": "bc12892f40a7259fdba69a09ffbfcdfe50bf51cd6e0c6950d8cdbdfb6efd1f25"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/incremental_parser.rs",
+   "sha256": "d6a19d2d08d8685f89b09226ca6f27981264be7ea25412cfed80ee14bb53e264"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/lazy_loading.rs",
+   "sha256": "21d59c1d3abad4869dfc9fae83425f4ca56bb1d5fa433f61042d16c60b75e340"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/polyglot_baseline.rs",
+   "sha256": "e5ee1d4f7a793f79619145ddc67be86b5be86468251886233d49aad4e4661c50"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/prioritized_pipeline.rs",
+   "sha256": "613ef81754120e1028f8c66970a5d84b2085e6cfa075b14078256d26d8efd0df"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/rope_document.rs",
+   "sha256": "10bf0a2a9ad2c62b9ff1855c9d1378951e6382dffe67606ff17913f6f3c9cdea"
+  },
+  {
+   "arquivo": "crates/touring-code/benches/symbol_store.rs",
+   "sha256": "c47e7b5bb53d346b7fb185fbcca718613f7e5b05cb28680a9555a9ee542e9b18"
+  },
+  {
+   "arquivo": "crates/touring-code/examples/extract_symbols_file.rs",
+   "sha256": "b99e4523b9ce531d5783e74e8c5f17bfd56e4739df1c39ca4a90d299fbb809c2"
+  },
+  {
+   "arquivo": "crates/touring-code/examples/sdk_posttool_end_to_end.rs",
+   "sha256": "cda659a5355dea589b860f701ae5af5ba0838c49c5f61436322767b23751780c"
+  },
+  {
+   "arquivo": "crates/touring-code/examples/sdk_smoke.rs",
+   "sha256": "cff5399d4e0bf011109d33d69c44675b709c6ed66062e939dad8edce3bdd2f66"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/api_cascade.rs",
+   "sha256": "011a4b071ee86f77a55bec261308187b059b43a9e79e95991f03039d09c3415a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/call_graph.rs",
+   "sha256": "caa2bbf16240f00674ed3491261dfd7d45e9d40c7bab764526f62ac7bd38dfa3"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/code_gen_workflow.rs",
+   "sha256": "19cf760d5e4f66b673a121411aac2202cae2bad592882e854f4b59d372e9ead8"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/complexity.rs",
+   "sha256": "78bdb173d9b3541f59003be1407ddbd991656b28cdbfe2748d4d9caf1aa0ce08"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/doc_text.rs",
+   "sha256": "261fc032ee0eac966a85d803401df65b8f58f736a1d1f7f466a980e6ff5fb245"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/document.rs",
+   "sha256": "a202db7715e943a71b79ee510bf91cace06ffd1d49dffad0acbdedf0deb7200a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/error.rs",
+   "sha256": "83ba7acabccda80fb254cc87ea82628034751c5690bbd6691b62074756a12c83"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/file_heat.rs",
+   "sha256": "f486bb4cf5d65778783733e12b7694c5f333676b4aa73a6085ead81a13bb609d"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/format/mod.rs",
+   "sha256": "330fccc6e8689d5cfff8402e4c7d7e32c406e365b427f315b6a825463a42d907"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/format/preserve/formatter.rs",
+   "sha256": "2ca7d1c791e71d28acecb9214ae162bfc9962a97b299a24d1baa8f253184fac3"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/format/preserve/mod.rs",
+   "sha256": "a8aa14e634f48aed03c0721a70c4f06510f7ad72fe668992d7d35a191595d368"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/format/preserve/snippet_provider.rs",
+   "sha256": "1bb2bbfff350d30c0edfbda9c6a321a3350aaee553af53d5d00aa65fc8527ce5"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/go_wiring.rs",
+   "sha256": "c1a635b3dfc3f4d5f16acabbfce7d3e43e90d1e9a1e698b6fd33c3bcf08f82c7"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/blast_radius.rs",
+   "sha256": "e6dde6c9180f9372435cd43e5fe7e6d97a0bf108a5ac40099772cfb7f41d62cf"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/cycles.rs",
+   "sha256": "0ca71bb4953cab49d4b124072e7567ef514c27a647aa142dc0e724bd735f1da0"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+   "sha256": "015fcc8c553c4538536c77c9706767b8cd32d812b5434caeeaeda6c99ef5ed2b"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/imports.rs",
+   "sha256": "4d3e894b42f71f6a0bad5be8e33dd415b8f54164df1225245d3db8f18a8083c8"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/method_calls.rs",
+   "sha256": "5ff6ab4208208e4bfdeae9371aa003b4e9e30e7637296af5e598b8f8c668863f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/mod.rs",
+   "sha256": "4d8234a2aee90d1ec6ab817b7db9c80cbbab13cb4d1e79e8c0364776bd962817"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/module_paths.rs",
+   "sha256": "d28fcab4d0e7df9ed7b4f8e00eb8641d922f237f94ad7273257fdb8d05a2c89b"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/pheromone.rs",
+   "sha256": "7e64019277d795d6a117d4768be1ceaaebedfa351d55fac07299a2fd939d3c7a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/python_uses.rs",
+   "sha256": "46b08c7914e27a675102618dedc37d76562d1d5deec78a901e8e3688aa205170"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/graph/self_refs.rs",
+   "sha256": "a187a8daab64cf7c3ccb3fc03174d77788b38922fe05a557a3619f56331106da"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/import_resolver.rs",
+   "sha256": "a992f7c3d2c1f52e3d10731b936d3e2de208ecface886eeffd6be0df36a21143"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/incremental_pipeline.rs",
+   "sha256": "fa4af10849102ef4e6b095e3ea74bf048137f84a8713f064aac17318957ca3f2"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/languages.rs",
+   "sha256": "0b1980d330f0583b50718db68103b790545635863a084636f5003bf1be9d6de4"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/learning_loop.rs",
+   "sha256": "0ffed72e13499349a36eb7b942bb750bce284462d873c760d0d58ee92cfb0e57"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/manifest.rs",
+   "sha256": "698b078cd73ee90b5d6ee7447995a63961a96a56cb14c2ec049f8a3f40a9e230"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/markdown_text.rs",
+   "sha256": "b40ebc74912e2215398c1f9127ee15c0ca5c1c1082d22c596a5d71a3cc23f9df"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/mod.rs",
+   "sha256": "8f5c4c7ea3ba11728e3c73099ae313c9cc0c34cf464d61756679d8d1ba24f45a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/module_tree.rs",
+   "sha256": "81b66f4fa8043112639bd69dce5ae78b7dcb5ad44313dcf60b9e5a7d966f09b0"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/node_types/mod.rs",
+   "sha256": "b9aef81b130c5bb9c5119fbd4bc1b4e61188c4590f965f76f323991b89317ffd"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/parser.rs",
+   "sha256": "bf2615f4145db06861225750bce47f1491dcc051a7ccb772a32962540ac68a2c"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/parser_diff.rs",
+   "sha256": "569578f0c3cc8196e6bf3666e41cc5dab0a5ef0d980a56b1fc3db5b25fc27455"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/polyglot_semantic.rs",
+   "sha256": "6290a09caebea7a609e8dc47b60d7a07c48f0656e83299819298ab704b0c2ab1"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/quality.rs",
+   "sha256": "a617447ea1a46d599201e44ead299c9edafc86afa330d9cf279d5093cb746320"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/revision.rs",
+   "sha256": "7ebd5127c7bb30f29f274fa95e506559056b4f934bceecba19d8f800fba7493e"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/rust_semantic.rs",
+   "sha256": "4fd1a1ca9be4a6d6bcedbbeeb203f006c984131369d980acefbad99112e14282"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/scope_map.rs",
+   "sha256": "0d508557ba7bd61ea44647ee658be01f22e3264420fd039a8aaaf56701ee187f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+   "sha256": "846f1871af9ccca38a7ab99bc27115352e87d12d810be9deff62e87e32492aa6"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/speculate.rs",
+   "sha256": "89a440bf4eddeab52d7c68ab0f907f1b79dabbb9521aba16420d5e725e9c99a2"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/ssr/mod.rs",
+   "sha256": "d138345e587f4d968515c76ce0bdc5558b85fbe40e978e9e94d177a97349748f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/store.rs",
+   "sha256": "043c24afbba82c00c9a8c722a68a979767dcd64c25929bde71d3dc5916816245"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/surgery.rs",
+   "sha256": "2dcb3a795f7f3498435ac6cfbc5cd43cf59158e791af27de82a77d1b3fcc8752"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/symbol_detail.rs",
+   "sha256": "f7ff39293e0fad281e54e53cd8058465b998e908adae48191dffd78585f0cb71"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/symbols.rs",
+   "sha256": "dc14e9d67e3eea444c75cea4934c866cead61b9f0a8953495ebba8a180b65198"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+   "sha256": "a5821d566a9d816b2a9026f7b4ce8a714f871f0e387ca089fc6e7b43623dbdec"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/test_util.rs",
+   "sha256": "16ccf282a80057becde641c074cac2c4f85a6194f1917cdcb281c82a5d2778e4"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/watcher.rs",
+   "sha256": "d5f5ff1cc042c39eccd67b6ae5f20ab20b09a17cecbf5eafd07437e0bbf672ea"
+  },
+  {
+   "arquivo": "crates/touring-code/src/ast/wiring.rs",
+   "sha256": "ae3c33bed8691840eb834636df6aab22fc003384bebc3f3da543285539a2cf5c"
+  },
+  {
+   "arquivo": "crates/touring-code/src/cwe_scan.rs",
+   "sha256": "8d042a64257104cbc4c596ded7d4da313b82cf8b609c071bc42ae851e0b09558"
+  },
+  {
+   "arquivo": "crates/touring-code/src/error.rs",
+   "sha256": "57673820803b6c32db15a3bc104d3e2bed7a1b4ea9986208744d74e798bd038f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/journal.rs",
+   "sha256": "b9019718b8174e2bf22f585193aec0e95b7c827ac13d309ca4fa7d867df5e794"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/error.rs",
+   "sha256": "57673820803b6c32db15a3bc104d3e2bed7a1b4ea9986208744d74e798bd038f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/languages/mod.rs",
+   "sha256": "20b6714f7fad36552ac7d98e75bced865c9847b1876100f957dbee9dbc11fc15"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/matrix.rs",
+   "sha256": "834b4d840f592604e4541665d0ce9dfaad7edeed9d8f1a5e553bd82ce5daac73"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/mod.rs",
+   "sha256": "8b58bb15f2e3fd7ec80c0cdcea9265748300c8fa6a5060323fd39be2f4860093"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/tiers.rs",
+   "sha256": "8d1072d1774ba70b4c35f44506e595d16e92b812b074b3d17a6fab36c45cb576"
+  },
+  {
+   "arquivo": "crates/touring-code/src/languages/types.rs",
+   "sha256": "1c94c02ad5885f03d469552831bc672a0d56d87bc0c85bc8074b35f2e0c7edff"
+  },
+  {
+   "arquivo": "crates/touring-code/src/lib.rs",
+   "sha256": "579ed9b9cbe7af50e1052fe8718f595cb5c761d1c94949a756c07e8d2129d290"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/error.rs",
+   "sha256": "78eaf0cb8e959cfa0826b423ed9fe53210ce88a06e3a98c72b57e68ca2f83fa3"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/lang.rs",
+   "sha256": "b6264205ade2d6bf30faf6359005737753753b8b137238bd0f55969e0f102a64"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/mod.rs",
+   "sha256": "556cabcaf02a5ab0f79b7843b0a8ce3d270025a09ea5017e0adb2a625ba8e8d6"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/rewrite.rs",
+   "sha256": "eede421e2fd4ab9f011fbc092a066854caba92d7a63d40635b533d381684c74a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/scan.rs",
+   "sha256": "16905f6c312587e7aa015160d0de82cd9c6e8228a6038051a0642e4b3e05363a"
+  },
+  {
+   "arquivo": "crates/touring-code/src/polyglot/search.rs",
+   "sha256": "75525c5d5754f073278e6c36dee93df7025117970b3203c8ed9f4699ba4b419f"
+  },
+  {
+   "arquivo": "crates/touring-code/src/sdk.rs",
+   "sha256": "5b58b9c5227885414b5d10e96e3fcc4d537a1c163657846eb8b39ed925146104"
+  },
+  {
+   "arquivo": "crates/touring-code/src/sdk_signal_mirror.rs",
+   "sha256": "e8deb4db56b4ba7d2ee96226277177bab760192a000596ccaa9c986617874110"
+  },
+  {
+   "arquivo": "crates/touring-code/src/semantics/definition.rs",
+   "sha256": "fdb27b23beb59d9071a3e6ada0271c5cb961c457ce0e10f7de117a91d7fc9b99"
+  },
+  {
+   "arquivo": "crates/touring-code/src/semantics/mod.rs",
+   "sha256": "87b3f06cb43c48d70412a9f09da53341adb2db1162225a1639af3113b50daff0"
+  },
+  {
+   "arquivo": "crates/touring-code/src/semantics/multi_lang.rs",
+   "sha256": "fd966832e43d081496d49e5a8d80779f161cb911598adf4e1a26cdc09ed382fe"
+  },
+  {
+   "arquivo": "crates/touring-code/src/semantics/semantics.rs",
+   "sha256": "49cec76ab50e680de5f963a50d931864ef969f4583dfe0cf4c7a38be1a6336e2"
+  },
+  {
+   "arquivo": "crates/touring-code/src/semantics/source_to_def.rs",
+   "sha256": "877a5d47c50d667060b8602aba8079bda7f847d863035ce1dbf4d399d30e2c46"
+  },
+  {
+   "arquivo": "crates/touring-code/src/types.rs",
+   "sha256": "1c94c02ad5885f03d469552831bc672a0d56d87bc0c85bc8074b35f2e0c7edff"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/checks/tests.rs",
+   "sha256": "4c9629e889dc6ccd100abff07c7b66563f7a45f48445d4f5452541b40b91f777"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/checks.rs",
+   "sha256": "ef976f368bcdcc31d904c94a3bf369a846a50a30780a560417dc6c65a35e9f22"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/mod.rs",
+   "sha256": "f0c53bf83d940bf83864e9614bbb30745da9f15d3951ff64efbe5436ac1cca55"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/modules.rs",
+   "sha256": "d89b8550da99f71cbdde8e8963d415c13abd8a6b8db000597f50fd32f4825bc7"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/scope.rs",
+   "sha256": "7608a75bdcbac5c51d6161d0279ebf28b5f9d4b0842437b2a9b1e49bf5ef690e"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/sombra.rs",
+   "sha256": "97e57728f9fbf590ca11f2f3d85b4fe51ac04ccc472be1092954269321d95f44"
+  },
+  {
+   "arquivo": "crates/touring-code/src/vgp/stdlib_model.rs",
+   "sha256": "407e2d4b9f1128d9b59311c9405407f39ebf0812093ff6c89b45252f1ff9dd84"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/bash_scanner_ctype.rs",
+   "sha256": "9a2c79796073ce492e70eb0ae5ca9b147d5b7a960b2f331b921717e036415e41"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/cross_audit.rs",
+   "sha256": "863ed2d59f22af79058c46a7b8809f65d2af9091030f06c5ff4afadf3620e2aa"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+   "sha256": "48846e8344126546c7a0316608f0eca550186838e9ae8b74a65cf9a4de5d9871"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/integration_test.rs",
+   "sha256": "759930d5429e051f7bab65224319fa89300a20965ed1f8ca61e08e8a503d69c6"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/latency_p99_guard.rs",
+   "sha256": "f72644c2ff9192180c9da8c3614ac7a0d74898b936378a511c85bb33a4fb8687"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/markdown_scanner_overflow.rs",
+   "sha256": "e3feeb86c4a0a887ea9670151688d390f963a6f8c400d1e486ce331fff18fc83"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+   "sha256": "585015a48a57b8ccf2f62d3a8a7b4ccf172cceece6a056c06590fc4af7501a9b"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/parametric_multilang.rs",
+   "sha256": "775217a1fdd0edb8abe844f56165ac205b8ffa078db220139321ec0edacf3ae1"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/property_tests.rs",
+   "sha256": "a0ef0ea239ddc1c5b0a13c1561cf97edeb9c2d84523e8c1e276ff8dc186ab874"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/proptest_parser_fuzz.rs",
+   "sha256": "904f378ecc91ef4ae1fe271555b8f77bd67772cbb52e5541b966a92e6335b0e0"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/rusty_fork_isolation.rs",
+   "sha256": "9f19f00c94e2206117b8fe7e1db40494dc9f25522daca861039ae5efbf87b1d9"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/semantics_tests.rs",
+   "sha256": "ea4b2ef0bfb855f97e7caf933ecc30f429c9eaa564555815e6aff42fa99ad242"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_call_graph.rs",
+   "sha256": "ef50e316338215d68513a934fa28c4833e2806f1e5e5ac2ab24f321a65cf60b4"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_call_graph_scc.rs",
+   "sha256": "cd64a17cef68a983c2980f6d98568b66cd892612090e302c87072eb46de57218"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_complexity.rs",
+   "sha256": "708bd14b8c4a62cfff41c19d94679875ba5cd5252795c028c4821cb4cb7c16a9"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_complexity_async.rs",
+   "sha256": "b624fd5a145ecd8feb3e12277bd93d267d81e128cd029cbc3f1497ff43ff3469"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_imports.rs",
+   "sha256": "2a72b34e3258b8326951bc13815df65caa4f10473860e17fce516ccac80b6c31"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_module_tree.rs",
+   "sha256": "f2425a51495368d2a62f147aa299a0676f26cf5df853324697919fdf3f27cfa9"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_module_tree_deep.rs",
+   "sha256": "0f716c59c7f444231a984475731fdc36cf5ed961f667870a6f9cfab04c1e3f45"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/snapshot_pheromone_e2e.rs",
+   "sha256": "0c5cfd304f8b63c4683a012392510ace07d277578a0e0cdca3faa55e2d5bcefa"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/strategies_audit.rs",
+   "sha256": "90c47c8d8e24f2d47d8a9881ffdc00a10595d05c259871c620757f02b0d9c8e1"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/ts_parse_budget.rs",
+   "sha256": "5d925901a59a7900ef0eeb84d2370bd254fe2bccd4e007ab11abf9672e92a3aa"
+  },
+  {
+   "arquivo": "crates/touring-code/tests/wave5_code_gen_workflow_e2e.rs",
+   "sha256": "31b81839694ee45191e11fa57ca59a28c28da4be09c8bd405cf591e4b33f71a0"
+  },
+  {
+   "arquivo": "crates/touring-identity/src/error.rs",
+   "sha256": "1380d4a1f49b7840c3d5339f28b48687824732b2d88fb49a218f41d4d6a5399e"
+  },
+  {
+   "arquivo": "crates/touring-identity/src/lib.rs",
+   "sha256": "5557a683b5db458db20b2274a62eeb71300b29d161713e72d22754bdda327219"
+  },
+  {
+   "arquivo": "crates/touring-identity/src/registry.rs",
+   "sha256": "993e37ca31aa7df45d5d6904a4a5e22c4752257fbad9d91b95a8f07282f46b20"
+  },
+  {
+   "arquivo": "crates/touring-identity/src/schema.rs",
+   "sha256": "b0b00b2812e587bb76f78260abaee661e364e706ff898a5218045206f481f066"
+  },
+  {
+   "arquivo": "crates/touring-identity/src/types.rs",
+   "sha256": "fb75253673498bbb8146c6e21313ffcd54b3eb7beaa744c530045e3cc679ddc1"
+  },
+  {
+   "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+   "sha256": "9006a166c63873d10a7e912e30cdfed8b4b9217d73dbbd7c6bc13fc045de9a16"
+  },
+  {
+   "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+   "sha256": "da02ea2dcd8428c26eeb6b4c44a6682666140316ca180c056f6d82946bff4dc4"
+  },
+  {
+   "arquivo": "crates/touring-identity/tests/integration_test.rs",
+   "sha256": "a808c93de376dfb6147fbf0d52b7f65f7ff6069bfc5963b71ed037a0725ae939"
+  },
+  {
+   "arquivo": "crates/touring-identity/tests/property_tests.rs",
+   "sha256": "930cdee1531b8e4dc52f3e1095ba746f7e0c2599b583cd8bac5c83d2341a3d7c"
+  },
+  {
+   "arquivo": "crates/touring-pyright/src/client.rs",
+   "sha256": "d044c4ff5cd49ff42ba2b63f638bdaef2504719a77c7d10d0238622b4b513d68"
+  },
+  {
+   "arquivo": "crates/touring-pyright/src/lib.rs",
+   "sha256": "f51473337f9da77a3c19a14b96bf2ebceeb9bfeb15bc6623e4cc26e8b5ed3ae1"
+  },
+  {
+   "arquivo": "crates/touring-pyright/src/pool.rs",
+   "sha256": "5f2cdf99adf0cbfe8ec9fb4cd539d4cbdecb13ec0d4cf8abdbc241c07802de64"
+  },
+  {
+   "arquivo": "crates/touring-pyright/src/pyright.rs",
+   "sha256": "aa75dcfbf00fcc5df6891a43a10d4a52955b08ba770ff0c8fd50c3ea0f3db654"
+  },
+  {
+   "arquivo": "crates/touring-pyright/tests/pool_guard.rs",
+   "sha256": "c7178713db1da7e0d59933d3d7449ceeaaced3cc4aa538e4efbbadd6204f377a"
+  },
+  {
+   "arquivo": "crates/touring-pyright/tests/pool_real.rs",
+   "sha256": "2d5b24bc82ac13fe2d0e36b6c8206b6c15501e94daadc3d9ee7cc8759243a183"
+  },
+  {
+   "arquivo": "crates/touring-pyright/tests/pyright_real.rs",
+   "sha256": "5f04b76f4d5ab8ec5592fcf50339b122f68b46bce001b848b35cb9f52bf100ae"
+  }
+ ]
+}

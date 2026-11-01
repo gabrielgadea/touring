@@ -6,6 +6,7 @@
 use crate::{AssistContext, AssistHandler, AssistId, Assists, LazySourceChange};
 use quote::ToTokens;
 use syn::{Expr, Pat};
+use touring_foundation::truncate_str;
 
 /// Stable identifier for the add-missing-match-arms assist.
 pub const ADD_MISSING_MATCH_ARMS_ID: AssistId = "add_missing_match_arms";
@@ -89,13 +90,10 @@ pub const ADD_MISSING_MATCH_ARMS: AssistHandler = |assists: &mut Assists, ctx: &
     let label = if has_concrete_variants {
         format!(
             "Add missing match arm(s) for: {}",
-            &discriminant_str[..discriminant_str.len().min(25)]
+            truncate_str(&discriminant_str, 25)
         )
     } else {
-        format!(
-            "Add match arm for: {}",
-            &discriminant_str[..discriminant_str.len().min(25)]
-        )
+        format!("Add match arm for: {}", truncate_str(&discriminant_str, 25))
     };
 
     let lazy = LazySourceChange::new(move || {

@@ -1,6 +1,13 @@
-# touring-core — Architecture
+# touring-core — Architecture (fundido em `touring-foundation`)
 
 > **Version**: v0.1.0 | **Updated**: 2026-05-11 | **LOC**: 13686 | **Constraints**: `#![forbid(unsafe_code)]`
+>
+> **Nota de manutenção (26/08/2026)**: `touring-core` não é mais um crate próprio.
+> 18 dos 19 paths abaixo confirmados existindo exatamente em `crates/touring-foundation/`
+> — este arquivo permanece aqui (dentro de `touring-foundation/`) porque documenta o
+> conteúdo que se fundiu para este crate. Exceção: `src/embedding/client.rs` se dividiu
+> para `touring-storage` (onde mora `RkyvGpuBackend`). Referências a "touring-core"
+> abaixo devem ser lidas como "touring-foundation".
 
 ## Overview
 
@@ -11,7 +18,7 @@ Core shared library for Touring — provides embedding client, migration consoli
 `EmbeddingClient` (type alias) | `DomainCircuitBreaker` | `Diagnostic` | `EntityRegistry` | `EntityRegistryError` | `ResourceGovernor` | `TouringError`
 |------|-----|----------------|
 | `src/lib.rs` | 41 | Core entry, re-exports, public API |
-| `src/embedding/client.rs` | 794 | Embedding client — semantic search, similarity |
+| `crates/touring-storage/src/embedding/client.rs` (movido daqui) | 794 | Embedding client — semantic search, similarity |
 | `src/migration/consolidation.rs` | 755 | Migration consolidation — schema upgrades |
 | `src/diagnostic.rs` | 523 | Diagnostic system — error codes, severity, reporting |
 | `src/shared/domain_circuit.rs` | 485 | Domain circuit — cross-subsystem wiring state |
@@ -43,10 +50,10 @@ Core shared library for Touring — provides embedding client, migration consoli
 ## Integration Points
 
 - touring-hooks: core utilities, diagnostic codes, domain circuit
-- touring-server: embedding client for semantic search
-- touring-learning: governor for RL throttle
-- touring-index: schema entity registry
-- All crates depend on touring-core for shared types and utilities
+- touring-server: embedding client for semantic search (client agora em touring-storage)
+- touring-intelligence::rl (era touring-learning): governor for RL throttle
+- touring-intelligence::index (era touring-index): schema entity registry
+- All crates depend on touring-foundation (era touring-core) for shared types and utilities
 - REGRA #0: All pub symbols must have consumers or be documented as intentional orphans
 
 ## Technology

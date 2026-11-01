@@ -269,17 +269,6 @@ pub mod compute {
     }
 }
 
-/// Plugin context extension for embedding-aware evaluation.
-///
-/// This trait extends `TypedPluginContext` with embedding search capabilities.
-pub trait EmbeddingSearchExt {
-    /// Get the query embedding if present.
-    fn query_embedding(&self) -> Option<&[f32]>;
-
-    /// Get the number of results to return.
-    fn top_k(&self) -> Option<usize>;
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -1,0 +1,11 @@
+{
+  "phase": "F5",
+  "entities": [
+    {
+      "entity_id": "phase:F5",
+      "type": "phase",
+      "description": "F5 medicao de proposito: skill_purpose.py (BM25 sobre descriptions, gatilhos declarados como consulta; calibrado com controle positivo e negativo). Resultado: apenas 2 pares colidem de proposito em 25 skills (plan-protocol<->plan-execution margem 10%; touring-evolve<->touring-generator margem 25%). Nenhuma micro-skill colide. Achado maior: 57 de 76 triggers declarados (75%) sao INERTES - ausentes da description, que e o unico texto lido na escolha. plan-protocol: 21 de 26."
+    }
+  ],
+  "relations": []
+}

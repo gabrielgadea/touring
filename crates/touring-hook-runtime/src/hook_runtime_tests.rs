@@ -729,6 +729,38 @@ fn test_hook_response_context_with_updated_input_json() {
     assert_eq!(parsed["hookSpecificOutput"]["hookEventName"], "PreToolUse");
 }
 #[test]
+fn test_hook_response_context_with_updated_tool_output_json() {
+    let result = serde_json::json!({ "stdout" : "kept\n", "stderr" : "", "interrupted" : false });
+    let resp = HookResponse::ContextWithUpdatedToolOutput {
+        context: "tests: 1 failed".to_string(),
+        event_name: Some("PostToolUse".to_string()),
+        updated_tool_output: result.clone(),
+    };
+    let parsed: serde_json::Value = serde_json::from_str(&resp.to_json()).expect("valid JSON");
+    let hso = &parsed["hookSpecificOutput"];
+    assert_eq!(hso["updatedToolOutput"], result);
+    assert_eq!(hso["additionalContext"], "tests: 1 failed");
+    assert_eq!(hso["hookEventName"], "PostToolUse");
+}
+#[test]
+fn test_hook_response_updated_tool_output_without_context_has_no_blank_reminder() {
+    let resp = HookResponse::ContextWithUpdatedToolOutput {
+        context: String::new(),
+        event_name: Some("PostToolUse".to_string()),
+        updated_tool_output: serde_json::json!({ "stdout" : "s", "stderr" : "", "interrupted" : false }),
+    };
+    let parsed: serde_json::Value = serde_json::from_str(&resp.to_json()).expect("valid JSON");
+    assert!(
+        parsed["hookSpecificOutput"]
+            .get("additionalContext")
+            .is_none()
+    );
+    assert_eq!(
+        parsed["hookSpecificOutput"]["updatedToolOutput"]["stdout"],
+        "s"
+    );
+}
+#[test]
 fn test_truncate_context_short_string() {
     let short = "hello world";
     let result = crate::hook_response::truncate_context(short);
@@ -769,4 +801,436 @@ fn test_context_response_truncates_in_to_json() {
         .expect("additionalContext should be a string");
     assert!(ctx.contains("[truncated: 10000 chars total]"));
     assert!(ctx.len() < 10_000);
+}
+
+// ── S-4p (26/10/2026): a dedupe da rota standalone ─────────────────────────
+//
+// O miolo puro (`dedup_with_scope`) é testado com escopo EXPLÍCITO — o global
+// `DEDUP_SCOPE` é OnceLock (primeira gravação vence) e o cargo test roda as
+// threads em paralelo no mesmo processo, então o global em si não é mutável
+// por teste (a lição da race de env de 08/10, mesma forma).
+
+/// Sem escopo gravado (rota daemon, testes, binários que não o setaram), o
+/// JSON sai BYTE A BYTE como entrou — o fail-open do caminho de sempre.
+#[test]
+fn dedup_with_scope_sem_escopo_devolve_intacto() {
+    let json = r#"{"hookSpecificOutput":{"additionalContext":"qualquer prosa suficientemente longa para o dedup"}}"#;
+    assert_eq!(dedup_with_scope(json, None), json);
+}
+
+/// Com escopo: a 1ª emissão passa intacta e a repetição na mesma época perde
+// o additionalContext — o MESMO comportamento do daemon (maybe_dedup_output).
+#[test]
+fn dedup_with_scope_dedupa_a_repeticao_na_epoca() {
+    let tmp = TempDir::new().unwrap();
+    let scope = (tmp.path().to_path_buf(), "sess-s4p-emit".to_string());
+    let ctx =
+        "  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence) prosa longa de verdade";
+    let mk = || {
+        serde_json::json!({
+            "hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext": ctx}
+        })
+        .to_string()
+    };
+    let o1 = dedup_with_scope(&mk(), Some(&scope));
+    assert!(o1.contains("cached 300s"), "primeira passa: {o1}");
+    let o2 = dedup_with_scope(&mk(), Some(&scope));
+    assert!(
+        !o2.contains("cached 300s"),
+        "repetição na mesma época é omitida: {o2}"
+    );
+}
+
+/// O controle positivo do aceite: uma diretiva com PATH NOVO é diretiva nova
+/// e NUNCA é suprimida, mesmo na mesma época e sessão.
+#[test]
+fn dedup_with_scope_nunca_suprime_diretiva_com_path_novo() {
+    let tmp = TempDir::new().unwrap();
+    let scope = (tmp.path().to_path_buf(), "sess-s4p-path".to_string());
+    let mk = |f: &str| {
+        serde_json::json!({
+            "hookSpecificOutput": {"hookEventName": "PreToolUse", "additionalContext":
+                format!("⚙ rust-workflow: health=0.9 [wiring:0.8]\n  MUST    touring ast meta {f} --depth summary -j")}
+        })
+        .to_string()
+    };
+    let _ = dedup_with_scope(&mk("foo.rs"), Some(&scope));
+    let o2 = dedup_with_scope(&mk("bar.rs"), Some(&scope));
+    assert!(
+        o2.contains("bar.rs"),
+        "a diretiva com path novo passa: {o2}"
+    );
+}
+
+/// O setter público: sessão vazia não grava; com sessão, o escopo fica
+/// legível. Roda UMA vez por processo (OnceLock, primeira gravação vence) —
+/// por isso é o único teste que toca o global.
+#[test]
+fn set_dedup_scope_ignora_sessao_vazia_e_grava_uma_vez() {
+    let tmp = TempDir::new().unwrap();
+    set_dedup_scope(tmp.path().to_path_buf(), "");
+    // Se outro teste deste binário já gravou (não deveria — este é o único),
+    // o get devolve aquele escopo; o contrato testável é: sessão vazia NUNCA
+    // sobrescreve, e uma gravação com sessão é legível depois.
+    let before = dedup_scope().map(|(_, s)| s.clone());
+    set_dedup_scope(tmp.path().to_path_buf(), "sess-global-s4p");
+    let after = dedup_scope().map(|(_, s)| s.clone());
+    assert!(after.is_some(), "algum escopo gravado é legível");
+    if let Some(b) = before {
+        assert_eq!(
+            after.as_deref(),
+            Some(b.as_str()),
+            "primeira gravação vence"
+        );
+    }
+    assert_ne!(after.as_deref(), Some(""), "sessão vazia nunca é gravada");
+}
+
+// ── S-2 (27/10/2026): a política de injeção no `emit` da rota standalone ───
+//
+// `emit` sai do processo; o que ele escreve é `stdout_text`, testado com nível,
+// diário e escopo EXPLÍCITOS — nenhum teste mexe no ambiente do processo.
+
+const SERMON_CTX: &str =
+    "[TOURING SUGGEST · code-mode-scan · conf=0.95]\n  MUST    touring run --lang bash";
+
+fn journal_of(path: &Path) -> Vec<serde_json::Value> {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .map(|l| serde_json::from_str(l).expect("cada linha do diário é JSON"))
+        .collect()
+}
+
+/// O contrato C13 no `emit` do runtime: sob `no-advisory` o sermão sai do
+/// envelope e a decisão do deny (veredito e razão) fica como o gate a escreveu.
+#[test]
+fn test_no_advisory_drops_sermon_keeps_decision() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    let tmp = TempDir::new().unwrap();
+    let sink = touring_foundation::injection_journal::journal_path_in(tmp.path());
+    let deny = HookResponse::Deny {
+        reason: "G2: pipe sem pipefail".into(),
+        context: Some(SERMON_CTX.into()),
+        event_name: Some("PreToolUse".into()),
+    };
+    let out = deny.stdout_text(InjectionLevel::NoAdvisory, Some(&sink), None);
+    let v: serde_json::Value = serde_json::from_str(&out).expect("a saída continua JSON");
+    let hso = &v["hookSpecificOutput"];
+    assert!(
+        hso.get("additionalContext").is_none(),
+        "o sermão sai: {out}"
+    );
+    assert_eq!(hso["permissionDecision"], "deny");
+    assert_eq!(hso["permissionDecisionReason"], "G2: pipe sem pipefail");
+    let lines = journal_of(&sink);
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0]["site"], "emit-runtime");
+    assert_eq!(lines[0]["cuts"][0]["family"], "touring-suggest");
+}
+
+/// Um `Context` cujo único conteúdo era sermão vira `{}` sob `off` — e o
+/// `ContextWithUpdatedInput` perde o contexto mas NÃO a entrada reescrita.
+#[test]
+fn test_off_empties_context_but_keeps_the_rewrite() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    let ctx = HookResponse::Context {
+        context: SERMON_CTX.into(),
+        event_name: Some("PostToolUse".into()),
+    };
+    assert_eq!(ctx.stdout_text(InjectionLevel::Off, None, None), "{}");
+
+    let rewrite = HookResponse::ContextWithUpdatedInput {
+        context: SERMON_CTX.into(),
+        event_name: Some("PreToolUse".into()),
+        updated_input: serde_json::json!({"command": "set -o pipefail; ls"}),
+    };
+    let out = rewrite.stdout_text(InjectionLevel::Off, None, None);
+    let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+    assert_eq!(
+        v["hookSpecificOutput"]["updatedInput"],
+        serde_json::json!({"command": "set -o pipefail; ls"})
+    );
+    assert!(v["hookSpecificOutput"].get("additionalContext").is_none());
+}
+
+/// Sem política (`Full`, o default) o `emit` escreve EXATAMENTE o `to_json` de
+/// sempre, para toda variante — a identidade de bytes do default.
+#[test]
+fn test_full_stdout_text_is_to_json_byte_for_byte() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    let variants = [
+        HookResponse::context_with_event(SERMON_CTX, "PostToolUse"),
+        HookResponse::Deny {
+            reason: "razão".into(),
+            context: Some(SERMON_CTX.into()),
+            event_name: None,
+        },
+        HookResponse::Block {
+            reason: "razão".into(),
+            context: None,
+            event_name: Some("PostToolUse".into()),
+        },
+        HookResponse::Halt {
+            reason: "fim".into(),
+        },
+    ];
+    for r in variants {
+        assert_eq!(
+            r.stdout_text(InjectionLevel::Full, None, None),
+            r.to_json(),
+            "{r:?}"
+        );
+    }
+}
+
+/// A política corre ANTES da dedupe: o que ela cortou nunca chegou ao modelo,
+/// então não pode entrar no estado de época — senão a mesma linha, emitida
+/// depois num nível que a deixa passar, seria omitida como "repetição".
+#[test]
+fn test_policy_cut_does_not_poison_the_epoch_dedupe() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    let tmp = TempDir::new().unwrap();
+    let scope = (tmp.path().to_path_buf(), "sess-s2-order".to_string());
+    let ctx = format!(
+        "{SERMON_CTX}\n  (cached 300s — set TOURING_SUGGESTER_DISABLED=1 to silence) prosa longa de verdade"
+    );
+    let r = HookResponse::context_with_event(ctx.as_str(), "PreToolUse");
+    let cut = r.stdout_text(InjectionLevel::NoAdvisory, None, Some(&scope));
+    assert!(!cut.contains("cached 300s"), "o sermão foi cortado: {cut}");
+    let later = r.stdout_text(InjectionLevel::Full, None, Some(&scope));
+    assert!(
+        later.contains("cached 300s"),
+        "o que a política cortou não conta como emitido: {later}"
+    );
+}
+
+// ── I-3 (31/10/2026): um só `HookResponse` ─────────────────────────────────
+//
+// O runtime tinha o PRÓPRIO enum (com `ContextWithUpdatedToolOutput`, que o
+// canônico de `touring-hooks-core` não tinha). Antes de apagá-lo, um teste de
+// paridade serializou ~150 respostas pelos DOIS tipos — `to_json`, `stdout_text`
+// (3 níveis, com e sem escopo de dedupe) e `with_advisories_at` — e exigiu
+// bytes idênticos (passou). Os bytes do enum antigo ficam congelados abaixo.
+
+fn i3_golden_cases() -> Vec<(&'static str, HookResponse)> {
+    let nested = serde_json::json!({
+        "command": "set -o pipefail; ls \"a b\"",
+        "n": [1, 2.5, -3, 18446744073709551615u64, 0.1],
+        "nested": {"k": null, "u": "é😀\n\t"},
+    });
+    let s = |t: &str| t.to_string();
+    vec![
+        ("allow", HookResponse::Allow),
+        (
+            "context_bare",
+            HookResponse::Context {
+                context: s("ctx"),
+                event_name: None,
+            },
+        ),
+        (
+            "context_event",
+            HookResponse::Context {
+                context: s("ctx \"q\" é"),
+                event_name: Some(s("PostToolUse")),
+            },
+        ),
+        (
+            "deny_bare",
+            HookResponse::Deny {
+                reason: s("razão"),
+                context: None,
+                event_name: None,
+            },
+        ),
+        (
+            "deny_full",
+            HookResponse::Deny {
+                reason: s("razão"),
+                context: Some(s("aviso")),
+                event_name: Some(s("PreToolUse")),
+            },
+        ),
+        (
+            "block_bare",
+            HookResponse::Block {
+                reason: s("gate falhou"),
+                context: None,
+                event_name: None,
+            },
+        ),
+        (
+            "block_full",
+            HookResponse::Block {
+                reason: s("gate falhou"),
+                context: Some(s("detalhe")),
+                event_name: Some(s("PostToolUse")),
+            },
+        ),
+        (
+            "halt",
+            HookResponse::Halt {
+                reason: s("fim de sessão"),
+            },
+        ),
+        (
+            "updated_input",
+            HookResponse::ContextWithUpdatedInput {
+                context: s("normalizado"),
+                event_name: Some(s("PreToolUse")),
+                updated_input: nested.clone(),
+            },
+        ),
+        (
+            "updated_input_no_event",
+            HookResponse::ContextWithUpdatedInput {
+                context: s("normalizado"),
+                event_name: None,
+                updated_input: serde_json::json!({"file_path": "/x"}),
+            },
+        ),
+        (
+            "tool_output_full",
+            HookResponse::ContextWithUpdatedToolOutput {
+                context: s("tests: 1 failed"),
+                event_name: Some(s("PostToolUse")),
+                updated_tool_output: nested.clone(),
+            },
+        ),
+        (
+            "tool_output_empty_context",
+            HookResponse::ContextWithUpdatedToolOutput {
+                context: String::new(),
+                event_name: Some(s("PostToolUse")),
+                updated_tool_output: serde_json::json!({"stdout": "s", "stderr": "", "interrupted": false}),
+            },
+        ),
+        (
+            "tool_output_null_no_event",
+            HookResponse::ContextWithUpdatedToolOutput {
+                context: String::new(),
+                event_name: None,
+                updated_tool_output: serde_json::Value::Null,
+            },
+        ),
+    ]
+}
+
+/// Os bytes que o enum do runtime emitia, por variante: o canônico os reproduz.
+#[test]
+fn hook_response_wire_goldens_captured_from_legacy_runtime_enum() {
+    const GOLDENS: &[(&str, &str)] = &[
+        ("allow", r##"{}"##),
+        (
+            "context_bare",
+            r##"{"hookSpecificOutput":{"additionalContext":"ctx"}}"##,
+        ),
+        (
+            "context_event",
+            r##"{"hookSpecificOutput":{"additionalContext":"ctx \"q\" é","hookEventName":"PostToolUse"}}"##,
+        ),
+        (
+            "deny_bare",
+            r##"{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"razão"}}"##,
+        ),
+        (
+            "deny_full",
+            r##"{"hookSpecificOutput":{"additionalContext":"aviso","hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"razão"}}"##,
+        ),
+        (
+            "block_bare",
+            r##"{"decision":"block","hookSpecificOutput":{},"reason":"gate falhou"}"##,
+        ),
+        (
+            "block_full",
+            r##"{"decision":"block","hookSpecificOutput":{"additionalContext":"detalhe","hookEventName":"PostToolUse"},"reason":"gate falhou"}"##,
+        ),
+        (
+            "halt",
+            r##"{"continue":false,"stopReason":"fim de sessão"}"##,
+        ),
+        (
+            "updated_input",
+            r##"{"hookSpecificOutput":{"additionalContext":"normalizado","hookEventName":"PreToolUse","updatedInput":{"command":"set -o pipefail; ls \"a b\"","n":[1,2.5,-3,18446744073709551615,0.1],"nested":{"k":null,"u":"é😀\n\t"}}}}"##,
+        ),
+        (
+            "updated_input_no_event",
+            r##"{"hookSpecificOutput":{"additionalContext":"normalizado","updatedInput":{"file_path":"/x"}}}"##,
+        ),
+        (
+            "tool_output_full",
+            r##"{"hookSpecificOutput":{"additionalContext":"tests: 1 failed","hookEventName":"PostToolUse","updatedToolOutput":{"command":"set -o pipefail; ls \"a b\"","n":[1,2.5,-3,18446744073709551615,0.1],"nested":{"k":null,"u":"é😀\n\t"}}}}"##,
+        ),
+        (
+            "tool_output_empty_context",
+            r##"{"hookSpecificOutput":{"hookEventName":"PostToolUse","updatedToolOutput":{"interrupted":false,"stderr":"","stdout":"s"}}}"##,
+        ),
+        (
+            "tool_output_null_no_event",
+            r##"{"hookSpecificOutput":{"updatedToolOutput":null}}"##,
+        ),
+    ];
+    let cases = i3_golden_cases();
+    assert_eq!(cases.len(), GOLDENS.len(), "controle: um golden por caso");
+    for ((name, resp), (gname, golden)) in cases.iter().zip(GOLDENS) {
+        assert_eq!(name, gname, "a tabela e os casos andam juntos");
+        assert_eq!(&resp.to_json(), golden, "to_json de {name} mudou");
+        let lazy = resp.clone().to_lazy();
+        assert_eq!(
+            lazy.as_str(),
+            *golden,
+            "o caminho preguiçoso de {name} mudou"
+        );
+    }
+}
+
+/// `emit` escreve `to_json` byte a byte quando não há política nem escopo —
+/// para as 7 variantes (a do PostToolUse inclusive).
+#[test]
+fn hook_response_stdout_text_full_is_to_json_for_every_variant() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    for (name, resp) in i3_golden_cases() {
+        assert_eq!(
+            resp.stdout_text(InjectionLevel::Full, None, None),
+            resp.to_json(),
+            "{name}"
+        );
+    }
+}
+
+/// `touring_hook_runtime::HookResponse` É o tipo canônico (reexport), em todos
+/// os caminhos públicos antigos: reintroduzir um segundo enum quebra a compilação
+/// deste teste.
+#[test]
+fn hook_response_is_the_canonical_type_on_every_public_path() {
+    fn canonical(_: touring_hooks_core::hook_response::HookResponse) {}
+    canonical(crate::HookResponse::Allow);
+    canonical(crate::hook_runtime::HookResponse::Allow);
+    canonical(crate::runtime::HookResponse::Allow);
+    canonical(crate::hook_response::HookResponse::Allow);
+}
+
+/// `with_advisories` (agora no tipo canônico) segue valendo para a variante do
+/// PostToolUse: os avisos lideram o contexto e a saída reescrita fica intacta.
+#[test]
+fn hook_response_with_advisories_keeps_the_rewritten_tool_output() {
+    use touring_foundation::injection_policy::InjectionLevel;
+    let out = serde_json::json!({"stdout": "s", "stderr": "", "interrupted": false});
+    let r = HookResponse::ContextWithUpdatedToolOutput {
+        context: "ctx".into(),
+        event_name: Some("PostToolUse".into()),
+        updated_tool_output: out.clone(),
+    };
+    match r.with_advisories_at(InjectionLevel::Full, None, vec!["aviso".into()]) {
+        HookResponse::ContextWithUpdatedToolOutput {
+            context,
+            updated_tool_output,
+            ..
+        } => {
+            assert_eq!(context, "aviso\nctx");
+            assert_eq!(updated_tool_output, out);
+        }
+        other => panic!("a variante muda: {other:?}"),
+    }
 }

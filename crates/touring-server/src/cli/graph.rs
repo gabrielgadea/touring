@@ -378,7 +378,7 @@ fn handle_format(
 /// Dispatch to visual::dot_pipe_svg for DOT→SVG conversion.
 fn run_dot_to_svg(dot_input: &str) -> anyhow::Result<String> {
     visual::dot_pipe_svg(dot_input)
-        .ok_or_else(|| anyhow::anyhow!("dot (graphviz) unavailable or produced empty output"))
+        .ok_or_else(|| anyhow::anyhow!("dot (graphviz) unavailable or produced empty output — run `apt install graphviz` (or `brew install graphviz`) to install it"))
 }
 
 /// Dispatch graph query based on subcommand and parsed CLI args.
@@ -826,7 +826,8 @@ fn cmd_format(cmd: &GraphCmd) -> OutputFormat {
 /// defaulting to an empty-path `file` query, then dispatches to the daemon and
 /// prints the result in the requested output format.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match GraphCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<GraphCli, _, _>(args.iter().skip(1))
+    {
         Ok(c) => c,
         Err(e) => e.exit(),
     };

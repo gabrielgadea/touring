@@ -1,0 +1,45 @@
+{
+  "phase": "F0.3d-hook-dispatch-by-name",
+  "entities": [
+    {
+      "entity_id": "phase:F0.3d-hook-dispatch-by-name",
+      "type": "phase",
+      "description": "record_hook_dispatch_named/hook_dispatch_by_name em touring-foundation gate_metrics (OnceLock<Mutex<BTreeMap>>, fora do snapshot para nao quebrar goldens); chamado no ator do daemon a cada dispatch; exposto como chave irma hook_dispatch_by_name em touring gate-metrics -j (cli/gate.rs). Teste unitario."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:F0.3d-hook-dispatch-by-name|produces|memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done",
+      "source": "phase:F0.3d-hook-dispatch-by-name",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:F0.3d-hook-dispatch-by-name:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

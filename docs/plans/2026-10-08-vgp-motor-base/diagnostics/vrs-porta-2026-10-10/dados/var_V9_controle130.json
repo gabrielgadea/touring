@@ -1,0 +1,614 @@
+[
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/enriched.rs",
+  "zona": "src",
+  "linha": 6,
+  "classe": "import",
+  "nome": "BlastRadius",
+  "severidade": "warn",
+  "sugestao": "`BlastRadius` não encontrado ao resolver `super::BlastRadius`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/pheromone.rs",
+  "zona": "src",
+  "linha": 122,
+  "classe": "import",
+  "nome": "DriftDetection",
+  "severidade": "warn",
+  "sugestao": "`DriftDetection` não encontrado ao resolver `touring_simd::DriftDetection`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/pheromone.rs",
+  "zona": "src",
+  "linha": 122,
+  "classe": "import",
+  "nome": "DriftDetector",
+  "severidade": "warn",
+  "sugestao": "`DriftDetector` não encontrado ao resolver `touring_simd::DriftDetector`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/graph/pheromone.rs",
+  "zona": "src",
+  "linha": 150,
+  "classe": "nome",
+  "nome": "DriftDetector",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/languages.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "BlastRadius",
+  "severidade": "warn",
+  "sugestao": "`BlastRadius` não encontrado ao resolver `graph::BlastRadius`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "BlastRadiusOutput",
+  "severidade": "warn",
+  "sugestao": "`BlastRadiusOutput` não encontrado ao resolver `graph::BlastRadiusOutput`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "EnrichedBlastRadius",
+  "severidade": "warn",
+  "sugestao": "`EnrichedBlastRadius` não encontrado ao resolver `graph::EnrichedBlastRadius`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "ImpactCategory",
+  "severidade": "warn",
+  "sugestao": "`ImpactCategory` não encontrado ao resolver `graph::ImpactCategory`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "ImportInfo",
+  "severidade": "warn",
+  "sugestao": "`ImportInfo` não encontrado ao resolver `graph::ImportInfo`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/mod.rs",
+  "zona": "src",
+  "linha": 84,
+  "classe": "import",
+  "nome": "compute_enriched_blast_radius",
+  "severidade": "warn",
+  "sugestao": "`compute_enriched_blast_radius` não encontrado ao resolver `graph::compute_enriched_blast_radius`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/parser.rs",
+  "zona": "src",
+  "linha": 177,
+  "classe": "nome",
+  "nome": "THREAD_PARSERS",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/quality.rs",
+  "zona": "src",
+  "linha": 39,
+  "classe": "import",
+  "nome": "WilsonRanker",
+  "severidade": "warn",
+  "sugestao": "`WilsonRanker` não encontrado ao resolver `touring_simd::WilsonRanker::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+  "zona": "src",
+  "linha": 34,
+  "classe": "import",
+  "nome": "CosineSimilarity",
+  "severidade": "warn",
+  "sugestao": "`CosineSimilarity` não encontrado ao resolver `touring_simd::CosineSimilarity`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+  "zona": "src",
+  "linha": 100,
+  "classe": "import",
+  "nome": "normalized",
+  "severidade": "warn",
+  "sugestao": "`normalized` não encontrado ao resolver `touring_simd::similarity::normalized`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+  "zona": "src",
+  "linha": 173,
+  "classe": "import",
+  "nome": "TopKSearcher",
+  "severidade": "warn",
+  "sugestao": "`TopKSearcher` não encontrado ao resolver `touring_simd::TopKSearcher::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/semantic_search.rs",
+  "zona": "src",
+  "linha": 238,
+  "classe": "import",
+  "nome": "CosineComputer",
+  "severidade": "warn",
+  "sugestao": "`CosineComputer` não encontrado ao resolver `touring_simd::CosineComputer::new`"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "zona": "src",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "symbol_name",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/store.rs",
+  "zona": "src",
+  "linha": 1826,
+  "classe": "nome",
+  "nome": "file_path",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/symbols_tests.rs",
+  "zona": "src",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/src/ast/wiring.rs",
+  "zona": "src",
+  "linha": 8,
+  "classe": "import",
+  "nome": "ImportInfo",
+  "severidade": "warn",
+  "sugestao": "`ImportInfo` não encontrado ao resolver `crate::ast::graph::ImportInfo`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "zona": "tests",
+  "linha": 6,
+  "classe": "import",
+  "nome": "extract_imports",
+  "severidade": "warn",
+  "sugestao": "`extract_imports` não encontrado ao resolver `touring_code::ast::graph::extract_imports`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/cross_audit.rs",
+  "zona": "tests",
+  "linha": 147,
+  "classe": "nome",
+  "nome": "extract_imports",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/fuzz_parsers.rs",
+  "zona": "tests",
+  "motivo": "1 caminho(s) sem resolução estática: `iter` (item associado de enum do projeto (o `impl` não está visível))",
+  "verdict": "unknown"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 6,
+  "classe": "import",
+  "nome": "Item",
+  "severidade": "warn",
+  "sugestao": "`Item` não encontrado ao resolver `touring_code::Item`"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 10,
+  "classe": "nome",
+  "nome": "Item",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/mockall_observer.rs",
+  "zona": "tests",
+  "linha": 79,
+  "classe": "nome",
+  "nome": "MockObserver",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-code/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 82,
+  "classe": "nome",
+  "nome": "prop",
+  "severidade": "warn",
+  "sugestao": "nome possivelmente dinâmico (macro em nível de item / `use *` externo) — não resolúvel estaticamente"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 11,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 11,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 11,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 25,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 26,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 28,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 62,
+  "classe": "import",
+  "nome": "MatchKind",
+  "severidade": "warn",
+  "sugestao": "`MatchKind` não encontrado ao resolver `touring_identity::MatchKind::Exact`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d510_pilot.rs",
+  "zona": "tests",
+  "linha": 134,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 10,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 10,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 10,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 54,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 55,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/d58_tests.rs",
+  "zona": "tests",
+  "linha": 57,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 6,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 6,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 6,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 19,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 20,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 22,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/integration_test.rs",
+  "zona": "tests",
+  "linha": 69,
+  "classe": "import",
+  "nome": "RelationKind",
+  "severidade": "warn",
+  "sugestao": "`RelationKind` não encontrado ao resolver `touring_identity::RelationKind::Refines`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 17,
+  "classe": "import",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "`Entity` não encontrado ao resolver `touring_identity::Entity`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 17,
+  "classe": "import",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "`EntityId` não encontrado ao resolver `touring_identity::EntityId`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 17,
+  "classe": "import",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "`EntityKind` não encontrado ao resolver `touring_identity::EntityKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 252,
+  "classe": "import",
+  "nome": "MatchKind",
+  "severidade": "warn",
+  "sugestao": "`MatchKind` não encontrado ao resolver `touring_identity::MatchKind`"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 31,
+  "classe": "nome",
+  "nome": "EntityId",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 32,
+  "classe": "nome",
+  "nome": "EntityKind",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-identity/tests/property_tests.rs",
+  "zona": "tests",
+  "linha": 35,
+  "classe": "nome",
+  "nome": "Entity",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1265,
+  "classe": "import",
+  "nome": "Balde",
+  "severidade": "warn",
+  "sugestao": "crate `Balde` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1266,
+  "classe": "import",
+  "nome": "Escopo",
+  "severidade": "warn",
+  "sugestao": "crate `Escopo` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1267,
+  "classe": "import",
+  "nome": "Severidade",
+  "severidade": "warn",
+  "sugestao": "crate `Severidade` não está nas dependências deste crate nem é membro do workspace"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Inline",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Proprio",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1271,
+  "classe": "nome",
+  "nome": "Deny",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1272,
+  "classe": "nome",
+  "nome": "Projeto",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1273,
+  "classe": "nome",
+  "nome": "Externo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Forma",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1274,
+  "classe": "nome",
+  "nome": "Warn",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1275,
+  "classe": "nome",
+  "nome": "Dinamico",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1276,
+  "classe": "nome",
+  "nome": "Tmp",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ },
+ {
+  "arquivo": "crates/touring-pyright/src/pyright.rs",
+  "zona": "src",
+  "linha": 1281,
+  "classe": "nome",
+  "nome": "Arquivo",
+  "severidade": "warn",
+  "sugestao": "nome usado sem definição em nenhum escopo"
+ }
+]

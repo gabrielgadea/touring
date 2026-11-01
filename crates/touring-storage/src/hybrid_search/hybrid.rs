@@ -2,16 +2,16 @@
 //!
 //! D24 delivers the hybrid scoring layer that extends touring-search-fusion.
 //! Architecture:
-//! - `HybridScorer` — coordinates keyword (BM25) + semantic (embedding) search
+//! - `SearchPipeline` — coordinates keyword (BM25) + semantic (embedding) search
 //! - `RrfFusion` — Reciprocal Rank Fusion for combining ranked results
 //! - `Reranker` — cross-encoder style reranking of fused candidates
 //!
 //! # Example
 //!
 //! ```
-//! use touring_storage::hybrid_search::hybrid::{HybridScorer, HybridQuery, pipeline::QueryIntent as HybridIntent};
+//! use touring_storage::hybrid_search::hybrid::{SearchPipeline, HybridQuery, pipeline::QueryIntent as HybridIntent};
 //!
-//! let pipeline = HybridScorer::new();
+//! let pipeline = SearchPipeline::new();
 //! let query = HybridQuery {
 //!     query: "async fn trait".to_string(),
 //!     intent: HybridIntent::Understand,
@@ -28,7 +28,7 @@ pub mod pipeline;
 pub mod reranker;
 
 pub use fusion::RrfFusion;
-pub use pipeline::{HybridQuery, HybridScorer, SearchPipeline, SearchResult};
+pub use pipeline::{HybridQuery, SearchPipeline, SearchResult};
 pub use reranker::Reranker;
 
 /// Configuration for hybrid search fusion.
@@ -114,23 +114,6 @@ impl RankedResult {
     pub fn has_semantic_score(&self) -> bool {
         self.semantic_score.is_some()
     }
-}
-
-/// Debug/info representation of fusion state.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct FusionDebug {
-    /// Number of candidates returned by the BM25 keyword stage.
-    pub keyword_results: usize,
-    /// Number of candidates returned by the vector semantic stage.
-    pub semantic_results: usize,
-    /// Number of candidates remaining after reciprocal-rank fusion.
-    pub fused_results: usize,
-    /// Number of candidates remaining after the reranking stage.
-    pub reranked_results: usize,
-    /// Minimum and maximum fused scores, as a `(min, max)` pair.
-    pub fusion_score_range: (f32, f32),
-    /// Display name of the query intent applied to weight the fusion.
-    pub intent_applied: String,
 }
 
 #[cfg(test)]

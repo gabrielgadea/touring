@@ -1,0 +1,2 @@
+PASSO0A rc=0 (36s) | elite_aggregate: composite=0.9569 tier=Diamond
+PASSO0B rc=0 (144s) | 0 erros

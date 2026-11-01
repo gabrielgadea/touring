@@ -1,0 +1,7930 @@
+{
+ "entradas": 712,
+ "negativos": 659,
+ "p50_ms": 11.303610997856595,
+ "p95_ms": 77.2642169977189,
+ "deteccao": {
+  "arquivo": [
+   0,
+   0
+  ],
+  "tmp": [
+   7,
+   7
+  ],
+  "inline": [
+   16,
+   27
+  ]
+ },
+ "forma": {
+  "arquivo": [
+   0,
+   2
+  ],
+  "tmp": [
+   1,
+   6
+  ],
+  "inline": [
+   0,
+   11
+  ]
+ },
+ "nao_classificado": 0,
+ "politicas": {
+  "P0 nega tudo": {
+   "deny": {
+    "arquivo": [
+     0,
+     0
+    ],
+    "tmp": [
+     7,
+     7
+    ],
+    "inline": [
+     16,
+     27
+    ]
+   },
+   "falso_deny": {
+    "arquivo": [
+     10,
+     259
+    ],
+    "tmp": [
+     2,
+     100
+    ],
+    "inline": [
+     1,
+     300
+    ]
+   }
+  },
+  "P1 arquivo do projeto só avisa": {
+   "deny": {
+    "arquivo": [
+     0,
+     0
+    ],
+    "tmp": [
+     7,
+     7
+    ],
+    "inline": [
+     16,
+     27
+    ]
+   },
+   "falso_deny": {
+    "arquivo": [
+     0,
+     259
+    ],
+    "tmp": [
+     2,
+     100
+    ],
+    "inline": [
+     1,
+     300
+    ]
+   }
+  },
+  "P2 arquivo nega só externo": {
+   "deny": {
+    "arquivo": [
+     0,
+     0
+    ],
+    "tmp": [
+     7,
+     7
+    ],
+    "inline": [
+     16,
+     27
+    ]
+   },
+   "falso_deny": {
+    "arquivo": [
+     0,
+     259
+    ],
+    "tmp": [
+     2,
+     100
+    ],
+    "inline": [
+     1,
+     300
+    ]
+   }
+  },
+  "P3 = P2 e forma só avisa": {
+   "deny": {
+    "arquivo": [
+     0,
+     0
+    ],
+    "tmp": [
+     6,
+     7
+    ],
+    "inline": [
+     16,
+     27
+    ]
+   },
+   "falso_deny": {
+    "arquivo": [
+     0,
+     259
+    ],
+    "tmp": [
+     1,
+     100
+    ],
+    "inline": [
+     0,
+     300
+    ]
+   }
+  },
+  "P4 = P3 e dinâmico só avisa": {
+   "deny": {
+    "arquivo": [
+     0,
+     0
+    ],
+    "tmp": [
+     6,
+     7
+    ],
+    "inline": [
+     16,
+     27
+    ]
+   },
+   "falso_deny": {
+    "arquivo": [
+     0,
+     259
+    ],
+    "tmp": [
+     0,
+     100
+    ],
+    "inline": [
+     0,
+     300
+    ]
+   }
+  }
+ },
+ "regua": "instante",
+ "registros": [
+  {
+   "id": "15d469304a03",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "votos_nominais_por_comparecente",
+   "negados": [],
+   "ms": 474.5902020003996
+  },
+  {
+   "id": "9f72920a9343",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "nm_municipio",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "nm_municipio",
+     "msg": "\"nm_municipio\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "delta_pct_2018_2026",
+     "msg": "\"delta_pct_2018_2026\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "nm_municipio",
+     "msg": "\"nm_municipio\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "delta_pct_2018_2026",
+     "msg": "\"delta_pct_2018_2026\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "nm_municipio",
+     "msg": "\"nm_municipio\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 26.703174000431318
+  },
+  {
+   "id": "d2df466d5128",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "slides_fisica_eleitoral",
+   "negados": [],
+   "ms": 67.3897839988058
+  },
+  {
+   "id": "7f44e34538c8",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "m2",
+   "negados": [],
+   "ms": 147.22451999841724
+  },
+  {
+   "id": "9569137c7076",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "creator",
+   "negados": [],
+   "ms": 212.1311090013478
+  },
+  {
+   "id": "1ec93649b1ac",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "scripts",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "scripts",
+     "msg": "\"scripts\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 13.971058000606718
+  },
+  {
+   "id": "e88aaef633ba",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 25.135257998044835
+  },
+  {
+   "id": "6fb90b5d7502",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "DERIVADOS",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "DERIVADOS",
+     "msg": "\"DERIVADOS\" is not a known attribute of module \"scripts.eleitoral.gate_frescor_artefatos\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 25.91165999911027
+  },
+  {
+   "id": "4904697e31f3",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "glob",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "PESQUISAS",
+     "msg": "\"PESQUISAS\" is not a known attribute of module \"scripts.eleitoral.corpus_pesquisas\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 61.921234999317676
+  },
+  {
+   "id": "fbd4d99c3ec2",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "import",
+   "classe_erro": "simbolo",
+   "esperado": "agregado_pesquisas",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "agregado_pesquisas",
+     "msg": "\"agregado_pesquisas\" is unknown import symbol",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 34.26491500067641
+  },
+  {
+   "id": "6c366c868494",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "import",
+   "classe_erro": "simbolo",
+   "esperado": "norma_corpus",
+   "negados": [],
+   "ms": 189.82855299691437
+  },
+  {
+   "id": "873da3e17ad9",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "keys",
+   "negados": [],
+   "ms": 16.226330000790767
+  },
+  {
+   "id": "cbd725d878ee",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "JaccardComputer",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "JaccardComputer",
+     "msg": "\"JaccardComputer\" is not a known attribute of module \"claude_learning_kernel\"",
+     "escopo": "externo"
+    }
+   ],
+   "ms": 12.259840001206612
+  },
+  {
+   "id": "ac6680ec4405",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "__file__",
+   "negados": [],
+   "ms": 76.6256400020211
+  },
+  {
+   "id": "eae0c2b76058",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "parse",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "parse",
+     "msg": "Cannot access attribute \"parse\" for class \"object\"\n  Attribute \"parse\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "validate",
+     "msg": "Cannot access attribute \"validate\" for class \"object\"\n  Attribute \"validate\" is unknown",
+     "escopo": "forma"
+    }
+   ],
+   "ms": 21.881879998545628
+  },
+  {
+   "id": "071675618714",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "offset",
+   "negados": [],
+   "ms": 31.403539000166347
+  },
+  {
+   "id": "76d4d4a88939",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"int\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"float\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"bool\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"int\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"float\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"bool\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    }
+   ],
+   "ms": 56.40504700204474
+  },
+  {
+   "id": "2f20ffbdfae9",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "group",
+   "negados": [],
+   "ms": 11.047021998820128
+  },
+  {
+   "id": "12f3fca9a950",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "DESBALANCEADO",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "BALANCEADO",
+     "msg": "\"BALANCEADO\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "DESBALANCEADO",
+     "msg": "\"DESBALANCEADO\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 25.478936000581598
+  },
+  {
+   "id": "d95dfaa342c1",
+   "rotulo": "positivo",
+   "origem": "atribuido",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "parent",
+   "negados": [],
+   "ms": 117.78292099916143
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "kwarg",
+   "classe_erro": "simbolo",
+   "esperado": "tipo",
+   "negados": [],
+   "ms": 7.330038999498356
+  },
+  {
+   "id": "26e7fb915147",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "decisoes_de",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "decisoes_de",
+     "msg": "\"decisoes_de\" is not a known attribute of module \"scripts.eleitoral.decisoes_acompanhamento\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 22.86887100126478
+  },
+  {
+   "id": "f1e9ade97240",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "TODAS",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "TODAS",
+     "msg": "\"TODAS\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 10.701130999223096
+  },
+  {
+   "id": "948e774f6903",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "JUIZES",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "JUIZES",
+     "msg": "\"JUIZES\" is not a known attribute of module \"scripts.eleitoral.auditar_coerencia\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 12.603983999724733
+  },
+  {
+   "id": "630de4ce89bc",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "maxlen",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "maxlen",
+     "msg": "\"maxlen\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 24.672833002114203
+  },
+  {
+   "id": "fe6a103451a2",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "json",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "json",
+     "msg": "\"json\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 22.975813000812195
+  },
+  {
+   "id": "0b38a8bfc93f",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 17.12172200132045
+  },
+  {
+   "id": "005d357b8891",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "endswith",
+   "negados": [],
+   "ms": 9.523001001070952
+  },
+  {
+   "id": "10c65d8beead",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "import",
+   "classe_erro": "simbolo",
+   "esperado": "gravar_gravacao",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "gravar_gravacao",
+     "msg": "\"gravar_gravacao\" is unknown import symbol",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 9.768542000529123
+  },
+  {
+   "id": "fbaa53745fa3",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "items",
+   "negados": [],
+   "ms": 17.656459000136238
+  },
+  {
+   "id": "1549f702a1de",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "uf",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "uf",
+     "msg": "\"uf\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "fob_total_usd_bi",
+     "msg": "\"fob_total_usd_bi\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "fob_eua_usd_bi",
+     "msg": "\"fob_eua_usd_bi\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "part_eua_pct",
+     "msg": "\"part_eua_pct\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "fob_china_usd_bi",
+     "msg": "\"fob_china_usd_bi\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "part_china_pct",
+     "msg": "\"part_china_pct\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "sh4",
+     "msg": "\"sh4\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "fob_usd_bi",
+     "msg": "\"fob_usd_bi\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "fatia_do_destino_pct",
+     "msg": "\"fatia_do_destino_pct\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "produto",
+     "msg": "\"produto\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "meses_no_arquivo",
+     "msg": "\"meses_no_arquivo\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "meses_no_arquivo",
+     "msg": "\"meses_no_arquivo\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "meses_no_arquivo",
+     "msg": "\"meses_no_arquivo\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "n_linhas",
+     "msg": "\"n_linhas\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 10.086659000080545
+  },
+  {
+   "id": "1ba03f63a4be",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "last",
+   "negados": [],
+   "ms": 9.237106998625677
+  },
+  {
+   "id": "dcdff927db73",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "combending",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "combending",
+     "msg": "\"combending\" is not a known attribute of module \"unicodedata\"",
+     "escopo": "externo"
+    }
+   ],
+   "ms": 28.42522100036149
+  },
+  {
+   "id": "d94f8090d150",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "st_m_size",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "st_m_size",
+     "msg": "Cannot access attribute \"st_m_size\" for class \"stat_result\"\n  Attribute \"st_m_size\" is unknown",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 10.815663998073433
+  },
+  {
+   "id": "6510dda1a8f0",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 35.147272999893175
+  },
+  {
+   "id": "091584efee91",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "__version__",
+   "negados": [],
+   "ms": 8.907326999178622
+  },
+  {
+   "id": "d4f9e464b30e",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 10.67339300061576
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "simd",
+   "negados": [],
+   "ms": 10.193678001087392
+  },
+  {
+   "id": "c95d9b124cc5",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "packages",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "packages",
+     "msg": "\"packages\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "rre",
+     "msg": "\"rre\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 10.222622000583215
+  },
+  {
+   "id": "3c332c71bda3",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "import",
+   "classe_erro": "simbolo",
+   "esperado": "inspect",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "inspect",
+     "msg": "\"inspect\" is unknown import symbol",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 6.311686000117334
+  },
+  {
+   "id": "0c5af2f059d6",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "_pct_de_frac",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "_pct_de_frac",
+     "msg": "\"_pct_de_frac\" is not a known attribute of module \"scripts.eleitoral.documento_tendencia_folhas\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 16.215507999731926
+  },
+  {
+   "id": "cececb4e5f55",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "__name__",
+   "negados": [],
+   "ms": 16.70971100247698
+  },
+  {
+   "id": "bbd4170e32dc",
+   "rotulo": "positivo",
+   "origem": "atribuido",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "__dict__",
+   "negados": [],
+   "ms": 68.40643300165539
+  },
+  {
+   "id": "8b7a3476e024",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "total",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "total",
+     "msg": "Cannot access attribute \"total\" for class \"Recibo\"\n  Attribute \"total\" is unknown",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 17.29348899971228
+  },
+  {
+   "id": "b9942642a4be",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "items",
+   "negados": [],
+   "ms": 7.835292999516241
+  },
+  {
+   "id": "34511b9ac100",
+   "rotulo": "positivo",
+   "origem": "tmp",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "total",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "total",
+     "msg": "Cannot access attribute \"total\" for class \"Recibo\"\n  Attribute \"total\" is unknown",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 25.3113979997579
+  },
+  {
+   "id": "3254ad7d29e2",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 10.430750000523403
+  },
+  {
+   "id": "36a02adfd43c",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "__file__",
+   "negados": [],
+   "ms": 33.814420999988215
+  },
+  {
+   "id": "3a24eeb8723c",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "get",
+   "negados": [],
+   "ms": 7.905347996711498
+  },
+  {
+   "id": "f501013d71d9",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "simbolo",
+   "esperado": "DriftDetector",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "DriftDetector",
+     "msg": "\"DriftDetector\" is not a known attribute of module \"claude_learning_kernel\"",
+     "escopo": "externo"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "WilsonRanker",
+     "msg": "\"WilsonRanker\" is not a known attribute of module \"claude_learning_kernel\"",
+     "escopo": "externo"
+    }
+   ],
+   "ms": 9.943036999175092
+  },
+  {
+   "id": "f7c662df64b4",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "items",
+   "negados": [],
+   "ms": 7.7518870020867325
+  },
+  {
+   "id": "a018b76ba8b9",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "atributo",
+   "classe_erro": "forma",
+   "esperado": "keys",
+   "negados": [],
+   "ms": 7.524919001298258
+  },
+  {
+   "id": "36a19de32b1a",
+   "rotulo": "positivo",
+   "origem": "inline",
+   "classe": "nome",
+   "classe_erro": "simbolo",
+   "esperado": "tau_val_coverage",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "tau_val_coverage",
+     "msg": "\"tau_val_coverage\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "tau_val_precision",
+     "msg": "\"tau_val_precision\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "tau_feasible",
+     "msg": "\"tau_feasible\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 16.165330998774152
+  },
+  {
+   "id": "0ebcb313f8dc",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.442798000847688
+  },
+  {
+   "id": "b8a4c7faab5d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 43.48976099936408
+  },
+  {
+   "id": "39fe77b5632a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 44.630027001403505
+  },
+  {
+   "id": "552618b85e84",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 58.60709099943051
+  },
+  {
+   "id": "56aeb948bf46",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.04852099888376
+  },
+  {
+   "id": "aaedea0544bd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.303610997856595
+  },
+  {
+   "id": "2d9be060dc80",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.946609999838984
+  },
+  {
+   "id": "c479fd9c9bbc",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 56.0770890006097
+  },
+  {
+   "id": "088dad514155",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.690269002632704
+  },
+  {
+   "id": "a6666ab2bf3a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.518983999441843
+  },
+  {
+   "id": "977fc9c0d6d3",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.8218760023301
+  },
+  {
+   "id": "5ea06ec6aec9",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.654657999111805
+  },
+  {
+   "id": "74463888050f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.53133800229989
+  },
+  {
+   "id": "bd4fee6502f7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.21157099926495
+  },
+  {
+   "id": "142a21baa6a1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 34.77609200126608
+  },
+  {
+   "id": "4afba6c40de6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 66.43610299943248
+  },
+  {
+   "id": "221240d84128",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 63.29968299905886
+  },
+  {
+   "id": "e8efc24a63ca",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 31.75215500232298
+  },
+  {
+   "id": "760f5fb8f8e6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 235.01923400181113
+  },
+  {
+   "id": "a94611ee3b3c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 31.913285001792246
+  },
+  {
+   "id": "cfc13ef0d75c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 50.18034800013993
+  },
+  {
+   "id": "c315409422ca",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 48.529158000746975
+  },
+  {
+   "id": "c2a0ac168ec5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 64.76808499792241
+  },
+  {
+   "id": "1396d31675a6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 39.79563000029884
+  },
+  {
+   "id": "921d01dfbdb2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 28.81478699782747
+  },
+  {
+   "id": "1b4ebf0f73e2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.626088001619792
+  },
+  {
+   "id": "158c90e1dcad",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 559.2340770017472
+  },
+  {
+   "id": "8836aab6c4b7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.078816000634106
+  },
+  {
+   "id": "f3d19cccd0e1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.434428998763906
+  },
+  {
+   "id": "dec72285ad04",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "CORTE_PREMIO_GRANDE",
+     "msg": "\"CORTE_PREMIO_GRANDE\" is not a known attribute of module \"scripts.eleitoral.indice_estrategico\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 21.919669001363218
+  },
+  {
+   "id": "ff8cdb375ef1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.902128996676765
+  },
+  {
+   "id": "16e73268c909",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 36.004861001856625
+  },
+  {
+   "id": "83245fc420e6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.480182001425419
+  },
+  {
+   "id": "90ca3df18e68",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.025499999755993
+  },
+  {
+   "id": "112d2d7849fa",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.091052000963828
+  },
+  {
+   "id": "1ce796b39db4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.554775996657554
+  },
+  {
+   "id": "2cd50ecc135e",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.545748998411
+  },
+  {
+   "id": "77da01ff11a3",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.357339998241514
+  },
+  {
+   "id": "4e4d956f9c86",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 52.182129002176225
+  },
+  {
+   "id": "655e4ae38cb5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.837518998945598
+  },
+  {
+   "id": "40b4565edc73",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.176282002357766
+  },
+  {
+   "id": "1e0916c353ee",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 33.1540090010094
+  },
+  {
+   "id": "6dd3273984e7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.199653999938164
+  },
+  {
+   "id": "0164011a61e3",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 63.45048000002862
+  },
+  {
+   "id": "4b1563f6e2b6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.488967997953296
+  },
+  {
+   "id": "2749e01e9f9f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 27.55085700118798
+  },
+  {
+   "id": "053961162dde",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.988924999168376
+  },
+  {
+   "id": "df1bf3c823dd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "_falhas_da_coleta",
+     "msg": "\"_falhas_da_coleta\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 26.534009997703834
+  },
+  {
+   "id": "b3734f32de2d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.513230000971816
+  },
+  {
+   "id": "08696d9b0b50",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 209.05451500220806
+  },
+  {
+   "id": "dc2ee07d5c67",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.27831799708656
+  },
+  {
+   "id": "1d48224e3c2d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.387626000418095
+  },
+  {
+   "id": "2463291faf76",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 90.16670199707733
+  },
+  {
+   "id": "0dcf0bab45c5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 98.69133300162503
+  },
+  {
+   "id": "b55508677604",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.99206099731964
+  },
+  {
+   "id": "35b8d62d792e",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.261101001262432
+  },
+  {
+   "id": "4685c72daa42",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.860675999865634
+  },
+  {
+   "id": "84c7ed91f2f1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 38.516278997121844
+  },
+  {
+   "id": "b7a63bd2d855",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 77.26837099835393
+  },
+  {
+   "id": "1961229df6df",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.344627000653418
+  },
+  {
+   "id": "7a125beefa6f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.367991002160124
+  },
+  {
+   "id": "7667c2e8a529",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.254273001337424
+  },
+  {
+   "id": "9516f36602af",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 51.8801030011673
+  },
+  {
+   "id": "2b34257e873c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 28.265911001653876
+  },
+  {
+   "id": "f1c4aee45e15",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 27.389814000343904
+  },
+  {
+   "id": "969bb48f261a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.157360000855988
+  },
+  {
+   "id": "6047b19b2500",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 80.4229019995546
+  },
+  {
+   "id": "49b98415176a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.764219000033336
+  },
+  {
+   "id": "c3c0556dbfb5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.149719997367356
+  },
+  {
+   "id": "7954cefb2a9c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.956390000297688
+  },
+  {
+   "id": "6bbb4cc92382",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.456816001649713
+  },
+  {
+   "id": "3306e6f4c556",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.624046001496026
+  },
+  {
+   "id": "04eae56b1d24",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 41.139665998343844
+  },
+  {
+   "id": "6271818d231a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.378181000007316
+  },
+  {
+   "id": "ea1ecd230c71",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 37.115856997843366
+  },
+  {
+   "id": "249b12f09798",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.834049000754021
+  },
+  {
+   "id": "6b080ef3bf17",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.979435001820093
+  },
+  {
+   "id": "010356fde088",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.384295998548623
+  },
+  {
+   "id": "c461baaab084",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.292339999083197
+  },
+  {
+   "id": "69bb234eece4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.381275998952333
+  },
+  {
+   "id": "5ca21da52fe2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 123.3793040009914
+  },
+  {
+   "id": "fd2b1066c8f4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.610569997690618
+  },
+  {
+   "id": "89e1cfeb4b14",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.427024000819074
+  },
+  {
+   "id": "2d494384b093",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 48.80131499885465
+  },
+  {
+   "id": "e01d2209e66c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "CONSTRUTORES_DE_VALOR",
+     "msg": "\"CONSTRUTORES_DE_VALOR\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 36.136083999736
+  },
+  {
+   "id": "74d19321a4a4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.378545998624759
+  },
+  {
+   "id": "7e020c0b1e1c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.513927999156294
+  },
+  {
+   "id": "fbb090a27321",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.567211997316917
+  },
+  {
+   "id": "0d10b6f01e3e",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.349585998686962
+  },
+  {
+   "id": "72b862175d5c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.213347998127574
+  },
+  {
+   "id": "14fc83f6afb2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.938385998510057
+  },
+  {
+   "id": "da02dcd4f6d6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.9436109990638215
+  },
+  {
+   "id": "158cbb7178bb",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    }
+   ],
+   "ms": 13.981096999486908
+  },
+  {
+   "id": "0c666b21e68d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.396559999411693
+  },
+  {
+   "id": "919e4371fc75",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.575367999990704
+  },
+  {
+   "id": "24bbb9917683",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 66.89220900079818
+  },
+  {
+   "id": "03bee5dc05bb",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 28.533450000395533
+  },
+  {
+   "id": "bb75a04f1b64",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 45.7887659977132
+  },
+  {
+   "id": "15c4df09aae7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 637.4355139996624
+  },
+  {
+   "id": "c97a26a47891",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.206242998014204
+  },
+  {
+   "id": "56073a6f95a4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 44.87941900151782
+  },
+  {
+   "id": "9991e9e365d0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 77.2642169977189
+  },
+  {
+   "id": "6582b7413dc8",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.107919998437865
+  },
+  {
+   "id": "52fb8df391e5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.51152000037837
+  },
+  {
+   "id": "378e17967b49",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.591119000717299
+  },
+  {
+   "id": "ab9d0d149ed7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.803282000793843
+  },
+  {
+   "id": "3b5a789beace",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 51.72523600049317
+  },
+  {
+   "id": "524b0e0a3759",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.005486003152328
+  },
+  {
+   "id": "7e6793d45a63",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.716914002638077
+  },
+  {
+   "id": "d65d6189ed7b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.334380000131205
+  },
+  {
+   "id": "1112f97f7d51",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.487741001474205
+  },
+  {
+   "id": "34a5bfb50e16",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 30.579829999624053
+  },
+  {
+   "id": "4c78c703fffe",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.142158999078674
+  },
+  {
+   "id": "33d41aad32f7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 62.58157100091921
+  },
+  {
+   "id": "c0df3cad76c0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 31.6027849985403
+  },
+  {
+   "id": "9556cb71eb15",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 22.639012000581715
+  },
+  {
+   "id": "6052e09d43ab",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 74.13187099882634
+  },
+  {
+   "id": "7c791636a9de",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.58395699734683
+  },
+  {
+   "id": "30a988423910",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.743859999114648
+  },
+  {
+   "id": "0f0ab7da5eba",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.667113999166759
+  },
+  {
+   "id": "6eaa68b6637d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.938145001011435
+  },
+  {
+   "id": "76051d460890",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.237552000646247
+  },
+  {
+   "id": "127efaaed8aa",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.297903998434776
+  },
+  {
+   "id": "1714703524f0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 50.53465899982257
+  },
+  {
+   "id": "e2b69c0a6a83",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.828599998523714
+  },
+  {
+   "id": "bdb53d9a221b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.600674999092007
+  },
+  {
+   "id": "5e1c60293706",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.94803399813827
+  },
+  {
+   "id": "f0aa856d45b5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 52.67481400005636
+  },
+  {
+   "id": "469b4702f54f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.98577500024112
+  },
+  {
+   "id": "6ba5633c864c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.596882000769256
+  },
+  {
+   "id": "c3dfa8683fa5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.78470299905166
+  },
+  {
+   "id": "c4640c11374b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 101.20907699820236
+  },
+  {
+   "id": "16b7ac519f05",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "_avisar_rlm_ausente",
+     "msg": "\"_avisar_rlm_ausente\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 29.70153299975209
+  },
+  {
+   "id": "49e9529c8cf2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "pairwise",
+     "msg": "\"pairwise\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 29.224566998891532
+  },
+  {
+   "id": "3f3b2df2d527",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.879241000016918
+  },
+  {
+   "id": "6174c84cf5e7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "INTENCAO_SENADO",
+     "msg": "\"INTENCAO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "INTENCAO_TOTAL",
+     "msg": "\"INTENCAO_TOTAL\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "PRIMEIRO_VOTO_SENADO",
+     "msg": "\"PRIMEIRO_VOTO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "PRIMEIRO_VOTO",
+     "msg": "\"PRIMEIRO_VOTO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "SEGUNDO_VOTO_SENADO",
+     "msg": "\"SEGUNDO_VOTO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "SEGUNDO_VOTO",
+     "msg": "\"SEGUNDO_VOTO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "MIGRACAO_SENADO",
+     "msg": "\"MIGRACAO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "MIGRACAO_1V_2V",
+     "msg": "\"MIGRACAO_1V_2V\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "INTENCAO_SENADO_POR_REGIAO",
+     "msg": "\"INTENCAO_SENADO_POR_REGIAO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "INTENCAO_POR_REGIAO",
+     "msg": "\"INTENCAO_POR_REGIAO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "REJEICAO_SENADO",
+     "msg": "\"REJEICAO_SENADO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "REJEICAO",
+     "msg": "\"REJEICAO\" is not a known attribute of module \"scripts.eleitoral.pesquisa_studio_r4\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 13.798627998767188
+  },
+  {
+   "id": "ff9822c152af",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 27.461923997179838
+  },
+  {
+   "id": "87aa0102d053",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.63630500115687
+  },
+  {
+   "id": "a12ae7fb8542",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.119131002080394
+  },
+  {
+   "id": "0709c8725e2d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.714714000438107
+  },
+  {
+   "id": "c7e1227e341d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.560899997974047
+  },
+  {
+   "id": "c357eb32987c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 27.810427000076743
+  },
+  {
+   "id": "0de0b10ce2ec",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 67.07351800287142
+  },
+  {
+   "id": "fb09df262487",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.837451999483164
+  },
+  {
+   "id": "afd11166eabb",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 38.150074000441236
+  },
+  {
+   "id": "f74d1a38f69c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 28.62083899890422
+  },
+  {
+   "id": "c876d78f82ee",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 67.3767529988254
+  },
+  {
+   "id": "4a23a46fd3f1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.780471999372821
+  },
+  {
+   "id": "cda03737f157",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 58.44406799951685
+  },
+  {
+   "id": "52d1f7eb5d4f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 543.8905209994118
+  },
+  {
+   "id": "8b0bec1ff084",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 34.357708998868475
+  },
+  {
+   "id": "66777d775751",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.988508999726037
+  },
+  {
+   "id": "3639564c6ca7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.70736199998646
+  },
+  {
+   "id": "fdd8a78547c5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.17828900090535
+  },
+  {
+   "id": "6087e3beb347",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.671774001821177
+  },
+  {
+   "id": "32433734f13b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 80.15333900038968
+  },
+  {
+   "id": "a5c656cdf3cd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 120.25683200045023
+  },
+  {
+   "id": "7e0e7955eef2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 150.47437899920624
+  },
+  {
+   "id": "337c43c1aa93",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.8513920030382
+  },
+  {
+   "id": "1dae24581d5d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 24.1757769981632
+  },
+  {
+   "id": "734339d8f582",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.270676001615357
+  },
+  {
+   "id": "c0519d29e76e",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.010871000005864
+  },
+  {
+   "id": "1ef7559b0f4d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.652810998290079
+  },
+  {
+   "id": "566c3a8d07f8",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 38.68717000295874
+  },
+  {
+   "id": "6aa4192e6cfd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.128724999376573
+  },
+  {
+   "id": "49762ec887b1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 50.39728499832563
+  },
+  {
+   "id": "e88c4a979172",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.509389997750986
+  },
+  {
+   "id": "294b5d3f4d9f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 42.43581000264385
+  },
+  {
+   "id": "f57040e88901",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.680557002691785
+  },
+  {
+   "id": "42d4949c3a19",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.434337999176932
+  },
+  {
+   "id": "b9355d9d98ab",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.546866000571754
+  },
+  {
+   "id": "baae13f6a4ae",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.067129002796719
+  },
+  {
+   "id": "70bf4d724ef2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 78.45538499896065
+  },
+  {
+   "id": "712b75c8c772",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.063715998025145
+  },
+  {
+   "id": "ac149ab70671",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.214633001363836
+  },
+  {
+   "id": "69b0a5b6c8bc",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 33.16029300185619
+  },
+  {
+   "id": "9f0ab8e30de5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 30.93169699786813
+  },
+  {
+   "id": "0372ea8b52db",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 78.29621099881479
+  },
+  {
+   "id": "2ad9b8487127",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.92462000210071
+  },
+  {
+   "id": "3e515a1f6587",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 48.40050299753784
+  },
+  {
+   "id": "aea25ce93c89",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 122.00511300034123
+  },
+  {
+   "id": "bcf9156106ce",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 61.08873699849937
+  },
+  {
+   "id": "f94d43a94c08",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 110.28514999998151
+  },
+  {
+   "id": "92cdc6b8a441",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 57.93708700002753
+  },
+  {
+   "id": "1a3c837e4375",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 55.46047399911913
+  },
+  {
+   "id": "6a27555eb0a6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 33.393454999895766
+  },
+  {
+   "id": "79394109f86d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 45.179608001490124
+  },
+  {
+   "id": "a8dc250d15c4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 76.69348099807394
+  },
+  {
+   "id": "842625a64693",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 36.74153700194438
+  },
+  {
+   "id": "dfd6c5248bb7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 22.771537998778513
+  },
+  {
+   "id": "e0d9c7b7ebc7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 48.709151000366546
+  },
+  {
+   "id": "6c30ee70ffea",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "modulo_pp",
+     "msg": "\"modulo_pp\" is not a known attribute of module \"scripts.eleitoral.documento_consolidado_folhas\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "diferenca_em_diferencas",
+     "msg": "\"diferenca_em_diferencas\" is not a known attribute of module \"scripts.eleitoral.consolidado_enchente\"",
+     "escopo": "projeto"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "diferenca_em_diferencas",
+     "msg": "\"diferenca_em_diferencas\" is not a known attribute of module \"scripts.eleitoral.consolidado_enchente\"",
+     "escopo": "projeto"
+    }
+   ],
+   "ms": 75.69142200009082
+  },
+  {
+   "id": "ea9f7a7083cd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 301.5894410018518
+  },
+  {
+   "id": "d2ce95a74dc1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 143.97225699940464
+  },
+  {
+   "id": "ef0167077ae0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 36.932925999281
+  },
+  {
+   "id": "afe613f5d3b5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.217970000085188
+  },
+  {
+   "id": "a3f2d1a7e02b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 22.57686400116654
+  },
+  {
+   "id": "2eb6e1e57d40",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.53998599856277
+  },
+  {
+   "id": "8127a70db022",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 46.145599000738
+  },
+  {
+   "id": "b1245252e0f7",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.413818998349598
+  },
+  {
+   "id": "84eca11d9908",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 28.27563699975144
+  },
+  {
+   "id": "d91e93c3254a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.28628899663454
+  },
+  {
+   "id": "0e6e13febede",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.622736999124754
+  },
+  {
+   "id": "e6911701ee4f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 96.9481749998522
+  },
+  {
+   "id": "0f0dbc4fd1a9",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 21.327774997189408
+  },
+  {
+   "id": "518dd3aa7f6f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 34.59562900025048
+  },
+  {
+   "id": "6d36cebbc6dd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 30.56611099964357
+  },
+  {
+   "id": "8fc9d0ee8d9c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 127.13279200033867
+  },
+  {
+   "id": "7048e1fc5d18",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.934251997648971
+  },
+  {
+   "id": "dbb3389ab921",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 54.04543999975431
+  },
+  {
+   "id": "03bdc09f56c0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.788238999870373
+  },
+  {
+   "id": "a8c3ff3aa6fd",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.824605000991141
+  },
+  {
+   "id": "3daf6ef1d98a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.923528999934206
+  },
+  {
+   "id": "cf68159d8c49",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 47.71659499965608
+  },
+  {
+   "id": "38f133d4f4b6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "math",
+     "msg": "\"math\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "math",
+     "msg": "\"math\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "math",
+     "msg": "\"math\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "itertools",
+     "msg": "\"itertools\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 25.68930299821659
+  },
+  {
+   "id": "50a05c73cbcf",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.533295998466201
+  },
+  {
+   "id": "47b7200e8c74",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.051223000948085
+  },
+  {
+   "id": "2a78ac89aad8",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "re",
+     "msg": "\"re\" is not defined",
+     "escopo": "proprio"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "re",
+     "msg": "\"re\" is not defined",
+     "escopo": "proprio"
+    }
+   ],
+   "ms": 23.024399997666478
+  },
+  {
+   "id": "faafd4cb13e4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.825446999282576
+  },
+  {
+   "id": "c290bbeb88c5",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.65781699839863
+  },
+  {
+   "id": "86c8e7e5776d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.792997001379263
+  },
+  {
+   "id": "27bc40c3aeac",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.965610000828747
+  },
+  {
+   "id": "2367e47e9f8a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.127985998929944
+  },
+  {
+   "id": "fe596c9ade31",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.595854999148287
+  },
+  {
+   "id": "a23cf8268ce0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 41.46406799918623
+  },
+  {
+   "id": "ad1c6d0c073b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 24.98286600166466
+  },
+  {
+   "id": "ca83da787c40",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 77.3637249985768
+  },
+  {
+   "id": "034016e57531",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 59.87335400277516
+  },
+  {
+   "id": "16e117ace5c1",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 24.168046002159826
+  },
+  {
+   "id": "856504de2b43",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 113.69448599725729
+  },
+  {
+   "id": "01a1bcc2fc6e",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.684316001279512
+  },
+  {
+   "id": "43c3ae07ab9b",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.570399001153419
+  },
+  {
+   "id": "398bb6e37911",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.099591996957315
+  },
+  {
+   "id": "15a17c011c48",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.946478996629594
+  },
+  {
+   "id": "66b4b947abb3",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.741530001425417
+  },
+  {
+   "id": "bb31ba4bc39d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 297.35005800102954
+  },
+  {
+   "id": "0e94f671128a",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 203.9496479992522
+  },
+  {
+   "id": "a82ad1e482d9",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 62.55509400216397
+  },
+  {
+   "id": "3a682417cc29",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.161105001927353
+  },
+  {
+   "id": "9c7750d3d417",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 34.10655900006532
+  },
+  {
+   "id": "479a17426986",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.837829003023217
+  },
+  {
+   "id": "737680d4bcef",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.194749001442688
+  },
+  {
+   "id": "9482fc09b1f2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 27.53829499852145
+  },
+  {
+   "id": "18ea9f08d5d4",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.315928998461459
+  },
+  {
+   "id": "78482e9b598c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.138960000214865
+  },
+  {
+   "id": "116bba9a5153",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.82582399775856
+  },
+  {
+   "id": "d5f3e2778e11",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.099330001248745
+  },
+  {
+   "id": "116d8af3bbab",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 85.59260000038194
+  },
+  {
+   "id": "4c25b0870ec0",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 43.46461800014367
+  },
+  {
+   "id": "d75b0a91c4a6",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 32.78054700058419
+  },
+  {
+   "id": "f42e245926de",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 33.353198999975575
+  },
+  {
+   "id": "a8622f82fcf2",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 77.35477400274249
+  },
+  {
+   "id": "e4556a9fe14d",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 36.11340899806237
+  },
+  {
+   "id": "b170067a3d46",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 89.43560400075512
+  },
+  {
+   "id": "0f58a255c810",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.869705001445254
+  },
+  {
+   "id": "f1b8ab300676",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 43.09161999844946
+  },
+  {
+   "id": "fd427459b913",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.879454000038095
+  },
+  {
+   "id": "c05ef324374f",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.499115998565685
+  },
+  {
+   "id": "f22ed4db947c",
+   "rotulo": "negativo",
+   "origem": "atribuido",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 24.382616000366397
+  },
+  {
+   "id": "f6a65d55d8e0",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.961015000357293
+  },
+  {
+   "id": "5a2abaebf249",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.093802000890719
+  },
+  {
+   "id": "01c1e74b99b2",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.393806001578923
+  },
+  {
+   "id": "e75558e371ca",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.426918999059126
+  },
+  {
+   "id": "7f66c178868b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.122094999649562
+  },
+  {
+   "id": "c6587c22c3a1",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.493761997873662
+  },
+  {
+   "id": "459ff13ce646",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.163162001263117
+  },
+  {
+   "id": "7078d84149cc",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.269770000188146
+  },
+  {
+   "id": "2b77939a53a5",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.522037002170691
+  },
+  {
+   "id": "b5f24d5b8bbe",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.821914002823178
+  },
+  {
+   "id": "0adee89c6804",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.614408999070292
+  },
+  {
+   "id": "dec16c58711a",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.70456899915007
+  },
+  {
+   "id": "0baac5ad92f1",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.76025300042238
+  },
+  {
+   "id": "5aecd433b04e",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.989999002253171
+  },
+  {
+   "id": "e173bbfa06f1",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.995062999427319
+  },
+  {
+   "id": "d136171ad214",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.198596999340225
+  },
+  {
+   "id": "06274e62cd74",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.041144997259835
+  },
+  {
+   "id": "bda0e50bfe57",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.934959001635434
+  },
+  {
+   "id": "d48f853cc98b",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.403973999927985
+  },
+  {
+   "id": "91c6eb221dfe",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.2306739987107
+  },
+  {
+   "id": "23922628d2c2",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.008670998417074
+  },
+  {
+   "id": "0380fb839570",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.325784998916788
+  },
+  {
+   "id": "eea6ce097cb6",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.831775998871308
+  },
+  {
+   "id": "b82d813e990b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.532246000162559
+  },
+  {
+   "id": "1d2912d2307d",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 19.342258001415757
+  },
+  {
+   "id": "5a44a8e5c4dd",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.497573999396991
+  },
+  {
+   "id": "75d911f92299",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.492753999860724
+  },
+  {
+   "id": "90ea529174b4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.060859000077471
+  },
+  {
+   "id": "08c0cd373b38",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.458935001428472
+  },
+  {
+   "id": "d4615a93ddc2",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.337899999285582
+  },
+  {
+   "id": "1ff1f290d041",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.48019299985026
+  },
+  {
+   "id": "0f97b986fb83",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.669834001921117
+  },
+  {
+   "id": "525c370086db",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.00153199917986
+  },
+  {
+   "id": "c85a73a2bf93",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.795898998068878
+  },
+  {
+   "id": "d95cae51d679",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.469368000689428
+  },
+  {
+   "id": "be6d4cb32070",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.460478999448242
+  },
+  {
+   "id": "956b162013f7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.982728999602841
+  },
+  {
+   "id": "e717d008c486",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.01232999988133
+  },
+  {
+   "id": "122da6c77d3c",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.974833999469411
+  },
+  {
+   "id": "1f5d81d04b74",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.415316998958588
+  },
+  {
+   "id": "38977021832e",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.11216299937223
+  },
+  {
+   "id": "49efc6750903",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.118907000607578
+  },
+  {
+   "id": "b4c10158511e",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.60164799814811
+  },
+  {
+   "id": "d18d8a34a05f",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.78946100056055
+  },
+  {
+   "id": "7083c557d927",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.535952998296125
+  },
+  {
+   "id": "7b2c8e489210",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 23.676196997257648
+  },
+  {
+   "id": "f551cb4e2765",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.582758997974452
+  },
+  {
+   "id": "306db5bd8e81",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.115878001670353
+  },
+  {
+   "id": "a18e4abc537e",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.296086001791991
+  },
+  {
+   "id": "15a6c5db561b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.523411001282511
+  },
+  {
+   "id": "f62babe5a446",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.146873999881791
+  },
+  {
+   "id": "302a6f3b5bcb",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.551291002338985
+  },
+  {
+   "id": "8121f8b19d19",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.562462000962114
+  },
+  {
+   "id": "cadf94e4cc5a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.832084000459872
+  },
+  {
+   "id": "01b06008a32f",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.192215999268228
+  },
+  {
+   "id": "b85afe6795b2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.918846997403307
+  },
+  {
+   "id": "8b267912e358",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.085901001730235
+  },
+  {
+   "id": "f27eb42a6061",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.280038000724744
+  },
+  {
+   "id": "8d4ddcc25dc5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.00133799930336
+  },
+  {
+   "id": "a4e4b4b60bae",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.029323999740882
+  },
+  {
+   "id": "74ecfde2432e",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.658255999762332
+  },
+  {
+   "id": "a354590f3143",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.97813399953884
+  },
+  {
+   "id": "eee3c83b0a84",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.08039700172958
+  },
+  {
+   "id": "5cd120a7a3ad",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.41687499996624
+  },
+  {
+   "id": "89e476ad6b86",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.806967998680193
+  },
+  {
+   "id": "37abb19e0aa2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.664701002795482
+  },
+  {
+   "id": "32e43822f6fc",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.634146997588687
+  },
+  {
+   "id": "b0a27f851ad1",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.631739001430105
+  },
+  {
+   "id": "a80c5ee94144",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.0734200020961
+  },
+  {
+   "id": "69cf86258bce",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.349587999371579
+  },
+  {
+   "id": "68e0c296de95",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.49570200080052
+  },
+  {
+   "id": "bf2e7e2a26a8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.932192998850951
+  },
+  {
+   "id": "f6b7ebaa9560",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.186237999325385
+  },
+  {
+   "id": "cf123b0b4235",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.800437000900274
+  },
+  {
+   "id": "8eeb4be35ffd",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.41418600268662
+  },
+  {
+   "id": "e18d0fd6094a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.479118998773629
+  },
+  {
+   "id": "7b06d014103b",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.517463997326558
+  },
+  {
+   "id": "1e4927912c39",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.031262001779396
+  },
+  {
+   "id": "d43cd6d54d82",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "get",
+     "msg": "Cannot access attribute \"get\" for class \"str\"\n  Attribute \"get\" is unknown",
+     "escopo": "forma"
+    }
+   ],
+   "ms": 11.1909020015446
+  },
+  {
+   "id": "e2d8f8978ded",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.9671710009279195
+  },
+  {
+   "id": "54c47b3c5168",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.860707999701845
+  },
+  {
+   "id": "707e50f3241c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.287921002192888
+  },
+  {
+   "id": "aad1c1b31a6a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.67950300037046
+  },
+  {
+   "id": "2643350a4b69",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.304404997033998
+  },
+  {
+   "id": "0ac0da5c6015",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.201586999959545
+  },
+  {
+   "id": "f870b8b52bca",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.519410999724641
+  },
+  {
+   "id": "702f5d11112d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.307930999464588
+  },
+  {
+   "id": "b61efea1caa5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.272300998214632
+  },
+  {
+   "id": "66c4c9b655f5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.581440997862956
+  },
+  {
+   "id": "7f1ab0a6c72c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.05155200214358
+  },
+  {
+   "id": "57b5a2143a90",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 98.28407500026515
+  },
+  {
+   "id": "64a6bb425832",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.106916001153877
+  },
+  {
+   "id": "b5ae0dd74e3a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.671491999848513
+  },
+  {
+   "id": "9f82e415e584",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.932679000077769
+  },
+  {
+   "id": "b9c375f5f1a9",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.322177000081865
+  },
+  {
+   "id": "9b311baf7063",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.318040000129258
+  },
+  {
+   "id": "b42a326da50a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.350605999818072
+  },
+  {
+   "id": "2d3e1fc2b036",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.944838999421336
+  },
+  {
+   "id": "78cb59ae0299",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.77668900002027
+  },
+  {
+   "id": "edbd71f8ba77",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.851265000383137
+  },
+  {
+   "id": "029a32b57353",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.675948001240613
+  },
+  {
+   "id": "7401a25dd961",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.635079000669066
+  },
+  {
+   "id": "6481c3810dde",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.593561001471244
+  },
+  {
+   "id": "48383d9eaaf6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.893136000959203
+  },
+  {
+   "id": "e376c3828b65",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.553765001124702
+  },
+  {
+   "id": "a5466cb7ce63",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.765207000484224
+  },
+  {
+   "id": "80812ba527af",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.870246998616494
+  },
+  {
+   "id": "86a15800b4a4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.6859139992157
+  },
+  {
+   "id": "ff78a4a23e15",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.282286999223288
+  },
+  {
+   "id": "61ee1c0f9538",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.938719998695888
+  },
+  {
+   "id": "d725460abc27",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 31.98362000330235
+  },
+  {
+   "id": "d217cf890120",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.920296001131646
+  },
+  {
+   "id": "e65728feef69",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.128981001704233
+  },
+  {
+   "id": "bddef928d659",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.682308002491482
+  },
+  {
+   "id": "097d6f56860a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.476967000518925
+  },
+  {
+   "id": "ab89907dc0ac",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.940766998624895
+  },
+  {
+   "id": "43a5345ad6ba",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.2662339989619795
+  },
+  {
+   "id": "af2e1ee1e9fa",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.018223001476144
+  },
+  {
+   "id": "dfab2b468963",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.644701996672666
+  },
+  {
+   "id": "c5c70a1747dc",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 26.279391000571195
+  },
+  {
+   "id": "ca8042e17ffb",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.25882600111072
+  },
+  {
+   "id": "21325dcef956",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.937679999799002
+  },
+  {
+   "id": "42b0dc5021f7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.482729001523694
+  },
+  {
+   "id": "db7888b28aea",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.871487000054913
+  },
+  {
+   "id": "ca9556e20d51",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.376775000011548
+  },
+  {
+   "id": "12d282129a4d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.335400998475961
+  },
+  {
+   "id": "d4aff87b3560",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.837428998958785
+  },
+  {
+   "id": "028533eb18f3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.824792002997128
+  },
+  {
+   "id": "aa789fc8a939",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.040445001824992
+  },
+  {
+   "id": "3c767d83f1b7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.484814000752522
+  },
+  {
+   "id": "efc44dd819f8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.066941999568371
+  },
+  {
+   "id": "c4e313bd2bc2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.528339000302367
+  },
+  {
+   "id": "c56d37211727",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.400757000956219
+  },
+  {
+   "id": "3068719cd061",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.011635000410024
+  },
+  {
+   "id": "23cb5c67d53f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.622403998742811
+  },
+  {
+   "id": "3b1856525429",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.555412001645891
+  },
+  {
+   "id": "8f30018cc9b8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.40519199866685
+  },
+  {
+   "id": "fecb6ffa5273",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.114874999999302
+  },
+  {
+   "id": "bb1297c0c2d2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.549679001793265
+  },
+  {
+   "id": "03578d075256",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.180894999095472
+  },
+  {
+   "id": "6329a2f4987c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.342247001972282
+  },
+  {
+   "id": "9997871fe934",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.726519001356792
+  },
+  {
+   "id": "c503b8d5bb1d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.36138700126321
+  },
+  {
+   "id": "f52858ae4d37",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.529333001206396
+  },
+  {
+   "id": "caf3089c11a1",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.42972600023495
+  },
+  {
+   "id": "96ce2b9f3683",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.288380999758374
+  },
+  {
+   "id": "5fc37ecadf44",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.096611000335542
+  },
+  {
+   "id": "5d42c7f87b74",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.211439999693539
+  },
+  {
+   "id": "7ca74601cde0",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.9318629996269
+  },
+  {
+   "id": "283da617aa6d",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.84619499873952
+  },
+  {
+   "id": "c14c835e8924",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.620065000897739
+  },
+  {
+   "id": "dccedb473fba",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.067093998979544
+  },
+  {
+   "id": "1d4d54c0435d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.74388600277598
+  },
+  {
+   "id": "ce6d8c029641",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.786281999869971
+  },
+  {
+   "id": "fc3354df9d0e",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.370040003181202
+  },
+  {
+   "id": "26f9e5313a58",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.284734999004286
+  },
+  {
+   "id": "41705ad1fc44",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.828997001430253
+  },
+  {
+   "id": "c7dfcb76a192",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.515829002542887
+  },
+  {
+   "id": "530f4dcb75bd",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.760893997736275
+  },
+  {
+   "id": "921e3cc9544c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.412268998858053
+  },
+  {
+   "id": "cf33c5419d89",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.086958998726914
+  },
+  {
+   "id": "9339a8c09476",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.059486001206096
+  },
+  {
+   "id": "35f1140442fd",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.178106000646949
+  },
+  {
+   "id": "c183feac5855",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.15779399999883
+  },
+  {
+   "id": "f7f2ebcdd755",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.588761000690283
+  },
+  {
+   "id": "0c5e4cd9f7a7",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.492754001665162
+  },
+  {
+   "id": "d122e088662a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.69216899809544
+  },
+  {
+   "id": "b60dee9453ee",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.5988700009475
+  },
+  {
+   "id": "9d3fb88c1934",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.404347998904996
+  },
+  {
+   "id": "ca2a0e87fde7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.182936999422964
+  },
+  {
+   "id": "a3b36d7e681e",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.029535001900513
+  },
+  {
+   "id": "7c62707e1259",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.25335599842947
+  },
+  {
+   "id": "09caf3489688",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.538758997630794
+  },
+  {
+   "id": "e9507a3af1ae",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.004968000022927
+  },
+  {
+   "id": "5b16563e3c6c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.1051730014442
+  },
+  {
+   "id": "185410400cf4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.94874199750484
+  },
+  {
+   "id": "c1256503ace0",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.578286000556545
+  },
+  {
+   "id": "2d5022336b99",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 51.908733999880496
+  },
+  {
+   "id": "1164548a9ce4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.106941998761613
+  },
+  {
+   "id": "ee2bc254b8c0",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.671782999357674
+  },
+  {
+   "id": "c24cccb62536",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.386950001498917
+  },
+  {
+   "id": "48fd272fb259",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.471671000937931
+  },
+  {
+   "id": "e8db2bdb3500",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.818210000754334
+  },
+  {
+   "id": "52e9c020e28b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.849043999565765
+  },
+  {
+   "id": "27a0938f401a",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.840327999176225
+  },
+  {
+   "id": "1ded154fb73f",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.850909998931456
+  },
+  {
+   "id": "b886ecf9e20b",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.275857999455184
+  },
+  {
+   "id": "4d8314d6548a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.866408999892883
+  },
+  {
+   "id": "f98b27fae38c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.913466997706564
+  },
+  {
+   "id": "8c6d3474226f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.503270000801422
+  },
+  {
+   "id": "d81b80fee3e8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.306820000550942
+  },
+  {
+   "id": "b93b91d44692",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.75985799918999
+  },
+  {
+   "id": "0b0778808a16",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.44733199867187
+  },
+  {
+   "id": "2e032b01ad05",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.5672519999207
+  },
+  {
+   "id": "47d5620d24be",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.1529859997099265
+  },
+  {
+   "id": "20dba73e67e5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.303512000566116
+  },
+  {
+   "id": "b3ede48c3879",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.513224001944764
+  },
+  {
+   "id": "25f12c2bea4f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.476423998421524
+  },
+  {
+   "id": "5ae7a34ff8ee",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.14584099984495
+  },
+  {
+   "id": "e2cb872f95ce",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.793877001560759
+  },
+  {
+   "id": "3030cce9711b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.415360000275541
+  },
+  {
+   "id": "bd1713d85e54",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.052658999280538
+  },
+  {
+   "id": "1f35dbb3ce44",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.755017999646952
+  },
+  {
+   "id": "2434ea3bb609",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.853747000102885
+  },
+  {
+   "id": "c13614e46d93",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 22.24620199922356
+  },
+  {
+   "id": "3ce56d04a1a0",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.257714999374002
+  },
+  {
+   "id": "1c24913e4381",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.545980999566382
+  },
+  {
+   "id": "2eaebc620164",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.453130999550922
+  },
+  {
+   "id": "514441b6cd25",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.453014999162406
+  },
+  {
+   "id": "f2d0be39297d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.805364999716403
+  },
+  {
+   "id": "6fb742f1f183",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.507973998552188
+  },
+  {
+   "id": "16583ff3fb3a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.384993001731345
+  },
+  {
+   "id": "dad9cfc24098",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.342769997601863
+  },
+  {
+   "id": "2bccce02a5b8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.9998810033430345
+  },
+  {
+   "id": "42ef7ec01cc6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.12125100128469
+  },
+  {
+   "id": "b60aab3bf9b2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.098173999926075
+  },
+  {
+   "id": "eb9a3e024ff4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.028078999312129
+  },
+  {
+   "id": "92376b50394a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.920047999708913
+  },
+  {
+   "id": "1546d99c798d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.824781998759136
+  },
+  {
+   "id": "0da20664da92",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.841338000114774
+  },
+  {
+   "id": "e7cbfdec9285",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.431702997972025
+  },
+  {
+   "id": "723663fa854a",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.659408998937579
+  },
+  {
+   "id": "564abc8ee2cc",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.29284000187181
+  },
+  {
+   "id": "b31eb4963983",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.6897380022273865
+  },
+  {
+   "id": "45ed3fa39123",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.924397999886423
+  },
+  {
+   "id": "32f882d15680",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.988213001430267
+  },
+  {
+   "id": "2922131d3fd7",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "HTML",
+     "msg": "\"HTML\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "mascara",
+     "msg": "\"mascara\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "mascara",
+     "msg": "\"mascara\" is not defined",
+     "escopo": "dinamico"
+    },
+    {
+     "code": "reportUndefinedVariable",
+     "nome": "aplicar",
+     "msg": "\"aplicar\" is not defined",
+     "escopo": "dinamico"
+    }
+   ],
+   "ms": 9.997902998293284
+  },
+  {
+   "id": "ed291a5de851",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.34574999762117
+  },
+  {
+   "id": "67d6cdc33a91",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.472992998576956
+  },
+  {
+   "id": "0dac069c1f40",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.217038998234784
+  },
+  {
+   "id": "fe2018e6d255",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.06784500007052
+  },
+  {
+   "id": "396d9a02fb3a",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.939729999634437
+  },
+  {
+   "id": "bac8d96a25f3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.184581001842162
+  },
+  {
+   "id": "8ccb62e6ac9f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.285777999844868
+  },
+  {
+   "id": "ff272fce9756",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.150993999559432
+  },
+  {
+   "id": "257757c7f57b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.445781997579616
+  },
+  {
+   "id": "329bf3e476b8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.546347002469702
+  },
+  {
+   "id": "6c855b3e3a8a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.534002001193585
+  },
+  {
+   "id": "f70a739d837a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.82285999978194
+  },
+  {
+   "id": "d5a82c164674",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.862990999157773
+  },
+  {
+   "id": "8bcdd2b5c8bb",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.576414999581175
+  },
+  {
+   "id": "9b2fb84181e5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.806461002881406
+  },
+  {
+   "id": "e2838e6b9c3b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.316742001625244
+  },
+  {
+   "id": "e5ebb6d091d3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.504998000717023
+  },
+  {
+   "id": "9ebdd66c6681",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.958652997534955
+  },
+  {
+   "id": "2e7b5ee770e1",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.072266999282874
+  },
+  {
+   "id": "17c1f0266305",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.792831999220653
+  },
+  {
+   "id": "c327c38e8242",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.485931001108838
+  },
+  {
+   "id": "07a4b1946742",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.966510999423917
+  },
+  {
+   "id": "83a8798b6521",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.167337997496361
+  },
+  {
+   "id": "dc47aae35e48",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.342860997800017
+  },
+  {
+   "id": "7856ed76a6e2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.497560000861995
+  },
+  {
+   "id": "a7f4374604d4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.851679999177577
+  },
+  {
+   "id": "91e5a6667043",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.717463999346364
+  },
+  {
+   "id": "0865ba9746f5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.777185998245841
+  },
+  {
+   "id": "ea45ff4034a9",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.29965000230004
+  },
+  {
+   "id": "af1c01c80d4f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.225050998589722
+  },
+  {
+   "id": "c96621f7f7f0",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.01569200141239
+  },
+  {
+   "id": "d4d5376d8189",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.579722999158548
+  },
+  {
+   "id": "74acdccce6ed",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.333020999998553
+  },
+  {
+   "id": "5ba47dd55cef",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.039600001822691
+  },
+  {
+   "id": "ff990a1df906",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.484290003252681
+  },
+  {
+   "id": "e078cfb253c8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.672619998833397
+  },
+  {
+   "id": "003f1ea0424f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.548349000193411
+  },
+  {
+   "id": "c4ca81f504b0",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.780035000905627
+  },
+  {
+   "id": "53ef3ea11392",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.62119499995606
+  },
+  {
+   "id": "c44bf1cfae0a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.154244002478663
+  },
+  {
+   "id": "9cb635851445",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.520731000520755
+  },
+  {
+   "id": "d6d2e357d1cf",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.018187000241596
+  },
+  {
+   "id": "19ddb3286fd8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.448745000554482
+  },
+  {
+   "id": "18dc505528fe",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.525752998451935
+  },
+  {
+   "id": "6094d61f1ca2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.233636999648297
+  },
+  {
+   "id": "f9e6229239aa",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.225205998722231
+  },
+  {
+   "id": "06918808a28f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.15088800038211
+  },
+  {
+   "id": "54a441f08763",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.30597800106625
+  },
+  {
+   "id": "32e5b41fa23c",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.333488997479435
+  },
+  {
+   "id": "d1d37d0fbb94",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.33425499938312
+  },
+  {
+   "id": "28412c5fc210",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.427687000628794
+  },
+  {
+   "id": "5802c5837e20",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.794843998359283
+  },
+  {
+   "id": "6091a88a23c4",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.011343001271598
+  },
+  {
+   "id": "2ccca917937b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.622427001682809
+  },
+  {
+   "id": "e38df238e720",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.105170000111684
+  },
+  {
+   "id": "78a7f13c127f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.033401998749468
+  },
+  {
+   "id": "c3c773dd8f89",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.065555001347093
+  },
+  {
+   "id": "d17eecd4b1e7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.166951000021072
+  },
+  {
+   "id": "d3310d920623",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.332009002013365
+  },
+  {
+   "id": "9cc94b5ec5a8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.24613999814028
+  },
+  {
+   "id": "b6d35d6cd88f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.821872001339216
+  },
+  {
+   "id": "4ffc5a874277",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.878181000909535
+  },
+  {
+   "id": "4ed34b8866b6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 15.702560998761328
+  },
+  {
+   "id": "64dbc24fb367",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.582835998822702
+  },
+  {
+   "id": "5288862cbce2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.244155997701455
+  },
+  {
+   "id": "def14c39bf0b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.81604800108471
+  },
+  {
+   "id": "b8c4670c50ac",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.443268998438725
+  },
+  {
+   "id": "2330ce517638",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.19460000275285
+  },
+  {
+   "id": "826e1667fbf3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.536298999388237
+  },
+  {
+   "id": "bd443d72e6cd",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.729182998649776
+  },
+  {
+   "id": "d87b407b90db",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.510826999758137
+  },
+  {
+   "id": "df1d1d52164b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.063039000873687
+  },
+  {
+   "id": "189cddfa0880",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.98836199849029
+  },
+  {
+   "id": "7c0b795bfea1",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.401155999308685
+  },
+  {
+   "id": "d9977e14b2b1",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.432170001469785
+  },
+  {
+   "id": "6e588e372ff2",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.881115998927271
+  },
+  {
+   "id": "0893b1f5187f",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "setdefault",
+     "msg": "Cannot access attribute \"setdefault\" for class \"str\"\n  Attribute \"setdefault\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "items",
+     "msg": "Cannot access attribute \"items\" for class \"str\"\n  Attribute \"items\" is unknown",
+     "escopo": "forma"
+    },
+    {
+     "code": "reportAttributeAccessIssue",
+     "nome": "values",
+     "msg": "Cannot access attribute \"values\" for class \"str\"\n  Attribute \"values\" is unknown",
+     "escopo": "forma"
+    }
+   ],
+   "ms": 12.998209000215866
+  },
+  {
+   "id": "429a365fb730",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.391885000193724
+  },
+  {
+   "id": "92b0bb2a30b8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.467667998047546
+  },
+  {
+   "id": "d60b84353260",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.368775000941241
+  },
+  {
+   "id": "513f9226913a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.580552002968034
+  },
+  {
+   "id": "d956e4d7f318",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.483774000429548
+  },
+  {
+   "id": "9c0a45aa823a",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 17.851562002761057
+  },
+  {
+   "id": "ff5f4421ceab",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.589067999011604
+  },
+  {
+   "id": "a9ff511d5c3b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.196755003154976
+  },
+  {
+   "id": "c1a2bdaa1790",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 18.25867799925618
+  },
+  {
+   "id": "1892255b31a0",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 20.799253001314355
+  },
+  {
+   "id": "96229f4f3ec7",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.723301002552034
+  },
+  {
+   "id": "5f85b4803b11",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.004208998201648
+  },
+  {
+   "id": "7719d565b8e0",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.076077003555838
+  },
+  {
+   "id": "3fcfc7faa83e",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.792414999945322
+  },
+  {
+   "id": "b2349753d77c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.644795998814516
+  },
+  {
+   "id": "fefa63cca6e6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.54057999883662
+  },
+  {
+   "id": "49d69fcee976",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.32425800015335
+  },
+  {
+   "id": "0a06538967a4",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.961050000332762
+  },
+  {
+   "id": "b0f9e9038844",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.831059000949608
+  },
+  {
+   "id": "075dc654d38f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 14.209760000085225
+  },
+  {
+   "id": "22c6d960f1b1",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.599927001545439
+  },
+  {
+   "id": "c42599255404",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.928612002113368
+  },
+  {
+   "id": "ed315b97d33f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.48425100048189
+  },
+  {
+   "id": "932e02be35a6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.182746998500079
+  },
+  {
+   "id": "d764f6cc0eed",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.570689002226572
+  },
+  {
+   "id": "134fe0ba949e",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.504944002401317
+  },
+  {
+   "id": "adcea7926396",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.815841000701766
+  },
+  {
+   "id": "6a833acad93a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.925192000286188
+  },
+  {
+   "id": "35289b7756ca",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.901467001327546
+  },
+  {
+   "id": "a1eba1428997",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.203117999073584
+  },
+  {
+   "id": "ef2184a040e7",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.453898998093791
+  },
+  {
+   "id": "d492ac3e69b2",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.54747500125086
+  },
+  {
+   "id": "4606f196e3dc",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.434697000368033
+  },
+  {
+   "id": "45826bf17192",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.106803998496616
+  },
+  {
+   "id": "e9c5104b706b",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.754598998872098
+  },
+  {
+   "id": "4a9785f1a192",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.09974900080124
+  },
+  {
+   "id": "6d23963abb9d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.03903399821138
+  },
+  {
+   "id": "346581b6d2a9",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 6.981589998758864
+  },
+  {
+   "id": "0962475881c9",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.305745999678038
+  },
+  {
+   "id": "14968e25592d",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.313070001255255
+  },
+  {
+   "id": "31b977b0fa69",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.406025001429953
+  },
+  {
+   "id": "a7a8634cf577",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.450087000412168
+  },
+  {
+   "id": "bf2730d32c71",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 13.127391001034994
+  },
+  {
+   "id": "8061f5a2402c",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.729453999374527
+  },
+  {
+   "id": "2f829ea8dc51",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.757472999510355
+  },
+  {
+   "id": "034ee8631828",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.271628998045344
+  },
+  {
+   "id": "76d654e76e47",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.431511997216148
+  },
+  {
+   "id": "8755703ee2f3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.41884699932416
+  },
+  {
+   "id": "4da17b40a806",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.917557999666315
+  },
+  {
+   "id": "17a5d3c4304d",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.695895998447668
+  },
+  {
+   "id": "2931c8cd922a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.02683000115212
+  },
+  {
+   "id": "1c25f2992980",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.545786000671797
+  },
+  {
+   "id": "bf8dfb71e442",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.018568002124084
+  },
+  {
+   "id": "c1de41d12d74",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.536260000255425
+  },
+  {
+   "id": "f06387b036b8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.946268001542194
+  },
+  {
+   "id": "7118af46eab7",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.26537200252642
+  },
+  {
+   "id": "9ba043ab21a9",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.121587001776788
+  },
+  {
+   "id": "12a1d16bb391",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.183449998294236
+  },
+  {
+   "id": "1599fa464a6d",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.801406999031315
+  },
+  {
+   "id": "60a030cf691b",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.48263800071436
+  },
+  {
+   "id": "4d9ffb63c495",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.07756900030654
+  },
+  {
+   "id": "4e8ca2d9ff79",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.716268996475264
+  },
+  {
+   "id": "6cc28f931e16",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.132447997923009
+  },
+  {
+   "id": "0bd0e0f7c0c3",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.004757001501275
+  },
+  {
+   "id": "62d645089896",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.777897998399567
+  },
+  {
+   "id": "a0cae7845a22",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.623478002642514
+  },
+  {
+   "id": "5bb7c3542fea",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.958006001194008
+  },
+  {
+   "id": "2f61e189f05c",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.782777000509668
+  },
+  {
+   "id": "2c3400cf6e5f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.847475001151906
+  },
+  {
+   "id": "73d0a34b2e60",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.811551000690088
+  },
+  {
+   "id": "d743e8b25e79",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.97043299867073
+  },
+  {
+   "id": "86055dc6e9a8",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.58846100163646
+  },
+  {
+   "id": "772cb180ea67",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.27583099817275
+  },
+  {
+   "id": "9630f068f4b6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 12.399017999996431
+  },
+  {
+   "id": "fcc30f7a46ac",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.79171899962239
+  },
+  {
+   "id": "fb800ab7a9ea",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.596427000360563
+  },
+  {
+   "id": "72a51ef1a559",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.656120000727242
+  },
+  {
+   "id": "1f9147b4f420",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 11.511215998325497
+  },
+  {
+   "id": "6a372ff472c2",
+   "rotulo": "negativo",
+   "origem": "tmp",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.816672998771537
+  },
+  {
+   "id": "cc0638ceadd6",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.073297998838825
+  },
+  {
+   "id": "e54fa3f86d80",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.868723002204206
+  },
+  {
+   "id": "66297a824101",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.52232399888453
+  },
+  {
+   "id": "0427d62063fd",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.100296003452968
+  },
+  {
+   "id": "2cafc6fccd29",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.740096997324144
+  },
+  {
+   "id": "9392514198ed",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 16.814864000480156
+  },
+  {
+   "id": "22ad78836888",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.178004998830147
+  },
+  {
+   "id": "5419e4898fb5",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.890058001474245
+  },
+  {
+   "id": "7bd09f2d66e1",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 9.618408999813255
+  },
+  {
+   "id": "fdfde6d54472",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 25.27172399641131
+  },
+  {
+   "id": "167e5cb4c254",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.431541999423644
+  },
+  {
+   "id": "62ab46be788f",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.832919997075805
+  },
+  {
+   "id": "da668d32b5ca",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.820189999823924
+  },
+  {
+   "id": "ef2ba5058837",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 7.783787001244491
+  },
+  {
+   "id": "3ec252a28d13",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.25526200060267
+  },
+  {
+   "id": "6d532600adf8",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 8.582652000768576
+  },
+  {
+   "id": "ee50d81d4f6a",
+   "rotulo": "negativo",
+   "origem": "inline",
+   "classe": "",
+   "classe_erro": "",
+   "esperado": "",
+   "negados": [],
+   "ms": 10.45033000264084
+  }
+ ]
+}

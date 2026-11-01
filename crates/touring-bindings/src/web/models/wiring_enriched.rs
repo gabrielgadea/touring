@@ -44,10 +44,6 @@ impl WiringModuleWithConsumers {
     }
 }
 
-/// Enrichment for wiring modules — each module augmented with its consumers.
-/// This is the S-3 deliverable for the touring-web wiring graph viewer.
-pub type WiringModulesWithConsumersReport = Vec<WiringModuleWithConsumers>;
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -59,6 +55,7 @@ mod tests {
                 file_path: "crates/touring-hooks/src/lib.rs".to_string(),
                 integration_score: 1.0,
                 orphan_count: 0,
+                ..Default::default()
             },
             consumers: vec![WiringConsumer {
                 symbol: "touring_bindings::web::app::App".to_string(),

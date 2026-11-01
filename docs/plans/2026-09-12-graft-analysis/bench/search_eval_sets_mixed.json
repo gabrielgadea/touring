@@ -1,0 +1,129 @@
+[
+  {
+    "name": "mixed-train",
+    "filter": null,
+    "questions": [
+      {
+        "q": "cascading kill multi-sessão daemon-ctl",
+        "truth": [
+          "@companion/rules/touring-process-hygiene.md"
+        ]
+      },
+      {
+        "q": "git stash destruiu módulos GIT_DESTRUCTIVE_OK ritual",
+        "truth": [
+          "@companion/rules/git-safety-protocol.md"
+        ]
+      },
+      {
+        "q": "TOURING_DAEMON_SOCKET vence o walk-up per-project",
+        "truth": [
+          "@companion/rules/touring-per-project.md"
+        ]
+      },
+      {
+        "q": "safe-clean.sh limpeza cirúrgica do target sem rm -rf",
+        "truth": [
+          "@companion/rules/disk-hygiene.md"
+        ]
+      },
+      {
+        "q": "loop_converged.py é o único pronto do loop",
+        "truth": [
+          "@companion/skills/loop-engineering/SKILL.md"
+        ]
+      },
+      {
+        "q": "diff.mnemonicPrefix quebra o parser de diff",
+        "truth": [
+          "@companion/memory/git-mnemonicprefix-quebra-parsers-de-diff.md"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "mixed-heldout",
+    "filter": null,
+    "questions": [
+      {
+        "q": "campo if do hook com Bash(a|b) falha aberto",
+        "truth": [
+          "@companion/memory/hook-if-regra-unica-fail-open.md"
+        ]
+      },
+      {
+        "q": "PIPESTATUS cmd | tail engole o exit code",
+        "truth": [
+          "@companion/memory/exit-code-engolido-pelo-pipe.md"
+        ]
+      },
+      {
+        "q": "consumer_file IS NULL índice parcial DELETE varre a tabela",
+        "truth": [
+          "@companion/memory/indice-parcial-nao-serve-igualdade.md"
+        ]
+      },
+      {
+        "q": "run_in_background em vez de & no fim da cadeia",
+        "truth": [
+          "@companion/memory/ampersand-no-fim-da-cadeia.md"
+        ]
+      },
+      {
+        "q": "open() do rusqlite com CREATE pede lock exclusivo no Drop",
+        "truth": [
+          "@companion/memory/sqlite-so-leitura-abre-readonly.md"
+        ]
+      },
+      {
+        "q": "cargo build -p A -p B sobrescreve o binário do deploy",
+        "truth": [
+          "@companion/memory/build-de-subconjunto-sobrescreve-canonico.md"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "mixed-heldout-2",
+    "filter": null,
+    "questions": [
+      {
+        "q": "update-touring inode deleted daemon velho segura o binário",
+        "truth": [
+          "@companion/rules/touring-rebuild.md"
+        ]
+      },
+      {
+        "q": "touring kpi code_mode_adherence piso de aderência medido",
+        "truth": [
+          "@companion/rules/code-elaboration-directives.md"
+        ]
+      },
+      {
+        "q": "loop_outer_gate.py manifesto de artefatos o Stop hook recusa encerrar",
+        "truth": [
+          "@companion/skills/loop-engineering/SKILL.md"
+        ]
+      },
+      {
+        "q": "sync-client-skills.py espelho gerado direção única live é a fonte",
+        "truth": [
+          "CLAUDE.md"
+        ]
+      },
+      {
+        "q": "propagate-release.sh retry-once PIPESTATUS prova comportamental",
+        "truth": [
+          "CLAUDE.md",
+          "@companion/memory/prova-comportamental-code-mode-ceg.md"
+        ]
+      },
+      {
+        "q": "cli_suggester nudge de indução dos pilares armado no settings.json",
+        "truth": [
+          "@companion/rules/touring-4-pillars.md"
+        ]
+      }
+    ]
+  }
+]

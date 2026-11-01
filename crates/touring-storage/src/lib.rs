@@ -52,6 +52,10 @@ pub mod hybrid_search;
 /// Gated by the `knowledge` feature (requires rusqlite + sha2 + chrono + touring-intelligence).
 #[cfg(feature = "knowledge")]
 pub mod knowledge;
+/// The seal on a rebuild (`index_generation`): building / complete / partial —
+/// I16 of the Graft analysis (2026-09-13). Gated by the `knowledge` feature.
+#[cfg(feature = "knowledge")]
+pub mod knowledge_index_generation;
 /// Wiring persistence layer for [`knowledge::FileKnowledgeDB`].
 /// Gated by the `knowledge` feature.
 #[cfg(feature = "knowledge")]

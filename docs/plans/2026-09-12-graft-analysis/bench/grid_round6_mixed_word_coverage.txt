@@ -1,0 +1,48 @@
+# Rodada 8 (14/09/2026): consulta mista, examples/search_eval.rs, 93 perguntas.
+# Índice privado do snapshot do symbols.db do touring, com --skip-prefix para
+# docs/plans/2026-09-12-graft-analysis/, @companion/memory/busca-so-via-nomes.md
+# e client/. As duas primeiras citam literalmente a consulta "cascading kill
+# multi-sessão daemon-ctl" e contaminariam a medida. Métrica: hit@1 por conjunto.
+# Conjuntos: search_eval_sets_corrected.json + search_eval_sets_mixed.json.
+# mixed-heldout-2 foi escrito às cegas depois das primeiras grades.
+
+# Linha de base (código da 30.4.43)
+baseline                         code-trai 10/10 | content-t 11/11 | code-held 6/10 | content-h 10/10 | ident-hel 14/14 | bag 7/10 | bag-2 6/10 | mixed-tra 0/6 | mixed-hel 4/6 | TOTAL 68/87
+
+# plain_words: sintaxe do parser tratada como palavras (`-rf` deixa de excluir, `open()` deixa de dar parse error)
+plain_words                      code-trai 10/10 | content-t 11/11 | code-held 6/10 | content-h 10/10 | ident-hel 14/14 | bag 7/10 | bag-2 6/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 70/93
+
+# Rejeitadas (sem ganho em validação)
+path_boost 1.0/0.5/0 × coverage 5/10/20: o melhor mixed-train foi 1/6 e custou code-heldout (2–4/10)
+coverage_fields=all (sozinha): 69/87, igual a text
+mixed_coverage_boost=15: mixed-train 1/6, mixed-heldout-2 1 → 0 (sobreajuste)
+path words em 1 documento por arquivo: 70 → 70 sem cobertura por palavra; 77 → 73 com ela
+candidate_pool 400/1500/5000: sem mudança em nenhum conjunto
+coverage max words 8/12/16: sem mudança
+
+# Cobertura por palavra ponderada por IDF (TOURING_TANTIVY_WORD_COVERAGE), campos=all
+word_coverage=0                  code-trai 10/10 | content-t 11/11 | code-held 6/10 | content-h 10/10 | ident-hel 14/14 | bag 7/10 | bag-2 6/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 70/93
+word_coverage=8                  code-trai 10/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 7/10 | bag-2 8/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 74/93
+word_coverage=10                 code-trai 10/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 8/10 | bag-2 9/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 76/93
+word_coverage=12                 code-trai 10/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 9/10 | bag-2 9/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 77/93
+word_coverage=14                 code-trai 10/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 9/10 | bag-2 9/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 77/93
+word_coverage=17                 code-trai 9/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 9/10 | bag-2 9/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 76/93
+word_coverage=20                 code-trai 8/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 9/10 | bag-2 10/10 | mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 76/93
+
+# Fator de nome/caminho em consulta mista (TOURING_TANTIVY_MIXED_NAME_FACTOR), com word_coverage=12
+factor=1                         mixed-tra 0/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 77/93
+factor=0.7                       mixed-tra 1/6 | mixed-hel 5/6 | mixed-hel-2 1/6 | TOTAL 78/93
+factor=0.6                       mixed-tra 0/6 | mixed-hel 6/6 | mixed-hel-2 1/6 | TOTAL 78/93
+factor=0.5                       mixed-tra 0/6 | mixed-hel 6/6 | mixed-hel-2 1/6 | TOTAL 78/93
+factor=0.45                      mixed-tra 1/6 | mixed-hel 6/6 | mixed-hel-2 0/6 | TOTAL 78/93
+factor=0.35                      mixed-tra 1/6 | mixed-hel 6/6 | mixed-hel-2 0/6 | TOTAL 78/93
+factor=0.15                      mixed-tra 1/6 | mixed-hel 4/6 | mixed-hel-2 1/6 | TOTAL 77/93
+# Nos demais conjuntos o fator não muda nada (só a consulta mista o ativa).
+
+# Adotado: plain_words + word_coverage 12 (todos os campos) + fator misto 0.6
+adotado                          code-trai 10/10 | content-t 11/11 | code-held 8/10 | content-h 10/10 | ident-hel 14/14 | bag 9/10 | bag-2 9/10 | mixed-tra 0/6 | mixed-hel 6/6 | mixed-hel-2 1/6 | TOTAL 78/93 (hit@3 84)
+
+# O que as falhas mistas restantes são, pela cobertura de palavras do alvo e do topo:
+# - O código vence só em "cascading kill multi-sessão daemon-ctl": daemon_ctl.rs cobre 5 de 6 palavras, a regra cobre 6 de 6. A regra estava ausente das 400 candidatas e agora está em 2º.
+# - Nas demais, o topo é outro documento que também cobre a pergunta: o índice MEMORY.md, o corpo detalhado disk-hygiene-detail.md, ADR/plano sobre per-project, cópias de CLAUDE.md.
+# - Nas perguntas em português sobre documento em inglês, o alvo não tem as palavras ("é o único pronto" contra "the only done").

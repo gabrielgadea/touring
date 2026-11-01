@@ -1,0 +1,45 @@
+{
+  "phase": "R3-7",
+  "entities": [
+    {
+      "entity_id": "phase:R3-7",
+      "type": "phase",
+      "description": "S\u00edntese v4: analysis.md re-emitido com 27 se\u00e7\u00f5es (1.192 L, provenance blake2b da v3), \u00a70/\u00a712 revisados, sete se\u00e7\u00f5es novas (20-26); p\u00e1gina republicada em https://claude.ai/code/artifact/740de4b8-a816-4155-880b-cf37e371f73a (Version 3); resolver de fase do loop_phase_close aceita ':' (TDD, 7/7, espelho client/ sincronizado); servidor de captura parado; mem\u00f3rias atualizadas."
+    },
+    {
+      "entity_id": "memory:loop:task_1789261519392597087:R3-7:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789261519392597087",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789261519392597087",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:R3-7|produces|memory:loop:task_1789261519392597087:R3-7:done",
+      "source": "phase:R3-7",
+      "type": "produces",
+      "target": "memory:loop:task_1789261519392597087:R3-7:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-7:done|generated-by|loop:loop:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-7:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789261519392597087"
+    },
+    {
+      "relation_id": "memory:loop:task_1789261519392597087:R3-7:done|generated-by|dag:decomp:task_1789261519392597087",
+      "source": "memory:loop:task_1789261519392597087:R3-7:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789261519392597087"
+    }
+  ]
+}

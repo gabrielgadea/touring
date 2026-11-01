@@ -72,6 +72,7 @@ members = [
     "crates/touring-intelligence",
     "crates/touring-bindings",
     "crates/touring-lsp",
+    "crates/touring-pyright",
     "crates/touring-hooks-saga",
     "crates/touring-hooks-rl",
     "crates/touring-contracts",
@@ -90,7 +91,9 @@ members = [
 # `fuzz/` is a standalone cargo-fuzz crate with its own [workspace] table.
 # Excluded so `cargo check --workspace` and member builds ignore it; build
 # fuzz targets via `cargo +nightly fuzz build` from the repo root.
-exclude = ["fuzz"]
+# `third_party/tree-sitter-{md,bash}` are patched upstream crates (see
+# [patch.crates-io]), not workspace code: excluded so workspace lints never apply.
+exclude = ["fuzz", "third_party/tree-sitter-md", "third_party/tree-sitter-bash"]
 resolver = "2"
 
 [[workspace.metadata.leptos]]
@@ -143,9 +146,10 @@ exclude_re = "(?i)(log|trace|debug|tracing|metric)"
 [workspace.package]
 # Single source of truth for the product version (Productization Fase 0):
 # member crates inherit via `version.workspace = true`; the binary derives it
-# through `env!("CARGO_PKG_VERSION")`. 30.3.0 matches the daemon's public
-# version (constitution/docs); the GA SemVer rebrand is a Fase 5 decision.
-version = "30.3.1"
+# through `env!("CARGO_PKG_VERSION")`. Bump it HERE and nowhere else, then
+# propagate with `scripts/propagate-release.sh <versão>`; the GA SemVer rebrand
+# is a Fase 5 decision.
+version = "30.4.102"
 license = "MIT OR Apache-2.0"
 edition = "2024"
 rust-version = "1.95"
@@ -173,8 +177,13 @@ toml = "0.8"
 bincode = "1.3"
 
 # Persistence
-rusqlite = { version = "0.38", features = ["bundled"] }
-deadpool-sqlite = "0.13"
+# 0.40.2 bundles SQLite 3.53.2. The 3.51.1 bundled by 0.38 carried the deadlock
+# in the broken-posix-lock detection (fixed in 3.51.2) that hung the test gate
+# with every thread in the unix VFS mutexes, and the WAL-reset corruption bug
+# fixed in 3.51.3 (cross-audit 14/09/2026, R2-19; decision by Gabriel).
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+# 0.14 is the pool built on rusqlite 0.40 (one `links = "sqlite3"` in the graph).
+deadpool-sqlite = "0.14"
 sha2 = "0.10"
 
 # Concurrency
@@ -184,7 +193,7 @@ pollster = "0.3"
 tokio = { version = "1.40", features = ["full"] }
 
 # Collections
-lru = "0.16" # >=0.16.3 fixes RUSTSEC-2026-0002 (IterMut Stacked-Borrows unsoundness); API (LruCache::new(NonZeroUsize)/get/put) unchanged from 0.12
+lru = "0.18" # >=0.18.2 fixes RUSTSEC-2026-0253 (unsound LruCache::pop); a 0.16 já cobria RUSTSEC-2026-0002
 indexmap = "2.6"
 moka = { version = "0.12", features = ["sync", "future"] }
 uuid = { version = "1", features = ["v4", "serde"] }
@@ -321,13 +330,13 @@ rkyv = { version = "0.8.17", features = ["std", "bytecheck"] }
 memmap2 = "0.9"
 
 # Compression
-zstd = "0.13"
+zstd = "0.14"
 
 # Tokenization
 tiktoken-rs = "0.9"
 
 # WASM runtime (optional — for plugin system)
-wasmtime = { version = "46", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
+wasmtime = { version = "48", default-features = false, features = ["cranelift", "runtime", "pooling-allocator"] }
 wat = "1.245"
 
 # Full-text search
@@ -410,9 +419,9 @@ tracing-test = "0.2"
 # GGUF quantized models (Q4_K_M / Q8_0) loaded into daemon memory for
 # zero-latency embedding generation. Gated behind `semantic-embeddings`
 # feature in consumer crates to avoid pulling ML deps when unused.
-candle-core = { version = "0.8", default-features = false }
-candle-nn = { version = "0.8", default-features = false }
-candle-transformers = { version = "0.8", default-features = false }
+candle-core = { version = "0.9", default-features = false }
+candle-nn = { version = "0.9", default-features = false }
+candle-transformers = { version = "0.9", default-features = false }
 
 # HuggingFace tokenizers — pure Rust WordPiece/BPE/SentencePiece. Required
 # by CandleEmbedder Phase-2a to load `tokenizer.json` sidecar files shipped
@@ -473,6 +482,13 @@ egui = "0.34"
 # the hf-hub model downloader (default pulls native-tls→openssl, banned by deny.toml).
 # default = [ort-download-binaries-native-tls, hf-hub-native-tls, image-models].
 fastembed = { version = "5", default-features = false, features = ["ort-download-binaries-rustls-tls", "hf-hub-rustls-tls", "image-models"] }
+# GPU embeddings (15/09/2026): fastembed's own `cuda` feature only enables
+# candle's CUDA kernels, never `ort/cuda`, so the ONNX CUDA execution provider
+# is reached by naming `ort` directly. Pinned to the exact version fastembed
+# resolves: a second `ort` would be a second ONNX Runtime, and the feature
+# unification that turns CUDA on inside fastembed would not happen.
+# The prebuilt it downloads is chosen by ORT_CUDA_VERSION (.cargo/config.toml).
+ort = { version = "=2.0.0-rc.12", default-features = false }
 filetime = "0.2"
 geo = "0.29"
 geo-types = "0.7"
@@ -545,7 +561,7 @@ wasm-bindgen = "0.2"
 wasm-bindgen-futures = "0.4"
 web-sys = "0.3"
 wgpu = "26"
-z3 = "0.20"
+z3 = "0.21"
 
 # Dev deps declared per-crate, not workspace-level
 # criterion, approx, proptest, rand, rstest, tempfile, tokio-test
@@ -595,8 +611,20 @@ debug = true
 lto = "fat"         # full LTO — better dead code elimination (was "thin")
 opt-level = "s"     # optimize for size instead of speed (was 3)
 codegen-units = 1   # single codegen unit for best optimization
-strip = true        # strip debug symbols
 panic = "abort"     # no unwind tables — smaller binary (tests use dev profile)
+# Crash capture, camada 1 (16/09/2026). `strip = true` was why the two
+# touring-quality SIGSEGVs produced a core with ONE frame: the symbols the
+# debugger needs were removed at link time, so the crash that killed the quality
+# engine — a P0 with no proven cause — left nothing to read. `line-tables-only`
+# is the smallest debug info that yields a NAMED stack with file and line, costs
+# nothing at runtime (it is not code, and does not change codegen), and
+# `unpacked` keeps it in .dwo files beside the objects instead of inflating the
+# binary. `packed` (what the strategy doc suggested) is not the proven shape on
+# this toolchain; `unpacked` is the one [profile.dev] already runs here.
+# Accept criterion lives in scripts/test_touring_quality_score.py.
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+strip = "none"
 
 # ── Bench profile ─────────────────────────────────────────────────────
 [profile.bench]
@@ -685,3 +713,15 @@ unexpected_cfgs = "allow"
 # crates (they use the safe `check_archived_root`). All 4 were wrapped with SAFETY
 # comments, so the deny holds clean.
 unsafe_op_in_unsafe_fn = "deny"
+
+# ── Patched dependencies ─────────────────────────────────────────────────
+# tree-sitter-md 0.5.3 overflows tree-sitter's 1024-byte scanner buffer at 255
+# open blocks and corrupts the reused parser (daemon SIGSEGV, 13-14/09/2026), and
+# classifies a Unicode lookahead with `isdigit` (reads past glibc's ctype table).
+# Block cap, bounded `serialize`, ASCII digits; see third_party/tree-sitter-md/PATCHES.md.
+# tree-sitter-bash 0.25.1 classifies a Unicode lookahead with `isdigit` inside brace
+# expressions — SIGSEGV on a `.sh` file (cross-audit 14/09/2026, D1); ASCII digits,
+# see third_party/tree-sitter-bash/PATCHES.md.
+[patch.crates-io]
+tree-sitter-md = { path = "third_party/tree-sitter-md" }
+tree-sitter-bash = { path = "third_party/tree-sitter-bash" }

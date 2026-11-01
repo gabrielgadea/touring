@@ -12,6 +12,7 @@
 //!   used by the daemon to dispatch requests via O(1) lookup.
 
 use std::collections::HashMap;
+use touring_foundation::truncate_str;
 
 use crate::daemon::HookHandler;
 
@@ -132,6 +133,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-wiring-suggest",
         "cli-wiring-impact",
         "cli-wiring-cycles",
+        "cli-wiring-scip-ingest",
         "cli-cognitive-metrics",
         "cli-cognitive-engines",
         "cli-flywheel-status",
@@ -140,10 +142,24 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-gotcha-add",
         "cli-gotcha-match",
         "cli-gotcha-stats",
+        "cli-gotcha-resolve",
+        "cli-experiment-record",
+        "cli-experiment-list",
+        "cli-learning-replay",
         "cli-memory-stats",
         "cli-memory-recall",
         "cli-memory-credit",
         "cli-memory-store",
+        "cli-memory-tag-add",
+        "cli-memory-tags",
+        "cli-memory-query",
+        "cli-memory-sync-tags",
+        "cli-memory-link",
+        "cli-memory-links",
+        "cli-memory-backfill-tags",
+        "cli-memory-moc",
+        "cli-memory-communities",
+        "cli-memory-unlink",
         "cli-memory-list",
         "cli-memory-reindex",
         "cli-evolution-drift",
@@ -174,7 +190,14 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-decompose-status",
         "cli-decompose-event",
         "cli-decompose-finalize",
+        "cli-decompose-archive",
+        "cli-decompose-reconcile-stages",
         "cli-decompose-ready",
+        "cli-decompose-claim",
+        "cli-decompose-release",
+        "cli-decompose-renew",
+        "cli-decompose-ticket",
+        "cli-decompose-frontier",
     ]);
     // CLI mcts handlers
     names.push("cli-mcts-search");
@@ -192,6 +215,7 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
         "cli-index-files",
         "cli-index-rebuild",
         "cli-index-ingest",
+        "cli-index-why",
     ]);
     // CLI ast handlers
     names.extend_from_slice(&[
@@ -230,6 +254,8 @@ pub fn all_daemon_hook_names() -> Vec<&'static str> {
     names.push("cli-gate-metrics");
     // R5/OP1: unified 6-dimension harness-quality metric
     names.push("cli-harness-metric");
+    // Code mode: o CLI efêmero retransmite a execução para o daemon contar
+    names.push("cli-code-mode-run");
     // S-09/R8: formal change-contract gating self-mutation
     names.push("cli-change-contract");
     // B-5/R10: distill historical bash-outcome substrate into an action predictor
@@ -456,6 +482,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-wiring-suggest",
     "cli-wiring-impact",
     "cli-wiring-cycles",
+    "cli-wiring-scip-ingest",
     "cli-cognitive-metrics",
     "cli-cognitive-engines",
     "cli-flywheel-status",
@@ -464,10 +491,24 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gotcha-add",
     "cli-gotcha-match",
     "cli-gotcha-stats",
+    "cli-gotcha-resolve",
+    "cli-experiment-record",
+    "cli-experiment-list",
+    "cli-learning-replay",
     "cli-memory-stats",
     "cli-memory-recall",
     "cli-memory-credit",
     "cli-memory-store",
+    "cli-memory-tag-add",
+    "cli-memory-tags",
+    "cli-memory-query",
+    "cli-memory-sync-tags",
+    "cli-memory-link",
+    "cli-memory-links",
+    "cli-memory-backfill-tags",
+    "cli-memory-moc",
+    "cli-memory-communities",
+    "cli-memory-unlink",
     "cli-memory-list",
     "cli-memory-reindex",
     "cli-evolution-drift",
@@ -494,6 +535,11 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-decompose-event",
     "cli-decompose-finalize",
     "cli-decompose-ready",
+    "cli-decompose-claim",
+    "cli-decompose-release",
+    "cli-decompose-renew",
+    "cli-decompose-ticket",
+    "cli-decompose-frontier",
     // CLI mcts handlers
     "cli-mcts-search",
     // CLI shadow handlers
@@ -505,6 +551,7 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-index-files",
     "cli-index-rebuild",
     "cli-index-ingest",
+    "cli-index-why",
     // CLI ast handlers
     "cli-ast-find",
     "cli-ast-overview",
@@ -540,6 +587,8 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-gate-metrics",
     // R5/OP1: unified 6-dimension harness-quality metric
     "cli-harness-metric",
+    // Code mode: contagem de execução retransmitida pelo CLI
+    "cli-code-mode-run",
     // S-09/R8: formal change-contract gating self-mutation
     "cli-change-contract",
     // B-5/R10: distill historical bash-outcome substrate into an action predictor
@@ -655,6 +704,30 @@ pub const ALL_DAEMON_HOOK_NAMES: &[&str] = &[
     "cli-definitions-semantic-search",
 ];
 
+/// Hooks that can DENY a tool call — the GUARDS (C4, 2026-10-17).
+///
+/// A guard that cannot read its input must fail CLOSED (the thin client denies with the
+/// cause named — see `HookRuntime::build_stdin_unreadable_deny`); every other hook is an
+/// ADVISORY and keeps failing open on a degraded stdin. The set is the one whose handlers
+/// emit `permissionDecision: "deny"`, directly (`HookResponse::Deny`) or through the schema
+/// check (`validation_deny`) — `guard_set_matches_the_handlers_that_can_deny` re-derives it
+/// from the handler sources, so a new denying handler cannot silently stay advisory.
+/// `pre-exec` is conditional on `CEG_ENFORCE=1` and handled in [`is_guard_hook`].
+pub const GUARD_HOOK_NAMES: &[&str] = &[
+    "pre-bash",
+    "pre-edit",
+    "pre-edit-prevention",
+    "pre-read",
+    "pre-tool-use",
+    "pre-write",
+];
+
+/// `true` when `name` is a guard: it can deny, so an unreadable stdin must deny too.
+pub fn is_guard_hook(name: &str) -> bool {
+    GUARD_HOOK_NAMES.contains(&name)
+        || (name == "pre-exec" && crate::ceg_adapter::enforcement_enabled())
+}
+
 /// Build the O(1) dispatch table for daemon hook handlers.
 ///
 /// Called once via `OnceLock::get_or_init` in `daemon.rs`.
@@ -723,6 +796,10 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // serialized response to the caller (the daemon actor) instead of
         // calling exit.
         m.insert("post-bash", |rt, v| {
+            // P3/T3-B — um PostToolUse intercalado FECHA o turno da sessão:
+            // a assinatura do batch paralelo do Claude Code é a ausência dele.
+            // Barato (no-op sem ledger) e antes do handler, para que mesmo um
+            // post-bash falho não deixe o turno aberto além da verdade.
             crate::post_bash::run_returning(rt, v).to_json()
         });
         m.insert("post-edit", |rt, v| {
@@ -735,6 +812,10 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             crate::post_tool_batch::run_post_tool_batch(rt, v).to_json()
         });
         m.insert("post-tool-rl", |rt, v| {
+            // P3/T3-B — QUALQUER PostToolUse fecha o turno da sessão (a
+            // assinatura do batch paralelo é a AUSÊNCIA de PostToolUse
+            // intercalado, de qualquer tool — não só Bash). matcher "*" cobre
+            // o universo inteiro; o close é no-op barato sem ledger.
             let _ = crate::post_tool_rl::run(rt, v);
             // R132: Generator hints on RL error signal — closes the RL degradation → generator loop.
             // post-tool-rl was completely silent. Now emits targeted generator hints when tool fails:
@@ -760,7 +841,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
                         .unwrap_or(false)
                 });
             if has_error && !tool_name.is_empty() {
-                let truncated_tool = &tool_name[..tool_name.len().min(30)];
+                let truncated_tool = truncate_str(tool_name, 30);
                 let hint = match tool_name {
                     "Edit" | "Write" | "MultiEdit" => serde_json::json!({
                         "type": "rl_edit_error",
@@ -796,9 +877,11 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     // ── Session hooks (feature-gated) ──────────────────────────────
     #[cfg(feature = "session-hooks")]
     {
+        // S13 (25/09/2026): the RETURNING form. `run_session_start` emits, and emit calls
+        // `process::exit(0)` — from here it killed the shared daemon at every session start
+        // (510 of 515 session-starts saw `daemon-unavailable`); same remedy as post-bash above.
         m.insert("session-start", |rt, v| {
-            let _ = crate::session_hooks::run_session_start(rt, v);
-            String::new()
+            crate::session_hooks::run_session_start_returning(rt, v).to_json()
         });
         m.insert("session-stop", |rt, v| {
             let _ = crate::session_hooks::run_session_stop(rt, v);
@@ -819,23 +902,30 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         let success = v.get("success").and_then(|b| b.as_bool()).unwrap_or(true);
         let (reward_val, outcome_label) = if success { (1.0_f64, "success") } else { (-0.5_f64, "failed") };
 
-        // R32-S3: Ensure ::validate and ::implement are terminal before finalize.
-        // Fixes archive failure when TaskCompleted fires while subtasks are still pending.
-        // Uses success/failure status to mirror the task outcome into the DAG.
-        let terminal_status = if success { "completed" } else { "failed" };
-        let _ = crate::cli_handlers::cli_decompose_update(rt, &serde_json::json!({
-            "task_id": format!("{task_id}::validate"),
-            "status": terminal_status,
-        }));
-        let _ = crate::cli_handlers::cli_decompose_update(rt, &serde_json::json!({
-            "task_id": format!("{task_id}::implement"),
-            "status": terminal_status,
-        }));
+        // R32-S3: every scaffold stage must be terminal before finalize, or the
+        // archive leaves work open behind it. The stage list is NOT spelled here
+        // — `close_scaffold_stages` walks the same `MIRROR_SCAFFOLD_STAGES` the
+        // scaffolder writes from. Spelling two of the three by hand is what left
+        // 74 `::scout` rows open across every mirrored task (census 19/09/2026).
+        let _closed = crate::hook_decompose_bridge::close_scaffold_stages(rt, task_id, success);
 
         // 1. Auto-finalize: archive DAG, inject RL 1.0 internally if all subtasks terminal.
         let finalize_payload = serde_json::json!({"task_id": task_id});
         let finalize_result = crate::cli_handlers::cli_decompose_finalize(rt, &finalize_payload);
         let archived = finalize_result.contains("\"archived\":true");
+
+        // 1b. Retention: stamp the closed plans nobody finalized — a plan that derives `done`
+        // from its children never passes `finalize` (that arm is CC-mirrored tasks only), and
+        // `decompose archive` had no caller but a human. Project store AND the global one; only
+        // plans closed for a week with every subtask over (`auto_archive_pass`). Idempotent.
+        // The unit tests of this crate dispatch `task-completed` against the REAL `$HOME`, so there
+        // they sweep the project store only: sweeping the user's global store from a test would
+        // write to data the test does not own. The global arm has its own e2e (private HOME) in
+        // `touring-hooks/tests/dag_lifecycle_closure_e2e.rs`.
+        #[cfg(not(test))]
+        let _retired = crate::cli_handlers_decompose::auto_archive_pass_all_stores(&rt.ctx.knowledge);
+        #[cfg(test)]
+        let _retired = crate::cli_handlers_decompose::auto_archive_pass(&rt.ctx.knowledge);
 
         // 2. Direct RL reward injection — no manual step needed.
         let reward_payload = serde_json::json!({
@@ -888,7 +978,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // and ConsumerGenerator scaffold hint so Claude Code can immediately wire new artifacts.
         let wiring_orphan_hint = crate::lifecycle::maybe_wiring_orphan_hint_on_complete(task_id);
         let consumer_gen_hint = if !wiring_orphan_hint.is_empty() {
-            let truncated_id = &task_id[..task_id.len().min(40)];
+            let truncated_id = truncate_str(task_id, 40);
             format!(
                 " | consumer-wire: run `touring generate render ConsumerGenerator \
                 --vars '{{\"source_module\":\"{truncated_id}\",\"event\":\"task:{truncated_id}:completed\"}}'` \
@@ -910,7 +1000,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // Closes the gap: completed task subject → memory graph → cross-session retrieval.
             // Future sessions can `touring memory recall "artifact:<task_id>"` to find the artifact.
             if subject_at_completion.len() > 3 {
-                let truncated_subject = &subject_at_completion[..subject_at_completion.len().min(200)];
+                let truncated_subject = truncate_str(subject_at_completion, 200);
                 let _ = crate::cli_handlers::cli_memory_store(rt, &serde_json::json!({
                     "key": format!("artifact:{task_id}"),
                     "value": format!("Task {task_id} artifact: {truncated_subject} — finalize={finalize_status}"),
@@ -924,7 +1014,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // the task-completed → plan-replay → next-iteration loop that allows automation
             // of repeated artifact generation without re-planning from scratch each time.
             let plan_replay_hint = if subject_at_completion.len() > 3 {
-                let short_subject = &subject_at_completion[..subject_at_completion.len().min(60)];
+                let short_subject = truncate_str(subject_at_completion, 60);
                 format!(
                     " | replay: run `touring generate plan-recall --query \"{short_subject}\"` \
                     to find and replay generator plan on a new subject"
@@ -960,7 +1050,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             // R131: Recovery generator hints for task failure — symmetric with R126 (task-escalation).
             // Surfaces ErrorCatalog (document failure pattern), recovery plan-suggest, and evolution
             // drift check so Claude Code can immediately scaffold a recovery path after failure.
-            let truncated_id = &task_id[..task_id.len().min(40)];
+            let truncated_id = truncate_str(task_id, 40);
             let recovery_hints = format!(
                 " | error-catalog: run `touring generate render ErrorCatalog \
                 --vars '{{\"crate_name\":\"{truncated_id}\",\"error_codes\":[]}}'` \
@@ -990,24 +1080,29 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         // TaskCreated event → cli_decompose_add ×3 → scout/implement/validate DAG wired immediately.
         let task_id = v.get("task_id").and_then(|s| s.as_str()).unwrap_or("unknown");
         let subject = v.get("task_subject").and_then(|s| s.as_str()).unwrap_or("");
-        let s1 = format!("{task_id}::scout");
-        let s2 = format!("{task_id}::implement");
-        let s3 = format!("{task_id}::validate");
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s1,
-            "description": "scout: research context, blast radius, and wiring before changes",
-            "depends_on": [],
-        }));
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s2,
-            "description": "implement: apply changes with VGP verification and speculative validation",
-            "depends_on": [&s1],
-        }));
-        let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
-            "task_id": task_id, "subtask_id": &s3,
-            "description": "validate: cargo test + wiring orphans + memory store lesson",
-            "depends_on": [&s2],
-        }));
+        // Cross-audit 20/09/2026: este scaffolder soletrava os três estágios com
+        // as descrições duplicadas verbatim e montava o id CRU, enquanto o
+        // scaffolder do bridge grava sob `cc_mirror_task_id`. Duas grafias para
+        // o mesmo espelho é o que fazia um fechador nunca encontrar o que o
+        // outro escreveu. Agora ambos derivam de `MIRROR_SCAFFOLD_STAGES` e do
+        // mesmo id normalizado — as descrições da constante são, byte a byte,
+        // as que estavam aqui.
+        let mirror_id = crate::hook_decompose_bridge::cc_mirror_task_id(task_id);
+        for stage in touring_foundation::task_lifecycle::MIRROR_SCAFFOLD_STAGES {
+            let subtask_id =
+                touring_foundation::task_lifecycle::scaffold_subtask_id(&mirror_id, &stage);
+            let depends_on: Vec<String> = stage
+                .depends_on
+                .map(|dep| {
+                    vec![format!("{mirror_id}::{dep}")]
+                })
+                .unwrap_or_default();
+            let _ = crate::cli_handlers::cli_decompose_add(rt, &serde_json::json!({
+                "task_id": mirror_id, "subtask_id": subtask_id,
+                "description": stage.description,
+                "depends_on": depends_on,
+            }));
+        }
         // R36-S1: Auto-start Touring session for each CC task — every task gets its own session.
         // TaskCreated event → cli_session_start → SQLite session row + cognitive init.
         // Session ID = task_id so later checkpoint/assess calls link back automatically.
@@ -1015,7 +1110,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             let sess_payload = serde_json::json!({
                 "session_id": task_id,
                 "task_type": "task",
-                "objective": &subject[..subject.len().min(200)],
+                "objective": truncate_str(subject, 200),
             });
             let result = crate::cli_handlers::cli_session_start(rt, &sess_payload);
             result.contains("started") || result.contains("session_id")
@@ -1042,13 +1137,13 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
                 format!(" | {}", hints.join(" | "))
             } else {
                 format!(" | generator: `touring generate plan-suggest --intent \"{}\"` to scaffold artifacts",
-                    &subject[..subject.len().min(80)])
+                    truncate_str(subject, 80))
             }
         } else { String::new() };
         // R33-S3: Recall past plans for the same subject — surfaces related generator plans
         // from memory so the engineer can resume or adapt prior work instead of starting fresh.
         let recall_hint = if subject.len() > 3 {
-            let short_subject = &subject[..subject.len().min(60)];
+            let short_subject = truncate_str(subject, 60);
             let recall_payload = serde_json::json!({"query": short_subject, "limit": 1});
             let recall_result = crate::cli_handlers::cli_memory_recall(rt, &recall_payload);
             if recall_result.contains("\"entries\"") && recall_result.contains("\"value\"") {
@@ -1145,7 +1240,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
             if !hints.is_empty() {
                 format!(" | scaffold-next: {}", hints.join(" | "))
             } else {
-                let truncated = &task_id[..task_id.len().min(60)];
+                let truncated = truncate_str(task_id, 60);
                 format!(" | scaffold-next: run `touring generate plan-suggest --intent \"{truncated}\"` to choose generator")
             }
         } else {
@@ -1273,7 +1368,7 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
         } else {
             "recover from task failure"
         };
-        let truncated_id = &task_id[..task_id.len().min(40)];
+        let truncated_id = truncate_str(task_id, 40);
         let recovery_hint = format!(
             " | recovery: run `touring generate plan-suggest --intent \"{recovery_kind}: {truncated_id}\"` \
             to scaffold a recovery plan \
@@ -1348,6 +1443,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     m.insert("cli-wiring-cycles", |rt, v| {
         crate::cli_handlers::cli_wiring_cycles(rt, v)
     });
+    m.insert("cli-wiring-scip-ingest", |rt, v| {
+        crate::cli_handlers::cli_wiring_scip_ingest(rt, v)
+    });
     // ACP (Agent Client Protocol) handlers — bridges CLI dispatch to ACP socket protocol
     #[cfg(feature = "acp-protocol")]
     {
@@ -1382,6 +1480,23 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     m.insert("cli-gotcha-stats", |rt, v| {
         crate::cli_handlers::cli_gotcha_stats(rt, v)
     });
+    // R1 (29/08): o produtor do canal que `touring.gotcha.resolution` lê.
+    m.insert("cli-gotcha-resolve", |rt, v| {
+        crate::cli_handlers::cli_gotcha_resolve(rt, v)
+    });
+    // R4 (29/08): a superfície do ExperimentLog — o A/B do variant_archive
+    // registra e lê de volta (a peça tinha zero chamadores de produção).
+    m.insert("cli-experiment-record", |rt, v| {
+        crate::cli_handlers::cli_experiment_record(rt, v)
+    });
+    m.insert("cli-experiment-list", |rt, v| {
+        crate::cli_handlers::cli_experiment_list(rt, v)
+    });
+    // P2 replay (29/08): o canal offline→engine — o corpus de outcomes
+    // recompensados vira updates no OnlineRLEngine vivo, com cursor durável.
+    m.insert("cli-learning-replay", |rt, v| {
+        crate::cli_handlers::cli_learning_replay(rt, v)
+    });
     m.insert("cli-memory-stats", |rt, v| {
         crate::cli_handlers::cli_memory_stats(rt, v)
     });
@@ -1393,6 +1508,42 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-memory-store", |rt, v| {
         crate::cli_handlers::cli_memory_store(rt, v)
+    });
+    // F1 (hashtag library, 2026-08-11): faceted memory tagging — add a tag,
+    // list a memory's tags, and conjunctive #facet:value search.
+    m.insert("cli-memory-tag-add", |rt, v| {
+        crate::cli_handlers::cli_memory_tag_add(rt, v)
+    });
+    m.insert("cli-memory-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_tags(rt, v)
+    });
+    m.insert("cli-memory-query", |rt, v| {
+        crate::cli_handlers::cli_memory_query(rt, v)
+    });
+    // F2 (hashtag library, 2026-08-11): codetag #tags: harvest into snippet memories.
+    m.insert("cli-memory-sync-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_sync_tags(rt, v)
+    });
+    // F3: typed memory<->memory link graph (relates-to/supersedes/extends/...).
+    m.insert("cli-memory-link", |rt, v| {
+        crate::cli_handlers::cli_memory_link(rt, v)
+    });
+    m.insert("cli-memory-links", |rt, v| {
+        crate::cli_handlers::cli_memory_links(rt, v)
+    });
+    // F4: conservative backfill of faceted tags over pre-existing entries.
+    m.insert("cli-memory-backfill-tags", |rt, v| {
+        crate::cli_handlers::cli_memory_backfill_tags(rt, v)
+    });
+    // F5: emergent communities + Map of Content generation.
+    m.insert("cli-memory-moc", |rt, v| {
+        crate::cli_handlers::cli_memory_moc(rt, v)
+    });
+    m.insert("cli-memory-communities", |rt, v| {
+        crate::cli_handlers::cli_memory_communities(rt, v)
+    });
+    m.insert("cli-memory-unlink", |rt, v| {
+        crate::cli_handlers::cli_memory_unlink(rt, v)
     });
     m.insert("cli-memory-list", |rt, v| {
         crate::cli_handlers::cli_memory_list(rt, v)
@@ -1415,6 +1566,10 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     // R5/OP1: unified 6-dimension harness-quality metric handler
     m.insert("cli-harness-metric", |rt, v| {
         crate::cli_handlers::cli_harness_metric(rt, v)
+    });
+    // Code mode: sem este relay o counter só contava a rota MCP
+    m.insert("cli-code-mode-run", |rt, v| {
+        crate::cli_handlers::cli_code_mode_run(rt, v)
     });
     // S-09/R8: formal change-contract gating self-mutation handler
     m.insert("cli-change-contract", |rt, v| {
@@ -1580,8 +1735,29 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     m.insert("cli-decompose-finalize", |rt, v| {
         crate::cli_handlers::cli_decompose_finalize(rt, v)
     });
+    m.insert("cli-decompose-archive", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_archive(rt, v)
+    });
+    m.insert("cli-decompose-reconcile-stages", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_reconcile_stages(rt, v)
+    });
     m.insert("cli-decompose-ready", |rt, v| {
         crate::cli_handlers::cli_decompose_ready(rt, v)
+    });
+    m.insert("cli-decompose-claim", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_claim(rt, v)
+    });
+    m.insert("cli-decompose-release", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_release(rt, v)
+    });
+    m.insert("cli-decompose-renew", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_renew(rt, v)
+    });
+    m.insert("cli-decompose-ticket", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_ticket(rt, v)
+    });
+    m.insert("cli-decompose-frontier", |rt, v| {
+        crate::cli_handlers_decompose::cli_decompose_frontier(rt, v)
     });
     m.insert("cli-tasksfile-validate", |rt, v| {
         crate::cli_handlers_decompose::cli_tasksfile_validate(rt, v)
@@ -1645,6 +1821,9 @@ pub fn build_dispatch_table() -> HashMap<&'static str, HookHandler> {
     });
     m.insert("cli-index-files", |rt, v| {
         crate::cli_handlers_index::cli_index_files(rt, v)
+    });
+    m.insert("cli-index-why", |rt, v| {
+        crate::cli_handlers_index::cli_index_why(rt, v)
     });
     m.insert("cli-index-rebuild", |rt, v| {
         crate::cli_handlers_index::cli_index_rebuild(rt, v)

@@ -1,0 +1,19 @@
+{
+ "session": "j14-hot-2909342-1793484330187870079",
+ "por_id": {
+  "j14-hot-2909342-1793484330187870079:medida:0:59d7d74321ed": {
+   "i": 0,
+   "id": "59d7d74321ed",
+   "hook": "pre-write",
+   "rc": 0,
+   "wall_ms": 184.273,
+   "elapsed_ms": 48.849707,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  }
+ }
+}

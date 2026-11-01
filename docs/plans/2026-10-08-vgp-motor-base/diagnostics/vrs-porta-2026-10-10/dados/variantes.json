@@ -1,0 +1,54 @@
+{
+ "sha_rust_rs": "6d2aa3135237fadd",
+ "variantes": [
+  {
+   "variante": "V0",
+   "desfeitas": [
+    "a",
+    "b",
+    "c",
+    "d"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V0/touring",
+   "sha256": "e77521e795bb097730a5ef18bd7001a59fe12c54a5fb4fcfc4280b8842e033f2",
+   "segundos": 551.6
+  },
+  {
+   "variante": "V1",
+   "desfeitas": [
+    "b",
+    "c",
+    "d"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V1/touring",
+   "sha256": "03cb253079373248f7e31dee27d568ecec9d87d674e5ecebd6d67bd1d1616c5b",
+   "segundos": 29.0
+  },
+  {
+   "variante": "V2",
+   "desfeitas": [
+    "c",
+    "d"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V2/touring",
+   "sha256": "7c8a1f70cf4f419281d6122f075e1bc4f03ba030083f07a66c4454f3077e2a59",
+   "segundos": 46.3
+  },
+  {
+   "variante": "V3",
+   "desfeitas": [
+    "d"
+   ],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V3/touring",
+   "sha256": "93071fc88e52c86048958788e9f12621a963d282d28b77d74d4ed5c470246129",
+   "segundos": 42.5
+  },
+  {
+   "variante": "V4",
+   "desfeitas": [],
+   "binario": "/home/gabrielgadea/projects/touring/target/wt-vrs2-var/V4/touring",
+   "sha256": "8c7c19161a6a537c47906ff1af78bf23bbc4e291a4098a12ce254678cbd09856",
+   "segundos": 28.9
+  }
+ ]
+}

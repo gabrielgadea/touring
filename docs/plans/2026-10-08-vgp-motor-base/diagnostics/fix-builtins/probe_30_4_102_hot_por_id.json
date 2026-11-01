@@ -1,0 +1,47 @@
+{
+ "session": "j14-hot-788131-1793496439438496760",
+ "por_id": {
+  "j14-hot-788131-1793496439438496760:medida:0:2106f0ebf279": {
+   "i": 0,
+   "id": "2106f0ebf279",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 69.657,
+   "elapsed_ms": 54.099592,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "deny"
+  },
+  "j14-hot-788131-1793496439438496760:medida:1:sintetico-exit": {
+   "i": 1,
+   "id": "sintetico-exit",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 45.953,
+   "elapsed_ms": 31.061374,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  },
+  "j14-hot-788131-1793496439438496760:medida:2:sintetico-quit": {
+   "i": 2,
+   "id": "sintetico-quit",
+   "hook": "pre-bash",
+   "rc": 0,
+   "wall_ms": 43.369,
+   "elapsed_ms": 29.076079,
+   "camadas": [
+    1,
+    2
+   ],
+   "camada2": null,
+   "verdict": "allow"
+  }
+ }
+}

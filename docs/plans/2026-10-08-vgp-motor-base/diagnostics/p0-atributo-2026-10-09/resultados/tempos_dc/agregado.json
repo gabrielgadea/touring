@@ -1,0 +1,123 @@
+{
+ "l1 4501e1e5": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 111.7,
+  "mediana_minimo_por_id_ms": 2.79,
+  "p95_por_repeticao_ms": {
+   "1": 138.5,
+   "2": 140.1,
+   "3": 158.7
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 0,
+   "2": 0,
+   "3": 0
+  }
+ },
+ "l1 e935aaf1": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 113.0,
+  "mediana_minimo_por_id_ms": 2.38,
+  "p95_por_repeticao_ms": {
+   "1": 129.0,
+   "2": 132.6,
+   "3": 138.8
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 0,
+   "2": 0,
+   "3": 0
+  }
+ },
+ "l1 f55ec4b5": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 119.9,
+  "mediana_minimo_por_id_ms": 2.75,
+  "p95_por_repeticao_ms": {
+   "1": 142.4,
+   "2": 154.0,
+   "3": 131.6
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 0,
+   "2": 0,
+   "3": 0
+  }
+ },
+ "v3 4501e1e5": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 920.3,
+  "mediana_minimo_por_id_ms": 519.39,
+  "p95_por_repeticao_ms": {
+   "1": 1004.3,
+   "2": 1000.8,
+   "3": 1000.7
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 24,
+   "2": 19,
+   "3": 21
+  }
+ },
+ "v3 e935aaf1": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 957.4,
+  "mediana_minimo_por_id_ms": 524.3,
+  "p95_por_repeticao_ms": {
+   "1": 1065.6,
+   "2": 1061.3,
+   "3": 999.7
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 48,
+   "2": 32,
+   "3": 19
+  }
+ },
+ "l1 4501e1e5 - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": 0.18,
+  "p95_da_diferenca_ms": 10.6,
+  "ids_mais_lentos_em_mais_de_5ms": 67,
+  "ids_mais_rapidos_em_mais_de_5ms": 5
+ },
+ "l1 f55ec4b5 - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": 0.27,
+  "p95_da_diferenca_ms": 10.2,
+  "ids_mais_lentos_em_mais_de_5ms": 78,
+  "ids_mais_rapidos_em_mais_de_5ms": 3
+ },
+ "v3 4501e1e5 - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": -4.89,
+  "p95_da_diferenca_ms": 38.1,
+  "ids_mais_lentos_em_mais_de_5ms": 215,
+  "ids_mais_rapidos_em_mais_de_5ms": 366
+ }
+}

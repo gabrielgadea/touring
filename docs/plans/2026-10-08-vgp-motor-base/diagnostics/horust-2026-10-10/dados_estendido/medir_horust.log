@@ -1,0 +1,8 @@
+A_todas_as_sessoes (universo atual, = DEV) 37 {'nome': 20, 'import': 13, 'atributo': 3, 'kwarg': 1, 'total': 37}
+A_sem_sessoes_VGP 25 {'nome': 17, 'import': 4, 'atributo': 3, 'kwarg': 1, 'total': 25}
+B_todas_as_sessoes (ampliado) 37 {'nome': 20, 'import': 13, 'atributo': 3, 'kwarg': 1, 'total': 37}
+B_sem_sessoes_VGP (ampliado, o pedido) 25 {'nome': 17, 'import': 4, 'atributo': 3, 'kwarg': 1, 'total': 25}
+C_todas (EXTRA: ate agora) 37 {'nome': 20, 'import': 13, 'atributo': 3, 'kwarg': 1, 'total': 37}
+C_sem_sessoes_VGP (EXTRA: ate agora) 25 {'nome': 17, 'import': 4, 'atributo': 3, 'kwarg': 1, 'total': 25}
+{"reconhecedor_estendido": true, "dev_contido_no_gerador": true, "ids_do_gerador_hoje": 37, "ids_positivos_do_corpus": 37, "iguais": true, "so_no_gerador": [], "so_no_corpus": []}
+tempo_s 211.3

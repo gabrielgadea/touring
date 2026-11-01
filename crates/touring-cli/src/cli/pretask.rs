@@ -318,14 +318,10 @@ fn run_scouter_task_mode(rt: &mut HookRuntime, subject: &str, tool_name: &str) -
             .collect();
         if !state_hashes.is_empty()
             && let Ok(pensieve) = rt.learning.pensieve.try_borrow()
-            && let Some(penalty) = pensieve.check_known_failure_seq(&state_hashes)
+            && let Some(m) = pensieve.check_known_failure_seq_detail(&state_hashes)
         {
-            parts
-                        .push(
-                            format!(
-                                "⚠ pensieve: similar task failed before (penalty={penalty:.2}) — review gotchas before proceeding"
-                            ),
-                        );
+            // The notice names the command that failed on the similar task.
+            parts.push(m.task_notice());
         }
     }
     parts.join(" | ")
@@ -544,7 +540,12 @@ mod tests {
             .collect();
         {
             let mut p = rt.learning.pensieve.borrow_mut();
-            p.record_failure(&states, "dependency cycle in auth refactor", 3);
+            p.record_failure_with_command(
+                &states,
+                "dependency cycle in auth refactor",
+                3,
+                "cargo build --release",
+            );
         }
         let out = run_scouter_task_mode(&mut rt, "refactor auth module", "TaskCreate");
         assert!(
@@ -554,6 +555,10 @@ mod tests {
         assert!(
             out.contains("penalty="),
             "warning should include penalty value, got: {out}"
+        );
+        assert!(
+            out.contains("cargo build"),
+            "the warning must name the command that failed, got: {out}"
         );
     }
     #[test]

@@ -14,12 +14,9 @@
 //!   without shell interpolation (command-injection safe).
 //! - `blake3` (workspace dep) — content-addressable hashing.
 
-use std::borrow::Cow;
-use std::path::PathBuf;
-use std::sync::LazyLock;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use regex::Regex;
 use serde_json::Value;
 use thiserror::Error;
 use tokio::io::AsyncReadExt;
@@ -39,6 +36,46 @@ pub struct SandboxConfig {
     pub max_output_bytes: u64,
     /// On timeout, return Err. If false, also returns Err but caller may bypass.
     pub fallback_on_timeout: bool,
+    /// W1 d3/S-1.3 — busy-time (CPU) budget in milliseconds, measured from the
+    /// child's own `/proc/<pid>/stat` utime+stime. Independent of `timeout_ms`:
+    /// wall clock alone cannot expire a hot loop early, and CPU alone cannot
+    /// see an eternal await. `None` disables the busy budget (non-Linux falls
+    /// back to wall-clock-only regardless).
+    pub compute_ms: Option<u64>,
+    /// C2-W0 S-5.2 — identity of this execution, exported to the child as
+    /// `TOURING_RUN_ID` so an in-sandbox orchestrate SDK can stamp each of
+    /// its daemon sub-calls `<run_id>:code:<n>`. Injected AFTER the
+    /// credential whitelist's `env_clear`, so it survives the wipe. `None`
+    /// exports nothing (every non-run caller).
+    pub run_id: Option<String>,
+    /// Cross-audit 27/08 (QW-4) — bytes entregues ao stdin do programa
+    /// (`touring run --input <file>`). `None` mantém o comportamento anterior
+    /// (stdin herdado/fechado). O write é concorrente ao drain de stdout/stderr:
+    /// um filho que não lê destrava o write com BrokenPipe ao terminar.
+    pub stdin_bytes: Option<Vec<u8>>,
+    /// NET-1 (28/08, decisão de Gabriel: por porta, residual documentado) —
+    /// portas TCP de saída concedidas explicitamente (`--allow-net-port 443`).
+    /// Vazio = deny-all (o default de sempre). Landlock não filtra por HOST:
+    /// a porta concedida fala com qualquer destino nela — o residual aceito.
+    pub allow_net_ports: Vec<u16>,
+    /// OUT-1 (28/08) — stream de saída incremental: cada chunk lido do filho é
+    /// espelhado NA HORA no stderr do processo pai (o envelope JSON continua
+    /// dono do stdout). Um run longo deixa de ser caixa-preta até o fim; o
+    /// buffer capturado e seus caps não mudam.
+    pub stream_output: bool,
+    /// F4 P2 (2026-09-01) — destination of the in-sandbox SDK's signal
+    /// mirror. Exported to the child as `TOURING_SDK_SIGNAL_MIRROR` and
+    /// granted a FILE-level Landlock write rule (`~/.claude/touring` itself
+    /// stays read-only — the daemon's state lives beside the mirror). `None`
+    /// exports nothing: the orchestrate template's `record_hook_call` then
+    /// no-ops by design.
+    pub sdk_signal_mirror: Option<PathBuf>,
+    /// B1 (2026-09-02): write roots a CALLER grants on top of the funnel's own
+    /// (run tmp, project, `/dev`, toolchain caches). The supervised X8 path
+    /// stacks its policy ruleset with the funnel's; Landlock intersects them,
+    /// so a root granted only by the policy must reach the funnel too — or a
+    /// write the policy allows under `/tmp` is denied by the funnel's ruleset.
+    pub extra_write_roots: Vec<PathBuf>,
 }
 
 impl Default for SandboxConfig {
@@ -47,6 +84,13 @@ impl Default for SandboxConfig {
             timeout_ms: 30_000,
             max_output_bytes: 1_000_000,
             fallback_on_timeout: true,
+            compute_ms: Some(60_000),
+            run_id: None,
+            sdk_signal_mirror: None,
+            extra_write_roots: Vec::new(),
+            stdin_bytes: None,
+            allow_net_ports: Vec::new(),
+            stream_output: false,
         }
     }
 }
@@ -67,6 +111,69 @@ pub struct SandboxResult {
     /// C5 — inline, metadata-first digest (exit code, error signatures, `file:line`
     /// refs) so callers get the failure signal without re-reading `stored_path`.
     pub summary: OutputSummary,
+    /// W0 d0 — captured standard error of the subprocess, bounded by the same
+    /// `max_output_bytes` cap as stdout. Before 2026-08-23 the stderr pipe was
+    /// opened and never drained: the channel was lost AND a chatty-stderr child
+    /// could deadlock on a full 64 KiB pipe.
+    pub stderr: String,
+    /// `true` if captured stderr hit `max_output_bytes` and was cut short.
+    pub stderr_truncated: bool,
+    /// B1 (2026-09-02): bytes the run left in its PRIVATE temp dir, measured
+    /// before the dir is removed. `0` when the run had no private tmp.
+    pub tmp_bytes: u64,
+    /// The signal that ended the subprocess, when one did (`exit_code` is then
+    /// `-1`). Before 18/09/2026 the number was dropped, so a run killed by the
+    /// file-size cap read the same as one killed by the memory cap.
+    pub signal: Option<i32>,
+    /// Files in the run's private temp dir whose size is EXACTLY the
+    /// `RLIMIT_FSIZE` cap, relative to that dir: a write was cut there and the
+    /// writer got SIGXFSZ. A child dying that way is invisible to a program
+    /// that carries on (`sqlite3 … .backup` then `echo $?` exits 0), and the
+    /// file is left truncated without a word (analise, 18/09/2026).
+    pub capped_files: Vec<String>,
+}
+
+/// The file-size cap every run of the funnel gets (`RLIMIT_FSIZE`), in bytes.
+fn file_size_cap() -> Option<u64> {
+    ResourceLimits::sandboxed().rlimit.file_size_bytes
+}
+
+/// Name a terminating signal and the sandbox cap behind it, so a failure
+/// message says which limit fired and what to change.
+#[must_use]
+pub fn describe_signal(signal: i32) -> String {
+    let mib = file_size_cap().map_or(0, |b| b / (1024 * 1024));
+    match signal {
+        libc::SIGXFSZ => format!(
+            "SIGXFSZ: a write went past the {mib} MiB file-size cap (RLIMIT_FSIZE) \
+             and the file was cut there; write less, or stream the data to stdout"
+        ),
+        libc::SIGXCPU => "SIGXCPU: the CPU-time rlimit fired (twice the wall budget, 30 s \
+                          minimum); raise --timeout-ms or do less work per run"
+            .to_string(),
+        libc::SIGKILL => "SIGKILL: killed from outside the program, usually the memory cap \
+                          (RLIMIT_AS, 80% of RAM); empty stderr is typical"
+            .to_string(),
+        libc::SIGSEGV => "SIGSEGV: the program touched memory it does not own (a crash in \
+                          it or in a native library)"
+            .to_string(),
+        libc::SIGABRT => {
+            "SIGABRT: the program aborted itself (assertion, abort, panic=abort)".to_string()
+        }
+        other => format!("signal {other}"),
+    }
+}
+
+/// The failure message for files a run left cut at exactly the file-size cap.
+#[must_use]
+pub fn describe_capped_files(files: &[String]) -> String {
+    format!(
+        "{}. Cut at exactly the cap in the run's private tmp: {}. The writer was killed \
+         even if the program went on and exited 0 (bash reports exit 153), so the run is \
+         not green",
+        describe_signal(libc::SIGXFSZ),
+        files.join(", ")
+    )
 }
 
 /// Failure modes of a sandbox subprocess execution.
@@ -140,38 +247,74 @@ pub use touring_hooks_shared::sandbox_language::SandboxLanguage;
 /// 2. Fallback common alias.
 /// 3. Last-resort: language name as binary (PATH may surface alternatives).
 ///
-/// Result cached at module level via OnceLock: re-detection forced via
-/// `touring sandbox-runtimes refresh` (future CLI).
-pub fn resolve_language_runtime(lang: SandboxLanguage) -> PathBuf {
-    fn which(bin: &str) -> Option<PathBuf> {
-        // Use `command -v` via shell — portable, no extra deps.
-        let out = std::process::Command::new("sh")
-            .args(["-c", &format!("command -v {bin} 2>/dev/null")])
-            .output()
-            .ok()?;
-        if !out.status.success() {
-            return None;
-        }
-        let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-        if s.is_empty() {
-            None
-        } else {
-            Some(PathBuf::from(s))
-        }
+/// Detecção a CADA chamada via `command -v` (~1 ms) — deliberado, não falta de
+/// cache: o daemon é longevo e runtimes entram/saem do PATH; um OnceLock
+/// serviria stale sem um comando de refresh. Se a medida um dia mostrar custo,
+/// o cache exige o refresh junto (medir antes: um run típico é 30-250 ms).
+/// Detecção portável de binário no PATH (`command -v` via shell — sem deps).
+/// RUN-1 (27/08): subiu do corpo de `resolve_language_runtime` para o módulo
+/// porque o preflight (`detect_language_runtimes`) precisa distinguir
+/// "resolvido" de "ausente" — coisa que o last-resort esconde.
+fn which(bin: &str) -> Option<PathBuf> {
+    let out = std::process::Command::new("sh")
+        .args(["-c", &format!("command -v {bin} 2>/dev/null")])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
     }
-    let candidates: &[&str] = match lang {
-        SandboxLanguage::JavaScript => &["bun", "node"],
-        SandboxLanguage::TypeScript => &["bun", "tsx", "ts-node"],
-        SandboxLanguage::Python => &["python3", "python"],
-        SandboxLanguage::Ruby => &["ruby"],
-        SandboxLanguage::Go => &["go"],
-        SandboxLanguage::Rust => &["cargo"],
-        SandboxLanguage::Php => &["php"],
-        SandboxLanguage::Perl => &["perl"],
-        SandboxLanguage::R => &["Rscript", "R"],
-        SandboxLanguage::Elixir => &["elixir"],
-        SandboxLanguage::Shell => &["bash", "sh"],
-    };
+    let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if s.is_empty() {
+        None
+    } else {
+        Some(PathBuf::from(s))
+    }
+}
+
+/// RUN-1 (cross-audit 27/08) — os candidatos de cada linguagem, na ordem de
+/// preferência. Fonte única para `resolve_language_runtime` E para o preflight.
+const LANGUAGE_CANDIDATES: &[(&str, SandboxLanguage, &[&str])] = &[
+    ("python", SandboxLanguage::Python, &["python3", "python"]),
+    ("js", SandboxLanguage::JavaScript, &["bun", "node", "deno"]),
+    (
+        "ts",
+        SandboxLanguage::TypeScript,
+        &["bun", "tsx", "ts-node", "deno"],
+    ),
+    ("ruby", SandboxLanguage::Ruby, &["ruby"]),
+    ("go", SandboxLanguage::Go, &["go"]),
+    ("rust", SandboxLanguage::Rust, &["cargo"]),
+    ("php", SandboxLanguage::Php, &["php"]),
+    ("perl", SandboxLanguage::Perl, &["perl"]),
+    ("r", SandboxLanguage::R, &["Rscript", "R"]),
+    ("elixir", SandboxLanguage::Elixir, &["elixir"]),
+    ("sh", SandboxLanguage::Shell, &["bash", "sh"]),
+];
+
+/// RUN-1 — preflight: para cada linguagem, o runtime RESOLVIDO ou `None` quando
+/// nenhum candidato existe no PATH. O last-resort de [`resolve_language_runtime`]
+/// devolve o nome cru e deixaria um spawn morrer ENOENT genérico; aqui a
+/// ausência é explícita (fail-LOUD na apresentação, diretriz A12).
+pub fn detect_language_runtimes() -> Vec<(&'static str, SandboxLanguage, Option<PathBuf>)> {
+    LANGUAGE_CANDIDATES
+        .iter()
+        .map(|(nome, lang, cands)| {
+            let achado = cands.iter().find_map(|b| which(b));
+            (*nome, *lang, achado)
+        })
+        .collect()
+}
+
+/// I-11 — Detect the preferred runtime binary for a language (ordem em
+/// `LANGUAGE_CANDIDATES`: moderno primeiro, alias comum depois, e como
+/// last-resort o próprio nome — o PATH pode surfar alternativas; se nada
+/// existir, o spawn Err mostra o ENOENT).
+pub fn resolve_language_runtime(lang: SandboxLanguage) -> PathBuf {
+    let candidates: &[&str] = LANGUAGE_CANDIDATES
+        .iter()
+        .find(|(_, l, _)| *l == lang)
+        .map(|(_, _, c)| *c)
+        .unwrap_or(&[]);
     for bin in candidates {
         if let Some(p) = which(bin) {
             return p;
@@ -184,7 +327,32 @@ pub fn resolve_language_runtime(lang: SandboxLanguage) -> PathBuf {
 /// I-11 — Build argv for a language runtime executing inline source.
 /// Each runtime has its own `-c`/`-e` convention; these are stable across
 /// modern versions.
+///
+/// Wrapper de compatibilidade: resolve o runtime do PATH e delega a
+/// [`resolve_language_args_for`] — assim um caller que NÃO sabe o runtime ainda
+/// recebe os args certos para ele (ex.: deno não fala `-e`).
 pub fn resolve_language_args(lang: SandboxLanguage, code: &str) -> Vec<String> {
+    resolve_language_args_for(lang, code, &resolve_language_runtime(lang))
+}
+
+/// RUN-1 (cross-audit 27/08) — args cientes do runtime RESOLVIDO. O modelo
+/// por-linguagem assumia `-e` universal para JS/TS, mas o deno — medido
+/// presente em /usr/bin/deno sem ser candidato — fala `eval` (JS) e
+/// `eval --ext=ts` (TS). Formas medidas ao vivo: `deno eval`, `deno eval
+/// --ext=ts`, `deno run -` (stdin).
+pub fn resolve_language_args_for(lang: SandboxLanguage, code: &str, runtime: &Path) -> Vec<String> {
+    let is_deno = runtime.file_name().and_then(|f| f.to_str()) == Some("deno");
+    match (lang, is_deno) {
+        (SandboxLanguage::JavaScript, true) => vec!["eval".into(), code.to_string()],
+        (SandboxLanguage::TypeScript, true) => {
+            vec!["eval".into(), "--ext=ts".into(), code.to_string()]
+        }
+        _ => resolve_language_args_legacy(lang, code),
+    }
+}
+
+/// A tabela por-linguagem anterior ao RUN-1 (ver [`resolve_language_args_for`]).
+fn resolve_language_args_legacy(lang: SandboxLanguage, code: &str) -> Vec<String> {
     match lang {
         SandboxLanguage::JavaScript => vec!["-e".into(), code.to_string()],
         SandboxLanguage::TypeScript => vec!["-e".into(), code.to_string()],
@@ -193,7 +361,16 @@ pub fn resolve_language_args(lang: SandboxLanguage, code: &str) -> Vec<String> {
         SandboxLanguage::Php => vec!["-r".into(), code.to_string()],
         SandboxLanguage::Perl => vec!["-e".into(), code.to_string()],
         SandboxLanguage::R => vec!["-e".into(), code.to_string()],
-        SandboxLanguage::Shell => vec!["-c".into(), code.to_string()],
+        // --norc/--noprofile: o sandbox nunca deve depender (nem tropeçar) nos
+        // rc files do usuário — sob Landlock a leitura de ~/.bashrc nega e o
+        // ruído "Permission denied" polui o stderr de quem lê veredito
+        // (relato analise-a2, 30/08).
+        SandboxLanguage::Shell => vec![
+            "--norc".into(),
+            "--noprofile".into(),
+            "-c".into(),
+            code.to_string(),
+        ],
         // P4.1 — Go and Rust are compiled: they have no inline-source flag.
         // `execute_in_sandbox` routes them to `compile_and_run_go` /
         // `compile_and_run_rust` (tempfile + compile); this arm is unreachable
@@ -214,7 +391,14 @@ pub fn resolve_args(tool_name: &str, args: &Value) -> Result<Vec<String>, Sandbo
                 .get("command")
                 .and_then(|v| v.as_str())
                 .ok_or_else(|| SandboxError::InvalidArgs("Bash requires 'command' field".into()))?;
-            Ok(vec!["-c".into(), cmd.to_string()])
+            // --norc/--noprofile: mesma razão do braço Shell — rc files do
+            // usuário nunca entram no sandbox.
+            Ok(vec![
+                "--norc".into(),
+                "--noprofile".into(),
+                "-c".into(),
+                cmd.to_string(),
+            ])
         }
         "Grep" => {
             let pattern = args
@@ -272,6 +456,25 @@ pub fn resolve_args(tool_name: &str, args: &Value) -> Result<Vec<String>, Sandbo
     }
 }
 
+/// RUN-1 (cross-audit 27/08) — variante de [`resolve_args`] ciente do runtime
+/// RESOLVIDO. Só JS/TS têm convenção divergente (deno `eval` × `-e` do
+/// bun/node/tsx); todo o resto delega intacto.
+pub fn resolve_args_with_runtime(
+    tool_name: &str,
+    args: &Value,
+    runtime: &Path,
+) -> Result<Vec<String>, SandboxError> {
+    let lang = match tool_name {
+        "SandboxJavaScript" => Some(SandboxLanguage::JavaScript),
+        "SandboxTypeScript" => Some(SandboxLanguage::TypeScript),
+        _ => None,
+    };
+    match (lang, args.get("script").and_then(|v| v.as_str())) {
+        (Some(lang), Some(script)) => Ok(resolve_language_args_for(lang, script, runtime)),
+        _ => resolve_args(tool_name, args),
+    }
+}
+
 /// Executes a tool invocation in a sandbox subprocess.
 ///
 /// Spawns the resolved program with resolved args using `tokio::process::Command`
@@ -299,7 +502,7 @@ pub async fn execute_in_sandbox(
     }
 
     let program = resolve_program(tool_name);
-    let argv = resolve_args(tool_name, &original_args)?;
+    let argv = resolve_args_with_runtime(tool_name, &original_args, &program)?;
 
     let mut cmd = Command::new(&program);
     cmd.args(&argv);
@@ -307,10 +510,636 @@ pub async fn execute_in_sandbox(
     // whitelisted credentials. Subprocess vê GH_TOKEN, AWS_*, etc., mas o
     // LLM nunca recebe os valores (stdout passa por redact_secrets).
     apply_credential_whitelist(&mut cmd);
+    // RUN-2 (30/08): o venv gerenciado só entra quando a VERSÃO do runtime
+    // casa com o site-packages — e só no caminho python (ver a fn).
+    if tool_name == "SandboxPython" {
+        apply_sandbox_venv_pythonpath(&mut cmd, &program);
+    }
     // P4.3 — every X5 sandbox execution is resource-capped, not only X8.
-    apply_resource_caps_to(&mut cmd, &ResourceLimits::sandboxed());
+    // SEG-1 (28/08): o piso inclui o teto de memória. 30/08: o cap de CPU
+    // escala com o wall pedido — fixo em 30s ele matava runs legítimos de
+    // `--timeout-ms` maiores (SIGKILL, stderr vazio, lido como timeout).
+    apply_resource_caps_to(
+        &mut cmd,
+        &ResourceLimits::sandboxed_for_timeout(config.timeout_ms),
+    );
 
     spawn_and_capture(cmd, &config).await
+}
+
+/// A raiz de escrita natural de um run: o projeto que contém `cwd`.
+///
+/// Subir até a marca de projeto (`.touring/` ou `.git/`) em vez de usar `cwd`
+/// cru evita a estreiteza inútil — um programa lançado de `crates/foo/` que
+/// escreve em `docs/` está trabalhando no MESMO projeto, e negá-lo seria
+/// fricção sem ganho de segurança. A subida para em `$HOME`: o home NÃO é um
+/// projeto, e concedê-lo devolveria exatamente o buraco que este confinamento
+/// existe para fechar.
+fn project_root_for_writes(cwd: &Path) -> Option<PathBuf> {
+    let home = std::env::var_os("HOME").map(PathBuf::from);
+    let mut atual = cwd;
+    loop {
+        if home.as_deref() == Some(atual) || atual.parent().is_none() {
+            break;
+        }
+        if atual.join(".touring").is_dir() || atual.join(".git").exists() {
+            return Some(atual.to_path_buf());
+        }
+        atual = atual.parent()?;
+    }
+    // Sem marca de projeto: o próprio `cwd`, desde que não seja `$HOME` nem `/`.
+    if home.as_deref() == Some(cwd) || cwd.parent().is_none() {
+        None
+    } else {
+        Some(cwd.to_path_buf())
+    }
+}
+
+/// As raízes que o filho do sandbox pode ESCREVER.
+///
+/// Deny-by-default do landlock: tudo fora desta união é inalcançável para
+/// escrita, no kernel. Medido em 27/08/2026, ANTES deste confinamento, um
+/// programa do sandbox gravava em `~/.bashrc`, em `~/.claude/` (a constituição
+/// do próprio agente) e em `~/.local/bin/` — o diretório do binário `touring`
+/// que o executa. Um sandbox que reescreve o seu próprio juiz não é sandbox.
+#[cfg(test)]
+fn sandbox_write_roots() -> Vec<PathBuf> {
+    sandbox_write_roots_for_run(None)
+}
+
+/// B1 (2026-09-02): with a run tmp, the SHARED temp trees leave the grant and
+/// the run's own dir takes their place. One runaway can no longer fill the
+/// tmpfs every session shares (the 8 GiB incident of 02/09 — one `soffice`,
+/// all sessions' Bash dead), and what a run leaves behind is measured and
+/// removed with it. `/dev` stays (`/dev/null`); `/tmp` stays READABLE, and the
+/// daemon's path socket stays reachable — Landlock does not gate `connect()`
+/// on a path socket. Without a run tmp (legacy callers) the grant is the old.
+fn sandbox_write_roots_for_run(run_tmp: Option<&std::path::Path>) -> Vec<PathBuf> {
+    sandbox_write_roots_at(std::env::current_dir().ok().as_deref(), run_tmp)
+}
+
+/// [`sandbox_write_roots_for_run`] com o `cwd` do run INJETADO. O run lê o cwd do próprio
+/// processo; quem consulta DE FORA — o gate do hook, que roda no daemon, cujo cwd não é o do
+/// run — passa o projeto que o run vai ter (30.4.97, G10ROTA).
+fn sandbox_write_roots_at(
+    cwd: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+) -> Vec<PathBuf> {
+    let mut raizes: Vec<PathBuf> = Vec::new();
+    if let Some(cwd) = cwd
+        && let Some(projeto) = project_root_for_writes(cwd)
+    {
+        raizes.push(projeto);
+    }
+    // Temporários e os nós de dispositivo que todo programa usa (`/dev/null`).
+    match run_tmp {
+        Some(t) => {
+            raizes.push(t.to_path_buf());
+            raizes.push(PathBuf::from("/dev"));
+        }
+        None => {
+            for p in ["/tmp", "/var/tmp", "/dev"] {
+                raizes.push(PathBuf::from(p));
+            }
+        }
+    }
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        // Caches de toolchain: `cargo`/`rustc` gravam aqui para compilar.
+        raizes.push(home.join(".cache"));
+        raizes.push(home.join(".cargo"));
+    }
+    if run_tmp.is_none()
+        && let Some(t) = std::env::var_os("TMPDIR")
+    {
+        raizes.push(PathBuf::from(t));
+    }
+    raizes
+}
+
+/// B1 — the private temp dir of one run (see [`spawn_and_capture`]).
+struct RunTmp(Option<tempfile::TempDir>);
+
+impl RunTmp {
+    /// Create `touring-run-*` under the daemon's own temp dir. Failure is loud
+    /// and degrades to the shared `/tmp` grant — never aborts the run.
+    fn create() -> Self {
+        match tempfile::Builder::new().prefix("touring-run-").tempdir() {
+            Ok(d) => Self(Some(d)),
+            Err(e) => {
+                tracing::warn!(
+                    "CEG sandbox: sem tmp privado para o run ({e}) — o filho herda o /tmp compartilhado"
+                );
+                Self(None)
+            }
+        }
+    }
+
+    fn path(&self) -> Option<&std::path::Path> {
+        self.0.as_ref().map(tempfile::TempDir::path)
+    }
+
+    /// Measure what the run left behind, then remove the dir — or keep it
+    /// under `TOURING_RUN_KEEP_TMP=1` (post-mortem), logging the path.
+    fn finish(self) -> TmpScan {
+        let Some(dir) = self.0 else {
+            return TmpScan::default();
+        };
+        let scan = scan_dir(dir.path(), file_size_cap());
+        if std::env::var_os("TOURING_RUN_KEEP_TMP").is_some() {
+            let kept = dir.keep();
+            tracing::info!(
+                "CEG sandbox: tmp do run mantido em {} ({} bytes)",
+                kept.display(),
+                scan.bytes
+            );
+        }
+        scan
+    }
+}
+
+/// What a run left in its private temp dir.
+#[derive(Debug, Default, PartialEq, Eq)]
+struct TmpScan {
+    /// Logical bytes, recursive.
+    bytes: u64,
+    /// Files whose size equals the file-size cap, relative to the dir.
+    capped: Vec<String>,
+}
+
+/// Walk `path` (symlinks not followed): logical bytes, and every file whose
+/// size is exactly `cap`. An unreadable or missing dir scans as empty.
+fn scan_dir(path: &std::path::Path, cap: Option<u64>) -> TmpScan {
+    fn walk(root: &std::path::Path, p: &std::path::Path, cap: Option<u64>, scan: &mut TmpScan) {
+        let Ok(rd) = std::fs::read_dir(p) else {
+            return;
+        };
+        for entry in rd.flatten() {
+            let Ok(meta) = entry.metadata() else {
+                continue;
+            };
+            if meta.is_dir() {
+                walk(root, &entry.path(), cap, scan);
+                continue;
+            }
+            scan.bytes += meta.len();
+            if meta.is_file() && cap == Some(meta.len()) {
+                let rel = entry.path();
+                let rel = rel.strip_prefix(root).unwrap_or(&rel);
+                scan.capped.push(rel.to_string_lossy().into_owned());
+            }
+        }
+    }
+    let mut scan = TmpScan::default();
+    walk(path, path, cap, &mut scan);
+    scan.capped.sort();
+    scan
+}
+
+/// As raízes que o filho pode LER.
+///
+/// SEG-1 (28/08, decisão de Gabriel: enumerar com gate de compat) — a leitura
+/// deixa de ser `/` inteiro e vira a lista dos caminhos que o trabalho toca:
+/// o sistema (`/usr`, `/lib*`, `/etc`…), os toolchains do usuário (mise, cargo,
+/// rustup), o estado do próprio Touring (`~/.claude/touring` — o spill/tee/SDK
+/// leem daqui) e `~/projects`. O que muda na prática: **arquivos de credencial
+/// (`~/.ssh`, `~/.aws`, `~/.netrc`, `~/.gnupg`) deixam de ser legíveis pelo
+/// sandbox** — o residual declarado abaixo (escrito 27/08) fecha. O vetor medido
+/// continua sendo escrita; leitura era o canal de exfiltração por dados locais.
+///
+/// SEG-2 (30/08, ordem de Gabriel: sessão analise negada ao ler estrutura de
+/// skills) — a **superfície de instrução** do agente entra como leitura:
+/// `~/.claude/{skills,rules,agents,commands}` + `~/.claude/CLAUDE.md`. São
+/// instruções versionadas, não segredos — e um programa de code mode que varre
+/// skills é exatamente a rajada que os gates G1/T3 fundem para dentro do
+/// sandbox; negar aqui empurrava o trabalho de volta às N chamadas atômicas.
+/// SEG-3 (27/10, ordem de Gabriel: "sandbox precisa ler ~/.claude") — entram
+/// `~/.claude/projects` (transcripts — o insumo da mineração de sessões para o
+/// portfólio de scripts; sem este grant o trabalho saía do sandbox via prefixo
+/// nativo, derrotando o code mode) e `~/.claude/hooks` (código versionado, mesma
+/// classe de skills/rules). O risco residual do SEG-1/SEG-2 (transcripts podem
+/// conter segredos colados em sessão) é coberto pela **rede deny-by-default no
+/// kernel** (Landlock V4 TCP + seccomp UDP): dado local lido não sai da máquina,
+/// e o stdout volta ao modelo — que já lê os mesmos arquivos via Bash (paridade
+/// de confiança, A11: contenção ≠ boundary).
+/// SEG-4 (27/10, ordem de Gabriel: "o sandbox precisa pegar o ~/.claude de forma
+/// obrigatória, não escondê-lo") — `~/.claude` entra INTEIRO, entrada por entrada
+/// ([`claude_home_read_roots`], enumerado a cada run, então o que nascer amanhã
+/// entra sem editar esta lista), e o próprio diretório é listável (raiz só de
+/// listagem). Ficam fora só os arquivos de credencial ([`is_claude_credential`]):
+/// `.credentials.json` (o token OAuth) e as cópias `settings.json.*` (precaução:
+/// cópias antigas escapam da checagem por conteúdo; medido 27/10, os backups atuais
+/// guardam só um marcador `REDACTED-…` e o `settings.json` vivo, zero segredos).
+/// `history.jsonl` entra: é a mesma classe dos transcripts do SEG-3, coberta pela
+/// rede negada no kernel. O landlock não nega um filho de diretório concedido —
+/// por isso o grant é por filho, e não `~/.claude` como raiz de leitura.
+///
+/// Fail-safe humano: `TOURING_SANDBOX_READ_WIDE=1` volta ao `/` de antes — use
+/// se uma ferramenta legítima quebrar por um root não enumerado (e reporte o
+/// caminho: ele entra na lista).
+fn sandbox_read_roots() -> Vec<PathBuf> {
+    if std::env::var_os("TOURING_SANDBOX_READ_WIDE").is_some() {
+        tracing::warn!(
+            "CEG sandbox: leitura AMPLA (/) ligada por TOURING_SANDBOX_READ_WIDE — \
+             credenciais em disco voltam a ser legíveis pelo sandbox"
+        );
+        return vec![PathBuf::from("/")];
+    }
+    let mut roots: Vec<PathBuf> = [
+        "/usr", "/lib", "/lib64", "/bin", "/sbin", "/etc", "/opt", "/dev", "/proc", "/sys", "/tmp",
+        "/var/tmp",
+    ]
+    .iter()
+    .map(PathBuf::from)
+    .filter(|p| p.exists())
+    .collect();
+    if let Some(home) = std::env::var_os("HOME").map(PathBuf::from) {
+        // toolchains do usuário (medido 28/08: node vem do mise; rustup guarda
+        // os toolchains reais) + o estado do Touring (spill/tee/SDK) + projetos
+        // + a superfície de instrução do agente (SEG-2, 30/08 — subcaminhos
+        // explícitos de ~/.claude; o diretório inteiro NUNCA entra: settings,
+        // credenciais e transcripts ficam fora do alcance do kernel).
+        for sub in [
+            ".cache",
+            ".cargo",
+            ".rustup",
+            ".local/share/mise",
+            // O shim do mise lê a própria config e o registro de confiança antes
+            // de executar o interpretador: com `~/.config/mise/config.toml`
+            // presente (criado em 15/09/2026), `node` no sandbox saía 1 com
+            // "Permission denied" e o `test_js_execution` reprovou. Subcaminhos
+            // explícitos — `~/.config` inteiro traria `gh/hosts.yml` (token).
+            ".config/mise",
+            ".local/state/mise",
+            // V0e6 (09/10/2026): o git lê o excludesFile global
+            // (`~/.config/git/ignore`) FORA da config — o GIT_CONFIG_GLOBAL
+            // apontado a /dev/null (G-C, 30/08) não o cobre, e o "fatal:
+            // cannot use … as an exclude file" saía como exit 0 + saída vazia.
+            // Só o ARQUIVO entra: `config` ao lado pode conter credencial.
+            ".config/git/ignore",
+            ".local/share/uv",
+            ".nvm",
+            ".pyenv",
+            "projects",
+        ] {
+            let p = home.join(sub);
+            if p.exists() {
+                roots.push(p);
+            }
+        }
+        // SEG-4 (27/10): every entry of ~/.claude but the credential files.
+        roots.extend(claude_home_read_roots(&home.join(".claude")));
+    }
+    roots
+}
+
+/// SEG-4 — the read roots `~/.claude` contributes: each entry except the credential
+/// files, sorted (a stable ruleset). Missing directory → none.
+///
+/// Hardening (security review of e2fa91ff): a top-level symlink whose target leaves
+/// `~/.claude` is skipped (landlock grants the RESOLVED path, so a link to `~/.ssh` would
+/// open it), and a settings file whose `env` carries a secret-shaped value is skipped for
+/// this run — the grant follows the content, not only the name.
+fn claude_home_read_roots(claude: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(claude) else {
+        return Vec::new();
+    };
+    let home = std::fs::canonicalize(claude).unwrap_or_else(|_| claude.to_path_buf());
+    let mut roots: Vec<PathBuf> = entries
+        .flatten()
+        .filter(|e| !is_claude_credential(&e.file_name().to_string_lossy()))
+        .filter(|e| !escapes_via_symlink(&e.path(), &home))
+        .filter(|e| !settings_env_carries_secret(&e.path()))
+        .map(|e| e.path())
+        .collect();
+    roots.sort();
+    roots
+}
+
+/// SEG-4 — entries of `~/.claude` that hold credentials and never enter the sandbox: the
+/// OAuth token file, every copy of `settings.json` (old copies are outside the content
+/// check of [`settings_env_carries_secret`]; today they hold only a `REDACTED-…` marker),
+/// and any name that says credential/secret/token/oauth/password/apikey or is a key or
+/// certificate store — so a credential file created tomorrow stays out without editing
+/// this list. Bare `key` and `auth` are NOT families: `keybindings.json`,
+/// `daemon-auth-status.json` and `mcp-needs-auth-cache.json` are not credentials.
+fn is_claude_credential(name: &str) -> bool {
+    const FAMILIES: [&str; 9] = [
+        "credential",
+        "secret",
+        "token",
+        "oauth",
+        "passw",
+        "apikey",
+        "api_key",
+        "api-key",
+        "private",
+    ];
+    const KEY_FILES: [&str; 9] = [
+        ".env",
+        ".pem",
+        ".key",
+        ".p12",
+        ".pfx",
+        ".crt",
+        ".cert",
+        ".keystore",
+        ".kdbx",
+    ];
+    let lower = name.to_ascii_lowercase();
+    lower.starts_with("settings.json.")
+        || FAMILIES.iter().any(|w| lower.contains(w))
+        || KEY_FILES.iter().any(|s| lower.ends_with(s))
+}
+
+/// SEG-4 hardening — a symlink whose resolved target is outside `home` (canonical
+/// `~/.claude`). A dangling link resolves to nothing and is skipped too.
+fn escapes_via_symlink(path: &Path, home: &Path) -> bool {
+    if !path.is_symlink() {
+        return false;
+    }
+    std::fs::canonicalize(path).map_or(true, |t| !t.starts_with(home))
+}
+
+/// SEG-4 hardening — `settings.json` / `settings.local.json` enter only while their `env`
+/// holds no secret-shaped value (measured 27/10: the live file had none). Unreadable or
+/// malformed → skipped (fail closed). Other entries are not inspected.
+fn settings_env_carries_secret(path: &Path) -> bool {
+    let name = path.file_name().map(|n| n.to_string_lossy().into_owned());
+    if !matches!(
+        name.as_deref(),
+        Some("settings.json" | "settings.local.json")
+    ) {
+        return false;
+    }
+    let Some(v) = std::fs::read_to_string(path)
+        .ok()
+        .and_then(|t| serde_json::from_str::<serde_json::Value>(&t).ok())
+    else {
+        return true;
+    };
+    let carries = v.get("env").and_then(|e| e.as_object()).is_some_and(|env| {
+        env.iter()
+            .any(|(k, val)| val.as_str().is_some_and(|s| looks_like_secret(k, s)))
+    });
+    if carries {
+        tracing::warn!(
+            "CEG sandbox: {} fora das raízes neste run — o `env` carrega um valor com forma \
+             de segredo",
+            path.display()
+        );
+    }
+    carries
+}
+
+/// A value shaped like a credential: a known token prefix, or a long space-free value
+/// under a name that says key/token/secret/password (`TOKENIZERS_PARALLELISM=false` is
+/// not one: the value is short).
+fn looks_like_secret(name: &str, value: &str) -> bool {
+    const PREFIXES: [&str; 6] = ["sk-", "AIza", "ghp_", "gho_", "xox", "eyJ"];
+    if value.len() >= 20 && PREFIXES.iter().any(|p| value.starts_with(p)) {
+        return true;
+    }
+    let upper = name.to_ascii_uppercase();
+    let named = ["KEY", "TOKEN", "SECRET", "PASSW", "CREDENTIAL"]
+        .iter()
+        .any(|w| upper.contains(w));
+    named && value.len() >= 16 && !value.contains(char::is_whitespace) && !value.starts_with('$')
+}
+
+/// SEG-4 — directories the sandbox may LIST without reading what is beneath them: the
+/// `~/.claude` whose children [`claude_home_read_roots`] grants one by one, so a walk of
+/// `~/.claude` sees every name and still cannot open `.credentials.json`.
+fn sandbox_list_roots() -> Vec<PathBuf> {
+    if std::env::var_os("TOURING_SANDBOX_READ_WIDE").is_some() {
+        return Vec::new();
+    }
+    std::env::var_os("HOME")
+        .map(|h| PathBuf::from(h).join(".claude"))
+        .filter(|p| p.is_dir())
+        .into_iter()
+        .collect()
+}
+
+/// S24 (plan 2026-09-25) — the ONE answer to "can a sandboxed program reach `path`?",
+/// derived from the very roots [`sandbox_read_roots`] hands to the landlock ruleset.
+///
+/// D8 guard: the code-mode gate that routes work INTO the sandbox (`cli_suggester`) asks
+/// this, so it never rewrites or denies toward `touring run` a command the kernel will
+/// refuse — measured 25/09: `.touring/bin/touring` resolves into `~/.touring/toolchains`
+/// and `~/.claude/settings.json` is outside by design, so the rewritten run failed with
+/// "Permission denied". Symlinks are followed (landlock judges the resolved path).
+pub fn sandbox_can_reach(path: &Path) -> bool {
+    let roots: Vec<PathBuf> = sandbox_read_roots()
+        .into_iter()
+        .map(|r| std::fs::canonicalize(&r).unwrap_or(r))
+        .collect();
+    path_within_roots(path, &roots)
+}
+
+fn path_within_roots(path: &Path, roots: &[PathBuf]) -> bool {
+    let resolved = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf());
+    roots.iter().any(|r| resolved.starts_with(r))
+}
+
+/// G10ROTA (30.4.97) — the ONE answer to "can a sandboxed program WRITE `path`?", derived from the
+/// very roots [`apply_landlock_to`] hands to the landlock ruleset (via [`sandbox_write_roots_at`]).
+///
+/// `cwd` is the project the run will have: the caller is the hook gate, which lives in the daemon
+/// and so cannot use its own cwd. Measured 10/10/2026: the G10 named `touring run --lang python`
+/// for a program that writes (the Sandboxed profile denies it) and, once the Trusted route is the
+/// right one, it still only holds INSIDE the workspace — the kernel grants writes to the project
+/// root, `~/.cache`, `~/.cargo`, `/dev` and the run's private tmp, nothing else.
+///
+/// The private tmp is deliberately NOT a destination: it vanishes with the run, so a literal path
+/// in `/tmp` is never somewhere a run can leave a file. `path` need not exist (it is usually about
+/// to be created): the deepest existing ancestor is resolved, so symlinked parents and `..` cannot
+/// smuggle a destination across the boundary.
+#[must_use]
+pub fn sandbox_can_write(cwd: &Path, path: &Path) -> bool {
+    let no_run_tmp = PathBuf::from("/\0touring-run-tmp");
+    let roots: Vec<PathBuf> = sandbox_write_roots_at(Some(cwd), Some(&no_run_tmp))
+        .into_iter()
+        .filter(|r| r != &no_run_tmp)
+        .map(|r| canonical_lenient(&r))
+        .collect();
+    let target = canonical_lenient(&lexical_normalize(path));
+    roots.iter().any(|r| target.starts_with(r))
+}
+
+/// `.` and `..` resolved by component, without touching the disk.
+fn lexical_normalize(p: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in p.components() {
+        match c {
+            std::path::Component::ParentDir => {
+                out.pop();
+            }
+            std::path::Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// `canonicalize` that tolerates a path that does not exist yet: resolves the deepest EXISTING
+/// ancestor and re-appends the missing tail.
+fn canonical_lenient(p: &Path) -> PathBuf {
+    let mut tail: Vec<std::ffi::OsString> = Vec::new();
+    let mut cur = p.to_path_buf();
+    loop {
+        if let Ok(c) = std::fs::canonicalize(&cur) {
+            return tail.iter().rev().fold(c, |acc, seg| acc.join(seg));
+        }
+        match (
+            cur.file_name().map(std::ffi::OsStr::to_os_string),
+            cur.parent(),
+        ) {
+            (Some(name), Some(parent)) => {
+                tail.push(name);
+                cur = parent.to_path_buf();
+            }
+            _ => return p.to_path_buf(),
+        }
+    }
+}
+
+/// Confina o filho pelo landlock LSM: escrita nas raízes de projeto/temp, e
+/// **nenhuma** conexão TCP.
+///
+/// Fecha dois furos medidos por execução em 27/08/2026:
+///
+/// 1. **Filesystem.** O caminho do code mode (`execute_in_sandbox` →
+///    [`spawn_and_capture`]) aplicava apenas `rlimit`. O `run_supervised` (X8)
+///    era o único a montar ruleset, e não tinha chamador de produção — um
+///    mecanismo de kernel inteiro sem consumidor.
+/// 2. **Rede.** Um conjunto VAZIO de portas concedidas deixa o acesso
+///    *declarado e não autorizado*, então todo `connect`/`bind` TCP é negado
+///    pelo kernel. A negação de rede deixa de depender de reconhecer um token
+///    no fonte e passa a valer mesmo para o binário que o classificador não
+///    conhece.
+///
+/// Aplicado no funil único por onde todo caminho de execução passa
+/// (interpretado, Go, Rust), do mesmo modo que `TOURING_RUN_ID`.
+///
+/// Degradação é **ruidosa**: se o ruleset não puder ser montado, o run segue
+/// sem confinamento e o log diz isso — nunca em silêncio. Kill switch humano:
+/// `TOURING_SANDBOX_LANDLOCK_DISABLED=1`.
+#[cfg(target_os = "linux")]
+fn apply_landlock_to(
+    cmd: &mut Command,
+    connect_tcp_ports: &[u16],
+    extra_write_file: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+    extra_write_dirs: &[PathBuf],
+) {
+    if std::env::var_os("TOURING_SANDBOX_LANDLOCK_DISABLED").is_some() {
+        tracing::warn!(
+            "CEG sandbox: confinamento landlock DESLIGADO por \
+             TOURING_SANDBOX_LANDLOCK_DISABLED — o filho pode escrever fora do projeto"
+        );
+        return;
+    }
+    let leitura = sandbox_read_roots();
+    let mut escrita = sandbox_write_roots_for_run(run_tmp);
+    escrita.extend(extra_write_dirs.iter().cloned());
+    // F4 P2 — write grant on the mirror FILE alone (never its dir: the
+    // daemon's own state lives beside it). `path_beneath_rules` reduces the
+    // rights to what the node type supports, so a file path is legitimate.
+    if let Some(f) = extra_write_file {
+        escrita.push(f.to_path_buf());
+    }
+    // Cross-audit 27/08 (QW-5): IPC scope LIGADO — kernel 7.1 ≥ 6.12 suporta.
+    // Sinais para processos fora do domínio (ex.: o daemon, mesmo UID) passam a
+    // ser confinados pelo kernel (antes: só DAC); sockets unix por PATH — a base
+    // do --orchestrate — NÃO são afetados (o escopo cobre só os ABSTRACT).
+    // NET-1 (28/08): as portas de `connect_tcp_ports` viram regras NetPort;
+    // vazio = deny-all (o default de sempre).
+    let ruleset = match crate::capability::enforce_linux::build_landlock_ruleset_with_listing(
+        &leitura,
+        &sandbox_list_roots(),
+        &escrita,
+        &[],
+        connect_tcp_ports,
+        true,
+    ) {
+        Ok(rs) => rs,
+        Err(e) => {
+            tracing::error!(
+                "CEG sandbox: falha ao montar o ruleset landlock ({e}) — \
+                 o filho será lançado SEM confinamento de filesystem/rede"
+            );
+            return;
+        }
+    };
+    let mut uma_vez = Some(ruleset);
+    // SAFETY: a closure roda pós-`fork`, pré-`exec`, no filho. `restrict_self`
+    // é o par de syscalls `prctl` + `landlock_restrict_self` — sem alocação,
+    // async-signal-safe, como o contexto pós-fork exige. Toda a alocação (a
+    // criação do ruleset e as regras) já aconteceu no pai, acima.
+    unsafe {
+        cmd.pre_exec(move || {
+            if let Some(rs) = uma_vez.take() {
+                rs.restrict_current_thread()?;
+            }
+            Ok(())
+        });
+    }
+}
+
+/// Sem landlock fora do Linux: o confinamento é uma LSM do kernel Linux.
+#[cfg(not(target_os = "linux"))]
+fn apply_landlock_to(
+    cmd: &mut Command,
+    connect_tcp_ports: &[u16],
+    extra_write_file: Option<&std::path::Path>,
+    run_tmp: Option<&std::path::Path>,
+    extra_write_dirs: &[PathBuf],
+) {
+    let _ = (
+        cmd,
+        connect_tcp_ports,
+        extra_write_file,
+        run_tmp,
+        extra_write_dirs,
+    );
+}
+
+/// SEG-1 (28/08) — registra o `pre_exec` que aplica o filtro seccomp de UDP
+/// ([`build_udp_deny_bpf`]). O BPF é construído no PAI (aloca); no filho só
+/// roda `prctl`+`seccomp(2)`. Degradação ruidosa como a do Landlock; kill
+/// switch humano: `TOURING_SANDBOX_SECCOMP_DISABLED=1`.
+#[cfg(target_os = "linux")]
+fn apply_seccomp_udp_to(cmd: &mut Command) {
+    if std::env::var_os("TOURING_SANDBOX_SECCOMP_DISABLED").is_some() {
+        tracing::warn!(
+            "CEG sandbox: deny de UDP (seccomp) DESLIGADO por \
+             TOURING_SANDBOX_SECCOMP_DISABLED — datagramas saem do sandbox"
+        );
+        return;
+    }
+    let Some(bpf) = crate::capability::enforce_linux::build_udp_deny_bpf() else {
+        tracing::error!(
+            "CEG sandbox: falha ao construir o filtro seccomp de UDP — \
+             o filho será lançado SEM o deny de datagramas"
+        );
+        return;
+    };
+    // SAFETY: a closure roda pós-`fork`, pré-`exec`, no filho.
+    // `apply_filter` é `prctl(PR_SET_NO_NEW_PRIVS)` + `seccomp(2)` — sem
+    // alocação (o BPF já existe), async-signal-safe.
+    unsafe {
+        cmd.pre_exec(move || {
+            seccompiler::apply_filter(&bpf)
+                .map(|_| ())
+                .map_err(|e| std::io::Error::other(format!("seccomp udp deny: {e}")))
+        });
+    }
+}
+
+/// Sem seccomp fora do Linux — o filtro é BPF do kernel Linux.
+#[cfg(not(target_os = "linux"))]
+fn apply_seccomp_udp_to(cmd: &mut Command) {
+    let _ = cmd;
 }
 
 /// P4.1 — spawn a fully-built command and capture its bounded output.
@@ -326,9 +1155,48 @@ pub async fn execute_in_sandbox(
 /// sandboxed subprocesses live at once; under saturation the acquire queues
 /// (backpressure) instead of spawning.
 pub(crate) async fn spawn_and_capture(
-    mut cmd: Command,
+    cmd: Command,
     config: &SandboxConfig,
 ) -> Result<SandboxResult, SandboxError> {
+    // B1 (2026-09-02): a PRIVATE temp dir per run. The child's `TMPDIR` points
+    // at it, Landlock grants it INSTEAD of the shared `/tmp`, and it is
+    // measured and removed when the run ends (`TOURING_RUN_KEEP_TMP=1` keeps
+    // it for a post-mortem, path logged). Every execution path — interpreted,
+    // Go, Rust — funnels through here, so one site covers them all.
+    let run_tmp = RunTmp::create();
+    let mut result = spawn_and_capture_in(cmd, config, run_tmp.path()).await;
+    let scan = run_tmp.finish();
+    if let Ok(r) = result.as_mut() {
+        r.tmp_bytes = scan.bytes;
+        r.capped_files = scan.capped;
+    }
+    result
+}
+
+async fn spawn_and_capture_in(
+    mut cmd: Command,
+    config: &SandboxConfig,
+    run_tmp: Option<&std::path::Path>,
+) -> Result<SandboxResult, SandboxError> {
+    // B1 — set AFTER `apply_credential_whitelist` (which declares `/tmp`), so
+    // the private dir wins: tools that honour `TMPDIR` (python `tempfile`,
+    // mktemp, LibreOffice…) land inside it by construction.
+    if let Some(t) = run_tmp {
+        cmd.env("TMPDIR", t);
+    }
+    // B1 — the compiled-language runners (Go, Rust) build inside a `TempDir`
+    // of their own and run with it as cwd; that dir left the grant together
+    // with `/tmp`, so it is granted back EXPLICITLY (only when it lives under
+    // the system temp dir — a project cwd is already the project root grant).
+    let mut extra_write_dirs: Vec<PathBuf> = config.extra_write_roots.clone();
+    if let Some(d) = cmd
+        .as_std()
+        .get_current_dir()
+        .filter(|d| d.starts_with(std::env::temp_dir()))
+        .map(std::path::Path::to_path_buf)
+    {
+        extra_write_dirs.push(d);
+    }
     // P4.4 — bound the daemon's live subprocesses: take an exec-pool slot
     // before the spawn and hold it (`_pool_slot`) for the whole capture; it
     // releases on every return path. Under saturation `acquire` queues for the
@@ -338,62 +1206,226 @@ pub(crate) async fn spawn_and_capture(
         .await
         .map_err(|e| SandboxError::Spawn(format!("{e}")))?;
 
+    // C2-W0 S-5.2 — export the run identity to the child. Every execution
+    // path (interpreted, Go, Rust compile+run) funnels through here, so one
+    // site covers them all; explicit `.env` set after `env_clear` survives it.
+    if let Some(run_id) = &config.run_id {
+        cmd.env("TOURING_RUN_ID", run_id);
+    }
+
+    // F4 P2 — export the signal-mirror destination and pre-create the file so
+    // the FILE-level Landlock rule (below) targets an existing inode; the
+    // parent dir stays read-only. A failure is LOUD in the log but never
+    // aborts the run — the mirror is observability, not correctness.
+    if let Some(mirror) = &config.sdk_signal_mirror {
+        if let Some(parent) = mirror.parent() {
+            let _ = std::fs::create_dir_all(parent);
+        }
+        match std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(mirror)
+        {
+            Ok(_) => {
+                cmd.env("TOURING_SDK_SIGNAL_MIRROR", mirror);
+            }
+            Err(e) => tracing::warn!(
+                "CEG sandbox: signal mirror {} indisponível ({e}) — record_hook_call ficará mudo",
+                mirror.display()
+            ),
+        }
+    }
+
+    // Auditoria cruzada 27/08/2026 — mesmo funil, mesma razão: confinar aqui
+    // cobre interpretado, Go e Rust de uma vez. Antes disto o caminho do code
+    // mode aplicava só `rlimit`, e a linha de log "landlock: KernelEnforced"
+    // vinha de um probe de DISPONIBILIDADE, não de um ruleset vivo.
+    apply_landlock_to(
+        &mut cmd,
+        &config.allow_net_ports,
+        config.sdk_signal_mirror.as_deref(),
+        run_tmp,
+        &extra_write_dirs,
+    );
+    // SEG-1 (28/08): UDP negado no kernel (seccomp) — o canal que o Landlock
+    // (FS+TCP) não modela. pre_exec empilha: rlimit, landlock e seccomp rodam
+    // em ordem de registro, cada um independente do anterior.
+    apply_seccomp_udp_to(&mut cmd);
+
     cmd.stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
+    // QW-4 (cross-audit 27/08): stdin do programa — só vira pipe quando o
+    // chamador entregou bytes (`--input`); senão segue herdado/fechado.
+    if config.stdin_bytes.is_some() {
+        cmd.stdin(std::process::Stdio::piped());
+    }
 
     let mut child = cmd
         .spawn()
         .map_err(|e| SandboxError::Spawn(format!("{e}")))?;
 
     let stdout_handle = child.stdout.take();
+    // W0 d0 — take BOTH pipes: before 2026-08-23 stderr was piped but never
+    // drained, so the channel was lost and a chatty-stderr child blocked on a
+    // full 64 KiB pipe until the timeout path killed it.
+    let stderr_handle = child.stderr.take();
+    // QW-4 — o pipe de stdin só existe quando `stdin_bytes` veio (acima).
+    let stdin_handle = child.stdin.take();
+    let stdin_bytes = config.stdin_bytes.clone();
     let timeout_dur = Duration::from_millis(config.timeout_ms);
     let max_bytes = config.max_output_bytes as usize;
 
-    let read_fut = async move {
-        let mut buf: Vec<u8> = Vec::with_capacity(8192);
+    // Shared bounded reader for either stdio pipe. OUT-1: the capture buffer
+    // is a SHARED sink so the timeout arms can salvage the partial output (a
+    // killed run's partial print is the feedback the retry needs), and `tee`
+    // mirrors each chunk to the parent's stderr as it arrives (the JSON
+    // envelope keeps owning stdout).
+    async fn drain_pipe<R: tokio::io::AsyncRead + Unpin>(
+        handle: Option<R>,
+        max_bytes: usize,
+        sink: std::sync::Arc<std::sync::Mutex<Vec<u8>>>,
+        tee: bool,
+    ) -> bool {
         let mut truncated = false;
-        if let Some(mut out) = stdout_handle {
+        if let Some(mut out) = handle {
             let mut chunk = vec![0u8; 8192];
             loop {
-                if buf.len() >= max_bytes {
+                if sink.lock().map(|b| b.len() >= max_bytes).unwrap_or(true) {
                     truncated = true;
                     break;
                 }
                 match out.read(&mut chunk).await {
                     Ok(0) => break,
-                    Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                    Ok(n) => {
+                        if let Ok(mut buf) = sink.lock() {
+                            buf.extend_from_slice(&chunk[..n]);
+                        }
+                        if tee {
+                            use tokio::io::AsyncWriteExt;
+                            let mut err = tokio::io::stderr();
+                            let _ = err.write_all(&chunk[..n]).await;
+                            let _ = err.flush().await;
+                        }
+                    }
                     Err(_) => break,
                 }
             }
         }
-        (buf, truncated)
+        truncated
+    }
+
+    /// OUT-1 — drain a shared sink into an owned buffer (timeout salvage and
+    /// the happy path read the same way).
+    fn take_buf(sink: &std::sync::Arc<std::sync::Mutex<Vec<u8>>>) -> Vec<u8> {
+        sink.lock()
+            .map(|mut b| std::mem::take(&mut *b))
+            .unwrap_or_default()
+    }
+
+    // QW-4 — write do stdin concorrente aos drains: um filho que não lê
+    // destrava o write com BrokenPipe ao sair; o byte count não entra no
+    // outcome (o journal mede a saída, não a entrada).
+    async fn write_stdin(handle: Option<tokio::process::ChildStdin>, bytes: Option<Vec<u8>>) {
+        if let (Some(mut w), Some(b)) = (handle, bytes) {
+            use tokio::io::AsyncWriteExt;
+            let _ = w.write_all(&b).await;
+        }
+    }
+
+    // Drain the two pipes CONCURRENTLY under one wall-clock budget — reading
+    // them sequentially would reintroduce the full-pipe deadlock on whichever
+    // channel is read second.
+    let stdout_sink = std::sync::Arc::new(std::sync::Mutex::new(Vec::with_capacity(8192)));
+    let stderr_sink = std::sync::Arc::new(std::sync::Mutex::new(Vec::with_capacity(8192)));
+    let read_fut = async {
+        tokio::join!(
+            drain_pipe(
+                stdout_handle,
+                max_bytes,
+                std::sync::Arc::clone(&stdout_sink),
+                config.stream_output,
+            ),
+            drain_pipe(
+                stderr_handle,
+                max_bytes,
+                std::sync::Arc::clone(&stderr_sink),
+                config.stream_output,
+            ),
+            write_stdin(stdin_handle, stdin_bytes),
+        )
     };
 
-    let (output_bytes, was_truncated) = match timeout(timeout_dur, read_fut).await {
-        Ok(pair) => pair,
-        Err(_) => {
-            let _ = child.kill().await;
-            return timeout_outcome(config);
+    // W1 d3/S-1.3 — busy-time budget: poll the child's own utime+stime from
+    // /proc every 100ms. Measured in the SUBSTRATE, not host bookkeeping, so
+    // a hot loop expires the budget while an await-bound child accrues ~0.
+    let child_pid = child.id();
+    let busy_fut = async {
+        match (child_pid, config.compute_ms) {
+            (Some(pid), Some(limit_ms)) => loop {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                match proc_busy_ms(pid) {
+                    Some(busy) if busy > limit_ms => return busy,
+                    Some(_) => {}
+                    // /proc entry gone: the child already exited — let the
+                    // read future finish; never resolve this branch.
+                    None => std::future::pending::<()>().await,
+                }
+            },
+            _ => std::future::pending().await,
         }
     };
+
+    let (was_truncated, stderr_truncated, ()) = tokio::select! {
+        pair = read_fut => pair,
+        _ = tokio::time::sleep(timeout_dur) => {
+            let _ = child.kill().await;
+            // OUT-1 — the partial output travels with the sentinel: what the
+            // program printed before the kill is the retry's feedback.
+            return timeout_outcome_with_cause(
+                config, TimeoutCause::Wall, take_buf(&stdout_sink), take_buf(&stderr_sink),
+            );
+        }
+        busy = busy_fut => {
+            let _ = child.kill().await;
+            return timeout_outcome_with_cause(
+                config, TimeoutCause::Busy(busy), take_buf(&stdout_sink), take_buf(&stderr_sink),
+            );
+        }
+    };
+    let output_bytes = take_buf(&stdout_sink);
+    let stderr_bytes = take_buf(&stderr_sink);
 
     let exit_status = match timeout(Duration::from_millis(500), child.wait()).await {
         Ok(Ok(s)) => s,
         _ => {
             let _ = child.kill().await;
-            return timeout_outcome(config);
+            return timeout_outcome_with_cause(
+                config,
+                TimeoutCause::Wall,
+                output_bytes,
+                stderr_bytes,
+            );
         }
     };
     let exit_code = exit_status.code().unwrap_or(-1);
+    let signal = std::os::unix::process::ExitStatusExt::signal(&exit_status);
 
     let content_hash = hash_output(&output_bytes);
     let stored_path = store_output(&content_hash, &output_bytes).ok();
 
-    // NEW-2 — Failure tee mode: persist FULL output to tee/ when subprocess
-    // returned non-zero. Skips on success path to avoid storage bloat.
-    if exit_code != 0 && !output_bytes.is_empty() && store_tee(&content_hash, &output_bytes).is_ok()
-    {
-        touring_hooks_shared::gate_metrics::record_sandbox_tee_persisted();
+    // NEW-2 + W0 d0 — Failure tee mode: persist FULL output (both channels)
+    // to tee/ when subprocess returned non-zero. Skips on success path to
+    // avoid storage bloat. stderr rides in the same tee log under a marker
+    // line so `read_tee`/`ctx_tee_retrieve` keep working unchanged.
+    if exit_code != 0 && (!output_bytes.is_empty() || !stderr_bytes.is_empty()) {
+        let mut tee_buf = output_bytes.clone();
+        if !stderr_bytes.is_empty() {
+            tee_buf.extend_from_slice(b"\n--- stderr ---\n");
+            tee_buf.extend_from_slice(&stderr_bytes);
+        }
+        if store_tee(&content_hash, &tee_buf).is_ok() {
+            touring_hooks_shared::gate_metrics::record_sandbox_tee_persisted();
+        }
     }
 
     // C5 — build the inline metadata-first digest from the captured buffer
@@ -411,24 +1443,151 @@ pub(crate) async fn spawn_and_capture(
         content_hash,
         stored_path,
         summary,
+        stderr: String::from_utf8_lossy(&stderr_bytes).to_string(),
+        stderr_truncated,
+        tmp_bytes: 0,
+        signal,
+        capped_files: Vec::new(),
     })
 }
 
-/// Resolves what to return when the sandbox subprocess exceeds `timeout_ms`.
+/// W1 d3/S-1.3 — which budget the subprocess exhausted.
+#[derive(Debug, Clone, Copy)]
+enum TimeoutCause {
+    /// Exceeded `timeout_ms` of wall-clock time.
+    Wall,
+    /// Exceeded `compute_ms` of CPU busy time; payload = measured busy ms.
+    Busy(u64),
+}
+
+/// W1 d3/S-1.3 — the child's accumulated CPU time (utime+stime) in ms, read
+/// from `/proc/<pid>/stat`. `None` when the entry is gone (process exited) or
+/// unparsable. Linux-only; other targets always return `None`, which disables
+/// the busy budget (wall clock still applies).
+fn proc_busy_ms(pid: u32) -> Option<u64> {
+    #[cfg(target_os = "linux")]
+    {
+        let stat = std::fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        // Fields after the comm — split at the LAST ')' because comm may
+        // itself contain spaces or parentheses.
+        let rest = stat.rsplit_once(')')?.1;
+        let fields: Vec<&str> = rest.split_whitespace().collect();
+        // In the post-comm slice: state=0 … utime=11, stime=12 (0-indexed).
+        let utime: u64 = fields.get(11)?.parse().ok()?;
+        let stime: u64 = fields.get(12)?.parse().ok()?;
+        // USER_HZ is 100 on every mainstream Linux (x86/arm); a wrong constant
+        // here skews the budget linearly, never unsafely.
+        const CLK_TCK: u64 = 100;
+        Some((utime + stime) * 1000 / CLK_TCK)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = pid;
+        None
+    }
+}
+
+/// Resolves what to return when the sandbox subprocess exceeds a budget, with
+/// the exhausted budget named. When `config.fallback_on_timeout = true` we
+/// synthesize a sentinel [`SandboxResult`] (exit_code = -2, was_truncated =
+/// true) so callers can detect the situation without an Err short-circuiting
+/// the entire hook chain; `false` propagates [`SandboxError::Timeout`].
 ///
-/// When `config.fallback_on_timeout = true` we synthesize a sentinel
-/// [`SandboxResult`] (exit_code = -2, was_truncated = true, empty hash) so
-/// callers can detect the situation without an Err short-circuiting the
-/// entire hook chain. When `false`, propagate as [`SandboxError::Timeout`].
-fn timeout_outcome(config: &SandboxConfig) -> Result<SandboxResult, SandboxError> {
+/// The stderr message
+/// distinguishes a wall-clock expiry from a CPU busy-time expiry so the model
+/// can pick the right correction (less work vs. more waiting headroom).
+///
+/// V-10 (31/10/2026) — a lição de um timeout de parede, em UMA redação.
+///
+/// O sandbox escreve essa lição no stderr que devolve
+/// (`timeout_outcome_with_cause`), e o consumidor que tem que MOSTRÁ-la ao
+/// modelo (o `failure.message` do motor) precisa mostrar as MESMAS palavras:
+/// duas redações divergem, e a que diverge é justamente a que o modelo lê.
+/// Medido no binário 30.4.101 (31/10): com o filho escrevendo no stderr antes
+/// de o relógio estourar, `failure.message` era a linha do filho e o
+/// orçamento de 30000ms sumia do campo.
+pub fn timeout_teach_message(timeout_ms: u64) -> String {
+    format!(
+        "timeout: process exceeded the {timeout_ms}ms wall-clock budget and was killed \
+         (exit_code -2 is the timeout sentinel). Reduce the work per run, or \
+         raise the budget with `--timeout-ms <N>` (max 600000)."
+    )
+}
+
+/// V-10 (31/10/2026) — a lição de um timeout de CPU ociosa, em UMA redação
+/// (a mesma regra de fonte única de [`timeout_teach_message`]).
+pub fn timeout_busy_teach_message(busy_ms: u64, compute_ms: u64) -> String {
+    format!(
+        "timeout: process consumed {busy_ms}ms of CPU busy time, over the {compute_ms}ms \
+         compute budget, and was killed (exit_code -2 is the timeout sentinel). A hot \
+         loop or heavy computation — reduce the work per run; waiting on I/O \
+         does not consume this budget."
+    )
+}
+
+/// OUT-1 — the partial stdout/stderr captured before the kill ride along:
+/// the sentinel used to arrive empty-handed, so a run that printed 90% of its
+/// result before expiring taught the retry nothing.
+///
+/// V-10 (31/10/2026) — o stderr do timeout é `stderr parcial do filho + "\n" +
+/// lição`.
+///
+/// A ordem é o que permite a lição ser recuperada: ela é a ÚLTIMA linha, e a
+/// PRIMEIRA é do filho. Quem lê a PRIMEIRA perde o orçamento — foi o defeito
+/// medido no V0e (39 das 606 falhas eram mensagens que deviam teach a rota).
+fn timeout_outcome_with_cause(
+    config: &SandboxConfig,
+    cause: TimeoutCause,
+    partial_stdout: Vec<u8>,
+    partial_stderr: Vec<u8>,
+) -> Result<SandboxResult, SandboxError> {
     if config.fallback_on_timeout {
+        // W0 d0/S-0.3 — the sentinel exit -2 used to arrive unlabeled; a
+        // model (or human) reading the result had no way to tell a timeout
+        // from a crash. The message teaches the correction.
+        let stderr = match cause {
+            TimeoutCause::Wall => timeout_teach_message(config.timeout_ms),
+            TimeoutCause::Busy(busy) => {
+                timeout_busy_teach_message(busy, config.compute_ms.unwrap_or(0))
+            }
+        };
+        // OUT-1 — salvage: hash/store/summarize what WAS printed, and lead the
+        // stderr with the child's own partial stderr before the teach message.
+        let content_hash = if partial_stdout.is_empty() {
+            String::new()
+        } else {
+            hash_output(&partial_stdout)
+        };
+        let stored_path = if partial_stdout.is_empty() {
+            None
+        } else {
+            store_output(&content_hash, &partial_stdout).ok()
+        };
+        let summary = if partial_stdout.is_empty() {
+            OutputSummary::empty(-2)
+        } else {
+            summarize_output(&String::from_utf8_lossy(&partial_stdout), -2, true)
+        };
+        let stderr = if partial_stderr.is_empty() {
+            stderr
+        } else {
+            format!(
+                "{}\n{stderr}",
+                String::from_utf8_lossy(&partial_stderr).trim_end()
+            )
+        };
         Ok(SandboxResult {
             exit_code: -2,
-            output_bytes: 0,
+            output_bytes: partial_stdout.len() as u64,
             was_truncated: true,
-            content_hash: String::new(),
-            stored_path: None,
-            summary: OutputSummary::empty(-2),
+            content_hash,
+            stored_path,
+            summary,
+            stderr,
+            stderr_truncated: false,
+            tmp_bytes: 0,
+            signal: None,
+            capped_files: Vec::new(),
         })
     } else {
         Err(SandboxError::Timeout(config.timeout_ms))
@@ -647,82 +1806,116 @@ pub(crate) fn apply_credential_whitelist(cmd: &mut Command) {
             cmd.env(name, value);
         }
     }
+    // Cross-audit 27/08 (QW-1): TMPDIR declarado apontando para /tmp — write
+    // root que o Landlock já concede. Medido ausente no filho (TMPDIR=None):
+    // ferramentas que o respeitam ficavam sem diretório temporário declarado.
+    cmd.env("TMPDIR", "/tmp");
+    // G-C (30/08, campo analise-a2): git dentro do sandbox abortava lendo
+    // ~/.config/git/config (Landlock nega o path) — e o aborto produzia um
+    // `git log` VAZIO e um `merge-base --is-ancestor` respondendo NÃO sobre
+    // um repositório que ele não conseguiu ler (um negativo bem-formado de
+    // uma leitura que não leu). Config global/system apontadas ao void: o
+    // git roda hermético, lendo só o `.git/config` do próprio repo.
+    cmd.env("GIT_CONFIG_GLOBAL", "/dev/null");
+    cmd.env("GIT_CONFIG_SYSTEM", "/dev/null");
+    // RUN-2 (30/08/2026): a injeção do sandbox-venv saiu daqui. Era
+    // incondicional — TODA execução (bash incluído) recebia PYTHONPATH com um
+    // site-packages de UMA versão de python, que sombreava o venv do projeto
+    // de qualquer outra versão (medido pela analise-a2: numpy 3.14 servido a
+    // um 3.12, erro lendo como instalação quebrada). Ver
+    // [`apply_sandbox_venv_pythonpath`] — condicional à versão, só no caminho
+    // `--lang python`.
 }
 
-/// T-09 (2026-06-15) — token-format secret patterns, matched ANYWHERE in a line.
-/// The env-var-name pass in [`redact_secrets`] only catches `KEY=value`; these
-/// catch a raw token value with no surrounding key (e.g. a `ghp_…` pasted into an
-/// error message or a `Bearer sk-…` header).
-static SECRET_TOKEN_PATTERNS: LazyLock<Vec<Regex>> = LazyLock::new(|| {
-    [
-        r"gh[pousr]_[A-Za-z0-9_]{20,}", // GitHub PAT / OAuth / refresh / server / user
-        r"sk-[A-Za-z0-9_-]{20,}",       // OpenAI (incl. sk-proj-…)
-        r"AKIA[0-9A-Z]{16}",            // AWS access key id
-        r"xox[baprs]-[A-Za-z0-9-]{10,}", // Slack bot/app/user/refresh/legacy tokens
-    ]
-    .iter()
-    .filter_map(|p| Regex::new(p).ok())
-    .collect()
-});
-
-/// I-12 / T-09 — Redact secret-like material from captured output before it is
-/// stored, logged, or surfaced to the LLM. Three passes:
-/// 1. **PEM private-key blocks** — `-----BEGIN … PRIVATE KEY-----` … `-----END …`
-///    are dropped wholesale (header, base64 body, and footer).
-/// 2. **Env-var name pass** — a line containing a known credential var name
-///    (`GITHUB_TOKEN`, `AWS_SECRET_ACCESS_KEY`, …) has its `KEY=value` / `KEY: value`
-///    value replaced (catches secrets whose value has no recognizable token format).
-/// 3. **Token-format pass (T-09)** — `SECRET_TOKEN_PATTERNS` redact a raw token
-///    value (GitHub/OpenAI/AWS/Slack) anywhere in the remaining text.
-pub fn redact_secrets(s: &str) -> String {
-    let needles: &[&str] = &[
-        "GH_TOKEN",
-        "GITHUB_TOKEN",
-        "AWS_SECRET_ACCESS_KEY",
-        "AWS_ACCESS_KEY_ID",
-        "AWS_SESSION_TOKEN",
-        "ANTHROPIC_API_KEY",
-        "OPENAI_API_KEY",
-        "NPM_TOKEN",
-    ];
-    let mut out = String::with_capacity(s.len());
-    let mut in_pem = false;
-    for line in s.lines() {
-        // Pass 1: PEM private-key block — drop BEGIN, base64 body, and END.
-        if line.contains("-----BEGIN") && line.contains("PRIVATE KEY") {
-            in_pem = true;
-            out.push_str("[REDACTED PEM PRIVATE KEY]\n");
-            continue;
-        }
-        if in_pem {
-            if line.contains("-----END") && line.contains("PRIVATE KEY") {
-                in_pem = false;
-            }
-            continue;
-        }
-        // Pass 2: env-var name → redact the value after the first `=`/`:`.
-        let mut redacted: Cow<'_, str> = Cow::Borrowed(line);
-        if needles.iter().any(|n| line.contains(n))
-            && let Some(eq_idx) = line.find(['=', ':'])
-        {
-            redacted = Cow::Owned(format!("{} [REDACTED]", &line[..=eq_idx]));
-        }
-        // Pass 3: token-format patterns anywhere in the (possibly redacted) line.
-        for re in SECRET_TOKEN_PATTERNS.iter() {
-            if re.is_match(&redacted) {
-                redacted = Cow::Owned(re.replace_all(&redacted, "[REDACTED]").into_owned());
-            }
-        }
-        out.push_str(&redacted);
-        out.push('\n');
+/// RUN-2 (30/08/2026) — o PYTHONPATH do sandbox-venv é CONDICIONAL à versão
+/// do interpretador que vai rodar, e só o caminho `SandboxPython` o recebe.
+///
+/// A injeção incondicional do RUN-1 punha `sandbox-venv/lib/python3.14/
+/// site-packages` na frente do venv 3.12 de QUALQUER projeto: o FileFinder
+/// achava o numpy 3.14 e procurava o binding nativo DENTRO dele — o erro
+/// (`No module named 'numpy._core._multiarray_umath'`) parece instalação
+/// quebrada, não ambiente injetado (medido pela peer analise-a2,
+/// run-1788113157696-2438469: `sys.path[1]` era o intruso, e `env -u
+/// PYTHONPATH` devolvia numpy/pydantic/shapely ao sandbox). Em bash o
+/// interpretador é escolhido DENTRO do script — o predicado é indecidível,
+/// então bash não recebe a injeção (um script que queira as libs de agente
+/// exporta o PYTHONPATH ele mesmo, ou usa `--lang python`).
+pub(crate) fn apply_sandbox_venv_pythonpath(cmd: &mut Command, runtime: &Path) {
+    let Some(rt) = runtime_python_version(runtime) else {
+        return;
+    };
+    let Some(home) = std::env::var_os("HOME") else {
+        return;
+    };
+    let venv_lib = PathBuf::from(home).join(".claude/touring/sandbox-venv/lib");
+    if let Some(site) = sandbox_venv_site_packages(&venv_lib, rt) {
+        cmd.env("PYTHONPATH", &site);
     }
-    // Preserve final-newline behaviour: if s ended without \n, drop the one
-    // we appended at the end of the last iteration.
-    if !s.ends_with('\n') && out.ends_with('\n') {
-        out.pop();
-    }
-    out
 }
+
+/// O `site-packages` do sandbox-venv cuja versão `pythonX.Y` casa com `rt` —
+/// `None` quando nenhum casa (fail-safe: sem injeção é melhor que sombrear).
+fn sandbox_venv_site_packages(venv_lib: &Path, rt: (u32, u32)) -> Option<PathBuf> {
+    let entries = std::fs::read_dir(venv_lib).ok()?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if parse_python_lib_version(name) != Some(rt) {
+            continue;
+        }
+        let site_packages = entry.path().join("site-packages");
+        if site_packages.is_dir() {
+            return Some(site_packages);
+        }
+    }
+    None
+}
+
+/// `"python3.14"` → `Some((3, 14))`; qualquer outra forma → `None`.
+fn parse_python_lib_version(dir_name: &str) -> Option<(u32, u32)> {
+    let rest = dir_name.strip_prefix("python")?;
+    let (maj, min) = rest.split_once('.')?;
+    Some((maj.parse().ok()?, min.parse().ok()?))
+}
+
+/// Versão `(X, Y)` do interpretador em `runtime`, via `--version`, cacheada
+/// por path (1 spawn por binário por vida do processo). Cobre stdout e
+/// stderr — historicamente o CPython já imprimiu a versão nos dois.
+fn runtime_python_version(runtime: &Path) -> Option<(u32, u32)> {
+    use std::collections::HashMap;
+    use std::sync::{Mutex, OnceLock};
+    type VersionCache = Mutex<HashMap<PathBuf, Option<(u32, u32)>>>;
+    static CACHE: OnceLock<VersionCache> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut m = cache.lock().ok()?;
+    if let Some(v) = m.get(runtime) {
+        return *v;
+    }
+    let ver = std::process::Command::new(runtime)
+        .arg("--version")
+        .output()
+        .ok()
+        .and_then(|o| {
+            let raw = if o.stdout.is_empty() {
+                o.stderr
+            } else {
+                o.stdout
+            };
+            let s = String::from_utf8_lossy(&raw).to_string();
+            let num = s.split_whitespace().nth(1)?.to_string();
+            let mut it = num.split('.');
+            Some((it.next()?.parse().ok()?, it.next()?.parse().ok()?))
+        });
+    m.insert(runtime.to_path_buf(), ver);
+    ver
+}
+
+/// I-12 / T-09 — secret redaction for captured output. The implementation moved to
+/// [`touring_foundation::text_sanitize`] so crates below the CEG (the memory write
+/// path in `touring-intelligence`) share THE redactor instead of a second copy;
+/// re-exported here so every existing `sandbox_executor::redact_secrets` caller
+/// (and the T-09 regression tests below) keeps resolving.
+pub use touring_foundation::text_sanitize::redact_secrets;
 
 /// Computes the blake3 hex digest of the captured output (64 chars).
 pub fn hash_output(bytes: &[u8]) -> String {
@@ -765,7 +1958,21 @@ pub fn tee_dir() -> PathBuf {
 /// `ctx_tee_retrieve(hash)` MCP tool. Cleanup honors
 /// `TOURING_TEE_RETENTION_SECS` (default 7d).
 pub fn store_tee(content_hash: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
-    let mut path = tee_dir();
+    store_tee_in(&tee_dir(), content_hash, bytes)
+}
+
+/// [`store_tee`] with the directory injected — no env var, no shared state.
+///
+/// `TOURING_TEE_DIR` is process-global, so making its *value* unique per test
+/// does not remove the race: two tests in one binary both `set_var`, the last
+/// writer wins for both, and the loser writes into a `TempDir` the winner is
+/// about to delete. Measured 09/08/2026:
+/// `audit_new2_tee_redacts_provided_samples` failed with `store_tee: NotFound`
+/// having passed on the previous run — the directory vanished between
+/// `create_dir_all` and `write`. A caller that knows its directory should say
+/// so instead of shouting it through the environment.
+pub fn store_tee_in(dir: &Path, content_hash: &str, bytes: &[u8]) -> std::io::Result<PathBuf> {
+    let mut path = dir.to_path_buf();
     std::fs::create_dir_all(&path)?;
     path.push(format!("{content_hash}.log"));
     // Apply secret redaction before persisting (I-12 reuse) so creds
@@ -818,6 +2025,53 @@ pub fn cleanup_tee(retention_secs: u64) -> std::io::Result<u64> {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    /// V-10 (31/10/2026) — a lição do timeout nomeia o orçamento e a correção.
+    ///
+    /// O V0e mediu 35 timeouts de `touring run`, TODOS sem `--timeout-ms` e
+    /// todos no default de 30 s: a mensagem não dizia qual orçamento tinha
+    /// estourado nem como levantar o teto.
+    #[test]
+    fn a_licao_do_timeout_nomeia_o_orcamento_e_a_correcao() {
+        let m = timeout_teach_message(30_000);
+        assert!(m.contains("30000ms"), "o orçamento sumiu: {m}");
+        assert!(m.contains("--timeout-ms"), "a correção sumiu: {m}");
+        assert!(m.contains("600000"), "o teto sumiu: {m}");
+    }
+
+    /// V-10 (31/10/2026) — o stderr do timeout é o do FILHO primeiro e a lição
+    /// por último.
+    ///
+    /// A ordem é o contrato: quem lê a última linha acha a lição (com o
+    /// orçamento), quem lê a primeira acha só o trabalho parcial da criança.
+    /// Foi exatamente essa inversão que fez o `failure.message` perder o
+    /// orçamento no V0e.
+    #[test]
+    fn o_stderr_do_timeout_e_o_do_filho_e_a_licao() {
+        let mut config = SandboxConfig::default();
+        config.fallback_on_timeout = true;
+        config.timeout_ms = 30_000;
+        let r = timeout_outcome_with_cause(
+            &config,
+            TimeoutCause::Wall,
+            b"saida parcial".to_vec(),
+            b"trabalho parcial do filho".to_vec(),
+        )
+        .expect("com fallback_on_timeout o timeout tem resultado");
+        assert_eq!(r.exit_code, -2);
+        let linhas: Vec<&str> = r.stderr.lines().collect();
+        assert_eq!(
+            linhas.first().copied(),
+            Some("trabalho parcial do filho"),
+            "a primeira linha é do filho: {}",
+            r.stderr
+        );
+        let licao = linhas.last().copied().unwrap_or_default();
+        assert!(
+            licao.contains("30000ms") && licao.contains("--timeout-ms"),
+            "a última linha é a lição: {licao}"
+        );
+    }
 
     // ── SEC-04 (2026-06-13) — credential opt-out partition ────────────────
     // `TOURING_SANDBOX_NO_CREDENTIALS` keeps ONLY `BASELINE_ENV`. This proves the
@@ -997,6 +2251,73 @@ mod tests {
 
     // ── P4.3 — the X5 sandbox path is rlimit-capped ───────────────────────
 
+    #[test]
+    fn scan_dir_names_the_files_cut_at_exactly_the_cap() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
+        std::fs::File::create(dir.path().join("sub/big.bin"))
+            .expect("create")
+            .set_len(4096)
+            .expect("sparse file at the cap");
+        std::fs::write(dir.path().join("small.txt"), b"abc").expect("write");
+
+        let scan = scan_dir(dir.path(), Some(4096));
+        assert_eq!(scan.capped, ["sub/big.bin"]);
+        assert_eq!(scan.bytes, 4096 + 3);
+        assert!(
+            scan_dir(dir.path(), None).capped.is_empty(),
+            "no cap, no cut"
+        );
+    }
+
+    #[test]
+    fn describe_signal_names_the_cap_behind_it() {
+        assert!(describe_signal(libc::SIGXFSZ).contains("256 MiB file-size cap"));
+        assert!(describe_signal(libc::SIGKILL).contains("memory cap"));
+        assert!(describe_signal(libc::SIGXCPU).contains("--timeout-ms"));
+        assert_eq!(
+            describe_signal(libc::SIGTERM),
+            format!("signal {}", libc::SIGTERM)
+        );
+    }
+
+    /// The signal number reached the result as `-1` and was dropped there.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_death_by_signal_keeps_its_number() {
+        let result = execute_in_sandbox_blocking(
+            "Bash",
+            json!({ "command": "kill -TERM $$" }),
+            SandboxConfig::default(),
+        )
+        .expect("bash runs");
+        assert_eq!(result.exit_code, -1);
+        assert_eq!(result.signal, Some(libc::SIGTERM));
+    }
+
+    /// 18/09/2026 (analise): a writer stopped by the file-size cap while the
+    /// program carries on and exits 0. `trap '' XFSZ` makes `dd` get EFBIG
+    /// instead of a core-dumping death; the file ends at exactly the cap either
+    /// way, and that is what the scan reads.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn a_file_cut_at_the_cap_is_reported_when_the_program_exits_zero() {
+        let cap = file_size_cap().expect("the funnel caps file size");
+        let command = format!(
+            "trap '' XFSZ; dd if=/dev/zero of=\"$TMPDIR/big.bin\" bs=1 count=2 seek={} \
+             2>/dev/null; echo carried-on",
+            cap - 1
+        );
+        let result = execute_in_sandbox_blocking(
+            "Bash",
+            json!({ "command": command }),
+            SandboxConfig::default(),
+        )
+        .expect("bash runs");
+        assert_eq!(result.exit_code, 0, "the program went on");
+        assert_eq!(result.capped_files, ["big.bin"]);
+    }
+
     #[cfg(target_os = "linux")]
     #[test]
     fn p43_x5_sandbox_path_is_rlimit_capped() {
@@ -1032,7 +2353,44 @@ mod tests {
     fn test_resolve_args_bash_ok() {
         let args = json!({"command": "echo hello"});
         let argv = resolve_args("Bash", &args).unwrap();
-        assert_eq!(argv, vec!["-c".to_string(), "echo hello".into()]);
+        // 30/08: rc files do usuário nunca entram no sandbox (--norc/--noprofile).
+        assert_eq!(
+            argv,
+            vec![
+                "--norc".to_string(),
+                "--noprofile".into(),
+                "-c".into(),
+                "echo hello".into()
+            ]
+        );
+    }
+
+    #[test]
+    fn parse_python_lib_version_reads_only_the_python_x_y_form() {
+        assert_eq!(parse_python_lib_version("python3.14"), Some((3, 14)));
+        assert_eq!(parse_python_lib_version("python3.12"), Some((3, 12)));
+        assert_eq!(parse_python_lib_version("python3"), None);
+        assert_eq!(parse_python_lib_version("share"), None);
+        assert_eq!(parse_python_lib_version("pythonX.Y"), None);
+    }
+
+    #[test]
+    fn sandbox_venv_site_packages_matches_version_or_injects_nothing() {
+        // RUN-2 — mutação que este teste mata: voltar ao "primeiro dir que
+        // existir" (RUN-1), que servia um site-packages 3.14 a um runtime
+        // 3.12 e o venv do projeto era sombreado (analise-a2, 30/08).
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let lib = tmp.path();
+        for v in ["python3.12", "python3.14"] {
+            std::fs::create_dir_all(lib.join(v).join("site-packages")).expect("mkdir");
+        }
+        let s312 = sandbox_venv_site_packages(lib, (3, 12)).expect("3.12 presente casa");
+        assert!(s312.ends_with("python3.12/site-packages"), "{s312:?}");
+        let s314 = sandbox_venv_site_packages(lib, (3, 14)).expect("3.14 presente casa");
+        assert!(s314.ends_with("python3.14/site-packages"), "{s314:?}");
+        // Versão sem site-packages correspondente: NADA é injetado — sem
+        // injeção é melhor que sombrear (fail-safe).
+        assert_eq!(sandbox_venv_site_packages(lib, (3, 10)), None);
     }
 
     #[test]
@@ -1087,6 +2445,53 @@ mod tests {
     }
 
     #[test]
+    fn run1_deno_args_sao_eval_e_ext_ts() {
+        let deno = std::path::Path::new("/usr/bin/deno");
+        assert_eq!(
+            resolve_language_args_for(SandboxLanguage::JavaScript, "console.log(1)", deno),
+            vec!["eval".to_string(), "console.log(1)".to_string()]
+        );
+        assert_eq!(
+            resolve_language_args_for(SandboxLanguage::TypeScript, "const x: number = 1;", deno),
+            vec![
+                "eval".to_string(),
+                "--ext=ts".to_string(),
+                "const x: number = 1;".to_string()
+            ]
+        );
+        // node/bun seguem na convenção -e
+        let node = std::path::Path::new("/usr/bin/node");
+        assert_eq!(
+            resolve_language_args_for(SandboxLanguage::JavaScript, "x", node),
+            vec!["-e".to_string(), "x".to_string()]
+        );
+        // e o wrapper sem runtime resolve o PATH e delega (compat)
+        assert!(!resolve_language_args(SandboxLanguage::TypeScript, "x").is_empty());
+    }
+
+    #[test]
+    fn run1_preflight_distingue_ausente_de_resolvido() {
+        let rows = detect_language_runtimes();
+        assert_eq!(rows.len(), 11, "as 11 linguagens anunciadas");
+        let py = rows
+            .iter()
+            .find(|(n, _, _)| *n == "python")
+            .expect("linha python");
+        assert!(py.2.is_some(), "python resolve neste host");
+        let sh = rows.iter().find(|(n, _, _)| *n == "sh").expect("linha sh");
+        assert!(sh.2.is_some(), "sh/bash resolve neste host");
+        // o ponto do RUN-1: ausência é None explícito — nunca o nome cru
+        for (nome, _, rt) in &rows {
+            if let Some(p) = rt {
+                assert!(
+                    p.to_string_lossy().contains('/'),
+                    "{nome}: resolvido deve ser um path, não o nome cru"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn test_i11_unknown_sandbox_falls_back_to_cat() {
         let p = resolve_program("UnknownTool");
         assert_eq!(p, PathBuf::from("cat"));
@@ -1123,12 +2528,12 @@ mod tests {
                 .map(|d| d.as_nanos())
                 .unwrap_or(0)
         ));
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::set_var("TOURING_TEE_DIR", &unique) };
         f(&unique);
         // Clear the env var while still holding the lock, so no parallel test
         // can ever observe a half-updated global.
-        // TODO: Audit that the environment access only happens in single-threaded code.
+        // AUDITED (2026-08-12): env mutation serialized (ENV_LOCK/#[serial] guard at fn/mod) — edition-2024 unsafe.
         unsafe { std::env::remove_var("TOURING_TEE_DIR") };
         tmp
     }
@@ -1301,6 +2706,274 @@ mod tests {
         }
     }
 
+    // ── W0 d0 (2026-08-23) — stderr is captured, not swallowed ───────────
+
+    #[tokio::test]
+    async fn sandbox_captures_stderr_alongside_stdout() {
+        let args = json!({"command": "echo out; echo errmark >&2; exit 7"});
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 7);
+        assert!(
+            res.stderr.contains("errmark"),
+            "stderr must carry the child's stderr, got: {:?}",
+            res.stderr
+        );
+        assert!(!res.stderr_truncated);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    // ── C2-W0 S-5.2 — run identity reaches the child ─────────────────────
+
+    /// `SandboxConfig.run_id` must be exported as `TOURING_RUN_ID` and
+    /// survive the credential whitelist's `env_clear`; with no run_id the
+    /// variable must be absent (never an empty-string leak).
+    #[tokio::test]
+    async fn run_id_env_reaches_the_child() {
+        let args = json!({"command": "printf '%s' \"rid=${TOURING_RUN_ID:-unset}\""});
+        let config = SandboxConfig {
+            run_id: Some("run-test-123".to_string()),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args.clone(), config)
+            .await
+            .expect("execute");
+        let out = res
+            .stored_path
+            .as_ref()
+            .map(|p| std::fs::read_to_string(p).unwrap_or_default())
+            .unwrap_or_default();
+        assert!(
+            out.contains("rid=run-test-123"),
+            "child must see TOURING_RUN_ID, got: {out:?}"
+        );
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        let out = res
+            .stored_path
+            .as_ref()
+            .map(|p| std::fs::read_to_string(p).unwrap_or_default())
+            .unwrap_or_default();
+        assert!(
+            out.contains("rid=unset"),
+            "no run_id → no TOURING_RUN_ID in the child, got: {out:?}"
+        );
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    // ── F4 P2 (2026-09-01) — the signal mirror reaches the child ─────────
+
+    /// `SandboxConfig.sdk_signal_mirror` must (a) export the path as
+    /// `TOURING_SDK_SIGNAL_MIRROR` and (b) carry a FILE-level Landlock write
+    /// grant — `~/.claude/touring` is read-only in the sandbox, so without
+    /// the grant the append dies at the kernel and the mirror stays empty
+    /// forever (the measured signal_use ratio of 0.375 was exactly this
+    /// silence: seed lines from examples, zero from real runs).
+    #[tokio::test]
+    async fn sdk_signal_mirror_env_and_write_grant_reach_the_child() {
+        let home = std::env::var("HOME").expect("HOME set in tests");
+        let dir = std::path::PathBuf::from(home)
+            .join(".claude/touring")
+            .join(format!("test-mirror-{}", std::process::id()));
+        let mirror = dir.join("m.jsonl");
+        let args = json!({"command": "printf probe >> \"$TOURING_SDK_SIGNAL_MIRROR\""});
+        let config = SandboxConfig {
+            sdk_signal_mirror: Some(mirror.clone()),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
+        let written = std::fs::read_to_string(&mirror).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&dir);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+        assert_eq!(
+            res.exit_code, 0,
+            "granted append must succeed, stderr: {:?}",
+            res.stderr
+        );
+        assert!(
+            written.contains("probe"),
+            "mirror file must carry the child's append, got: {written:?}"
+        );
+    }
+
+    /// Negative control: WITHOUT the config field the same append must be
+    /// denied by the kernel — proving the grant, not a hole, is what lets
+    /// the mirror live, and the daemon's own state beside it stays intact.
+    #[tokio::test]
+    async fn without_the_mirror_grant_claude_touring_stays_readonly() {
+        let home = std::env::var("HOME").expect("HOME set in tests");
+        let dir = std::path::PathBuf::from(home)
+            .join(".claude/touring")
+            .join(format!("test-noguard-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("parent dir");
+        let target = dir.join("m.jsonl");
+        let args =
+            json!({"command": format!("printf probe >> {} && printf wrote", target.display())});
+        let res = execute_in_sandbox("Bash", args, SandboxConfig::default())
+            .await
+            .expect("execute");
+        let written = std::fs::read_to_string(&target).unwrap_or_default();
+        let _ = std::fs::remove_dir_all(&dir);
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+        assert_ne!(res.exit_code, 0, "kernel must deny the un-granted append");
+        assert!(written.is_empty(), "no grant → no bytes, got: {written:?}");
+    }
+
+    /// A child that writes far more than the 64 KiB Linux pipe buffer to
+    /// stderr must still terminate: before W0 the undrained pipe filled up
+    /// and the child blocked in `write` until the timeout killed it.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn sandbox_stderr_full_pipe_does_not_deadlock() {
+        // 200 KiB of stderr — over 3× the pipe buffer.
+        let args =
+            json!({"command": "head -c 204800 /dev/zero | tr '\\0' 'e' >&2; printf done; exit 0"});
+        let config = SandboxConfig {
+            timeout_ms: 10_000,
+            ..SandboxConfig::default()
+        };
+        let start = std::time::Instant::now();
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 0, "child must exit cleanly, not be killed");
+        assert!(
+            start.elapsed() < Duration::from_millis(9_000),
+            "must finish well before the timeout (no pipe deadlock)"
+        );
+        assert!(res.stderr.len() >= 200_000, "stderr fully drained");
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    // ── W1 d3/S-1.3 — dual budget: busy time measured in the substrate ────
+
+    /// A hot loop must expire the CPU busy budget long before the wall clock:
+    /// wall=10s, busy=500ms → killed in ~1s with the busy-labeled sentinel.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn busy_budget_expires_on_hot_loop_despite_io_wait() {
+        let args = json!({"command": "while :; do :; done"});
+        let config = SandboxConfig {
+            timeout_ms: 10_000,
+            compute_ms: Some(500),
+            ..SandboxConfig::default()
+        };
+        let start = std::time::Instant::now();
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("busy expiry is a fallback outcome");
+        assert_eq!(res.exit_code, -2, "timeout sentinel");
+        assert!(
+            res.stderr.contains("busy") || res.stderr.contains("compute"),
+            "busy expiry must be labeled distinctly from wall clock, got: {:?}",
+            res.stderr
+        );
+        assert!(
+            start.elapsed() < Duration::from_millis(8_000),
+            "must be killed by the busy budget, not the 10s wall clock"
+        );
+    }
+
+    /// Sleeping consumes wall clock but ~0 CPU: with busy=300ms and wall=5s,
+    /// a 1s sleep must complete normally — I/O wait never expires the busy budget.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn io_wait_does_not_consume_busy_budget() {
+        let args = json!({"command": "sleep 1; printf slept"});
+        let config = SandboxConfig {
+            timeout_ms: 5_000,
+            compute_ms: Some(300),
+            ..SandboxConfig::default()
+        };
+        let res = execute_in_sandbox("Bash", args, config)
+            .await
+            .expect("execute");
+        assert_eq!(res.exit_code, 0, "sleep must not trip the busy budget");
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    #[test]
+    fn timeout_outcome_labels_cause_in_stderr() {
+        let config = SandboxConfig {
+            timeout_ms: 1234,
+            ..SandboxConfig::default()
+        };
+        let res = timeout_outcome_with_cause(&config, TimeoutCause::Wall, Vec::new(), Vec::new())
+            .expect("fallback_on_timeout=true yields Ok");
+        assert_eq!(res.exit_code, -2);
+        assert!(
+            res.stderr.contains("timeout") && res.stderr.contains("1234"),
+            "timeout sentinel must teach its cause, got: {:?}",
+            res.stderr
+        );
+    }
+
+    /// OUT-1 — o sentinela de timeout carrega a saída parcial: o que o
+    /// programa imprimiu antes do kill é o feedback do retry, não lixo.
+    #[test]
+    fn timeout_sentinel_salvages_partial_output() {
+        let config = SandboxConfig::default();
+        let res = timeout_outcome_with_cause(
+            &config,
+            TimeoutCause::Wall,
+            b"progresso: 90/100 arquivos\n".to_vec(),
+            b"aviso do programa\n".to_vec(),
+        )
+        .expect("fallback_on_timeout=true yields Ok");
+        assert_eq!(res.exit_code, -2);
+        assert_eq!(res.output_bytes, 27, "partial stdout length travels");
+        assert!(!res.content_hash.is_empty(), "partial stdout is hashed");
+        assert!(res.stored_path.is_some(), "partial stdout is persisted");
+        assert!(
+            res.stderr.starts_with("aviso do programa"),
+            "child stderr leads, teach message follows: {:?}",
+            res.stderr
+        );
+        assert!(res.stderr.contains("timeout"), "the cause still teaches");
+        if let Some(p) = &res.stored_path {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    /// Sync + `with_tee_dir` (TEE_ENV_LOCK): `TOURING_TEE_DIR` is one global
+    /// slot shared by every test in the binary — an async test reading the
+    /// global tee dir races whichever test sets the var last.
+    #[test]
+    fn tee_persists_stderr_on_failure() {
+        with_tee_dir(|dir| {
+            let args = json!({"command": "echo teeout; echo teeerr >&2; exit 3"});
+            let rt = tokio::runtime::Runtime::new().expect("runtime");
+            let res = rt
+                .block_on(execute_in_sandbox("Bash", args, SandboxConfig::default()))
+                .expect("execute");
+            assert_eq!(res.exit_code, 3);
+            let tee_path = dir.join(format!("{}.log", res.content_hash));
+            let tee = std::fs::read_to_string(&tee_path).expect("tee persisted on failure");
+            assert!(tee.contains("--- stderr ---"), "tee carries the marker");
+            assert!(tee.contains("teeerr"), "tee carries the stderr bytes");
+            if let Some(p) = &res.stored_path {
+                let _ = std::fs::remove_file(p);
+            }
+        });
+    }
+
     // ── P4.4 — the X5/X8 sandbox path is bounded by the exec pool ─────────
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -1413,6 +3086,7 @@ mod tests {
             timeout_ms: 5_000,
             max_output_bytes: 64_000,
             fallback_on_timeout: true,
+            ..SandboxConfig::default()
         };
         let result = std::panic::catch_unwind(|| {
             execute_in_sandbox_blocking("Bash", json!({"command": "echo bug_p0_regression"}), cfg)
@@ -1434,10 +3108,586 @@ mod tests {
             timeout_ms: 5_000,
             max_output_bytes: 64_000,
             fallback_on_timeout: true,
+            ..SandboxConfig::default()
         };
         let _ =
             execute_in_sandbox_blocking("Bash", json!({"command": "echo standalone_path"}), cfg);
         // We don't assert on the result content; we only assert the call
         // returned (did not abort the process).
+    }
+
+    // ── Confinamento do sandbox (auditoria cruzada 27/08/2026) ───────────────
+
+    /// A raiz de escrita sobe até a marca de projeto, não fica no `cwd` cru.
+    #[test]
+    fn the_write_root_is_the_project_not_the_subdirectory() {
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let raiz = tmp.path().join("proj");
+        std::fs::create_dir_all(raiz.join(".git")).expect("marca de projeto");
+        let fundo = raiz.join("crates").join("foo").join("src");
+        std::fs::create_dir_all(&fundo).expect("subdir");
+        assert_eq!(
+            super::project_root_for_writes(&fundo).as_deref(),
+            Some(raiz.as_path()),
+            "um programa lançado de crates/foo/src trabalha no MESMO projeto"
+        );
+    }
+
+    /// O home NUNCA é raiz de escrita — é exatamente o buraco que a auditoria
+    /// mediu (`~/.bashrc`, `~/.claude/`, `~/.local/bin/` graváveis).
+    #[test]
+    fn the_home_directory_is_never_a_write_root() {
+        let home = std::env::var_os("HOME").map(std::path::PathBuf::from);
+        let Some(home) = home else {
+            return; // sem HOME não há o que asseverar
+        };
+        assert_eq!(
+            super::project_root_for_writes(&home),
+            None,
+            "o home foi aceito como projeto — o escape reabre"
+        );
+        assert!(
+            !super::sandbox_write_roots().contains(&home),
+            "o home entrou nas raízes de escrita"
+        );
+        // E os três alvos medidos precisam ficar FORA de toda raiz concedida.
+        let raizes = super::sandbox_write_roots();
+        for alvo in [".bashrc", ".claude", ".local/bin"] {
+            let p = home.join(alvo);
+            assert!(
+                !raizes.iter().any(|r| p.starts_with(r)),
+                "`{}` continua sob uma raiz de escrita: {raizes:?}",
+                p.display()
+            );
+        }
+    }
+
+    /// A raiz `/` também não: um `cwd` sem projeto acima não vira grant total.
+    #[test]
+    fn the_filesystem_root_is_never_a_write_root() {
+        assert_eq!(
+            super::project_root_for_writes(std::path::Path::new("/")),
+            None
+        );
+    }
+
+    /// G10ROTA (30.4.97) — `sandbox_can_write` deriva das MESMAS raízes que o Landlock recebe: o
+    /// projeto do `cwd` injetado (existente, a criar, aninhado a criar) escreve; o irmão, o `..`
+    /// que escapa, o `/tmp` compartilhado (o run ganha um tmp privado que some com ele) e o
+    /// `~/.bashrc` não.
+    #[test]
+    fn sandbox_can_write_follows_the_landlock_write_roots() {
+        let base = tempfile::tempdir().expect("tempdir");
+        let projeto = base.path().join("proj");
+        let irmao = base.path().join("irmao");
+        std::fs::create_dir_all(projeto.join(".touring")).expect("mkdir projeto");
+        std::fs::create_dir_all(&irmao).expect("mkdir irmão");
+        std::fs::write(projeto.join("existente.md"), "x").expect("arquivo");
+
+        let pode = |p: &std::path::Path| super::sandbox_can_write(&projeto, p);
+        assert!(pode(&projeto.join("existente.md")), "arquivo existente");
+        assert!(pode(&projeto.join("novo.md")), "arquivo a criar");
+        assert!(pode(&projeto.join("a/b/c/novo.md")), "diretórios a criar");
+        assert!(!pode(&irmao.join("x.md")), "o irmão do projeto");
+        assert!(
+            !pode(&projeto.join("../irmao/x.md")),
+            "`..` que escapa do projeto não vira destino válido"
+        );
+        assert!(
+            pode(&projeto.join("../proj/novo.md")),
+            "`..` que volta ao projeto continua dentro"
+        );
+        assert!(
+            !pode(std::path::Path::new("/tmp/touring-g97-destino.md")),
+            "o /tmp compartilhado não é destino: o run ganha um tmp privado que some com ele"
+        );
+        if let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) {
+            assert!(!pode(&home.join(".bashrc")), "o home não é raiz de escrita");
+            assert!(
+                pode(&home.join(".cache/touring-g97/x")),
+                "o cache de toolchain é"
+            );
+        }
+    }
+
+    /// Um symlink DENTRO do projeto que aponta para fora não é uma porta: o Landlock julga o alvo
+    /// resolvido, e o predicado também.
+    #[test]
+    fn sandbox_can_write_resolves_symlinks_out_of_the_project() {
+        let base = tempfile::tempdir().expect("tempdir");
+        let projeto = base.path().join("proj");
+        let fora = base.path().join("fora");
+        std::fs::create_dir_all(projeto.join(".touring")).expect("mkdir projeto");
+        std::fs::create_dir_all(&fora).expect("mkdir fora");
+        std::os::unix::fs::symlink(&fora, projeto.join("atalho")).expect("symlink");
+        assert!(
+            !super::sandbox_can_write(&projeto, &projeto.join("atalho/x.md")),
+            "o symlink resolve para fora do projeto"
+        );
+    }
+
+    /// 15/09/2026: o shim do mise precisa da própria config para executar o
+    /// interpretador; o grant é o subcaminho, nunca `~/.config` inteiro.
+    #[test]
+    fn the_mise_shim_reads_its_config_but_the_config_dir_stays_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return;
+        };
+        let raizes = super::sandbox_read_roots();
+        for sub in [".config/mise", ".local/state/mise"] {
+            let p = home.join(sub);
+            if p.exists() {
+                assert!(
+                    raizes.contains(&p),
+                    "`{}` fora das raízes: {raizes:?}",
+                    p.display()
+                );
+            }
+        }
+        assert!(
+            !raizes.contains(&home.join(".config")),
+            "~/.config INTEIRO virou raiz de leitura — tokens de CLI (gh/hosts.yml) reabrem"
+        );
+    }
+
+    /// SEG-2 (30/08/2026): a superfície de instrução do agente é LEGÍVEL pelo
+    /// sandbox (o caso real: um programa de code mode varrendo a estrutura de
+    /// skills, negado por Landlock na sessão do projeto analise) — e o grant é
+    /// por subcaminho explícito, nunca `~/.claude` inteiro.
+    /// SEG-3 (27/10/2026): `projects/` (transcripts, insumo da mineração de
+    /// sessões) e `hooks/` (código) também entram.
+    /// SEG-4 (27/10/2026, ordem de Gabriel): `~/.claude` entra inteiro, entrada por
+    /// entrada; só `.credentials.json` e as cópias `settings.json.*` ficam fora, e o
+    /// diretório em si é raiz só de LISTAGEM, nunca de leitura.
+    #[test]
+    fn the_whole_claude_home_is_readable_but_its_credentials_stay_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return; // sem HOME não há o que asseverar
+        };
+        let claude = home.join(".claude");
+        let raizes = super::sandbox_read_roots();
+        if let Ok(entries) = std::fs::read_dir(&claude) {
+            for e in entries.flatten() {
+                let nome = e.file_name().to_string_lossy().into_owned();
+                let dentro = raizes.contains(&e.path());
+                assert_eq!(
+                    dentro,
+                    !super::is_claude_credential(&nome),
+                    "`{nome}`: credencial fora, todo o resto dentro: {raizes:?}"
+                );
+            }
+        }
+        for sub in [
+            ".claude/settings.json",
+            ".claude/history.jsonl",
+            ".claude/projects",
+        ] {
+            let p = home.join(sub);
+            if p.exists() {
+                assert!(
+                    raizes.contains(&p),
+                    "`{}` não entrou: {raizes:?}",
+                    p.display()
+                );
+            }
+        }
+        assert!(
+            !raizes.contains(&claude),
+            "~/.claude virou raiz de LEITURA — o `.credentials.json` abaixo dele reabre"
+        );
+        if claude.is_dir() {
+            assert_eq!(super::sandbox_list_roots(), vec![claude.clone()]);
+        }
+        assert!(
+            !raizes.contains(&home),
+            "o home inteiro virou raiz de leitura"
+        );
+        for segredo in [
+            ".claude/.credentials.json",
+            ".ssh",
+            ".aws",
+            ".netrc",
+            ".gnupg",
+        ] {
+            let alvo = home.join(segredo);
+            assert!(
+                !raizes.iter().any(|r| alvo.starts_with(r)),
+                "`{}` ficou sob uma raiz de leitura: {raizes:?}",
+                alvo.display()
+            );
+        }
+    }
+
+    /// V0e6 (09/10/2026 — medido pela analise-6b): `git` no sandbox morria com
+    /// "fatal: cannot use ~/.config/git/ignore as an exclude file" e o programa
+    /// saía exit 0 com saída VAZIA — um zero bem-formado de uma leitura que não
+    /// leu. O G-C (30/08) apontou GIT_CONFIG_GLOBAL/SYSTEM para /dev/null, mas o
+    /// `core.excludesFile` padrão (`~/.config/git/ignore`) é derivado FORA da
+    /// config — o git o lê mesmo assim. O grant é o ARQUIVO `ignore`, nunca o
+    /// diretório: `~/.config/git/config` pode conter credencial (a mesma
+    /// fronteira de `~/.config` × `gh/hosts.yml`).
+    #[test]
+    fn the_git_global_ignore_file_is_a_read_root_but_the_dir_stays_out() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return; // sem HOME não há o que asseverar
+        };
+        let ignore = home.join(".config/git/ignore");
+        if !ignore.exists() {
+            return; // máquina sem ignore global — nada a asseverar
+        }
+        let raizes = super::sandbox_read_roots();
+        assert!(
+            raizes.contains(&ignore),
+            "`{}` fora das raízes de leitura — o git do sandbox morre com \
+             'fatal: cannot use … as an exclude file' (V0e6): {raizes:?}",
+            ignore.display()
+        );
+        assert!(
+            !raizes.contains(&home.join(".config/git")),
+            "~/.config/git INTEIRO virou raiz — `config` (pode conter credencial) reabre"
+        );
+        assert!(
+            !raizes.contains(&home.join(".config")),
+            "~/.config INTEIRO virou raiz de leitura"
+        );
+    }
+
+    /// V0e6 e2e — o aceite da coordenadora: o MESMO `git status` nativo ×
+    /// sandbox, mesmo stdout, zero "fatal" no stderr. A prova semântica é o
+    /// padrão real do ignore global desta máquina (`**/.claude/settings.local.
+    /// json`): o arquivo casado por ele não pode aparecer em nenhum dos dois.
+    /// Vacuamente verde sem landlock no kernel (o filho então não é confinado)
+    /// ou sem git/ignore global — como os demais e2e deste arquivo.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn e2e_git_status_in_the_sandbox_matches_native_without_fatal() {
+        let Some(home) = std::env::var_os("HOME").map(std::path::PathBuf::from) else {
+            return;
+        };
+        if !home.join(".config/git/ignore").exists() {
+            return;
+        }
+        let Ok(repo) = tempfile::tempdir() else {
+            return;
+        };
+        std::fs::create_dir_all(repo.path().join(".claude")).expect("mkdir");
+        std::fs::write(repo.path().join("x.txt"), "x").expect("write");
+        std::fs::write(repo.path().join(".claude/settings.local.json"), "{}").expect("write");
+        let init = std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(repo.path())
+            .output();
+        let Ok(init) = init else { return }; // sem git nesta máquina
+        if !init.status.success() {
+            return;
+        }
+        let nativo = std::process::Command::new("git")
+            .args(["status", "--short"])
+            .current_dir(repo.path())
+            .output()
+            .expect("git status nativo");
+        assert!(nativo.status.success(), "o controle nativo falhou");
+        let nativo_out = String::from_utf8_lossy(&nativo.stdout).to_string();
+        assert!(
+            nativo_out.contains("?? x.txt") && !nativo_out.contains("settings.local.json"),
+            "controle nativo inesperado (o ignore global deveria valer): {nativo_out:?}"
+        );
+
+        // O Command do executor é tokio — o mesmo tipo que a produção confina.
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.args(["status", "--short"]).current_dir(repo.path());
+        super::apply_credential_whitelist(&mut cmd);
+        super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+        let sandbox = cmd.output().await.expect("git status sandboxed");
+        let sandbox_err = String::from_utf8_lossy(&sandbox.stderr).to_string();
+        assert!(
+            !sandbox_err.contains("fatal"),
+            "git no sandbox morreu como no V0e6: {sandbox_err}"
+        );
+        assert!(sandbox.status.success(), "rc sandbox: {sandbox_err}");
+        let sandbox_out = String::from_utf8_lossy(&sandbox.stdout).to_string();
+        assert_eq!(
+            sandbox_out, nativo_out,
+            "sandbox × nativo divergem — a paridade é o aceite"
+        );
+    }
+
+    /// V0e1 — o aceite de PARIDADE da coordenadora: o programa da rajada no
+    /// sandbox devolve o MESMO stdout da execução nativa para as inspeções
+    /// representativas com caminho RELATIVO ao cwd (grep/cat/ls/wc/sed -n) e um
+    /// git. É a prova de que o `updatedInput` do G1 não muda o resultado — só o
+    /// canal. Vacuamente verde sem landlock no kernel, como os demais e2e.
+    #[cfg(target_os = "linux")]
+    #[tokio::test]
+    async fn e2e_burst_program_parity_native_vs_sandbox() {
+        let Ok(dir) = tempfile::tempdir() else { return };
+        let repo = dir.path();
+        std::fs::write(repo.join("a.txt"), "alpha\nbeta\ngamma\n").expect("write");
+        std::fs::create_dir_all(repo.join("src")).expect("mkdir");
+        std::fs::write(repo.join("src/b.rs"), "fn main() {}\n").expect("write");
+        let comandos = [
+            "grep -c alpha a.txt",
+            "cat a.txt",
+            "ls",
+            "wc -l a.txt",
+            "sed -n 1,2p a.txt",
+            "grep -rn main src/",
+        ];
+        for c in comandos {
+            let nativo = std::process::Command::new("bash")
+                .arg("-c")
+                .arg(c)
+                .current_dir(repo)
+                .output()
+                .expect("nativo");
+            let mut cmd = tokio::process::Command::new("bash");
+            cmd.arg("-c").arg(c).current_dir(repo);
+            super::apply_credential_whitelist(&mut cmd);
+            super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+            let sandbox = cmd.output().await.expect("sandbox");
+            assert_eq!(
+                String::from_utf8_lossy(&sandbox.stdout),
+                String::from_utf8_lossy(&nativo.stdout),
+                "paridade de stdout quebrada em `{c}`"
+            );
+            assert_eq!(
+                sandbox.status.code(),
+                nativo.status.code(),
+                "paridade de rc quebrada em `{c}`"
+            );
+        }
+        // E um git (o V0e6 cobre o porquê de ele estar nesta lista).
+        let Ok(init) = std::process::Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(repo)
+            .output()
+        else {
+            return;
+        };
+        if !init.status.success() {
+            return;
+        }
+        let nativo = std::process::Command::new("git")
+            .args(["status", "--short"])
+            .current_dir(repo)
+            .output()
+            .expect("git nativo");
+        let mut cmd = tokio::process::Command::new("git");
+        cmd.args(["status", "--short"]).current_dir(repo);
+        super::apply_credential_whitelist(&mut cmd);
+        super::apply_landlock_to(&mut cmd, &[], None, None, &[]);
+        let sandbox = cmd.output().await.expect("git sandbox");
+        let err = String::from_utf8_lossy(&sandbox.stderr);
+        assert!(!err.contains("fatal"), "git morreu no sandbox: {err}");
+        assert_eq!(
+            String::from_utf8_lossy(&sandbox.stdout),
+            String::from_utf8_lossy(&nativo.stdout),
+            "paridade do git quebrada"
+        );
+    }
+
+    /// O que o programa legitimamente precisa continua concedido — sem isto,
+    /// as asserções acima seriam satisfeitas por um confinamento que quebra
+    /// tudo. Sem um tmp de run (chamador legado) a concessão antiga não muda.
+    #[test]
+    fn temp_and_device_roots_are_still_granted() {
+        let raizes = super::sandbox_write_roots_for_run(None);
+        for necessario in ["/tmp", "/dev"] {
+            assert!(
+                raizes.iter().any(|r| r == std::path::Path::new(necessario)),
+                "`{necessario}` não está concedido — /dev/null deixaria de funcionar"
+            );
+        }
+    }
+
+    /// B1 (2026-09-02): a run gets a PRIVATE temp dir. `/dev` stays granted
+    /// (`/dev/null`); the shared `/tmp` and `/var/tmp` do not — the 8 GiB
+    /// incident of 02/09 was one process filling the tmpfs every session
+    /// shares, and the CEG declared exactly that tree as its write root.
+    #[test]
+    fn a_run_tmp_replaces_the_shared_tmp_in_the_write_roots() {
+        let run_tmp = std::path::Path::new("/tmp/touring-run-test");
+        let raizes = super::sandbox_write_roots_for_run(Some(run_tmp));
+        assert!(
+            raizes.iter().any(|r| r == run_tmp),
+            "the run's own tmp must be writable: {raizes:?}"
+        );
+        assert!(
+            raizes.iter().any(|r| r == std::path::Path::new("/dev")),
+            "/dev/null must keep working: {raizes:?}"
+        );
+        for shared in ["/tmp", "/var/tmp"] {
+            assert!(
+                !raizes.iter().any(|r| r == std::path::Path::new(shared)),
+                "`{shared}` is shared across sessions and must NOT be a write root: {raizes:?}"
+            );
+        }
+    }
+
+    /// `tmp_bytes` is what the run left behind in its private tmp, measured
+    /// BEFORE the dir is removed — the number the journal needs.
+    #[test]
+    fn tmp_bytes_measures_the_runs_leftovers() {
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        std::fs::write(dir.path().join("a.bin"), vec![7u8; 10_000]).expect("write");
+        std::fs::create_dir_all(dir.path().join("sub")).expect("mkdir");
+        std::fs::write(dir.path().join("sub/b.bin"), vec![1u8; 5_000]).expect("write");
+        let bytes = super::scan_dir(dir.path(), None).bytes;
+        assert!(
+            bytes >= 15_000,
+            "expected at least the 15 000 logical bytes, got {bytes}"
+        );
+        assert_eq!(
+            super::scan_dir(std::path::Path::new("/nonexistent/touring-run-x"), None),
+            super::TmpScan::default()
+        );
+    }
+
+    /// End to end (Linux): the child sees `TMPDIR` = its private run dir,
+    /// writes there, the result reports the bytes, and the dir is gone after.
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn python_run_gets_a_private_tmpdir_and_reports_tmp_bytes() {
+        let result = execute_in_sandbox_blocking(
+            "SandboxPython",
+            json!({
+                "script": "import os, tempfile\nd = tempfile.gettempdir()\nopen(os.path.join(d, 'left.bin'), 'wb').write(b'x' * 4096)\nprint(d)"
+            }),
+            SandboxConfig::default(),
+        )
+        .expect("python sandbox runs");
+        assert_eq!(result.exit_code, 0, "stderr: {}", result.stderr);
+        let path = result.stored_path.expect("stdout persisted");
+        let captured = std::fs::read_to_string(&path).expect("read stored output");
+        let seen = captured.trim();
+        assert!(
+            seen.contains("touring-run-"),
+            "child TMPDIR must be the private run dir, got {seen}"
+        );
+        assert!(
+            result.tmp_bytes >= 4096,
+            "tmp_bytes must count the 4096 bytes written, got {}",
+            result.tmp_bytes
+        );
+        assert!(
+            !std::path::Path::new(seen).exists(),
+            "the run tmp must be removed after the run: {seen}"
+        );
+    }
+}
+
+/// S24 — the reach predicate follows symlinks out of the granted roots.
+#[cfg(test)]
+mod s24_reach_tests {
+    use super::*;
+
+    #[test]
+    fn path_within_roots_follows_symlinks_out_of_roots() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let root = std::fs::canonicalize(dir.path()).expect("canon");
+        std::fs::write(root.join("inside.txt"), b"x").expect("write");
+        std::os::unix::fs::symlink("/root", root.join("escape")).expect("symlink");
+        let roots = vec![root.clone()];
+        assert!(path_within_roots(&root.join("inside.txt"), &roots));
+        assert!(
+            !path_within_roots(&root.join("escape"), &roots),
+            "symlink out of the roots must not count"
+        );
+    }
+
+    /// SEG-4: a fabricated ~/.claude — every entry granted but the credential files, and
+    /// an entry created after the list was written still enters (enumeration, not a list).
+    #[test]
+    fn claude_home_roots_take_every_entry_but_the_credentials() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        for f in [
+            ".credentials.json",
+            "settings.json",
+            "settings.json.bak-1",
+            "settings.local.json",
+            "history.jsonl",
+            "nasceu-amanha.json",
+            "mcp-oauth-token.json",
+            "deploy.pem",
+            ".env",
+            "certs.p12",
+            "github-apikey.txt",
+            "keybindings.json",
+            "daemon-auth-status.json",
+        ] {
+            std::fs::write(dir.path().join(f), b"{}").expect("write");
+        }
+        std::fs::create_dir(dir.path().join("projects")).expect("mkdir");
+        let fora = tempfile::tempdir().expect("outside");
+        std::os::unix::fs::symlink(fora.path(), dir.path().join("link-fora")).expect("link");
+        std::os::unix::fs::symlink(dir.path().join("projects"), dir.path().join("link-dentro"))
+            .expect("link");
+        let nomes: Vec<String> = claude_home_read_roots(dir.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            nomes,
+            [
+                "daemon-auth-status.json",
+                "history.jsonl",
+                "keybindings.json",
+                "link-dentro",
+                "nasceu-amanha.json",
+                "projects",
+                "settings.json",
+                "settings.local.json"
+            ]
+        );
+        assert!(claude_home_read_roots(&dir.path().join("ausente")).is_empty());
+    }
+
+    /// SEG-4 hardening: settings enter by CONTENT — a secret-shaped `env` value (or a file
+    /// that cannot be parsed) keeps it out for the run; a short flag under a "token" name
+    /// does not.
+    #[test]
+    fn settings_with_a_secret_shaped_env_value_stay_out() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let s = dir.path().join("settings.json");
+        // Built at runtime: no credential-shaped literal in the source.
+        let fake = format!("{}{}", "AIza", "F".repeat(35));
+        std::fs::write(&s, format!(r#"{{"env":{{"GEMINI_API_KEY":"{fake}"}}}}"#)).expect("w");
+        assert!(settings_env_carries_secret(&s));
+        std::fs::write(&s, r#"{"env":{"TOKENIZERS_PARALLELISM":"false"}}"#).expect("w");
+        assert!(!settings_env_carries_secret(&s));
+        std::fs::write(&s, "{ nao é json").expect("w");
+        assert!(settings_env_carries_secret(&s), "malformed → fail closed");
+        let other = dir.path().join("history.jsonl");
+        std::fs::write(&other, "{ qualquer").expect("w");
+        assert!(
+            !settings_env_carries_secret(&other),
+            "only settings files are inspected"
+        );
+    }
+
+    /// SEG-4: the reach answer follows the grant — settings.json in, the OAuth token out.
+    #[test]
+    fn sandbox_reaches_claude_settings_but_not_the_credentials() {
+        let Some(home) = std::env::var_os("HOME").map(PathBuf::from) else {
+            return;
+        };
+        let settings = home.join(".claude").join("settings.json");
+        if settings.exists() {
+            assert!(
+                sandbox_can_reach(&settings),
+                "SEG-4: settings.json is granted"
+            );
+        }
+        let token = home.join(".claude").join(".credentials.json");
+        if token.exists() {
+            assert!(
+                !sandbox_can_reach(&token),
+                "the OAuth token is never granted"
+            );
+        }
+        let projects = home.join("projects");
+        if projects.exists() {
+            assert!(sandbox_can_reach(&projects));
+        }
     }
 }

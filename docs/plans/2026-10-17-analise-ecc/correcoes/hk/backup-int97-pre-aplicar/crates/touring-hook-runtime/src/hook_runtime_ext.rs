@@ -1,0 +1,964 @@
+//! Extension methods for `HookRuntime` (symbol index / persistence / response
+//! builders / stdin io) — extracted from `hook_runtime.rs` (F-9) as a second
+//! `impl HookRuntime` block (inherent methods resolve via the type, no re-export).
+
+use crate::hook_runtime::{HookPersistError, HookResponse, HookRuntime, StdinError};
+use crate::hook_runtime::{find_cargo_workspace_root, hash_path};
+use serde_json::Value;
+use std::path::PathBuf;
+use touring_code::ast::IncrementalEditResult;
+use touring_code::ast::{SymbolIndex, SymbolStore};
+use touring_intelligence::rl::OnlineRLEngine;
+use touring_intelligence::rl::memory::crdt_graph::{CrdtSemanticGraph, NodeWeight};
+use touring_intelligence::rl::rl::tiny_transformer::{
+    PredictionContext, ToolPrediction, ToolPredictor,
+};
+
+impl HookRuntime {
+    /// Get a reference to the OnlineRL engine, if available.
+    pub fn online_rl_engine(&self) -> Option<&OnlineRLEngine> {
+        self.learning.online_rl.as_ref()
+    }
+    /// Get a reference to the SymbolStore, if available.
+    pub fn symbol_store(&self) -> Option<&SymbolStore> {
+        self.infra.symbol_store.as_ref()
+    }
+    /// Get or initialize the in-memory SymbolIndex.
+    ///
+    /// On first call, loads symbols from the SymbolStore (if available).
+    pub fn get_symbol_index(&mut self) -> &SymbolIndex {
+        if self.infra.symbol_index.is_none() {
+            let mut idx = SymbolIndex::new();
+            if let Some(ref store) = self.infra.symbol_store {
+                let _ = store.load_into_index(&mut idx);
+            }
+            self.infra.symbol_index = Some(idx);
+        }
+        self.infra.symbol_index.as_ref().expect("just created")
+    }
+    /// Find all locations of a symbol by name.
+    pub fn find_symbol(&mut self, name: &str) -> Vec<touring_code::ast::graph::SymbolLocation> {
+        self.get_symbol_index()
+            .find_symbol(name)
+            .into_iter()
+            .cloned()
+            .collect()
+    }
+    /// Calculate blast radius for a file with depth limit.
+    ///
+    /// Returns `BlastRadiusOutput::Rich` with full metadata (file_count, max_distance, affected_symbols).
+    /// For hot-path only files, use `petgraph_blast_radius` instead.
+    pub fn blast_radius(
+        &mut self,
+        file_path: &str,
+        max_depth: usize,
+    ) -> touring_code::ast::BlastRadiusOutput {
+        touring_code::ast::BlastRadiusOutput::Rich(
+            self.get_symbol_index()
+                .blast_radius_with_depth(file_path, max_depth),
+        )
+    }
+    /// Persist symbols for a file into the SymbolStore.
+    ///
+    /// Called by post_read after extracting symbols via AST.
+    pub fn persist_symbols(
+        &self,
+        file_path: &str,
+        symbols: &[touring_code::ast::graph::SymbolLocation],
+    ) -> Result<(), String> {
+        if let Some(ref store) = self.infra.symbol_store {
+            store
+                .replace_file_symbols(file_path, symbols)
+                .map_err(|e| format!("Failed to persist symbols: {e}"))?;
+        }
+        Ok(())
+    }
+    /// Process a file through the incremental pipeline (full parse on first call).
+    ///
+    /// Subsequent calls with the same `file_path` but different content use
+    /// the cached tree for an O(edit) incremental re-parse instead of O(file).
+    /// Returns the parse result with symbol delta information.
+    pub fn process_file(
+        &self,
+        file_path: &str,
+        content: &str,
+    ) -> Result<IncrementalEditResult, String> {
+        let pipeline = self
+            .infra
+            .pipeline
+            .as_ref()
+            .ok_or("IncrementalPipeline not initialized")?;
+        pipeline
+            .process_file(file_path, content)
+            .map_err(|e| e.to_string())
+    }
+    /// Get cached symbols for a file from the incremental pipeline.
+    ///
+    /// Returns symbols from the pipeline's in-memory tree cache (O(1) lookup).
+    /// Falls back to the pipeline's SymbolStore if no cached tree exists.
+    /// Returns an empty Vec if the pipeline is not initialized or the file
+    /// has not been processed.
+    pub fn get_cached_symbols(
+        &self,
+        file_path: &str,
+    ) -> Vec<touring_code::ast::graph::SymbolLocation> {
+        self.infra
+            .pipeline
+            .as_ref()
+            .map(|p| p.get_symbols(file_path))
+            .unwrap_or_default()
+    }
+    /// Get the incremental pipeline's cache stats: (documents, trees).
+    pub fn pipeline_cache_stats(&self) -> Option<(usize, usize)> {
+        self.infra.pipeline.as_ref().map(|p| p.cache_stats())
+    }
+    /// R17: Predict the next likely tool(s) based on recent tool history.
+    ///
+    /// Delegates to the `TinyTransformerPredictor` (tiny transformer model).
+    /// Returns top-k predictions as `ToolPrediction` (tool_name, confidence).
+    /// Returns an empty Vec if the predictor is not initialized.
+    pub fn predict_next_tools(
+        &self,
+        tool_history: &[String],
+        cila_level: u8,
+    ) -> Vec<ToolPrediction> {
+        let Some(ref predictor) = self.learning.predictor else {
+            return vec![];
+        };
+        let ctx = PredictionContext {
+            recent_tools: tool_history.to_vec(),
+            cila_level,
+            session_id: String::new(),
+        };
+        predictor.predict(&ctx, 3)
+    }
+    /// R18: Record a file relationship in the CRDT graph.
+    ///
+    /// Creates nodes for both files and an edge between them.
+    /// Lazily initializes the graph on first use.
+    pub fn record_file_relation(&mut self, from_file: &str, to_file: &str, relation: &str) {
+        let graph = self
+            .learning
+            .crdt_graph
+            .get_or_insert_with(CrdtSemanticGraph::new);
+        let from_id = hash_path(from_file);
+        let to_id = hash_path(to_file);
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs();
+        graph.add_node(
+            1,
+            from_id,
+            NodeWeight {
+                label: from_file.to_string(),
+                score: 1.0,
+                updated_at: now,
+            },
+        );
+        graph.add_node(
+            1,
+            to_id,
+            NodeWeight {
+                label: to_file.to_string(),
+                score: 1.0,
+                updated_at: now,
+            },
+        );
+        graph.add_edge(1, from_id, to_id, relation);
+    }
+    /// R18: Save CRDT graph state to disk.
+    ///
+    /// No-op if no graph has been initialized or loaded.
+    /// Persist AgenticRL state for next session warm-start.
+    ///
+    /// Exports learning_phase_score, active status, and update_count to JSON.
+    /// No-op when agentic_rl is None (first-run stays cheap).
+    pub fn save_agentic_rl(&self) -> Result<(), HookPersistError> {
+        let Some(ref agentic) = self.learning.agentic_rl else {
+            return Ok(());
+        };
+        let data_dir = self.project_root.join(".claude/data");
+        std::fs::create_dir_all(&data_dir)
+            .map_err(|e| format!("Failed to create data dir {data_dir:?}: {e}"))?;
+        let path = data_dir.join("agentic_rl_state.json");
+        let state = agentic.export_state();
+        let json = serde_json::to_string(&state)
+            .map_err(|e| format!("Failed to serialize agentic RL state: {e}"))?;
+        std::fs::write(&path, json)
+            .map_err(|e| format!("Failed to write agentic RL state: {e}"))?;
+        Ok(())
+    }
+
+    /// Load persisted AgenticRL state from disk (warm-start). S-02 (2026-05-29).
+    ///
+    /// The counterpart to [`Self::save_agentic_rl`] — previously absent, which
+    /// left the persisted state write-only so learning never carried across
+    /// daemon restarts. Behavior:
+    /// - file absent → `Ok(())` (cold-start is legal — first run, or a project
+    ///   with no prior agentic state)
+    /// - file present → deserialize, ensure the `AgenticRL` is initialized via
+    ///   `agentic_rl_mut()`, then `restore_state()` to apply the persisted
+    ///   `learning_phase_score` (+ recomputed `active`) and `update_count`.
+    ///
+    /// Returns `Err` only when the file exists but fails to deserialize.
+    /// `path` is an owned `PathBuf`, so no borrow of `self.project_root` is held
+    /// across the `self.learning.agentic_rl_mut()` mutable borrow.
+    pub fn load_agentic_rl(&mut self) -> Result<(), HookPersistError> {
+        let path = self.project_root.join(".claude/data/agentic_rl_state.json");
+        if !path.exists() {
+            return Ok(());
+        }
+        let json = std::fs::read_to_string(&path).map_err(|e| {
+            format!(
+                "Failed to read agentic RL state from {}: {e}",
+                path.display()
+            )
+        })?;
+        let state: crate::agentic_rl::AgenticRLState = serde_json::from_str(&json)
+            .map_err(|e| format!("Failed to deserialize agentic RL state: {e}"))?;
+        let agentic = self.learning.agentic_rl_mut();
+        agentic.restore_state(&state);
+        tracing::info!(
+            score = state.learning_phase_score,
+            active = state.active,
+            update_count = state.update_count,
+            "agentic_rl: warm-start load succeeded"
+        );
+        Ok(())
+    }
+
+    /// Persists the CRDT wiring graph to a memory-mapped file on disk, or no-op when no graph is initialized.
+    pub fn save_crdt_graph(&self) -> Result<(), HookPersistError> {
+        if let Some(ref graph) = self.learning.crdt_graph {
+            let path = self.project_root.join(".claude/data/crdt_graph.rkyv");
+            graph
+                .save_to_mmap(&path)
+                .map_err(|e| format!("Failed to save CRDT graph: {e}"))?;
+        }
+        Ok(())
+    }
+    /// L7-B Alpha: Load or initialize CRDT graph state (warm-start).
+    ///
+    /// Behavior:
+    /// - If `.claude/data/crdt_graph.rkyv` exists → deserialize via `load_from_mmap`
+    /// - If file does NOT exist → proactively initialize an empty graph
+    ///
+    /// Either path transitions `self.learning.crdt_graph` from `None` to `Some(_)`,
+    /// which the daemon health reporter (`cli_handlers.rs`) translates to
+    /// `crdt_graph: healthy/loaded` instead of `inactive/cold_start`.
+    ///
+    /// This solves the L7-B Alpha cold_start issue where the daemon would
+    /// save on shutdown but never initialize on startup. Persistence across
+    /// restarts is preserved (file → graph) while first-run gets a clean slate
+    /// (no file → empty graph).
+    ///
+    /// Returns `Err(String)` ONLY if the file exists but fails to deserialize
+    /// (corruption, version mismatch, partial write). First-run is always `Ok`.
+    pub fn load_crdt_graph(&mut self) -> Result<(), HookPersistError> {
+        let path = self.project_root.join(".claude/data/crdt_graph.rkyv");
+        if !path.exists() {
+            self.learning.crdt_graph = Some(CrdtSemanticGraph::new());
+            tracing::info!(
+                path = % path.display(),
+                "crdt_graph: initialized empty (no persisted file)"
+            );
+            return Ok(());
+        }
+        match CrdtSemanticGraph::load_from_mmap(&path) {
+            Ok(graph) => {
+                let node_count = graph.node_count();
+                let edge_count = graph.edge_count();
+                self.learning.crdt_graph = Some(graph);
+                tracing::info!(
+                    path = % path.display(), nodes = node_count, edges = edge_count,
+                    "crdt_graph: warm-start load succeeded"
+                );
+                Ok(())
+            }
+            Err(e) => Err(HookPersistError(format!(
+                "Failed to load CRDT graph from {}: {e}",
+                path.display()
+            ))),
+        }
+    }
+    /// Export consolidated metrics from all runtime subsystems.
+    ///
+    /// Aggregates hook execution stats, bandit selection metrics,
+    /// cache hit rate, and session turn into a single serializable struct.
+    /// RL metrics require a `QTable` reference since the runtime does not
+    /// own the QTable directly — pass `None` if unavailable.
+    pub fn export_metrics(
+        &self,
+        qtable: Option<&touring_intelligence::rl::QTable>,
+    ) -> crate::metrics::RuntimeMetrics {
+        use crate::metrics::{BanditMetrics, CacheMetrics, HookMetrics, RlMetrics, RuntimeMetrics};
+        let hooks = if let Some(ref qa) = self.ctx.quality_assessment {
+            let stats = &qa.streaming_stats;
+            HookMetrics {
+                total_hooks_fired: stats.total(),
+                success_count: stats.success_count,
+                failure_count: stats.failure_count,
+                avg_latency_ms: stats.avg_latency_ms(),
+                max_latency_ms: stats.max_latency_ms,
+                success_rate: stats.success_rate(),
+            }
+        } else {
+            HookMetrics::default()
+        };
+        let rl = qtable.map(|qt| {
+            let m = qt.metrics();
+            RlMetrics {
+                td_error_ema: m.td_error_ema(),
+                avg_reward: m.avg_reward(),
+                total_updates: m.total_updates(),
+                is_converging: m.is_converging(),
+                is_diverging: m.is_diverging(),
+            }
+        });
+        let bandit = self.learning.bandit.as_ref().map(|b| {
+            let snapshot = b.export_snapshot();
+            BanditMetrics {
+                total_pulls: b.total_pulls(),
+                num_arms: b.num_arms(),
+                bandit_type: snapshot.bandit_type,
+            }
+        });
+        let cache = CacheMetrics {
+            hit_rate: self.cache_hit_rate(),
+        };
+        let cognitive = self.cognitive.as_ref().map(|rt| {
+            let q_snap = rt.predictor().q_values_snapshot();
+            let prediction_accuracy = if q_snap.is_empty() {
+                0.0
+            } else {
+                let sum: f64 = q_snap.values().sum();
+                sum / q_snap.len() as f64
+            };
+            crate::metrics::CognitiveMetrics {
+                graph_node_count: rt.graph().node_count(),
+                graph_edge_count: rt.graph().edge_count(),
+                focus_cache_hit_rate: rt.focus_cache().hit_rate(),
+                prediction_accuracy,
+                is_connected: true,
+                analysis_quality: None,
+            }
+        });
+        RuntimeMetrics {
+            hooks,
+            rl,
+            bandit,
+            cognitive,
+            cache,
+            session_turn: self.session_turn(),
+        }
+    }
+    /// Build an "allow" response (no context, silent pass).
+    ///
+    /// Unlike `emit_allow()`, this does NOT call `process::exit` —
+    /// the caller decides how to handle the response.
+    pub fn build_allow() -> HookResponse {
+        HookResponse::Allow
+    }
+    /// Build a context response (injects additionalContext).
+    ///
+    /// Unlike `emit_context()`, this does NOT call `process::exit`.
+    pub fn build_context(context: &str) -> HookResponse {
+        HookResponse::Context {
+            context: context.to_string(),
+            event_name: None,
+        }
+    }
+    /// Build a context response with an explicit event name.
+    ///
+    /// Unlike `emit_context_for_event()`, this does NOT call `process::exit`.
+    pub fn build_context_for_event(context: &str, event_name: &str) -> HookResponse {
+        HookResponse::Context {
+            context: context.to_string(),
+            event_name: Some(event_name.to_string()),
+        }
+    }
+    /// Build a "deny" response (PreToolUse only — blocks tool execution).
+    pub fn build_deny(reason: &str) -> HookResponse {
+        HookResponse::Deny {
+            reason: reason.to_string(),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }
+    }
+    /// Build a "deny" response with additional context.
+    pub fn build_deny_with_context(reason: &str, context: &str) -> HookResponse {
+        HookResponse::Deny {
+            reason: reason.to_string(),
+            context: Some(context.to_string()),
+            event_name: Some("PreToolUse".to_string()),
+        }
+    }
+    /// Build a "block" response (PostToolUse — blocks after execution).
+    pub fn build_block(reason: &str) -> HookResponse {
+        HookResponse::Block {
+            reason: reason.to_string(),
+            context: None,
+            event_name: Some("PostToolUse".to_string()),
+        }
+    }
+    /// Build a "block" response with additional context.
+    pub fn build_block_with_context(reason: &str, context: &str) -> HookResponse {
+        HookResponse::Block {
+            reason: reason.to_string(),
+            context: Some(context.to_string()),
+            event_name: Some("PostToolUse".to_string()),
+        }
+    }
+    /// Build a "halt" response (stops the entire session).
+    pub fn build_halt(reason: &str) -> HookResponse {
+        HookResponse::Halt {
+            reason: reason.to_string(),
+        }
+    }
+    /// Build a context response with updated tool input (PreToolUse only).
+    ///
+    /// Returns both `additionalContext` and `updatedInput` in the hook output,
+    /// allowing hooks to normalize or correct tool inputs before execution.
+    pub fn build_context_with_updated_input(
+        context: &str,
+        updated_input: serde_json::Value,
+    ) -> HookResponse {
+        HookResponse::ContextWithUpdatedInput {
+            context: context.to_string(),
+            event_name: Some("PreToolUse".to_string()),
+            updated_input,
+        }
+    }
+    /// Read and parse JSON from stdin with a 2-second timeout.
+    ///
+    /// Returns `{}` if stdin is a terminal or no data arrives within timeout —
+    /// **loudly** (F0.3b, 2026-09-01): the outcome is recorded for the hook
+    /// trace ([`last_stdin_read`]) and warned, never swallowed. The reader
+    /// tolerates a non-blocking stdin (Claude Code hands hooks a libuv
+    /// socketpair) by waiting out `EAGAIN` until EOF or the deadline instead
+    /// of surfacing `WouldBlock` as "no input".
+    pub fn read_stdin() -> Result<Value, StdinError> {
+        use std::io::IsTerminal;
+        if std::io::stdin().is_terminal() {
+            set_last_stdin_read(StdinReadState::Terminal, 0);
+            return Ok(serde_json::json!({}));
+        }
+        let (input, state) =
+            read_all_with_timeout(std::io::stdin(), std::time::Duration::from_secs(2));
+        let bytes = input.len() as u64;
+        match state {
+            StdinReadState::Ok if !input.trim().is_empty() => match serde_json::from_str(&input) {
+                Ok(v) => {
+                    set_last_stdin_read(StdinReadState::Ok, bytes);
+                    Ok(v)
+                }
+                Err(e) => {
+                    set_last_stdin_read(StdinReadState::ParseError, bytes);
+                    tracing::warn!(bytes, error = %e, "hook stdin: JSON parse error");
+                    Err(StdinError(format!("JSON parse error: {e}")))
+                }
+            },
+            StdinReadState::Ok | StdinReadState::Empty => {
+                set_last_stdin_read(StdinReadState::Empty, bytes);
+                tracing::warn!("hook stdin: empty payload — handler runs on `{{}}`");
+                Ok(serde_json::json!({}))
+            }
+            degraded => {
+                set_last_stdin_read(degraded, bytes);
+                tracing::warn!(
+                    state = degraded.as_str(),
+                    bytes,
+                    "hook stdin degraded — handler runs on `{{}}`"
+                );
+                Ok(serde_json::json!({}))
+            }
+        }
+    }
+    /// Emit hookSpecificOutput with additionalContext and explicit hookEventName.
+    ///
+    /// Used by standalone CLI paths (e.g. session-start) that exit the process
+    /// directly rather than returning a `HookResponse` through the daemon pipeline.
+    /// For daemon-mode callers, use `build_context_for_event` instead.
+    pub fn emit_context_for_event(context: &str, event_name: Option<&str>) -> ! {
+        let mut hso = serde_json::json!({ "additionalContext" : context, });
+        if let Some(name) = event_name {
+            #[allow(clippy::indexing_slicing)]
+            {
+                hso["hookEventName"] = serde_json::Value::String(name.to_string());
+            }
+        }
+        let output = serde_json::json!({ "hookSpecificOutput" : hso, });
+        println!("{}", serde_json::to_string(&output).unwrap_or_default());
+        crate::hook_trace::set_reason("emit-json"); // S14: the exit reason, not the default
+        std::process::exit(0)
+    }
+    /// Detect project root by walking up from cwd looking for `.claude/touring/` marker.
+    ///
+    /// Resolution strategy (in priority order; first match wins):
+    ///
+    /// 1. **`CLAUDE_PROJECT_DIR`** env var — explicit override from harness/IDE.
+    /// 2. **`TOURING_PROJECT_ROOT`** env var — Touring-specific override; used to
+    ///    pin the project when CC is launched from a subdirectory (e.g., a skill
+    ///    base-path) that would otherwise mis-resolve.
+    /// 3. **Cargo workspace root** — walk up from cwd looking for the first
+    ///    `Cargo.toml` containing a `[workspace]` table. Cargo forbids nested
+    ///    workspaces, so the first match is the unambiguous root.
+    /// 4. **Outermost `.claude/touring/` marker** — walk all the way to `/`,
+    ///    remembering the topmost ancestor that contains the marker. Using
+    ///    outermost (not innermost) prevents stub DBs accidentally created in
+    ///    subdirectories from shadowing the real project root.
+    /// 5. **`HOME/.claude`** — legacy fallback for non-touring contexts.
+    ///
+    /// # Why the order matters
+    ///
+    /// The original implementation took the *innermost* `.claude/touring/`
+    /// marker. When CC was launched with cwd inside a subdirectory that had
+    /// previously seen a stub DB created (e.g., a vendor/ tree under a skill
+    /// base-path), the daemon resolved to that stub instead of the workspace
+    /// root above — incremental indexing wrote to the stub silently and the
+    /// workspace symbols.db never received new symbols.
+    ///
+    /// The new order prefers explicit configuration, then Cargo's own concept
+    /// of workspace boundary, and only then falls back to marker-based
+    /// detection — and even that prefers the outermost match.
+    pub fn detect_project_root() -> PathBuf {
+        Self::detect_project_root_for(None)
+    }
+
+    /// [`Self::detect_project_root`] com o `cwd` do PAYLOAD do hook na cadeia (HOOKCWD, 30.4.97).
+    ///
+    /// Toda chamada do Claude Code carrega o `cwd` da sessão no payload. Sem
+    /// `CLAUDE_PROJECT_DIR` (uma chamada manual do hook, um smoke) a raiz saía de
+    /// `TOURING_PROJECT_ROOT` — que o settings global fixa em `~/projects/touring` — ou da subida
+    /// estrutural até o marcador `~/.claude/touring`; o daemon pinado em OUTRO projeto recusa em
+    /// 0 ms e o CC engole o erro calado (smoke do `analise`, 10/10/2026, casos A e B).
+    ///
+    /// A posição do `cwd` do payload é a segunda: `CLAUDE_PROJECT_DIR` continua primeiro (é o que o
+    /// harness diz ser a raiz), e o `cwd` da sessão — específico, por chamada — vence uma env
+    /// global e uma subida estrutural, que descrevem o PROCESSO, não quem está perguntando. Ver
+    /// [`pick_hook_project_root`].
+    pub fn detect_project_root_for(payload_cwd: Option<&std::path::Path>) -> PathBuf {
+        let cwd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let home = std::env::var_os("HOME").map(PathBuf::from);
+        pick_hook_project_root(
+            std::env::var_os("CLAUDE_PROJECT_DIR").map(PathBuf::from),
+            payload_cwd,
+            std::env::var_os("TOURING_PROJECT_ROOT").map(PathBuf::from),
+            &cwd,
+            home.as_deref(),
+        )
+    }
+}
+
+/// A cadeia da raiz do hook, PURA sobre os valores de ambiente (testável sem mutar o do processo):
+///
+/// 1. `claude_dir` (`CLAUDE_PROJECT_DIR`) — explícito do harness, devolvido como veio.
+/// 2. `payload_cwd` — o `cwd` do payload do hook, se for um diretório absoluto que existe; vira a
+///    raiz do projeto que o contém pela MESMA regra que o daemon aplica ao `project_root` que
+///    recebe (`TouringConfig::normalize_project_root_inner`): um cwd de subdiretório e a raiz do
+///    projeto são a mesma pergunta, e o cliente não pode responder diferente do servidor.
+/// 3. `touring_root` (`TOURING_PROJECT_ROOT`) — o pin explícito do processo.
+/// 4. A raiz do workspace Cargo acima do `cwd` do processo.
+/// 5. O marcador `.claude/touring` mais EXTERNO acima do `cwd` do processo.
+/// 6. `$HOME/.claude` — fallback legado.
+pub(crate) fn pick_hook_project_root(
+    claude_dir: Option<PathBuf>,
+    payload_cwd: Option<&std::path::Path>,
+    touring_root: Option<PathBuf>,
+    cwd: &std::path::Path,
+    home: Option<&std::path::Path>,
+) -> PathBuf {
+    // (1) Highest-priority explicit override (legacy env var name).
+    if let Some(p) = claude_dir {
+        return p;
+    }
+    // (2) O cwd da sessão que está perguntando. Relativo ou inexistente não diz nada (e um
+    //     cwd relativo resolvido aqui ancoraria no cwd do PROCESSO, não no da sessão).
+    if let Some(c) = payload_cwd.filter(|c| c.is_absolute() && c.is_dir()) {
+        return touring_foundation::TouringConfig::normalize_project_root_inner(c, home);
+    }
+    // (3) Touring-specific override.
+    if let Some(p) = touring_root {
+        return p;
+    }
+
+    // (4) Cargo workspace root (strongest structural signal for Rust trees).
+    if let Some(ws_root) = find_cargo_workspace_root(cwd) {
+        return ws_root;
+    }
+
+    // (5) Outermost `.claude/touring/` marker — walk all the way to `/`,
+    //     remembering the topmost ancestor that contains the marker. Using
+    //     outermost (not innermost) prevents stub DBs accidentally created in
+    //     subdirectories from shadowing the real project root.
+    let mut highest_match: Option<PathBuf> = None;
+    let mut dir = cwd.to_path_buf();
+    loop {
+        if dir.join(".claude").join("touring").exists() {
+            highest_match = Some(dir.clone());
+        }
+        if !dir.pop() {
+            break;
+        }
+    }
+    if let Some(root) = highest_match {
+        return root;
+    }
+
+    // (6) Legacy fallback.
+    home.map(|h| h.join(".claude"))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// How the hook payload read from stdin ended (F0.3b, 2026-09-01).
+///
+/// Exposed for the per-invocation trace ([`crate::hook_trace`]) so a live
+/// hook that ran on `{}` says WHY on disk instead of vanishing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StdinReadState {
+    /// `read_stdin` has not run in this process.
+    Unread,
+    /// stdin is a TTY — no payload expected.
+    Terminal,
+    /// Payload read to EOF and parsed.
+    Ok,
+    /// EOF with zero bytes.
+    Empty,
+    /// No EOF within the deadline.
+    Timeout,
+    /// A non-retryable I/O error while reading.
+    ReadError,
+    /// Bytes arrived but were not JSON.
+    ParseError,
+}
+
+impl StdinReadState {
+    /// Stable snake-ish names for the trace line.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            StdinReadState::Unread => "unread",
+            StdinReadState::Terminal => "terminal",
+            StdinReadState::Ok => "ok",
+            StdinReadState::Empty => "empty",
+            StdinReadState::Timeout => "timeout",
+            StdinReadState::ReadError => "read-error",
+            StdinReadState::ParseError => "parse-error",
+        }
+    }
+
+    fn from_u8(v: u8) -> Self {
+        match v {
+            1 => StdinReadState::Terminal,
+            2 => StdinReadState::Ok,
+            3 => StdinReadState::Empty,
+            4 => StdinReadState::Timeout,
+            5 => StdinReadState::ReadError,
+            6 => StdinReadState::ParseError,
+            _ => StdinReadState::Unread,
+        }
+    }
+}
+
+static LAST_STDIN_STATE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static LAST_STDIN_BYTES: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+fn set_last_stdin_read(state: StdinReadState, bytes: u64) {
+    LAST_STDIN_STATE.store(state as u8, std::sync::atomic::Ordering::Relaxed);
+    LAST_STDIN_BYTES.store(bytes, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Outcome of the last [`HookRuntime::read_stdin`] in this process:
+/// `(state, bytes_read)`. `Unread` until it runs.
+pub fn last_stdin_read() -> (StdinReadState, u64) {
+    (
+        StdinReadState::from_u8(LAST_STDIN_STATE.load(std::sync::atomic::Ordering::Relaxed)),
+        LAST_STDIN_BYTES.load(std::sync::atomic::Ordering::Relaxed),
+    )
+}
+
+/// Read `reader` to EOF on a helper thread, bounded by `timeout`.
+///
+/// Tolerates a **non-blocking** descriptor: `WouldBlock` (EAGAIN) is waited
+/// out, never surfaced as "no more input" — Claude Code hands hooks a libuv
+/// socketpair and the write side may be shut down after the child's first
+/// read, which is exactly where `read_to_string` used to drop the payload.
+/// On timeout the helper thread is abandoned (the process exits shortly
+/// after in every caller).
+pub fn read_all_with_timeout<R: std::io::Read + Send + 'static>(
+    mut reader: R,
+    timeout: std::time::Duration,
+) -> (String, StdinReadState) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let mut buf: Vec<u8> = Vec::new();
+        let mut chunk = [0u8; 8192];
+        let outcome = loop {
+            match reader.read(&mut chunk) {
+                Ok(0) => break Ok(()),
+                Ok(n) => buf.extend_from_slice(&chunk[..n]),
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => continue,
+                Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+                Err(e) => break Err(e),
+            }
+        };
+        let text = String::from_utf8_lossy(&buf).into_owned();
+        let _ = tx.send((text, outcome));
+    });
+    match rx.recv_timeout(timeout) {
+        Ok((text, Ok(()))) if text.is_empty() => (text, StdinReadState::Empty),
+        Ok((text, Ok(()))) => (text, StdinReadState::Ok),
+        Ok((text, Err(_))) => (text, StdinReadState::ReadError),
+        Err(_) => (String::new(), StdinReadState::Timeout),
+    }
+}
+
+/// F0.3b (2026-09-01) — `read_stdin` must survive the transport Claude Code
+/// actually uses (a libuv socketpair whose write side may be shut down AFTER
+/// the child's first read) and must never degrade to `{}` in silence.
+#[cfg(test)]
+mod stdin_read_tests {
+    use super::{StdinReadState, read_all_with_timeout};
+    use std::io::Write;
+    use std::os::unix::net::UnixStream;
+    use std::time::Duration;
+
+    fn payload(n: usize) -> String {
+        format!("{{\"tool_input\":{{\"command\":\"{}\"}}}}", "x".repeat(n))
+    }
+
+    /// The live failure shape: non-blocking fd, data arrives AFTER the first
+    /// read (EAGAIN with empty buffer), EOF arrives AFTER the data is consumed
+    /// (EAGAIN again). A `read_to_string` that surfaces `WouldBlock` loses the
+    /// payload; the reader must wait out EAGAIN until EOF or the deadline.
+    #[test]
+    fn nonblocking_socket_with_late_shutdown_is_read_whole() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        reader.set_nonblocking(true).expect("nonblocking child end");
+        let expected = payload(3000);
+        let sent = expected.clone();
+        let producer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(40));
+            writer.write_all(sent.as_bytes()).expect("write");
+            std::thread::sleep(Duration::from_millis(60));
+            writer
+                .shutdown(std::net::Shutdown::Write)
+                .expect("shutdown write side");
+        });
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        producer.join().expect("producer");
+        assert_eq!(state, StdinReadState::Ok, "input={input:?}");
+        assert_eq!(input, expected);
+    }
+
+    #[test]
+    fn blocking_socket_is_read_whole() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        let expected = payload(500);
+        writer.write_all(expected.as_bytes()).expect("write");
+        writer
+            .shutdown(std::net::Shutdown::Write)
+            .expect("shutdown write side");
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        assert_eq!(state, StdinReadState::Ok);
+        assert_eq!(input, expected);
+    }
+
+    #[test]
+    fn empty_input_is_reported_as_empty_not_ok() {
+        let (writer, reader) = UnixStream::pair().expect("socketpair");
+        writer
+            .shutdown(std::net::Shutdown::Write)
+            .expect("shutdown write side");
+        let (input, state) = read_all_with_timeout(reader, Duration::from_secs(2));
+        assert_eq!(state, StdinReadState::Empty);
+        assert!(input.is_empty());
+    }
+
+    #[test]
+    fn writer_that_never_closes_is_reported_as_timeout() {
+        let (mut writer, reader) = UnixStream::pair().expect("socketpair");
+        writer.write_all(b"{\"partial\":").expect("write");
+        let started = std::time::Instant::now();
+        let (_input, state) = read_all_with_timeout(reader, Duration::from_millis(150));
+        assert_eq!(state, StdinReadState::Timeout);
+        assert!(started.elapsed() >= Duration::from_millis(150));
+        drop(writer);
+    }
+
+    #[test]
+    fn state_names_are_stable_for_the_trace_line() {
+        assert_eq!(StdinReadState::Ok.as_str(), "ok");
+        assert_eq!(StdinReadState::Empty.as_str(), "empty");
+        assert_eq!(StdinReadState::Timeout.as_str(), "timeout");
+        assert_eq!(StdinReadState::Terminal.as_str(), "terminal");
+        assert_eq!(StdinReadState::ReadError.as_str(), "read-error");
+        assert_eq!(StdinReadState::ParseError.as_str(), "parse-error");
+    }
+}
+
+/// HOOKCWD (30.4.97) — a cadeia da raiz do hook com o `cwd` do payload. Os casos A e B são os do
+/// smoke do `analise` (10/10/2026, 30.4.96): sem `CLAUDE_PROJECT_DIR`, a raiz saía de
+/// `TOURING_PROJECT_ROOT` global (A) ou da subida até o marcador `~/.claude/touring` (B), e o
+/// daemon pinado no `analise` recusava em 0 ms.
+#[cfg(test)]
+mod hook_root_tests {
+    use super::pick_hook_project_root;
+    use std::path::{Path, PathBuf};
+
+    struct Mundo {
+        _tmp: tempfile::TempDir,
+        analise: PathBuf,
+        touring: PathBuf,
+        casa: PathBuf,
+    }
+
+    /// `analise` e `touring` são projetos (`.touring/`); `casa` é um HOME com o marcador global.
+    fn mundo() -> Mundo {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let base = tmp.path().canonicalize().expect("canonical");
+        let analise = base.join("analise");
+        let touring = base.join("touring");
+        let casa = base.join("casa");
+        for d in [
+            analise.join(".touring"),
+            analise.join("sub/dir"),
+            touring.join(".touring"),
+            casa.join(".claude/touring"),
+            casa.join("trabalho"),
+        ] {
+            std::fs::create_dir_all(d).expect("mkdir");
+        }
+        Mundo {
+            _tmp: tmp,
+            analise,
+            touring,
+            casa,
+        }
+    }
+
+    fn escolhe(
+        claude: Option<&Path>,
+        payload: Option<&Path>,
+        touring_root: Option<&Path>,
+        cwd: &Path,
+        home: &Path,
+    ) -> PathBuf {
+        pick_hook_project_root(
+            claude.map(Path::to_path_buf),
+            payload,
+            touring_root.map(Path::to_path_buf),
+            cwd,
+            Some(home),
+        )
+    }
+
+    /// Caso A: `TOURING_PROJECT_ROOT` global aponta para OUTRO projeto; o cwd do payload manda.
+    #[test]
+    fn caso_a_o_cwd_do_payload_vence_touring_project_root() {
+        let m = mundo();
+        let sub = m.analise.join("sub/dir");
+        assert_eq!(
+            escolhe(None, Some(&sub), Some(&m.touring), &m.touring, &m.casa),
+            m.analise,
+            "o cwd da sessão (um subdiretório do analise) resolve para a raiz do analise"
+        );
+    }
+
+    /// Caso B: sem env alguma, o processo roda em `~/trabalho`; a subida estrutural chegaria a um
+    /// marcador global `.claude/touring` — no smoke, o do HOME real; a raiz saía do projeto. O cwd
+    /// do payload manda.
+    ///
+    /// A premissa do defeito é afirmada pela PROPRIEDADE, não por um valor: ONDE a subida termina
+    /// depende dos marcadores `.claude/touring` que a máquina tem acima do tmp (esta tem um
+    /// `/tmp/.claude/touring` perdido, e a subida para ali em vez de no `casa` do teste). O que o
+    /// defeito exige — e o que vale em toda máquina — é que a raiz NÃO seja o projeto do payload.
+    #[test]
+    fn caso_b_o_cwd_do_payload_vence_a_subida_estrutural() {
+        let m = mundo();
+        let trabalho = m.casa.join("trabalho");
+        let sem_payload = escolhe(None, None, None, &trabalho, &m.casa);
+        assert!(
+            !sem_payload.starts_with(&m.analise),
+            "premissa do defeito: sem cwd de payload a raiz ({}) não é o projeto que perguntou",
+            sem_payload.display()
+        );
+        assert_eq!(
+            escolhe(None, Some(&m.analise.join("sub")), None, &trabalho, &m.casa),
+            m.analise
+        );
+    }
+
+    /// `CLAUDE_PROJECT_DIR` continua PRIMEIRO — devolvido como veio, sem normalizar.
+    #[test]
+    fn claude_project_dir_continua_primeiro() {
+        let m = mundo();
+        assert_eq!(
+            escolhe(
+                Some(&m.touring),
+                Some(&m.analise.join("sub")),
+                None,
+                &m.casa,
+                &m.casa
+            ),
+            m.touring
+        );
+    }
+
+    /// Sem payload a cadeia antiga vale: `TOURING_PROJECT_ROOT` manda; sem ele, a subida
+    /// estrutural (cujo ponto de parada depende dos marcadores da máquina — ver o caso B) segue
+    /// respondendo, e não é o cwd de payload que nunca existiu.
+    #[test]
+    fn sem_cwd_de_payload_a_cadeia_antiga_vale() {
+        let m = mundo();
+        assert_eq!(
+            escolhe(None, None, Some(&m.touring), &m.casa, &m.casa),
+            m.touring
+        );
+        let estrutural = escolhe(None, None, None, &m.casa, &m.casa);
+        assert!(
+            estrutural.is_absolute() && !estrutural.starts_with(&m.analise),
+            "a subida estrutural responde sem payload: {}",
+            estrutural.display()
+        );
+    }
+
+    /// Um cwd de payload que não diz nada (relativo, inexistente, arquivo) é IGNORADO: nunca vira
+    /// raiz, e um relativo jamais é resolvido contra o cwd do PROCESSO.
+    #[test]
+    fn cwd_de_payload_invalido_e_ignorado() {
+        let m = mundo();
+        let arquivo = m.analise.join("arquivo.txt");
+        std::fs::write(&arquivo, "x").expect("arquivo");
+        for ruim in [
+            Path::new("sub/dir"),
+            Path::new("/nao/existe/g97"),
+            arquivo.as_path(),
+        ] {
+            assert_eq!(
+                escolhe(None, Some(ruim), Some(&m.touring), &m.casa, &m.casa),
+                m.touring,
+                "cwd de payload inválido ({}) cai na cadeia antiga",
+                ruim.display()
+            );
+        }
+    }
+
+    /// Um cwd sem marcador de projeto resolve como o daemon resolve: o HOME (a loja global).
+    #[test]
+    fn cwd_de_payload_sem_projeto_resolve_como_o_daemon() {
+        let m = mundo();
+        assert_eq!(
+            escolhe(
+                None,
+                Some(&m.casa.join("trabalho")),
+                Some(&m.touring),
+                &m.touring,
+                &m.casa
+            ),
+            m.casa
+        );
+    }
+}

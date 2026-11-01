@@ -1,0 +1,7 @@
+{
+  "name": "touring-compact-evict",
+  "version": "0.1.0",
+  "description": "Deterministic eviction of superseded tool results at the compaction boundary (session.compact). Off unless TOURING_COMPACT_EVICT=on.",
+  "author": { "name": "Gabriel Gadea" },
+  "license": "MIT OR Apache-2.0"
+}

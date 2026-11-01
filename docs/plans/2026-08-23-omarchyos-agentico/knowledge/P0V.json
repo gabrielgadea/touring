@@ -1,0 +1,11 @@
+{
+  "phase": "P0V",
+  "entities": [
+    {
+      "entity_id": "phase:P0V",
+      "type": "phase",
+      "description": "P0V prot\u00f3tipo em VM: cidata unattended ACEITO (formato archinstall portado em cidata_gen.py \u2014 o template anterior era inv\u00e1lido); Omarchy 4.0.0 instalado em ~3min; plugin gabriel.skills-deck VALID+enabled no shell Quickshell real; menu skills com 6 entradas provado por screenshot; Panel popout n\u00e3o abre com Item plano \u2192 widget delega ao menu, painel rico fica para P5 na VM guardada; validate_p1 rc=1 fail-closed na VM; classe pipefail-append: 7 inst\u00e2ncias corrigidas + guard estrutural."
+    }
+  ],
+  "relations": []
+}

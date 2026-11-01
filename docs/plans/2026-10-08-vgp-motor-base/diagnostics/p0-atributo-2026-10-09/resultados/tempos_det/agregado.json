@@ -1,0 +1,119 @@
+{
+ "l1 70e0051a": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 115.3,
+  "mediana_minimo_por_id_ms": 2.84,
+  "p95_por_repeticao_ms": {
+   "1": 144.7,
+   "2": 171.9,
+   "3": 149.3
+  },
+  "camada2_estourada_por_repeticao": {
+   "2": 0,
+   "3": 0
+  }
+ },
+ "l1 e935aaf1": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 118.7,
+  "mediana_minimo_por_id_ms": 2.47,
+  "p95_por_repeticao_ms": {
+   "1": 154.8,
+   "2": 166.2,
+   "3": 146.0
+  },
+  "camada2_estourada_por_repeticao": {
+   "2": 0,
+   "3": 0
+  }
+ },
+ "l1 f55ec4b5": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 119.8,
+  "mediana_minimo_por_id_ms": 2.79,
+  "p95_por_repeticao_ms": {
+   "1": 145.5,
+   "2": 172.7,
+   "3": 147.8
+  },
+  "camada2_estourada_por_repeticao": {
+   "2": 0,
+   "3": 0
+  }
+ },
+ "v3 70e0051a": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 942.2,
+  "mediana_minimo_por_id_ms": 513.19,
+  "p95_por_repeticao_ms": {
+   "1": 1022.4,
+   "2": 1035.4,
+   "3": 999.4
+  },
+  "camada2_estourada_por_repeticao": {
+   "1": 23,
+   "2": 26,
+   "3": 15
+  }
+ },
+ "v3 e935aaf1": {
+  "reps": [
+   1,
+   2,
+   3
+  ],
+  "ids": 738,
+  "p95_minimo_por_id_ms": 906.1,
+  "mediana_minimo_por_id_ms": 530.65,
+  "p95_por_repeticao_ms": {
+   "1": 1015.7,
+   "2": 1009.8,
+   "3": 1003.3
+  },
+  "camada2_estourada_por_repeticao": {
+   "2": 28,
+   "3": 33
+  }
+ },
+ "l1 70e0051a - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": 0.18,
+  "p95_da_diferenca_ms": 13.2,
+  "ids_mais_lentos_em_mais_de_5ms": 78,
+  "ids_mais_rapidos_em_mais_de_5ms": 12
+ },
+ "l1 f55ec4b5 - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": 0.21,
+  "p95_da_diferenca_ms": 11.1,
+  "ids_mais_lentos_em_mais_de_5ms": 80,
+  "ids_mais_rapidos_em_mais_de_5ms": 16
+ },
+ "v3 70e0051a - e935aaf1 (min por id)": {
+  "ids": 738,
+  "mediana_ms": -1.0,
+  "p95_da_diferenca_ms": 64.2,
+  "ids_mais_lentos_em_mais_de_5ms": 274,
+  "ids_mais_rapidos_em_mais_de_5ms": 325
+ }
+}

@@ -1,0 +1,531 @@
+{
+ "total_itens": 606,
+ "conservacao": true,
+ "tabela": [
+  {
+   "classe": "touring run falhou",
+   "n": 220,
+   "destino": "b: o gate nao declarava o orcamento — 35 timeout, TODOS sem --timeout-ms (default 30s)",
+   "letra": "b",
+   "evidencias": {
+    "touring run falhou": [
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01RTV7J98z54gvpVH3CpPWEL",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": "sem envelope no transcript",
+      "declara_timeout_ms": true,
+      "destino_por_regex": "c: uso legitimo (sem envelope: so 'Exit code N' no transcript)"
+     },
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01E73tCKPezcE7UqkR48CJg2",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": "sem envelope no transcript",
+      "declara_timeout_ms": true,
+      "destino_por_regex": "c: uso legitimo (sem envelope: so 'Exit code N' no transcript)"
+     },
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01GPpgk2oUJzTMp41EUMomxr",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": "sem envelope no transcript",
+      "declara_timeout_ms": false,
+      "destino_por_regex": "c: uso legitimo (sem envelope: so 'Exit code N' no transcript)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "arquivo/caminho inexistente",
+   "n": 55,
+   "destino": "c: uso legitimo — o chamador apontou caminho inexistente (ls: cannot access / No module named)",
+   "letra": "c",
+   "evidencias": {
+    "arquivo/caminho inexistente": [
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_eGdlL3ibmWuTBoJCutDzIQMX",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "52bc5aaa-b95d-4b17-bd5f-4a847d305265",
+      "tool_use_id": "toolu_01LC5xMnP3ggkqUmgBbawgdk",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "52bc5aaa-b95d-4b17-bd5f-4a847d305265",
+      "tool_use_id": "toolu_014yXwBxrtiny91MpqrNF1oB",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "permissão do Claude Code negou",
+   "n": 53,
+   "destino": "d: camada de permissao do Claude Code (Force/approval), nao hook do Touring",
+   "letra": "d",
+   "evidencias": {
+    "permissão do Claude Code negou": [
+     {
+      "session": "8d9947bd-ebbc-47c0-adc9-3ad6df5ed9e2",
+      "tool_use_id": "toolu_011kqnKSxxuKT76x2RquBzHN",
+      "primeira_linha": "Force operation",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: camada de permissao do Claude Code (Force/approval)"
+     },
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01F6NsGdwwbWyEPCF6Qu3gMG",
+      "primeira_linha": "Force operation",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: camada de permissao do Claude Code (Force/approval)"
+     },
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01YS9Q2d6q1Hz2dxQG5uHs3P",
+      "primeira_linha": "Force operation",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: camada de permissao do Claude Code (Force/approval)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "is_error com saída de sucesso (outro comando do pipeline falhou)",
+   "n": 34,
+   "destino": "c: uso legitimo — pytest passou (20 passed, 1 skipped) e o comando SEGUINTE no && falhou",
+   "letra": "c",
+   "evidencias": {
+    "is_error com saída de sucesso (outro comando do pipeline falhou)": [
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_YdwnNhzeeUDf5xUekEjIm7ZM",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "ab65af20-ede1-459d-9e09-f6b595e96d9f",
+      "tool_use_id": "toolu_01JibL2j1uVAW5W8xy8PoCHk",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "ab65af20-ede1-459d-9e09-f6b595e96d9f",
+      "tool_use_id": "toolu_01CigYyhoVodS9dv8K16oJt2",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "pytest falhou (sumário)",
+   "n": 22,
+   "destino": "c: uso legitimo — o teste falhou de verdade (33 failed, 101 passed); o sumário e o diagnóstico",
+   "letra": "c",
+   "evidencias": {
+    "pytest falhou (sumário)": [
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_OLaZxA7If2qoN4id0jbNqR7A",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: permissao do SO / sandbox"
+     },
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_aN2KFhC6Xw0Sa2uRYwD5NS7z",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: permissao do SO / sandbox"
+     },
+     {
+      "session": "ab65af20-ede1-459d-9e09-f6b595e96d9f",
+      "tool_use_id": "toolu_01TQfWrYw5e1oVt74af9qP4F",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "sintaxe do shell",
+   "n": 15,
+   "destino": "b: a mensagem nao ensina a rota — 'syntax error near unexpected token' sem dizer como citar o codigo em --code (4/4 lidos falham por aspas dentro de aspas)",
+   "letra": "b",
+   "evidencias": {
+    "sintaxe do shell": [
+     {
+      "session": "ffc7faf1-75fc-4f9b-bce0-6cd2da0c7bce",
+      "tool_use_id": "toolu_01UjBqb5zkZRx28vop1umXf7",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "9105f79c-7d21-4688-89c5-2a57a0ba1b29",
+      "tool_use_id": "call_function_fup5rtj2aroo_1",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "9105f79c-7d21-4688-89c5-2a57a0ba1b29",
+      "tool_use_id": "call_function_xds3duv8txao_1",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "git",
+   "n": 13,
+   "destino": "c: uso legitimo — 2/5 pathspec ausente; 3/5 index.lock de sessao CC concorrente",
+   "letra": "c",
+   "evidencias": {
+    "git": [
+     {
+      "session": "83f700cf-fc7e-4020-a92b-86bc7b531c3e",
+      "tool_use_id": "toolu_01SqB7qVgLyfzbJE7wfbd8rF",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "fde12f4c-a367-468e-ab30-0439fc525e39",
+      "tool_use_id": "toolu_01W4sCd9hxnH8uAJUHgwr3aM",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_mf9KKQafxKJ9Oh0z8REX2zrf",
+      "primeira_linha": "Exit code 128",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "timeout",
+   "n": 11,
+   "destino": "c: uso legitimo — o `timeout 560` do proprio comando expirou (exit 143 = SIGTERM do proprio timeout)",
+   "letra": "c",
+   "evidencias": {
+    "timeout": [
+     {
+      "session": "ab65af20-ede1-459d-9e09-f6b595e96d9f",
+      "tool_use_id": "toolu_018BVJ2VtABiCSyGucKwis5e",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "agent-aa0-eng-73875089a6eb780f",
+      "tool_use_id": "toolu_01E7WAdgjoVDUDnjS8opqZ23",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "agent-as3b-normas-execucao-2fb4255e4d029713",
+      "tool_use_id": "toolu_01Gcr3x6GG5vHN6Gk9MpqQFs",
+      "primeira_linha": "Exit code 28",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "saída vazia com exit≠0 (grep/test sem casamento)",
+   "n": 8,
+   "destino": "c: uso legitimo — grep sem casamento dentro de pipeline com && (o && e o que reprova)",
+   "letra": "c",
+   "evidencias": {
+    "saída vazia com exit≠0 (grep/test sem casamento)": [
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_vyE87wcdJ3Gl1rBElkQewtyB",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (grep/test sem casamento, sem envelope)"
+     },
+     {
+      "session": "83f700cf-fc7e-4020-a92b-86bc7b531c3e",
+      "tool_use_id": "toolu_017KZ7CBQvRawYA67X42w3q6",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (grep/test sem casamento, sem envelope)"
+     },
+     {
+      "session": "fde12f4c-a367-468e-ab30-0439fc525e39",
+      "tool_use_id": "toolu_01SMP5BWWprLUKjXiFh8QhqQ",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (grep/test sem casamento, sem envelope)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "permissão/sandbox",
+   "n": 6,
+   "destino": "d: o proprio CEG negou no sandbox (Landlock KernelEnforced) — ambiente, nao Touring",
+   "letra": "d",
+   "evidencias": {
+    "permissão/sandbox": [
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_gKlfSJs4UsbMs1z7hVDDPOCT",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: permissao do SO / sandbox"
+     },
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_tDn1oHSdWsauwiLYLfJGoiuc",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: permissao do SO / sandbox"
+     },
+     {
+      "session": "6146d0ea-a49e-4bb9-9a86-eec303962452",
+      "tool_use_id": "tool_ugUYxrVVjA7WLyt7QEjjAFVm",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "d: permissao do SO / sandbox"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "entrada de ferramenta inválida",
+   "n": 6,
+   "destino": "c: uso legitimo — InputValidationError da propria ferramenta (parametro a mais; control character no comando)",
+   "letra": "c",
+   "evidencias": {
+    "entrada de ferramenta inválida": [
+     {
+      "session": "agent-a6b77d7632d44326e",
+      "tool_use_id": "call_01a10d59c7d471a6ab7d08f2",
+      "primeira_linha": "<tool_use_error>InputValidationError: [",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "agent-a6b77d7632d44326e",
+      "tool_use_id": "call_01a10d59d1757134b9dde811",
+      "primeira_linha": "<tool_use_error>InputValidationError: [",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "agent-a6b77d7632d44326e",
+      "tool_use_id": "call_01a10d59eb3e702fa01de60c",
+      "primeira_linha": "<tool_use_error>InputValidationError: [",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "traceback cortado (sem a linha da exceção)",
+   "n": 5,
+   "destino": "c: uso legitimo — a excecao ESTA no texto (SemProcedencia, RelacaoDesconhecida em grafo_modelo.py:168/223); o balde errou porque o traceback estava no fim da string",
+   "letra": "c",
+   "evidencias": {
+    "traceback cortado (sem a linha da exceção)": [
+     {
+      "session": "b585cb63-79d4-475c-b412-01949bf09c44",
+      "tool_use_id": "toolu_01SZZeMvL5GfCFw3kNNnCZku",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "ab47ad49-0092-4bab-a6a7-57a60e0ab647",
+      "tool_use_id": "toolu_01WZvRZ8WHRWtPNnyNfkjZe1",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "de0c97e0-8d67-43c6-a369-13280034772e",
+      "tool_use_id": "toolu_01VFykAXqZUUjsiafuqhH5oa",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "comando inexistente",
+   "n": 4,
+   "destino": "c: uso legitimo — `bc: command not found` (utilitario ausente no SO)",
+   "letra": "c",
+   "evidencias": {
+    "comando inexistente": [
+     {
+      "session": "83f700cf-fc7e-4020-a92b-86bc7b531c3e",
+      "tool_use_id": "toolu_01S73wbSsu9zVjC2QJE98cnH",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "fde12f4c-a367-468e-ab30-0439fc525e39",
+      "tool_use_id": "toolu_01X1AB1vvEyg6cZZtE1PBqTn",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "9105f79c-7d21-4688-89c5-2a57a0ba1b29",
+      "tool_use_id": "toolu_01JP6AJbGRqWNmQvVPXYCEyb",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "CLI touring/uv/outros (error:)",
+   "n": 4,
+   "destino": "b: `touring run --lang python -c` — a CLI NAO tem `-c` (exige --code/--file); 2/4 lidos. A mensagem de uso existe mas o hook nao ensina a forma correta",
+   "letra": "b",
+   "evidencias": {
+    "CLI touring/uv/outros (error:)": [
+     {
+      "session": "9105f79c-7d21-4688-89c5-2a57a0ba1b29",
+      "tool_use_id": "call_function_14a1okhm2rdi_1",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "9105f79c-7d21-4688-89c5-2a57a0ba1b29",
+      "tool_use_id": "call_function_ntbkfc8yd3y9_1",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "514c11b8-ce52-45da-88ab-23a189f10c5d",
+      "tool_use_id": "call_01a10ef913c0725ea1786ef7",
+      "primeira_linha": "Exit code 2",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  },
+  {
+   "classe": "cargo falhou (sem diagnóstico no recorte)",
+   "n": 2,
+   "destino": "c: uso legitimo — cargo falhou e o diagnostico ficou fora do recorte",
+   "letra": "c",
+   "evidencias": {
+    "cargo falhou (sem diagnóstico no recorte)": [
+     {
+      "session": "agent-aafb8c4e9ac58b2ee",
+      "tool_use_id": "toolu_018Ww3bAMVgkg9FwhzsSPf2e",
+      "primeira_linha": "Exit code 1",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     },
+     {
+      "session": "5956fbbc-9f7e-48ac-8e3c-5454a9fea3c7",
+      "tool_use_id": "tool_U0euwM4YVk9KxyJ016YBTDQd",
+      "primeira_linha": "Exit code 101",
+      "failure_kind": null,
+      "declara_timeout_ms": null,
+      "destino_por_regex": "c: uso legitimo (sem sinal de defeito)"
+     }
+    ]
+   }
+  }
+ ],
+ "nao_classificado": {
+  "total": 148,
+  "reduzido": {
+   "saida vazia + exit!=0 (exit code nu)": 143,
+   "nao classificado (sem predicado)": 5
+  }
+ },
+ "touring_run": {
+  "sem envelope no transcript": 133,
+  "exception": 52,
+  "timeout": 35
+ },
+ "refutado_pela_leitura": {
+  "CLI touring/uv/outros (error:)": "o regex propunha (a) defeito no codigo; a leitura mostra uso de flag inexistente — e a CLI estar sem `--code` e um defeito de ENSINAR, nao de existir",
+  "traceback cortado (sem a linha da exceção)": "o regex propunha (b) 'o recorte escondeu a linha'; a linha estava la — o balde nao a parseou",
+  "sintaxe do shell": "o regex via genericamente (b); a leitura dos 4 casos mostra UMA causa so (citação de codigo dentro de --code), o que torna a correcao pontual"
+ },
+ "reencontro": {
+  "pares": 44,
+  "reencontrados": 44,
+  "faltantes": [],
+  "ids_repetidos": []
+ }
+}

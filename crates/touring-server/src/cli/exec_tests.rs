@@ -108,10 +108,23 @@ fn gate_command_denies_a_destructive_command() {
 
 #[test]
 fn gate_command_denies_a_subprocess_under_sandboxed() {
-    // The Sandboxed profile grants no Run capability — a shell command,
-    // which always spawns, is denied. This is the stricter question.
-    let outcome = gate_command("ls -la", "sandboxed", false, None).expect("gated");
+    // Pós-T0.1 (25/08): o perfil Sandboxed concede `Run` aos 22
+    // READ_ONLY_BINARIES — `ls` PASSA por ele (o caminho preferido não pode
+    // ser mais fraco que o Bash atômico ao lado). A pergunta mais estrita
+    // que este teste faz segue de pé: um binário FORA da lista é negado —
+    // `sh` spawnaria um interpretador inteiro fora do perímetro.
+    let outcome = gate_command("sh -c 'echo hi'", "sandboxed", false, None).expect("gated");
     assert_eq!(outcome.decision.verdict, Verdict::Deny);
+}
+
+#[test]
+fn gate_command_allows_a_read_only_binary_under_sandboxed() {
+    // O outro lado da moeda T0.1: `ls` é concedido pelo Sandboxed — um deny
+    // aqui seria a regressão simétrica (o caminho preferido mais fraco que
+    // o atômico). Os dois lados são afirmados porque a invariante é a
+    // ASSIMETRIA: dentro da lista passa, fora dela nega.
+    let outcome = gate_command("ls -la", "sandboxed", false, None).expect("gated");
+    assert_eq!(outcome.decision.verdict, Verdict::Allow);
 }
 
 #[test]

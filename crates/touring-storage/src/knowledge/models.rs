@@ -34,7 +34,7 @@ pub struct FileKnowledge {
 ///
 /// Created via `FileKnowledgeDB::query_extended()` which joins across:
 /// - `file_knowledge` (base 10 fields)
-/// - `cognitive_enrichment` (cognitive_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal)
+/// - `cognitive_enrichment` (quality_score, complexity_signal, fan_in_signal, fan_out_signal, doc_signal)
 /// - `module_ecosystem` (integration_score, pub_symbol_count, import_count, re_export_count)
 /// - `file_blake3_registry` (blake3_hash)
 /// - `file_test_coverage` (coverage_pct)
@@ -62,7 +62,7 @@ pub struct FileKnowledgeEnriched {
     /// Accumulated notes/gotchas about this file.
     pub notes: Option<String>,
     /// Overall cognitive complexity score (0.0–1.0).
-    pub cognitive_score: Option<f64>,
+    pub quality_score: Option<f64>,
     /// Complexity component of the cognitive score.
     pub complexity_signal: Option<f64>,
     /// Fan-in (incoming dependency) signal.

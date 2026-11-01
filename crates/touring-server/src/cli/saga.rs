@@ -58,7 +58,8 @@ enum SagaCmd {
 /// each response. `begin` pairs the trailing args as alternating
 /// `step_id`/`action` entries.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match SagaCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<SagaCli, _, _>(args.iter().skip(1))
+    {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -93,7 +94,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 }
             }
             if steps.is_empty() {
-                anyhow::bail!("Error: odd number of arguments — need step_id/action pairs");
+                anyhow::bail!(
+                    "odd number of arguments; use format: touring saga run step_id/action pairs, e.g. touring saga run step1 complete step2 in_progress"
+                );
             }
             let payload = serde_json::json!({ "steps" : steps });
             let output = daemon_query("cli-saga-begin", payload)?;

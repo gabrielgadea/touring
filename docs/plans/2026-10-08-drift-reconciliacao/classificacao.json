@@ -1,0 +1,1082 @@
+{
+ "C1": {
+  "30.4.28": {
+   "sugestao": "c",
+   "evidencia": "15/15 paths datados",
+   "n_ocorrencias": 39,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "docs/plans/2026-08-26-documentacao-touring/strategy-2026-08-31-retomar-decisao-drift.md",
+    "docs/plans/2026-08-30-mundos-da-criacao/log.md",
+    "docs/plans/2026-08-30-mundos-da-criacao/phases/P3.md",
+    "docs/plans/2026-08-30-mundos-da-criacao/phases/P4.md",
+    "docs/plans/2026-08-30-mundos-da-criacao/strategy-2026-08-30-landlock-superficie-instrucao.md",
+    "docs/plans/2026-08-31-code-mode-sinal/HISTORICO-CLAUDE-MD.md",
+    "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md",
+    "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-09-01-recuperacao-sinais-hooks.md",
+    "docs/plans/2026-08-31-work-outer/diagnostics/touring-20260831T121328.md",
+    "docs/plans/2026-08-31-work-outer/strategy-2026-08-31-drift-coverage-options.md"
+   ]
+  },
+  "30.4.29": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['crates/touring-server/.claude/CLAUDE.md']",
+   "n_ocorrencias": 29,
+   "paths": [
+    "crates/touring-server/.claude/CLAUDE.md",
+    "docs/plans/2026-08-31-code-mode-sinal/index.md",
+    "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P4-propagacao-satelites.md",
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P5-medicao-real.md",
+    "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "docs/plans/2026-08-31-complementacao-hooks/phases/F0-fix-medicao-alias-kpi-entrega.md",
+    "docs/plans/2026-08-31-complementacao-hooks/strategy-2026-09-01-sinais-ativos-pre-write.md"
+   ]
+  },
+  "30.4.30": {
+   "sugestao": "c",
+   "evidencia": "5/5 paths datados",
+   "n_ocorrencias": 13,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/HISTORICO-CLAUDE-MD.md",
+    "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "docs/plans/2026-09-01-work-outer/strategy-2026-09-02-if-pre-post-bash.md",
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "30.4.31": {
+   "sugestao": "c",
+   "evidencia": "5/5 paths datados",
+   "n_ocorrencias": 6,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/W-wiring-rebuild-perde-arestas-inferidas-fix-detector-rejulgar-TIER2.md"
+   ]
+  },
+  "30.4.32": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 5,
+   "paths": [
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/RETOMAR-AQUI.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/index.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/B5.md"
+   ]
+  },
+  "30.4.33": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "30.4.34": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md"
+   ]
+  },
+  "30.4.35": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 7,
+   "paths": [
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md"
+   ]
+  },
+  "30.4.37": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 5,
+   "paths": [
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/D1.md",
+    "docs/plans/2026-09-02-touring-proxima-geracao/RETOMAR-AQUI.md",
+    "docs/plans/2026-09-02-touring-proxima-geracao/log.md"
+   ]
+  },
+  "30.4.39": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-03.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md"
+   ]
+  },
+  "30.4.40": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 6,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/index.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/Y4.md"
+   ]
+  },
+  "30.4.41": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 4,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "30.4.42": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 4,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "30.4.43": {
+   "sugestao": "c",
+   "evidencia": "5/5 paths datados",
+   "n_ocorrencias": 15,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/index.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/S2.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/Y4.md"
+   ]
+  },
+  "30.4.44": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 11,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md"
+   ]
+  },
+  "30.4.45": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 12,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/R8-fechamento.md",
+    "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md"
+   ]
+  },
+  "30.4.46": {
+   "sugestao": "c",
+   "evidencia": "5/5 paths datados",
+   "n_ocorrencias": 8,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-14.md",
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/R9-decisoes.md",
+    "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789400656.md"
+   ]
+  },
+  "30.4.47": {
+   "sugestao": "c",
+   "evidencia": "3/3 paths datados",
+   "n_ocorrencias": 11,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-14-r2.md",
+    "docs/audits/cross-audit-2026-09-14.md",
+    "docs/audits/dag-mentia-sobre-si-2026-09-19.md"
+   ]
+  },
+  "30.4.48": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 6,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-14-r2.md"
+   ]
+  },
+  "30.4.49": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 9,
+   "paths": [
+    "docs/audits/cross-audit-2026-09-14-r2.md",
+    "docs/plans/2026-09-15-work-outer/turns/turn-4fa78848-4e2-1789469769.md"
+   ]
+  },
+  "30.4.5": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md"
+   ]
+  },
+  "30.4.51": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 5,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/canvas-d-shell-2026-09-15.md",
+    "docs/audits/cross-audit-2026-09-14-r2.md"
+   ]
+  },
+  "30.4.52": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 4,
+   "paths": [
+    "docs/audits/b4-wiring-python-2026-09-15.md",
+    "docs/audits/cross-audit-2026-09-14-r2.md"
+   ]
+  },
+  "30.4.53": {
+   "sugestao": "c",
+   "evidencia": "3/3 paths datados",
+   "n_ocorrencias": 4,
+   "paths": [
+    "docs/audits/b4-wiring-python-2026-09-15.md",
+    "docs/audits/cross-audit-2026-09-14-r2.md",
+    "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md"
+   ]
+  },
+  "30.4.54": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 4,
+   "paths": [
+    "docs/plans/2026-09-16-work-outer/turns/turn-4fa78848-4e2-1789603870.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789753655.md"
+   ]
+  },
+  "30.4.55": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 5,
+   "paths": [
+    "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "docs/audits/defeitos-analise-2026-09-18.md"
+   ]
+  },
+  "30.4.56": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 7,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "docs/audits/defeitos-analise-2026-09-18.md"
+   ]
+  },
+  "30.4.57": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 14,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/decisoes-orfaos-2026-09-18.md",
+    "docs/audits/defeitos-analise-2026-09-18.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789753655.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md"
+   ]
+  },
+  "30.4.58": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 12,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/defeitos-analise-2026-09-18.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md"
+   ]
+  },
+  "30.4.59": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 24,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/defeitos-analise-2026-09-18.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789771636.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789772364.md",
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789775728.md",
+    "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md"
+   ]
+  },
+  "30.4.60": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 13,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/defeitos-analise-2026-09-18.md",
+    "docs/plans/2026-09-19-work-outer/turns/turn-1f1e4e03-b44-1789776974.md"
+   ]
+  },
+  "30.4.61": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 8,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/defeitos-analise-2026-09-18.md"
+   ]
+  },
+  "30.4.62": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 13,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/dag-mentia-sobre-si-2026-09-19.md",
+    "docs/audits/defeitos-analise-2026-09-18.md",
+    "docs/plans/2026-09-22-jev-system-one/log.md",
+    "docs/plans/2026-09-22-jev-system-one/phases/G0.md",
+    "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md"
+   ]
+  },
+  "30.4.63": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 3,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md"
+   ]
+  },
+  "30.4.64": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 15,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-22-jev-system-one/log.md",
+    "docs/plans/2026-09-22-jev-system-one/phases/G0.md",
+    "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/strategy-2026-09-30-jev-harness-potencializacao.md"
+   ]
+  },
+  "30.4.65": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['CLAUDE.md']",
+   "n_ocorrencias": 5,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-22-jev-system-one/log.md",
+    "docs/plans/2026-09-22-jev-system-one/phases/G0b.md",
+    "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md"
+   ]
+  },
+  "30.4.67": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 5,
+   "paths": [
+    "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790259438.md",
+    "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790285643.md"
+   ]
+  },
+  "30.4.68": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-24-work-outer/turns/turn-5d8e9b76-ba6-1790296447.md"
+   ]
+  },
+  "30.4.69": {
+   "sugestao": "c",
+   "evidencia": "2/2 paths datados",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790333505.md",
+    "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790349177.md"
+   ]
+  },
+  "30.4.75": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['docs/code-mode.md']",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/code-mode.md"
+   ]
+  },
+  "30.4.86": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-27-fila-do-daemon/ticket.md"
+   ]
+  },
+  "30.4.87": {
+   "sugestao": "c",
+   "evidencia": "4/4 paths datados",
+   "n_ocorrencias": 6,
+   "paths": [
+    "docs/plans/2026-09-27-fila-do-daemon/ticket.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md"
+   ]
+  },
+  "30.4.88": {
+   "sugestao": "c",
+   "evidencia": "3/3 paths datados",
+   "n_ocorrencias": 6,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/FINAL-REPORT.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/log.md"
+   ]
+  },
+  "30.4.89": {
+   "sugestao": "c",
+   "evidencia": "6/6 paths datados",
+   "n_ocorrencias": 8,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/FINAL-REPORT.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md",
+    "docs/plans/2026-10-01-jev-harness-r2/plan.md"
+   ]
+  },
+  "30.4.90": {
+   "sugestao": "c",
+   "evidencia": "9/9 paths datados",
+   "n_ocorrencias": 13,
+   "paths": [
+    "docs/audits/cross-audit-2026-10-01-a7.md",
+    "docs/audits/cross-audit-2026-10-03.md",
+    "docs/audits/cross-audit-2026-10-04.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/log.md",
+    "docs/plans/2026-10-01-jev-harness-r2/plan.md",
+    "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "docs/plans/2026-10-02-jev-harness-r3/plan.md"
+   ]
+  },
+  "30.4.91": {
+   "sugestao": "c",
+   "evidencia": "9/9 paths datados",
+   "n_ocorrencias": 29,
+   "paths": [
+    "docs/audits/cross-audit-2026-10-03.md",
+    "docs/audits/cross-audit-2026-10-04.md",
+    "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "docs/plans/2026-10-02-jev-harness-r3/log.md",
+    "docs/plans/2026-10-02-jev-harness-r3/phases/S-12.md",
+    "docs/plans/2026-10-02-jev-harness-r3/phases/S-13.md",
+    "docs/plans/2026-10-02-jev-harness-r3/plan.md"
+   ]
+  },
+  "30.4.93": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md"
+   ]
+  }
+ },
+ "C4": {
+  "adicionando": {
+   "sugestao": "c",
+   "evidencia": "1/1 em ctx comando; todos paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/criacao.md"
+   ]
+  },
+  "classify-intent": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md"
+   ]
+  },
+  "context7": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/audits/causa-raiz-instrumento-2026-10-01.md"
+   ]
+  },
+  "daemon_ctl": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-14-work-outer/turns/turn-4fa78848-4e2-1789408719.md"
+   ]
+  },
+  "deixa": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/criacao.md"
+   ]
+  },
+  "dispara": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md"
+   ]
+  },
+  "dizia": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "entrega": {
+   "sugestao": "b",
+   "evidencia": "0/2 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/analise-comparativa-57-vs-hooks.md",
+    "docs/plans/2026-08-31-complementacao-hooks/criacao.md"
+   ]
+  },
+  "exclui": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "find": {
+   "sugestao": "b",
+   "evidencia": "0/3 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md"
+   ]
+  },
+  "foi": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-25-work-outer/turns/turn-5d8e9b76-ba6-1790333505.md"
+   ]
+  },
+  "identity": {
+   "sugestao": "c",
+   "evidencia": "3/8 em ctx comando; todos paths datados",
+   "n_ocorrencias": 8,
+   "paths": [
+    "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md"
+   ]
+  },
+  "injetam": {
+   "sugestao": "c",
+   "evidencia": "1/3 em ctx comando; todos paths datados",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/criacao.md",
+    "docs/plans/2026-08-31-code-mode-sinal/strategy-2026-08-31-yetzirah.md"
+   ]
+  },
+  "logo": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "module": {
+   "sugestao": "c",
+   "evidencia": "2/11 em ctx comando; todos paths datados",
+   "n_ocorrencias": 11,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md",
+    "docs/plans/2026-09-02-touring-proxima-geracao/strategy-2026-09-02-touring-proxima-geracao.md"
+   ]
+  },
+  "pro": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/criacao.md"
+   ]
+  },
+  "pub-api": {
+   "sugestao": "c",
+   "evidencia": "3/10 em ctx comando; todos paths datados",
+   "n_ocorrencias": 10,
+   "paths": [
+    "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md"
+   ]
+  },
+  "rebuild": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "crates/touring-hook-handlers/README.md"
+   ]
+  },
+  "reconstruiu": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "reseala": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "scan": {
+   "sugestao": "c",
+   "evidencia": "3/10 em ctx comando; todos paths datados",
+   "n_ocorrencias": 10,
+   "paths": [
+    "docs/audits/cross-audit-2026-08-31-complementacao-hooks.md",
+    "docs/plans/2026-08-31-complementacao-hooks/RETOMAR-AQUI.md",
+    "docs/plans/2026-08-31-complementacao-hooks/benchmarks/handler-latency.md",
+    "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "docs/plans/2026-08-31-complementacao-hooks/specs/H1-H15.md"
+   ]
+  },
+  "segue": {
+   "sugestao": "b",
+   "evidencia": "0/2 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md"
+   ]
+  },
+  "target": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789775728.md"
+   ]
+  },
+  "tenham": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/criacao.md"
+   ]
+  },
+  "timeout": {
+   "sugestao": "b",
+   "evidencia": "0/2 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-18-work-outer/turns/turn-1f1e4e03-b44-1789764892.md",
+    "docs/plans/2026-09-22-work-outer/turns/turn-b824294f-30a-1790118062.md"
+   ]
+  },
+  "voltaram": {
+   "sugestao": "b",
+   "evidencia": "0/1 ocorrências em contexto de comando (prosa)",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/harness-scan-t02.md"
+   ]
+  }
+ },
+ "C5": {
+  "touring-b4": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md"
+   ]
+  },
+  "touring-f9": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-10-06-retomada/RETOMAR-AQUI.md"
+   ]
+  },
+  "touring-language": {
+   "sugestao": "a?",
+   "evidencia": "doc vivo: ['crates/touring-code/.claude/CLAUDE.md']",
+   "n_ocorrencias": 1,
+   "paths": [
+    "crates/touring-code/.claude/CLAUDE.md"
+   ]
+  },
+  "touring-module": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "touring-modules": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "touring-proxima-geracao": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "touring-quality-score": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/audits/motor-de-qualidade-morre-2026-09-16.md"
+   ]
+  },
+  "touring-run": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md"
+   ]
+  }
+ },
+ "C6": {
+  "TOURING_CEG_SEMANTIC_GATE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "docs/plans/2026-10-01-jev-harness-r2/phases/S-8.md"
+   ]
+  },
+  "TOURING_CILA_BUDGET_": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-04-economia-de-contexto/plan.md"
+   ]
+  },
+  "TOURING_CILA_BUDGET_TURN": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-02-touring-proxima-geracao/plan.md"
+   ]
+  },
+  "TOURING_DAEMON_CODE_MODE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 5,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-22-jev-system-one/log.md",
+    "docs/plans/2026-09-22-jev-system-one/phases/G0b.md",
+    "docs/plans/2026-09-22-jev-system-one/strategy-2026-09-22-jev-system-one.md"
+   ]
+  },
+  "TOURING_DAEMON_SCOPE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-12-graft-analysis/analysis.md"
+   ]
+  },
+  "TOURING_EMBED_CUDA_MEM_MB": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-22-jev-system-one/research/digest-laya-local.md"
+   ]
+  },
+  "TOURING_EMBED_DEVICE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "CLAUDE.md"
+   ]
+  },
+  "TOURING_JEV_INTENT": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/plan.md"
+   ]
+  },
+  "TOURING_JEV_RECALL_MODE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "docs/plans/2026-10-01-jev-harness-r2/phases/S-7.md"
+   ]
+  },
+  "TOURING_JEV_RECALL_RERANK": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/s54-replay/report.md"
+   ]
+  },
+  "TOURING_LAYA_INTENT": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 9,
+   "paths": [
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w42-student/report.md",
+    "docs/plans/2026-09-30-jev-harness-potencializacao/experiments/w45-production/report.md",
+    "docs/plans/2026-10-01-jev-harness-r2/plan.md",
+    "docs/plans/2026-10-01-jev-harness-r2/strategy-2026-10-01-jev-harness-r2.md",
+    "docs/plans/2026-10-02-work-outer/turns/turn-3d51ad73-b86-1790942048.md"
+   ]
+  },
+  "TOURING_LOG_DIR": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "crates/touring-server/.claude/CLAUDE.md",
+    "docs/audits/cross-audit-2026-09-14-r2.md"
+   ]
+  },
+  "TOURING_NO_DAEMON": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 7,
+   "paths": [
+    "docs/plans/2026-08-31-complementacao-hooks/HISTORICO-CLAUDE-MD.md",
+    "docs/plans/2026-08-31-complementacao-hooks/log.md",
+    "docs/plans/2026-08-31-complementacao-hooks/phases/F0.3c-standalone-post-bash-parity.md",
+    "docs/plans/2026-10-01-jev-harness-r2/log.md",
+    "docs/plans/2026-10-01-jev-harness-r2/phases/S-8.md",
+    "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md"
+   ]
+  },
+  "TOURING_PROSE_GATE_DISABLED": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 3,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-10-04-integridade-prosa/README.md",
+    "docs/plans/2026-10-04-integridade-prosa/pre-registro.md"
+   ]
+  },
+  "TOURING_PROSE_GATE_MODE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 4,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-10-04-integridade-prosa/README.md",
+    "docs/plans/2026-10-04-integridade-prosa/pre-registro.md"
+   ]
+  },
+  "TOURING_QUALITY_BIN": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "CLAUDE.md",
+    "docs/audits/canvas-d-shell-2026-09-15.md"
+   ]
+  },
+  "TOURING_QUALITY_LOCK_WAIT_SECS": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "CLAUDE.md"
+   ]
+  },
+  "TOURING_R3_EVENTS_FILE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 2,
+   "paths": [
+    "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md"
+   ]
+  },
+  "TOURING_R3_SHADOW": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 17,
+   "paths": [
+    "docs/audits/cross-audit-2026-10-03.md",
+    "docs/audits/decompose-fechamento-2026-10-03.md",
+    "docs/plans/2026-10-02-jev-harness-r3/CRITERIOS-ACEITACAO.md",
+    "docs/plans/2026-10-02-jev-harness-r3/PROVA-PRATICA.md",
+    "docs/plans/2026-10-02-jev-harness-r3/RESULTS.md",
+    "docs/plans/2026-10-02-jev-harness-r3/data/EVENT-CONTRACT.md",
+    "docs/plans/2026-10-02-jev-harness-r3/plan.md",
+    "docs/plans/2026-10-04-work-outer/turns/turn-24006143-f69-1791086642.md",
+    "docs/plans/2026-10-05-work-outer/turns/turn-24006143-f69-1791210642.md"
+   ]
+  },
+  "TOURING_REBUILD_MEMORY_HARD_MB": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 6,
+   "paths": [
+    "crates/touring-cli/.claude/CLAUDE.md",
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/Y4.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/Y5.md"
+   ]
+  },
+  "TOURING_REBUILD_SEARCH_DOCS": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 4,
+   "paths": [
+    "crates/touring-cli/.claude/CLAUDE.md",
+    "docs/plans/2026-09-12-graft-analysis/analysis.md",
+    "docs/plans/2026-09-12-graft-analysis/log.md",
+    "docs/plans/2026-09-12-graft-analysis/phases/Y5.md"
+   ]
+  },
+  "TOURING_RUN_KEEP_TMP": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 4,
+   "paths": [
+    "CLAUDE.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/LICOES-CONSOLIDADAS-2026-09-02.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/log.md",
+    "docs/plans/2026-09-02-tmp-sandbox-portfolio-afordancia/phases/B1.md"
+   ]
+  },
+  "TOURING_SDK_SIGN": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md"
+   ]
+  },
+  "TOURING_SDK_SIGNAL_MIRROR": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 5,
+   "paths": [
+    "crates/touring-server/.claude/CLAUDE.md",
+    "docs/audits/cross-audit-2026-09-01-code-mode-sinal.md",
+    "docs/plans/2026-08-31-code-mode-sinal/log.md",
+    "docs/plans/2026-08-31-code-mode-sinal/phases/P2-env-sandbox-mirror.md"
+   ]
+  },
+  "TOURING_TANT": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md"
+   ]
+  },
+  "TOURING_TANTIVY_": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "crates/touring-cli/.claude/CLAUDE.md"
+   ]
+  },
+  "TOURING_TANTIVY_COVERAGE_FIELDS": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 3,
+   "paths": [
+    "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md"
+   ]
+  },
+  "TOURING_TANTIVY_WORD_COVERA": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md"
+   ]
+  },
+  "TOURING_TANTIVY_WORD_COVERAGE": {
+   "sugestao": "b",
+   "evidencia": "var EXISTE no código-fonte; ausente só do env do scanner",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-14-work-outer/turns/turn-3db9ea13-e79-1789357871.md"
+   ]
+  },
+  "TOURING_TDD_ENFORCE": {
+   "sugestao": "c",
+   "evidencia": "1/1 paths datados",
+   "n_ocorrencias": 1,
+   "paths": [
+    "docs/plans/2026-09-01-skill-aprimoramento/explanation.md"
+   ]
+  }
+ }
+}

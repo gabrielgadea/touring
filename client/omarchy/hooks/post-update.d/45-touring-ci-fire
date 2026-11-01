@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# 45-touring-ci-fire — fire a Claude Code Routine after Omarchy updates.
+# Part of OmarchyOS Agêntico (S-0.7 / P7.4, P0).
+#
+# Reads an Anthropic API token and Routine ID from per-user secret files.
+# Secret files must be mode 600; otherwise exits 0 with a warning.
+# Exit 0 always — never blocks the Omarchy update sequence.
+#
+# TODO(P7.4): confirmar URL na doc (https://code.claude.com/docs/en/routines)
+# até que a URL seja confirmada por execução de `curl -sL` e grep por `fire`,
+# manter a variável abaixo editável sem tocar no código de envio.
+set -euo pipefail
+
+ROUTINE_FIRE_URL="https://api.anthropic.com/v1/claude_code/routines/\${ROUTINE_ID}/fire"
+
+TOKEN_FILE="${HOME}/.config/omarchy/secrets/anthropic-routine.token"
+ROUTINE_ID_FILE="${HOME}/.config/omarchy/secrets/routine-ci.id"
+
+# No token file → exit silently (feature not configured).
+if [ ! -f "${TOKEN_FILE}" ]; then
+    exit 0
+fi
+
+# Token file must be mode 600 (contains a secret).
+TOKEN_PERMS="$(stat -c '%a' "${TOKEN_FILE}" 2>/dev/null)" || TOKEN_PERMS=""
+if [ "${TOKEN_PERMS}" != "600" ]; then
+    MSG="Touring CI fire: ${TOKEN_FILE} deve ter permissão 600 (atual: ${TOKEN_PERMS:-?})"
+    command -v omarchy-notification-send >/dev/null 2>&1 && \
+        omarchy-notification-send "${MSG}" || true
+    exit 0
+fi
+
+# No routine ID → exit silently.
+if [ ! -f "${ROUTINE_ID_FILE}" ]; then
+    exit 0
+fi
+
+TOKEN="$(cat "${TOKEN_FILE}")"
+ROUTINE_ID="$(cat "${ROUTINE_ID_FILE}")"
+FIRE_URL="${ROUTINE_FIRE_URL}"
+
+# Expand ROUTINE_ID into the URL.
+FIRE_URL="${FIRE_URL//\$\{ROUTINE_ID\}/${ROUTINE_ID}}"
+
+if ! command -v curl >/dev/null 2>&1; then
+    exit 0
+fi
+
+# The token goes through a curl --config file (mode 600, tmpfs, removed on
+# exit) — never through argv, which any local process can read in /proc.
+CURL_CFG="$(mktemp -p "${XDG_RUNTIME_DIR:-/dev/shm}" ci-fire.XXXXXX)"
+trap 'rm -f "${CURL_CFG}"' EXIT
+chmod 600 "${CURL_CFG}"
+printf 'header = "x-api-key: %s"\n' "${TOKEN}" > "${CURL_CFG}"
+HTTP_STATUS="$(curl -fsS -o /dev/null -w '%{http_code}' -X POST "${FIRE_URL}" \
+    --config "${CURL_CFG}" \
+    -H "anthropic-version: 2023-06-01" \
+    -H "Content-Type: application/json" \
+    --max-time 20 \
+    --data '{}' 2>/dev/null)" || HTTP_STATUS="0"
+
+if [ "${HTTP_STATUS}" = "200" ] || [ "${HTTP_STATUS}" = "202" ]; then
+    MSG="Touring CI Routine disparada (HTTP ${HTTP_STATUS})"
+else
+    MSG="Touring CI fire: HTTP ${HTTP_STATUS} — verifique a Routine em code.claude.com"
+fi
+
+command -v omarchy-notification-send >/dev/null 2>&1 && \
+    omarchy-notification-send "${MSG}" || true
+
+exit 0

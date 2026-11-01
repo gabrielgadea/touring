@@ -1,0 +1,62 @@
+# gate=02-clippy
+# cmd=scripts/hw-slot --class rust --label release-30.4.96 -- cargo clippy --workspace --all-targets -- -D warnings
+# inicio_utc=2026-10-09T21:47:51Z
+# disco_livre_gb=83
+hw-slot: aguardando — temp 94C > 88C
+    Checking touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-foundation)
+    Checking touring-rkyv v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-rkyv)
+   Compiling pyo3-ffi v0.29.0
+   Compiling touring-bindings v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-bindings)
+   Compiling pyo3 v0.29.0
+   Compiling numpy v0.29.0
+    Checking inferlets v0.1.0 (/home/gabrielgadea/projects/touring/crates/inferlets)
+    Checking touring-contracts v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-contracts)
+    Checking touring-storage v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-storage)
+    Checking touring-simd v0.2.0 (/home/gabrielgadea/projects/touring/crates/touring-simd)
+    Checking touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-offensive)
+    Checking touring-orchestration v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-orchestration)
+    Checking touring-hooks-saga v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hooks-saga)
+    Checking touring-pyright v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+    Checking touring-resilience v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-resilience)
+    Checking touring-code v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-code)
+    Checking touring-identity v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-identity)
+   Compiling touring-server v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-server)
+    Checking touring-server-reasoning v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-reasoning)
+    Checking touring-server-session v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-session)
+    Checking touring-license v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-license)
+    Checking touring-loom-proofs v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-loom-proofs)
+    Checking touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring/crates/touring-analysis)
+    Checking touring-intelligence v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-intelligence)
+    Checking touring-quality v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-quality)
+    Checking touring-lsp v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-lsp)
+    Checking touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-shared)
+    Checking touring-server-visual v30.0.0 (/home/gabrielgadea/projects/touring/crates/touring-server-visual)
+    Checking touring-ceg v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-ceg)
+    Checking touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks-prediction)
+    Checking touring-hooks-rl v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hooks-rl)
+    Checking touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-capnp-server)
+    Checking touring-generator v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-generator)
+    Checking touring-web-server v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-web-server)
+    Checking touring-hooks-core v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hooks-core)
+    Checking touring-python v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-python)
+    Checking touring-assists v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-assists)
+    Checking touring-hook-runtime v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hook-runtime)
+    Checking touring-cli v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+error[E0433]: cannot find `HookRuntime` in `crate`
+    --> crates/touring-cli/src/cli/handlers/index.rs:2246:25
+     |
+2246 |             &mut crate::HookRuntime::default(),
+     |                         ^^^^^^^^^^^ could not find `HookRuntime` in the crate root
+
+error[E0433]: cannot find `HookRuntime` in `crate`
+    --> crates/touring-cli/src/cli/handlers/index.rs:2262:25
+     |
+2262 |             &mut crate::HookRuntime::default(),
+     |                         ^^^^^^^^^^^ could not find `HookRuntime` in the crate root
+
+    Checking touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+For more information about this error, try `rustc --explain E0433`.
+error: could not compile `touring-cli` (lib test) due to 2 previous errors
+warning: build failed, waiting for other jobs to finish...
+# rc=101
+# fim_utc=2026-10-09T21:48:47Z

@@ -1,0 +1,21 @@
+{
+ "rodadas": {
+  "1": {
+   "refeito_duas_vezes_identico": true,
+   "n_plano": 288,
+   "n_gravados": 288,
+   "gravados_iguais_ao_plano": true,
+   "so_no_plano": [],
+   "so_nos_gravados": []
+  },
+  "2": {
+   "refeito_duas_vezes_identico": true,
+   "n_plano": 100,
+   "n_gravados": 100,
+   "gravados_iguais_ao_plano": true,
+   "so_no_plano": [],
+   "so_nos_gravados": []
+  }
+ },
+ "ok": true
+}

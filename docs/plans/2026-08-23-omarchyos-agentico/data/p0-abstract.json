@@ -1,0 +1,71 @@
+{
+ "entities": [
+  {
+   "name": "client/omarchy",
+   "type": "artifact",
+   "description": "client/omarchy/ — fonte versionada (83 arquivos, 206 testes, Diamond 0.969)"
+  },
+  {
+   "name": "omarchy-skill-run",
+   "type": "symbol",
+   "description": "executor único: menu · widget · timers · ADW"
+  },
+  {
+   "name": "omarchy-kit",
+   "type": "artifact",
+   "description": "~/omarchy-kit: 1844 arquivos, 102 symlinks/6 abs, DBs 597 MB, ISO 4.0.0 verificado"
+  },
+  {
+   "name": "lesson:systemd-user-path",
+   "type": "learning",
+   "description": "systemd --user não tem ~/.local/bin no PATH; append: exige dir existente"
+  },
+  {
+   "name": "lesson:secrets-argv",
+   "type": "learning",
+   "description": "senha/passphrase/token nunca em argv — /proc/<pid>/cmdline é legível"
+  },
+  {
+   "name": "lesson:pipefail-head",
+   "type": "gotcha",
+   "description": "cmd | head -1 sob pipefail → SIGPIPE → || echo unknown concatena"
+  },
+  {
+   "name": "lesson:jsonc-strip",
+   "type": "gotcha",
+   "description": "regex //.* come http:// dentro de strings; stripper precisa ser string-aware"
+  },
+  {
+   "name": "decision:plan-follows-measurement",
+   "type": "decision",
+   "description": "quando a medição contradiz o plano (102/6 vs 100/4), corrige-se o plano; o invariante é o allowlist"
+  }
+ ],
+ "relations": [
+  {
+   "source": "client/omarchy",
+   "type": "contains",
+   "target": "omarchy-skill-run"
+  },
+  {
+   "source": "client/omarchy",
+   "type": "produces",
+   "target": "omarchy-kit"
+  },
+  {
+   "source": "lesson:systemd-user-path",
+   "type": "fixed_in",
+   "target": "client/omarchy"
+  },
+  {
+   "source": "lesson:secrets-argv",
+   "type": "fixed_in",
+   "target": "client/omarchy"
+  },
+  {
+   "source": "decision:plan-follows-measurement",
+   "type": "applies_to",
+   "target": "omarchy-kit"
+  }
+ ]
+}

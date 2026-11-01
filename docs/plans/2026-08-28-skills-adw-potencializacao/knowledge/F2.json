@@ -1,0 +1,11 @@
+{
+  "phase": "F2",
+  "entities": [
+    {
+      "entity_id": "phase:F2",
+      "type": "phase",
+      "description": "plan-excellence.toml: pipeline Pln2 (ground_truth_collector -> scaffold -> author craft -> gap_detector+plan_validator gate falante -> score 9dim); estreia completed: author convergiu na 3a tentativa guiado pelos gaps verbatim; produto real plan-xaudit-gates/plan.md com 0 gaps P0; promovido"
+    }
+  ],
+  "relations": []
+}

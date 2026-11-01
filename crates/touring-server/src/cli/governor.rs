@@ -140,7 +140,7 @@ impl DefaultResourceGovernor {
     fn query_daemon(&self, hook: &str) -> anyhow::Result<serde_json::Value> {
         let output = super::daemon_query(hook, serde_json::json!({}))?;
         let v: serde_json::Value = serde_json::from_str(&output)
-            .map_err(|e| anyhow::anyhow!("failed to parse {hook} response: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("failed to parse {hook} response: {e} — check daemon logs: touring daemon-ctl status"))?;
         Ok(v)
     }
 
@@ -260,7 +260,7 @@ impl ResourceGovernor for DefaultResourceGovernor {
             && limit > 0
         {
             anyhow::bail!(
-                "memory budget exceeded: {} MB used > {} MB limit",
+                "memory budget exceeded: {} MB used > {} MB limit — use `touring governor limits --memory <N>` or wait for other ops to complete",
                 stats.memory_mb,
                 limit
             );
@@ -271,7 +271,7 @@ impl ResourceGovernor for DefaultResourceGovernor {
             && limit > 0
         {
             anyhow::bail!(
-                "context token budget exceeded: {} tokens > {} limit",
+                "context token budget exceeded: {} tokens > {} limit — use `touring governor limits --context-tokens <N>` or reduce context size",
                 stats.context_tokens,
                 limit
             );
@@ -282,7 +282,7 @@ impl ResourceGovernor for DefaultResourceGovernor {
             && limit > 0
         {
             anyhow::bail!(
-                "concurrent operations budget exceeded: {} ops > {} limit",
+                "concurrent operations budget exceeded: {} ops > {} limit — use `touring governor limits --max-concurrent <N>` or wait for ops to finish",
                 stats.active_operations,
                 limit
             );
@@ -373,7 +373,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         }
         _ => {
             anyhow::bail!(
-                "Unknown governor subcommand: {}. Use: status, limits, reset, report",
+                "unknown governor subcommand '{}'  — use one of: status, limits, reset, report",
                 subcommand
             );
         }
@@ -541,7 +541,7 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
-            err.to_string().contains("Unknown governor subcommand"),
+            err.to_string().contains("unknown governor subcommand"),
             "unexpected error: {err}"
         );
     }

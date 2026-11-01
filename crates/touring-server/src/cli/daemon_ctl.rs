@@ -14,7 +14,8 @@
 //!     already down). Emits WARN when sibling MCP bridges exist because their
 //!     queries will fail until respawn.
 //!   * `restart` — `stop` + spawn the dedicated `touring-daemon` binary in its
-//!     own session (`setsid`) with stderr appended to
+//!     own session (`setsid`) and, with a systemd user manager, its own scope
+//!     (`touring_foundation::daemon_spawn`, decision 2-A) with stderr appended to
 //!     `~/.claude/touring/daemon.stderr.log`. Falls back to SIGKILL only on the
 //!     singleton PID if SIGTERM doesn't drain the socket within 10s — siblings
 //!     untouched.
@@ -37,9 +38,9 @@
 //!   * `kill` (libc) — declared via extern "C" locally; libc 0.2 is in the
 //!     workspace but not a direct dep of touring-server, mirroring the
 //!     getuid pattern in cli/mod.rs.
-//!   * `setsid` (libc) — same local-extern pattern (daemon lifetime fix
-//!     2026-07-01): gives the spawned daemon its own session so it survives
-//!     the invoking Claude Code session's cleanup (killpg/SIGHUP).
+//!   * `setsid` — moved to `touring_foundation::daemon_spawn` (14/09/2026),
+//!     the launcher shared with the hook's autostart: the spawned daemon gets
+//!     its own session (daemon lifetime fix 2026-07-01) and its own cgroup.
 
 use clap::{Parser, Subcommand};
 use std::fs;
@@ -53,7 +54,6 @@ use super::common::{human_to_stderr, json_to_stdout};
 // cli/mod.rs for getuid().
 unsafe extern "C" {
     fn kill(pid: i32, sig: i32) -> i32;
-    fn setsid() -> i32;
 }
 const SIGTERM: i32 = 15;
 const SIGKILL: i32 = 9;
@@ -108,11 +108,14 @@ enum DaemonCtlCmd {
 /// wins, then `--project <dir>` (its `.touring/daemon.sock`), then the
 /// standard resolver (env → walk-up → global).
 fn resolve_target_socket(cli: &DaemonCtlCli) -> PathBuf {
+    // Absolute always: the registry and the lock are keyed by the absolute socket
+    // path the daemon bound, so `--project .` used to find no owner.
+    let absolute = |p: PathBuf| std::path::absolute(&p).unwrap_or(p);
     if let Some(s) = &cli.socket {
-        return s.clone();
+        return absolute(s.clone());
     }
     if let Some(dir) = &cli.project {
-        return dir.join(".touring").join("daemon.sock");
+        return absolute(dir.join(".touring").join("daemon.sock"));
     }
     daemon_socket_path()
 }
@@ -201,7 +204,9 @@ fn orphans_not_owned_elsewhere(
 /// `restart`, `stop`, or `reset`. Implements the canonical daemon lifecycle
 /// (REGRA #19), never `pkill`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match DaemonCtlCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DaemonCtlCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(c) => c,
         Err(e) => e.exit(),
     };
@@ -250,8 +255,8 @@ fn cmd_status(json: bool, target: &Path) -> anyhow::Result<()> {
     // which excludes PIDs registered to another socket; only the report was
     // unscoped, and a report is exactly what a human acts on with `kill`
     // (REGRA #19). A dead per-project socket now says `(none)`, which is true.
-    let daemon_pid = pid_for_socket(&socket_path)
-        .or_else(|| orphan_daemon_pids(&socket_path).first().copied());
+    let daemon_pid =
+        pid_for_socket(&socket_path).or_else(|| orphan_daemon_pids(&socket_path).first().copied());
     let daemon_exe = daemon_pid.and_then(read_proc_exe);
     let daemon_exe_deleted = daemon_exe
         .as_deref()
@@ -337,8 +342,10 @@ fn cmd_stop(json: bool, target: &Path) -> anyhow::Result<()> {
     for &pid in &pids {
         send_signal(pid, SIGTERM)?;
     }
-    let socket = daemon_socket_path();
-    let drained = wait_socket_gone(&socket, Duration::from_secs(10));
+    // The socket this command stopped, not the default one: `stop --socket
+    // <proj>/.touring/daemon.sock` waited on the GLOBAL socket and reported its
+    // state as `socket_drained` (cross-audit 14/09/2026).
+    let drained = wait_socket_gone(target, Duration::from_secs(10));
 
     if json {
         let out = serde_json::json!({
@@ -380,9 +387,8 @@ pub(crate) fn restart_socket_with_bin(
     // would report a "successful restart" that restarted nothing.
     if pids.is_empty() && std::os::unix::net::UnixStream::connect(target).is_ok() {
         anyhow::bail!(
-            "a daemon holds {} but its PID could not be identified (no lock PID, \
-             no comm match) — refusing a fake restart. Inspect with `daemon-ctl \
-             list-all` / lsof.",
+            "a daemon holds {} but its PID could not be identified — refusing restart. \
+             Use `touring daemon-ctl list-all` and `lsof` to diagnose, then retry.",
             target.display()
         );
     }
@@ -396,9 +402,12 @@ pub(crate) fn restart_socket_with_bin(
         let socket = target.to_path_buf();
         let drained = wait_socket_gone(&socket, Duration::from_secs(10));
         if !drained {
-            // Force-kill anything still holding the socket (re-scan: graceful
-            // exits may have already cleared some PIDs).
-            for pid in all_daemon_pids() {
+            // Force-kill only what this restart asked to stop and is still alive
+            // as a daemon. The old loop re-scanned `all_daemon_pids()` — every
+            // `touring-daemon` on the machine — so a global daemon slow to drain
+            // (sealing a rebuild, flushing WAL) SIGKILLed the analise, konverter
+            // and gate daemons with it (cross-audit 14/09/2026, C3; REGRA #19).
+            for pid in force_kill_set(&pids, read_proc_comm) {
                 send_signal(pid, SIGKILL)?;
             }
             wait_socket_gone(&socket, Duration::from_secs(3));
@@ -419,7 +428,9 @@ pub(crate) fn restart_socket_with_bin(
     } else if booted {
         human_to_stderr("Touring daemon restarted successfully.");
     } else {
-        anyhow::bail!("daemon respawned but socket did not become available within 15s");
+        anyhow::bail!(
+            "daemon respawned but socket did not become available within 15s — run `touring daemon-ctl status` and `touring doctor -j` to diagnose"
+        );
     }
 
     if !booted && json {
@@ -620,6 +631,18 @@ fn all_daemon_pids() -> Vec<u32> {
 /// Read `/proc/<pid>/comm` (trimmed). Returns `None` on any I/O error.
 /// Used by [`find_daemon_pid`] and [`count_sibling_processes`] for the
 /// comm-based detection introduced by Sprint 4 PD-2.
+/// The daemons a restart may SIGKILL once its drain window ran out: the pids it
+/// sent SIGTERM that are still alive as `touring-daemon`. Never a fresh scan —
+/// a scan answers "every daemon", and the other sockets' daemons are not ours
+/// to kill. Pure over `comm_of` so the contract is tested without processes.
+fn force_kill_set(sigtermed: &[u32], comm_of: impl Fn(u32) -> Option<String>) -> Vec<u32> {
+    sigtermed
+        .iter()
+        .copied()
+        .filter(|&pid| comm_of(pid).as_deref() == Some("touring-daemon"))
+        .collect()
+}
+
 fn read_proc_comm(pid: u32) -> Option<String> {
     let path = format!("/proc/{pid}/comm");
     fs::read_to_string(&path).ok().map(|s| s.trim().to_string())
@@ -687,7 +710,9 @@ fn send_signal(pid: u32, sig: i32) -> anyhow::Result<()> {
     if err.raw_os_error() == Some(ESRCH) {
         return Ok(());
     }
-    anyhow::bail!("kill({pid}, {sig}) failed: {err}");
+    anyhow::bail!(
+        "kill({pid}, {sig}) failed: {err} — run `touring daemon-ctl status` to identify daemon ownership"
+    );
 }
 
 fn wait_socket_gone(socket: &Path, timeout: Duration) -> bool {
@@ -723,59 +748,24 @@ fn wait_socket_alive(socket: &Path, timeout: Duration) -> bool {
 /// per-project respawn). Standard preference order when `bin_override` is
 /// `None`: TOURING_DAEMON_BIN env > ~/.local/bin/touring-daemon > PATH.
 fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::Result<()> {
-    use std::process::{Command, Stdio};
+    use std::process::Stdio;
 
     // Sprint 4 PD-2: spawn the DEDICATED `touring-daemon` binary, not the
     // legacy `touring-hook --start-daemon` polymorphic mode (deprecated by
-    // S-9). Preference order: explicit override (F3 `touring update`) >
+    // S-9). Preference order: explicit override (F3 `touring update`) > the
+    // project's PINNED binary when the target is a per-project socket >
     // TOURING_DAEMON_BIN env > ~/.local/bin/touring-daemon > PATH lookup.
-    let binary = bin_override
-        .map(|p| p.display().to_string())
-        .or_else(|| std::env::var("TOURING_DAEMON_BIN").ok())
-        .or_else(|| {
-            let home = std::env::var("HOME").ok()?;
-            let candidate = PathBuf::from(format!("{home}/.local/bin/touring-daemon"));
-            candidate.exists().then(|| candidate.display().to_string())
-        });
+    //
+    // 2026-08-19: the pinned branch was missing here while
+    // `touring-hooks::main::try_autostart_daemon` had it — and the comment
+    // below claims the two sites are kept in sync (C08). They were not:
+    // `daemon-ctl restart --project <pinned>` invoked from the source
+    // workspace spawned the DEV daemon on a pinned project's socket, which is
+    // the channel violation cross-audit F-NEW-2 (2026-07-25) fixed on the
+    // other side. A pinned project runs its pin, whoever asks.
+    let binary = resolve_daemon_binary(target, bin_override);
 
-    let mut cmd = match binary {
-        Some(p) => Command::new(p),
-        None => Command::new("touring-daemon"),
-    };
-
-    // Daemon lifetime fix (2026-07-01) — mirrors touring-hooks
-    // `main.rs::try_autostart_daemon`; keep both call-sites in sync (C08).
-    // Without its own session the daemon stays in the invoking CLI's process
-    // group (a descendant of the Claude Code session) and dies with that
-    // session's cleanup killpg/SIGHUP —
-    // observed as "daemon alive at session end, Connection refused when the
-    // next session starts". setsid(2) gives it a fresh session, a fresh
-    // process group, and no controlling terminal.
-    // SAFETY: pre_exec runs in the forked child before exec. setsid(2) is
-    // async-signal-safe and cannot fail with EPERM here: the freshly forked
-    // child has a brand-new PID and is therefore never a process-group leader.
-    unsafe {
-        use std::os::unix::process::CommandExt;
-        cmd.pre_exec(|| {
-            // Direct syscall, no memory access; covered by the SAFETY note above.
-            if setsid() == -1 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
-
-    // stdout/stderr go to an append-mode logfile instead of /dev/null so
-    // daemon crashes stop being invisible (post-mortem gotcha 2026-06-29:
-    // "daemon-ctl spawn stderr=null não loga").
-    let (stdout_io, stderr_io) = daemon_log_stdio();
-
-    // W12.5 (1.3): pin the RESOLVED socket into the child's env so the daemon
-    // binds exactly where this ctl (and every unified client) will look — the
-    // child re-running the walk-up from a different cwd must never diverge.
-    // Mirrors `try_autostart_daemon` (C08: keep both spawn sites in sync).
-    cmd.env("TOURING_DAEMON_SOCKET", target);
-
+    let daemon_bin = PathBuf::from(binary.unwrap_or_else(|| "touring-daemon".to_string()));
     // PILOT finding (2026-07-24): a per-project daemon must resolve ITS OWN
     // project root, never inherit the invoker's. Without this, `touring
     // update`/`daemon-ctl restart` run from another workspace respawned the
@@ -785,17 +775,54 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
     // socket itself (`<root>/.touring/daemon.sock`), so every caller is
     // correct by construction; the global socket derives nothing and keeps
     // the standard resolution.
-    if let Some(root) = project_root_for_socket(target) {
-        cmd.env("CLAUDE_PROJECT_DIR", &root);
-        cmd.env("TOURING_PROJECT_ROOT", &root);
-        cmd.current_dir(&root);
-    }
+    let project_root = project_root_for_socket(target);
 
-    cmd.stdin(Stdio::null())
-        .stdout(stdout_io)
-        .stderr(stderr_io)
-        .spawn()
-        .map_err(|e| anyhow::anyhow!("spawn touring-daemon: {e}"))?;
+    // Daemon lifetime (2026-07-01, then decision 2-A on 14/09/2026): its own
+    // session — without one it stayed in the invoking CLI's process group and
+    // died with that session's cleanup ("daemon alive at session end,
+    // Connection refused when the next session starts") — and, with a systemd
+    // user manager, its own scope: a `daemon-ctl restart` run by a oneshot unit
+    // otherwise left the daemon in that unit's cgroup, killed when it ended
+    // (release 30.4.45 survived only through `KillMode=process`). The launcher
+    // is shared with `touring-hooks::main::try_autostart_daemon` — one copy.
+    let description = format!("touring-daemon {}", target.display());
+    touring_foundation::daemon_spawn::spawn_daemon_detached(&daemon_bin, &description, &|cmd| {
+        // stdout/stderr go to an append-mode logfile instead of /dev/null so
+        // daemon crashes stop being invisible (post-mortem gotcha 2026-06-29:
+        // "daemon-ctl spawn stderr=null não loga").
+        let (stdout_io, stderr_io) = daemon_log_stdio();
+        // W12.5 (1.3): pin the RESOLVED socket into the child's env so the
+        // daemon binds exactly where this ctl (and every unified client) will
+        // look — the child re-running the walk-up from a different cwd must
+        // never diverge.
+        cmd.env("TOURING_DAEMON_SOCKET", target);
+        if let Some(root) = &project_root {
+            cmd.env("CLAUDE_PROJECT_DIR", root);
+            cmd.env("TOURING_PROJECT_ROOT", root);
+            // `TOURING_WORKSPACE_ROOT` is deliberately NOT pinned here, and the
+            // reason is worth writing down because pinning it looks like the
+            // obvious completion of the list (2026-08-19: it was written, then
+            // reverted after reading every consumer).
+            //
+            // The two variables name DIFFERENT things. PROJECT_ROOT is this
+            // daemon's data root — the project it serves. WORKSPACE_ROOT is where
+            // the touring SOURCE TREE lives, and its three remaining readers are
+            // all asset lookups into that tree: the parcer profile schema
+            // (`cli/profile.rs`) and the gotcha YAML library (`cli/gotcha.rs`,
+            // `hooks/session_hooks.rs`). Pinning it to the project would send all
+            // three looking for `<project>/docs/gotchas` and
+            // `<project>/crates/touring-server/schemas/…`, which do not exist —
+            // trading a wrong wiring root for three silently missing assets.
+            //
+            // The wiring layer used to be the fourth reader, and it was the one
+            // that genuinely needed the project. It no longer reads any variable:
+            // `knowledge_wiring::derive_workspace_root` takes the root from the
+            // database's own path, so it is correct no matter who spawned whom.
+            cmd.current_dir(root);
+        }
+        cmd.stdin(Stdio::null()).stdout(stdout_io).stderr(stderr_io);
+    })
+    .map_err(|e| anyhow::anyhow!("failed to spawn touring-daemon: {e}; run `which touring-daemon` and `touring doctor -j` to diagnose"))?;
     Ok(())
 }
 
@@ -804,6 +831,25 @@ fn spawn_daemon_with_bin(target: &Path, bin_override: Option<&Path>) -> anyhow::
 /// `/tmp` socket, ad-hoc test sockets) → `None`. Deriving from the socket —
 /// not the invoker's env — is what makes every spawn caller correct by
 /// construction (PILOT finding 2026-07-24).
+/// Which `touring-daemon` binary to spawn for `target`.
+///
+/// Split out of the spawn so the CHANNEL contract is testable without starting
+/// a process: a pinned project must run its pin, whoever asks.
+pub(crate) fn resolve_daemon_binary(target: &Path, bin_override: Option<&Path>) -> Option<String> {
+    let pinned = project_root_for_socket(target)
+        .map(|root| root.join(".touring").join("bin").join("touring-daemon"))
+        .filter(|p| p.exists());
+    bin_override
+        .map(|p| p.display().to_string())
+        .or_else(|| pinned.map(|p| p.display().to_string()))
+        .or_else(|| std::env::var("TOURING_DAEMON_BIN").ok())
+        .or_else(|| {
+            let home = std::env::var("HOME").ok()?;
+            let candidate = PathBuf::from(format!("{home}/.local/bin/touring-daemon"));
+            candidate.exists().then(|| candidate.display().to_string())
+        })
+}
+
 pub(crate) fn project_root_for_socket(socket: &Path) -> Option<PathBuf> {
     let dot_touring = socket.parent()?;
     if socket.file_name()? == "daemon.sock" && dot_touring.file_name()? == ".touring" {
@@ -884,6 +930,9 @@ mod tests {
 
     #[test]
     fn daemon_socket_path_respects_env_override() {
+        let _env = crate::cli::ENV_LOCK
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
         // W12.5 unification: the CANONICAL var wins over the legacy one, and
         // the legacy one still works when the canonical is absent. The session
         // environment may carry TOURING_DAEMON_SOCKET (CC sessions export it),
@@ -1046,6 +1095,43 @@ mod tests {
         assert!(read_proc_comm(4_194_303).is_none());
     }
 
+    /// Cross-audit 14/09/2026 (C3): after the drain window, the restart kills
+    /// only the daemons it SIGTERMed and that are still daemons — never another
+    /// socket's daemon, never a pid recycled into something else.
+    #[test]
+    fn a_restart_force_kills_only_the_daemons_it_asked_to_stop() {
+        let comm_of = |pid: u32| match pid {
+            10 => Some("touring-daemon".to_string()),
+            11 => Some("bash".to_string()), // pid recycled after exit
+            20 => Some("touring-daemon".to_string()), // another project's daemon
+            _ => None,                      // already gone
+        };
+        assert_eq!(force_kill_set(&[10, 11, 12], comm_of), vec![10]);
+        assert!(force_kill_set(&[], comm_of).is_empty());
+    }
+
+    /// The source guard for the same contract: the restart path must never
+    /// re-scan every daemon. `reset` does, on purpose, behind its explicit
+    /// `--yes-i-know-cascading-kill` flag.
+    #[test]
+    fn the_restart_path_never_scans_every_daemon() {
+        let source = include_str!("daemon_ctl.rs");
+        let start = source
+            .find("pub(crate) fn restart_socket_with_bin(")
+            .expect("restart function");
+        let end = start + source[start..].find("\n}\n").expect("restart function end");
+        let body = &source[start..end];
+        let code: String = body
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(
+            !code.contains("all_daemon_pids()"),
+            "restart must kill only its own targets:\n{body}"
+        );
+    }
+
     #[test]
     fn wait_socket_alive_returns_false_on_nonexistent_path() {
         let bogus = PathBuf::from("/tmp/test-touring-daemon-ctl-never-exists.sock");
@@ -1063,8 +1149,14 @@ mod tests {
     fn a_pid_registered_to_another_socket_is_never_offered() {
         let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
         let registry = vec![
-            ("/home/u/projects/transferegov/.touring/daemon.sock".to_string(), 2_898_535),
-            ("/home/u/projects/konverter/.touring/daemon.sock".to_string(), 2_898_635),
+            (
+                "/home/u/projects/transferegov/.touring/daemon.sock".to_string(),
+                2_898_535,
+            ),
+            (
+                "/home/u/projects/konverter/.touring/daemon.sock".to_string(),
+                2_898_635,
+            ),
         ];
         assert_eq!(
             orphans_not_owned_elsewhere(&registry, &target, vec![2_898_535, 2_898_635]),
@@ -1078,7 +1170,10 @@ mod tests {
         let target = PathBuf::from("/home/u/projects/analise/.touring/daemon.sock");
         let registry = vec![
             (target.display().to_string(), 100),
-            ("/home/u/projects/other/.touring/daemon.sock".to_string(), 200),
+            (
+                "/home/u/projects/other/.touring/daemon.sock".to_string(),
+                200,
+            ),
         ];
         // 100 is ours; 300 is unregistered (pre-upgrade daemon — the back-compat
         // case the fallback exists for); 200 belongs to someone else.
@@ -1153,5 +1248,97 @@ mod tests {
             project_root_for_socket(Path::new("/home/u/proj/.touring/other.sock")),
             None
         );
+    }
+}
+
+#[cfg(test)]
+mod daemon_binary_channel_tests {
+    use super::resolve_daemon_binary;
+    use std::path::Path;
+
+    fn pinned_project() -> (tempfile::TempDir, std::path::PathBuf, std::path::PathBuf) {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let bin_dir = tmp.path().join(".touring").join("bin");
+        std::fs::create_dir_all(&bin_dir).expect("mkdir .touring/bin");
+        let pinned = bin_dir.join("touring-daemon");
+        std::fs::write(&pinned, b"#!/bin/true\n").expect("write pinned bin");
+        let socket = tmp.path().join(".touring").join("daemon.sock");
+        (tmp, socket, pinned)
+    }
+
+    #[test]
+    fn a_per_project_socket_spawns_the_projects_pinned_binary() {
+        let (_tmp, socket, pinned) = pinned_project();
+        assert_eq!(
+            resolve_daemon_binary(&socket, None),
+            Some(pinned.display().to_string()),
+            "a pinned project must run its pin — not the dev channel of whoever \
+             happened to invoke daemon-ctl"
+        );
+    }
+
+    #[test]
+    fn an_explicit_override_still_wins() {
+        // `touring update` passes the binary it just installed; that is a
+        // deliberate instruction and outranks the pin it is replacing.
+        let (_tmp, socket, _pinned) = pinned_project();
+        let over = Path::new("/opt/somewhere/touring-daemon");
+        assert_eq!(
+            resolve_daemon_binary(&socket, Some(over)),
+            Some(over.display().to_string())
+        );
+    }
+
+    #[test]
+    fn a_project_without_a_pinned_binary_falls_through() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        std::fs::create_dir_all(tmp.path().join(".touring")).expect("mkdir");
+        let socket = tmp.path().join(".touring").join("daemon.sock");
+        let resolved = resolve_daemon_binary(&socket, None);
+        assert_ne!(
+            resolved,
+            Some(
+                tmp.path()
+                    .join(".touring/bin/touring-daemon")
+                    .display()
+                    .to_string()
+            ),
+            "a pin that does not exist must never be selected"
+        );
+    }
+
+    #[test]
+    fn the_global_socket_has_no_pin_to_prefer() {
+        let resolved = resolve_daemon_binary(Path::new("/tmp/touring-daemon-1000.sock"), None);
+        assert!(
+            resolved
+                .as_deref()
+                .is_none_or(|p| !p.contains(".touring/bin")),
+            "the global socket derives no project, so no pinned binary: {resolved:?}"
+        );
+    }
+}
+
+/// `--project .` names the same daemon as `--project <absolute path>`. The registry
+/// and the lock are keyed by the absolute socket path the daemon bound, so a
+/// relative target matched no entry and `status` printed `daemon PID: (none)` for
+/// a live daemon (analise, 14/09/2026).
+#[cfg(test)]
+mod relative_target_tests {
+    use super::{DaemonCtlCli, resolve_target_socket};
+    use clap::Parser;
+
+    #[test]
+    fn a_relative_project_resolves_to_the_absolute_socket() {
+        let cwd = std::env::current_dir().expect("cwd");
+        for argv in [
+            vec!["daemon-ctl", "--project", ".", "status"],
+            vec!["daemon-ctl", "--socket", "./.touring/daemon.sock", "status"],
+        ] {
+            let cli = DaemonCtlCli::try_parse_from(&argv).expect("parses");
+            let socket = resolve_target_socket(&cli);
+            assert!(socket.is_absolute(), "{argv:?} → {}", socket.display());
+            assert_eq!(socket, cwd.join(".touring").join("daemon.sock"), "{argv:?}");
+        }
     }
 }

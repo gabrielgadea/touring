@@ -1,0 +1,10 @@
+
+[4] G1 sem replay — hook cli-suggest REAL (onde vivem os gates de code mode), sessão-sonda própria
+  OK    controle: o G1 dispara numa rajada real — disparos nos índices [3]
+  OK    no 1º disparo (4ª) só o comando atual executa — executáveis ['grep -c delta AGENTS.md']
+  OK    o modelo recebe o additionalContext — '[G1 rajada-de-inspeção → REESCRITO no sandbox] 3ª inspeção da classe `grep` desde o últim
+  OK    a inspeção seguinte não dispara: o lote foi consumido — disparos [3]
+  OK    background: o disparo roda só o comando atual e preserva run_in_background — executáveis ['grep -c delta AGENTS.md'] · run_in_background=True
+  OK    depois de um touring run, 2 inspeções não disparam o G1 — [[], ['additionalContext', 'hookEventName']]
+
+veredito: TUDO AFIRMADO

@@ -2,6 +2,11 @@
 # Docs: https://mutants.rs/config.html
 #
 # Strategy: incremental (--in-diff) in CI, sharded full scans weekly.
+#   * .github/workflows/ci.yml        job `mutants-diff`  — the lines of the last commit, ADVISORY
+#                                     (continue-on-error) until a measured false-red rate promotes it;
+#   * .github/workflows/scheduled.yml job `mutants-full`  — 16 shards, shuffled, 4 h budget each: the
+#                                     workspace has ~65k mutants, so the weekly scan SAMPLES it.
+# (Until 18/10/2026 this line promised both and no workflow ran cargo-mutants.)
 # Exclusions: generated templates, examples, benches, build scripts.
 
 # Exclude globs — mutants are NOT generated for these files.
@@ -32,10 +37,18 @@ minimum_test_timeout = 30
 
 # Use nextest for parallel test execution.
 test_tool = "nextest"
-additional_cargo_test_args = ["--profile", "ci"]
+# The `mutants` profile (see .config/nextest.toml) never retries: under
+# mutation a failing test IS the kill signal, and `ci`'s 3 retries with
+# exponential backoff turned real kills into timeouts.
+additional_cargo_test_args = ["--profile", "mutants"]
 
-# Skip bench/doctest targets — nextest profile handles the rest.
-additional_cargo_args = ["--all-targets"]
+# Skip bench/doctest targets. NOTE: `--all-targets` does the OPPOSITE — it
+# INCLUDES benches, and the `**/benches/**` exclude_glob above only skips
+# MUTANT GENERATION, never the test-list. With benches listed, `nextest list`
+# runs the iai-callgrind harness, which needs `iai-callgrind-runner` on PATH;
+# without it the baseline dies with "creating test list failed" and the whole
+# run yields 0 mutants (reported as ok:true). Name the targets explicitly.
+additional_cargo_args = ["--lib", "--bins", "--tests"]
 
 # NOTE: For targeted mutation runs (e.g. `--file <path>`), pass an
 # `-E` filter expression via the CLI to narrow the test corpus,

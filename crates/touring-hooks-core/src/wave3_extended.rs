@@ -260,12 +260,15 @@ pub fn ctx_roi_from_snapshot(
         // estimate out of the measured fields.
         out["tokens_saved"] = Value::Null;
         out["usd_saved"] = Value::Null;
-        out["token_method"] = json!("not_measured — no tokenizer registered in the recording process");
+        out["token_method"] =
+            json!("not_measured — no tokenizer registered in the recording process");
         out["tokens_saved_estimate"] = json!(bytes_saved / 4);
         out["estimate_basis"] =
             json!("bytes_saved / 4 — a chars-per-token heuristic, NOT a token count");
-        out["usd_saved_estimate"] =
-            json!(format!("${:.4}", (bytes_saved / 4) as f64 / 1_000_000.0 * rate));
+        out["usd_saved_estimate"] = json!(format!(
+            "${:.4}",
+            (bytes_saved / 4) as f64 / 1_000_000.0 * rate
+        ));
     }
 
     if snap.savings_event_count == 0 {
@@ -549,8 +552,13 @@ mod roi_honesty_tests {
     use crate::shared::gate_metrics::GateMetricsSnapshot;
 
     /// A snapshot with the savings fields set and everything else defaulted.
-    fn snap(comp: (u64, u64), routed: (u64, u64), tokens: (u64, u64), tok_events: u64,
-            events: u64) -> GateMetricsSnapshot {
+    fn snap(
+        comp: (u64, u64),
+        routed: (u64, u64),
+        tokens: (u64, u64),
+        tok_events: u64,
+        events: u64,
+    ) -> GateMetricsSnapshot {
         let mut s = GateMetricsSnapshot::capture();
         s.compression_bytes_in_total = comp.0;
         s.compression_bytes_out_total = comp.1;
@@ -566,7 +574,11 @@ mod roi_honesty_tests {
     #[test]
     fn bytes_saved_is_the_exact_delta_never_a_per_event_constant() {
         // 900 - 300 saved by compression, 50_000 - 400 by routing.
-        let v = ctx_roi_from_snapshot(&snap((900, 300), (50_000, 400), (0, 0), 0, 7), "sonnet", "test");
+        let v = ctx_roi_from_snapshot(
+            &snap((900, 300), (50_000, 400), (0, 0), 0, 7),
+            "sonnet",
+            "test",
+        );
         assert_eq!(v["bytes_saved"], json!(600 + 49_600));
         // The old formula would have produced a multiple of 30_000/20_000 from
         // the EVENT counts; the new one cannot, because it never sees them.
@@ -578,9 +590,16 @@ mod roi_honesty_tests {
         let v = ctx_roi_from_snapshot(&snap((900, 300), (0, 0), (250, 90), 4, 4), "opus", "daemon");
         assert_eq!(v["tokens_saved"], json!(160));
         assert_eq!(v["usd_saved"], json!("$0.0024")); // 160/1e6 * 15.0
-        assert!(v["token_method"].as_str().expect("method").contains("cl100k_base"));
-        assert!(v.get("tokens_saved_estimate").is_none(),
-                "a measured envelope must not also carry an estimate");
+        assert!(
+            v["token_method"]
+                .as_str()
+                .expect("method")
+                .contains("cl100k_base")
+        );
+        assert!(
+            v.get("tokens_saved_estimate").is_none(),
+            "a measured envelope must not also carry an estimate"
+        );
     }
 
     #[test]
@@ -591,17 +610,32 @@ mod roi_honesty_tests {
         assert!(v["tokens_saved"].is_null());
         assert!(v["usd_saved"].is_null());
         assert_eq!(v["tokens_saved_estimate"], json!(1_000));
-        assert!(v["estimate_basis"].as_str().expect("basis").contains("NOT a token count"));
-        assert!(v["token_method"].as_str().expect("method").starts_with("not_measured"));
+        assert!(
+            v["estimate_basis"]
+                .as_str()
+                .expect("basis")
+                .contains("NOT a token count")
+        );
+        assert!(
+            v["token_method"]
+                .as_str()
+                .expect("method")
+                .starts_with("not_measured")
+        );
     }
 
     #[test]
     fn zero_events_reports_absence_of_activity_not_a_zero_saving() {
         let v = ctx_roi_from_snapshot(&snap((0, 0), (0, 0), (0, 0), 0, 0), "sonnet", "daemon");
         assert_eq!(v["bytes_saved"], json!(0));
-        let note = v["note"].as_str().expect("a zero-event envelope must explain itself");
+        let note = v["note"]
+            .as_str()
+            .expect("a zero-event envelope must explain itself");
         assert!(note.contains("not a saving of zero"));
-        assert!(note.contains("TOURING_HOOK_ROUTING"), "name the gate that keeps it dormant");
+        assert!(
+            note.contains("TOURING_HOOK_ROUTING"),
+            "name the gate that keeps it dormant"
+        );
     }
 
     #[test]
@@ -633,7 +667,13 @@ mod roi_honesty_tests {
             .split("\n#[cfg(test)]")
             .next()
             .expect("bounded slice");
-        assert!(!roi.contains("30_000"), "per-event byte constant reinstated");
-        assert!(!roi.contains("saturating_mul"), "event counts multiplied into bytes again");
+        assert!(
+            !roi.contains("30_000"),
+            "per-event byte constant reinstated"
+        );
+        assert!(
+            !roi.contains("saturating_mul"),
+            "event counts multiplied into bytes again"
+        );
     }
 }

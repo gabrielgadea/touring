@@ -1,0 +1,45 @@
+{
+  "phase": "S8",
+  "entities": [
+    {
+      "entity_id": "phase:S8",
+      "type": "phase",
+      "description": "S8 CweScanLayer wired + detector unico: detect_cwes/CweFinding/Severity/needles movidos para touring_code::cwe_scan (leaf, sem ciclo); touring-hook-runtime scan.rs re-exporta e a layer passa a escanear o texto que vai existir (new_string de Edit localizado como new_string:L<n>, content de Write); touring-server cli/scan.rs delega (a copia CLI nunca emitia CWE-22 \u2014 drift flagrado pelo teste RED). Wired em pre_write e pre_edit. Testes: cwe_scan 7, hook-runtime scan 8 (2 novos), handlers 2 runtime, server scan 7; mutacao (ignorar texto proposto) flagrada em 2 crates; clippy code/hook-runtime/handlers limpo, server em curso."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:S8:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S8|produces|memory:loop:task_1788318067626657742:S8:done",
+      "source": "phase:S8",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:S8:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S8:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S8:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S8:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S8:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

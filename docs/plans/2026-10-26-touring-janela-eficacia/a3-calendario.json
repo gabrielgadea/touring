@@ -1,0 +1,26 @@
+{
+  "day0": null,
+  "switch_hour_local": 4,
+  "tz": "America/Sao_Paulo",
+  "primary_blocks": [
+    "ABBA",
+    "BAAB"
+  ],
+  "extension_blocks": [
+    "ABBA",
+    "BAAB"
+  ],
+  "extension_active": false,
+  "arms": {
+    "A": "full",
+    "B": "no-advisory"
+  },
+  "blocos_invalidados": [],
+  "encerrado": {
+    "em": "2026-10-29T17:26-03:00",
+    "por": "decisão do Gabriel (sessão touring-cb)",
+    "day0_original": "2026-10-29",
+    "motivo": "o congelamento (deploy, settings.json e hooks vivos em todos os projetos até 06/11) travava várias frentes; correção de segurança do F2.4 parada sem deploy",
+    "dados": "só o dia 0 (braço A, 13:08-17:26 com a máquina ligada); registrado como piloto, sem análise de eficácia"
+  }
+}

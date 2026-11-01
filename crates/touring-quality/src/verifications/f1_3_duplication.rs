@@ -41,15 +41,38 @@ impl Verification for F1_3_Duplication {
 // ── Real engine: Type-1 block clone detection ─────────────────────────────────
 #[cfg(feature = "workspace-integration")]
 fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
-    use touring_analysis::quality::analyze_duplication;
+    use touring_analysis::quality::analyze_duplication_segmented;
 
     // Machine-generated trees (openapi-generator markers) are excluded from the
     // DUPLICATION corpus only — their clones are the generator's signature, not
     // debt — and the exclusion is announced in the evidence (never silent).
-    let (raw, generated_excluded, truncated) =
-        crate::verifications::read_target_source_excluding_generated(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
-    let r = analyze_duplication(&raw, lang);
+    //
+    // A leitura vem SEGMENTADA desde 03/09/2026: cada arquivo carrega a própria
+    // linguagem, de modo que o lexer de comentários/strings não atravessa a
+    // fronteira do arquivo. A versão anterior derivava um único `lang` da extensão
+    // do ALVO — que num diretório não existe e caía no default `"rust"` — e então
+    // um `/*` dentro de uma string Python apagava da medição tudo até o próximo
+    // `*/`, em outros arquivos. Detalhe e teste mínimo em
+    // `read_target_segments_excluding_generated`.
+    let (raw, segments, generated_excluded, truncated) =
+        crate::verifications::read_target_segments_excluding_generated(target)?;
+    let r = analyze_duplication_segmented(&raw, &segments);
+
+    // Rótulo honesto: um diretório polyglot não TEM uma linguagem, e anunciar a
+    // do default fazia a evidência dizer "(rust)" sobre corpus Python.
+    let lang: std::borrow::Cow<'_, str> = match segments.as_slice() {
+        [] => std::borrow::Cow::Borrowed("vazio"),
+        [(_, _, only)] => std::borrow::Cow::Borrowed(only),
+        segs => {
+            let mut langs: Vec<&str> = segs.iter().map(|&(_, _, l)| l).collect();
+            langs.sort_unstable();
+            langs.dedup();
+            match langs.as_slice() {
+                [one] => std::borrow::Cow::Borrowed(one),
+                many => std::borrow::Cow::Owned(format!("polyglot: {}", many.join("+"))),
+            }
+        }
+    };
 
     let value = score_duplication(r.ratio, r.combined_ratio);
     let mut evidence = format!(
@@ -90,11 +113,18 @@ fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
     // score precisa saber que este é um recorte, e reescopar por crate para
     // obter um número confiável.
     if truncated {
-        evidence.push_str(
-            "; ⚠ TRUNCADO no teto de varredura (16 MiB) — este score cobre um PREFIXO do escopo, \
-             não o escopo inteiro, e é insensível a remediação feita depois do corte; \
+        // O sentinela vem da constante que [`finish`] também consome, e o teto vem
+        // do `const` que de fato corta: a mensagem dizia "16 MiB" enquanto
+        // `DIR_SCAN_BYTE_CAP` valia 128 MiB — drift descoberto em 03/09/2026, no
+        // próprio mecanismo que existe para não mentir sobre limites. Derivar os
+        // dois da fonte torna esse drift impossível de reaparecer.
+        evidence.push_str(&format!(
+            "; {sentinel} no teto de varredura ({cap} MiB) — este score cobre um PREFIXO do \
+             escopo, não o escopo inteiro, e é insensível a remediação feita depois do corte; \
              pontue por crate para um número confiável",
-        );
+            sentinel = crate::verifications::TRUNCATION_SENTINEL,
+            cap = crate::verifications::DIR_SCAN_BYTE_CAP / (1024 * 1024),
+        ));
     }
     Ok((value, evidence))
 }
@@ -161,7 +191,15 @@ fn score_duplication(type1_ratio: f64, combined_ratio: f64) -> f32 {
 // ── Standalone fallback: isolated duplicate-line ratio (no block detection) ───
 #[cfg(not(feature = "workspace-integration"))]
 fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
-    let raw = crate::verifications::read_target_source(target)?;
+    // Cross-audit 04/09/2026 — o fallback lia o corpus SEM excluir árvore gerada,
+    // enquanto o caminho principal exclui desde sempre: os dois discordavam sobre o
+    // que é o corpus, e clone de gerador (a assinatura do gerador, não débito)
+    // entrava na conta só nesta build. `read_target_source_excluding_generated`
+    // existia exatamente para isto e não tinha consumidor — era um dos 5 órfãos
+    // reais da auditoria. A exclusão é ANUNCIADA: um filtro silencioso repetiria a
+    // falha do teto invisível de 02/08.
+    let (raw, generated_excluded, truncated) =
+        crate::verifications::read_target_source_excluding_generated(target)?;
 
     let lines: Vec<&str> = raw.lines().collect();
     let mut seen: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
@@ -175,10 +213,18 @@ fn analyze_duplication_dim(target: &Path) -> Result<(f32, String)> {
     let total_lines = lines.len().max(1);
     let dup_ratio = dup_lines as f32 / total_lines as f32;
     let value = (1.0 - dup_ratio.min(1.0)).clamp(0.0, 1.0);
-    let evidence = format!(
+    let mut evidence = format!(
         "Code Duplication: {dup_lines} repeated lines (isolated-line heuristic; build \
          --features workspace-integration for Type-1 block clone detection) — score={value:.3}"
     );
+    if generated_excluded > 0 {
+        evidence.push_str(&format!(
+            "; {generated_excluded} machine-generated file(s) excluded (openapi-generator markers)"
+        ));
+    }
+    if truncated {
+        evidence.push_str("; corpus TRUNCADO no teto de bytes — score de prefixo, não do escopo");
+    }
     Ok((value, evidence))
 }
 
@@ -308,6 +354,36 @@ mod tests {
         );
     }
 
+    /// Cross-audit 04/09/2026 — o MESMO contrato no caminho standalone. Ate hoje o
+    /// fallback lia o corpus sem excluir arvore gerada: os dois caminhos discordavam
+    /// sobre o que e o corpus, e a build sem features contava clone de gerador como
+    /// debito. O teste vive sob `cfg(not(...))` porque so essa build o compila —
+    /// `cargo test -p touring-quality --no-default-features`.
+    #[cfg(not(feature = "workspace-integration"))]
+    #[test]
+    fn fallback_standalone_tambem_exclui_arvore_gerada_e_anuncia() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let block = "    let a = step_one(input);\n    let b = step_two(a);\n    \
+                     let c = step_three(b);\n    let d = step_four(c);\n    \
+                     let e = step_five(d);\n    let g = step_six(e);\n    let h = step_seven(g);\n";
+        let sdk = dir.path().join("sdks").join("go");
+        std::fs::create_dir_all(&sdk).expect("mkdir");
+        std::fs::write(sdk.join(".openapi-generator-ignore"), "").expect("marker");
+        std::fs::write(
+            sdk.join("a.go"),
+            format!("func first() {{\n{block}}}\nfunc second() {{\n{block}}}\n"),
+        )
+        .expect("write");
+        std::fs::write(dir.path().join("clean.rs"), "fn f() -> i32 { 1 + 2 + 3 }\n")
+            .expect("write");
+        let s = F1_3_Duplication.check(dir.path()).expect("check");
+        assert!(
+            s.evidence.contains("machine-generated file(s) excluded"),
+            "a exclusao tem de ser anunciada tambem no fallback, evidencia: {}",
+            s.evidence
+        );
+    }
+
     /// Without a generator marker the same tree DOES count (the filter is
     /// structural, never a blanket sdk-name exemption).
     #[cfg(feature = "workspace-integration")]
@@ -338,7 +414,10 @@ mod tests {
     fn test_score_duplication_bands() {
         // O Type-1 mantém EXATAMENTE a calibração histórica (combined=0 isola).
         assert!((score_duplication(0.0, 0.0) - 1.0).abs() < 1e-6);
-        assert!((score_duplication(0.02, 0.0) - 1.0).abs() < 1e-6, "< 3% é saudável");
+        assert!(
+            (score_duplication(0.02, 0.0) - 1.0).abs() < 1e-6,
+            "< 3% é saudável"
+        );
         assert!(score_duplication(0.05, 0.0) < 1.0 && score_duplication(0.05, 0.0) >= 0.5);
         assert!(score_duplication(0.15, 0.0) < 0.5, "> 8% tem de reprovar");
         // Monotone non-increasing em cada eixo.
@@ -388,6 +467,9 @@ mod tests {
             "a banda tem de separar os crates observados, deu spread {}: {scores:?}",
             hi - lo
         );
-        assert!(lo > 0.1, "nenhum crate real deveria saturar no piso: {scores:?}");
+        assert!(
+            lo > 0.1,
+            "nenhum crate real deveria saturar no piso: {scores:?}"
+        );
     }
 }

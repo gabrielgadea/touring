@@ -1,0 +1,8 @@
+snapshot: scan-2026-08-31.json | scan_timestamp: 2026-08-31T13:41:27.473886Z
+  OK — snapshot reproduz 561 = 36+11+279+151+84
+delta vivo (scan atual − snapshot 31/08): 78 sinais · ledger: 122 linhas
+scan atual (régua final): 392 sinais = C1=83+C3=11+C4=106+C5=166+C6=26
+  FAIL SEM DISPOSIÇÃO: C1 30.4.94
+  FAIL SEM DISPOSIÇÃO: C1 30.4.92
+  FAIL contagem C1: ledger=48 != delta(união)=50
+  FAIL (c) mas SUMIU do scan atual (deveria permanecer contado): C1 30.4.93

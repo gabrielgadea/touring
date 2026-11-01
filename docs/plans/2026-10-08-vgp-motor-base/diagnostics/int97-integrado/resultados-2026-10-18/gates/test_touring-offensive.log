@@ -1,0 +1,337 @@
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.37s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_offensive-afbb732ce893ea01)
+
+running 282 tests
+test bug_bounty::tests::test_affected_module_deduplication ... ok
+test bug_bounty::tests::test_cve_reference_deduplication ... ok
+test bug_bounty::tests::test_cvss_boundary_exactly_0_0 ... ok
+test bug_bounty::tests::test_cvss_boundary_exactly_4_0 ... ok
+test bug_bounty::tests::test_cvss_boundary_exactly_7_0 ... ok
+test bug_bounty::tests::test_cvss_boundary_exactly_9_0 ... ok
+test bug_bounty::tests::test_deserialization ... ok
+test bug_bounty::tests::test_internal_flag_lifecycle ... ok
+test bug_bounty::tests::test_full_lifecycle ... ok
+test bug_bounty::tests::test_invalid_transition_closed_to_any ... ok
+test bug_bounty::tests::test_invalid_transition_open_to_rewarded ... ok
+test bug_bounty::tests::test_is_critical_for_high_severity ... ok
+test bug_bounty::tests::test_multiple_cve_additions ... ok
+test bug_bounty::tests::test_multiple_module_additions ... ok
+test bug_bounty::tests::test_new_validated_invalid_cvss ... ok
+test bug_bounty::tests::test_new_validated_success ... ok
+test bug_bounty::tests::test_serialization_roundtrip ... ok
+test bug_bounty::tests::test_is_critical_for_low_severity ... ok
+test bug_bounty::tests::test_severity_from_cvss ... ok
+test bug_bounty::tests::test_state_transition_open_to_triaged ... ok
+test bug_bounty::tests::test_state_transition_rewarded_to_closed ... ok
+test bug_bounty::tests::test_state_transition_triaged_to_closed ... ok
+test bug_bounty::tests::test_state_transition_triaged_to_rewarded ... ok
+test bug_bounty::tests::test_tracker_id_assignment ... ok
+test concolic::tests::test_constraint_expr_distinct ... ok
+test concolic::tests::test_constraint_expr_exists ... ok
+test concolic::tests::test_constraint_expr_false_constant ... ok
+test concolic::tests::test_constraint_expr_forall ... ok
+test concolic::tests::test_constraint_expr_implies ... ok
+test concolic::tests::test_constraint_expr_is_false ... ok
+test concolic::tests::test_constraint_expr_is_quantifier ... ok
+test concolic::tests::test_constraint_expr_is_true ... ok
+test concolic::tests::test_constraint_expr_ite ... ok
+test concolic::tests::test_constraint_solver ... ok
+test concolic::tests::test_constraint_expr_true_constant ... ok
+test concolic::tests::test_constraint_expr_smtlib_v2_roundtrip ... ok
+test concolic::tests::test_constraint_new ... ok
+test concolic::tests::test_constraint_unsatisfiable ... ok
+test concolic::tests::test_discriminant_name ... ok
+test concolic::tests::test_executor_default_has_dfs_strategy ... ok
+test concolic::tests::test_executor_detect_cmd_injection ... ok
+test concolic::tests::test_execute_empty_input ... ok
+test concolic::tests::test_execute_with_input ... ok
+test concolic::tests::test_execute_sql_injection ... ok
+test concolic::tests::test_executor_detect_xss ... ok
+test concolic::tests::test_executor_detect_path_traversal ... ok
+test concolic::tests::test_executor_execute_uses_pattern_registry ... ok
+test concolic::tests::test_executor_is_satisfiable ... ok
+test concolic::tests::test_executor_new ... ok
+test concolic::tests::test_executor_has_default_patterns ... ok
+test concolic::tests::test_executor_register_custom_pattern ... ok
+test concolic::tests::test_executor_unsatisfiable_returns_false ... ok
+test concolic::tests::test_executor_reset_clears_state ... ok
+test concolic::tests::test_executor_with_custom_backend ... ok
+test concolic::tests::test_executor_reset ... ok
+test concolic::tests::test_executor_with_max_depth ... ok
+test concolic::tests::test_executor_with_max_depth_and_strategy ... ok
+test concolic::tests::test_executor_with_strategy ... ok
+test concolic::tests::test_path_explorer_bfs_strategy ... ok
+test concolic::tests::test_path_explorer ... ok
+test concolic::tests::test_path_explorer_dfs_strategy ... ok
+test concolic::tests::test_full_concolic_pipeline ... ok
+test concolic::tests::test_path_explorer_heuristic_strategy ... ok
+test concolic::tests::test_path_explorer_iterative_deepening_strategy ... ok
+test concolic::tests::test_path_explorer_random_strategy ... ok
+test concolic::tests::test_path_explorer_with_strategy_new ... ok
+test concolic::tests::test_solve_constraints ... ok
+test concolic::tests::test_pattern_registry_isolated_between_patterns ... ok
+test concolic::tests::test_symbol_expr_binary_op ... ok
+test concolic::tests::test_symbol_expr_variable ... ok
+test concolic::tests::test_symbol_expr_unary_op ... ok
+test concolic::tests::test_symbol_kind_abs ... ok
+test concolic::tests::test_symbol_kind_divide ... ok
+test concolic::tests::test_symbol_kind_min_max ... ok
+test concolic::tests::test_symbol_kind_multiply ... ok
+test concolic::tests::test_symbol_kind_neg ... ok
+test concolic::tests::test_symbol_expr_constant ... ok
+test erickson::confidence::tests::test_base_confidence_default ... ok
+test erickson::confidence::tests::test_compute_with_boost ... ok
+test erickson::confidence::tests::test_confidence_v2_combined_boosts ... ok
+test erickson::confidence::tests::test_confidence_v2_clamp_upper ... ok
+test erickson::confidence::tests::test_confidence_v2_base_only ... ok
+test erickson::confidence::tests::test_confidence_v2_long_match_penalty ... ok
+test erickson::confidence::tests::test_confidence_v2_clamp_lower ... ok
+test erickson::confidence::tests::test_confidence_v2_combined_penalties ... ok
+test erickson::confidence::tests::test_confidence_v2_might_modal ... ok
+test erickson::confidence::tests::test_confidence_v2_must_modal ... ok
+test erickson::confidence::tests::test_confidence_v2_position_start ... ok
+test erickson::confidence::tests::test_confidence_v2_position_end ... ok
+test erickson::confidence::tests::test_length_penalty ... ok
+test erickson::confidence::tests::test_confidence_v2_qualifier_penalty ... ok
+test erickson::confidence::tests::test_confidence_v2_qualifier_boost ... ok
+test erickson::confidence::tests::test_position_empty_text ... ok
+test erickson::confidence::tests::test_position_end_boundary ... ok
+test erickson::confidence::tests::test_position_end ... ok
+test erickson::confidence::tests::test_position_middle ... ok
+test erickson::confidence::tests::test_position_start ... ok
+test erickson::confidence::tests::test_position_start_boundary ... ok
+test erickson::confidence::tests::test_qualifier_adjustment ... ok
+test erickson::confidence::tests::test_qualifier_certain ... ok
+test erickson::confidence::tests::test_qualifier_definitely ... ok
+test erickson::confidence::tests::test_qualifier_hedged ... ok
+test erickson::confidence::tests::test_qualifier_none ... ok
+test erickson::confidence::tests::test_qualifier_ptbr_boost ... ok
+test erickson::confidence::tests::test_qualifier_ptbr_penalty ... ok
+test erickson::ptbr_markers::tests::test_extract_backing_ptbr ... ok
+test erickson::ptbr_markers::tests::test_extract_backing_ptbr_inclusive ... ok
+test erickson::ptbr_markers::tests::test_extract_backing_ptbr_alem_disso ... ok
+test erickson::ptbr_markers::tests::test_extract_backing_ptbr_junto_com ... ok
+test erickson::ptbr_markers::tests::test_extract_backing_ptbr_outrossim ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr_concluimos ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr_importante ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr_argumentamos ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr_recomendamos ... ok
+test erickson::ptbr_markers::tests::test_extract_claim_ptbr_sugerimos ... ok
+test erickson::ptbr_markers::tests::test_extract_evidence_ptbr ... ok
+test erickson::ptbr_markers::tests::test_extract_evidence_ptbr_comprovadamente ... ok
+test erickson::ptbr_markers::tests::test_extract_evidence_ptbr_estudos ... ok
+test erickson::ptbr_markers::tests::test_extract_evidence_ptbr_visto_que ... ok
+test erickson::ptbr_markers::tests::test_extract_warrant_ptbr ... ok
+test erickson::ptbr_markers::tests::test_extract_rebuttal_ptbr ... ok
+test erickson::ptbr_markers::tests::test_extract_rebuttal_ptbr_porem ... ok
+test erickson::ptbr_markers::tests::test_extract_warrant_ptbr_consequentemente ... ok
+test erickson::ptbr_markers::tests::test_extract_rebuttal_ptbr_apesar_de ... ok
+test erickson::ptbr_markers::tests::test_extract_warrant_ptbr_dado_que ... ok
+test erickson::ptbr_markers::tests::test_ptbr_markers_case_insensitive ... ok
+test erickson::ptbr_markers::tests::test_extract_warrant_ptbr_segue_que ... ok
+test erickson::ptbr_markers::tests::test_ptbr_markers_no_overlap_en ... ok
+test erickson::relation_population::tests::test_find_sentence_index ... ok
+test erickson::relation_population::tests::test_get_relation_context ... ok
+test erickson::relation_population::tests::test_has_contrast_marker ... ok
+test erickson::relation_population::tests::test_has_support_indicator ... ok
+test erickson::relation_population::tests::test_infer_relations_empty ... ok
+test erickson::relation_population::tests::test_infer_relations_contrast ... ok
+test erickson::relation_population::tests::test_has_attack_indicator ... ok
+test erickson::relation_population::tests::test_infer_relations_conclude ... ok
+test erickson::relation_population::tests::test_infer_relations_multiple ... ok
+test erickson::relation_population::tests::test_infer_relations_single_element ... ok
+test erickson::relation_population::tests::test_infer_relations_same_sentence_elaborate ... ok
+test erickson::relation_population::tests::test_populate_relations_empty ... ok
+test erickson::relation_population::tests::test_infer_relations_support ... ok
+test erickson::relation_population::tests::test_populate_relations_simple ... ok
+test erickson::relation_population::tests::test_infer_relations_sorted_order ... ok
+test erickson::relation_population::tests::test_population_result_struct ... ok
+test erickson::relation_population::tests::test_relation_context_enum ... ok
+test erickson::relation_population::tests::test_reset_relations ... ok
+test erickson::sentence_boundaries::tests::test_binary_search_boundaries ... ok
+test erickson::sentence_boundaries::tests::test_cjk_punctuation ... ok
+test erickson::sentence_boundaries::tests::test_edge_case_whitespace_only ... ok
+test erickson::sentence_boundaries::tests::test_empty_text ... ok
+test erickson::sentence_boundaries::tests::test_find_sentence_out_of_bounds ... ok
+test erickson::sentence_boundaries::tests::test_find_sentence_containing ... ok
+test erickson::sentence_boundaries::tests::test_list_items ... ok
+test erickson::sentence_boundaries::tests::test_multi_paragraph ... ok
+test erickson::sentence_boundaries::tests::test_no_terminal_punctuation ... ok
+test erickson::sentence_boundaries::tests::test_multiple_abbreviations ... ok
+test erickson::sentence_boundaries::tests::test_quote_handling ... ok
+test erickson::sentence_boundaries::tests::test_sentence_with_abbreviations ... ok
+test erickson::sentence_boundaries::tests::test_sentence_boundary_ranges ... ok
+test erickson::sentence_boundaries::tests::test_sentence_with_question_mark ... ok
+test erickson::sentence_boundaries::tests::test_simple_sentence_boundaries ... ok
+test erickson::sentence_boundaries::tests::test_single_sentence ... ok
+test erickson::tests::test_compute_qualifier_certain ... ok
+test erickson::tests::test_compute_qualifier_hedged ... ok
+test erickson::tests::test_deduplication ... ok
+test erickson::tests::test_element_creation ... ok
+test erickson::tests::test_erickson_extractor_new ... ok
+test erickson::tests::test_erickson_extractor_with_confidence ... ok
+test erickson::tests::test_combined_markers_zh ... ok
+test erickson::tests::test_combined_markers_ptbr ... ok
+test erickson::tests::test_extract_backing ... ok
+test erickson::tests::test_extract_empty ... ok
+test erickson::tests::test_extract_claim ... ok
+test erickson::tests::test_extract_rebuttal ... ok
+test erickson::tests::test_extract_no_patterns ... ok
+test erickson::tests::test_extract_evidence ... ok
+test erickson::tests::test_nlp_pattern_display ... ok
+test erickson::tests::test_extract_warrant ... ok
+test erickson::tests::test_qualifier_pattern_export ... ok
+test erickson::tests::test_mixed_language_text ... ok
+test solver::cvc5_backend::tests::test_cvc5_stub_when_disabled ... ok
+test erickson::tests::test_extract_sorted_by_position ... ok
+test solver::prove_claim_tests::backend_dispatch_stub ... ok
+test solver::prove_claim_tests::encode_loop_invariant_counters ... ok
+test solver::prove_claim_tests::encode_memory_safety_in_bounds ... ok
+test solver::prove_claim_tests::encode_postcondition_simple ... ok
+test solver::prove_claim_tests::encode_refactor_equivalence_iff ... ok
+test solver::prove_claim_tests::encode_type_safety_nonzero ... ok
+test solver::prove_claim_tests::prove_claim_sat_returns_counterexample_shape ... ok
+test solver::prove_claim_tests::prove_claim_stub_void_labeling ... ok
+test solver::prove_claim_tests::prove_claim_unknown_returns_status ... ok
+test solver::prove_claim_tests::prove_claim_unsat_returns_no_model ... ok
+test solver::prove_claim_tests::smtlib_round_trip_postcondition ... ok
+test solver::prove_claim_tests::void_vs_sat_distinction ... ok
+test solver::stub_backend::tests::test_stub_and_constraint ... ok
+test solver::stub_backend::tests::test_stub_assert_and_check_sat ... ok
+test solver::stub_backend::tests::test_stub_check_sat_after_reset ... ok
+test solver::stub_backend::tests::test_stub_check_sat_with_false_constraint ... ok
+test solver::stub_backend::tests::test_stub_distinct_constraint ... ok
+test solver::stub_backend::tests::test_stub_exists_constraint ... ok
+test solver::stub_backend::tests::test_stub_false_constraint_in_and ... ok
+test solver::stub_backend::tests::test_stub_forall_constraint ... ok
+test solver::stub_backend::tests::test_stub_get_model_empty ... ok
+test solver::stub_backend::tests::test_stub_get_model_ignores_const_prefix ... ok
+test solver::stub_backend::tests::test_stub_get_model_with_constant ... ok
+test solver::stub_backend::tests::test_stub_implies_constraint ... ok
+test solver::stub_backend::tests::test_stub_ite_constraint ... ok
+test solver::stub_backend::tests::test_stub_model_variable_only ... ok
+test solver::stub_backend::tests::test_stub_model_with_multiple_vars ... ok
+test solver::stub_backend::tests::test_stub_multiple_constraints ... ok
+test solver::stub_backend::tests::test_stub_new ... ok
+test solver::stub_backend::tests::test_stub_no_double_count_after_reset ... ok
+test solver::stub_backend::tests::test_stub_or_constraint ... ok
+test solver::stub_backend::tests::test_stub_reset ... ok
+test solver::stub_backend::tests::test_stub_with_symbolic_expression ... ok
+test solver::tests::test_constraint_to_smtlib_add ... ok
+test solver::tests::test_constraint_to_smtlib_and ... ok
+test solver::tests::test_constraint_to_smtlib_bool ... ok
+test solver::tests::test_constraint_to_smtlib_distinct ... ok
+test solver::tests::test_constraint_to_smtlib_eq ... ok
+test solver::tests::test_constraint_to_smtlib_exists ... ok
+test solver::tests::test_constraint_to_smtlib_false ... ok
+test solver::tests::test_constraint_to_smtlib_forall ... ok
+test solver::tests::test_constraint_to_smtlib_implies ... ok
+test solver::tests::test_constraint_to_smtlib_ite ... ok
+test solver::tests::test_constraint_to_smtlib_not ... ok
+test solver::tests::test_constraint_to_smtlib_or ... ok
+test solver::tests::test_constraint_to_smtlib_symbolic_constant ... ok
+test solver::tests::test_constraint_to_smtlib_symbolic_variable ... ok
+test solver::tests::test_constraint_to_smtlib_true ... ok
+test solver::tests::test_symbol_to_smtlib_abs ... ok
+test solver::tests::test_symbol_to_smtlib_and ... ok
+test solver::tests::test_symbol_to_smtlib_array_select ... ok
+test solver::tests::test_symbol_to_smtlib_array_store ... ok
+test solver::tests::test_symbol_to_smtlib_bitand ... ok
+test solver::tests::test_symbol_to_smtlib_bitor ... ok
+test solver::tests::test_symbol_to_smtlib_bitxor ... ok
+test solver::tests::test_symbol_to_smtlib_concat ... ok
+test solver::tests::test_symbol_to_smtlib_extract ... ok
+test solver::tests::test_symbol_to_smtlib_ge ... ok
+test solver::tests::test_symbol_to_smtlib_le ... ok
+test solver::tests::test_symbol_to_smtlib_load ... ok
+test solver::tests::test_symbol_to_smtlib_lt ... ok
+test solver::tests::test_symbol_to_smtlib_max ... ok
+test solver::tests::test_symbol_to_smtlib_min ... ok
+test solver::tests::test_symbol_to_smtlib_mod ... ok
+test solver::tests::test_symbol_to_smtlib_multiply ... ok
+test solver::tests::test_symbol_to_smtlib_neg ... ok
+test solver::tests::test_symbol_to_smtlib_not ... ok
+test solver::tests::test_symbol_to_smtlib_or ... ok
+test solver::tests::test_symbol_to_smtlib_shl ... ok
+test solver::tests::test_symbol_to_smtlib_shr ... ok
+test solver::tests::test_symbol_to_smtlib_signext ... ok
+test solver::tests::test_symbol_to_smtlib_zeroext ... ok
+test solver::z3_backend::tests::test_z3_translate_constraint_and_or ... ok
+test solver::z3_backend::tests::test_z3_stub_when_disabled ... ok
+test solver::prove_claim_tests::backend_dispatch_z3_unsat_contradiction ... ok
+test solver::prove_claim_tests::backend_dispatch_z3_sat_postcondition ... ok
+test vuln::cwe_patterns::tests::detect_every_returns_every_match_and_detect_the_first ... ok
+test solver::z3_backend::tests::test_z3_translate_constraint_false ... ok
+test vuln::cwe_patterns::tests::r2_context_false_positives_and_their_true_positives ... ok
+test solver::z3_backend::tests::test_z3_translate_constraint_true ... ok
+test vuln::cwe_patterns::tests::test_cmdi_pattern ... ok
+test vuln::cwe_patterns::tests::test_deserialization ... ok
+test vuln::cwe_patterns::tests::test_buffer_overflow ... ok
+test vuln::cwe_patterns::tests::test_integer_overflow ... ok
+test vuln::cwe_patterns::tests::test_registry_default ... ok
+test vuln::cwe_patterns::tests::test_ldap_injection ... ok
+test vuln::cwe_patterns::tests::test_path_traversal ... ok
+test vuln::cwe_patterns::tests::test_registry_len_empty ... ok
+test vuln::cwe_patterns::tests::test_registry_detect_all ... ok
+test vuln::cwe_patterns::tests::test_severity_scores ... ok
+test vuln::cwe_patterns::tests::test_sqli_or_pattern ... ok
+test vuln::cwe_patterns::tests::test_xss_javascript_scheme_is_a_url_not_prose ... ok
+test vuln::cwe_patterns::tests::test_xml_injection ... ok
+test vuln::cwe_patterns::tests::test_xss_javascript_scheme_is_case_insensitive ... ok
+test vuln::cwe_patterns::tests::test_ssrf ... ok
+test vuln::cwe_patterns::tests::test_xss_pattern ... ok
+test vuln::tests::test_vuln_match_creation ... ok
+test vuln::cwe_patterns::tests::test_xss_scheme_blocklist_literal_is_not_a_sink ... ok
+test solver::z3_backend::tests::test_z3_translate_symbolic_variable_eq ... ok
+
+test result: ok. 282 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/erickson_mixed_language.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/erickson_mixed_language-6c0d13f62b477b63)
+
+running 14 tests
+test test_extract_backing_english ... ok
+test test_extract_chinese_claim ... ok
+test test_extract_english_claim ... ok
+test test_extract_mixed_language ... ok
+test test_extract_all_pattern_types_english ... ok
+test test_nlp_pattern_display ... ok
+test test_qualifier_pattern_certain ... ok
+test test_extract_rebuttal_english ... ok
+test test_qualifier_pattern_definitely ... ok
+test test_qualifier_pattern_hedged ... ok
+test test_extractor_with_confidence_threshold ... ok
+test test_qualifier_pattern_unknown ... ok
+test test_relation_type_display ... ok
+test test_extract_ptbr_claim ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests touring_offensive
+
+running 19 tests
+test crates/touring-offensive/src/bug_bounty.rs - bug_bounty::BugBountyTracker::from_cve (line 183) ... ignored
+test crates/touring-offensive/src/bug_bounty.rs - bug_bounty::BugBountyTracker::transition_to (line 473) ... ok
+test crates/touring-offensive/src/bug_bounty.rs - bug_bounty::BugBountyTracker::new (line 130) ... ok
+test crates/touring-offensive/src/bug_bounty.rs - bug_bounty::BugBountyTracker::export_to_json (line 533) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::ConcolicExecutor::add_symbolic_var (line 491) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic (line 16) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::ConstraintExpr::is_false (line 309) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::ConcolicExecutor::new (line 426) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::SymbolExpr::binary_op (line 147) - compile ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::SymbolExpr::unary_op (line 192) - compile ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::ConstraintExpr::is_quantifier (line 323) ... ok
+test crates/touring-offensive/src/concolic.rs - concolic::ConstraintExpr::is_true (line 295) ... ok
+test crates/touring-offensive/src/erickson.rs - erickson::extract (line 496) ... ok
+test crates/touring-offensive/src/erickson.rs - erickson (line 16) ... ok
+test crates/touring-offensive/src/erickson.rs - erickson::EricksonExtractor::new (line 252) ... ok
+test crates/touring-offensive/src/erickson.rs - erickson::extract_with_relations (line 528) ... ok
+test crates/touring-offensive/src/erickson/confidence.rs - erickson::confidence::compute_qualifier (line 147) ... ok
+test crates/touring-offensive/src/erickson/confidence.rs - erickson::confidence::compute_confidence_v2 (line 179) ... ok
+test crates/touring-offensive/src/lib.rs - (line 19) ... ok
+
+test result: ok. 18 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+all doctests ran in 1.45s; merged doctests compilation took 1.40s

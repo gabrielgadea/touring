@@ -147,17 +147,28 @@ pub fn human_to_stderr(msg: &str) {
 /// 'version'`, because it was reading the wrapper instead of the document.
 /// Only the YAML string belongs in the file.
 pub fn write_yaml_export(output: &str, field: &str, path: &std::path::Path) -> anyhow::Result<()> {
-    let parsed: serde_json::Value = serde_json::from_str(output)
-        .map_err(|e| anyhow::anyhow!("export returned malformed JSON: {e}"))?;
+    let parsed: serde_json::Value = serde_json::from_str(output).map_err(|e| {
+        anyhow::anyhow!(
+            "export returned malformed JSON: {e} — run `touring status -j` to check daemon health"
+        )
+    })?;
     if let Some(err) = parsed.get("error").and_then(|v| v.as_str()) {
-        anyhow::bail!("export failed: {err}");
+        anyhow::bail!(
+            "export API error: {err} — run `touring status -j` and `touring doctor -j` to diagnose"
+        );
     }
-    let yaml = parsed
-        .get(field)
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("export response carries no '{field}' field"))?;
-    std::fs::write(path, yaml)
-        .map_err(|e| anyhow::anyhow!("Failed to write '{}': {}", path.display(), e))
+    let yaml = parsed.get(field).and_then(|v| v.as_str()).ok_or_else(|| {
+        anyhow::anyhow!(
+            "export response lacks '{field}' field — check API version with `touring status`"
+        )
+    })?;
+    std::fs::write(path, yaml).map_err(|e| {
+        anyhow::anyhow!(
+            "failed to write '{}': {} — run `df -h .` to check disk space",
+            path.display(),
+            e
+        )
+    })
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -356,6 +367,151 @@ pub fn print_help(commands: &[CommandDescriptor]) {
     eprintln!("Use -j for machine-readable JSON output suitable for piping to jq.");
 }
 
+/// Descriptors that answer `--help`/`-h` THEMSELVES — every other command gets its help line from
+/// the dispatcher ([`intercepted_help`]) and never sees the flag.
+///
+/// The rule used to run the other way: a hand-kept list of commands that DID need interception
+/// (23 names), so a command missing from it took `--help` as one more argument and RAN.
+/// The blind review of the 04/10/2026 fixes found `init-project --help` creating `.touring/` in the
+/// cwd; a census by the executor (every table command run with `--help` in a scratch home, cwd and
+/// daemon socket) then found 55 of 141 commands that did not answer with help: 19 that ran (the
+/// `exec` family, `context`, `route`, `eval`, `status`, `doctor`...), 6 that would have run against a
+/// live daemon (`kpi`, `mutation-test`, `repo-score`...), 16 that failed instead of helping. Listing
+/// the commands that are SAFE inverts the failure: a new command nobody listed is intercepted, and
+/// the worst case is a short help line where clap would have given a long one.
+///
+/// Membership is evidence, not intent: each name below answered help in that census (clap, or a
+/// script's argparse for the masters). `scripts/test_help_never_executes.py` re-runs the census
+/// against the release binary and fails on any command that does not answer with help.
+pub const SELF_HELP: &[&str] = &[
+    // clap (or the handler's own help branch), measured 04/10/2026
+    "assist",
+    "ast",
+    "audit",
+    "backup",
+    "cascade",
+    "clones",
+    "cognitive",
+    "completions",
+    "component",
+    "conflict",
+    "daemon-ctl",
+    "decompose",
+    "definitions",
+    "devrcfile",
+    "diagnostics",
+    "diary",
+    "e2e",
+    "evolution",
+    "file-knowledge",
+    "filters",
+    "find-references",
+    "fix",
+    "flow",
+    "flywheel",
+    "gate-metrics",
+    "generate",
+    "gotcha",
+    "granularity",
+    "graph",
+    "health-delta",
+    "incremental",
+    "index",
+    "inferlets",
+    "init",
+    "jobs",
+    "language",
+    "learning",
+    "license",
+    "mcp-overhead",
+    "mcts",
+    "memory",
+    "migrate",
+    "overlay",
+    "plugin",
+    "projects",
+    "quality-signal",
+    "run",
+    "saga",
+    "search",
+    "session",
+    "shadow",
+    "skip",
+    "snapshot",
+    "source-change",
+    "suggest",
+    "synergy",
+    "tantivy",
+    "tasksfile",
+    "toolchain",
+    "update",
+    "viz",
+    "wiring",
+    "workflow",
+    // masters: forwarded to a skill script whose argparse answers `--help`
+    "adw",
+    "blast",
+    "explore",
+    "factory",
+    "guard",
+    "health",
+    "investigate",
+    "map",
+    "read",
+    "scout",
+];
+
+/// The help line for a command asked for `--help`/`-h`, or `None` when it was not asked or answers
+/// help itself ([`SELF_HELP`]). A `--` ends the scan: `touring exec -- ls --help` hands the flag on.
+#[must_use]
+pub fn intercepted_help(cmd: &CommandDescriptor, args: &[String]) -> Option<String> {
+    let asked = args
+        .iter()
+        .skip(2)
+        .take_while(|a| a.as_str() != "--")
+        .any(|a| a == "--help" || a == "-h");
+    (asked && !SELF_HELP.contains(&cmd.name))
+        .then(|| format!("touring {} — {}", cmd.name, cmd.description))
+}
+
+/// Parse a clap CLI and tolerate the global `-j`/`--json` where the command does not declare it.
+///
+/// `main.rs` hands every handler the original argv and documents that the handler "re-parses globals from any
+/// position"; the clap handlers fed that argv straight to clap, which refused the flag it did not declare: 35
+/// of the 36 clap commands exited 2 on `touring <cmd> <sub> -j` (04/10/2026, `touring decompose get <task>
+/// -j` among them). The first parse is the command's own, so a command that declares `-j` keeps its meaning;
+/// only when clap rejects exactly `-j` or `--json` as an unknown argument is the parse repeated without the ones
+/// before `--` (after it they are values the user meant).
+/// A clap parse has no side effect, so the second attempt is safe, and any other error comes back as it was.
+pub fn parse_tolerating_json<T, I, S>(argv: I) -> Result<T, clap::Error>
+where
+    T: clap::Parser,
+    I: IntoIterator<Item = S>,
+    S: Into<std::ffi::OsString> + Clone,
+{
+    let argv: Vec<std::ffi::OsString> = argv.into_iter().map(Into::into).collect();
+    match T::try_parse_from(&argv) {
+        Err(e) if rejects_global_json(&e) => {
+            // Only the flags before `--`: after it, a `-j` is a positional value the user meant.
+            let end = argv.iter().position(|a| a == "--").unwrap_or(argv.len());
+            T::try_parse_from(
+                argv.iter()
+                    .enumerate()
+                    .filter(|(i, a)| *i >= end || (*a != "-j" && *a != "--json"))
+                    .map(|(_, a)| a),
+            )
+        }
+        other => other,
+    }
+}
+
+fn rejects_global_json(e: &clap::Error) -> bool {
+    use clap::error::{ContextKind, ContextValue, ErrorKind};
+    e.kind() == ErrorKind::UnknownArgument
+        && matches!(e.get(ContextKind::InvalidArg),
+                    Some(ContextValue::String(a)) if a == "-j" || a == "--json")
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Tests
 // ─────────────────────────────────────────────────────────────────────────────
@@ -363,10 +519,120 @@ pub fn print_help(commands: &[CommandDescriptor]) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(clap::Parser, Debug)]
+    #[command(name = "t")]
+    struct NoJson {
+        #[command(subcommand)]
+        cmd: NoJsonCmd,
+    }
+
+    #[derive(clap::Subcommand, Debug)]
+    enum NoJsonCmd {
+        Get { id: String },
+    }
+
+    #[derive(clap::Parser, Debug)]
+    #[command(name = "t")]
+    struct WithJson {
+        #[arg(short = 'j', long = "json")]
+        json: bool,
+    }
+
+    /// The global flag is a no-op where the command has no json mode, the command's own `-j` keeps its meaning,
+    /// and every other unknown argument is still refused.
+    #[test]
+    fn the_global_json_flag_is_tolerated_where_the_command_does_not_declare_it() {
+        for flag in ["-j", "--json"] {
+            let parsed: NoJson = parse_tolerating_json(["t", "get", "x", flag])
+                .expect("the global flag is tolerated");
+            let NoJsonCmd::Get { id } = parsed.cmd;
+            assert_eq!(id, "x");
+        }
+        let own: WithJson = parse_tolerating_json(["t", "-j"]).expect("declared");
+        assert!(own.json, "a command that declares -j keeps it");
+        let err = parse_tolerating_json::<NoJson, _, _>(["t", "get", "x", "--bogus"])
+            .expect_err("still refused");
+        assert_eq!(err.kind(), clap::error::ErrorKind::UnknownArgument);
+        let help = parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--help"])
+            .expect_err("help is an Err");
+        assert_eq!(
+            help.kind(),
+            clap::error::ErrorKind::DisplayHelp,
+            "-j before --help still shows the help"
+        );
+        // After `--` a `-j` is a value, not the flag: the retry drops only the flags before it.
+        let NoJsonCmd::Get { id } =
+            parse_tolerating_json::<NoJson, _, _>(["t", "get", "-j", "--", "-j"])
+                .expect("value kept")
+                .cmd;
+        assert_eq!(
+            id, "-j",
+            "a -j after -- is a positional value and survives the retry"
+        );
+    }
     use crate::cli::command_table::command_table;
 
     fn s(parts: &[&str]) -> Vec<String> {
         parts.iter().map(|p| p.to_string()).collect()
+    }
+
+    /// Every command outside [`SELF_HELP`] is answered by the dispatcher, a `--` hands the flag on,
+    /// and a self-helping command keeps its own help.
+    #[test]
+    fn intercepted_help_answers_every_command_but_the_self_helping_ones() {
+        let table = command_table();
+        let find = |name: &str| {
+            table
+                .iter()
+                .find(|c| c.name == name)
+                .expect("command in table")
+        };
+        let backfill = find("metadata-backfill");
+        let help = intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--help"]))
+            .expect("a command that reads args by hand gets the help line");
+        assert!(
+            help.contains("metadata-backfill") && help.contains(backfill.description),
+            "{help}"
+        );
+        assert!(intercepted_help(backfill, &s(&["touring", "metadata-backfill", "-h"])).is_some());
+        assert!(
+            intercepted_help(backfill, &s(&["touring", "metadata-backfill", "--force"])).is_none()
+        );
+        // The case the hand list missed: delegated parsing, no clap behind it.
+        let init = find("init-project");
+        assert!(intercepted_help(init, &s(&["touring", "init-project", "--help"])).is_some());
+        let exec = find("exec");
+        assert!(intercepted_help(exec, &s(&["touring", "exec", "--help"])).is_some());
+        assert!(
+            intercepted_help(exec, &s(&["touring", "exec", "--", "ls", "--help"])).is_none(),
+            "after `--` the flag belongs to the command being passed on"
+        );
+        let decompose = find("decompose");
+        assert!(
+            intercepted_help(decompose, &s(&["touring", "decompose", "--help"])).is_none(),
+            "a self-helping command keeps its own help"
+        );
+    }
+
+    /// A name in [`SELF_HELP`] that is not in the table would exempt nothing today and silently
+    /// exempt whatever command later takes the name.
+    #[test]
+    fn every_self_help_name_is_a_table_command() {
+        let table = command_table();
+        let stale: Vec<&str> = SELF_HELP
+            .iter()
+            .copied()
+            .filter(|n| !table.iter().any(|c| c.name == *n))
+            .collect();
+        assert!(
+            stale.is_empty(),
+            "SELF_HELP names with no command: {stale:?}"
+        );
+        let mut sorted = SELF_HELP.to_vec();
+        sorted.sort_unstable();
+        sorted.dedup();
+        assert_eq!(sorted.len(), SELF_HELP.len(), "SELF_HELP has a duplicate");
     }
 
     /// Regression guard for the export→validate round-trip (2026-08-02).

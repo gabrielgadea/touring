@@ -1,0 +1,11 @@
+{
+  "phase": "F9",
+  "entities": [
+    {
+      "entity_id": "phase:F9",
+      "type": "phase",
+      "description": "F9 gatilhos inertes removidos: 3 de TACO-subagent (touring-orchestrator, decompor em DAG, spawning subagents) + 3 de subagent-driven-development (no projeto analise, via symlink, com consentimento). Corpus agora com ZERO gatilhos inertes. Correcao de instrumento: meu detector contava tags/metadata/allowed-tools como gatilhos (regex de item de lista em vez de parser YAML) \u2014 os '13' reportados eram 6; memoria corrigida. Read/Grep/Glob/Bash estavam em allowed-tools, declaracao legitima. Description truncada de subagent-driven-development e defeito pre-existente, nao causado pela edicao."
+    }
+  ],
+  "relations": []
+}

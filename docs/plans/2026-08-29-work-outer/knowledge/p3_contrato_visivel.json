@@ -1,0 +1,11 @@
+{
+  "phase": "p3_contrato_visivel",
+  "entities": [
+    {
+      "entity_id": "phase:p3_contrato_visivel",
+      "type": "phase",
+      "description": "P3: resposta do store ganha contract:{key_shape,faceted,linked,provenance} advisory para kinds curados; KPI memory_graph_contract_share (janela 14d, predicado key_shape_ok compartilhado com o advisory \u2014 D8) + commitment advisory gte 0.5."
+    }
+  ],
+  "relations": []
+}

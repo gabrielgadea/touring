@@ -543,13 +543,88 @@ fn validate_symbol_layer(
 
 // ─── Layer 3: Structural Invariants ─────────────────────────────────────
 
+/// Byte ranges of `source` that are not PRODUCTION Rust (S218): comments, string and
+/// char literals, and items gated `#[cfg(test)]` / `#[test]`.
+fn rust_non_production_ranges(source: &str) -> Vec<(usize, usize)> {
+    let Ok(tree) = parse_thread_local(source, Lang::Rust) else {
+        return Vec::new();
+    };
+    let mut ranges = Vec::new();
+    collect_non_production(tree.root_node(), source, &mut ranges);
+    ranges
+}
+
+fn collect_non_production(node: tree_sitter::Node, source: &str, out: &mut Vec<(usize, usize)>) {
+    let mut cursor = node.walk();
+    let mut gate_next = false;
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "line_comment" | "block_comment" | "string_literal" | "raw_string_literal"
+            | "char_literal" => out.push((child.start_byte(), child.end_byte())),
+            "attribute_item" => {
+                gate_next |= is_test_gate(child.utf8_text(source.as_bytes()).unwrap_or(""));
+            }
+            _ if gate_next && child.is_named() => {
+                out.push((child.start_byte(), child.end_byte()));
+                gate_next = false;
+            }
+            _ => collect_non_production(child, source, out),
+        }
+    }
+}
+
+/// Byte ranges of `source` that are not Python CODE: comments and string literals
+/// (docstrings and f-strings included).
+fn python_non_code_ranges(source: &str) -> Vec<(usize, usize)> {
+    let Ok(tree) = parse_thread_local(source, Lang::Python) else {
+        return Vec::new();
+    };
+    let mut ranges = Vec::new();
+    collect_python_non_code(tree.root_node(), &mut ranges);
+    ranges
+}
+
+fn collect_python_non_code(node: tree_sitter::Node, out: &mut Vec<(usize, usize)>) {
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        match child.kind() {
+            "comment" | "string" => out.push((child.start_byte(), child.end_byte())),
+            _ => collect_python_non_code(child, out),
+        }
+    }
+}
+
+/// `#[test]`, `#[tokio::test]`, `#[cfg(test)]`, `#[cfg(all(test, …))]`.
+fn is_test_gate(attribute: &str) -> bool {
+    let compact: String = attribute.chars().filter(|c| !c.is_whitespace()).collect();
+    compact == "#[test]"
+        || compact.ends_with("::test]")
+        || compact.contains("cfg(test")
+        || compact.contains("cfg(all(test")
+}
+
+fn count_in_production(source: &str, needle: &str, excluded: &[(usize, usize)]) -> usize {
+    source
+        .match_indices(needle)
+        .filter(|(at, _)| {
+            !excluded
+                .iter()
+                .any(|&(start, end)| *at >= start && *at < end)
+        })
+        .count()
+}
+
 fn validate_structural_layer(source: &str, lang: Lang) -> LayerResult {
     let mut diagnostics = Vec::new();
     let mut penalty = 0.0;
 
     if lang == Lang::Rust {
+        // S218 (25/09/2026): count only PRODUCTION code. Test modules, comments and
+        // string literals were counted too — `panic!() call(s) detected` came from a
+        // `mod tests` of hook_response.rs, where panic/unwrap is how a test asserts.
+        let excluded = rust_non_production_ranges(source);
         // Check for unwrap() usage (anti-pattern in production)
-        let unwrap_count = source.matches(".unwrap()").count();
+        let unwrap_count = count_in_production(source, ".unwrap()", &excluded);
         if unwrap_count > 0 {
             diagnostics.push(format!(
                 "{unwrap_count} unwrap() usage(s) detected — use ? or .expect()"
@@ -558,8 +633,8 @@ fn validate_structural_layer(source: &str, lang: Lang) -> LayerResult {
         }
 
         // Check for todo!() / unimplemented!()
-        let todo_count =
-            source.matches("todo!()").count() + source.matches("unimplemented!()").count();
+        let todo_count = count_in_production(source, "todo!()", &excluded)
+            + count_in_production(source, "unimplemented!()", &excluded);
         if todo_count > 0 {
             diagnostics.push(format!(
                 "{todo_count} todo!/unimplemented! macro(s) detected"
@@ -568,7 +643,7 @@ fn validate_structural_layer(source: &str, lang: Lang) -> LayerResult {
         }
 
         // Check for panic!() outside tests
-        let panic_count = source.matches("panic!(").count();
+        let panic_count = count_in_production(source, "panic!(", &excluded);
         if panic_count > 0 {
             diagnostics.push(format!("{panic_count} panic!() call(s) detected"));
             penalty += 0.1 * panic_count as f64;
@@ -576,8 +651,10 @@ fn validate_structural_layer(source: &str, lang: Lang) -> LayerResult {
     }
 
     if lang == Lang::Python {
-        // Bare except: catches everything including KeyboardInterrupt
-        let bare_except = source.matches("except:").count();
+        // Bare except: catches everything including KeyboardInterrupt. Counted in CODE
+        // only, as the Rust branch does (S218): a message saying "except: fallback"
+        // was reported as a bare except (26/09/2026).
+        let bare_except = count_in_production(source, "except:", &python_non_code_ranges(source));
         if bare_except > 0 {
             diagnostics.push(format!(
                 "{bare_except} bare except: detected — use except Exception:"
@@ -714,6 +791,37 @@ fn validate_import_layer(source: &str, context: Option<&ImportResolver>) -> Laye
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn panic_inside_cfg_test_module_is_not_production() {
+        // S218: the test module's panic!/unwrap is how Rust tests assert.
+        let src = "pub fn f() -> u8 { 1 }\n\n#[cfg(test)]\nmod tests {\n    #[test]\n    fn t() {\n        let x: Option<u8> = None;\n        x.unwrap();\n        panic!(\"boom\");\n    }\n}\n";
+        let r = validate_structural_layer(src, Lang::Rust);
+        assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
+        // Control: the same calls in production code are still counted.
+        let prod = "pub fn f() {\n    let x: Option<u8> = None;\n    x.unwrap();\n    panic!(\"boom\");\n}\n";
+        assert_eq!(
+            validate_structural_layer(prod, Lang::Rust)
+                .diagnostics
+                .len(),
+            2
+        );
+    }
+
+    #[test]
+    fn a_marker_inside_a_string_or_comment_is_not_a_call() {
+        let src = "// never call .unwrap() here\npub fn msg() -> &'static str {\n    \"use panic!( only in tests; todo!() later\"\n}\n";
+        let r = validate_structural_layer(src, Lang::Rust);
+        assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
+    }
+
+    #[test]
+    fn a_bare_test_function_is_not_production() {
+        // The `tests/*.rs` shape: `#[test]` functions with no `#[cfg(test)]` module.
+        let src = "#[test]\nfn t() {\n    let x: Option<u8> = None;\n    x.unwrap();\n}\n\n#[tokio::test]\nasync fn u() {\n    panic!(\"x\");\n}\n";
+        let r = validate_structural_layer(src, Lang::Rust);
+        assert!(r.diagnostics.is_empty(), "{:?}", r.diagnostics);
+    }
 
     #[test]
     fn test_speculate_valid_code() {
@@ -927,6 +1035,29 @@ fn use_data(data: &Data) {
                 .unwrap_or(false),
             "should flag bare except: {:?}",
             result.layers
+        );
+    }
+
+    /// 26/09/2026: `except:` inside a string or a comment is quoted text — a
+    /// script whose message said "except: fallback" was reported as a bare except
+    /// by the post-write hook. The Rust branch already counted only code (S218).
+    #[test]
+    fn test_structural_python_except_in_string_or_comment_is_not_code() {
+        let src =
+            "MSG = \"try: fast except: fallback\"  # except: see above\nDOC = '''\nexcept:\n'''\n";
+        let result = speculate_v2(src, Lang::Python, None, None);
+        let structural = result
+            .layers
+            .iter()
+            .find(|l| l.layer == ValidationLayer::Structural)
+            .expect("structural layer");
+        assert!(
+            !structural
+                .diagnostics
+                .iter()
+                .any(|d| d.contains("bare except")),
+            "quoted `except:` is not a handler: {:?}",
+            structural.diagnostics
         );
     }
 

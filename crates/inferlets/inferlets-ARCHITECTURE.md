@@ -4,7 +4,7 @@
 
 ## Overview
 
-Sandboxed WASM inferlet plugins for touring-wasm: keyword-based classifiers compiled to a single WebAssembly module with a single `evaluate()` entry point that dispatches to the appropriate inferlet based on the `__inferlet__` discriminator key in the input JSON. The crate avoids `serde_json` at runtime, using direct string manipulation for WASM-compatible JSON parsing.
+Sandboxed WASM inferlet plugins for touring-bindings::wasm (era touring-wasm): keyword-based classifiers compiled to a single WebAssembly module with a single `evaluate()` entry point that dispatches to the appropriate inferlet based on the `__inferlet__` discriminator key in the input JSON. The crate avoids `serde_json` at runtime, using direct string manipulation for WASM-compatible JSON parsing.
 
 ## Key Types
 

@@ -24,6 +24,7 @@
 //! Extracted from `lifecycle.rs` as part of FIX-3 D7.
 
 use serde_json::Value;
+use touring_foundation::truncate_str;
 
 use crate::runtime::HookRuntime;
 use crate::shared::{TaskRoutingDecision, extract_task_features};
@@ -69,7 +70,7 @@ pub(crate) fn handle_task_sync_post_list(rt: &mut HookRuntime, input: &Value) ->
     // TaskList (Claude Code) → cli_decompose_status → SQLite → live task count in context.
     let status_json = crate::cli_handlers::cli_decompose_status(rt, &serde_json::json!({}));
     let dag_context = if status_json.contains("\"task_count\"") {
-        format!(" [live: {}]", &status_json[..status_json.len().min(120)])
+        format!(" [live: {}]", truncate_str(&status_json, 120))
     } else {
         String::new()
     };
@@ -434,7 +435,7 @@ pub(crate) fn tantivy_search_for_inprogress_task(input: &Value) -> String {
     if subject.is_empty() {
         return String::new();
     }
-    let query = &subject[..subject.len().min(40)];
+    let query = truncate_str(subject, 40);
     format!(
         " | tantivy-symbols: run `touring tantivy search \"{query}\"` to find related code symbols for active task"
     )

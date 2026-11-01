@@ -30,7 +30,9 @@ fn hook_commands() -> Vec<CommandDescriptor> {
                         json_to_stdout(&json);
                         Ok(())
                     }
-                    Err(e) => Err(anyhow::anyhow!("prompt-enhance serialization failed: {e}")),
+                    Err(e) => Err(anyhow::anyhow!(
+                        "prompt-enhance JSON serialization failed: {e} — run `touring doctor` to verify system health"
+                    )),
                 }
             },
         },
@@ -132,6 +134,18 @@ fn standalone_commands() -> Vec<CommandDescriptor> {
             description: "Execute code in the touring sandbox (code-mode without MCP): --lang + --code/--file/--stdin [--brief]",
             error_policy: ErrorPolicy::ExitOnError,
             handler: |args| super::run::run(args),
+        },
+        CommandDescriptor {
+            name: "vgp",
+            description: "VGP layer-1 motor (pure, daemonless): `vgp check --path <virtual> --content-file <f> --project-root <r> [--disk-file <d>] [--overlay <o>=<a>]... [--lang python] [-j]` — denies invented Python API before the edit",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::vgp::run(args),
+        },
+        CommandDescriptor {
+            name: "sandbox-runtimes",
+            description: "Sandbox CEG runtimes: `status` (preflight presente/ausente por linguagem) | `setup-venv` (bibliotecas de agente via PYTHONPATH read-only)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::sandbox_runtimes::sandbox_runtimes(args),
         },
         // R3 — master CLI commands: thin wrappers over the Touring skill Layer-3
         // scripts (code-mode without MCP). See cli/master.rs.
@@ -391,10 +405,7 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
                 // Hiding a field to save handshake bytes is only honest if the
                 // knowledge stays reachable — otherwise it repeats the
                 // `apply_curation` defect: callable, working, undiscoverable.
-                println!(
-                    "{}",
-                    crate::server::params::hidden_alias_capabilities()
-                );
+                println!("{}", crate::server::params::hidden_alias_capabilities());
                 Ok(())
             },
         },
@@ -1029,6 +1040,25 @@ fn daemon_commands() -> Vec<CommandDescriptor> {
                 json_to_stdout(&output);
                 Ok(())
             },
+        },
+        // Complementação-hooks F1.5 — 3 novos subcommands para handlers reativos.
+        CommandDescriptor {
+            name: "pub-api",
+            description: "Pub API diff between two revisions of a file (complementação-hooks H4)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::pub_api::run(args),
+        },
+        CommandDescriptor {
+            name: "scan",
+            description: "CWE vulnerability scan of a source file (complementação-hooks H6)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::scan::run(args),
+        },
+        CommandDescriptor {
+            name: "identity",
+            description: "REGRA #17 EntityId derivation from canonical name + admission (complementação-hooks H12)",
+            error_policy: ErrorPolicy::ExitOnError,
+            handler: |args| super::identity_derive::run(args),
         },
     ]
 }

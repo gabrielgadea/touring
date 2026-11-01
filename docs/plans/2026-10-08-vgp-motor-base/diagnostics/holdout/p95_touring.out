@@ -1,0 +1,43 @@
+== HOLDOUT: negativos de arquivo do projeto touring, por arquivo
+   n=24 media=   691ms max=   837ms snap~ 33675c  corpus_semeado.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 7 media=   291ms max=   319ms snap~ 21340c  shell_inline.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 3 media=    24ms max=    28ms snap~  6601c  prova_vgp_motor.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=    18ms max=    18ms snap~  1848c  _diagnostico_2.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=    10ms max=    10ms snap~  2500c  _patch_lang.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=     9ms max=     9ms snap~  3899c  _patch_extrator.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+== VIVO: negativos de arquivo do projeto touring, por arquivo
+   n= 1 media=   154ms max=   154ms snap~ 14626c  inventario_erros.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=   113ms max=   113ms snap~ 15243c  skill_picker.py @ ~/projects/touring/scripts
+   n= 1 media=    82ms max=    82ms snap~ 14011c  agent_model_gate.py @ ~/projects/touring/client/hooks
+   n= 1 media=    60ms max=    60ms snap~ 12833c  test_r3_score_a2.py @ ~/projects/touring/scripts
+   n= 1 media=    46ms max=    46ms snap~  7978c  r3_score_a2.py @ ~/projects/touring/scripts
+   n= 1 media=    42ms max=    42ms snap~  8868c  g1_sample.py @ ~/projects/touring/docs/plans/2026-09-22-jev-system-one/experiments/g1-corpus
+   n= 1 media=    39ms max=    39ms snap~ 10528c  jev_client.py @ ~/projects/touring/scripts
+   n= 1 media=    37ms max=    37ms snap~  8256c  pre_review_triage.py @ ~/projects/touring/scripts
+   n= 1 media=    35ms max=    35ms snap~ 10340c  r3_extract_a1_blocks.py @ ~/projects/touring/scripts
+   n= 1 media=    33ms max=    33ms snap~  7750c  v0e_negacoes.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=    32ms max=    32ms snap~  9613c  verify_m5a.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/24006143-f691-47fe-b057-e2111fa79e97/scratchpad/coord
+   n= 1 media=    26ms max=    26ms snap~  7167c  test_s49_install_claude_hooks.py @ ~/projects/touring/client/hooks/tests
+   n= 1 media=    23ms max=    23ms snap~  4140c  test_s48_install.py @ ~/projects/touring/client/hooks/tests
+   n= 1 media=    21ms max=    21ms snap~ 10595c  test_r3_adjudication.py @ ~/projects/touring/scripts
+   n= 1 media=    20ms max=    20ms snap~  3178c  r3_latency_by_day.py @ ~/projects/touring/scripts
+   n= 1 media=    16ms max=    16ms snap~  3725c  purge_option_a.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/a4203e97-c46e-4d5d-be73-8acd518ba8f3/scratchpad
+   n= 1 media=    16ms max=    16ms snap~  8455c  test_jev_dedupe.py @ ~/projects/touring/scripts
+   n= 1 media=    15ms max=    15ms snap~  6620c  append_section30.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad
+   n= 1 media=    15ms max=    15ms snap~  5826c  vivos.py @ ~/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts
+   n= 1 media=    15ms max=    15ms snap~  5603c  remove_dead.py @ ~/projects/touring/target/audit-2026-09-14/r2
+   n= 1 media=    14ms max=    14ms snap~  5730c  retrieval_bench.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad
+   n= 1 media=    14ms max=    14ms snap~ 34138c  gpu_patch_code.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/99bf2fa5-916b-4b5a-9192-538b04a86e68/scratchpad
+   n= 1 media=    14ms max=    14ms snap~  5573c  classificar.py @ ~/projects/touring/docs/plans/2026-10-08-drift-reconciliacao
+   n= 1 media=    13ms max=    13ms snap~ 24358c  d1_resolvedor.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad
+   n= 2 media=    12ms max=    14ms snap~  5216c  test_r3_results_gate.py @ ~/projects/touring/scripts
+   n= 1 media=    11ms max=    11ms snap~  1303c  orphan_refs.py @ ~/projects/touring/target/audit-2026-09-14/r2
+   n= 1 media=    10ms max=    10ms snap~  2270c  sample_run.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad
+   n= 1 media=     9ms max=     9ms snap~  2397c  test_w44_support_fit.py @ ~/projects/touring/scripts
+   n= 1 media=     9ms max=     9ms snap~  1335c  r5_context.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/24006143-f691-47fe-b057-e2111fa79e97/scratchpad
+   n= 1 media=     9ms max=     9ms snap~  1742c  r3_rota_gtest.py @ ~/projects/touring/scripts
+   n= 1 media=     8ms max=     8ms snap~ 13159c  patch_finalize.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/3db9ea13-e79a-4125-9bc8-dd8656169a88/scratchpad
+   n= 1 media=     8ms max=     8ms snap~  2411c  mut_followups.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/24006143-f691-47fe-b057-e2111fa79e97/scratchpad
+   n= 1 media=     8ms max=     8ms snap~  2066c  flip.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/4fa78848-4e2a-47b2-b8e1-be31743890ba/scratchpad
+   n= 1 media=     7ms max=     7ms snap~  1168c  ler_htaccess_remoto.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/a4203e97-c46e-4d5d-be73-8acd518ba8f3/scratchpad
+   n= 1 media=     6ms max=     6ms snap~  3409c  fix_m19.py @ /tmp/claude-1000/-home-gabrielgadea-projects-touring/24006143-f691-47fe-b057-e2111fa79e97/scratchpad

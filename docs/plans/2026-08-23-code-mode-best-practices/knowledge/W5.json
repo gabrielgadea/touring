@@ -1,0 +1,11 @@
+{
+  "phase": "W5",
+  "entities": [
+    {
+      "entity_id": "phase:W5",
+      "type": "phase",
+      "description": "T12/S-5.1 CODE-COMPLETE: gate_run espelha exec::gate_command (C08 simetria entre os 2 callers de run_gateway) \u2014 touring run atravessa CEG X0..X7 antes da execucao (perfil sandboxed default, trusted sob --allow-forbidden), Deny aborta com erro-que-ensina, erro interno fail-open (invariante CEG); tool identity mapeia o runtime real (SandboxPython etc.). ceg_captured/sandboxed passam a contar o caminho run. S-5.2 (identidade de sub-chamadas no socket handler) registrado para junto de W3b (mesma superficie). Testes run 14/14, clippy 0"
+    }
+  ],
+  "relations": []
+}

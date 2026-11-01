@@ -1,0 +1,60 @@
+{
+ "binario": "/home/gabrielgadea/.claude/touring/vgp/binarios/f55ec4b5/touring",
+ "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d.bak-2026-10-09",
+ "runs_por_id": 10,
+ "ids": 7,
+ "ids_divergentes": 7,
+ "ids_com_erro": 0,
+ "divergentes": {
+  "15d469304a03": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 10,
+   "sugestoes_distintas": 1,
+   "resto_identico": true
+  },
+  "8b7a3476e024": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 6,
+   "sugestoes_distintas": 1,
+   "resto_identico": true
+  },
+  "34511b9ac100": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 5,
+   "sugestoes_distintas": 1,
+   "resto_identico": true
+  },
+  "2463291faf76": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 10,
+   "sugestoes_distintas": 1,
+   "resto_identico": true
+  },
+  "0dcf0bab45c5": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 1,
+   "sugestoes_distintas": 1,
+   "resto_identico": true
+  },
+  "c876d78f82ee": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 9,
+   "sugestoes_distintas": 2,
+   "resto_identico": true
+  },
+  "cda03737f157": {
+   "distintos": 10,
+   "ordens_distintas_de_reais": 10,
+   "conjuntos_distintos_de_reais": 9,
+   "sugestoes_distintas": 3,
+   "resto_identico": true
+  }
+ },
+ "erros": {}
+}

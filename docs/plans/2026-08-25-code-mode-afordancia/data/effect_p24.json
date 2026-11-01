@@ -1,0 +1,56 @@
+{
+ "corpus": {
+  "chamadas_bash": 1578,
+  "sessões": 9
+ },
+ "arms": {
+  "native": {
+   "chamadas": 1578,
+   "cmd_bytes": 923189,
+   "payload_bytes": 1379044,
+   "nudge_bytes": 0,
+   "programas": 0
+  },
+  "both": {
+   "chamadas": 1434,
+   "cmd_bytes": 923429,
+   "payload_bytes": 1264259,
+   "nudge_bytes": 1492120,
+   "programas": 6
+  },
+  "code": {
+   "chamadas": 1538,
+   "cmd_bytes": 928789,
+   "payload_bytes": 1286319,
+   "nudge_bytes": 20916,
+   "programas": 140
+  }
+ },
+ "efeito": {
+  "both": {
+   "chamadas": "1578 → 1434 (9%)",
+   "bytes_totais": "2302233 → 3679808 (-60%)",
+   "programas_fundidos": 6
+  },
+  "code": {
+   "chamadas": "1578 → 1538 (2%)",
+   "bytes_totais": "2302233 → 2236024 (2%)",
+   "programas_fundidos": 140
+  }
+ },
+ "bounds_payload_substituído": {
+  "inferior_digest": 84583,
+  "superior_sem_compressão": 162072
+ },
+ "cenário_inspeção_pesada": {
+  "sessões": [
+   "2f2d716c",
+   "46e84c07"
+  ],
+  "chamadas": 1477,
+  "colapsáveis": 161,
+  "payload_colapsável": 128462,
+  "payload_total": 1271186,
+  "economia_payload_code": "6% (digest≈800B por 3 chamadas)"
+ }
+}

@@ -1,0 +1,12 @@
+snapshot: scan-2026-08-31.json | scan_timestamp: 2026-08-31T13:41:27.473886Z
+  OK — snapshot reproduz 561 = 36+11+279+151+84
+delta vivo (scan atual − snapshot 31/08): 87 sinais · ledger: 128 linhas
+scan atual (régua final): 401 sinais = C1=86+C3=11+C4=107+C5=167+C6=30
+  FAIL SEM DISPOSIÇÃO: C1 30.4.95
+  FAIL SEM DISPOSIÇÃO: C6 TOURING_VGP_L2_OFF
+  FAIL SEM DISPOSIÇÃO: C6 TOURING_VGP_L2_WARMUP_S
+  FAIL SEM DISPOSIÇÃO: C6 TOURING_VGP_L2_RA_BUILD
+  FAIL SEM DISPOSIÇÃO: C6 TOURING_VGP_L2_MAX_RA
+  FAIL LINHA ÓRFÃ (sinal não está no delta): C1 30.4.96
+  FAIL contagem C6: ledger=30 != delta(união)=34
+  FAIL (c) mas SUMIU do scan atual (deveria permanecer contado): C1 30.4.96

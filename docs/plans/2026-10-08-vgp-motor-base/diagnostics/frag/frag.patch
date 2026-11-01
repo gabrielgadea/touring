@@ -1,0 +1,2401 @@
+diff --git a/crates/touring-code/src/vgp/lang/mod.rs b/crates/touring-code/src/vgp/lang/mod.rs
+index 9322bee6..d138768f 100644
+--- a/crates/touring-code/src/vgp/lang/mod.rs
++++ b/crates/touring-code/src/vgp/lang/mod.rs
+@@ -205,7 +205,7 @@ pub fn parse(lang: &str, source: &str) -> Result<Tree, String> {
+ mod tests {
+     use super::*;
+     use crate::vgp::politica::Alvo;
+-    use crate::vgp::{CheckOutput, check, julgar};
++    use crate::vgp::{CheckOutput, Contexto, check, check_em, julgar};
+     use std::collections::{HashMap, HashSet};
+     use std::path::PathBuf;
+ 
+@@ -347,15 +347,17 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn cache_do_projeto_roda_agora_o_python_nega_o_simbolo_do_projeto_ali() {
+-        // o mesmo script: em src/ o nome ausente é do PROJETO e pode nascer na próxima edição
+-        // (warn); em /tmp, inline e no .cache da raiz o código roda agora (deny — §5.1)
++    fn na_escrita_so_o_inline_roda_agora_o_fragmento_em_tmp_ou_cache_apenas_avisa() {
++        // FRAG (10/10): um arquivo escrito em /tmp ou no .cache ainda pode ser completado pela
++        // edição seguinte (o caso `trecho_g3.py`, um trecho para colar) — o nome ausente é do
++        // PROJETO e só vira deny onde nenhuma edição seguinte conserta: o inline (§5.1).
+         let src = "print(nome_que_nao_existe)\n";
+         let veredito = |path: &str| check(&entrada(path, src, "python")).verdict;
+         assert_eq!(veredito("/home/u/proj/src/a.py"), "warn");
+-        assert_eq!(veredito("/home/u/proj/.cache/scratch/a.py"), "deny");
+-        assert_eq!(veredito("/tmp/a.py"), "deny");
++        assert_eq!(veredito("/home/u/proj/.cache/scratch/a.py"), "warn");
++        assert_eq!(veredito("/tmp/frag.py"), "warn", "fragmento em /tmp");
+         assert_eq!(veredito("<string>"), "deny");
++        assert_eq!(veredito("<stdin>"), "deny");
+         assert_eq!(
+             veredito("/home/u/outro/.cache/a.py"),
+             "warn",
+@@ -363,6 +365,36 @@ mod tests {
+         );
+     }
+ 
++    #[test]
++    fn na_execucao_o_scratch_roda_agora_e_o_python_nega_o_simbolo_do_projeto_ali() {
++        // o MESMO fragmento, agora pedido para rodar: o /tmp e o .cache da raiz negam; um
++        // arquivo comum segue só avisando (a política não muda, só o momento em que ela vale)
++        let src = "print(nome_que_nao_existe)\n";
++        let veredito =
++            |path: &str| check_em(&entrada(path, src, "python"), Contexto::Execucao).verdict;
++        assert_eq!(veredito("/tmp/frag.py"), "deny");
++        assert_eq!(veredito("/home/u/proj/.cache/scratch/a.py"), "deny");
++        assert_eq!(veredito("<string>"), "deny");
++        assert_eq!(veredito("/home/u/proj/src/a.py"), "warn");
++        assert_eq!(veredito("/home/u/outro/.cache/a.py"), "warn");
++    }
++
++    #[test]
++    fn alvo_externo_inexistente_nega_ja_na_escrita_em_tmp_p1_nao_muda() {
++        // `unicodedata.combending` não existe na stdlib: nenhuma edição seguinte do PROJETO o conserta — P1
++        // nega em qualquer balde, inclusive o fragmento em /tmp na escrita
++        let src = "import unicodedata\nprint(unicodedata.combending('a'))\n";
++        for path in [
++            "/tmp/x.py",
++            "/home/u/proj/.cache/x.py",
++            "/home/u/proj/src/x.py",
++        ] {
++            let out = check(&entrada(path, src, "python"));
++            assert_eq!(out.verdict, "deny", "{path}: {:?}", out.findings);
++            assert!(out.findings.iter().any(|f| f.nome.contains("combending")));
++        }
++    }
++
+     // ---------------------------------------------------------------- política e delta, em QUALQUER lang
+ 
+     /// Adaptador de teste que responde por QUALQUER `lang`: reporta o que o conteúdo pede, sem
+@@ -397,7 +429,7 @@ mod tests {
+         input: &CheckInput,
+         achados: Vec<(&'static str, &'static str, Alvo)>,
+     ) -> (String, Vec<Finding>, Option<String>) {
+-        julgar(input, &Falso("falso", achados), &[])
++        julgar(input, &Falso("falso", achados), &[], Contexto::Escrita)
+     }
+ 
+     #[test]
+@@ -418,11 +450,41 @@ mod tests {
+         assert_eq!(sev("inc"), "warn");
+         assert_eq!(sev("gancho"), "warn", "classe consultiva nunca nega");
+ 
++        // na ESCRITA o /tmp é um arquivo como outro: o símbolo do projeto ainda pode nascer
+         let tmp = entrada("/tmp/a.xyz", "quebra", "falso");
+-        let (_, fs, _) = julga(&tmp, achados);
++        let (_, fs, _) = julga(&tmp, achados.clone());
+         let sev = |n: &str| fs.iter().find(|f| f.nome == n).unwrap().severidade.clone();
+-        assert_eq!(sev("proj"), "deny", "projeto nega em /tmp");
++        assert_eq!(sev("ext"), "deny", "P1 não muda: externo nega em /tmp");
++        assert_eq!(sev("proj"), "warn", "projeto só avisa na escrita em /tmp");
+         assert_eq!(sev("inc"), "warn", "incerto não nega nem em /tmp");
++
++        // na EXECUÇÃO o mesmo arquivo roda agora: o símbolo do projeto nega, o incerto não
++        let (v, fs, _) = julgar(
++            &tmp,
++            &Falso("falso", achados.clone()),
++            &[],
++            Contexto::Execucao,
++        );
++        let sev = |n: &str| fs.iter().find(|f| f.nome == n).unwrap().severidade.clone();
++        assert_eq!(v, "deny");
++        assert_eq!(sev("proj"), "deny", "projeto nega em /tmp na execução");
++        assert_eq!(sev("inc"), "warn", "incerto não nega nem na execução");
++        let arquivo = entrada("/home/u/proj/src/a.xyz", "quebra", "falso");
++        let (_, fs, _) = julgar(
++            &arquivo,
++            &Falso("falso", achados.clone()),
++            &[],
++            Contexto::Execucao,
++        );
++        let sev = |n: &str| fs.iter().find(|f| f.nome == n).unwrap().severidade.clone();
++        assert_eq!(sev("proj"), "warn", "fora do scratch a política não muda");
++
++        // o inline roda agora, em qualquer lang
++        let inline = entrada("<string>", "quebra", "falso");
++        let (_, fs, _) = julga(&inline, achados);
++        let sev = |n: &str| fs.iter().find(|f| f.nome == n).unwrap().severidade.clone();
++        assert_eq!(sev("proj"), "deny", "projeto nega no inline");
++        assert_eq!(sev("inc"), "warn", "incerto não nega nem no inline");
+     }
+ 
+     #[test]
+@@ -475,19 +537,23 @@ mod tests {
+             let mut input = entrada("/home/u/proj/src/a.xyz", "quebra", lang);
+             // o disco já tinha UM dos dois: só o introduzido nega
+             input.disk = Some("quebra só velho".into());
+-            let (v, fs, _) = julgar(&input, &adaptador, &[]);
++            let (v, fs, _) = julgar(&input, &adaptador, &[], Contexto::Escrita);
+             let sev = |n: &str| fs.iter().find(|f| f.nome == n).unwrap().severidade.clone();
+             assert_eq!(sev("velho"), "warn", "{lang}: pré-existente não nega");
+             assert_eq!(sev("novo"), "deny", "{lang}: o introduzido nega");
+             assert_eq!(v, "deny", "{lang}");
+             // o disco igual ao proposto: nada é introduzido, o veredito cai para warn
+             input.disk = Some("quebra".into());
+-            let (v, fs, _) = julgar(&input, &adaptador, &[]);
++            let (v, fs, _) = julgar(&input, &adaptador, &[], Contexto::Escrita);
+             assert_eq!(v, "warn", "{lang}: tudo pré-existente");
+             assert!(fs.iter().all(|f| f.severidade == "warn"), "{lang}");
+             // sem `--disk-file` (arquivo novo): nada a rebaixar
+             input.disk = None;
+-            assert_eq!(julgar(&input, &adaptador, &[]).0, "deny", "{lang}");
++            assert_eq!(
++                julgar(&input, &adaptador, &[], Contexto::Escrita).0,
++                "deny",
++                "{lang}"
++            );
+         }
+     }
+ 
+@@ -516,7 +582,12 @@ mod tests {
+     #[test]
+     fn transversal_roda_depois_do_adaptador_e_passa_pela_mesma_politica() {
+         let input = entrada("/home/u/proj/a.xyz", "limpo", "falso");
+-        let (v, fs, _) = julgar(&input, &Falso("falso", Vec::new()), &[&Marca]);
++        let (v, fs, _) = julgar(
++            &input,
++            &Falso("falso", Vec::new()),
++            &[&Marca],
++            Contexto::Escrita,
++        );
+         assert_eq!(v, "deny", "cdn 404 (alvo externo) nega pela política comum");
+         assert_eq!(fs.len(), 1);
+         assert_eq!(fs[0].classe, "cdn");
+diff --git a/crates/touring-code/src/vgp/lang/python/tests.rs b/crates/touring-code/src/vgp/lang/python/tests.rs
+index aca1b8bb..c2cdd896 100644
+--- a/crates/touring-code/src/vgp/lang/python/tests.rs
++++ b/crates/touring-code/src/vgp/lang/python/tests.rs
+@@ -6,7 +6,15 @@
+ use std::collections::{HashMap, HashSet};
+ use std::path::{Path, PathBuf};
+ 
+-use crate::vgp::{CheckInput, check};
++use crate::vgp::{CheckInput, CheckOutput, Contexto, check_em};
++
++/// Every fixture here measures what the adapter finds in the buckets where the code RUNS now
++/// (`/tmp/vgp-t/a.py`, `<string>`), so they ask in the EXECUTION context. Written to `/tmp`, a
++/// project symbol only advises (FRAG, 10/10/2026): `lang::tests::na_escrita_*` and
++/// `politica::tests` pin that side; the expectations below are unchanged by it.
++fn check(input: &CheckInput) -> CheckOutput {
++    check_em(input, Contexto::Execucao)
++}
+ 
+ fn projeto(tmp: &Path) -> PathBuf {
+     let g = tmp.join("scripts/memoria");
+@@ -691,8 +699,8 @@ fn p4_externo_nega_em_arquivo_e_em_tmp() {
+ // módulo real do venv da analise (numpy 2.4.1, Pillow 11.3.0, scripts/aco/rust_bridge.py); a
+ // medição contra os módulos reais mora no relatório do P0.
+ 
+-/// Três baldes: /tmp e inline negam por natureza (P2); o arquivo do projeto só avisa em alvo
+-/// não-externo. A mesma incerteza tem de produzir a MESMA resposta nos três.
++/// Três baldes: /tmp (na execução) e inline negam por natureza (P2); o arquivo do projeto só avisa
++/// em alvo não-externo. A mesma incerteza tem de produzir a MESMA resposta nos três.
+ const BALDES: [(&str, &str); 3] = [
+     ("tmp", "/tmp/vgp-t/a.py"),
+     ("inline", "<string>"),
+diff --git a/crates/touring-code/src/vgp/mod.rs b/crates/touring-code/src/vgp/mod.rs
+index 86b9ea12..154cf34e 100644
+--- a/crates/touring-code/src/vgp/mod.rs
++++ b/crates/touring-code/src/vgp/mod.rs
+@@ -23,7 +23,7 @@ use std::path::PathBuf;
+ use std::time::Instant;
+ 
+ pub use lang::lang_do_caminho;
+-pub use politica::Alvo;
++pub use politica::{Alvo, Contexto};
+ 
+ use lang::{Adaptador, Transversal};
+ 
+@@ -133,10 +133,25 @@ pub struct CheckOutput {
+ /// Pipeline, the same for every language (VL0 §3): pick the adapter by `input.lang` →
+ /// adapter (+ transversal checks) on the PROPOSED content → severity policy → delta against
+ /// the disk content → verdict.
++///
++/// This is the verdict of a file being WRITTEN ([`Contexto::Escrita`]): the hooks of
++/// `Write`/`Edit`/`MultiEdit` and `touring vgp check` without `--contexto`. A file about to be
++/// EXECUTED asks [`check_em`] with [`Contexto::Execucao`].
+ pub fn check(input: &CheckInput) -> CheckOutput {
++    check_em(input, Contexto::Escrita)
++}
++
++/// [`check`] at an explicit moment: the same pipeline, the severity policy asked WHEN the code
++/// is judged (FRAG, 10/10/2026 — a fragment in `/tmp` is no error until something runs it).
++pub fn check_em(input: &CheckInput, contexto: Contexto) -> CheckOutput {
+     let t0 = Instant::now();
+     let (verdict, findings, motivo) = match lang::adaptador_de(&input.lang) {
+-        Some(adaptador) => julgar(input, adaptador, &lang::transversais_de(&input.lang)),
++        Some(adaptador) => julgar(
++            input,
++            adaptador,
++            &lang::transversais_de(&input.lang),
++            contexto,
++        ),
+         None => (
+             "unknown".to_string(),
+             Vec::new(),
+@@ -163,9 +178,15 @@ pub(crate) fn julgar(
+     input: &CheckInput,
+     adaptador: &dyn Adaptador,
+     transversais: &[&dyn Transversal],
++    contexto: Contexto,
+ ) -> (String, Vec<Finding>, Option<String>) {
+     let mut medido = medir(input, adaptador, transversais);
+-    politica::aplicar(&mut medido.achados, &input.path, &input.project_root);
++    politica::aplicar(
++        &mut medido.achados,
++        &input.path,
++        &input.project_root,
++        contexto,
++    );
+ 
+     // delta: the disk run only matters when there is a deny to downgrade
+     if let Some(disco) = &input.disk
+diff --git a/crates/touring-code/src/vgp/politica.rs b/crates/touring-code/src/vgp/politica.rs
+index 259826e4..1c6de95a 100644
+--- a/crates/touring-code/src/vgp/politica.rs
++++ b/crates/touring-code/src/vgp/politica.rs
+@@ -41,10 +41,47 @@ pub enum Alvo {
+ /// pin is a recommendation — neither is an error the motor may deny.
+ pub const CLASSES_CONSULTIVAS: &[&str] = &["cdn_pin", "classe_css"];
+ 
++/// WHEN the verdict is asked — the moment decides whether a file "runs now" (FRAG, 10/10/2026).
++///
++/// A file being WRITTEN is not running: the edit that follows may still complete it (a fragment in
++/// `/tmp` is a snippet to paste — case `9a8eed8a7502` of the P0M), and spec §5.1 only lets the
++/// motor `deny` where "no later edit can make the code right". The same file being EXECUTED
++/// (`python3 X.py`) is the moment that holds. The default is the write: every hook that judges a
++/// proposed file (`Write`/`Edit`/`MultiEdit`) and `touring vgp check` answer in it.
++#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
++pub enum Contexto {
++    /// A proposed file (`Write`/`Edit`/`MultiEdit`): only an inline program runs now.
++    #[default]
++    Escrita,
++    /// A file about to be run by an interpreter (`python3 X.py`, `node X.js`): the scratch
++    /// buckets (`/tmp/`, the project's `.cache/`) run now, as before.
++    Execucao,
++}
++
++impl Contexto {
++    /// The CLI's `--contexto` spelling → the context (`None`: not a context).
++    pub fn parse(raw: &str) -> Option<Self> {
++        match raw {
++            "escrita" => Some(Self::Escrita),
++            "execucao" | "execução" => Some(Self::Execucao),
++            _ => None,
++        }
++    }
++}
++
+ /// Does the code at `path` run right now, so that nothing can fix it before it breaks?
+-/// Inline programs, `/tmp/`, and the project's `.cache/` (agent scratch scripts) do (§5.1).
+-pub fn roda_agora(path: &str, project_root: &Path) -> bool {
+-    if is_inline(path) || path.starts_with("/tmp/") {
++///
++/// An inline program does, in every context. A scratch path — `/tmp/` or the project's `.cache/`
++/// (agent scratch scripts, §5.1) — only does when the verdict is asked at EXECUTION: written
++/// there, it is a fragment the next edit may still complete ([`Contexto`]).
++pub fn roda_agora(path: &str, project_root: &Path, contexto: Contexto) -> bool {
++    if is_inline(path) {
++        return true;
++    }
++    if contexto == Contexto::Escrita {
++        return false;
++    }
++    if path.starts_with("/tmp/") {
+         return true;
+     }
+     let p = Path::new(path);
+@@ -67,9 +104,9 @@ pub fn severidade(classe: &str, alvo: Alvo, roda_agora: bool) -> &'static str {
+     }
+ }
+ 
+-/// Overwrite every finding's severity with the policy's answer for (class, target, where).
+-pub fn aplicar(findings: &mut [Finding], path: &str, project_root: &Path) {
+-    let agora = roda_agora(path, project_root);
++/// Overwrite every finding's severity with the policy's answer for (class, target, where, when).
++pub fn aplicar(findings: &mut [Finding], path: &str, project_root: &Path, contexto: Contexto) {
++    let agora = roda_agora(path, project_root, contexto);
+     for f in findings.iter_mut() {
+         f.severidade = severidade(&f.classe, f.alvo, agora).to_string();
+     }
+@@ -116,29 +153,51 @@ mod tests {
+     }
+ 
+     #[test]
+-    fn roda_agora_cobre_inline_tmp_e_cache_do_projeto() {
++    fn roda_agora_na_execucao_cobre_inline_tmp_e_cache_do_projeto() {
+         let raiz = PathBuf::from("/home/u/proj");
+-        assert!(roda_agora("<string>", &raiz));
+-        assert!(roda_agora("<stdin>", &raiz));
+-        assert!(roda_agora("/tmp/x.py", &raiz));
+-        assert!(roda_agora("/home/u/proj/.cache/scratch/a.py", &raiz));
++        let roda = |p: &str| roda_agora(p, &raiz, Contexto::Execucao);
++        assert!(roda("<string>"));
++        assert!(roda("<stdin>"));
++        assert!(roda("/tmp/x.py"));
++        assert!(roda("/home/u/proj/.cache/scratch/a.py"));
++        assert!(roda(".cache/a.py"), "caminho relativo ao projeto");
++        assert!(!roda("/home/u/proj/src/a.py"));
+         assert!(
+-            roda_agora(".cache/a.py", &raiz),
+-            "caminho relativo ao projeto"
+-        );
+-        assert!(!roda_agora("/home/u/proj/src/a.py", &raiz));
+-        assert!(
+-            !roda_agora("/home/u/outro/.cache/a.py", &raiz),
++            !roda("/home/u/outro/.cache/a.py"),
+             "o .cache de OUTRO projeto não é scratch deste"
+         );
+         assert!(
+-            !roda_agora("/home/u/proj/src/.cache/a.py", &raiz),
++            !roda("/home/u/proj/src/.cache/a.py"),
+             "só o .cache da RAIZ do projeto"
+         );
++        assert!(!roda("/tmpx/a.py"), "prefixo /tmp/ exige a barra");
++    }
++
++    #[test]
++    fn na_escrita_so_o_inline_roda_agora() {
++        // FRAG: escrever em /tmp ou no .cache não executa nada — a edição seguinte ainda completa
++        let raiz = PathBuf::from("/home/u/proj");
++        let roda = |p: &str| roda_agora(p, &raiz, Contexto::Escrita);
++        assert!(roda("<string>"));
++        assert!(roda("<stdin>"));
++        assert!(!roda("/tmp/x.py"), "fragmento em /tmp");
+         assert!(
+-            !roda_agora("/tmpx/a.py", &raiz),
+-            "prefixo /tmp/ exige a barra"
++            !roda("/home/u/proj/.cache/scratch/a.py"),
++            "scratch do projeto"
+         );
++        assert!(!roda(".cache/a.py"));
++        assert!(!roda("/home/u/proj/src/a.py"));
++    }
++
++    #[test]
++    fn o_contexto_padrao_e_a_escrita_e_o_cli_o_le_pelo_nome() {
++        assert_eq!(Contexto::default(), Contexto::Escrita);
++        assert_eq!(Contexto::parse("escrita"), Some(Contexto::Escrita));
++        assert_eq!(Contexto::parse("execucao"), Some(Contexto::Execucao));
++        assert_eq!(Contexto::parse("execução"), Some(Contexto::Execucao));
++        for ruim in ["", "Escrita", "run", "exec"] {
++            assert_eq!(Contexto::parse(ruim), None, "{ruim:?}");
++        }
+     }
+ 
+     #[test]
+@@ -176,12 +235,23 @@ mod tests {
+         ];
+         fs[0].severidade = "deny".into(); // o adaptador tentou negar um alvo incerto
+         fs[1].severidade = "deny".into(); // ... e um símbolo do projeto num arquivo comum
+-        aplicar(&mut fs, "/home/u/proj/a.py", Path::new("/home/u/proj"));
++        let raiz = Path::new("/home/u/proj");
++        aplicar(&mut fs, "/home/u/proj/a.py", raiz, Contexto::Escrita);
+         assert_eq!(fs[0].severidade, "warn");
+         assert_eq!(fs[1].severidade, "warn");
+-        aplicar(&mut fs, "/tmp/a.py", Path::new("/home/u/proj"));
++        aplicar(&mut fs, "/tmp/a.py", raiz, Contexto::Escrita);
++        assert_eq!(
++            fs[1].severidade, "warn",
++            "escrita em /tmp: ainda pode nascer"
++        );
++        aplicar(&mut fs, "/tmp/a.py", raiz, Contexto::Execucao);
+         assert_eq!(fs[0].severidade, "warn", "incerto não nega nem em /tmp");
+         assert_eq!(fs[1].severidade, "deny", "projeto nega onde roda agora");
++        aplicar(&mut fs, "<string>", raiz, Contexto::Escrita);
++        assert_eq!(
++            fs[1].severidade, "deny",
++            "o inline roda agora em qualquer contexto"
++        );
+     }
+ 
+     #[test]
+@@ -192,7 +262,12 @@ mod tests {
+             achado("nome", "velho", Alvo::Externo),
+             achado("membro", "aviso", Alvo::Incerto),
+         ];
+-        aplicar(&mut fs, "/home/u/proj/a.py", Path::new("/home/u/proj"));
++        aplicar(
++            &mut fs,
++            "/home/u/proj/a.py",
++            Path::new("/home/u/proj"),
++            Contexto::Escrita,
++        );
+         let disco = vec![
+             achado("atributo", "velho", Alvo::Externo),
+             achado("membro", "aviso", Alvo::Incerto),
+@@ -215,7 +290,12 @@ mod tests {
+     #[test]
+     fn delta_ignora_a_severidade_do_achado_no_disco() {
+         let mut fs = vec![achado("atributo", "x", Alvo::Externo)];
+-        aplicar(&mut fs, "/home/u/proj/a.py", Path::new("/home/u/proj"));
++        aplicar(
++            &mut fs,
++            "/home/u/proj/a.py",
++            Path::new("/home/u/proj"),
++            Contexto::Escrita,
++        );
+         let mut disco = achado("atributo", "x", Alvo::Externo);
+         disco.severidade = "warn".into();
+         aplicar_delta(&mut fs, &[disco]);
+diff --git a/crates/touring-code/src/vgp/sombra.rs b/crates/touring-code/src/vgp/sombra.rs
+index 039ecab8..1ec3d2c5 100644
+--- a/crates/touring-code/src/vgp/sombra.rs
++++ b/crates/touring-code/src/vgp/sombra.rs
+@@ -20,7 +20,7 @@ use std::sync::{Mutex, OnceLock};
+ 
+ use serde::Serialize;
+ 
+-use super::{CheckInput, CheckOutput, Finding, check};
++use super::{CheckInput, CheckOutput, Contexto, Finding, check_em};
+ 
+ /// The resolved mode for a project.
+ #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+@@ -262,6 +262,9 @@ pub struct SombraExtra {
+ /// The whole shadow operation for one hook check: run the motor, append the line, return the
+ /// motor's output (the hook may use it in ATIVO mode). NEVER touches the hook's own response;
+ /// every internal error degrades to a logged "unknown" and to a fail-open output.
++///
++/// The verdict of a file being WRITTEN ([`Contexto::Escrita`]); a file about to be run asks
++/// [`sombra_check_em`].
+ pub fn sombra_check(
+     hook: &str,
+     input: &CheckInput,
+@@ -270,15 +273,38 @@ pub fn sombra_check(
+     mode: Mode,
+     extra: Option<SombraExtra>,
+ ) -> CheckOutput {
+-    let mut out = std::panic::catch_unwind(|| check(input)).unwrap_or_else(|_| CheckOutput {
+-        verdict: "unknown".into(),
+-        layer: 1,
+-        lang: input.lang.clone(),
+-        elapsed_ms: 0.0,
+-        findings: Vec::new(),
+-        camada2: None,
+-        motivo: Some(MOTIVO_FALHA_INTERNA.to_string()),
+-    });
++    sombra_check_em(
++        hook,
++        input,
++        session_id,
++        tool_use_id,
++        mode,
++        extra,
++        Contexto::Escrita,
++    )
++}
++
++/// [`sombra_check`] at an explicit moment ([`Contexto`]) — the execution hooks (`pre-bash-exec`)
++/// judge the file that is about to run with the scratch buckets live.
++pub fn sombra_check_em(
++    hook: &str,
++    input: &CheckInput,
++    session_id: &str,
++    tool_use_id: &str,
++    mode: Mode,
++    extra: Option<SombraExtra>,
++    contexto: Contexto,
++) -> CheckOutput {
++    let mut out =
++        std::panic::catch_unwind(|| check_em(input, contexto)).unwrap_or_else(|_| CheckOutput {
++            verdict: "unknown".into(),
++            layer: 1,
++            lang: input.lang.clone(),
++            elapsed_ms: 0.0,
++            findings: Vec::new(),
++            camada2: None,
++            motivo: Some(MOTIVO_FALHA_INTERNA.to_string()),
++        });
+     let mut camadas = vec![1u8];
+     if let Some(extra) = extra {
+         camadas.push(2);
+@@ -553,7 +579,8 @@ mod tests {
+         let out = com_log_em(&log, || {
+             sombra_check("pre-edit", &input, "s1", "tu1", Mode::Sombra, None)
+         });
+-        assert_eq!(out.verdict, "deny");
++        // FRAG: escrever em /tmp é um fragmento — o nome ausente é do projeto e só avisa
++        assert_eq!(out.verdict, "warn");
+         let linha: serde_json::Value =
+             serde_json::from_str(&std::fs::read_to_string(&log).unwrap()).unwrap();
+         assert_eq!(linha["hook"], "pre-edit");
+@@ -561,11 +588,48 @@ mod tests {
+         assert_eq!(linha["balde"], "tmp");
+         assert_eq!(linha["camadas"], serde_json::json!([1]));
+         assert_eq!(linha["modo"], "sombra");
+-        assert_eq!(linha["verdict"], "deny");
++        assert_eq!(linha["verdict"], "warn");
+         assert!(linha["findings"][0]["escopo"].is_string());
+         let _ = std::fs::remove_dir_all(&dir);
+     }
+ 
++    #[test]
++    fn sombra_check_em_execucao_grava_o_hook_de_execucao_e_nega_o_scratch() {
++        let dir = std::env::temp_dir().join("vgp-sombra-t-exec");
++        let _ = std::fs::remove_dir_all(&dir);
++        std::fs::create_dir_all(&dir).unwrap();
++        let log = dir.join("sombra.jsonl");
++        let input = CheckInput {
++            path: "/tmp/x.py".into(),
++            content: "print(cp.PASTA)\n".into(),
++            project_root: dir.clone(),
++            disk: None,
++            overlays: HashMap::new(),
++            lang: "python".into(),
++        };
++        let out = com_log_em(&log, || {
++            sombra_check_em(
++                "pre-bash-exec",
++                &input,
++                "s1",
++                "tu3",
++                Mode::Sombra,
++                None,
++                Contexto::Execucao,
++            )
++        });
++        assert_eq!(
++            out.verdict, "deny",
++            "o mesmo arquivo, agora pedido para rodar"
++        );
++        let linha: serde_json::Value =
++            serde_json::from_str(&std::fs::read_to_string(&log).unwrap()).unwrap();
++        assert_eq!(linha["hook"], "pre-bash-exec");
++        assert_eq!(linha["verdict"], "deny");
++        assert_eq!(linha["balde"], "tmp");
++        let _ = std::fs::remove_dir_all(&dir);
++    }
++
+     #[test]
+     fn linha_de_linguagem_sem_adaptador_carrega_lang_e_o_motivo_do_motor() {
+         let dir = std::env::temp_dir().join("vgp-sombra-t-lang");
+diff --git a/crates/touring-hook-handlers/src/hooks/pre_bash.rs b/crates/touring-hook-handlers/src/hooks/pre_bash.rs
+index 4b67ab51..e1857f18 100644
+--- a/crates/touring-hook-handlers/src/hooks/pre_bash.rs
++++ b/crates/touring-hook-handlers/src/hooks/pre_bash.rs
+@@ -939,6 +939,16 @@ fn extrai_inline_python(command: &str) -> Option<(&'static str, String, String)>
+ /// `python3 - <<'PY' … PY` / `python3 - <<PY … PY`: o corpo do heredoc, como o traceback o nomeia.
+ fn heredoc_python(command: &str) -> Option<String> {
+     let pos = command.find("<<")?;
++    // o heredoc é de PYTHON só se o comando que o abre é um interpretador: `cat > s.sh <<'EOF'` com
++    // `python3 x.py` no corpo é um script de SHELL — a V5 o lia como programa Python e negava `python3`,
++    // `tmp` e `x` como nomes sem definição (achado pelo teste de execução do FRAG, 10/10/2026)
++    let inicio = command[..pos].rfind('\n').map_or(0, |i| i + 1);
++    if !command[inicio..pos]
++        .split_whitespace()
++        .any(crate::vgp_execucao::palavra_eh_python)
++    {
++        return None;
++    }
+     let rest = &command[pos + 2..];
+     let rest = rest.trim_start_matches(['-', ' ']);
+     let (tag, quoted) = match rest.chars().next() {
+@@ -993,11 +1003,24 @@ fn raiz_inline(path: &str, runtime: &HookRuntime) -> std::path::PathBuf {
+     runtime.project_root.clone()
+ }
+ 
+-/// VGP sobre o programa inline (V5): `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
++/// VGP sobre o comando: o programa inline (V5) e os arquivos de scratch que ele EXECUTA (FRAG,
++/// `python3 X.py`/`node X.js`). Duas perguntas ao mesmo motor; o deny de uma vence o aviso da outra.
+ fn vgp_sombra_de_bash(
+     runtime: &HookRuntime,
+     input: &serde_json::Value,
+     command: &str,
++) -> Option<HookResponse> {
++    crate::vgp_execucao::combina(
++        vgp_inline_de_bash(runtime, input, command),
++        crate::vgp_execucao::vgp_de_execucao(runtime, input, command),
++    )
++}
++
++/// VGP sobre o programa inline (V5): `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
++fn vgp_inline_de_bash(
++    runtime: &HookRuntime,
++    input: &serde_json::Value,
++    command: &str,
+ ) -> Option<HookResponse> {
+     let mode = vgp_mode(&runtime.project_root);
+     if mode == VgpMode::Off {
+@@ -1032,31 +1055,7 @@ fn vgp_sombra_de_bash(
+     if mode != VgpMode::Ativo {
+         return None;
+     }
+-    let resumo = out
+-        .findings
+-        .iter()
+-        .take(3)
+-        .map(|f| format!("{} `{}` ({}:{})", f.classe, f.nome, path, f.linha))
+-        .collect::<Vec<_>>()
+-        .join(" · ");
+-    match out.verdict.as_str() {
+-        "deny" => Some(HookResponse::Deny {
+-            reason: format!(
+-                "[VGP · deny] {resumo}{}",
+-                out.findings
+-                    .first()
+-                    .map(|f| format!(" — {}", f.sugestao))
+-                    .unwrap_or_default()
+-            ),
+-            context: None,
+-            event_name: Some("PreToolUse".to_string()),
+-        }),
+-        "warn" => Some(HookResponse::Context {
+-            context: format!("[VGP · aviso] {resumo}"),
+-            event_name: Some("PreToolUse".to_string()),
+-        }),
+-        _ => None,
+-    }
++    crate::vgp_execucao::resposta_do_vgp(&out, &path, false)
+ }
+ 
+ #[cfg(test)]
+@@ -1091,6 +1090,33 @@ mod vgp_inline_tests {
+     fn comando_sem_python_e_none() {
+         assert!(extrai_inline_python("ls -la /tmp").is_none());
+     }
++
++    /// FRAG: o corpo de um heredoc que NÃO alimenta um interpretador é dado, ainda que cite `python3`.
++    #[test]
++    fn heredoc_de_shell_que_cita_python_nao_e_programa_python() {
++        for cmd in [
++            "cat > s.sh <<'EOF'\npython3 /tmp/x/frag.py\nEOF\n",
++            "cat <<EOF > run.sh\nuv run python x.py\nEOF\n",
++            "tee notas.md <<'MD'\nrode python3 x.py depois\nMD\n",
++        ] {
++            assert!(extrai_inline_python(cmd).is_none(), "{cmd:?}");
++        }
++        // e os heredocs que alimentam o interpretador continuam sendo programa
++        for cmd in [
++            "python3 - <<'PY'\nprint(2)\nPY\n",
++            "python <<EOF\nprint(2)\nEOF\n",
++            "uv run python - <<'PY'\nprint(2)\nPY\n",
++            "cd /tmp && python3.12 - <<'PY'\nprint(2)\nPY\n",
++            ".venv/bin/python3 - <<'PY'\nprint(2)\nPY\n",
++        ] {
++            let (_, prog, path) = extrai_inline_python(cmd).unwrap_or_else(|| panic!("{cmd:?}"));
++            assert_eq!(
++                (prog.as_str(), path.as_str()),
++                ("print(2)\n", "<stdin>"),
++                "{cmd:?}"
++            );
++        }
++    }
+ }
+ 
+ /// Ordem dos gates (30.4.97): o deny aplicável vence o `[VGP · aviso]`, qualquer que seja a
+@@ -1191,3 +1217,299 @@ mod vgp_ordem_tests {
+         }
+     }
+ }
++
++/// FRAG (10/10/2026): o deny do fragmento `.py` em `/tmp` mora na EXECUÇÃO, não na escrita (spec
++/// §5.1: o deny exige que nenhuma edição seguinte possa tornar o código certo). `python3 X.py` /
++/// `uv run python X.py` / `node X.js` com `X` existente passam o conteúdo ATUAL pelo MESMO motor,
++/// agora com o contexto de execução. Os testes rodam o `run_returning` de produção sobre arquivos
++/// reais; o log da sombra é redirecionado por thread, o `~/.claude` nunca é tocado.
++#[cfg(test)]
++mod vgp_execucao_tests {
++    use super::*;
++    use tempfile::TempDir;
++    use touring_code::vgp::sombra::com_log_em;
++
++    /// Nome ausente do PROJETO: a edição seguinte ainda poderia criá-lo.
++    const FRAGMENTO: &str = "resultado = 1\nprint(nome_do_projeto_inexistente)\n";
++    /// Atributo ausente da STDLIB: nenhuma edição do projeto o cria. (`unicodedata`, não `os`: a
++    /// camada 1 modela os atributos de `unicodedata`; os de `os`/`json` só a camada 2 conhece.)
++    const PATHX: &str = "import unicodedata\nprint(unicodedata.combending('a'))\n";
++    const LIMPO: &str = "import os\nprint(os.path.join('a', 'b'))\n";
++
++    struct Ambiente {
++        projeto: TempDir,
++        scratch: TempDir,
++        runtime: HookRuntime,
++    }
++
++    impl Ambiente {
++        fn novo(modo: &str) -> Self {
++            // o projeto NÃO pode morar sob `/tmp/` (o $TMPDIR pode estar lá): o balde da
++            // política é literal, e um `src/a.py` ali já nasceria "scratch"
++            let projeto = TempDir::new_in("/var/tmp").expect("projeto");
++            std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
++            std::fs::write(
++                projeto.path().join(".touring/touring.toml"),
++                format!("[vgp]\nmodo = \"{modo}\"\ncamada2_langs = []\n"),
++            )
++            .expect("toml");
++            // o balde `/tmp/` é literal na política: o scratch NÃO pode depender do $TMPDIR
++            let scratch = TempDir::new_in("/tmp").expect("scratch");
++            let runtime = HookRuntime::new(projeto.path()).expect("HookRuntime::new");
++            Self {
++                projeto,
++                scratch,
++                runtime,
++            }
++        }
++
++        fn arquivo(&self, nome: &str, texto: &str) -> String {
++            let p = self.scratch.path().join(nome);
++            std::fs::write(&p, texto).expect("escreve");
++            p.display().to_string()
++        }
++
++        fn log(&self) -> std::path::PathBuf {
++            self.scratch.path().join("sombra.jsonl")
++        }
++
++        fn roda(&self, comando: &str) -> HookResponse {
++            let input = serde_json::json!({
++                "session_id": "frag-exec",
++                "tool_input": { "command": comando }
++            });
++            com_log_em(&self.log(), || run_returning(&self.runtime, &input))
++        }
++
++        /// As linhas do log da sombra (`hook`, `lang`, `verdict`) — o que o motor MEDIU.
++        fn linhas(&self) -> Vec<serde_json::Value> {
++            std::fs::read_to_string(self.log())
++                .unwrap_or_default()
++                .lines()
++                .filter_map(|l| serde_json::from_str(l).ok())
++                .collect()
++        }
++    }
++
++    fn razao_do_deny(r: HookResponse) -> String {
++        match r {
++            HookResponse::Deny { reason, .. } => reason,
++            outra => panic!("esperava Deny, veio {outra:?}"),
++        }
++    }
++
++    fn nao_e_deny(r: &HookResponse) {
++        assert!(
++            !matches!(r, HookResponse::Deny { .. } | HookResponse::Block { .. }),
++            "não deveria negar: {r:?}"
++        );
++    }
++
++    #[test]
++    fn executar_o_fragmento_em_tmp_nega_e_ensina() {
++        let a = Ambiente::novo("ativo");
++        let frag = a.arquivo("frag.py", FRAGMENTO);
++        let razao = razao_do_deny(a.roda(&format!("python3 {frag}")));
++        assert!(razao.contains("[VGP · deny]"), "{razao}");
++        assert!(razao.contains("nome_do_projeto_inexistente"), "{razao}");
++        assert!(razao.contains(&frag), "o deny nomeia o arquivo: {razao}");
++        assert!(
++            razao.contains("executad"),
++            "o deny ensina que o arquivo roda agora: {razao}"
++        );
++        let linhas = a.linhas();
++        let exec = linhas
++            .iter()
++            .find(|l| l["hook"] == "pre-bash-exec")
++            .expect("a execução também grava a sombra");
++        assert_eq!(exec["lang"], "python");
++        assert_eq!(exec["verdict"], "deny");
++    }
++
++    #[test]
++    fn uv_run_python_executa_o_arquivo_tambem() {
++        let a = Ambiente::novo("ativo");
++        let frag = a.arquivo("frag.py", FRAGMENTO);
++        for cmd in [
++            format!("uv run python {frag}"),
++            format!("uv run --with requests --python 3.12 python3 {frag}"),
++            format!("cd / && PYTHONPATH=x uv run python -u {frag} --arg"),
++            format!("python3 -u -B {frag} 2>&1 | head"),
++        ] {
++            let razao = razao_do_deny(a.roda(&cmd));
++            assert!(razao.contains("[VGP · deny]"), "{cmd}: {razao}");
++        }
++    }
++
++    #[test]
++    fn python_c_continua_igual_a_hoje() {
++        let a = Ambiente::novo("ativo");
++        let razao = razao_do_deny(a.roda("python3 -c 'print(nome_do_projeto_inexistente)'"));
++        assert!(razao.contains("[VGP · deny]"), "{razao}");
++        assert!(
++            razao.contains("<string>:1"),
++            "o inline segue o caminho de sempre: {razao}"
++        );
++        assert!(
++            a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
++            "python -c não é execução de arquivo"
++        );
++    }
++
++    #[test]
++    fn fragmento_limpo_executa_sem_deny() {
++        let a = Ambiente::novo("ativo");
++        let ok = a.arquivo("ok.py", LIMPO);
++        let r = a.roda(&format!("python3 {ok}"));
++        nao_e_deny(&r);
++        if let HookResponse::Context { context, .. } = &r {
++            assert!(
++                !context.contains("VGP"),
++                "arquivo limpo não avisa: {context}"
++            );
++        }
++        let linhas = a.linhas();
++        assert_eq!(
++            linhas
++                .iter()
++                .filter(|l| l["hook"] == "pre-bash-exec")
++                .map(|l| l["verdict"].as_str().unwrap_or(""))
++                .collect::<Vec<_>>(),
++            ["allow"],
++            "o arquivo limpo foi MEDIDO (allow), não ignorado"
++        );
++    }
++
++    #[test]
++    fn alvo_externo_inexistente_nega_na_execucao_p1() {
++        let a = Ambiente::novo("ativo");
++        let x = a.arquivo("x.py", PATHX);
++        let razao = razao_do_deny(a.roda(&format!("python3 {x}")));
++        assert!(razao.contains("combending"), "{razao}");
++    }
++
++    #[test]
++    fn python_m_nao_executa_arquivo() {
++        let a = Ambiente::novo("ativo");
++        let frag = a.arquivo("frag.py", FRAGMENTO);
++        for cmd in [
++            format!("python3 -m pytest {frag}"),
++            format!("python3 -m {frag}"),
++            format!("python3 -mpytest {frag}"),
++            format!("python3 -uc 'print(1)' {frag}"),
++            format!("python3 - {frag}"),
++            format!("uv run python -m pytest {frag}"),
++        ] {
++            nao_e_deny(&a.roda(&cmd));
++            assert!(
++                a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
++                "{cmd}: não é o arquivo que roda"
++            );
++        }
++    }
++
++    #[test]
++    fn so_o_comando_simples_conta_nunca_o_texto_da_linha() {
++        let a = Ambiente::novo("ativo");
++        let frag = a.arquivo("frag.py", FRAGMENTO);
++        for cmd in [
++            format!("echo python3 {frag}"),
++            format!("echo \"python3 {frag}\""),
++            format!("grep -n python3 {frag}"),
++            format!("cat {frag} # python3 {frag}"),
++            format!(
++                "cat > {}/s.sh <<'EOF'\npython3 {frag}\nEOF",
++                a.scratch.path().display()
++            ),
++            format!("python3 {}/nao_existe.py", a.scratch.path().display()),
++            format!("python3 {}", a.arquivo("nota.txt", FRAGMENTO)),
++        ] {
++            nao_e_deny(&a.roda(&cmd));
++            assert!(
++                a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
++                "{cmd}: nada a executar"
++            );
++        }
++    }
++
++    #[test]
++    fn caminho_relativo_resolve_pelo_cd_da_linha() {
++        let a = Ambiente::novo("ativo");
++        a.arquivo("frag.py", FRAGMENTO);
++        let razao = razao_do_deny(a.roda(&format!(
++            "cd {} && python3 frag.py",
++            a.scratch.path().display()
++        )));
++        assert!(razao.contains("[VGP · deny]"), "{razao}");
++    }
++
++    #[test]
++    fn so_o_scratch_e_julgado_na_execucao_script_do_repo_nao_e_re_julgado_sem_baseline() {
++        // o `continua` da ordem vale para o caminho: P2 segue só em /tmp e no .cache do projeto —
++        // um script de `src/` foi julgado, com delta contra o disco, quando foi escrito; julgá-lo
++        // de novo a cada execução, sem baseline, negaria o que já existia
++        let a = Ambiente::novo("ativo");
++        std::fs::create_dir_all(a.projeto.path().join("src")).expect("mkdir");
++        let src = a.projeto.path().join("src/a.py");
++        std::fs::write(&src, PATHX).expect("escreve");
++        nao_e_deny(&a.roda(&format!("python3 {}", src.display())));
++        assert!(
++            a.linhas().iter().all(|l| l["hook"] != "pre-bash-exec"),
++            "script fora do scratch nem é medido"
++        );
++        // o .cache da RAIZ do projeto roda agora, como o /tmp
++        std::fs::create_dir_all(a.projeto.path().join(".cache/x")).expect("mkdir");
++        let cache = a.projeto.path().join(".cache/x/a.py");
++        std::fs::write(&cache, FRAGMENTO).expect("escreve");
++        razao_do_deny(a.roda(&format!("python3 {}", cache.display())));
++        // e o relativo, pelo cwd do hook
++        let relativo = a.roda(&format!(
++            "cd {} && python3 .cache/x/a.py",
++            a.projeto.path().display()
++        ));
++        razao_do_deny(relativo);
++    }
++
++    #[test]
++    fn node_mede_o_script_mas_o_motor_js_ainda_nao_mede_nada_e_unknown_nunca_deny() {
++        let a = Ambiente::novo("ativo");
++        let js = a.arquivo("frag.js", "console.log(naoExiste);\n");
++        for cmd in [
++            format!("node {js}"),
++            format!("node --no-warnings -r ./x {js}"),
++        ] {
++            nao_e_deny(&a.roda(&cmd));
++        }
++        let linhas = a.linhas();
++        let medidas: Vec<_> = linhas
++            .iter()
++            .filter(|l| l["hook"] == "pre-bash-exec")
++            .collect();
++        assert_eq!(medidas.len(), 2, "o predicado de node dispara: {linhas:?}");
++        assert!(medidas.iter().all(|l| l["lang"] == "javascript"));
++        // `node -e` é inline, não arquivo
++        nao_e_deny(&a.roda("node -e 'console.log(1)'"));
++        assert_eq!(a.linhas().len(), 2, "node -e não grava linha de execução");
++    }
++
++    #[test]
++    fn sombra_mede_e_registra_mas_nunca_nega_e_off_nao_mede() {
++        let a = Ambiente::novo("sombra");
++        let frag = a.arquivo("frag.py", FRAGMENTO);
++        nao_e_deny(&a.roda(&format!("python3 {frag}")));
++        let linhas = a.linhas();
++        let exec = linhas
++            .iter()
++            .find(|l| l["hook"] == "pre-bash-exec")
++            .expect("a sombra registra a execução");
++        assert_eq!(
++            exec["verdict"], "deny",
++            "o motor mediu deny; a resposta não muda"
++        );
++
++        let off = Ambiente::novo("off");
++        let frag = off.arquivo("frag.py", FRAGMENTO);
++        nao_e_deny(&off.roda(&format!("python3 {frag}")));
++        assert!(off.linhas().is_empty(), "modo off não mede nem registra");
++    }
++}
+diff --git a/crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs b/crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs
+index 4b89a0f5..e5e4a064 100644
+--- a/crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs
++++ b/crates/touring-hook-handlers/src/hooks/pre_edit_prevention.rs
+@@ -2047,3 +2047,66 @@ mod vgp_ordem_tests {
+         }
+     }
+ }
++
++/// FRAG (10/10/2026): a edição de um fragmento em `/tmp` também só avisa — o deny passa para a
++/// execução (`pre_bash`) —, enquanto o alvo EXTERNO inexistente (P1) segue negado na edição.
++#[cfg(test)]
++mod vgp_fragmento_tests {
++    use super::*;
++    use tempfile::TempDir;
++    use touring_code::vgp::sombra::com_log_em;
++
++    /// Edita `frag.py` (já existente no scratch `/tmp`) de `antes` para `depois`, em modo ativo.
++    fn edita_em_tmp(antes: &str, depois: &str) -> Option<HookResponse> {
++        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
++        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
++        std::fs::write(
++            projeto.path().join(".touring/touring.toml"),
++            "[vgp]\nmodo = \"ativo\"\ncamada2_langs = []\n",
++        )
++        .expect("toml");
++        let scratch = TempDir::new_in("/tmp").expect("scratch");
++        let path = scratch.path().join("frag.py");
++        std::fs::write(&path, antes).expect("write");
++        let file_path = path.display().to_string();
++        let rt = HookRuntime::new(projeto.path()).expect("runtime");
++        let input = serde_json::json!({
++            "session_id": "frag-edit",
++            "tool_name": "Edit",
++            "tool_input": {"file_path": file_path, "old_string": antes, "new_string": depois}
++        });
++        let applied = AppliedEdit {
++            before: antes.to_string(),
++            after: depois.to_string(),
++        };
++        com_log_em(&scratch.path().join("sombra.jsonl"), || {
++            vgp_sombra_de_edit(&rt, &input, &file_path, antes, depois, Some(&applied))
++        })
++    }
++
++    #[test]
++    fn a_edicao_que_introduz_nome_do_projeto_em_tmp_so_avisa() {
++        match edita_em_tmp("x = 1\n", "x = 1\nprint(nome_do_projeto_inexistente)\n") {
++            Some(HookResponse::Context { context, .. }) => {
++                assert!(context.contains("[VGP · aviso]"), "{context}");
++            }
++            outra => panic!("consultivo na edição, nunca deny: {outra:?}"),
++        }
++    }
++
++    #[test]
++    fn a_edicao_que_introduz_alvo_externo_inexistente_em_tmp_segue_negada() {
++        match edita_em_tmp(
++            "import unicodedata\n",
++            "import unicodedata\nprint(unicodedata.combending('a'))\n",
++        ) {
++            Some(HookResponse::Deny { reason, .. }) => {
++                assert!(
++                    reason.contains("[VGP · deny]") && reason.contains("combending"),
++                    "{reason}"
++                );
++            }
++            outra => panic!("P1 nega em qualquer balde: {outra:?}"),
++        }
++    }
++}
+diff --git a/crates/touring-hook-handlers/src/hooks/pre_write.rs b/crates/touring-hook-handlers/src/hooks/pre_write.rs
+index a25691d0..729c0e51 100644
+--- a/crates/touring-hook-handlers/src/hooks/pre_write.rs
++++ b/crates/touring-hook-handlers/src/hooks/pre_write.rs
+@@ -1527,3 +1527,63 @@ mod vgp_ordem_tests {
+         );
+     }
+ }
++
++/// FRAG (10/10/2026): o fragmento `.py` em `/tmp` deixa de ser negado na ESCRITA — a edição
++/// seguinte ainda pode completá-lo (spec §5.1); o deny passa para a execução (`pre_bash`). O
++/// alvo EXTERNO inexistente (P1) segue negado já na escrita, em qualquer balde.
++#[cfg(test)]
++mod vgp_fragmento_tests {
++    use super::*;
++    use tempfile::TempDir;
++    use touring_code::vgp::sombra::com_log_em;
++
++    const FRAGMENTO: &str = "resultado = 1\nprint(nome_do_projeto_inexistente)\n";
++    const PATHX: &str = "import unicodedata\nprint(unicodedata.combending('a'))\n";
++
++    /// O `Write` real do `vgp_sombra_de_write` de produção, em modo ativo, sobre `file_path`
++    /// novo no scratch `/tmp`. O projeto mora fora de `/tmp/` (o balde é literal).
++    fn escreve(nome: &str, content: &str) -> Option<HookResponse> {
++        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
++        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
++        std::fs::write(
++            projeto.path().join(".touring/touring.toml"),
++            "[vgp]\nmodo = \"ativo\"\ncamada2_langs = []\n",
++        )
++        .expect("toml");
++        let scratch = TempDir::new_in("/tmp").expect("scratch");
++        let file_path = scratch.path().join(nome).display().to_string();
++        let rt = HookRuntime::new(projeto.path()).expect("runtime");
++        let input = serde_json::json!({
++            "session_id": "frag-write",
++            "tool_name": "Write",
++            "tool_input": {"file_path": file_path, "content": content}
++        });
++        com_log_em(&scratch.path().join("sombra.jsonl"), || {
++            vgp_sombra_de_write(&rt, &input, &file_path, content)
++        })
++    }
++
++    #[test]
++    fn o_fragmento_em_tmp_so_avisa_na_escrita() {
++        match escreve("trecho_g3.py", FRAGMENTO) {
++            Some(HookResponse::Context { context, .. }) => {
++                assert!(context.contains("[VGP · aviso]"), "{context}");
++                assert!(context.contains("nome_do_projeto_inexistente"), "{context}");
++            }
++            outra => panic!("o fragmento é consultivo na escrita, nunca deny: {outra:?}"),
++        }
++    }
++
++    #[test]
++    fn alvo_externo_inexistente_segue_negado_na_escrita_em_tmp() {
++        match escreve("x.py", PATHX) {
++            Some(HookResponse::Deny { reason, .. }) => {
++                assert!(
++                    reason.contains("[VGP · deny]") && reason.contains("combending"),
++                    "{reason}"
++                );
++            }
++            outra => panic!("P1 nega em qualquer balde: {outra:?}"),
++        }
++    }
++}
+diff --git a/crates/touring-hook-handlers/src/hooks/vgp_execucao.rs b/crates/touring-hook-handlers/src/hooks/vgp_execucao.rs
+new file mode 100644
+index 00000000..390ca989
+--- /dev/null
++++ b/crates/touring-hook-handlers/src/hooks/vgp_execucao.rs
+@@ -0,0 +1,724 @@
++//! VGP at EXECUTION (FRAG, 10/10/2026) — the deny of a scratch fragment lives here, not in the write.
++//!
++//! Spec §5.1 lets the motor `deny` a symbol of the PROJECT only where no later edit can make the
++//! code right. A `.py` written to `/tmp` is not that place: it may be a snippet to paste (case
++//! `9a8eed8a7502` of the P0M, `trecho_g3.py`), and the next edit can complete it — so the write
++//! only advises ([`touring_code::vgp::Contexto::Escrita`]). The moment that holds is the one where
++//! an interpreter is asked to run the file: `python3 X.py`, `uv run python X.py`, `node X.js`.
++//! This module reads that moment off the command and hands the file's CURRENT content to the same
++//! motor, asked [`Contexto::Execucao`].
++//!
++//! Three rules keep it honest:
++//!
++//! * The predicate is POSITIVE and reads one SIMPLE command at a time, by its words — the lexer
++//!   that already judges `rm -rf` ([`shell_pipelines`] / [`command_of`]). `echo python3 X.py`, a
++//!   quoted string, a comment and a heredoc body are text, never a run.
++//! * Only what the interpreter takes as the MAIN PROGRAM counts: `python3 -m mod X.py`,
++//!   `python3 -c '…' X.py` and `python3 - X.py` hand `X.py` to something else as an argument.
++//! * Only SCRATCH files are judged — the buckets [`touring_code::vgp::politica::roda_agora`]
++//!   defines for [`Contexto::Execucao`] (`/tmp/`, the project's `.cache/`): they are the files the
++//!   write stopped denying. A repo script was judged, with the delta against the disk, when it was
++//!   written; re-judging it without a baseline at every run would deny what pre-existed, which
++//!   the motor never does.
++//!
++//! Fail-open end to end: an unreadable or oversized file, a missing interpreter word, a motor
++//! `unknown` — none of them denies.
++
++use std::path::{Path, PathBuf};
++
++use touring_code::vgp::politica::roda_agora;
++use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check_em, vgp_mode};
++use touring_code::vgp::{CheckInput, CheckOutput, Contexto, lang_do_caminho};
++use touring_hooks_core::pre_tool_validator::{command_of, shell_pipelines};
++
++use super::runtime::{HookResponse, HookRuntime};
++
++/// Largest script the check reads (bytes): above it the file is left alone — fail-open.
++const TETO_BYTES: u64 = 1 << 20;
++
++/// Scripts judged per command line: a line that runs more is a loop, not a fragment.
++const MAX_SCRIPTS: usize = 4;
++
++/// The hook name the shadow log records for an execution check.
++const HOOK: &str = "pre-bash-exec";
++
++/// A file a simple command hands to an interpreter as the main program.
++#[derive(Debug, Clone, PartialEq, Eq)]
++pub(crate) struct ScriptExecutado {
++    /// Absolute path (a relative word is resolved against the `cd` of the line, else the cwd).
++    pub caminho: PathBuf,
++    /// The `lang` of VL0 §2 the motor judges it as.
++    pub lang: &'static str,
++}
++
++/// The verdict of the VGP over the scratch files this command line runs: `Some(response)` only in
++/// "ativo" mode (a deny, or the advisories joined); "sombra" logs and "off" does nothing.
++pub(crate) fn vgp_de_execucao(
++    runtime: &HookRuntime,
++    input: &serde_json::Value,
++    command: &str,
++) -> Option<HookResponse> {
++    let mode = vgp_mode(&runtime.project_root);
++    if mode == VgpMode::Off {
++        return None;
++    }
++    let cwd = input
++        .get("cwd")
++        .and_then(serde_json::Value::as_str)
++        .filter(|c| !c.is_empty())
++        .map_or_else(|| runtime.project_root.clone(), PathBuf::from);
++    let sessao = input
++        .pointer("/session_id")
++        .and_then(|v| v.as_str())
++        .unwrap_or("");
++    let uso = input
++        .pointer("/tool_use_id")
++        .and_then(|v| v.as_str())
++        .unwrap_or("");
++    let mut avisos: Vec<String> = Vec::new();
++    for script in scripts_executados(command, &cwd) {
++        let path = script.caminho.to_string_lossy().into_owned();
++        if !roda_agora(&path, &runtime.project_root, Contexto::Execucao) {
++            continue;
++        }
++        let Some(content) = ler_script(&script.caminho) else {
++            continue;
++        };
++        let vgp_in = CheckInput {
++            path,
++            content,
++            project_root: runtime.project_root.clone(),
++            disk: None,
++            overlays: std::collections::HashMap::new(),
++            lang: script.lang.to_string(),
++        };
++        let out = sombra_check_em(
++            HOOK,
++            &vgp_in,
++            sessao,
++            uso,
++            mode,
++            crate::vgp_l2::extra_em(&vgp_in, Contexto::Execucao),
++            Contexto::Execucao,
++        );
++        if mode != VgpMode::Ativo {
++            continue;
++        }
++        match resposta_do_vgp(&out, &vgp_in.path, true) {
++            Some(deny @ HookResponse::Deny { .. }) => return Some(deny),
++            Some(HookResponse::Context { context, .. }) => avisos.push(context),
++            _ => {}
++        }
++    }
++    (!avisos.is_empty()).then(|| HookResponse::Context {
++        context: avisos.join("\n"),
++        event_name: Some("PreToolUse".to_string()),
++    })
++}
++
++/// Two VGP answers about the same command line (the inline program and the executed files): a
++/// deny wins, advisories join, nothing stays nothing.
++pub(crate) fn combina(a: Option<HookResponse>, b: Option<HookResponse>) -> Option<HookResponse> {
++    match (a, b) {
++        (Some(deny @ HookResponse::Deny { .. }), _)
++        | (_, Some(deny @ HookResponse::Deny { .. })) => Some(deny),
++        (
++            Some(HookResponse::Context {
++                context: x,
++                event_name,
++            }),
++            Some(HookResponse::Context { context: y, .. }),
++        ) => Some(HookResponse::Context {
++            context: format!("{x}\n{y}"),
++            event_name,
++        }),
++        (a, None) => a,
++        (None, b) => b,
++        (a, _) => a,
++    }
++}
++
++/// The hook response of one motor output — `[VGP · deny]` / `[VGP · aviso]` with the first three
++/// findings and, for a deny, the motor's teaching suggestion. `path` is shown as given; for an
++/// execution the deny also says WHY the file is judged now.
++pub(crate) fn resposta_do_vgp(
++    out: &CheckOutput,
++    path: &str,
++    execucao: bool,
++) -> Option<HookResponse> {
++    let resumo = out
++        .findings
++        .iter()
++        .take(3)
++        .map(|f| format!("{} `{}` ({}:{})", f.classe, f.nome, path, f.linha))
++        .collect::<Vec<_>>()
++        .join(" · ");
++    match out.verdict.as_str() {
++        "deny" => Some(HookResponse::Deny {
++            reason: format!(
++                "[VGP · deny] {resumo}{}{}",
++                out.findings
++                    .first()
++                    .map(|f| format!(" — {}", f.sugestao))
++                    .unwrap_or_default(),
++                if execucao {
++                    " — o arquivo é executado agora, e nenhuma edição seguinte conserta esta \
++                     execução: complete o trecho (ou corrija o nome) antes de rodar"
++                } else {
++                    ""
++                }
++            ),
++            context: None,
++            event_name: Some("PreToolUse".to_string()),
++        }),
++        "warn" => Some(HookResponse::Context {
++            context: format!("[VGP · aviso] {resumo}"),
++            event_name: Some("PreToolUse".to_string()),
++        }),
++        _ => None,
++    }
++}
++
++/// The files the simple commands of `command` run as the main program of `python`/`python3`
++/// (including `uv run python`) or `node`, in order, deduplicated, capped at [`MAX_SCRIPTS`].
++/// A relative word resolves against the last `cd <dir>` of the line, else `cwd`; only a file that
++/// EXISTS is returned (a script the same command is about to write is invisible here — fail-open).
++pub(crate) fn scripts_executados(command: &str, cwd: &Path) -> Vec<ScriptExecutado> {
++    let mut cwd = cwd.to_path_buf();
++    let mut achados: Vec<ScriptExecutado> = Vec::new();
++    for pipeline in shell_pipelines(&sem_corpos_de_heredoc(command)) {
++        for words in &pipeline {
++            let Some((verbo, args)) = command_of(words) else {
++                continue;
++            };
++            if base(verbo) == "cd" {
++                if let Some(dir) = args.iter().find(|a| !a.starts_with('-')) {
++                    cwd = cwd.join(dir);
++                }
++                continue;
++            }
++            let Some((lang, palavra)) = script_do_comando(verbo, args) else {
++                continue;
++            };
++            let caminho = cwd.join(palavra);
++            let candidato = ScriptExecutado { caminho, lang };
++            if candidato.caminho.is_file()
++                && lang_do_caminho(&candidato.caminho.to_string_lossy()) == Some(lang)
++                && !achados.contains(&candidato)
++            {
++                achados.push(candidato);
++                if achados.len() == MAX_SCRIPTS {
++                    return achados;
++                }
++            }
++        }
++    }
++    achados
++}
++
++/// `(lang, script word)` when the simple command `verbo args…` runs a file as the main program.
++fn script_do_comando<'a>(verbo: &str, args: &'a [String]) -> Option<(&'static str, &'a str)> {
++    match base(verbo) {
++        "uv" => {
++            let resto = args.strip_prefix(&["run".to_string()])?;
++            let i = depois_das_opcoes_do_uv(resto)?;
++            let (programa, argumentos) = resto[i..].split_first()?;
++            eh_python(base(programa)).then_some(())?;
++            python_script(argumentos).map(|s| ("python", s))
++        }
++        b if eh_python(b) => python_script(args).map(|s| ("python", s)),
++        "node" | "nodejs" => node_script(args).map(|s| ("javascript", s)),
++        _ => None,
++    }
++}
++
++/// The last component of a command word (`.venv/bin/python3` → `python3`).
++fn base(palavra: &str) -> &str {
++    palavra.rsplit('/').next().unwrap_or(palavra)
++}
++
++/// Is this command WORD a python interpreter (`python3`, `/usr/bin/python3.12`, `.venv/bin/python`)?
++pub(crate) fn palavra_eh_python(palavra: &str) -> bool {
++    eh_python(base(palavra))
++}
++
++/// `python`, `python3`, `python3.12` — never `python3-config` or `pythonw`.
++fn eh_python(base: &str) -> bool {
++    base == "python"
++        || base == "python3"
++        || base
++            .strip_prefix("python3.")
++            .is_some_and(|v| !v.is_empty() && v.bytes().all(|b| b.is_ascii_digit()))
++}
++
++/// `uv run`'s options that take a SEPARATE value (`--with requests`, `--python 3.12`): without
++/// them the value would be read as the program. An unknown option is taken as a flag — at worst
++/// its value is read as the program, which is not a python word, and the line is left alone.
++const UV_OPCOES_COM_VALOR: &[&str] = &[
++    "--with",
++    "--python",
++    "-p",
++    "--project",
++    "--directory",
++    "--env-file",
++    "--package",
++    "--extra",
++    "--group",
++    "--with-requirements",
++    "--with-editable",
++    "--index",
++    "--index-url",
++    "--find-links",
++    "-f",
++    "--exclude-newer",
++    "--config-file",
++    "--cache-dir",
++];
++
++/// The index of the first word of `uv run`'s arguments that is not one of its options.
++fn depois_das_opcoes_do_uv(args: &[String]) -> Option<usize> {
++    let mut i = 0;
++    while let Some(a) = args.get(i) {
++        if !a.starts_with('-') {
++            return Some(i);
++        }
++        i += if UV_OPCOES_COM_VALOR.contains(&a.as_str()) {
++            2
++        } else {
++            1
++        };
++    }
++    None
++}
++
++/// What one option word means for the search of `python`'s main program.
++#[derive(Debug, Clone, Copy, PartialEq, Eq)]
++enum Opcao {
++    /// A flag with no say in it (`-u`, `-B`, `-O`): keep reading.
++    Segue,
++    /// A flag whose value is the NEXT word (`-W error`, `-X dev`): skip that word too.
++    ValorNaPalavraSeguinte,
++    /// `-c`/`-m` (the rest is the code or the module's argv), `-` (stdin), `-V`/`-h`/`--version`/
++    /// `--help` (print and exit): no file is the main program.
++    SemArquivo,
++}
++
++/// A short-option cluster read the way CPython reads it: the first of `c`/`m`/`V`/`h`/`?` ends the
++/// search; `W`/`X`/`Q` take the rest of the cluster as value, or the next word when it is empty.
++fn opcao_curta(cluster: &str) -> Opcao {
++    for (i, c) in cluster.char_indices() {
++        match c {
++            'c' | 'm' | 'V' | 'h' | '?' => return Opcao::SemArquivo,
++            'W' | 'X' | 'Q' => {
++                return if cluster[i + c.len_utf8()..].is_empty() {
++                    Opcao::ValorNaPalavraSeguinte
++                } else {
++                    Opcao::Segue
++                };
++            }
++            _ => {}
++        }
++    }
++    Opcao::Segue
++}
++
++/// The long options that matter: the ones that only print, and the one that takes a value.
++fn opcao_longa(opcao: &str) -> Opcao {
++    match opcao {
++        "--version" | "--help" | "--help-env" | "--help-xoptions" | "--help-all" => {
++            Opcao::SemArquivo
++        }
++        "--check-hash-based-pycs" => Opcao::ValorNaPalavraSeguinte,
++        _ => Opcao::Segue,
++    }
++}
++
++/// The script `python` runs as the main program, read off the way CPython reads its options:
++/// `-c` and `-m` (alone or inside a cluster such as `-uc`) hand everything after them to the code
++/// or the module, `-W`/`-X` take a value, `-` is stdin, `--` ends the options. `None` when no
++/// `.py` file is the main program.
++fn python_script(args: &[String]) -> Option<&str> {
++    let mut it = args.iter().map(String::as_str);
++    while let Some(a) = it.next() {
++        if a == "--" {
++            return it.next().filter(|s| termina_em(s, &["py"]));
++        }
++        let Some(opcao) = a.strip_prefix('-') else {
++            return termina_em(a, &["py"]).then_some(a);
++        };
++        let efeito = if opcao.is_empty() {
++            Opcao::SemArquivo
++        } else if opcao.starts_with('-') {
++            opcao_longa(a)
++        } else {
++            opcao_curta(opcao)
++        };
++        match efeito {
++            Opcao::SemArquivo => return None,
++            Opcao::ValorNaPalavraSeguinte => {
++                it.next();
++            }
++            Opcao::Segue => {}
++        }
++    }
++    None
++}
++
++/// The script `node` runs as the main program. `-e`/`-p`/`--eval`/`--print` (inline), `-c`/
++/// `--check`, `--test` and `-i` run no file; `-r`/`--require`/`--import`/`--loader` take a value.
++fn node_script(args: &[String]) -> Option<&str> {
++    const SEM_ARQUIVO: &[&str] = &[
++        "-e",
++        "-p",
++        "-pe",
++        "-c",
++        "-i",
++        "--eval",
++        "--print",
++        "--check",
++        "--test",
++        "--interactive",
++        "--help",
++        "--version",
++        "-h",
++        "-v",
++    ];
++    const COM_VALOR: &[&str] = &[
++        "-r",
++        "--require",
++        "--import",
++        "--loader",
++        "--experimental-loader",
++        "--conditions",
++        "-C",
++        "--env-file",
++        "--input-type",
++    ];
++    let mut it = args.iter().map(String::as_str);
++    while let Some(a) = it.next() {
++        if a == "--" {
++            return it.next().filter(|s| termina_em(s, &["js", "mjs", "cjs"]));
++        }
++        let nome = a.split('=').next().unwrap_or(a);
++        if SEM_ARQUIVO.contains(&nome) {
++            return None;
++        }
++        if a.starts_with('-') {
++            if COM_VALOR.contains(&a) {
++                it.next();
++            }
++            continue;
++        }
++        return termina_em(a, &["js", "mjs", "cjs"]).then_some(a);
++    }
++    None
++}
++
++/// Does the word end in `.ext` for one of `exts`?
++fn termina_em(palavra: &str, exts: &[&str]) -> bool {
++    Path::new(palavra)
++        .extension()
++        .and_then(|e| e.to_str())
++        .is_some_and(|e| exts.contains(&e))
++}
++
++/// The text of the script, unless it is unreadable, not UTF-8 or above [`TETO_BYTES`].
++fn ler_script(caminho: &Path) -> Option<String> {
++    let meta = std::fs::metadata(caminho).ok()?;
++    if meta.len() > TETO_BYTES {
++        return None;
++    }
++    std::fs::read_to_string(caminho).ok()
++}
++
++/// `command` without the BODIES of its heredocs (from the line after `<<TAG` to the line `TAG`):
++/// a body is data fed to a program, not a command of the line. An unterminated heredoc swallows the
++/// rest, as the shell does.
++fn sem_corpos_de_heredoc(command: &str) -> String {
++    let mut mantidas: Vec<&str> = Vec::new();
++    let mut ate: Option<String> = None;
++    for linha in command.lines() {
++        if let Some(tag) = &ate {
++            if linha.trim() == tag.as_str() {
++                ate = None;
++            }
++            continue;
++        }
++        mantidas.push(linha);
++        if let Some(pos) = linha.find("<<")
++            && !linha[pos..].starts_with("<<<")
++        {
++            let tag = linha[pos + 2..]
++                .trim_start_matches('-')
++                .split_whitespace()
++                .next()
++                .unwrap_or("")
++                .trim_matches(['\'', '"']);
++            if !tag.is_empty() {
++                ate = Some(tag.to_string());
++            }
++        }
++    }
++    mantidas.join("\n")
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use tempfile::TempDir;
++
++    /// Scripts that exist: `/tmp/<d>/a.py`, `b.py`, `c.js`, `n.txt`.
++    fn scratch() -> TempDir {
++        let d = TempDir::new_in("/tmp").expect("scratch");
++        for (nome, texto) in [("a.py", "x = 1\n"), ("b.py", "y = 2\n"), ("c.js", "1;\n")] {
++            std::fs::write(d.path().join(nome), texto).expect("escreve");
++        }
++        std::fs::write(d.path().join("n.txt"), "nota\n").expect("escreve");
++        d
++    }
++
++    fn alvo(d: &TempDir, comando: &str) -> Vec<(String, &'static str)> {
++        scripts_executados(comando, Path::new("/"))
++            .into_iter()
++            .map(|s| {
++                (
++                    s.caminho.strip_prefix(d.path()).map_or_else(
++                        |_| s.caminho.display().to_string(),
++                        |r| r.display().to_string(),
++                    ),
++                    s.lang,
++                )
++            })
++            .collect()
++    }
++
++    fn ex(d: &TempDir, resto: &str) -> String {
++        resto.replace('@', &d.path().display().to_string())
++    }
++
++    #[test]
++    fn python_e_uv_run_python_executam_o_arquivo() {
++        let d = scratch();
++        for cmd in [
++            "python @/a.py",
++            "python3 @/a.py arg --flag",
++            "python3.12 @/a.py",
++            "/usr/bin/python3 @/a.py",
++            ".venv/bin/python @/a.py",
++            "python3 -u -B @/a.py",
++            "python3 -W error @/a.py",
++            "python3 -Werror @/a.py",
++            "python3 -X dev @/a.py",
++            "python3 -- @/a.py",
++            "uv run python @/a.py",
++            "uv run python3 -u @/a.py",
++            "uv run --with requests --python 3.12 python @/a.py",
++            "FOO=1 python3 @/a.py",
++            "env FOO=1 python3 @/a.py",
++            "timeout 5 python3 @/a.py",
++            "nohup python3 @/a.py",
++            "cd / && python3 @/a.py | head",
++            "python3 @/a.py 2>&1",
++        ] {
++            assert_eq!(
++                alvo(&d, &ex(&d, cmd)),
++                [("a.py".to_string(), "python")],
++                "{cmd}"
++            );
++        }
++    }
++
++    #[test]
++    fn node_executa_js_mjs_cjs() {
++        let d = scratch();
++        std::fs::write(d.path().join("m.mjs"), "1;\n").unwrap();
++        std::fs::write(d.path().join("k.cjs"), "1;\n").unwrap();
++        for (cmd, esperado) in [
++            ("node @/c.js", "c.js"),
++            ("node --no-warnings @/m.mjs", "m.mjs"),
++            ("node -r ./setup @/k.cjs", "k.cjs"),
++            ("node --require ./setup --import ./x @/c.js", "c.js"),
++            ("nodejs @/c.js", "c.js"),
++        ] {
++            assert_eq!(
++                alvo(&d, &ex(&d, cmd)),
++                [(esperado.to_string(), "javascript")],
++                "{cmd}"
++            );
++        }
++    }
++
++    #[test]
++    fn modulo_codigo_inline_stdin_e_outros_interpretadores_ficam_fora() {
++        let d = scratch();
++        for cmd in [
++            "python3 -m pytest @/a.py",
++            "python3 -m @/a.py",
++            "python3 -mpytest @/a.py",
++            "python3 -uc 'print(1)' @/a.py",
++            "python3 -c 'print(1)' @/a.py",
++            "python3 -cprint @/a.py",
++            "python3 - @/a.py",
++            "python3 --version @/a.py",
++            "python3 @/n.txt",
++            "python3 @/nao_existe.py",
++            "uv run python -m pytest @/a.py",
++            "uv run pytest @/a.py",
++            "uv pip install @/a.py",
++            "uv run",
++            "python3-config @/a.py",
++            "pythonw @/a.py",
++            "bash @/a.py",
++            "ruby @/a.py",
++            "cat @/a.py",
++            "node -e 'x' @/c.js",
++            "node -p 1 @/c.js",
++            "node --check @/c.js",
++            "node --test @/c.js",
++            "node @/a.py",
++            "python3 @/c.js",
++        ] {
++            assert!(alvo(&d, &ex(&d, cmd)).is_empty(), "{cmd}");
++        }
++    }
++
++    #[test]
++    fn so_o_comando_simples_conta_nunca_o_texto_da_linha() {
++        let d = scratch();
++        for cmd in [
++            "echo python3 @/a.py",
++            "echo \"python3 @/a.py\"",
++            "echo 'python3 @/a.py'",
++            "grep -n python3 @/a.py",
++            "cat @/a.py # python3 @/a.py",
++            "# python3 @/a.py",
++            "cat > @/s.sh <<'EOF'\npython3 @/a.py\nEOF",
++            "cat > @/s.sh <<-EOF\n\tpython3 @/a.py\n\tEOF",
++            "git commit -m \"python3 @/a.py\"",
++        ] {
++            assert!(alvo(&d, &ex(&d, cmd)).is_empty(), "{cmd:?}");
++        }
++        // o controle: o mesmo comando FORA do texto é execução
++        assert_eq!(alvo(&d, &ex(&d, "echo ok; python3 @/a.py")).len(), 1);
++        assert_eq!(
++            alvo(&d, &ex(&d, "cat > @/s.sh <<'EOF'\nx\nEOF\npython3 @/a.py")).len(),
++            1,
++            "depois do heredoc a linha volta a ser comando"
++        );
++        assert_eq!(
++            alvo(
++                &d,
++                &ex(&d, "cat <<-EOF > @/s.sh\n\tx\n\tEOF\npython3 @/a.py")
++            )
++            .len(),
++            1,
++            "`<<-` aceita o marcador recuado, e a linha seguinte volta a ser comando"
++        );
++    }
++
++    #[test]
++    fn varios_scripts_na_linha_sem_repeticao_e_com_teto() {
++        let d = scratch();
++        let dois = alvo(
++            &d,
++            &ex(&d, "python3 @/a.py && python3 @/b.py ; python3 @/a.py"),
++        );
++        assert_eq!(
++            dois,
++            [
++                ("a.py".to_string(), "python"),
++                ("b.py".to_string(), "python")
++            ]
++        );
++        let muitos = (0..9)
++            .map(|i| {
++                std::fs::write(d.path().join(format!("s{i}.py")), "z = 0\n").unwrap();
++                format!("python3 {}/s{i}.py", d.path().display())
++            })
++            .collect::<Vec<_>>()
++            .join("; ");
++        // literal, não a constante: o teste que lê o limiar do código não o fixa
++        assert_eq!(scripts_executados(&muitos, Path::new("/")).len(), 4);
++        assert_eq!(MAX_SCRIPTS, 4);
++    }
++
++    #[test]
++    fn caminho_relativo_resolve_pelo_ultimo_cd_da_linha_senao_pelo_cwd() {
++        let d = scratch();
++        let dir = d.path();
++        let por_cwd = scripts_executados("python3 a.py", dir);
++        assert_eq!(por_cwd.len(), 1);
++        assert_eq!(por_cwd[0].caminho, dir.join("a.py"));
++        let por_cd = scripts_executados(
++            &format!("cd {} && python3 b.py", dir.display()),
++            Path::new("/"),
++        );
++        assert_eq!(por_cd.len(), 1);
++        assert_eq!(por_cd[0].caminho, dir.join("b.py"));
++        assert!(scripts_executados("python3 a.py", Path::new("/")).is_empty());
++    }
++
++    #[test]
++    fn heredoc_sem_corpo_e_herestring_e_marcador_entre_aspas() {
++        let s = sem_corpos_de_heredoc("cat <<'EOF' > f\nA\nB\nEOF\nls");
++        assert_eq!(s, "cat <<'EOF' > f\nls");
++        // `<<<` é herestring: não abre corpo
++        assert_eq!(sem_corpos_de_heredoc("cat <<< x\nls"), "cat <<< x\nls");
++        // sem terminador, o corpo engole o resto (como no shell)
++        assert_eq!(sem_corpos_de_heredoc("cat <<EOF\nA\nB"), "cat <<EOF");
++        assert_eq!(sem_corpos_de_heredoc("ls\npwd"), "ls\npwd");
++    }
++
++    #[test]
++    fn combina_deny_vence_aviso_avisos_se_juntam() {
++        let aviso = |t: &str| HookResponse::Context {
++            context: t.to_string(),
++            event_name: Some("PreToolUse".into()),
++        };
++        let deny = || HookResponse::Deny {
++            reason: "d".into(),
++            context: None,
++            event_name: Some("PreToolUse".into()),
++        };
++        assert!(matches!(
++            combina(Some(aviso("a")), Some(deny())),
++            Some(HookResponse::Deny { .. })
++        ));
++        assert!(matches!(
++            combina(Some(deny()), Some(aviso("a"))),
++            Some(HookResponse::Deny { .. })
++        ));
++        assert!(matches!(
++            combina(None, Some(deny())),
++            Some(HookResponse::Deny { .. })
++        ));
++        match combina(Some(aviso("a")), Some(aviso("b"))) {
++            Some(HookResponse::Context { context, .. }) => assert_eq!(context, "a\nb"),
++            outra => panic!("{outra:?}"),
++        }
++        assert!(matches!(
++            combina(Some(aviso("a")), None),
++            Some(HookResponse::Context { .. })
++        ));
++        assert!(matches!(
++            combina(None, Some(aviso("b"))),
++            Some(HookResponse::Context { .. })
++        ));
++        assert!(combina(None, None).is_none());
++    }
++
++    #[test]
++    fn arquivo_acima_do_teto_ou_nao_utf8_fica_de_fora() {
++        let d = scratch();
++        let grande = d.path().join("grande.py");
++        std::fs::write(&grande, vec![b'#'; (TETO_BYTES + 1) as usize]).unwrap();
++        assert!(ler_script(&grande).is_none());
++        let latin1 = d.path().join("latin1.py");
++        std::fs::write(&latin1, b"# caf\xe9\n").unwrap();
++        assert!(ler_script(&latin1).is_none());
++        assert_eq!(
++            ler_script(&d.path().join("a.py")).as_deref(),
++            Some("x = 1\n")
++        );
++    }
++}
+diff --git a/crates/touring-hook-handlers/src/hooks/vgp_l2.rs b/crates/touring-hook-handlers/src/hooks/vgp_l2.rs
+index e37a855d..7dfedf9a 100644
+--- a/crates/touring-hook-handlers/src/hooks/vgp_l2.rs
++++ b/crates/touring-hook-handlers/src/hooks/vgp_l2.rs
+@@ -14,13 +14,21 @@
+ //! with a reason and spawns nothing (fail-open — the shadow line carries `camada2` with the motivo).
+ 
+ use touring_code::vgp::sombra::{SombraExtra, camada2_ligada};
+-use touring_code::vgp::{CheckInput, Finding};
+-use touring_pyright::pyright::{Severidade, Verdict};
++use touring_code::vgp::{CheckInput, Contexto, Finding};
++use touring_pyright::pyright::{L2Resultado, Severidade, Verdict};
+ 
+ /// Runs the pooled layer-2 verifier of the input's language over the same input layer 1 judged,
+ /// mapped into vgp terms. `None` when layer 2 is off for that language in this project — the
+-/// shadow line then keeps `camadas: [1]`.
++/// shadow line then keeps `camadas: [1]`. The verdict of a file being WRITTEN
++/// ([`Contexto::Escrita`]); a file about to be run asks [`extra_em`].
+ pub(crate) fn extra(input: &CheckInput) -> Option<SombraExtra> {
++    extra_em(input, Contexto::Escrita)
++}
++
++/// [`extra`] at an explicit moment: layer 2 follows the same rule as layer 1 — a fragment written
++/// under `/tmp` is judged as a project file (only an external target denies), the same file about
++/// to be EXECUTED keeps the `/tmp` bucket's verdict.
++pub(crate) fn extra_em(input: &CheckInput, contexto: Contexto) -> Option<SombraExtra> {
+     if !camada2_ligada(&input.lang, &input.project_root) {
+         return None;
+     }
+@@ -37,7 +45,21 @@ pub(crate) fn extra(input: &CheckInput) -> Option<SombraExtra> {
+         input.disk.as_deref(),
+         &overlays,
+     );
+-    Some(SombraExtra {
++    Some(mapear(l2, input, contexto))
++}
++
++/// A layer-2 result in vgp terms, with the severities of the moment it is asked at: written under
++/// `/tmp`, a finding is a fragment's ([`touring_pyright::achado::rebaixar_tmp_na_escrita`]);
++/// executed, the `/tmp` bucket's verdict stands. Pure — the pool is the caller's.
++fn mapear(mut l2: L2Resultado, input: &CheckInput, contexto: Contexto) -> SombraExtra {
++    if contexto == Contexto::Escrita {
++        touring_pyright::achado::rebaixar_tmp_na_escrita(
++            &mut l2.achados,
++            &input.path,
++            &input.project_root,
++        );
++    }
++    SombraExtra {
+         findings: l2
+             .achados
+             .iter()
+@@ -61,7 +83,7 @@ pub(crate) fn extra(input: &CheckInput) -> Option<SombraExtra> {
+                 .clone()
+                 .unwrap_or_else(|| "sem motivo declarado".to_string())
+         }),
+-    })
++    }
+ }
+ 
+ #[cfg(test)]
+@@ -138,4 +160,74 @@ mod tests {
+             h.camada2_motivo
+         );
+     }
++
++    /// FRAG: um achado de camada 2 por escopo, com a severidade que o balde `/tmp` lhe dá.
++    fn l2_do_tmp() -> L2Resultado {
++        use touring_pyright::achado::{Balde, severidade};
++        use touring_pyright::pyright::{Escopo, L2Achado};
++        let achados = [
++            Escopo::Proprio,
++            Escopo::Projeto,
++            Escopo::Externo,
++            Escopo::Forma,
++            Escopo::Dinamico,
++        ]
++        .into_iter()
++        .map(|escopo| L2Achado {
++            classe: "nome".into(),
++            nome: format!("{escopo:?}").to_lowercase(),
++            linha: 1,
++            escopo,
++            severidade: severidade(Balde::Tmp, escopo),
++            regra: "reportUndefinedVariable".into(),
++            mensagem: "m".into(),
++        })
++        .collect();
++        L2Resultado::from_achados(achados, 3)
++    }
++
++    fn severidades(extra: &SombraExtra) -> Vec<(&str, &str)> {
++        extra
++            .findings
++            .iter()
++            .map(|f| (f.nome.as_str(), f.severidade.as_str()))
++            .collect()
++    }
++
++    #[test]
++    fn a_camada_2_segue_o_momento_na_escrita_o_fragmento_em_tmp_so_avisa_na_execucao_nega() {
++        let raiz = std::path::Path::new("/home/u/proj");
++        let mut tmp = entrada("python", raiz);
++        tmp.path = "/tmp/frag.py".into();
++        let escrita = mapear(l2_do_tmp(), &tmp, Contexto::Escrita);
++        assert_eq!(
++            severidades(&escrita),
++            [
++                ("proprio", "warn"),
++                ("projeto", "warn"),
++                ("externo", "deny"),
++                ("forma", "warn"),
++                ("dinamico", "warn")
++            ],
++            "escrita em /tmp: só o alvo EXTERNO nega"
++        );
++        let execucao = mapear(l2_do_tmp(), &tmp, Contexto::Execucao);
++        assert_eq!(
++            severidades(&execucao),
++            [
++                ("proprio", "deny"),
++                ("projeto", "deny"),
++                ("externo", "deny"),
++                ("forma", "warn"),
++                ("dinamico", "warn")
++            ],
++            "execução: o balde /tmp inteiro volta"
++        );
++        // o inline roda agora em qualquer momento: a escrita não o rebaixa
++        let mut inline = entrada("python", raiz);
++        inline.path = "<string>".into();
++        let achados = l2_do_tmp(); // severidades do /tmp == as do inline
++        let escrita_inline = mapear(achados, &inline, Contexto::Escrita);
++        assert_eq!(severidades(&escrita_inline)[0], ("proprio", "deny"));
++    }
+ }
+diff --git a/crates/touring-hook-handlers/src/lib.rs b/crates/touring-hook-handlers/src/lib.rs
+index 9da0dcf7..fcf314d3 100644
+--- a/crates/touring-hook-handlers/src/lib.rs
++++ b/crates/touring-hook-handlers/src/lib.rs
+@@ -93,6 +93,9 @@ pub mod stop;
+ #[path = "hooks/team_hooks.rs"]
+ pub mod team_hooks;
+ #[cfg(feature = "pre-hooks")]
++#[path = "hooks/vgp_execucao.rs"]
++pub mod vgp_execucao;
++#[cfg(feature = "pre-hooks")]
+ #[path = "hooks/vgp_l2.rs"]
+ pub mod vgp_l2;
+ 
+diff --git a/crates/touring-hooks-core/src/hooks/pre_tool_validator.rs b/crates/touring-hooks-core/src/hooks/pre_tool_validator.rs
+index 2ea0f899..60bc8d01 100644
+--- a/crates/touring-hooks-core/src/hooks/pre_tool_validator.rs
++++ b/crates/touring-hooks-core/src/hooks/pre_tool_validator.rs
+@@ -799,7 +799,7 @@ fn option_words(args: &[String]) -> impl Iterator<Item = &str> {
+ /// `&&`, `||` and newline end the pipeline. A flag inside quotes or a comment is
+ /// text, not a flag. No subshells, no `$(…)` parsing — the structural
+ /// `bash_ast_validator` runs before this layer.
+-fn shell_pipelines(command: &str) -> Vec<Vec<Vec<String>>> {
++pub fn shell_pipelines(command: &str) -> Vec<Vec<Vec<String>>> {
+     let mut lexer = ShellLexer::default();
+     let mut chars = command.chars().peekable();
+     while let Some(c) = chars.next() {
+@@ -916,7 +916,7 @@ const WRAPPERS: &[(&str, &[&str])] = &[
+ /// The command word of a simple command and its arguments, past what only
+ /// changes HOW it runs: leading `NAME=value` assignments and the [`WRAPPERS`]
+ /// (with their own options, and `timeout`'s duration).
+-fn command_of(words: &[String]) -> Option<(&str, &[String])> {
++pub fn command_of(words: &[String]) -> Option<(&str, &[String])> {
+     let mut i = 0;
+     while let Some(word) = words.get(i).map(String::as_str) {
+         if is_assignment(word) {
+diff --git a/crates/touring-pyright/src/achado.rs b/crates/touring-pyright/src/achado.rs
+index 4d992c7c..63162c40 100644
+--- a/crates/touring-pyright/src/achado.rs
++++ b/crates/touring-pyright/src/achado.rs
+@@ -171,6 +171,25 @@ impl Balde {
+     }
+ }
+ 
++/// The write-time reading of a layer-2 result (FRAG, 10/10/2026): a file being WRITTEN under
++/// `/tmp` is a fragment the next edit may still complete (a snippet to paste), so its findings
++/// are judged as a project file's ([`Balde::Arquivo`]) — [`Escopo::Externo`] still denies (nothing
++/// the project does creates it), every other scope warns. The same file about to be EXECUTED keeps
++/// the verdict [`severidade`] gave it (`Balde::Tmp` denies): the consumer simply does not call
++/// this. Inline programs and project files are untouched; so is a `/tmp` path that is the
++/// project's own (`Balde::from_path` already calls it `Arquivo`).
++///
++/// Layer 1 has the same rule in `touring-code` (`vgp::Contexto`); the two stay apart because this
++/// crate carries no `touring-*` dependency, so each consumer applies the one that matches.
++pub fn rebaixar_tmp_na_escrita(achados: &mut [L2Achado], path: &str, raiz: &Path) {
++    if Balde::from_path(path, raiz) != Balde::Tmp {
++        return;
++    }
++    for achado in achados.iter_mut() {
++        achado.severidade = severidade(Balde::Arquivo, achado.escopo);
++    }
++}
++
+ // ── uris ───────────────────────────────────────────────────────────────────
+ 
+ /// `file://` URI of an absolute path, percent-encoding every byte but `A-Za-z0-9-._~/` — the same
+diff --git a/crates/touring-pyright/src/pyright.rs b/crates/touring-pyright/src/pyright.rs
+index 16a52561..b53eb299 100644
+--- a/crates/touring-pyright/src/pyright.rs
++++ b/crates/touring-pyright/src/pyright.rs
+@@ -1096,6 +1096,84 @@ mod tests {
+         );
+     }
+ 
++    /// One finding per scope, each with the severity the policy gives it in `balde`.
++    fn achados_do_balde(balde: Balde) -> Vec<L2Achado> {
++        [
++            Escopo::Proprio,
++            Escopo::Projeto,
++            Escopo::Externo,
++            Escopo::Forma,
++            Escopo::Dinamico,
++        ]
++        .into_iter()
++        .map(|escopo| L2Achado {
++            classe: "nome".into(),
++            nome: format!("{escopo:?}"),
++            linha: 1,
++            escopo,
++            severidade: severidade(balde, escopo),
++            regra: "reportUndefinedVariable".into(),
++            mensagem: "m".into(),
++        })
++        .collect()
++    }
++
++    fn severidades(achados: &[L2Achado]) -> Vec<(Escopo, Severidade)> {
++        achados.iter().map(|a| (a.escopo, a.severidade)).collect()
++    }
++
++    #[test]
++    fn rebaixar_tmp_na_escrita_trata_o_fragmento_como_arquivo_do_projeto() {
++        use Escopo::{Dinamico, Externo, Forma, Projeto, Proprio};
++        use Severidade::{Deny, Warn};
++        let raiz = Path::new("/home/u/proj");
++        let mut tmp = achados_do_balde(Balde::Tmp);
++        assert_eq!(
++            severidades(&tmp),
++            [
++                (Proprio, Deny),
++                (Projeto, Deny),
++                (Externo, Deny),
++                (Forma, Warn),
++                (Dinamico, Warn)
++            ],
++            "controle: na execução o /tmp nega tudo que não é forma/dinâmico"
++        );
++        crate::achado::rebaixar_tmp_na_escrita(&mut tmp, "/tmp/frag.py", raiz);
++        assert_eq!(
++            severidades(&tmp),
++            [
++                (Proprio, Warn),
++                (Projeto, Warn),
++                (Externo, Deny),
++                (Forma, Warn),
++                (Dinamico, Warn)
++            ],
++            "escrita em /tmp: só o alvo EXTERNO (nenhuma edição o cria) segue negado"
++        );
++        // o resto é intocado: inline roda agora, arquivo do projeto já era julgado como arquivo
++        for (path, balde) in [
++            ("<string>", Balde::Inline),
++            ("<stdin>", Balde::Inline),
++            ("/home/u/proj/a.py", Balde::Arquivo),
++            ("/etc/a.py", Balde::Arquivo),
++        ] {
++            let mut achados = achados_do_balde(balde);
++            let antes = severidades(&achados);
++            crate::achado::rebaixar_tmp_na_escrita(&mut achados, path, raiz);
++            assert_eq!(severidades(&achados), antes, "{path}");
++        }
++        // um projeto que mora sob /tmp mantém o dele como arquivo (Balde::from_path)
++        let mut achados = achados_do_balde(Balde::Arquivo);
++        let antes = severidades(&achados);
++        crate::achado::rebaixar_tmp_na_escrita(
++            &mut achados,
++            "/tmp/proj/a.py",
++            Path::new("/tmp/proj"),
++        );
++        assert_eq!(severidades(&achados), antes);
++    }
++
+     #[test]
+     fn classe_do_achado_matches_the_layer_one_vocabulary() {
+         let cases = [
+diff --git a/crates/touring-server/src/cli/vgp.rs b/crates/touring-server/src/cli/vgp.rs
+index 420042d4..61c2ac39 100644
+--- a/crates/touring-server/src/cli/vgp.rs
++++ b/crates/touring-server/src/cli/vgp.rs
+@@ -4,7 +4,8 @@
+ //!
+ //! Contract (juiz_motor_vgp.py, 2026-10-08-vgp-motor-base):
+ //!   touring vgp check --path <virtual> --content-file <proposto> --project-root <raiz>
+-//!                     [--disk-file <disco>] [--overlay <orig>=<arquivo>]... [--lang python] [-j]
++//!                     [--disk-file <disco>] [--overlay <orig>=<arquivo>]... [--lang python]
++//!                     [--contexto escrita|execucao] [-j]
+ //!     -> {"verdict": "deny"|"warn"|"allow"|"unknown", "layer": 1, "lang": "python",
+ //!         "elapsed_ms": N, "findings": [...]}
+ //!
+@@ -16,7 +17,7 @@ use std::path::PathBuf;
+ 
+ use anyhow::Result;
+ use touring_code::vgp::sombra::camada2_ligada;
+-use touring_code::vgp::{CheckInput, check, lang_do_caminho};
++use touring_code::vgp::{CheckInput, Contexto, check_em, lang_do_caminho};
+ use touring_pyright::pyright::{L2Resultado, Severidade, Verdict as VerdictL2};
+ 
+ /// The one subcommand. `args` starts at the token after `vgp` (["check", "--path", ...]).
+@@ -28,10 +29,10 @@ pub fn run(args: &[String]) -> Result<()> {
+ /// Everything returns a CheckOutput — including argument and IO failures (verdict "unknown").
+ fn run_json(args: &[String]) -> touring_code::vgp::CheckOutput {
+     match parse_args(args) {
+-        Ok((input, camadas)) => {
+-            let mut out = check(&input);
++        Ok((input, camadas, contexto)) => {
++            let mut out = check_em(&input, contexto);
+             if camadas.contains(&2) {
+-                camada2(&mut out, &input);
++                camada2(&mut out, &input, contexto);
+             }
+             out
+         }
+@@ -64,7 +65,7 @@ fn run_json(args: &[String]) -> touring_code::vgp::CheckOutput {
+ /// lsp), only where the project turned it on — Python by default, every other language through
+ /// `[vgp] camada2_langs`. Asked for and off, `camada2` says so: a layer that did not run must never
+ /// read as a layer that found nothing.
+-fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput) {
++fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput, contexto: Contexto) {
+     if !camada2_ligada(&input.lang, &input.project_root) {
+         out.camada2 = Some(format!(
+             "desligada: camada 2 não está ligada para `{}` neste projeto ([vgp] camada2_langs)",
+@@ -79,7 +80,7 @@ fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput) {
+         .iter()
+         .map(|(origem, texto)| (origem.clone(), texto.clone()))
+         .collect();
+-    let l2 = touring_pyright::pool::checar_lang(
++    let mut l2 = touring_pyright::pool::checar_lang(
+         &input.lang,
+         &input.project_root,
+         &input.path,
+@@ -87,9 +88,23 @@ fn camada2(out: &mut touring_code::vgp::CheckOutput, input: &CheckInput) {
+         input.disk.as_deref(),
+         &overlays,
+     );
++    no_momento(&mut l2, input, contexto);
+     fundir_camada2(out, &l2);
+ }
+ 
++/// The severities of the moment the verdict is asked at — the layer-1 rule, applied to layer 2: a
++/// fragment WRITTEN under /tmp can still be completed by the next edit; the same file asked at
++/// EXECUTION keeps the /tmp bucket's verdict.
++fn no_momento(l2: &mut L2Resultado, input: &CheckInput, contexto: Contexto) {
++    if contexto == Contexto::Escrita {
++        touring_pyright::achado::rebaixar_tmp_na_escrita(
++            &mut l2.achados,
++            &input.path,
++            &input.project_root,
++        );
++    }
++}
++
+ /// Why [`parse_args`] gave up on building a [`CheckInput`]. `lang` is what the file WOULD have
+ /// been judged as; `nao_utf8` marks a file that exists but is not text: that is "could not
+ /// measure" (`unknown` with a reason), not a bad argument, so it carries no `erro` finding —
+@@ -171,6 +186,7 @@ struct Opt {
+     disk_file: Option<String>,
+     lang: Option<String>,
+     camadas: Option<String>,
++    contexto: Option<String>,
+ }
+ 
+ impl Opt {
+@@ -182,6 +198,7 @@ impl Opt {
+             "--disk-file" => self.disk_file = Some(value),
+             "--lang" => self.lang = Some(value),
+             "--camadas" => self.camadas = Some(value),
++            "--contexto" => self.contexto = Some(value),
+             _ => {}
+         }
+     }
+@@ -205,7 +222,7 @@ fn lang_efetiva(explicita: Option<String>, path: &str) -> String {
+         .unwrap_or_else(|| "python".into())
+ }
+ 
+-fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>), Recusa> {
++fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>, Contexto), Recusa> {
+     let mut o = Opt::default();
+     // sem flags lidos ainda a linguagem do pedido é a default (a mesma de `lang_efetiva`)
+     let padrao = lang_efetiva(None, "<string>");
+@@ -245,6 +262,16 @@ fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>), Rec
+     // a linguagem sai do pedido (flag, senão extensão) ANTES de qualquer leitura de conteúdo
+     let path = o.path.unwrap_or_else(|| "<string>".into());
+     let lang = lang_efetiva(o.lang, &path);
++    // QUANDO o veredito é pedido (default: a escrita — o que os hooks de Write/Edit respondem)
++    let contexto = match o.contexto.as_deref() {
++        None => Contexto::default(),
++        Some(raw) => Contexto::parse(raw).ok_or_else(|| {
++            Recusa::argumento(
++                format!("--contexto espera `escrita` ou `execucao`, recebeu `{raw}`"),
++                &lang,
++            )
++        })?,
++    };
+     let content_file = o
+         .content_file
+         .ok_or_else(|| Recusa::argumento("--content-file é obrigatório", &lang))?;
+@@ -272,6 +299,7 @@ fn parse_args(args: &[String]) -> std::result::Result<(CheckInput, Vec<u8>), Rec
+             lang,
+         },
+         camadas,
++        contexto,
+     ))
+ }
+ 
+@@ -418,7 +446,7 @@ mod tests {
+             ("/p/a.html", "html"),
+             ("/p/a.py", "python"),
+         ] {
+-            let (input, _) = parse_args(&args(&[
++            let (input, _, _) = parse_args(&args(&[
+                 "check",
+                 "--path",
+                 path,
+@@ -487,11 +515,111 @@ mod tests {
+             "/tmp",
+             "-j",
+         ]));
+-        assert_eq!(out.verdict, "deny");
++        // FRAG: sem `--contexto` o veredito é o da ESCRITA — o nome ausente do projeto num
++        // fragmento em /tmp só avisa
++        assert_eq!(out.verdict, "warn");
+         assert!(
+             out.findings
+                 .iter()
+-                .any(|f| f.nome == "cp" && f.severidade == "deny")
++                .any(|f| f.nome == "cp" && f.severidade == "warn")
++        );
++        let _ = std::fs::remove_dir_all(&tmp);
++    }
++
++    #[test]
++    fn a_camada_2_do_cli_segue_o_momento_pedido() {
++        use touring_pyright::achado::{Balde, severidade};
++        let achados = [Escopo::Proprio, Escopo::Externo]
++            .into_iter()
++            .map(|escopo| L2Achado {
++                classe: "nome".into(),
++                nome: format!("{escopo:?}"),
++                linha: 1,
++                escopo,
++                severidade: severidade(Balde::Tmp, escopo),
++                regra: "reportUndefinedVariable".into(),
++                mensagem: "m".into(),
++            })
++            .collect::<Vec<_>>();
++        let entrada = |path: &str| CheckInput {
++            path: path.into(),
++            content: String::new(),
++            project_root: PathBuf::from("/home/u/proj"),
++            disk: None,
++            overlays: HashMap::new(),
++            lang: "python".into(),
++        };
++        let sev = |l2: &L2Resultado| l2.achados.iter().map(|a| a.severidade).collect::<Vec<_>>();
++        let mut escrita = L2Resultado::from_achados(achados.clone(), 1);
++        no_momento(&mut escrita, &entrada("/tmp/frag.py"), Contexto::Escrita);
++        assert_eq!(sev(&escrita), [Severidade::Warn, Severidade::Deny]);
++        let mut execucao = L2Resultado::from_achados(achados.clone(), 1);
++        no_momento(&mut execucao, &entrada("/tmp/frag.py"), Contexto::Execucao);
++        assert_eq!(sev(&execucao), [Severidade::Deny, Severidade::Deny]);
++        let mut inline = L2Resultado::from_achados(achados, 1);
++        no_momento(&mut inline, &entrada("<string>"), Contexto::Escrita);
++        assert_eq!(
++            sev(&inline),
++            [Severidade::Deny, Severidade::Deny],
++            "o inline roda agora"
++        );
++    }
++
++    #[test]
++    fn contexto_execucao_nega_o_fragmento_em_tmp_e_contexto_invalido_e_recusado() {
++        let tmp = std::env::temp_dir().join("vgp-cli-contexto");
++        std::fs::create_dir_all(&tmp).unwrap();
++        let f = tmp.join("a.py");
++        std::fs::write(&f, "print(cp.PASTA)\n").unwrap();
++        let pedido = |contexto: Option<&str>, path: &str| {
++            let mut a = vec![
++                "check",
++                "--path",
++                path,
++                "--content-file",
++                f.to_str().unwrap(),
++                "--project-root",
++                "/tmp",
++                "-j",
++            ];
++            if let Some(c) = contexto {
++                a.extend(["--contexto", c]);
++            }
++            run_json(&args(&a))
++        };
++        for c in ["execucao", "execução"] {
++            let out = pedido(Some(c), "/tmp/x.py");
++            assert_eq!(
++                out.verdict, "deny",
++                "{c}: o mesmo arquivo, agora para rodar"
++            );
++            assert!(
++                out.findings
++                    .iter()
++                    .any(|f| f.nome == "cp" && f.severidade == "deny")
++            );
++        }
++        assert_eq!(pedido(Some("escrita"), "/tmp/x.py").verdict, "warn");
++        assert_eq!(
++            pedido(None, "/tmp/x.py").verdict,
++            "warn",
++            "default = escrita"
++        );
++        assert_eq!(
++            pedido(Some("execucao"), "/home/u/proj/src/x.py").verdict,
++            "warn",
++            "fora do scratch a política não muda, só o momento"
++        );
++        assert_eq!(pedido(Some("execucao"), "<string>").verdict, "deny");
++        // contexto desconhecido: recusa com motivo (unknown), nunca um veredito inventado
++        let ruim = pedido(Some("rodar"), "/tmp/x.py");
++        assert_eq!(ruim.verdict, "unknown");
++        assert!(
++            ruim.motivo
++                .as_deref()
++                .is_some_and(|m| m.contains("--contexto") && m.contains("rodar")),
++            "{:?}",
++            ruim.motivo
+         );
+         let _ = std::fs::remove_dir_all(&tmp);
+     }

@@ -1,0 +1,226 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (arquivo) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)",
+  "falso deny (inline) limite superior 95% 1.05% > 1% (2/600, taxa 0.333%) — com n=600 o teto admite no máximo 1 falso(s)"
+ ],
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 2,
+   "n": 600,
+   "taxa": 0.0033333333333333335,
+   "limite_superior_95": 0.010455489384196302,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 2,
+   "n": 600,
+   "taxa": 0.0033333333333333335,
+   "limite_superior_95": 0.010455489384196302,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 1
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.8461538461538461,
+  "inline": 0.7777777777777778
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   11,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   5,
+   13
+  ],
+  "inline": [
+   21,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   0,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "b9d26a878f4c",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea/ffc7-ancorados.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "srv",
+     "linha": 90,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "9a8eed8a7502",
+   "balde": "arquivo",
+   "path": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/83f700cf-fc7e-4020-a92b-86bc7b531c3e/scratchpad/exec/trecho_g3.py",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 12,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 23,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    },
+    {
+     "classe": "nome",
+     "nome": "Path",
+     "linha": 30,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "6a25b00f2584",
+   "balde": "inline",
+   "path": "<stdin>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "_publicar",
+     "linha": 10,
+     "severidade": "deny",
+     "sugestao": "módulo `scripts.eleitoral.publicar_mapa` não tem atributo `_publicar`",
+     "reais": [
+      "ALCANCE_DO_PROTOCOLO",
+      "ARTEFATO",
+      "ATRIBUTOS_DO_COFRE",
+      "AUTODECLARACAO_INTERNA",
+      "AUTORIZACOES_DO_GABRIEL",
+      "Autorizacao",
+      "CABECALHOS_EXIGIDOS",
+      "CAMINHO_INEXISTENTE"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "636f9a7adec1",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "__file__",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "módulo `folium` não tem atributo `__file__`",
+     "reais": [
+      "Choropleth",
+      "Circle",
+      "CircleMarker",
+      "ClickForLatLng",
+      "ClickForMarker",
+      "ColorLine",
+      "ColorMap",
+      "Control"
+     ]
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 600
+ },
+ "avisos_em_negativos": 73,
+ "defeito_de_corpus": [],
+ "p95_ms": 132.81232400000002,
+ "chamadas": 1264,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "cbd725d878ee",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "JaccardComputer",
+   "verdict": "allow"
+  },
+  {
+   "id": "eae0c2b76058",
+   "origem": "tmp",
+   "classe": "atributo",
+   "esperado": "parse",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  },
+  {
+   "id": "f501013d71d9",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "DriftDetector",
+   "verdict": "allow"
+  }
+ ]
+}

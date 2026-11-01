@@ -1,0 +1,11 @@
+{
+  "phase": "F1",
+  "entities": [
+    {
+      "entity_id": "phase:F1",
+      "type": "phase",
+      "description": "Auto-tagging + CLI completos e DEPLOYADOS: (1) derive_tags deterministico (lang<-ext, kind<-entry_type, domain<-path/key segments, status:stable) roda nos DOIS write paths (RlmMemory::store_internal + cli_memory_store RPC via apply_memory_tags); (2) SQL helpers single-source em tags.rs (ensure_tag_schema/upsert_tag/fetch_tags/delete_tag/entry_keys_with_all_tags/split_query_tags) consumidas por ambos os paths \u2014 anti 'cinco sitios'; (3) handlers RPC cli-memory-tag-add/tags/query registrados no hook_registry (dispatch table + 2 name lists) com cadeia de re-exports hook-runtime->touring-cli->dispatch; (4) CLI clap memory tag|tags|query + --tag repetivel no store; (5) trust ordering explicit>code_sync>auto>backfill. E2E live 7/7: store->tags->query conjuntiva->hibrida texto+tag->reject c/ sugestao->unseeded warn. Gates: 158 rl::memory + 21 cli::memory testes, clippy -D limpo 5 crates, update-touring exit 0. Gotcha registrado: CREATE_MEMORY_ENTRIES dual schema (ceg_impls vs rlm) com branch DROP destrutivo \u2014 candidato convergencia."
+    }
+  ],
+  "relations": []
+}

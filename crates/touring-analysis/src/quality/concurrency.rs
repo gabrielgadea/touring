@@ -194,6 +194,29 @@ fn py_async_with_sync_lock(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
     if has_sync_lock { 1 } else { 0 }
 }
 
+/// Detector 7 (Python) — `threading.Thread` spawned + `global` variable
+/// mutated without a `threading.Lock` / `threading.RLock`. Classic data-race
+/// pattern: multiple threads modify a shared module-level variable with no
+/// synchronisation. If the file already uses a Lock, the pattern is considered
+/// mitigated (the dev knows about synchronisation).
+fn py_thread_shared_global(bytes: &[u8], regions: &[(usize, usize)]) -> usize {
+    let has_thread =
+        memmem::find_iter(bytes, b"threading.Thread").any(|off| !offset_suppressed(off, regions));
+    if !has_thread {
+        return 0;
+    }
+    let has_global =
+        memmem::find_iter(bytes, b"global ").any(|off| !offset_suppressed(off, regions));
+    if !has_global {
+        return 0;
+    }
+    // Mitigated: file already uses a threading.Lock or threading.RLock.
+    let has_lock = memmem::find_iter(bytes, b"threading.Lock(")
+        .chain(memmem::find_iter(bytes, b"threading.RLock("))
+        .any(|off| !offset_suppressed(off, regions));
+    if has_lock { 0 } else { 1 }
+}
+
 // ── Tiny brace-matched scope finder (paren-aware, string-literal-aware) ─────
 /// `Some(open)` if `{` at brace depth 0 is found at or after `start` in
 /// `bytes`, tracking paren/bracket depth so a `for { … }` or `loop { … }`
@@ -331,6 +354,11 @@ pub fn analyze_concurrency(source: &str, lang: &str) -> ConcurrencyReport {
                     py_async_with_sync_lock(bytes, &regions),
                     1.0,
                 );
+            report.push(
+                "threading.Thread + global variable without Lock (data race — Python)",
+                py_thread_shared_global(bytes, &regions),
+                1.0,
+            );
         }
         _ => {}
     }

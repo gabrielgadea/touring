@@ -28,6 +28,13 @@ pub enum GraphError {
     /// The requested edge would introduce a cycle.
     #[error("cycle detected")]
     CycleDetected,
+
+    /// A declared dependency references a node that does not exist (never
+    /// materialized as a stub — 25/09/2026, a d4: the stub entered the
+    /// topological order and the critical path, and `freeze` answered «cycle»
+    /// where the truth was «unresolved»). Carries the named violations.
+    #[error("unresolved dependencies: {0}")]
+    UnresolvedDependencies(String),
 }
 
 // ---------------------------------------------------------------------------
@@ -436,29 +443,19 @@ impl MutableGeneratorGraph {
             .insert(id.clone(), ExecutionStatus::Pending);
         self.generation += 1;
 
-        // Process dependencies: for each dep, add edge dep -> this_node
+        // Process dependencies: for each KNOWN dep, add edge dep -> this_node.
+        // An UNKNOWN dep is never materialized as a stub node (25/09/2026, a
+        // d4, medido com controle positivo): o nó-fantasma de contrato vazio
+        // entrava no topo e no caminho crítico, e o `freeze` dizia «cycle»
+        // onde a verdade era «unresolved». Fica registrado como NÃO RESOLVIDO
+        // — o validate_dependencies e o freeze o nomeiam.
         for dep_id in &depends_on {
-            // Auto-create missing dependency nodes as stubs
             if !self.node_index_by_id.contains_key(dep_id) {
-                let stub = GeneratorNode {
-                    id: dep_id.clone(),
-                    description: format!("auto-created dependency of {}", id),
-                    generator_type: GeneratorType::Template,
-                    inputs_data: Vec::new(),
-                    inputs_templates: Vec::new(),
-                    inputs_constraints: Vec::new(),
-                    outputs: Default::default(),
-                    contract: Default::default(),
-                    acceptance_criteria: String::new(),
-                    depends_on: Vec::new(),
-                };
-                let dep_idx = self.graph.add_node(stub);
-                self.node_index_by_id.insert(dep_id.clone(), dep_idx);
-                self.id_by_node_index.insert(dep_idx, dep_id.clone());
-                self.dependents.insert(dep_id.clone(), Vec::new());
-                self.dependencies.insert(dep_id.clone(), Vec::new());
-                self.execution_status
-                    .insert(dep_id.clone(), ExecutionStatus::Pending);
+                self.dependencies
+                    .entry(id.clone())
+                    .or_default()
+                    .push(dep_id.clone());
+                continue;
             }
 
             if let (Some(&dep_idx), Some(&node_idx)) = (
@@ -527,26 +524,16 @@ impl MutableGeneratorGraph {
         // Handle dependencies: for each dep, add edge dep -> this_node
         if let Some(dep_list) = deps {
             for dep_id in &dep_list {
+                // An UNKNOWN dep is never materialized as a stub (the same
+                // defect class as add_node's, fixed 25/09/2026 — this
+                // convenience form had its OWN copy of the stub block):
+                // recorded as unresolved, named by validate_dependencies/freeze.
                 if !self.node_index_by_id.contains_key(dep_id) {
-                    let placeholder = GeneratorNode {
-                        id: dep_id.clone(),
-                        description: format!("auto-created dependency of {}", id_str),
-                        generator_type: GeneratorType::Template,
-                        inputs_data: Vec::new(),
-                        inputs_templates: Vec::new(),
-                        inputs_constraints: Vec::new(),
-                        outputs: Default::default(),
-                        contract: Default::default(),
-                        acceptance_criteria: String::new(),
-                        depends_on: Vec::new(),
-                    };
-                    let dep_idx = self.graph.add_node(placeholder);
-                    self.node_index_by_id.insert(dep_id.clone(), dep_idx);
-                    self.id_by_node_index.insert(dep_idx, dep_id.clone());
-                    self.dependents.insert(dep_id.clone(), Vec::new());
-                    self.dependencies.insert(dep_id.clone(), Vec::new());
-                    self.execution_status
-                        .insert(dep_id.clone(), ExecutionStatus::Pending);
+                    self.dependencies
+                        .entry(id_str.clone())
+                        .or_default()
+                        .push(dep_id.clone());
+                    continue;
                 }
 
                 self.graph.add_edge(
@@ -572,7 +559,7 @@ impl MutableGeneratorGraph {
         Ok(())
     }
 
-    /// Add an edge. Auto-creates missing endpoint nodes as stubs.
+    /// Add an edge. Both endpoint nodes must exist (NodeNotFound otherwise).
     pub fn add_edge(
         &mut self,
         from: impl Into<String>,
@@ -753,15 +740,25 @@ impl MutableGeneratorGraph {
     fn compute_levels(&self) -> Result<Vec<Vec<String>>, GraphError> {
         self.validate_acyclic()?;
 
-        let mut in_degree: HashMap<String, usize> = HashMap::new();
-        for id in self.node_index_by_id.keys() {
-            in_degree.insert(id.clone(), 0);
-        }
-        for deps in self.dependencies.values() {
-            for dep in deps {
-                if let Some(entry) = in_degree.get_mut(dep) {
-                    *entry += 1;
-                }
+        // 25/09/2026 (a d4, medido com controle positivo): o grau de entrada de
+        // um nó é o número de DEPENDÊNCIAS DELE. O código somava na
+        // DEPENDÊNCIA (`in_degree[dep] += 1` sobre `dependencies.values()`), o
+        // BFS partia dos sumidouros, descia por `dependents` (vazio) e sobrava
+        // tudo: «cycle detected» em A→B, no diamante e no linear de 3, com o
+        // topological_sort dizendo acíclico. Só dependências CONHECIDAS contam
+        // — uma desconhecida nunca vira stub; é não resolvida, e o
+        // validate_dependencies/freeze a nomeia.
+        let mut in_degree: HashMap<String, usize> = self
+            .node_index_by_id
+            .keys()
+            .map(|id| (id.clone(), 0))
+            .collect();
+        for (id, deps) in &self.dependencies {
+            if let Some(entry) = in_degree.get_mut(id) {
+                *entry = deps
+                    .iter()
+                    .filter(|d| self.node_index_by_id.contains_key(*d))
+                    .count();
             }
         }
 
@@ -817,34 +814,64 @@ impl MutableGeneratorGraph {
 
     /// Return node ids whose `GeneratorContract` is incomplete.
     pub fn validate_contracts(&self) -> Vec<String> {
-        self.graph
-            .node_indices()
-            .filter_map(|idx| {
-                let node = self.graph.node_weight(idx)?;
-                if !node.contract.is_complete() {
-                    self.id_by_node_index.get(&idx).cloned()
-                } else {
-                    None
-                }
-            })
-            .collect()
+        // O contrato é o do Python (generator_graph.py:238-252, medido): por
+        // nó, EM ORDEM de id, uma mensagem por campo faltante — o contrato
+        // (precondition/postcondition/invariant) E a tríade
+        // (execution/validation/rollback), que aqui passava vazia em silêncio.
+        let mut ids: Vec<&String> = self.node_index_by_id.keys().collect();
+        ids.sort();
+        let mut violations = Vec::new();
+        for id in ids {
+            let Some(&idx) = self.node_index_by_id.get(id) else {
+                continue;
+            };
+            let Some(node) = self.graph.node_weight(idx) else {
+                continue;
+            };
+            if node.contract.precondition.is_empty() {
+                violations.push(format!("{id}: missing precondition"));
+            }
+            if node.contract.postcondition.is_empty() {
+                violations.push(format!("{id}: missing postcondition"));
+            }
+            if node.contract.invariant.is_empty() {
+                violations.push(format!("{id}: missing invariant"));
+            }
+            if node.outputs.execution_script.is_empty() {
+                violations.push(format!("{id}: missing execution_script (triad mandatory)"));
+            }
+            if node.outputs.validation_script.is_empty() {
+                violations.push(format!("{id}: missing validation_script (triad mandatory)"));
+            }
+            if node.outputs.rollback_script.is_empty() {
+                violations.push(format!("{id}: missing rollback_script (triad mandatory)"));
+            }
+        }
+        violations
     }
 
-    /// Return node ids whose `depends_on` list references a missing node.
+    /// Return one NAMED violation per unresolved dependency — the Python
+    /// contract (`{nid}: depends on unknown node '{dep}'`, ordered by node id),
+    /// never a bare id list.
     pub fn validate_dependencies(&self) -> Vec<String> {
         let known: std::collections::HashSet<&String> = self.node_index_by_id.keys().collect();
-        self.graph
-            .node_indices()
-            .filter_map(|idx| {
-                let node = self.graph.node_weight(idx)?;
-                let has_unresolved = node.depends_on.iter().any(|dep_id| !known.contains(dep_id));
-                if has_unresolved {
-                    self.id_by_node_index.get(&idx).cloned()
-                } else {
-                    None
+        let mut ids: Vec<&String> = self.node_index_by_id.keys().collect();
+        ids.sort();
+        let mut violations = Vec::new();
+        for id in ids {
+            let Some(&idx) = self.node_index_by_id.get(id) else {
+                continue;
+            };
+            let Some(node) = self.graph.node_weight(idx) else {
+                continue;
+            };
+            for dep in &node.depends_on {
+                if !known.contains(dep) {
+                    violations.push(format!("{id}: depends on unknown node '{dep}'"));
                 }
-            })
-            .collect()
+            }
+        }
+        violations
     }
 
     /// Immutable snapshot of the DAG with critical path + parallel groups.
@@ -852,6 +879,13 @@ impl MutableGeneratorGraph {
         &self,
         objective_hash: Option<&str>,
     ) -> Result<crate::rl::aco::models::GeneratorGraphModel, GraphError> {
+        // Unresolved dependencies are named BEFORE any cycle verdict — with the
+        // stub materialization gone (25/09/2026), a phantom dependency used to
+        // surface here as «cycle detected», a lie about the graph's shape.
+        let unresolved = self.validate_dependencies();
+        if !unresolved.is_empty() {
+            return Err(GraphError::UnresolvedDependencies(unresolved.join("; ")));
+        }
         let critical_path = self.get_critical_path()?;
         let parallelizable = self.detect_parallelizable()?;
         let nodes: Vec<crate::rl::aco::models::GeneratorNode> = self
@@ -1015,5 +1049,86 @@ mod tests {
         g.add_edge("a", "c", None).unwrap();
         let succ = g.successors("a".to_string()).unwrap();
         assert_eq!(succ.len(), 2);
+    }
+
+    // ── 25/09/2026 (a d4, com controle positivo): os 4 contratos de
+    // comportamento, medidos em grafos COM aresta ────────────────────────────
+
+    fn diamond() -> MutableGeneratorGraph {
+        let mut g = MutableGeneratorGraph::new();
+        g.add_node_with_deps("A", "template", None).unwrap();
+        g.add_node_with_deps("B", "template", Some(vec!["A".into()]))
+            .unwrap();
+        g.add_node_with_deps("C", "template", Some(vec!["A".into()]))
+            .unwrap();
+        g.add_node_with_deps("D", "template", Some(vec!["B".into(), "C".into()]))
+            .unwrap();
+        g
+    }
+
+    #[test]
+    fn levels_and_parallelism_work_in_a_graph_with_edges() {
+        // O Kahn invertido acusava «cycle detected» em QUALQUER grafo com
+        // aresta (A→B, diamante, linear de 3) enquanto o topological_sort
+        // dizia acíclico.
+        let g = diamond();
+        let levels = g.get_all_levels().expect("o diamante é acíclico");
+        assert_eq!(
+            levels,
+            vec![
+                vec!["A".to_string()],
+                vec!["B".to_string(), "C".to_string()],
+                vec!["D".to_string()]
+            ]
+        );
+        let par = g.detect_parallelizable().expect("sem ciclo");
+        assert!(par.iter().any(|level| level.len() == 2));
+        let mut g2 = MutableGeneratorGraph::new();
+        g2.add_node_with_deps("A", "template", None).unwrap();
+        g2.add_node_with_deps("B", "template", Some(vec!["A".into()]))
+            .unwrap();
+        g2.add_node_with_deps("C", "template", Some(vec!["B".into()]))
+            .unwrap();
+        assert_eq!(g2.get_all_levels().expect("linear").len(), 3);
+        assert!(g2.freeze(None).is_ok(), "freeze em grafo com aresta passa");
+    }
+
+    #[test]
+    fn unknown_dependency_is_never_a_stub_and_is_named_everywhere() {
+        let mut g = MutableGeneratorGraph::new();
+        g.add_node_with_deps("A", "template", Some(vec!["NONEXISTENT".into()]))
+            .unwrap();
+        assert_eq!(g.len(), 1, "nenhum nó-stub foi criado");
+        assert_eq!(
+            g.validate_dependencies(),
+            vec!["A: depends on unknown node 'NONEXISTENT'".to_string()],
+            "a mensagem exata do Python, não o id solto"
+        );
+        match g.freeze(None) {
+            Err(GraphError::UnresolvedDependencies(msg)) => {
+                assert!(msg.contains("NONEXISTENT"), "{msg}");
+            }
+            other => panic!("freeze deve recusar com unresolved, veio: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn validate_contracts_names_the_contract_and_the_triad_with_messages() {
+        let mut g = MutableGeneratorGraph::new();
+        g.add_node_with_deps("X", "template", None).unwrap(); // tudo vazio
+        let v = g.validate_contracts();
+        for expected in [
+            "X: missing precondition",
+            "X: missing postcondition",
+            "X: missing invariant",
+            "X: missing execution_script (triad mandatory)",
+            "X: missing validation_script (triad mandatory)",
+            "X: missing rollback_script (triad mandatory)",
+        ] {
+            assert!(
+                v.contains(&expected.to_string()),
+                "faltou «{expected}» em {v:?}"
+            );
+        }
     }
 }

@@ -1,0 +1,10 @@
+{
+ "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout_disjunto_20261011",
+ "sha_tree": "c495bcab66718230",
+ "arquivos": 2077,
+ "bytes": 13017450,
+ "holdout_meta_sha256": "94ee0349a4d553d90999fe9288d664e0ea303b5613ba1b86dcfcab4ce73e298e",
+ "entradas_jsonl_sha256": "9d8ee18a15910b3969e0546eee47582f7d9945ef7cc4f28df54f8fb5ac4b6831",
+ "entradas_inline_neg_jsonl_sha256": "d761fc3e4e8286d06fe0820f802bb4f018090ac70304d986f815cc54a7ba357b",
+ "selado": "o motor e o juiz NAO rodaram neste corpus; abrir so depois do P0 e conferir o sha_tree antes"
+}

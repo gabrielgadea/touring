@@ -1,0 +1,45 @@
+{
+  "phase": "S1-ast-grep-source-layer",
+  "entities": [
+    {
+      "entity_id": "phase:S1-ast-grep-source-layer",
+      "type": "phase",
+      "description": "AstGrepRiskSignalLayer::enrich prefere ctx.analysable_text() (conteudo proposto, SignalContext v2) via scan_source_cached e cai para scan_path_cached sem proposta (pre_read intacto). Layer registrado nos pipelines de pre_write e pre_edit (ja estava em pre_read). Testes: 2 novos no layer (arquivo inexistente + proposta vence disco limpo), 8/8 layer_tests; handler pre_write flags [risk] unwrap=1 em arquivo novo (test_pre_write_flags_unwrap_in_proposed_content_of_a_new_file); pre_write 68/68, pre_edit+pre_read 204/204 com --features pre-hooks,post-hooks."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S1-ast-grep-source-layer|produces|memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done",
+      "source": "phase:S1-ast-grep-source-layer",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S1-ast-grep-source-layer:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

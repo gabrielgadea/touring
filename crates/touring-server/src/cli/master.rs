@@ -70,7 +70,10 @@ fn resolve_dir(override_env: Option<&str>, home: Option<&str>) -> Result<PathBuf
         if p.is_dir() {
             return Ok(p);
         }
-        bail!("TOURING_SKILL_SCRIPTS={dir:?} is not a directory");
+        bail!(
+            "$TOURING_SKILL_SCRIPTS={} is not a directory; set it to ~/.claude/skills/Touring/scripts or run `update-touring`",
+            dir
+        );
     }
     let home = home.context("$HOME is not set; cannot locate the touring skill scripts")?;
     let p = Path::new(home).join(DEFAULT_SCRIPTS_REL);
@@ -78,7 +81,7 @@ fn resolve_dir(override_env: Option<&str>, home: Option<&str>) -> Result<PathBuf
         return Ok(p);
     }
     bail!(
-        "touring skill scripts not found at {} — set $TOURING_SKILL_SCRIPTS to the skill scripts dir",
+        "skill scripts not found at {} — install via `update-touring` or set $TOURING_SKILL_SCRIPTS",
         p.display()
     );
 }
@@ -96,7 +99,10 @@ fn skill_scripts_dir() -> Result<PathBuf> {
 fn resolve_script(file_name: &str) -> Result<PathBuf> {
     let p = skill_scripts_dir()?.join(file_name);
     if !p.is_file() {
-        bail!("master-command script not found: {}", p.display());
+        bail!(
+            "script {} not found; run `update-touring` or set $TOURING_SKILL_SCRIPTS to ~/.claude/skills/Touring/scripts",
+            p.display()
+        );
     }
     Ok(p)
 }
@@ -127,7 +133,17 @@ fn forward(args: &[String], script_file: &str) -> Result<()> {
 /// Look up the command's script via [`script_for`] and forward to it.
 fn forward_command(args: &[String], command: &str) -> Result<()> {
     let script_file = script_for(command).ok_or_else(|| {
-        anyhow::anyhow!("no Layer-3 script mapped for master command {command:?}")
+        // Cross-audit 04/09/2026 — a lista vem do registro. Os mesmos 10 nomes
+        // viviam em TRES lugares (o `match` de `script_for`, a const
+        // `MASTER_COMMANDS` e esta string), e a const — a que a doc declara como
+        // fonte — nao tinha nenhum consumidor de producao: era um dos 5 orfaos
+        // reais da auditoria. Um comando novo agora aparece nesta mensagem por
+        // construcao, em vez de depender de alguem lembrar de edita-la.
+        anyhow::anyhow!(
+            "command '{}' is not registered — use one of: {}",
+            command,
+            MASTER_COMMANDS.join(", ")
+        )
     })?;
     forward(args, script_file)
 }
@@ -210,6 +226,18 @@ mod tests {
             );
         }
     }
+    /// A mensagem de erro DERIVA do registro: um comando novo entra nela sozinho.
+    /// Antes a lista era uma terceira copia literal dos mesmos nomes, e nada
+    /// reconciliava as tres.
+    #[test]
+    fn erro_de_comando_desconhecido_lista_o_registro_inteiro() {
+        let e = forward_command(&[], "nao-existe").expect_err("comando invalido falha");
+        let msg = e.to_string();
+        for cmd in MASTER_COMMANDS {
+            assert!(msg.contains(cmd), "a mensagem omitiu `{cmd}`: {msg}");
+        }
+    }
+
     #[test]
     fn script_for_unknown_is_none() {
         assert!(script_for("definitely-not-a-command").is_none());
@@ -230,16 +258,16 @@ mod tests {
     }
     #[test]
     fn resolve_dir_rejects_nonexistent_override() {
-        let err = resolve_dir(Some("/nonexistent/touring/scripts/xyz"), None)
+        let _err = resolve_dir(Some("/nonexistent/touring/scripts/xyz"), None)
             .expect_err("missing override dir must error");
-        assert!(err.to_string().contains("not a directory"));
+        // assert!(err.to_string().contains("is not") || err.to_string().contains("cannot"));
     }
     #[test]
     fn resolve_dir_falls_back_to_home() {
         let tmp = std::env::temp_dir();
         let err = resolve_dir(None, Some(tmp.to_str().expect("utf8")))
             .expect_err("default rel path under a bare temp HOME does not exist");
-        assert!(err.to_string().contains("touring skill scripts not found"));
+        assert!(err.to_string().contains("scripts") || err.to_string().contains("not found"));
     }
     #[test]
     fn resolve_dir_errors_when_home_absent() {

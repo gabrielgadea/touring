@@ -7,12 +7,13 @@
 
 use crate::cli_handlers::{
     ARCTIC_QUERY_PREFIX, GotchaStats, KnowledgeStats, discover_canonical_dbs,
-    memory_recall_sql_federated, semantic_or_hash_embedding, semantic_text_embedding,
+    memory_recall_sql_federated, semantic_or_hash_embeddings, semantic_text_embedding,
     touring_claude_dir,
 };
 use crate::runtime::HookRuntime;
 use rusqlite::params;
 use touring_analysis::e2e::schema_guard;
+use touring_foundation::text_sanitize::{sanitize_json_items, sanitize_json_strings};
 
 /// Entries a single `memory reindex` call will embed before yielding.
 ///
@@ -195,7 +196,48 @@ fn rerank_by_case_value(mut entries: Vec<serde_json::Value>) -> Vec<serde_json::
             Some(_) => 2,
         }
     }
-    entries.sort_by_key(class_of);
+    // R5 (29/08, ordem de Gabriel): dentro da MESMA classe de valor, curadoria
+    // antes de traço de processo. A classe 1 (unobserved) é onde as lições
+    // curadas vivem por desenho — e o volume de `decomp:`/`loop:`/`subtask:`
+    // as afogava (`curated_recall_share` 0,177 medido 29/08: 82% dos slots em
+    // não-curadas). O sort segue estável: valor decide a classe, procedência
+    // decide dentro dela, e o RRF decide dentro de cada (classe, procedência).
+    const PROCESS_TRACE_PREFIXES: &[&str] = &["outcome:", "decomp:", "subtask:", "loop:", "adw:"];
+    fn is_process_trace(entry: &serde_json::Value) -> bool {
+        entry
+            .get("key")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|k| PROCESS_TRACE_PREFIXES.iter().any(|p| k.starts_with(p)))
+    }
+    // P2 (graph contract, 2026-08-30): structural pheromone INSIDE the
+    // (class, provenance) pair — a node with generated-by AND ≥2 edges
+    // outranks a connected one, which outranks an orphan, never across
+    // classes. Reads the 1-hop `links` attach_one_hop_links put on the
+    // entry BEFORE this sort (measured corpus: 27/31 writers are islands;
+    // the bucket is what makes linking pay at read time).
+    fn structure_bucket(entry: &serde_json::Value) -> u8 {
+        let Some(links) = entry.get("links").and_then(serde_json::Value::as_array) else {
+            return 2;
+        };
+        if links.is_empty() {
+            return 2;
+        }
+        let has_provenance = links
+            .iter()
+            .any(|l| l.get("rel").and_then(serde_json::Value::as_str) == Some("generated-by"));
+        if has_provenance && links.len() >= 2 {
+            0
+        } else {
+            1
+        }
+    }
+    entries.sort_by_key(|e| {
+        (
+            class_of(e),
+            u8::from(is_process_trace(e)),
+            structure_bucket(e),
+        )
+    });
     entries
 }
 
@@ -321,19 +363,56 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .and_then(serde_json::Value::as_f64)
         .unwrap_or(0.0)
         .clamp(-1.0, 1.0);
-    if query.is_empty() {
-        return serde_json::json!({ "error": "query is required" }).to_string();
-    }
+    let all_pending = payload
+        .get("all_pending")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false);
 
-    let Some(pending) = rt.learning.case_ledger.take(&credit_key(query)) else {
-        // Not an error: crediting a query nobody recalled is a no-op, and the
-        // count of these is itself the signal that a caller is crediting the
-        // wrong key.
+    // Two ways to name what gets credited. Naming the query is exact and stays
+    // the default. Draining is for the caller that knows the VERDICT but not
+    // the questions — a phase gate, a run outcome — which is every caller there
+    // actually was: measured 2026-08-25, this function had zero callers and the
+    // ledger's `credited_count` was 0 for the daemon's whole life, because
+    // remembering the queries was left to whoever closed the phase.
+    let claims: Vec<(String, Vec<String>)> = if all_pending {
+        rt.learning
+            .case_ledger
+            .drain_pending()
+            .into_iter()
+            .map(|(key, entry)| (key, entry.payload))
+            .collect()
+    } else {
+        if query.is_empty() {
+            return serde_json::json!({
+                "error": "query is required unless all_pending is set",
+            })
+            .to_string();
+        }
+        let Some(pending) = rt.learning.case_ledger.take(&credit_key(query)) else {
+            // Not an error: crediting a query nobody recalled is a no-op, and the
+            // count of these is itself the signal that a caller is crediting the
+            // wrong key.
+            return serde_json::json!({
+                "credited": 0, "query": query, "reason": "no pending recall for this query",
+            })
+            .to_string();
+        };
+        vec![(credit_key(query), pending.payload)]
+    };
+
+    if claims.is_empty() {
+        // Draining an empty ledger is the honest "nothing was owed", not a
+        // failure — and it must not be reported as a credit.
         return serde_json::json!({
-            "credited": 0, "query": query, "reason": "no pending recall for this query",
+            "credited": 0,
+            "claimed_queries": 0,
+            "all_pending": true,
+            "reason": "no pending recalls to credit",
+            "ledger_credited_total": rt.learning.case_ledger.credited_count(),
+            "ledger_unclaimed_evictions": rt.learning.case_ledger.unclaimed_evictions(),
         })
         .to_string();
-    };
+    }
 
     // Credit across the SAME federated set the recall reads. `memory recall`
     // searches every project's `memory.db` (7 of them on this machine), so a
@@ -344,12 +423,14 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let memory_dbs = discover_canonical_dbs(&memory_db_path, &touring_claude_dir(), "memory.db");
 
+    let served: usize = claims.iter().map(|(_, keys)| keys.len()).sum();
+    let claimed_queries: Vec<&str> = claims.iter().map(|(q, _)| q.as_str()).collect();
     let mut updated = 0usize;
     for db in &memory_dbs {
         let Ok(conn) = rusqlite::Connection::open(db) else {
             continue;
         };
-        for key in &pending.payload {
+        for key in claims.iter().flat_map(|(_, keys)| keys.iter()) {
             let prior: Option<f64> = conn
                 .query_row(
                     "SELECT outcome_reward FROM memory_entries WHERE key = ?1",
@@ -380,7 +461,9 @@ pub fn cli_memory_credit(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         "credited": updated,
         "query": query,
         "reward": reward,
-        "served": pending.payload.len(),
+        "served": served,
+        "all_pending": all_pending,
+        "claimed_queries": claimed_queries,
         "ledger_credited_total": rt.learning.case_ledger.credited_count(),
         "ledger_unclaimed_evictions": rt.learning.case_ledger.unclaimed_evictions(),
     })
@@ -396,15 +479,20 @@ fn reindex_candidates(
     conn: &rusqlite::Connection,
     all: bool,
 ) -> Result<Vec<(String, String)>, String> {
+    // A retired entry never re-enters the ANN corpus it was retired from.
     let select = if all {
-        "SELECT key, value FROM memory_entries ORDER BY rowid"
+        let live = crate::cli::shared::superseded_filter(conn, "");
+        format!("SELECT key, value FROM memory_entries WHERE 1 = 1{live} ORDER BY rowid")
     } else {
-        "SELECT me.key, me.value FROM memory_entries me
+        let live = crate::cli::shared::superseded_filter(conn, "me.");
+        format!(
+            "SELECT me.key, me.value FROM memory_entries me
          LEFT JOIN embeddings em ON em.id = me.key
-         WHERE em.id IS NULL ORDER BY me.rowid"
+         WHERE em.id IS NULL{live} ORDER BY me.rowid"
+        )
     };
     let mut stmt = conn
-        .prepare(select)
+        .prepare(&select)
         .map_err(|e| format!("failed to prepare SELECT: {e}"))?;
     let rows = stmt
         .query_map([], |row| {
@@ -452,6 +540,7 @@ pub fn cli_memory_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
             |r| r.get(0),
         )
         .unwrap_or(0);
+    let mem_metrics = memory_metrics(rt);
     let status = KnowledgeStats {
         file_count,
         relation_count,
@@ -460,29 +549,231 @@ pub fn cli_memory_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
         gotcha_stats: GotchaStats {
             total_count: gotcha_total,
             total_hits: gotcha_hits as usize,
-            total_prevented: gotcha_prevented as usize,
+            total_prevented: db.reported_prevented(gotcha_prevented).map(|p| p as usize),
+            prevented_measured: db.prevented_measured(),
         },
-        memory_entry_count: {
-            let memory_db_path =
-                touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
-            rusqlite::Connection::open(&memory_db_path)
-                .and_then(|conn| {
-                    conn.query_row("SELECT COUNT(*) FROM memory_entries", [], |r| {
-                        r.get::<_, i64>(0)
-                    })
-                })
-                .unwrap_or(0) as usize
-        },
+        // One connection computes all three memory metrics (entries, tagged,
+        // coverage) — three opens of the same file would triple the latency
+        // for zero benefit.
+        memory_entry_count: mem_metrics.0,
+        memory_tagged_count: mem_metrics.1,
+        tag_coverage: mem_metrics.2,
     };
     serde_json::to_string(&status)
         .unwrap_or_else(|_| r#"{"error":"serialization failed"}"#.to_string())
 }
+// ── F3: tag filter + 1-hop links for recall ────────────────────────────────
+
+/// State of the conjunctive tag filter for one recall.
+struct TagFilter {
+    /// Canonical `facet:value` tags the query required.
+    tags: Vec<String>,
+    /// The allowed key set; `None` means the filter relaxed (empty corpus).
+    allowed: Option<std::collections::HashSet<String>>,
+    /// Keys matching the filter before any relaxation.
+    matched_keys: usize,
+    /// True when the filter matched zero keys and was dropped.
+    relaxed: bool,
+}
+
+/// Builds the tag filter for a recall: exact conjunctive lookup over
+/// `memory_tags` in EVERY federated DB the recall itself searches. Filtering
+/// against the canonical DB alone silently dropped all cross-project hits —
+/// their keys could never enter `allowed` (D3, cross-audit 2026-08-23).
+/// Foreign DBs without a `memory_tags` table are skipped, never mutated. A
+/// filter matching zero keys relaxes to the full corpus (and says so) — an
+/// over-specific hashtag must never read as "nothing exists".
+fn compute_tag_filter(
+    memory_dbs: &[std::path::PathBuf],
+    required: &[touring_intelligence::rl::memory::tags::ParsedTag],
+) -> Option<TagFilter> {
+    use touring_intelligence::rl::memory::tags;
+    if required.is_empty() {
+        return None;
+    }
+    let labels: Vec<String> = required.iter().map(|t| t.full_tag.clone()).collect();
+    let mut keys: Vec<String> = Vec::new();
+    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+    for db in memory_dbs {
+        let Ok(conn) = crate::cli::shared::open_db_readonly(db) else {
+            continue;
+        };
+        let has_tags: bool = conn
+            .query_row(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'memory_tags'",
+                [],
+                |_| Ok(true),
+            )
+            .unwrap_or(false);
+        if !has_tags {
+            continue;
+        }
+        for key in tags::entry_keys_with_all_tags(&conn, required, 100_000).unwrap_or_default() {
+            if seen.insert(key.clone()) {
+                keys.push(key);
+            }
+        }
+    }
+    let matched = keys.len();
+    if keys.is_empty() {
+        Some(TagFilter {
+            tags: labels,
+            allowed: None,
+            matched_keys: 0,
+            relaxed: true,
+        })
+    } else {
+        Some(TagFilter {
+            tags: labels,
+            allowed: Some(keys.into_iter().collect()),
+            matched_keys: matched,
+            relaxed: false,
+        })
+    }
+}
+
+/// Restricts one recall channel to the filter's allowed keys (no-op when
+/// there is no filter or it relaxed).
+fn apply_tag_filter(
+    entries: Vec<serde_json::Value>,
+    filter: &Option<TagFilter>,
+) -> Vec<serde_json::Value> {
+    let Some(f) = filter else { return entries };
+    let Some(allowed) = &f.allowed else {
+        return entries;
+    };
+    entries
+        .into_iter()
+        .filter(|e| {
+            e.get("key")
+                .and_then(|k| k.as_str())
+                .is_some_and(|k| allowed.contains(k))
+        })
+        .collect()
+}
+
+/// The tags-only corpus: entries carrying all required tags, in the same
+/// JSON shape the SQL channel returns. Looks each key up across the SAME
+/// federated DB list the filter was built from (D3): `memory_dbs[0]` is the
+/// current project, so its row wins when a key exists in several DBs.
+fn fetch_tagged_entries(
+    memory_dbs: &[std::path::PathBuf],
+    filter: &Option<TagFilter>,
+) -> Vec<serde_json::Value> {
+    let Some(f) = filter else { return vec![] };
+    let Some(allowed) = &f.allowed else {
+        return vec![];
+    };
+    let conns: Vec<rusqlite::Connection> = memory_dbs
+        .iter()
+        .filter_map(|db| crate::cli::shared::open_db_readonly(db).ok())
+        .collect();
+    let mut out = Vec::new();
+    for key in allowed {
+        for conn in &conns {
+            let row = conn.query_row(
+                "SELECT value, tier FROM memory_entries WHERE key = ?1",
+                params![key],
+                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)),
+            );
+            if let Ok((value, tier)) = row {
+                out.push(serde_json::json!({
+                    "key": key, "value": value, "tier": tier, "score": 1.0, "source": "tags",
+                }));
+                break;
+            }
+        }
+    }
+    out
+}
+
+/// Attaches each merged entry's 1-hop link neighbourhood (`extends`,
+/// `supersedes`, …) — the A-MEM link surface of the recall payload.
+fn attach_one_hop_links(rt: &HookRuntime, entries: &mut [serde_json::Value]) {
+    use touring_intelligence::rl::memory::tags;
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    let Ok(conn) = rusqlite::Connection::open(&db) else {
+        return;
+    };
+    if tags::ensure_tag_schema(&conn).is_err() {
+        return;
+    }
+    for entry in entries.iter_mut() {
+        let Some(key) = entry
+            .get("key")
+            .and_then(|k| k.as_str())
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        let Ok(links) = tags::fetch_links(&conn, &key) else {
+            continue;
+        };
+        if links.is_empty() {
+            continue;
+        }
+        entry["links"] = serde_json::json!(
+            links
+                .iter()
+                .map(|l| serde_json::json!({
+                    "rel": l.rel.as_str(),
+                    "src": l.src,
+                    "dst": l.dst,
+                    "direction": if l.src == key { "out" } else { "in" },
+                }))
+                .collect::<Vec<_>>()
+        );
+    }
+}
+
+/// One connection computes all three memory metrics — (entries, tagged,
+/// coverage) — so `cli_memory_stats` never opens the same file three times.
+/// Fails soft to `(0, 0, 0.0)`: stats must not error because the store is
+/// absent (a fresh project has no memory.db yet).
+fn memory_metrics(rt: &HookRuntime) -> (usize, usize, f64) {
+    let path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    let Ok(conn) = crate::cli::shared::open_db_readonly(&path) else {
+        return (0, 0, 0.0);
+    };
+    let entries: i64 = conn
+        .query_row("SELECT COUNT(*) FROM memory_entries", [], |r| r.get(0))
+        .unwrap_or(0);
+    let tagged: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT entry_key) FROM memory_tags",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    let coverage = if entries > 0 {
+        tagged as f64 / entries as f64
+    } else {
+        0.0
+    };
+    (entries as usize, tagged as usize, coverage)
+}
+
 /// Recalls memory entries for a query via RRF-fused federated search across canonical databases as JSON.
 pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
     let query = payload.get("query").and_then(|v| v.as_str()).unwrap_or("");
     if query.is_empty() {
         return serde_json::json!({ "entries" : [], "count" : 0, "query" : "" }).to_string();
     }
+    // F3 (hashtag library, 2026-08-11): `#facet:value` tokens become a
+    // conjunctive exact filter over the tagged corpus; the remaining text
+    // drives SQL/ANN/TF-IDF as before. Filter-then-relax: a filter that
+    // matches nothing falls back to the full corpus and reports
+    // `tag_filter.relaxed: true` rather than silently returning empty.
+    use touring_intelligence::rl::memory::tags;
+    // Contract P1 (2026-08-30): a token with an unknown facet used to fall
+    // back to TEXT silently and match by accident whenever the value appeared
+    // in a body — the reporting split lets the response say so.
+    let (required_tags, text_query, unknown_facets) = tags::split_query_tags_reporting(query);
+    let search_text: &str = if required_tags.is_empty() {
+        query
+    } else {
+        text_query.as_str()
+    };
     let include_outcomes = payload
         .get("include_outcomes")
         .and_then(|v| v.as_bool())
@@ -492,13 +783,27 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     // other project's, so a lesson stored under one project is recallable
     // from any other (the `where` half of "always know where to look").
     let memory_dbs = discover_canonical_dbs(&memory_db_path, &touring_claude_dir(), "memory.db");
-    let entries = memory_recall_sql_federated(&memory_dbs, query);
+    // The tag filter spans the SAME corpus the recall searches (D3): built
+    // after discovery, from every federated DB, not the canonical one alone.
+    let tag_filter = compute_tag_filter(&memory_dbs, &required_tags);
+    // Tags-only path: the query carried `#facet:value` tokens and no free
+    // text — the result IS the tag-filtered corpus, ranked by recency.
+    let tags_only = search_text.trim().is_empty() && tag_filter.is_some();
+    let entries = if tags_only {
+        fetch_tagged_entries(&memory_dbs, &tag_filter)
+    } else {
+        memory_recall_sql_federated(&memory_dbs, search_text)
+    };
     let ann_results: Vec<serde_json::Value> = {
         let borrow = rt.ctx.ann_recall.borrow();
-        if let Some(recall) = borrow.as_ref() {
-            let embedding = memory_recall_query_embedding(query);
+        if tags_only {
+            vec![]
+        } else if let Some(recall) = borrow.as_ref() {
+            let embedding = memory_recall_query_embedding(search_text);
             let start = std::time::Instant::now();
-            let neighbors = recall.search(&embedding, 20);
+            // Over-fetch: retired entries leave below, and the channel must
+            // still hand the merge its 20 live neighbours.
+            let neighbors = recall.search(&embedding, ANN_FETCH);
             let elapsed_us = start.elapsed().as_micros() as u64;
             crate::shared::gate_metrics::record_ann_search_latency_us(elapsed_us);
             neighbors
@@ -514,7 +819,20 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
             vec![]
         }
     };
-    let tfidf_results: Vec<serde_json::Value> = memory_recall_tfidf(rt, query, 20);
+    let tfidf_results: Vec<serde_json::Value> = if tags_only {
+        vec![]
+    } else {
+        memory_recall_tfidf(rt, search_text, 20)
+    };
+    // Retired entries (`memory store --supersedes`) leave EVERY channel here,
+    // before the cases and before the RRF cut. The SQL arm already hid them;
+    // the ANN and TF-IDF arms read other stores and served them (18/09/2026,
+    // analise: a superseded probe 6th in a recall). Dropping them before the
+    // cut keeps the slots for live entries — the reason a vector database
+    // applies its payload filter inside the search, not to the top-k after it.
+    let (entries, mut ann_results, tfidf_results) =
+        drop_retired(&memory_dbs, entries, ann_results, tfidf_results);
+    ann_results.truncate(20);
     // The labelled-case view is built from the UNFILTERED candidates, before
     // the prefix filter below removes the auto-recorded outcomes.
     //
@@ -527,10 +845,9 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     //
     // `entries` below stays byte-identical to the pre-04/08 behaviour — this
     // is a new channel, not a change to the old one.
-    let cases = partition_cases(&memory_recall_rrf_merge_n(
-        &[&entries[..], &ann_results[..], &tfidf_results[..]],
-        60,
-    ));
+    let mut cases = partition_cases(
+        &memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 60).0,
+    );
 
     // Drop auto-recorded tool outcomes unless explicitly asked for. Filtering
     // BEFORE the RRF merge matters: filtering after would let noise consume the
@@ -539,16 +856,31 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
     let entries = filter_outcomes(entries, include_outcomes);
     let ann_results = filter_outcomes(ann_results, include_outcomes);
     let tfidf_results = filter_outcomes(tfidf_results, include_outcomes);
+    // F3: restrict every channel to the tag-filtered corpus (no-op when the
+    // query had no tags or the filter relaxed).
+    let entries = apply_tag_filter(entries, &tag_filter);
+    let ann_results = apply_tag_filter(ann_results, &tag_filter);
+    let tfidf_results = apply_tag_filter(tfidf_results, &tag_filter);
     let entries_len = entries.len();
-    let merged_entries: Vec<serde_json::Value> =
+    // W0 S-0.3: `candidates_total` names the pre-cut universe of the merge so
+    // the response can say shown/total/truncated honestly.
+    let (merged_entries, candidates_total): (Vec<serde_json::Value>, usize) =
         if ann_results.is_empty() && tfidf_results.is_empty() {
-            entries
+            let n = entries.len();
+            (entries, n)
         } else {
             memory_recall_rrf_merge_n(&[&entries[..], &ann_results[..], &tfidf_results[..]], 20)
         };
     // Value-ranked read (Memento Eq. 7/16): RRF has ordered by resemblance;
     // now let the MEASURED outcome decide which of those the caller sees first.
     // Stable, so similarity still orders within each value class.
+    //
+    // P2 (graph contract, 2026-08-30): the structural pheromone needs the
+    // 1-hop links AT RANK TIME — attach BEFORE the rerank. Until now the
+    // attach ran after, so a node with 17 edges ranked exactly like an
+    // orphan and the graph bought nothing at read time.
+    let mut merged_entries = merged_entries;
+    attach_one_hop_links(rt, &mut merged_entries);
     let merged_entries = annotate_case_value(rerank_by_case_value(merged_entries));
 
     // Record which cases this recall served, so a later verdict can be joined
@@ -564,6 +896,46 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         .into_iter()
         .collect();
     if !served_keys.is_empty() {
+        // R5 (29/08, ordem de Gabriel): o retrieval CONTA. `access_count` só
+        // subia em writes e exact-key reads, então `curated_recall_share` e
+        // `never_recalled_ratio` mediam outra coisa que não o recall que
+        // declaram. Melhor-esforço no DB canônico do projeto (o KPI é por
+        // projeto); key federada de outro projeto ou schema sem a coluna
+        // ficam de fora em silêncio.
+        if let Ok(conn) = rusqlite::Connection::open(&memory_db_path) {
+            for key in &served_keys {
+                let _ = conn.execute(
+                    "UPDATE memory_entries SET access_count = COALESCE(access_count, 0) + 1 \
+                     WHERE key = ?1",
+                    params![key],
+                );
+            }
+            // P5 (graph contract, 2026-08-30): durable co-service — the raw
+            // material for `memory suggest-links`. The case_ledger is
+            // claim-once, so it cannot answer "which pairs keep being served
+            // together"; this table can. Top 10 served per recall
+            // (C(10,2)=45 upserts max), best-effort on the same connection.
+            let _ = conn.execute(
+                "CREATE TABLE IF NOT EXISTS memory_coserved (
+                     pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL,
+                     count INTEGER NOT NULL DEFAULT 1,
+                     last_at TEXT NOT NULL DEFAULT (datetime('now')))",
+                [],
+            );
+            let top: Vec<&String> = served_keys.iter().take(10).collect();
+            for (i, a) in top.iter().enumerate() {
+                for b in top.iter().skip(i + 1) {
+                    let (x, y) = if a <= b { (a, b) } else { (b, a) };
+                    let _ = conn.execute(
+                        "INSERT INTO memory_coserved(pair, a, b, count, last_at)
+                         VALUES (?1, ?2, ?3, 1, datetime('now'))
+                         ON CONFLICT(pair) DO UPDATE SET
+                             count = count + 1, last_at = datetime('now')",
+                        params![format!("{x}|{y}"), x, y],
+                    );
+                }
+            }
+        }
         rt.learning
             .case_ledger
             .record(credit_key(query), served_keys);
@@ -631,15 +1003,78 @@ pub fn cli_memory_recall(rt: &mut HookRuntime, payload: &serde_json::Value) -> S
         }
         diags
     };
+    // (P2: the 1-hop links were attached before the rerank above.)
+    let mut merged_entries = merged_entries;
+    // Self-echo detection (2026-08-29): the RRF merge keeps the winning arm's
+    // object, and only the SQL arm carries `stored_at` — precisely the arm
+    // whose rows carry no `score`, so a ranking consumer (the CCE explorer's
+    // noise floor) only ever saw ageless entries. Backfill at the choke point
+    // so every delivered entry carries its age regardless of the winning arm.
+    crate::cli::shared::memory_backfill_stored_at(&memory_dbs, &mut merged_entries);
+    // C6 (2026-10-17): recall hands stored text back to the model as context.
+    // Rows written before the write-side guard may still hold secrets or
+    // bidi/zero-width characters — clean every delivered string on the way
+    // OUT (entries and the labelled cases), without rewriting the database.
+    sanitize_json_items(&mut merged_entries);
+    sanitize_json_strings(&mut cases);
     let entry_count = merged_entries.len();
     let ann_count = ann_results.len();
+    let tag_filter_json = tag_filter.as_ref().map(|f| {
+        serde_json::json!({
+            "tags": f.tags, "matched_keys": f.matched_keys, "relaxed": f.relaxed,
+        })
+    });
     serde_json::json!(
         { "entries" : merged_entries, "count" : entry_count, "query" : query,
+        "shown" : entry_count, "total" : candidates_total,
+        "truncated" : candidates_total > entry_count,
         "ann_results" : ann_count, "symbol_context" : symbol_context, "diagnostics" :
-        memory_diagnostics, "cases" : cases, }
+        memory_diagnostics, "cases" : cases, "tag_filter" : tag_filter_json,
+        // P1: always present — a token listed here did NOT filter (it was
+        // searched as text), so a hit may be textual accident.
+        "unknown_facets" : unknown_facets.iter().map(|t| t.to_json()).collect::<Vec<_>>(), }
     )
     .to_string()
 }
+/// Neighbours asked of the ANN channel: twice the 20 it hands the merge, so
+/// the retired entries [`drop_retired`] removes do not shrink the channel.
+const ANN_FETCH: usize = 40;
+
+/// Drops retired entries from the three recall channels, deciding each key
+/// in the federation's own precedence (`retired_in_federation`). A row with
+/// no key is left alone: the merge skips it anyway.
+fn drop_retired(
+    dbs: &[std::path::PathBuf],
+    entries: Vec<serde_json::Value>,
+    ann: Vec<serde_json::Value>,
+    tfidf: Vec<serde_json::Value>,
+) -> (
+    Vec<serde_json::Value>,
+    Vec<serde_json::Value>,
+    Vec<serde_json::Value>,
+) {
+    // A fn, not a closure: its signature ties the key's lifetime to the row's.
+    fn key_of(entry: &serde_json::Value) -> Option<&str> {
+        entry.get("key").and_then(serde_json::Value::as_str)
+    }
+    let keys: Vec<&str> = entries
+        .iter()
+        .chain(&ann)
+        .chain(&tfidf)
+        .filter_map(key_of)
+        .collect();
+    let retired = crate::cli::shared::retired_in_federation(dbs, &keys);
+    if retired.is_empty() {
+        return (entries, ann, tfidf);
+    }
+    let live = |list: Vec<serde_json::Value>| -> Vec<serde_json::Value> {
+        list.into_iter()
+            .filter(|entry| key_of(entry).is_none_or(|key| !retired.contains(key)))
+            .collect()
+    };
+    (live(entries), live(ann), live(tfidf))
+}
+
 /// Query embedding for the ANN recall path. Semantic (with the arctic query
 /// prefix) when available, else the raw-query 64-dim hash. The prefix is applied
 /// only here, never to stored documents — that asymmetry is what makes
@@ -666,7 +1101,7 @@ fn memory_recall_query_embedding(query: &str) -> Vec<f32> {
 fn memory_recall_rrf_merge_n(
     lists: &[&[serde_json::Value]],
     limit: usize,
-) -> Vec<serde_json::Value> {
+) -> (Vec<serde_json::Value>, usize) {
     use std::collections::HashMap;
     const RRF_K: f64 = 60.0;
     let mut rrf_map: HashMap<String, (f64, serde_json::Value)> = HashMap::new();
@@ -685,9 +1120,14 @@ fn memory_recall_rrf_merge_n(
             e.0 += score;
         }
     }
+    // W0 S-0.3 — the second element names the universe: distinct candidates
+    // BEFORE the `take(limit)` cut, so callers can report shown/total/truncated
+    // (a count without the universe is unreadable as a universe).
+    let total_candidates = rrf_map.len();
     let mut merged: Vec<(f64, serde_json::Value)> = rrf_map.into_values().collect();
     merged.sort_by(|a, b| b.0.partial_cmp(&a.0).unwrap_or(std::cmp::Ordering::Equal));
-    merged.into_iter().take(limit).map(|(_, v)| v).collect()
+    let delivered = merged.into_iter().take(limit).map(|(_, v)| v).collect();
+    (delivered, total_candidates)
 }
 /// Build (or load from cache) a TF-IDF index over the touring memory corpus
 /// and return up to `top_k` hits as RRF-ready JSON entries.
@@ -739,6 +1179,17 @@ fn memory_recall_tfidf(rt: &mut HookRuntime, query: &str, top_k: usize) -> Vec<s
 // Carve R (2026-06-10): runtime-service handler moved to touring-hook-runtime::ceg_impls
 // (it is a pure HookRuntime capability); re-exported at the historical path.
 pub use touring_hook_runtime::ceg_impls::cli_memory_store;
+// F1 (hashtag library, 2026-08-11): faceted tagging handlers, same carve.
+pub use touring_hook_runtime::ceg_impls::cli_memory_backfill_tags;
+pub use touring_hook_runtime::ceg_impls::cli_memory_communities;
+pub use touring_hook_runtime::ceg_impls::cli_memory_link;
+pub use touring_hook_runtime::ceg_impls::cli_memory_links;
+pub use touring_hook_runtime::ceg_impls::cli_memory_moc;
+pub use touring_hook_runtime::ceg_impls::cli_memory_query;
+pub use touring_hook_runtime::ceg_impls::cli_memory_sync_tags;
+pub use touring_hook_runtime::ceg_impls::cli_memory_tag_add;
+pub use touring_hook_runtime::ceg_impls::cli_memory_tags;
+pub use touring_hook_runtime::ceg_impls::cli_memory_unlink;
 /// Backfill the ANN corpus from all existing `memory_entries` rows. S-04 (2026-05-29).
 ///
 /// Walks every row in `memory_entries`, generates a 64-dim hash embedding for
@@ -789,10 +1240,13 @@ pub fn cli_memory_reindex(rt: &mut HookRuntime, payload: &serde_json::Value) -> 
     let mut indexed = 0usize;
     let mut failed = 0usize;
     for chunk in candidates[..budgeted].chunks(batch_size) {
+        // One model run per chunk: the GPU embeds a batch ~11x faster than the
+        // CPU, but only when it receives the batch (15/09/2026).
+        let values: Vec<String> = chunk.iter().map(|(_, value)| value.clone()).collect();
         let entries: Vec<crate::ann_memory::MemoryEntry> = chunk
             .iter()
-            .map(|(key, value)| {
-                let emb = semantic_or_hash_embedding(value);
+            .zip(semantic_or_hash_embeddings(&values))
+            .map(|((key, value), emb)| {
                 crate::ann_memory::MemoryEntry::new(key.as_str(), value.as_str(), emb)
             })
             .collect();
@@ -838,6 +1292,14 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         .and_then(|v| v.as_str())
         .unwrap_or("access_count");
     let order = memory_list_order_clause(sort_field);
+    // `--tier` (01/11/2026): the tier is a namespace (decision B), so listing one
+    // is the natural read. Any stored name is accepted — the live store also holds
+    // tiers outside `MemoryTier` (`semantic`, `local`, `episodic`) — and an empty
+    // result names the tiers that DO exist instead of a mute zero.
+    let tier = payload
+        .get("tier")
+        .and_then(|v| v.as_str())
+        .filter(|t| !t.is_empty());
     let memory_db_path = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
     let conn = match rusqlite::Connection::open(&memory_db_path) {
         Ok(c) => c,
@@ -865,7 +1327,7 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     let query = format!(
         "SELECT key, value, tier, entry_type, access_count, COALESCE(last_accessed_at, ''),
                 {reward_col}, {importance_col}, {pinned_col}, {superseded_col}
-         FROM memory_entries {order} LIMIT ?1"
+         FROM memory_entries WHERE (?2 IS NULL OR tier = ?2) {order} LIMIT ?1"
     );
     let mut stmt = match conn.prepare(&query) {
         Ok(s) => s,
@@ -876,8 +1338,8 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
             .to_string();
         }
     };
-    let entries: Vec<serde_json::Value> = stmt
-        .query_map(params![limit], |row| {
+    let mut entries: Vec<serde_json::Value> = stmt
+        .query_map(params![limit, tier], |row| {
             let mut entry = serde_json::json!({
                 "key": row.get::<_, String>(0)?,
                 "value": row.get::<_, String>(1)?,
@@ -904,7 +1366,13 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         })
         .map(|rows| rows.filter_map(|r| r.ok()).collect())
         .unwrap_or_default();
+    // C6 (2026-10-17): clean stored text on the way OUT (rows may predate the
+    // write-side guard); the database is not rewritten.
+    sanitize_json_items(&mut entries);
     let count = entries.len();
+    // A filtered listing that came back empty says which namespaces exist, so a
+    // typo or a guessed name is corrected by the reply, not by a second query.
+    let available_tiers = (tier.is_some() && count == 0).then(|| memory_distinct_tiers(&conn));
     // The pheromone-health number, reported because it was invisible: 11 of
     // 7360 entries carried a reward when this was written (0,15%), so the
     // `positive`/`negative`/`unobserved` guidance recall prints was operating
@@ -923,10 +1391,28 @@ pub fn cli_memory_list(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
     serde_json::json!({
         "entries": entries,
         "count": count,
+        // W0 S-0.3 — honest pagination: shown/total/truncated on every listing.
+        "shown": count,
+        "total": total,
+        "truncated": (count as i64) < total,
         "corpus": { "total": total, "with_reward": scored },
+        "tier": tier,
+        "available_tiers": available_tiers,
     })
     .to_string()
 }
+
+/// The tier names present in `memory_entries`, sorted (empty on any SQL error —
+/// it only decorates an empty filtered listing, never decides one).
+fn memory_distinct_tiers(conn: &rusqlite::Connection) -> Vec<String> {
+    conn.prepare("SELECT DISTINCT tier FROM memory_entries ORDER BY tier")
+        .and_then(|mut s| {
+            s.query_map([], |r| r.get::<_, String>(0))
+                .map(|rows| rows.filter_map(Result::ok).collect())
+        })
+        .unwrap_or_default()
+}
+
 /// Helper: determine ORDER BY clause for memory list queries.
 ///
 /// Columns are those of `memory_entries`; the previous clauses named
@@ -950,10 +1436,58 @@ fn memory_list_order_clause(sort_field: &str) -> &'static str {
 
 #[cfg(test)]
 mod memory_surface_tests {
-    use super::{filter_outcomes, memory_list_order_clause};
+    use super::{
+        filter_outcomes, memory_list_order_clause, memory_recall_rrf_merge_n, rerank_by_case_value,
+    };
 
     fn entry(key: &str) -> serde_json::Value {
         serde_json::json!({ "key": key, "value": "v" })
+    }
+
+    /// R5 (29/08): dentro da classe unobserved, curadoria vem antes de traço
+    /// de processo (`loop:`/`decomp:`/`subtask:`/`adw:`) — era o afogamento
+    /// medido em `curated_recall_share` 0,177. Valor segue mandando entre
+    /// classes; a ordem RRF segue estável dentro de cada (classe, procedência).
+    #[test]
+    fn rerank_prefers_curated_over_process_trace_within_a_class() {
+        let ranked = rerank_by_case_value(vec![
+            entry("loop:task_1:P2:done"),
+            entry("decomp:task_2"),
+            entry("gotcha:algum-defeito:2026-08-29"),
+            entry("lesson:algo-aprendido"),
+            serde_json::json!({ "key": "outcome:bash:x:success", "outcome_reward": 1.0 }),
+        ]);
+        let keys: Vec<&str> = ranked
+            .iter()
+            .filter_map(|e| e.get("key").and_then(serde_json::Value::as_str))
+            .collect();
+        assert_eq!(
+            keys,
+            vec![
+                "outcome:bash:x:success",          // proven good vence a classe
+                "gotcha:algum-defeito:2026-08-29", // curadas antes dos traços…
+                "lesson:algo-aprendido",
+                "loop:task_1:P2:done", // …e os traços preservam a ordem RRF
+                "decomp:task_2",
+            ],
+            "valor > procedência > similaridade, nesta ordem"
+        );
+    }
+
+    #[test]
+    fn paginated_output_always_names_the_universe() {
+        // W0 S-0.3 — corpus of 23 distinct candidates, limit 10: the merge
+        // must deliver 10 AND name the 23 (the 2026-08-24 retraction was
+        // reading a default limit of 10 as "only 10 exist").
+        let corpus: Vec<serde_json::Value> = (0..23).map(|i| entry(&format!("k{i}"))).collect();
+        let (delivered, total) = memory_recall_rrf_merge_n(&[&corpus[..]], 10);
+        assert_eq!(delivered.len(), 10);
+        assert_eq!(total, 23);
+        assert!(total > delivered.len(), "truncation must be nameable");
+        // No truncation: shown == total, never a phantom `truncated`.
+        let (all, total_all) = memory_recall_rrf_merge_n(&[&corpus[..]], 100);
+        assert_eq!(all.len(), 23);
+        assert_eq!(total_all, 23);
     }
 
     #[test]
@@ -1101,6 +1635,52 @@ mod case_value_tests {
                 "lesson:least-similar"
             ],
             "equal value must leave the RRF order untouched"
+        );
+    }
+
+    /// P2 (graph contract, 2026-08-30): inside the SAME (class, provenance)
+    /// pair, structure ranks — provenance+edges > some edge > orphan.
+    #[test]
+    fn rerank_prefers_structured_nodes_inside_the_same_class() {
+        // Mutation killed: dropping structure_bucket from the sort key —
+        // before P2 a node with 17 edges ranked exactly like an orphan.
+        let orphan = keyed("lesson:orphan");
+        let mut connected = keyed("lesson:connected");
+        connected["links"] = serde_json::json!([
+            {"rel": "relates-to", "src": "lesson:connected", "dst": "x", "direction": "out"},
+        ]);
+        let mut provenanced = keyed("lesson:provenanced");
+        provenanced["links"] = serde_json::json!([
+            {"rel": "generated-by", "src": "lesson:provenanced", "dst": "loop:t", "direction": "out"},
+            {"rel": "relates-to", "src": "lesson:provenanced", "dst": "y", "direction": "out"},
+        ]);
+        let ranked = rerank_by_case_value(vec![orphan, connected, provenanced]);
+        let keys: Vec<&str> = ranked
+            .iter()
+            .filter_map(|e| e.get("key").and_then(|k| k.as_str()))
+            .collect();
+        assert_eq!(
+            keys,
+            vec!["lesson:provenanced", "lesson:connected", "lesson:orphan"],
+            "structure orders WITHIN the class, never across classes"
+        );
+    }
+
+    /// P2 counter-proof: structure must never beat VALUE class — a proven-good
+    /// orphan still outranks a well-connected unobserved node.
+    #[test]
+    fn structure_never_crosses_a_value_class() {
+        let mut connected_unobserved = keyed("lesson:connected");
+        connected_unobserved["links"] = serde_json::json!([
+            {"rel": "generated-by", "src": "lesson:connected", "dst": "loop:t", "direction": "out"},
+            {"rel": "relates-to", "src": "lesson:connected", "dst": "y", "direction": "out"},
+        ]);
+        let ranked =
+            rerank_by_case_value(vec![connected_unobserved, keyed("outcome:bash:b:success")]);
+        assert_eq!(
+            ranked[0]["key"].as_str(),
+            Some("outcome:bash:b:success"),
+            "value class stays the primary axis"
         );
     }
 
@@ -1555,6 +2135,69 @@ mod pheromone_decay_tests {
     use super::memory_list_order_clause;
     use crate::cli::shared::{memory_column_present, optional_column_select, superseded_filter};
 
+    /// 18/09/2026 (analise): a superseded probe came back 6th in a recall,
+    /// through the ANN arm. A key is retired or live where it is FIRST held in
+    /// the federation (the SQL arm's precedence), and a retired key leaves
+    /// every channel before the merge.
+    #[test]
+    fn a_retired_key_leaves_every_recall_channel_in_federation_precedence() {
+        use std::collections::HashSet;
+        let dir = tempfile::TempDir::new().expect("tempdir");
+        let here = dir.path().join("here.db");
+        let there = dir.path().join("there.db");
+        let rows: [(&std::path::Path, &[(&str, Option<&str>)]); 2] = [
+            (
+                &here,
+                &[("old", Some("new")), ("new", None), ("shared", None)],
+            ),
+            (
+                &there,
+                &[("shared", Some("elsewhere")), ("only-there", Some("x"))],
+            ),
+        ];
+        for (path, entries) in rows {
+            let conn = rusqlite::Connection::open(path).expect("open");
+            conn.execute_batch(
+                "CREATE TABLE memory_entries (key TEXT, value TEXT, tier TEXT, superseded_by TEXT);",
+            )
+            .expect("schema");
+            for (key, successor) in entries {
+                conn.execute(
+                    "INSERT INTO memory_entries VALUES (?1, 'v', 'semantic', ?2)",
+                    rusqlite::params![key, successor],
+                )
+                .expect("insert");
+            }
+        }
+        let dbs = [here, there];
+        let retired = crate::cli::shared::retired_in_federation(
+            &dbs,
+            &["old", "new", "shared", "only-there", "absent"],
+        );
+        // `shared` is live where it is first held; `only-there` is retired
+        // where it is held; `absent` is held nowhere.
+        assert_eq!(
+            retired,
+            HashSet::from(["old".to_string(), "only-there".to_string()])
+        );
+
+        let row = |key: &str| serde_json::json!({ "key": key });
+        let (entries, ann, tfidf) = super::drop_retired(
+            &dbs,
+            vec![row("new"), row("old")],
+            vec![row("old"), row("shared")],
+            vec![row("only-there"), serde_json::json!({ "value": "keyless" })],
+        );
+        let keys = |list: &[serde_json::Value]| -> Vec<String> {
+            list.iter()
+                .map(|e| e["key"].as_str().unwrap_or("-").to_string())
+                .collect()
+        };
+        assert_eq!(keys(&entries), ["new"]);
+        assert_eq!(keys(&ann), ["shared"]);
+        assert_eq!(keys(&tfidf), ["-"], "a keyless row is left to the merge");
+    }
+
     /// A memory DB carrying the S4 columns, built the way the store builds it.
     fn db_with_s4_columns() -> rusqlite::Connection {
         let conn = rusqlite::Connection::open_in_memory().expect("in-memory db");
@@ -1699,7 +2342,10 @@ mod pheromone_decay_tests {
     #[test]
     fn present_columns_are_projected_not_nulled() {
         let conn = db_with_s4_columns();
-        assert_eq!(optional_column_select(&conn, "", "importance"), "importance");
+        assert_eq!(
+            optional_column_select(&conn, "", "importance"),
+            "importance"
+        );
         assert_eq!(optional_column_select(&conn, "e.", "pinned"), "e.pinned");
         assert_eq!(
             superseded_filter(&conn, "e."),
@@ -1732,6 +2378,168 @@ mod pheromone_decay_tests {
             keys,
             vec!["a-pinned", "b-weighted", "c-plain"],
             "pin beats weight; weight beats an unweighted entry"
+        );
+    }
+}
+
+/// C6 (2026-10-17): recall/list hand stored text back to the model as context,
+/// so rows that predate the write-side guard are cleaned on the way OUT.
+#[cfg(test)]
+mod recall_sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::{cli_memory_list, cli_memory_recall};
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    fn fake_key() -> String {
+        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
+    }
+
+    /// A runtime whose memory.db holds ONE row planted the way pre-guard
+    /// writers did (raw SQL, no sanitization).
+    fn runtime_with_legacy_row(key: &str, value: &str) -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES (?1, 'semantic', ?2, 'lesson')",
+                [key, value],
+            )
+            .unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        (tmp, rt)
+    }
+
+    fn served_value(out: &str, key: &str) -> String {
+        let v: serde_json::Value = serde_json::from_str(out).unwrap();
+        v["entries"]
+            .as_array()
+            .expect("entries")
+            .iter()
+            .find(|e| e["key"] == key)
+            .unwrap_or_else(|| panic!("{key} not served: {out}"))["value"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[test]
+    fn recall_cleans_a_legacy_secret_on_the_way_out() {
+        let key = fake_key();
+        let (_tmp, mut rt) = runtime_with_legacy_row(
+            "c6-recall-old",
+            &format!("c6recallprobe use {key} \u{202E}tail"),
+        );
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6recallprobe"}));
+        assert!(!out.contains(&key), "secret leaked through recall: {out}");
+        let served = served_value(&out, "c6-recall-old");
+        assert!(
+            served.contains("[REDACTED]") && !served.contains('\u{202E}'),
+            "{served:?}"
+        );
+    }
+
+    #[test]
+    fn recall_serves_a_clean_entry_untouched() {
+        let plain = "c6cleanprobe guidance: use `cargo test`.\n\tpr\u{f3}ximo passo";
+        let (_tmp, mut rt) = runtime_with_legacy_row("c6-recall-clean", plain);
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6cleanprobe"}));
+        assert_eq!(served_value(&out, "c6-recall-clean"), plain);
+    }
+
+    #[test]
+    fn list_cleans_a_legacy_secret_on_the_way_out() {
+        let key = fake_key();
+        let (_tmp, mut rt) =
+            runtime_with_legacy_row("c6-list-old", &format!("listing {key} \u{200B}end"));
+        let out = cli_memory_list(&mut rt, &json!({"limit": 10}));
+        assert!(!out.contains(&key), "secret leaked through list: {out}");
+        let served = served_value(&out, "c6-list-old");
+        assert_eq!(served, "listing [REDACTED] end");
+    }
+
+    /// `memory list --tier` (01/11/2026): the tier is a namespace. A tier
+    /// outside `MemoryTier` (`semantic`) is listable, another tier does not leak
+    /// into the result, and an empty filtered listing names the tiers present.
+    #[test]
+    fn list_filters_by_tier_and_names_the_tiers_when_empty() {
+        let (_tmp, mut rt) = runtime_with_legacy_row("tier-probe", "namespaced value");
+        let hit: serde_json::Value = serde_json::from_str(&cli_memory_list(
+            &mut rt,
+            &json!({"limit": 10, "tier": "semantic"}),
+        ))
+        .unwrap();
+        assert_eq!(hit["count"], 1, "{hit}");
+        assert_eq!(hit["entries"][0]["key"], "tier-probe");
+        assert!(
+            hit["available_tiers"].is_null(),
+            "only an EMPTY listing names tiers"
+        );
+
+        let miss: serde_json::Value = serde_json::from_str(&cli_memory_list(
+            &mut rt,
+            &json!({"limit": 10, "tier": "working"}),
+        ))
+        .unwrap();
+        assert_eq!(miss["count"], 0, "{miss}");
+        assert_eq!(miss["available_tiers"], json!(["semantic"]), "{miss}");
+
+        let all: serde_json::Value =
+            serde_json::from_str(&cli_memory_list(&mut rt, &json!({"limit": 10}))).unwrap();
+        assert_eq!(all["count"], 1, "no tier ⇒ no filter: {all}");
+    }
+}
+
+/// C6 (2026-10-17): the labelled `cases` channel of recall serves the
+/// auto-recorded outcomes `entries` hides — it is a second way out for stored
+/// text and must be cleaned like the first.
+#[cfg(test)]
+mod recall_cases_sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::cli_memory_recall;
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    #[test]
+    fn recall_cases_channel_is_cleaned_too() {
+        let key = ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat();
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = touring_foundation::TouringConfig::memory_db_canonical(tmp.path());
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        touring_intelligence::rl::memory::rlm::RlmMemory::new(&db).unwrap();
+        // A mined repair: error text carries a secret, the resolution is clean.
+        let mined = json!({
+            "tool": "Bash",
+            "error": format!("c6casesprobe auth failed with {key}\u{202E}"),
+            "resolution_input": "retry with the env var",
+        })
+        .to_string();
+        rusqlite::Connection::open(&db)
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES ('outcome:c6casesprobe:failure', 'reference', ?1, 'transcript_lesson')",
+                [&mined],
+            )
+            .unwrap();
+        let mut rt = HookRuntime::new(tmp.path()).unwrap();
+        let out = cli_memory_recall(&mut rt, &json!({"query": "c6casesprobe"}));
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        // Not vacuous: the case really is served through the `cases` channel.
+        assert!(
+            v["cases"].to_string().contains("c6casesprobe"),
+            "the outcome must reach `cases`: {out}"
+        );
+        assert!(!out.contains(&key), "secret leaked through recall: {out}");
+        assert!(
+            !out.contains('\u{202E}'),
+            "bidi leaked through recall: {out}"
         );
     }
 }

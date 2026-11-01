@@ -1,0 +1,45 @@
+{
+  "phase": "S-8",
+  "entities": [
+    {
+      "entity_id": "phase:S-8",
+      "type": "phase",
+      "description": "Semantic bash gate VIVO: comando novel zdbt -> score 1,52/2 (aluno local 48ms) como advisory; conhecidos nunca chamam. 461/461 runtime + 129/129 handlers. A Saga do Deploy (3a vez no dia): o hook delega eventos ao DAEMON (codigo velho) quando ele esta no ar \u2014 a prova exigiu TOURING_NO_DAEMON=1. Em producao o gate so vive quando o daemon for atualizado (janela de propagacao do Gabriel). flag TOURING_CEG_SEMANTIC_GATE default-OFF."
+    },
+    {
+      "entity_id": "memory:loop:task_1790895761205640116:S-8:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790895761205640116",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790895761205640116",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-8|produces|memory:loop:task_1790895761205640116:S-8:done",
+      "source": "phase:S-8",
+      "type": "produces",
+      "target": "memory:loop:task_1790895761205640116:S-8:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-8:done|generated-by|loop:loop:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-8:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790895761205640116"
+    },
+    {
+      "relation_id": "memory:loop:task_1790895761205640116:S-8:done|generated-by|dag:decomp:task_1790895761205640116",
+      "source": "memory:loop:task_1790895761205640116:S-8:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790895761205640116"
+    }
+  ]
+}

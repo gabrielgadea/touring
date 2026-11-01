@@ -17,6 +17,7 @@
 
 use crate::bidirectional::{PendingSuggestion, Suggester};
 use crate::runtime::HookRuntime;
+use touring_foundation::truncate_str;
 
 /// CILA threshold: tasks at this level or above need structured planning.
 const L4_THRESHOLD: i64 = 4;
@@ -150,7 +151,7 @@ fn to_pending_suggestion(task: &ComplexTask, effective_level: i64) -> PendingSug
         "task_id": task.task_id,
         "cila_level": effective_level,
         "stored_cila_level": task.cila_level,
-        "description_preview": &task.description[..task.description.len().min(80)],
+        "description_preview": truncate_str(&task.description, 80),
     });
     PendingSuggestion {
         target_task_id: task.task_id.clone(),

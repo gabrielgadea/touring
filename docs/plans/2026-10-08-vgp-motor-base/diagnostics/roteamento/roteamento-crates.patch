@@ -1,0 +1,200 @@
+diff --git a/crates/touring-cli/src/cli/kpi.rs b/crates/touring-cli/src/cli/kpi.rs
+index a5c21a85..cfd87008 100644
+--- a/crates/touring-cli/src/cli/kpi.rs
++++ b/crates/touring-cli/src/cli/kpi.rs
+@@ -1912,6 +1912,52 @@ mod tests {
+         std::fs::remove_dir_all(&dir).ok();
+     }
+ 
++    /// The routing-adherence commitment (17/10/2026) rides on the declarative `external:` source,
++    /// so two ways to fail silently are pinned against the REAL file: a malformed addition makes
++    /// `load_commitments` fail and takes the WHOLE dashboard down, and a producer that writes
++    /// anywhere but `<id>.json` leaves the check STUB forever.
++    #[test]
++    fn routing_adherence_commitment_parses_and_resolves_from_its_external_file() {
++        let yaml = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
++            .join("../../docs/kpi/commitments.yaml");
++        let file = load_commitments(&yaml).expect("the real commitments.yaml must parse");
++        let c = file
++            .commitments
++            .iter()
++            .find(|c| c.id == "touring.routing.adherence")
++            .expect("the routing adherence commitment is declared");
++        assert!(c.advisory, "a provisional floor never fails `--check`");
++        assert!(c.source.starts_with("external:"), "source: {}", c.source);
++        assert!(
++            c.source
++                .contains(&format!("--emit docs/kpi/external/{}.json", c.id)),
++            "the declared producer must write the file the resolver reads: {}",
++            c.source
++        );
++        let dir = std::env::temp_dir().join(format!("kpi-routing-test-{}", std::process::id()));
++        std::fs::create_dir_all(&dir).expect("mkdir");
++        let file_path = dir.join(format!("{}.json", c.id));
++        // The shape `scripts/model_routing_adherence.py --emit` writes with a sufficient sample.
++        std::fs::write(
++            &file_path,
++            r#"{"value": 0.5333, "n": 15, "id": "touring.routing.adherence"}"#,
++        )
++        .expect("write value");
++        assert_eq!(resolve_external(&dir, &c.id), Some(0.5333));
++        // Below the minimum sample the producer writes `value: null` + `detalhe`: STUB with cause.
++        std::fs::write(
++            &file_path,
++            r#"{"value": null, "detalhe": "STUB — 3 buscas decidíveis abaixo do mínimo 10."}"#,
++        )
++        .expect("write null");
++        assert_eq!(resolve_external(&dir, &c.id), None);
++        assert!(matches!(
++            resolve_external_detailed(&dir, &c.id),
++            Err(ExternalStub::Declared { .. })
++        ));
++        std::fs::remove_dir_all(&dir).ok();
++    }
++
+     /// The three STUB causes are distinguishable facts with distinct remedies
+     /// (analise-e0 review, 30/08/2026): "nobody measured" must never be
+     /// confusable with "measured long ago" or "recorded wrong".
+diff --git a/crates/touring-cli/src/cli_suggester.rs b/crates/touring-cli/src/cli_suggester.rs
+index c4b0ce75..565e32ec 100644
+--- a/crates/touring-cli/src/cli_suggester.rs
++++ b/crates/touring-cli/src/cli_suggester.rs
+@@ -543,13 +543,15 @@ fn classify(tool_name: &str, tool_input: &Value) -> Option<ClassifierOutput> {
+         "Read" => classify_read(tool_input),
+         "Edit" | "NotebookEdit" => classify_edit(tool_input),
+         "Write" => classify_write(tool_input),
+-        "Task" => classify_task(tool_input),
++        // Claude Code renamed the sub-agent tool `Task` → `Agent`; the hook payload carries the
++        // new name (the model gate keys on it). `Task` stays for older payloads and replays.
++        "Agent" | "Task" => classify_task(tool_input),
+         "WebFetch" | "WebSearch" => classify_webfetch(tool_input),
+         _ => None,
+     }
+ }
+ 
+-/// Classifier for `Task` tool invocations (agent delegation).
++/// Classifier for `Agent` tool invocations (agent delegation; `Task` is the legacy name).
+ ///
+ /// Returns `Some` for any non-empty task input so that Phase 1/2 lesson
+ /// retrieval is unlocked for agent-spawning operations.  Fail-open: malformed
+diff --git a/crates/touring-cli/src/cli_suggester_tests.rs b/crates/touring-cli/src/cli_suggester_tests.rs
+index c9b16df6..a391f748 100644
+--- a/crates/touring-cli/src/cli_suggester_tests.rs
++++ b/crates/touring-cli/src/cli_suggester_tests.rs
+@@ -826,6 +826,80 @@ fn classify_via_dispatch_task_returns_some() {
+     assert!(out.confidence >= 0.7);
+ }
+ 
++/// The Claude Code tool that spawns a sub-agent is named `Agent` (`Task` is the legacy name).
++/// The input below is the shape measured in the 2026-10 transcripts: `description`, `prompt`,
++/// `subagent_type` (optional), `model` (optional), `run_in_background` (optional).
++fn agent_tool_input() -> Value {
++    json!({
++        "description": "map the routing gate callers",
++        "prompt": "Find every caller of agent_model_gate and report file:line.",
++        "subagent_type": "Explore",
++        "model": "haiku",
++        "run_in_background": true
++    })
++}
++
++#[test]
++fn classify_via_dispatch_agent_returns_some() {
++    let out = classify("Agent", &agent_tool_input())
++        .expect("the nudge must fire for the `Agent` tool — `Task` is only the legacy name");
++    assert_eq!(out.cluster, "agent-delegation-Explore");
++    assert!(out.confidence >= 0.7, "must pass the 0.7 gate");
++}
++
++#[test]
++fn agent_and_legacy_task_dispatch_to_the_same_classifier() {
++    let input = agent_tool_input();
++    let agent = classify("Agent", &input).expect("Agent emits");
++    let task = classify("Task", &input).expect("legacy Task keeps emitting");
++    assert_eq!(agent.cluster, task.cluster);
++    assert_eq!(agent.confidence, task.confidence);
++    assert_eq!(agent.reason, task.reason);
++}
++
++#[test]
++fn classify_task_reads_the_fields_the_agent_tool_carries() {
++    // `description` travels into the memory-recall (density invariant, no placeholder).
++    let out = classify_task(&agent_tool_input()).expect("emits");
++    let recall = out
++        .should
++        .iter()
++        .find(|c| c.command.contains("memory recall"))
++        .expect("SHOULD carries a memory recall");
++    assert!(
++        recall.command.contains("map the routing gate callers"),
++        "description travels: {}",
++        recall.command
++    );
++
++    // No `subagent_type` (40 of 141 measured Agent calls) → the generic cluster, not a crash.
++    let bare = json!({ "description": "x", "prompt": "y", "model": "sonnet" });
++    assert_eq!(
++        classify_task(&bare).expect("emits").cluster,
++        "agent-delegation"
++    );
++
++    // No `description` → `prompt` is the fallback the recall query uses.
++    let prompt_only = json!({ "prompt": "audit the retry loop" });
++    let out = classify_task(&prompt_only).expect("emits");
++    assert!(
++        out.should
++            .iter()
++            .any(|c| c.command.contains("audit the retry loop")),
++        "prompt is the fallback query"
++    );
++}
++
++#[test]
++fn classify_confidence_is_some_for_the_agent_tool() {
++    // `classify_confidence` is the public face of the dispatch table (the Phase-1 gate reads it).
++    assert_eq!(
++        classify_confidence("Agent", &agent_tool_input()),
++        classify_confidence("Task", &agent_tool_input())
++    );
++    assert!(classify_confidence("Agent", &agent_tool_input()).is_some());
++}
++
+ #[test]
+ fn classify_webfetch_with_url_returns_some_web_fetch_cluster() {
+     let input = json!({
+diff --git a/crates/touring-hooks-shared/src/action_signature.rs b/crates/touring-hooks-shared/src/action_signature.rs
+index 13a3bf5e..ca39e754 100644
+--- a/crates/touring-hooks-shared/src/action_signature.rs
++++ b/crates/touring-hooks-shared/src/action_signature.rs
+@@ -274,7 +274,8 @@ pub fn classify_tool_class(tool_name: &str) -> String {
+         "Write" => "write",
+         "Read" => "read",
+         "Grep" | "Glob" => "search",
+-        "Task" | "TodoWrite" => "task",
++        // `Agent` is the current name of the sub-agent tool (`Task` before the rename).
++        "Agent" | "Task" | "TodoWrite" => "task",
+         "WebFetch" | "WebSearch" => "web",
+         other if other.starts_with("mcp__") => "mcp",
+         _ => "other",
+@@ -528,6 +529,21 @@ mod tests {
+         assert_eq!(classify_tool_class("TodoWrite"), "task");
+     }
+ 
++    #[test]
++    fn tool_class_agent_is_the_current_name_of_task() {
++        // Claude Code renamed the sub-agent tool `Task` → `Agent`; the hook payload carries the
++        // new name, so a table keyed on `Task` alone buckets every delegation as `other`.
++        assert_eq!(classify_tool_class("Agent"), "task");
++        assert_eq!(classify_tool_class("Agent"), classify_tool_class("Task"));
++    }
++
++    #[test]
++    fn from_post_tool_agent_lands_in_the_task_class() {
++        let sig = ActionSignature::from_post_tool("Agent", "", false);
++        assert_eq!(sig.tool_class, "task");
++        assert_eq!(sig.to_key(), "outcome:task:agent:plain");
++    }
++
+     #[test]
+     fn tool_class_web() {
+         assert_eq!(classify_tool_class("WebFetch"), "web");

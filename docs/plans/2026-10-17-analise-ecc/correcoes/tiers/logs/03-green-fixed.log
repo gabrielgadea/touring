@@ -1,0 +1,14 @@
+### 03-green-fixed :: cargo test -p touring-cortex --lib -- td_learning_loop_never_moves_an_entry_between_tiers --nocapture
+### start 2026-10-18T03:02:49-03:00
+   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring-wt-tiers/crates/touring-cortex)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 17.23s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-tiers/debug/deps/touring_cortex-130db91194c7ae72)
+
+running 1 test
+test handlers::learning::tests::td_learning_loop_never_moves_an_entry_between_tiers ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 863 filtered out; finished in 0.02s
+
+### end 2026-10-18T03:03:06-03:00 rc=0

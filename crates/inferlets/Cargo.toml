@@ -2,7 +2,7 @@
 name = "inferlets"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version.workspace = true
 description = "WASM inferlets — sandboxed evaluation plugins for touring-wasm"
 license.workspace = true
 
@@ -19,6 +19,11 @@ sha2 = { workspace = true }
 serde = { workspace = true }
 toml = { workspace = true }
 serde_json.workspace = true
+
+[dev-dependencies]
+# Tests walk a directory they own: `/tmp` of the machine held symlink cycles
+# left by a killed fixture and hung two walk tests for 25 minutes (18/09/2026).
+tempfile = { workspace = true }
 
 # Wave 24 (2026-04-18): removed `[profile.release]` — Cargo ignored it anyway
 # (profiles must live at workspace root), emitting a warning on every build.

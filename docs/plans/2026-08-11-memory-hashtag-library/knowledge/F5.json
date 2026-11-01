@@ -1,0 +1,11 @@
+{
+  "phase": "F5",
+  "entities": [
+    {
+      "entity_id": "phase:F5",
+      "type": "phase",
+      "description": "Comunidades emergentes + MOCs DEPLOYADOS: (1) moc.rs \u2014 label propagation ponderado (Raghavan 2007) sobre grafo entry<->entry (arestas: strong tags domain/purpose/artifact/process/lang \u2014 NUNCA status universal nem kind grosso \u2014 + links tipados peso 2); iteracao em chaves ORDENADAS (HashMap order e random por processo \u2014 sem isso o label oscilava entre runs; determinismo provado 3x); (2) render_moc gera OKF doc com [[wikilinks]], cobertura por faceta, links tipados; singletons colapsam em secao honesta 'Sem conexoes fortes' (nunca N secoes vazias fingindo agrupamento); (3) RPC cli-memory-moc + clap memory moc <topic> [--out path com create_dir_all]; (4) E2E live: MOC maps escrito em docs/knowledge/mocs/maps.md; MOC memory: 65 entradas -> 2 comunidades reais (38 memory-repair + 5 wiring-dag) + 22 singletons \u2014 estrutura real emergindo de corpus denso. Gates: 4 testes moc rstest (comunidades emergem, links pontam ilhas, determinismo, OKF render), 170 rl::memory total, clippy -D limpo, 2 deploys exit 0."
+    }
+  ],
+  "relations": []
+}

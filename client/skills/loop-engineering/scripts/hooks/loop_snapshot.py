@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from loop_marker import active_marker, _read  # noqa: E402
+from loop_marker import _read, active_marker, pending_subtask_ids, state_key  # noqa: E402
 
 
 def pending_subtasks(task):
@@ -34,8 +34,7 @@ def pending_subtasks(task):
         subs = json.loads(out).get("subtasks", [])
     except Exception:  # noqa: BLE001
         return []
-    return [str(s.get("subtask_id", "")).split("::")[-1]
-            for s in subs if s.get("status") not in ("done", "finalized")]
+    return pending_subtask_ids(subs)
 
 
 def snapshot_outer(marker: dict, ts: str) -> int:
@@ -54,7 +53,10 @@ def snapshot_outer(marker: dict, ts: str) -> int:
     except Exception:  # noqa: BLE001 — snapshot must never block compaction
         pass
     cwd = marker.get("cwd") or ""
-    key = f"flow-state:{marker.get('flow', 'outer')}:{abs(hash(cwd)) % 10**8}"
+    # Deterministic key (REGRA #17) — see loop_marker.state_key. The old
+    # `abs(hash(cwd))` was randomized per process, so this record could never be
+    # looked up again; loop_resume.py recomputes THIS string to read it back.
+    key = state_key(marker)
     snap = (f"OUTER flow={marker.get('flow')} cwd={cwd} missing={missing} "
             f"next={nxt} bundle={marker.get('bundle')} snapshot_at={ts}")
     try:
@@ -96,7 +98,7 @@ def main(argv=None):
             f"scope={marker.get('scope')} snapshot_at={ts}. "
             f"Resume: touring decompose ready {task}")
     try:
-        subprocess.run(["touring", "memory", "store", f"loop-state:{task}", snap,
+        subprocess.run(["touring", "memory", "store", state_key(marker), snap,
                         "--tier", "semantic", "--type", "reference"],
                        capture_output=True, text=True, timeout=30)
     except Exception:  # noqa: BLE001
@@ -106,6 +108,9 @@ def main(argv=None):
     if bundle:
         log = Path(bundle) / "log.md"
         try:
+            # `loop_diagnose` creates log.md when the bundle is born, so this
+            # append now actually lands; before 2026-08-02 nothing ever created
+            # the file and the whole human-readable leg silently never engaged.
             if log.exists():
                 log.write_text(log.read_text()
                                + f"\n## {ts} — PreCompact snapshot\n\n"

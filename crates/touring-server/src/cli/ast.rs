@@ -265,8 +265,7 @@ fn run_workspace_info(dir: &str) -> anyhow::Result<()> {
     let inventory = touring_code::ast::manifest::ManifestInventory::scan(dir);
     if cargo.is_none() && inventory.is_empty() {
         anyhow::bail!(
-            "no Cargo/npm/PyPI/Go manifest at or under {dir} \
-             (looked for Cargo.toml, package.json, pyproject.toml, go.mod)"
+            "no Cargo.toml/package.json/pyproject.toml/go.mod found at {dir} — run from a project root"
         );
     }
     let mut json = match &cargo {
@@ -296,7 +295,7 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         .filter(|a| a.as_str() != "-j" && a.as_str() != "--json")
         .cloned()
         .collect();
-    let cli = match AstCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<AstCli, _, _>(args.iter().skip(1)) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -446,10 +445,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "rust-semantic requires a file path: touring ast rust-semantic <file.rs>"
                 );
             }
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("failed to read {file_path}: {e}"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let report = touring_code::ast::rust_semantic::RustSemanticReport::from_source(&source)
-                .map_err(|e| anyhow::anyhow!("parse failed: {e}"))?;
+                .map_err(|e| {
+                    anyhow::anyhow!("failed to parse Rust: {e} — check syntax; run `cargo check`")
+                })?;
             let json = serde_json::json!({
                 "file_path": file_path,
                 "item_count": report.item_count,
@@ -480,12 +482,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                             "unknown language for {file_path} (expected .py/.ts/.tsx/.js/.jsx)"
                         )
                     })?;
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("failed to read {file_path}: {e}"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let report = touring_code::ast::polyglot_semantic::PolyglotSemanticReport::from_source(
                 lang, &source,
             )
-            .map_err(|e| anyhow::anyhow!("parse failed: {e}"))?;
+            .map_err(|e| anyhow::anyhow!("parse {file_path} failed: {e} — check syntax or use `touring ast rust-semantic` for .rs"))?;
             let json = serde_json::json!({
                 "file_path": file_path,
                 "language": report.language,
@@ -513,14 +516,19 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                     "format-rust requires a file path: touring ast format-rust [--preserve] <file.rs>"
                 );
             }
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("failed to read {file_path}: {e}"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!("cannot read {file_path}: {e} — check file permissions and path")
+            })?;
             let formatted = if preserve {
-                touring_code::ast::format_preserve(&source)
-                    .map_err(|e| anyhow::anyhow!("preserve format failed: {e}"))?
+                touring_code::ast::format_preserve(&source).map_err(|e| {
+                    anyhow::anyhow!(
+                        "preserve format failed: {e} — run `touring ast format-rust` for Rust only"
+                    )
+                })?
             } else {
-                touring_code::ast::format_rust_code(&source)
-                    .map_err(|e| anyhow::anyhow!("format failed: {e}"))?
+                touring_code::ast::format_rust_code(&source).map_err(|e| {
+                    anyhow::anyhow!("Rust format failed: {e} — verify syntax and run `cargo fmt`")
+                })?
             };
             print!("{formatted}");
         }
@@ -597,10 +605,18 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             return super::highlight::run(&full_args);
         }
         AstCmd::Workflow { file_path } => {
-            let source = std::fs::read_to_string(&file_path)
-                .map_err(|e| anyhow::anyhow!("failed to read {}: {e}", file_path))?;
-            let report = touring_code::ast::CodeGenWorkflow::analyze(&source)
-                .map_err(|e| anyhow::anyhow!("CodeGenWorkflow::analyze failed: {e}"))?;
+            let source = std::fs::read_to_string(&file_path).map_err(|e| {
+                anyhow::anyhow!(
+                    "cannot read workflow {}: {e} — run `ls -l {}` to check",
+                    file_path,
+                    file_path
+                )
+            })?;
+            let report = touring_code::ast::CodeGenWorkflow::analyze(&source).map_err(|e| {
+                anyhow::anyhow!(
+                    "workflow analysis failed: {e} — check YAML syntax with `touring adw explain`"
+                )
+            })?;
             println!("{}", serde_json::to_string_pretty(&report)?);
         }
     }

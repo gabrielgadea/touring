@@ -1,0 +1,23 @@
+[package]
+name = "touring-pyright"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "VGP layer 2 — the project's own verifier as a warm, bounded session: a synchronous stdio LSP client, pyright-langserver, rust-analyzer, tsserver and deno lsp behind one per-project session pool (std + serde_json only; no async runtime, no hook crates)"
+
+[lib]
+name = "touring_pyright"
+path = "src/lib.rs"
+
+# Deliberately lean: the hook crates depend on this one, and `touring-lsp` (which optionally pulls
+# `touring-hooks`) re-exports it — so nothing here may depend on touring-lsp, touring-hooks,
+# touring-dispatch or touring-hook-handlers, or the package graph becomes cyclic again.
+[dependencies]
+thiserror.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true

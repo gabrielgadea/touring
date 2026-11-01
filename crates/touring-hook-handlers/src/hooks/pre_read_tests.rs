@@ -1822,4 +1822,46 @@ fn plan_scope_line_is_dense_and_carries_the_next_command() {
     assert!(!line.contains('\n'));
 }
 
+#[test]
+fn plan_scope_names_only_the_readers_real_plan() {
+    // 27/09/2026: every read announced ANOTHER session's `OUTER` placeholder, whose
+    // `touring decompose ready OUTER` names no DAG.
+    let mine = "fde12f4c-a367-468e-ab30-0439fc525e39";
+    assert!(marker_names_readers_plan("task_123", mine, mine));
+    assert!(
+        !marker_names_readers_plan("OUTER", mine, mine),
+        "placeholder"
+    );
+    assert!(!marker_names_readers_plan("", mine, mine), "no task");
+    assert!(
+        !marker_names_readers_plan("task_123", "another-session", mine),
+        "foreign"
+    );
+    // An unknown session on either side keeps the project-wide behaviour.
+    assert!(marker_names_readers_plan("task_123", "", mine));
+    assert!(marker_names_readers_plan("task_123", mine, ""));
+}
+
+#[test]
+fn plan_scope_absolute_scope_never_covers_a_file_of_another_repo() {
+    // A file outside the project arrives with an absolute path; prefixing the root made
+    // `<root>//home/…/other/…` look inside `<root>` (27/09/2026).
+    let root = "/home/user/example-workspace";
+    assert!(!marker_covers(
+        "/home/user/other-repo/src/lib.rs",
+        root,
+        root,
+        root,
+        "active"
+    ));
+    // Positive control: a file of this workspace is still covered by its absolute scope.
+    assert!(marker_covers(
+        "crates/x/src/lib.rs",
+        root,
+        root,
+        root,
+        "active"
+    ));
+}
+
 // ── Tests for Cycle 18 extracted helpers ──────────────────────────────────

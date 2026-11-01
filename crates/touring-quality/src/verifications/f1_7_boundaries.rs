@@ -230,7 +230,7 @@ fn analyze_boundaries_dim(target: &Path) -> Result<(f32, String)> {
     use touring_analysis::quality::{analyze_boundaries, score_boundaries};
 
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let r = analyze_boundaries(&raw, lang);
 
     // W4 (2026-07-02): default architectural-layer policy (advisory). A file in
@@ -316,7 +316,7 @@ mod tests {
     #[cfg(feature = "workspace-integration")]
     #[test]
     fn typescript_target_uses_polyglot_visibility() {
-        // P-F end-to-end: the verifier threads lang_from_ext(.ts) → analyze_boundaries,
+        // P-F end-to-end: the verifier threads lang_of(.ts) → analyze_boundaries,
         // so an all-exported TS file reads as real high-exposure (a meaningful
         // score < 1.0), not the pre-P-F 0-items silent 1.0.
         let mut f = tempfile::Builder::new()

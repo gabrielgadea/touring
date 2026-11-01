@@ -7,13 +7,25 @@
 #             add `--tests` here until it is fixed)
 #   gates   — deterministic Python gates (daemon-optional, fail-open by design):
 #             sync_metrics (anti doc-drift), file_size_gate (anti bloat),
-#             sync_reference (anti reference-doc drift), root hygiene (tf-bak)
+#             sync_reference (anti reference-doc drift), root hygiene (tf-bak).
+#             READ-ONLY: no write permission, no credential left in .git/config.
+#   sync-architecture — the ONLY job with `contents: write`: after `gates` pass on a
+#             push to main it runs docs/sync_metrics.py --sync and pushes the result.
+#   coverage — lcov artifact + the ratchet (docs/kpi/coverage-floor.json).
+#   mutants-diff — cargo-mutants on the lines this change touched (ADVISORY for now).
 name: ci
 
 on:
   push:
     branches: [main, master]
   pull_request:
+
+# Least privilege (17/10/2026, ECC analysis C3 + decision "contents: write do job gates"):
+# every job reads; ONLY `sync-architecture` declares `contents: write`, and all it runs is
+# docs/sync_metrics.py. Before, `gates` held the write token while ~40 steps — dependency build
+# scripts, mkdocs, pip installs — ran with it sitting in .git/config.
+permissions:
+  contents: read
 
 # NOTE: no global `RUSTFLAGS: -D warnings`; clippy enforces -D warnings explicitly
 # in its own step. touring-generator's missing_docs debt is CLOSED (2026-06-13,
@@ -28,7 +40,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: clippy, rustfmt
       - name: Install system deps (capnp + libpython — same as release.yml)
@@ -78,7 +90,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -96,7 +108,7 @@ jobs:
     timeout-minutes: 40
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           components: llvm-tools-preview
       - name: Install system deps (capnp + libpython — same as release.yml)
@@ -153,45 +165,56 @@ jobs:
         with:
           name: lcov-coverage
           path: lcov.info
+      - name: coverage ratchet — total line coverage cannot fall below the recorded floor
+        # N2 (17/10/2026): the lcov above fed F3.1 but nothing failed when coverage fell. The
+        # floor is a RATCHET in docs/kpi/coverage-floor.json: fail below `floor_pct - tolerance_pp`
+        # (0.5 pp, to absorb run-to-run noise from ignored/conditional tests). `floor_pct: null`
+        # means "not measured in CI yet": the step only RECORDS the total (job summary) and passes
+        # — the first real measurement on main becomes the floor, via
+        # `python3 scripts/coverage_ratchet.py --lcov lcov.info --floor docs/kpi/coverage-floor.json --update`.
+        # A missing/empty lcov FAILS (absent signal is not zero). It runs after the upload so the
+        # artifact survives a ratchet failure. Line quality of the diff itself belongs to the
+        # mutants-diff job, not to a second coverage gate.
+        run: python3 scripts/coverage_ratchet.py --lcov lcov.info --floor docs/kpi/coverage-floor.json
 
   gates:
     name: deterministic quality gates
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # Needed by the sync_metrics auto-sync step below, which pushes the
-    # regenerated ARCHITECTURE.md block back to the branch.
-    permissions:
-      contents: write
+    # READ-ONLY (decision "contents: write do job gates", 17/10/2026): the workflow
+    # default (`contents: read`) applies. The push that used to live here moved to
+    # `sync-architecture` below, which runs nothing else.
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          # Check out the branch itself, not the detached SHA — otherwise the
-          # auto-sync step below would have nothing to push to.
-          ref: ${{ github.head_ref || github.ref_name }}
+          # No token left in .git/config for the ~40 steps that follow: build scripts of
+          # dependencies, pip installs and mkdocs all run in this job.
+          persist-credentials: false
       # 2026-08-02: this gate compares a LIVE measurement (crate count, loc_src,
       # test_fns) against the block committed in ARCHITECTURE.md, so ANY commit
       # touching .rs invalidated it and turned the build red until someone
       # remembered to run `--sync`. The drift is mechanically derivable, so
       # failing the build asked a human to do what the script already does.
-      # Now CI regenerates it and pushes the result back.
       #
-      # Guards: `[skip ci]` keeps the push from triggering another run (which
-      # would sync, push, trigger... indefinitely); the push is skipped on forks,
-      # where GITHUB_TOKEN cannot write — those fall back to a hard failure so
-      # the drift is reported rather than silently ignored.
-      - name: sync_metrics — auto-sync ARCHITECTURE.md from measured reality
+      # 17/10/2026: this step no longer pushes. It regenerates the block in the working
+      # tree (so later steps see the synced doc, as before) and reports the drift:
+      #   * fork PR      -> HARD failure, as always (the contributor must run --sync);
+      #   * same-repo PR -> warning only: the PR is not edited behind its author's back,
+      #                     `sync-architecture` syncs main after the merge;
+      #   * push         -> notice: `sync-architecture` pushes the fix once gates pass.
+      - name: sync_metrics — ARCHITECTURE.md drift (read-only; main is synced by sync-architecture)
         env:
           IS_FORK: ${{ github.event.pull_request.head.repo.full_name != '' && github.event.pull_request.head.repo.full_name != github.repository }}
+          EVENT_NAME: ${{ github.event_name }}
         run: |
           set -euo pipefail
           python3 docs/sync_metrics.py --sync
 
           if git diff --quiet -- ARCHITECTURE.md; then
-            echo "ARCHITECTURE.md already in sync — nothing to push"
+            echo "ARCHITECTURE.md already in sync"
             exit 0
           fi
 
-          echo "::notice::ARCHITECTURE.md metrics drifted; regenerated from source"
           git --no-pager diff --stat -- ARCHITECTURE.md
 
           if [ "${IS_FORK}" = "true" ]; then
@@ -200,23 +223,219 @@ jobs:
             exit 1
           fi
 
-          git config user.name  "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ARCHITECTURE.md
-          git commit -m "chore(docs): auto-sync ARCHITECTURE.md metrics [skip ci]"
-
-          # A concurrent push can land between checkout and here; rebase once
-          # and retry before giving up.
-          for attempt in 1 2 3; do
-            if git push; then
-              echo "pushed metrics sync (attempt ${attempt})"
-              exit 0
-            fi
-            echo "push rejected — rebasing onto the updated branch (attempt ${attempt})"
-            git pull --rebase --autostash
-          done
-          echo "::error::Could not push the metrics sync after 3 attempts."
-          exit 1
+          if [ "${EVENT_NAME}" = "pull_request" ]; then
+            echo "::warning::ARCHITECTURE.md metrics drifted; main will be synced automatically after the merge (or run 'python3 docs/sync_metrics.py --sync' and commit)."
+          else
+            echo "::notice::ARCHITECTURE.md metrics drifted; the sync-architecture job pushes the fix once every gate passes."
+          fi
+      - name: client mirror — integridade do espelho contra seu próprio manifesto
+        # O CI NÃO consegue comparar client/ com ~/.claude (o lado vivo só existe na
+        # máquina do operador), e um passo verde que não verifica nada é justamente a
+        # armadilha que criou este problema: o guard anti-injeção varria dois espelhos
+        # e nunca a biblioteca implantada. O que dá para provar aqui é o outro erro —
+        # alguém editar client/ diretamente, edição que o próximo --apply desfaz em
+        # silêncio. A comparação completa roda em propagate-release.sh.
+        run: python3 -m pytest scripts/test_sync_client_skills.py -q
+      - name: client/omarchy — fonte do OmarchyOS Agêntico (plano 2026-08-23)
+        # Ao contrário do espelho acima, client/omarchy/ é ORIGEM: a máquina Omarchy
+        # é provisionada a partir dele, então o que se prova aqui é o contrato dos
+        # scripts (fail-closed, --json, shellcheck limpo) e o manifesto do plugin
+        # contra o validador oficial vendorizado (bash+jq, roda sem o shell Quickshell).
+        # `systemd-analyze --user verify` e `touring adw lint` só existem no Pop/Omarchy,
+        # por isso os testes que dependem deles fazem pytest.skip quando ausentes.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"   # the mirror-hygiene test above walks client/ for __pycache__
+        run: |
+          sudo apt-get install -y shellcheck jq
+          bash -n client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          shellcheck -S warning client/omarchy/bin/*.sh client/omarchy/hooks/*/*
+          client/omarchy/vendor/omarchy-plugin-validate client/omarchy/skills-deck
+          python3 -m pytest client/omarchy/tests -q
+      - name: client/hooks — seção hooks global versionada (S48/S49, plano 2026-09-25)
+        # client/claude/hooks.settings.json é a FONTE da seção hooks do ~/.claude/settings.json
+        # (scripts/install_claude_hooks.py --apply). O CI não vê o settings vivo, mas vê a fonte:
+        # o lint (`if` de regra única, `if` só nos 5 eventos de ferramenta, script de projeto no
+        # global, timeout declarado) e check/apply contra arquivos de rascunho. O teste da S31 é
+        # xfail(strict): vermelho declarado enquanto os seis `if` com `|` estiverem na fonte —
+        # quando saírem, o XPASS reprova e obriga a tirar o marcador. Os testes que leem o
+        # settings do operador fazem skip com o motivo; os demais rodam com HOME de rascunho.
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m pytest client/hooks/tests -q -rs
+      - name: client/hooks — lint com ruff PINADO (varredura de 17/10/2026)
+        # O repo não tem config de ruff: o veredito é o default da VERSÃO instalada. A 0.16.6
+        # levou o default a 413 regras e tirou E402/PLC0415/F403 dele — 59 achados em
+        # client/hooks, 6 deles `noqa` documentados que um --fix cego teria apagado com a
+        # justificativa. Sem pin, o runner instala a última versão e o gate muda de régua
+        # sozinho; subir de versão é decisão (bumpar aqui + limpar o que ela acusar). Venv no
+        # RUNNER_TEMP e --no-cache: nada fica no checkout que os passos seguintes varrem.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/ruff-venv"
+          "$RUNNER_TEMP/ruff-venv/bin/pip" install -q ruff==0.16.6
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" --version
+          "$RUNNER_TEMP/ruff-venv/bin/ruff" check --no-cache client/hooks
+      - name: mutants config — 19 minutos rendendo zero, lidos como aprovação
+        # `additional_cargo_args = ["--all-targets"]` ficava sob um comentário que
+        # dizia "Skip bench/doctest targets". --all-targets faz o contrário: INCLUI
+        # benches. `nextest list` então tentava enumerar o harness iai-callgrind,
+        # falhava sem iai-callgrind-runner no PATH, e o baseline do cargo-mutants
+        # morria — 0 mutantes, que o CLI reportava como ok:true e o repo-score
+        # consumia como a categoria "testing". O exclude_glob **/benches/** não
+        # cobria isso: ele pula a GERAÇÃO de mutantes, nunca a lista de testes.
+        run: python3 -m pytest scripts/test_mutants_config.py -q
+      - name: kpi tooling — readiness, journal_gc, coverage ratchet and the workflows themselves
+        # 17/10/2026 (ECC analysis N5/N6/N2 + the workflow decisions). These tests parse YAML/TOML:
+        # PyYAML is not guaranteed on the runner's system python and a silent `importorskip` here
+        # would be a hollow green, so they run in a venv with PINNED deps (same device as the ruff
+        # step below). They prove the STRUCTURE of the workflows and the logic of the tools; that
+        # the workflows actually run green on GitHub can only be proven by their first run.
+        run: |
+          python3 -m venv "$RUNNER_TEMP/kpi-venv"
+          "$RUNNER_TEMP/kpi-venv/bin/pip" install -q pytest==8.4.2 pyyaml==6.0.3
+          "$RUNNER_TEMP/kpi-venv/bin/python" -m pytest -q -p no:cacheprovider \
+            scripts/test_readiness.py scripts/test_journal_gc.py \
+            scripts/test_coverage_ratchet.py scripts/test_ci_workflows.py
+      - name: skill pins — uma skill é uma AFIRMAÇÃO sobre algo que muda sem ela
+        # O espelho garante que client/ == o lado vivo, byte a byte. Não garante
+        # que o conteúdo ainda seja VERDADEIRO: uma skill que ficou obsoleta é
+        # espelhada fielmente como uma skill obsoleta. Este gate mede o outro eixo.
+        #
+        # Duas classes, com forças distintas:
+        #   · comando ENSINADO que não existe em `touring --help` → BLOQUEIA.
+        #     A skill manda o leitor a um erro; é dano ativo, não desatualização.
+        #   · fonte pinada cujo sha256 mudou → BLOQUEIA (alguém precisa reler a
+        #     skill contra a fonte e re-pinar deliberadamente com --update).
+        #
+        # Uma fonte simplesmente AUSENTE deste checkout (o ~/.claude/CLAUDE.md
+        # global não é espelhado) é reportada e NÃO bloqueia: um gate que falha
+        # em toda execução é um gate que todos aprendem a pular.
+        run: |
+          python3 client/skills/TACO-skilling/scripts/skill_pin_gate.py \
+            --root client/skills --claude-root client --repo-root . --check
+      - name: skill principles — um papel implica uma obrigação
+        # O pin gate mede se uma skill ainda é VERDADEIRA. Este mede se ela é
+        # COERENTE com o papel que declara: quem decompõe ou despacha trabalho
+        # tem de reivindicar atomicamente (`decompose claim` — `ready` só LÊ, e
+        # duas sessões que o consultam recebem o MESMO subtask), e quem delega
+        # um veredito a um agente tem de passá-lo por um painel cego
+        # (`critic-panel`), porque auditor que assistiu à obra não é cego.
+        #
+        # A população é MEDIDA (skills que invocam o CLI do Touring), nunca uma
+        # lista chumbada — assim uma skill NOVA já nasce coberta. As regras são
+        # por SINAL, não por vocabulário: casar a palavra "cross-audit" no corpo
+        # acusou uma skill de redação de documentos (10 achados → 3 reais).
+        run: python3 client/skills/TACO-skilling/scripts/skill_principle_gate.py --root client/skills
+      - name: skill gates — o instrumento também regride em silêncio
+        # Os dois gates acima subiram sem suíte, e os DOIS já haviam regredido
+        # sem ninguém notar: o pin gate comparava só o primeiro nível (então
+        # `touring search symbols`, inexistente, passava enquanto `touring search`
+        # existisse — o regex já capturava o segundo nível e nenhum sítio o usava),
+        # e o principle gate acusava por vocabulário (10 achados, 7 falsos).
+        run: python3 -m pytest client/skills/TACO-skilling/scripts/test_skill_gates.py -q
+      - name: update-touring — a ferramenta de deploy é versionada e escopada
+        # O script que faz TODO deploy viveu até 18/08/2026 só em
+        # ~/.local/bin/, fora do controle de versão. Aqui não há
+        # ~/.local/bin para comparar, mas as invariantes de CONTEÚDO são
+        # verificáveis: raiz do workspace nunca apontando para a árvore
+        # congelada, e nenhum check de processo largo o bastante para
+        # matar o daemon de outro projeto (REGRA #19).
+        run: python3 -m pytest scripts/test_update_touring.py -q
+      - name: touring-quality-score — o wrapper que o juiz chama é versionado e testado
+        # Viveu até 14/09/2026 só em ~/.local/bin. Seu `flock -n` saía 1 mudo
+        # com outra pontuação ativa, e o juiz de convergência lia "qualidade
+        # não medida". Os testes rodam o script REAL contra um motor falso,
+        # cache e lock temporários: espera e recusa com 75, cache vazio nunca
+        # servido, falha do motor nunca cacheada, motor derivado do checkout.
+        run: python3 -m pytest scripts/test_touring_quality_score.py -q
+      - name: ceg serial(gate_metrics) — teste no pipeline do gateway DEVE ser serial
+        # Os testes de gateway/metrics.rs medem DELTAS exatos dos contadores
+        # globais de processo; um teste que chama run_gateway* fora do grupo
+        # serial(gate_metrics) intercala com a medição sob paralelismo do cargo
+        # e a suíte flaka (7 sítios corrigidos em 25/08/2026). O guard é
+        # provado por mutação (remover o atributo → exit 1; restaurar → exit 0).
+        run: python3 -m pytest scripts/test_ceg_serial_gate_metrics.py -q
+      - name: OKF audits — todo report de auditoria DEVE ser documento OKF
+        # 30/08/2026: o cross-audit do dia saiu sem frontmatter e o censo achou
+        # outros 5 (o template do flow ADW gerava date: sem description). A
+        # regra "every .md the loop writes is an OKF document" não tinha
+        # executor para docs/audits/ — este guard é o executor (D8).
+        run: python3 -m pytest scripts/test_okf_audit_reports.py -q
+      - name: code-mode D8 — a seção declarada DEVE casar com o predicado do executor
+        # Cross-audit 26/08/2026: este guard existia, era citado em
+        # rules/touring-4-pillars.md como "o remédio institucional… texto e
+        # executor reconciliados por teste, não por boa vontade" — e NUNCA
+        # rodava no CI. Uma garantia declarada e não executada é o próprio
+        # anti-padrão D8 aplicado ao guard do D8.
+        run: python3 -m pytest scripts/test_code_mode_sdk_section.py -q
+      - name: git nudge D8 — o nudge do git DEVE casar com block_git.sh (REGRA #11 v2)
+        # Até 25/08 o nudge afirmava "git is prohibited … block_git.sh will
+        # reject this command": falso duas vezes para `git status` (a proibição
+        # foi revogada em 23/08, e o executor libera leitura/aditivas). O guard
+        # lê AMBOS os lados e é provado por mutação.
+        run: python3 -m pytest scripts/test_git_nudge_matches_executor.py -q
+      - name: cli tests — isolamento de project root
+        run: python3 -m pytest scripts/test_cli_tests_isolate_project_root.py -q
+      - name: path alphabet — predicados de caminho varridos contra o acervo inteiro
+        # 30/08/2026, dois casos no mesmo dia: _PARECE_CAMINHO do analise sem
+        # [ ] via 0 de 505; os detectores da taco-planning sem hífen davam 0
+        # match ou caminho MUTILADO (ceg/src/…). O alfabeto é propriedade do
+        # acervo, não da intuição — a varredura de `git ls-files` faz uma
+        # convenção nova de nome falhar no dia em que entra, não meses depois.
+        run: python3 -m pytest scripts/test_path_alphabet_universe.py -q
+      - name: turno humano D8 — o predicado tem UMA fonte, em Rust e em Python
+        # 04/09/2026: 35 de 172 records contados como turno humano (20,3%) eram
+        # do harness — saída de slash command, banner de caveat, resumo de
+        # compactação. O denominador de `injected_bytes_per_turn` estava inflado
+        # 25,5%, e a régua subestimava em ~25% o custo que existe para expor.
+        # Duas implementações da mesma regra em línguas diferentes divergem em
+        # silêncio; este guard lê o EXECUTOR Rust e exige que a declaração
+        # Python case com ele. Provado por mutação: remover um marcador reprova
+        # dois testes (declaração E comportamento).
+        run: python3 -m pytest scripts/test_human_turn_predicate_parity.py -q
+      - name: sonda viva da régua de contexto (roda, e PULA sem corpus)
+        # A sonda `#[ignore]` era o único instrumento que já pegou um erro de
+        # 12x na régua — e `--ignored` não aparecia em NENHUM workflow nem
+        # script, então ela nunca rodava sozinha (auditoria 04/09/2026). Um
+        # guard que existe e não roda é certificado, não guard. Em ambiente sem
+        # transcript ela PULA dizendo isso; onde houver corpus, ela assere.
+        run: cargo test -p touring-cli --lib live_probe -- --ignored --nocapture
+      - name: docs — nenhuma doc de sistema/repo/infra cita crate inexistente
+        # 26/08/2026: 63 de 93 arquivos citavam crates fundidos meses atrás
+        # (touring-ast, touring-learning, touring-core...), 500+ menções. A
+        # correção não foi mecânica — 3 dos 5 primeiros palpites por nome de
+        # diretório homônimo estavam errados. Este guard fecha a classe: a
+        # próxima fusão de crate não reabre o mesmo drift em silêncio.
+        run: python3 -m pytest scripts/test_docs_no_phantom_crates.py -q
+      - name: skills — SKILL.md abaixo do corte de compactação (a lógica do guard; a varredura real PULA aqui)
+        # 17/10/2026: scripts/test_skill_size_guard.py existia desde 08/10 (a Touring tinha
+        # 41.661 chars e voltava pela metade depois de cada compactação) e NENHUM workflow
+        # nem o propagate-release.sh o chamava — git grep achava só docs/plans. Aqui rodam
+        # os controles positivo/negativo/fronteira/isenção, que provam que o guard MEDE. A
+        # varredura de ~/.claude/skills é da máquina do usuário: no runner ela PULA dizendo
+        # isso (-rs) em vez de passar medindo vazio; o release a exige de verdade
+        # (propagate-release.sh, SKILL_SIZE_GUARD_REQUIRE_ROOTS=1).
+        run: python3 -m pytest scripts/test_skill_size_guard.py -q -rs
+      - name: drift_semantic_scan — 7 categorias de drift semântico (advisory; || true até saneamento)
+        # 31/08/2026 (item #4 doc-touring, Opção A1 do plano 2026-08-31-work-outer):
+        # Cobre 7 categorias (versões, paths, fused, CLI, code-fences, envvars,
+        # hooks). test_docs_no_phantom_crates.py (linha acima) cobre APENAS C3
+        # (fused crates); este step adiciona as outras 6 (representando 550 dos
+        # 561 stale signals no baseline — guard atual escapa 98% do drift).
+        # Baseline: 561 stale (C1=36, C3=11, C4=279, C5=151, C6=84) sobre 1098 .md files.
+        # Por enquanto ADVISORY (`|| true`) — saneamento de 561 stale é trabalho
+        # do próximo ciclo (B1 thresholds + B2 auto-fix); quando drift ≤ threshold
+        # desejado, remover o `|| true` para virar fail-on-drift.
+        # Coverage validada: 8 testes em scripts/test_drift_coverage.py (F2.1 Diamond).
+        run: python3 scripts/drift_semantic_scan.py --check --quiet || true
+      - name: mkdocs build --strict (F7, site de sistema/repo/infra)
+        # `docs-site/` são symlinks para README/CLAUDE/ARCHITECTURE/docs/ — se
+        # um link relativo quebrar (arquivo movido, renomeado) o build falha
+        # em vez de publicar um site com link morto. Reproduzido em venv
+        # limpo a partir de requirements-docs.txt, verificado 26/08/2026.
+        run: |
+          python3 -m venv .venv-docs
+          .venv-docs/bin/pip install -q -r requirements-docs.txt
+          .venv-docs/bin/mkdocs build --strict
       - name: file_size_gate — no .rs file bloat (>5k LOC)
         run: python3 docs/file_size_gate.py --check
       - name: gen_reference — docs/reference/ anti-drift
@@ -263,6 +482,57 @@ jobs:
         # release readiness.
         run: python3 docs/elite_aggregate.py --check
 
+  sync-architecture:
+    # The ONLY job in this workflow with write access (decision "contents: write do job
+    # gates", 17/10/2026). It exists to push the regenerated ARCHITECTURE.md metrics block —
+    # nothing else runs with the token: no pip, no cargo, no mkdocs, no pytest.
+    #
+    # Guards: `needs: gates` (never syncs a tree that failed its gates); push to main only (a PR
+    # is never edited behind its author's back — its drift is a warning in `gates`); `[skip ci]`
+    # keeps the push from triggering another run, which would sync, push, trigger... forever.
+    name: sync ARCHITECTURE.md (main only)
+    needs: gates
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The branch itself, not the detached SHA — otherwise there is nothing to push to.
+          ref: ${{ github.ref_name }}
+      - name: sync_metrics --sync and push
+        run: |
+          set -euo pipefail
+          python3 docs/sync_metrics.py --sync
+
+          if git diff --quiet -- ARCHITECTURE.md; then
+            echo "ARCHITECTURE.md already in sync — nothing to push"
+            exit 0
+          fi
+
+          echo "::notice::ARCHITECTURE.md metrics drifted; regenerated from source"
+          git --no-pager diff --stat -- ARCHITECTURE.md
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add ARCHITECTURE.md
+          git commit -m "chore(docs): auto-sync ARCHITECTURE.md metrics [skip ci]"
+
+          # A concurrent push can land between checkout and here; rebase once
+          # and retry before giving up.
+          for attempt in 1 2 3; do
+            if git push; then
+              echo "pushed metrics sync (attempt ${attempt})"
+              exit 0
+            fi
+            echo "push rejected — rebasing onto the updated branch (attempt ${attempt})"
+            git pull --rebase --autostash
+          done
+          echo "::error::Could not push the metrics sync after 3 attempts."
+          exit 1
+
   supply-chain:
     # SEC-03 (2026-06-13): cargo-deny is now a BINDING gate (was RED + ungated).
     # advisories — RustSec DB (deny.toml carries scoped, justified ignores for
@@ -282,7 +552,7 @@ jobs:
       # developers see locally, producing license/duplicate errors that cannot be
       # reproduced with `cargo deny check`. Running cargo-deny natively on the gnu
       # runner makes CI and local identical — the same binary, the same graph.
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: cargo-deny
@@ -302,13 +572,22 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
         with:
           tool: nextest
+      # The e2e tier SPAWNS the product: `touring`, `touring-daemon`,
+      # `touring-hook`. `cargo nextest` compiles TEST targets only, so on a clean
+      # runner those binaries never exist and 13 tests died with
+      # `spawn touring: NotFound` / `daemon_socket missing` — every CI run on
+      # main since 02/08/2026. They passed locally only because a developer's
+      # `update-touring` had left `target/release/touring` behind, which is the
+      # definition of a test that verifies the machine instead of the commit.
+      - name: build product binaries (the e2e tier spawns them)
+        run: cargo build --workspace --bins
       - name: cargo nextest (ci profile, full suite)
         run: cargo nextest run --workspace --profile ci
 
@@ -322,7 +601,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/rust-toolchain@2c76c034f9e32a5d6e2c104dc4df23a22476db04 # nightly
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -364,7 +643,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: dtolnay/rust-toolchain@1.95
+      - uses: dtolnay/rust-toolchain@035fceb3c12fb0c6a9461b52775e16473133e591 # 1.95
       - name: Install system deps (capnp + libpython — same as release.yml)
         run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -375,3 +654,69 @@ jobs:
       # exercised the declared MSRV. The `+<version>` is what makes the gate real.
       - name: cargo +1.95 check (declared MSRV holds)
         run: cargo +1.95 check --workspace
+
+  mutants-diff:
+    # N1 (17/10/2026): `.cargo/mutants.toml` promised "incremental (--in-diff) in CI" while NO
+    # workflow ran cargo-mutants — the promise was a comment. Mutation is the method that
+    # separated a test that proves from a test that merely passes (49/50, 121/121, 5/5 in the
+    # ECC-analysis session, and it caught a harness that "killed" mutants in 0.14 s). This job
+    # mutates only the lines the LAST COMMIT touched (HEAD~1 -> HEAD; on a PR HEAD is the merge
+    # commit, so that is the PR's own diff). A mutant on an uncovered line always survives, so
+    # this also makes a new line without a test visible — which is why there is no separate
+    # diff-coverage gate.
+    #
+    # ADVISORY on purpose: the step is `continue-on-error: true`, so the job is green whatever
+    # the mutation result. Run it for ~2 weeks, count how often it goes red for a reason that is
+    # not a real surviving mutant (flaky test, timeout, unviable baseline): that false-red rate
+    # decides the promotion to a required gate, the same way the prose-integrity gate was
+    # promoted. The full-workspace scan lives in scheduled.yml (sharded, weekly).
+    name: mutants (--in-diff, advisory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0  # the diff base below can be several commits back (a push of N commits)
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
+      - name: Install system deps (capnp + libpython — same as release.yml)
+        run: sudo apt-get update && sudo apt-get install -y capnproto libpython3.12-dev
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2
+        with:
+          tool: nextest,cargo-mutants@27.1.0  # the version whose --shard/--shuffle/--in-place/--in-diff were checked
+      # Same reason as the `integration` job: the e2e tier spawns the product binaries and
+      # `cargo nextest` builds test targets only. `--in-place` below mutates THIS checkout (an
+      # ephemeral runner), so these binaries stay where the tests look for them; without it
+      # cargo-mutants would copy the tree and the baseline would die on `spawn touring: NotFound`.
+      - name: build product binaries (the e2e tier spawns them)
+        run: cargo build --workspace --bins
+      - name: diff of this change (whole push, or the PR's merge commit)
+        # A push of N commits is mutated as a whole: the base is the ref BEFORE the push. HEAD~1
+        # covered only the last commit. On a PR, HEAD is the merge commit and HEAD~1 the base tip.
+        # A new branch or a force push reports an all-zero or unreachable `before`: fall back to
+        # HEAD~1, said out loud.
+        env:
+          BEFORE: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          base=HEAD~1
+          if [ "$EVENT_NAME" = push ] && [ -n "$BEFORE" ] && [ "$BEFORE" != 0000000000000000000000000000000000000000 ] \
+             && git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            base=$BEFORE
+          else
+            echo "::notice::mutating against HEAD~1 (no usable push base)"
+          fi
+          git diff "$base" HEAD > "$RUNNER_TEMP/changes.diff"
+          wc -l "$RUNNER_TEMP/changes.diff"
+      - name: cargo mutants --in-diff (advisory)
+        continue-on-error: true
+        run: cargo mutants --in-place --in-diff "$RUNNER_TEMP/changes.diff"
+      - name: upload the mutation report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: mutants-diff-report
+          path: mutants.out/
+          if-no-files-found: ignore

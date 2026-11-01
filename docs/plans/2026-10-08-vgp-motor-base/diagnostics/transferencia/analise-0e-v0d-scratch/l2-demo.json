@@ -1,0 +1,1 @@
+{"verdict":"allow","layer":2,"lang":"python","elapsed_ms":0.174926,"findings":[],"camada2":"unknown: no pyright-langserver in the venv of /home/gabrielgadea/projects/touring (searched: .venv/bin/pyright-langserver, venv/bin/pyright-langserver, .venv/bin/basedpyright-langserver, venv/bin/basedpyright-langserver); Touring never installs it"}

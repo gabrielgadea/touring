@@ -1,0 +1,114 @@
+{
+  "binario": {
+    "sha8": "1c704d5b",
+    "caminho": "/home/gabrielgadea/.claude/touring/vgp/binarios/1c704d5b/",
+    "sha256": {
+      "touring": "1c704d5bd984ef08147b7c5421d6261b1a1d38d741164e92e88fd1a802c52134",
+      "touring-daemon": "d23ead5bc6cc14e9c1ebc1e7ec038db75385ed232fc4f10070def1061cb20f85",
+      "touring-hook": "64c9fe6631e475330e16041ed34572a0f3b4fe25574b8c6d7aec9217e1bf3dc8"
+    },
+    "sha256_check": "sha256sum -c *.sha256 no diretório: os 3 OK (02-sha256-check.log)",
+    "version_stderr": "touring 30.4.96 | git c118aa524358d42b9bb2aa40b4794b2c5919a5ae (HEAD; árvore de trabalho suja) | built 2026-10-10T01:32:09Z | 26 features, lista idêntica à do 30.4.95 instalado",
+    "vgp_help_rc": 0,
+    "build": {
+      "cmd": "CARGO_TARGET_DIR=/home/gabrielgadea/projects/touring/target/r96-candidato scripts/hw-slot --class rust --label r96-candidato --wait 3600 -- cargo build --release --workspace",
+      "rc": 0,
+      "compilacao": "18m48s (Finished release [optimized + debuginfo])",
+      "espera_antes_do_slot": "cerca de 16 min (slot rust de outra sessão + temp > 88C)",
+      "tamanho_target_dir": "9,1 GB",
+      "disco_livre_antes": "363 GB"
+    }
+  },
+  "prova": {
+    "cmd": "scripts/hw-slot --class heavy --label r96-prova --wait 7200 -- python3 -B docs/plans/2026-10-08-vgp-motor-base/scripts/prova_vgp_motor.py --touring /home/gabrielgadea/.claude/touring/vgp/binarios/1c704d5b/touring --so 1,3",
+    "rc": 1,
+    "veredito": "9 OK + 1 FALHA (log: 02-prova-1-3.log)",
+    "afirmacoes": [
+      {"titulo": "[1] inline · externo inventado → DENY", "ok": true, "evidencia": "verdict deny · layer 2 · 529 ms · caminho_inventado_vgp=deny", "classificacao_se_falha": null},
+      {"titulo": "[1] inline · import inventado de módulo do projeto → DENY", "ok": true, "evidencia": "verdict deny · layer 2 · 512 ms · gravar_inventado_vgp=deny", "classificacao_se_falha": null},
+      {"titulo": "[1] arquivo · externo inventado → DENY", "ok": true, "evidencia": "verdict deny · layer 2 · 501 ms · caminho_inventado_vgp=deny", "classificacao_se_falha": null},
+      {"titulo": "[1] arquivo · símbolo do PROJETO ainda inexistente (RED de TDD) → só AVISA", "ok": true, "evidencia": "verdict warn · layer 2 · gravar_inventado_vgp=warn", "classificacao_se_falha": null},
+      {"titulo": "[1] inline · membro de valor builtin (forma) → só AVISA", "ok": true, "evidencia": "verdict warn · layer 2 · 546 ms · metodo_inventado_vgp=warn", "classificacao_se_falha": null},
+      {"titulo": "[1] inline · nome sob `import *` (dinâmico) → só AVISA", "ok": true, "evidencia": "verdict warn · layer 2 · 544 ms · nome_inventado_vgp=warn", "classificacao_se_falha": null},
+      {"titulo": "[1] inline · programa limpo → ALLOW sem achado", "ok": true, "evidencia": "verdict allow · layer 2 · 763 ms · sem achados", "classificacao_se_falha": null},
+      {"titulo": "[1] arquivo · defeito que JÁ estava no disco não é culpa da edição → ALLOW", "ok": true, "evidencia": "verdict allow · layer 2 · 608 ms", "classificacao_se_falha": null},
+      {"titulo": "[3] V2 — juiz do motor (camada 1)", "ok": true, "evidencia": "rc 0; juiz_v2.json: pronto=true, recall arquivo 11/13 (0,846) e inline 21/27 (0,778), falso deny 0/400 e 0/274, p95 128,4 ms (teto 150)", "classificacao_se_falha": null},
+      {"titulo": "[3] V3 — juiz comparativo (camadas 1,2)", "ok": false, "evidencia": "rc 1; única pendência: p95 1029,1 ms > 1000,0 ms. Reproduzido: re-run do candidato 1046,1 ms; A/B com o e935aaf1 (binário das medições antigas de 907,9/939,9/954,2 ms), mesmo corpus/juiz/base: 1040,1 ms; sessão p0-atributo com o f55ec4b5: 1119,6 ms. Métricas funcionais idênticas nas 3 execuções: recall 12/13 · 23/27, 0 falsos deny em 400/274, 738 chamadas, 61 avisos em negativos.", "classificacao_se_falha": "NEM (a) NEM (b): não é o conserto P0 dos atributos (recall e falsos deny passam e não mudam) e não é defeito novo do candidato (o binário antigo reproduz 1040 ms hoje). É ambiental + margem apertada: a camada 2 tem custo de spawn por chamada (cada célula da [1] leva 500-760 ms), a máquina rodou a 88-96 C com 3 jobs heavy simultâneos (loadavg 4-9), e o teto de 1000 ms deixava só 5-9% de folga sobre as medições frias. Não isolei a causa em máquina ociosa; recomendo repetir `juiz_motor_vgp.py ... --p95-ms 1000` com a máquina reservada e fria antes de declarar o gate verde (reprovar de novo ali seria defeito real de latência da camada 2). Nada foi relaxado."}
+    ],
+    "efeito_colateral_da_prova": "A [3] sobrescreve docs/plans/2026-10-08-vgp-motor-base/diagnostics/juiz_v2.json (untracked, tinha 2 hard links). Original preservado em candidato/juiz_v2.antes.json (sha d2a21c54...) e link quebrado por cópia idêntica antes da prova. Conteúdo novo em candidato/juiz_v2.depois.json: recall inline 20/27 → 21/27, chamadas 762 → 738, p95 108,1 → 128,4 ms, chaves novas exigir_limite_superior e falso_deny_por_balde. Restaurar: cp -p candidato/juiz_v2.antes.json diagnostics/juiz_v2.json."
+  },
+  "dry_run": {
+    "cmd": "NO_COLOR=1 scripts/propagate-release.sh 30.4.96 --dry-run",
+    "rc": 0,
+    "saida": "candidato/03-dry-run.log (48 linhas)",
+    "nada_mudou_provado": true,
+    "diffs_antes_depois": "diff vazio (0 linhas) entre 03-estado-antes.txt e 03-estado-depois.txt. Comparados: pid do daemon global 751583 (comm touring-daemon, exe target/release/touring-daemon, start_ticks 1056008); readlink -f de ~/.local/bin/{touring,touring-daemon,touring-hook,update-touring}; ~/.claude/hooks/*; sha256 do shim e dos 3 binários de target/release (touring a33c6000..., daemon de97f6c0...); ~/.touring/toolchains/ (até 30.4.95, mtimes) e ~/.touring/default; `touring toolchain list` (30.4.95 default); sha256 de Cargo.lock; sha256 de projects.json; toolchain.lock e binários de .touring/bin de analise e konverter (ambos active 30.4.95).",
+    "observacoes": [
+      "Gate 1/6 simulado lista 7 pacotes tocados desde o release dfe0fd1e: touring-cli, touring-code, touring-hook-handlers (--features pre-hooks,post-hooks), touring-hooks, touring-lsp, touring-pyright, touring-server.",
+      "Passo 5 em dry-run: analise e konverter respondem 'toolchain 30.4.96 is not installed', tratado pelo script como esperado (passo 3 foi simulado).",
+      "Aviso do script: Cargo.lock e Cargo.toml mudaram e não pertencem a pacote algum (não mapeados pelo gate de testes)."
+    ]
+  },
+  "drift": {
+    "antes": {
+      "scan_check": "401 = C1 86 + C3 11 + C4 107 + C5 167 + C6 30 (teste esperava 397; C6 esperado 26)",
+      "teste_rc": 1,
+      "falhas_teste": ["scan --check stale total: esperado 397, obtido 401", "sum(C1+C3+C4+C5+C6): esperado 397, obtido 401", "C6 envvars: esperado 26, obtido 30"],
+      "verify_rc": 1,
+      "verify_fails": ["SEM DISPOSIÇÃO: C1 30.4.95", "SEM DISPOSIÇÃO: C6 TOURING_VGP_L2_OFF / _WARMUP_S / _RA_BUILD / _MAX_RA", "LINHA ÓRFÃ: C1 30.4.96", "(c) mas SUMIU do scan atual: C1 30.4.96", "contagem C6: ledger=30 != delta(união)=34"]
+    },
+    "depois": {
+      "scan_check": "401 = C1 86 + C3 11 + C4 107 + C5 167 + C6 30",
+      "literal_novo_no_teste": "EXPECTED_TOTAL=401; EXPECTED_BY_CAT C6 26→30 (C1 86 inalterado: saldo 0)",
+      "ledger_linhas": "128 → 132"
+    },
+    "ledger_linhas_novas": [
+      {"categoria": "C1", "item": "30.4.95", "disposicao": "c", "arquivo": "CLAUDE.md", "linha": 48, "trecho": "(09/10/2026): a 30.4.95 saiu com um e2e quebrado (`cli_suggester_e2e`) e dois testes de", "n_ocorrencias": 17, "lote": "2026-10-10-release-30.4.96", "motivo": "release ANTERIOR (virou stale quando 30.4.96 passou a corrente); registros datados em 5 arquivos"},
+      {"categoria": "C6", "item": "TOURING_VGP_L2_OFF", "disposicao": "c", "arquivo": "docs/plans/2026-10-08-vgp-motor-base/RELATORIO-VL0-camada2-generica.md", "linha": 29, "n_ocorrencias": 4, "lote": "2026-10-10-release-30.4.96", "motivo": "código só na worktree touring-wt-l2 (pool.rs:58), ainda não integrado"},
+      {"categoria": "C6", "item": "TOURING_VGP_L2_WARMUP_S", "disposicao": "c", "arquivo": "docs/plans/2026-10-08-vgp-motor-base/RELATORIO-VL0-camada2-generica.md", "linha": 49, "n_ocorrencias": 1, "lote": "2026-10-10-release-30.4.96", "motivo": "idem (pool.rs:59)"},
+      {"categoria": "C6", "item": "TOURING_VGP_L2_RA_BUILD", "disposicao": "c", "arquivo": "docs/plans/2026-10-08-vgp-motor-base/RELATORIO-VL0-camada2-generica.md", "linha": 174, "n_ocorrencias": 2, "lote": "2026-10-10-release-30.4.96", "motivo": "idem (rust_analyzer.rs:42)"},
+      {"categoria": "C6", "item": "TOURING_VGP_L2_MAX_RA", "disposicao": "c", "arquivo": "docs/plans/2026-10-08-vgp-motor-base/RELATORIO-VL0-camada2-generica.md", "linha": 50, "n_ocorrencias": 1, "lote": "2026-10-10-release-30.4.96", "motivo": "idem (pool.rs:56)"}
+    ],
+    "ledger_linha_removida": "C1 30.4.96 (lote 2026-10-09-vgp-motor, antiga linha 126): órfã por construção quando a versão virou corrente — o verify a acusa duas vezes (órfã + (c) que sumiu do scan) e não há precedente de (a) para ela porque não está em delta.json. Cópia do ledger anterior em candidato/ledger.antes.jsonl.txt. Os números de linha citados na 8ª reconciliação foram atualizados (127-128 → 126-127).",
+    "verify_rc": 0,
+    "teste_rc": 0,
+    "testes_adicionais": "docs/plans/2026-10-08-drift-reconciliacao/test_scanner_predicates.py: 12 passed. Reconferido no fim: verify rc 0 e test_drift_coverage rc 0 (8/8)."
+  },
+  "gen_reference_rc": 0,
+  "gen_reference": "OK: reference docs in sync (sem regeneração; docs/reference/modules.md já estava modificado antes e não foi tocado por mim)",
+  "arquivos_tocados": [
+    "/home/gabrielgadea/projects/touring/scripts/test_drift_coverage.py (EXPECTED_TOTAL/EXPECTED_BY_CAT, docstrings, 9ª reconciliação)",
+    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-drift-reconciliacao/ledger.jsonl (-1 linha órfã, +5 linhas do lote 2026-10-10-release-30.4.96)",
+    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/juiz_v2.json (sobrescrito pela prova [3]; original em candidato/juiz_v2.antes.json)",
+    "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/release-30.4.96/candidato/ (logs, saídas, shas, antes/depois, este resultado.json)",
+    "/home/gabrielgadea/.claude/touring/vgp/binarios/1c704d5b/ (touring, touring-daemon, touring-hook + .sha256)",
+    "/home/gabrielgadea/projects/touring/target/r96-candidato/ (diretório de build, 9,1 GB, cache; não apaguei)"
+  ],
+  "nao_tocado": "crates/**, target/release/, daemon, symlinks, toolchains, ~/.claude/settings.json; nenhum commit, update-touring, toolchain install/default, touring update; [2] e [4] da prova não foram rodadas. Memória gravada (lesson:release-30.4.96:candidato-v3-p95-e-drift) e rewards edit +1.0 / orchestrate +0.5.",
+  "symbol_verification": {
+    "wave_anchor": "TRM 2026-05-02",
+    "verification_protocol_version": "1.0",
+    "imported_existing": [
+      {"symbol": "cmd_verify (reconciliar.py:198)", "evidence_cmd": "Read de docs/plans/2026-10-08-drift-reconciliacao/reconciliar.py + execução `reconciliar.py verify` rc 0", "evidence_excerpt": "`touring index find cmd_verify -j` devolveu {} (scripts de docs/plans não são indexados); existência provada pela leitura e pela execução: VERIFY OK"},
+      {"symbol": "extrair_ocorrencias.extract / _scan_files (extrair_ocorrencias.py:91,49)", "evidence_cmd": "Read do arquivo + execução em reconciliar_r96.py", "evidence_excerpt": "index find devolveu {}; usado via importlib e produziu as 5 ocorrências literais"},
+      {"symbol": "collect_scope_files (drift_semantic_scan.py:60)", "evidence_cmd": "Read scripts/drift_semantic_scan.py:60-76", "evidence_excerpt": "coleta .md em docs/, crates/ + ARCHITECTURE.md e CLAUDE.md; index find {}"},
+      {"symbol": "prova_celulas / prova_juizes (prova_vgp_motor.py:151,349)", "evidence_cmd": "Read integral de prova_vgp_motor.py + execução --so 1,3", "evidence_excerpt": "index find {}; execução imprimiu as seções [1] e [3]"},
+      {"symbol": "touring vgp check (subcomando)", "evidence_cmd": "<bin congelado>/touring vgp check --help", "evidence_excerpt": "rc 0: 'touring vgp — VGP layer-1 motor (pure, daemonless): `vgp check --path <virtual> --content-file <f> --project-root <r> ...'"}
+    ],
+    "created_this_subtask": [
+      {"symbol": "linhas do ledger (C1 30.4.95; C6 TOURING_VGP_L2_{OFF,WARMUP_S,RA_BUILD,MAX_RA})", "created_in_file": "docs/plans/2026-10-08-drift-reconciliacao/ledger.jsonl", "created_at_line": 128, "signature": "5 objetos JSON, lote 2026-10-10-release-30.4.96", "post_edit_evidence": "reconciliar.py verify → 'ledger: 132 linhas' e VERIFY OK; as 4 variáveis existem no fonte da worktree: touring-wt-l2 crates/touring-pyright/src/pool.rs:56,58,59 e rust_analyzer.rs:42"}
+    ],
+    "modified_existing": [
+      {"symbol": "EXPECTED_TOTAL", "file": "scripts/test_drift_coverage.py", "line": 98, "original_signature": "EXPECTED_TOTAL = 397", "new_signature": "EXPECTED_TOTAL = 401", "evidence_cmd": "touring ast overview scripts/test_drift_coverage.py -j → const EXPECTED_TOTAL line 98"},
+      {"symbol": "EXPECTED_BY_CAT", "file": "scripts/test_drift_coverage.py", "line": 99, "original_signature": "{\"C1\": 86, \"C3\": 11, \"C4\": 107, \"C5\": 167, \"C6\": 26}", "new_signature": "{\"C1\": 86, \"C3\": 11, \"C4\": 107, \"C5\": 167, \"C6\": 30}", "evidence_cmd": "touring ast overview scripts/test_drift_coverage.py -j → const EXPECTED_BY_CAT line 99"},
+      {"symbol": "test_scan_check_total_reconciled / test_scan_categories_breakdown", "file": "scripts/test_drift_coverage.py", "line": 188, "original_signature": "docstrings com 397", "new_signature": "docstrings com 401 (só texto)", "evidence_cmd": "touring ast overview → functions nas linhas 188 e 204"}
+    ],
+    "blocked_invented": []
+  },
+  "pre_edit": "touring ast meta scripts/test_drift_coverage.py: blast_radius 0, quality 0.94; ast blast: consumers [] (candidato/04-preflight-test-drift.log)",
+  "pendencias_para_a_coordenadora": [
+    "V3: repetir com a máquina reservada e fria; se p95 > 1000 ainda assim, é latência real da camada 2 (spawn por chamada) e precisa de decisão sobre o teto ou sobre o custo.",
+    "target/r96-candidato (9,1 GB) fica no disco; o update-touring do deploy reconstrói de qualquer forma.",
+    "O binário foi construído de HEAD c118aa52 com árvore suja; o deploy real reconstrói e o rótulo/lock precisam fechar no passo 2.5."
+  ]
+}

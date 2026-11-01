@@ -415,8 +415,7 @@ impl fmt::Display for TodoKind {
 }
 
 impl TodoKind {
-    /// All variants in declared order. Used by
-    /// `touring ast scan-debt` to walk every marker type in one pass.
+    /// All variants in declared order.
     pub const ALL: [TodoKind; 6] = [
         Self::Todo,
         Self::Fixme,
@@ -430,7 +429,7 @@ impl TodoKind {
     /// Returns `None` if the string does not match any known keyword.
     /// (Named `parse` rather than `from_str` to avoid confusion with
     /// `std::str::FromStr`, which requires a `Result` return type.)
-    pub fn parse(s: &str) -> Option<Self> {
+    fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "todo" => Some(Self::Todo),
             "fixme" => Some(Self::Fixme),
@@ -440,6 +439,35 @@ impl TodoKind {
             "deprecated" => Some(Self::Deprecated),
             _ => None,
         }
+    }
+
+    /// Reads a marker comment line: `// TODO: text`, `# FIXME(owner): text`, `* XXX: text`.
+    ///
+    /// Returns the kind and the trimmed text after the colon. The keyword must be written in
+    /// capitals — the marker convention — so prose such as `// Note: …` is not a marker; the
+    /// text must be non-empty. A plain line (`TODO: text`, as in Markdown) is read too.
+    /// Only line-leading comments count: a trailing `x = 1  # TODO: …` is not read.
+    #[must_use]
+    pub fn from_comment_line(line: &str) -> Option<(Self, &str)> {
+        let body = line.trim_start();
+        let body = ["///", "//!", "//", "/*", "#", "*", "--"]
+            .iter()
+            .find_map(|leader| body.strip_prefix(leader))
+            .unwrap_or(body)
+            .trim_start_matches(['*', '!', '/'])
+            .trim_start();
+        let keyword_len = body
+            .find(|c: char| !c.is_ascii_uppercase())
+            .unwrap_or(body.len());
+        let (keyword, rest) = body.split_at(keyword_len);
+        let kind = Self::parse(keyword)?;
+        let rest = match rest.strip_prefix('(') {
+            Some(owned) => &owned[owned.find(')')? + 1..],
+            None => rest,
+        };
+        let text = rest.strip_prefix(':')?.trim();
+        let text = text.strip_suffix("*/").map_or(text, str::trim_end);
+        (!text.is_empty()).then_some((kind, text))
     }
 }
 
@@ -517,6 +545,94 @@ pub fn truncate_str(s: &str, max_bytes: usize) -> &str {
         end -= 1;
     }
     &s[..end]
+}
+
+/// Execution budget for a HEAVY daemon operation (`index rebuild`,
+/// `tantivy reindex`, deep MCTS), in seconds — read by BOTH sides of the
+/// socket so they cannot disagree.
+///
+/// They did disagree, and it cost a whole evening on 19/08/2026. The CLIENT
+/// had already learned that a full rebuild outlives the 120 s default and
+/// raises its own floor to 1800 s (`cli/index.rs`, whose comment records that
+/// "the client used to give up on a rebuild that was progressing normally").
+/// The SERVER kept an independently calibrated `Duration::from_secs(300)`,
+/// justified by a measurement — *"Python direct reindex of 1.1M symbols =
+/// ~90s"* — that the `analise` project refuted by simply being bigger.
+///
+/// So the client waited 30 minutes for a server that quit after 5, and the
+/// operator was told the rebuild had FAILED while the actor was still writing
+/// to `symbols.db`. Two numbers, calibrated apart, that had to agree: the same
+/// defect shape as the reader-vs-writer split in the wiring gate and the
+/// resolver arms that never learned each other's lesson.
+///
+/// One constant removes the possibility rather than re-synchronising the two
+/// values. The client waits a margin past it ([`HEAVY_OP_CLIENT_FLOOR_SECS`]);
+/// `the_client_outwaits_the_heavy_budget_and_every_wait_before_it` holds the line.
+pub const HEAVY_OP_BUDGET_SECS: u64 = 1800;
+
+/// How long the CLIENT waits on a heavy call: [`HEAVY_OP_BUDGET_SECS`] plus the
+/// time a request may spend before its budget starts (global slot, project slot
+/// and channel send, 5 s each) and a margin for the reply to cross the socket.
+///
+/// Cross-audit 14/09/2026 (A3): the floor used to EQUAL the budget and start
+/// earlier, so the socket read gave up first and the typed `budget_exceeded`
+/// reply — the one that says the work is still running — never arrived.
+pub const HEAVY_OP_CLIENT_FLOOR_SECS: u64 = HEAVY_OP_BUDGET_SECS + 60;
+
+/// Hooks classified as "heavy" operations.
+/// Heavy hooks receive a much larger handler-execution budget
+/// (`dispatch_request_async` in touring-dispatch) because they legitimately run for tens of
+/// seconds (tantivy reindex of 1M+ symbols, full index rebuild, blast radius
+/// over large files). Without this flag, the light-path 15s budget fires
+/// prematurely and the client sees a spurious failure even though the actor
+/// continues working.
+///
+/// Shared with the CLIENT (cross-audit 14/09/2026, A3): `daemon_query` waits
+/// [`HEAVY_OP_CLIENT_FLOOR_SECS`] for exactly these hooks, so the budget the server
+/// grants and the time the client listens come from one list.
+pub fn is_heavy_hook(hook_name: &str) -> bool {
+    matches!(
+        hook_name,
+        "cli-index-rebuild"
+            | "cli-ast-blast"
+            | "cli-ast-blast-cross-feature"
+            | "cli-mcts-search"
+            | "cli-session-start"
+            | "cli-session-assess"
+            | "cli-tantivy-reindex"
+            | "cli-wiring-chains"
+            | "cli-wiring-audit"
+            | "cli-e2e"
+            // cargo-mutants over one crate is ~19 min measured (134 mutants,
+            // touring-identity, mutants profile). Under the light 15s budget
+            // every real run died in transport — the KPI could only ever see
+            // a cache_miss (rodada 4, 2026-08-20; fixed 2026-08-28).
+            | "cli-mutation-test"
+            // Backfilling ~1,000 missing 768-dim embeddings legitimately runs
+            // for tens of seconds; under the light budget the client gave up
+            // at 15s while the actor kept working (observed 29/08/2026 during
+            // the ANN p50 7.86s→596µs remediation).
+            | "cli-memory-reindex"
+            // Predictive blast over the whole workspace, the same work as
+            // `cli-ast-blast`. Under a saturated CPU (a clean workspace test
+            // build) it passed the light 15 s budget and the client got a
+            // failure while the actor kept working (14/09/2026). The client's
+            // `--timeout` does not reach this budget: it only sets the socket
+            // read timeout.
+            | "cli-pre-task-scout"
+            // `wiring repair --resolve-kinds` (S222) re-resolves every consumer
+            // kind of the wiring_map — 110k rows on the analise — and died at
+            // the light budget on its first live run (26/09/2026:
+            // budget_exceeded, still_running). `--purge-phantom` runs the same
+            // definers pass over every unknown row.
+            | "cli-repair-wiring"
+            // Both walk the whole workspace and write one `file_knowledge` row per file. On
+            // 04/10/2026 the touring workspace lacked 1.449 rows, the backfill passed the light
+            // budget twice, and the client reported `budget_exceeded` while the actor kept writing
+            // (5.662 → 7.009 rows in a minute).
+            | "cli-metadata-backfill"
+            | "cli-file-knowledge-populate"
+    )
 }
 
 #[cfg(test)]
@@ -604,6 +720,70 @@ mod tests_more {
         assert_eq!(json, "\"fixme\"");
         let back: TodoKind = serde_json::from_str("\"hack\"").unwrap();
         assert_eq!(back, TodoKind::Hack);
+    }
+
+    #[test]
+    fn todo_marker_is_read_behind_every_comment_leader() {
+        // The reindex extractor used to require the line to START with the keyword, so a
+        // `// TODO:` comment never reached file_todos: measured 18/09/2026, the table held 6 rows
+        // for a repository with 78 TODOs in comment lines.
+        let cases = [
+            (
+                "    // TODO: wire the cache",
+                TodoKind::Todo,
+                "wire the cache",
+            ),
+            (
+                "/// FIXME(gabriel): off by one",
+                TodoKind::Fixme,
+                "off by one",
+            ),
+            ("//! XXX: fragile", TodoKind::Xxx, "fragile"),
+            ("# HACK: pin the version", TodoKind::Hack, "pin the version"),
+            ("   * DEPRECATED: use v2", TodoKind::Deprecated, "use v2"),
+            (
+                "/* TODO: close the block */",
+                TodoKind::Todo,
+                "close the block",
+            ),
+            (
+                "-- TODO: index the column",
+                TodoKind::Todo,
+                "index the column",
+            ),
+            ("//TODO:no space", TodoKind::Todo, "no space"),
+            (
+                "TODO: plain markdown line",
+                TodoKind::Todo,
+                "plain markdown line",
+            ),
+            ("# NOTE: informational", TodoKind::Note, "informational"),
+        ];
+        for (line, kind, text) in cases {
+            assert_eq!(
+                TodoKind::from_comment_line(line),
+                Some((kind, text)),
+                "{line:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn todo_marker_rejects_prose_and_code() {
+        for line in [
+            "// Note: prose, not a marker",
+            "// TODOS: plural is another word",
+            "// TODO without a colon",
+            "// TODO:   ",
+            "// TODO(unclosed: x",
+            "let s = \"TODO: inside a string\";",
+            "x = 1  # TODO: trailing comment",
+            "#[deprecated(note = \"x\")]",
+            "fn todo() {}",
+            "",
+        ] {
+            assert_eq!(TodoKind::from_comment_line(line), None, "{line:?}");
+        }
     }
 
     // ── EdgeConfidence tests (W5 wave 2026-06-04) ─────────────────────────

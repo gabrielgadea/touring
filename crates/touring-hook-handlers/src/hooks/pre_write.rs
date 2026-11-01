@@ -13,12 +13,15 @@
 //!
 //! Target latency: <50ms.
 
+use touring_code::vgp::sombra::{Mode as VgpMode, sombra_check, vgp_mode};
+use touring_code::vgp::{CheckInput, lang_do_caminho};
+
 use super::error_predictor::ErrorPredictor;
 use super::knowledge::FileKnowledgeDB;
 use super::pre_edit_prevention;
 use super::runtime::{HookResponse, HookRuntime, make_relative};
 use crate::shared::signal_pipeline::{
-    FnSignalLayer, SignalContext, SignalPipeline, StaticSignalLayer,
+    FnSignalLayer, SignalPipeline, StaticSignalLayer, context_for_write,
 };
 use crate::shared::signals::{
     blast_radius_signal, enrich_with_cognitive, rank_gotchas_by_relevance, wilson_adjusted_score,
@@ -89,6 +92,31 @@ fn format_pii_findings_context(findings: &[super::pii::PIIFinding]) -> String {
 ///
 /// Used by the daemon to handle the hook without calling `process::exit`.
 pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> HookResponse {
+    run_returning_with(runtime, input, &vgp_sombra_de_write)
+}
+
+/// The seam of the VGP verdict (production: [`vgp_sombra_de_write`]). The VGP advisory no longer
+/// ends the chain: it is deposited in `avisos`, the rest of the pipeline runs (TRIAD arm,
+/// signals, rewards), and the most severe verdict wins with the advisory riding along
+/// ([`HookResponse::with_advisories`] — the one rule shared with `cli-suggest`).
+type VgpWriteFn = dyn Fn(&HookRuntime, &serde_json::Value, &str, &str) -> Option<HookResponse>;
+
+fn run_returning_with(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpWriteFn,
+) -> HookResponse {
+    let mut avisos: Vec<String> = Vec::new();
+    let resposta = run_chain(runtime, input, vgp, &mut avisos);
+    resposta.with_advisories(avisos)
+}
+
+fn run_chain(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+    vgp: &VgpWriteFn,
+    avisos: &mut Vec<String>,
+) -> HookResponse {
     // D9: Validate payload with typed schema — fail fast on malformed input.
     // Extract /tool_input first since payload schemas model the inner object.
     let tool_input = match input.get("tool_input") {
@@ -124,6 +152,21 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         return HookResponse::Allow;
     }
 
+    // ── VGP sombra/ativo (V2, 09/10): o motor julga o conteúdo proposto (o arquivo inteiro novo)
+    // e grava UMA linha no sombra.jsonl — "sombra" (default) nunca muda a resposta; "ativo" é só
+    // por [vgp] modo do projeto (V4). Fail-open de ponta a ponta.
+    //
+    // 30.4.97 (ordem dos gates): o `[VGP · aviso]` NÃO encerra a cadeia — antes ele retornava
+    // aqui e pulava o resto do pipeline (o `triad_hook::arm`, os sinais, os rewards): um write
+    // com aviso do VGP ficava sem snapshot TRIAD e sem os sinais próprios. O aviso é
+    // depositado; um deny do VGP (ou qualquer outra decisão) segue encerrando.
+    if let Some(resposta_vgp) = vgp(runtime, input, file_path, content) {
+        match resposta_vgp {
+            HookResponse::Context { context, .. } => avisos.push(context),
+            outra => return outra,
+        }
+    }
+
     // E14: Skip expensive analysis for high-durability files (vendor, node_modules, etc.).
     if crate::ast_bridge::is_high_durability_target(file_path) {
         return HookResponse::Allow;
@@ -131,11 +174,11 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
 
     let rel_path = make_relative(file_path, &runtime.project_root);
 
-    // T-2: TRIAD pre-write — snapshot file before write for rollback protection.
-    // Stores TriadState in runtime.triad_state via RefCell; post_write reads/resets.
-    if let Some(triad_state) = triad_hook::run_pre_write(file_path) {
-        *runtime.triad_state.borrow_mut() = Some(triad_state);
-        tracing::debug!(path = %file_path, "TRIAD: armed — state stored in runtime");
+    // T-2 / S12 (D1-A): TRIAD pre-write — snapshot armed under (session, canonical path),
+    // so only THIS write's post-write can take it (the old single runtime slot was shared by
+    // every session of the daemon). The snapshot is never restored by a hook.
+    if triad_hook::arm(&triad_hook::session_of(input), file_path) {
+        tracing::debug!(path = %file_path, "TRIAD: armed (session, path)");
     }
 
     // S6/E19: Read session CILA level — prefer stable session context,
@@ -172,14 +215,84 @@ pub fn run_returning(runtime: &mut HookRuntime, input: &serde_json::Value) -> Ho
         let fp_owned = file_path.to_owned();
         let rel_path_for_ast = rel_path.clone();
 
+        // S3 (2026-09-02): the imports of a file that does not exist yet come
+        // from the PROPOSED content; the known types from ONE indexed lookup of
+        // the unresolved names (DB step at construction — layers are 'static,
+        // and a clean file never reaches the DB).
+        let missing_imports = crate::shared::missing_imports::MissingImportsLayer::for_write(
+            &rel_path,
+            content,
+            |names| {
+                runtime
+                    .ctx
+                    .knowledge
+                    .find_pub_symbols_by_name(names, Some(&rel_path))
+                    .unwrap_or_default()
+            },
+        );
+
+        // A3 (2026-09-02): names the PROPOSED file declares that the symbol
+        // index already defines elsewhere — the homonym (VP-Scout chain 4)
+        // BEFORE the write, with the file:line to reuse.
+        let related_symbols = crate::shared::related_symbols::RelatedSymbolsLayer::for_write(
+            &rel_path,
+            content,
+            |name| definition_sites(runtime, name),
+        );
+        // S9 (2026-09-02): ONE parse of the PROPOSED file (public API surface,
+        // any tree-sitter language; syn semantic number for Rust) — the badge
+        // speaks before the write; unknown languages yield no preview.
+        let api_preview = crate::shared::api_preview::ApiPreview::for_write(&rel_path, content);
+        let rust_badge =
+            crate::shared::api_preview::ApiBadgeLayer::from_preview(api_preview.as_ref());
+        tracing::debug!(
+            file = %rel_path,
+            missing_imports = !missing_imports.is_empty(),
+            related_symbols = !related_symbols.is_empty(),
+            rust_badge = !rust_badge.is_empty(),
+            "pre_write S3/A3/S9 layers resolved"
+        );
+
         // ── Assemble via SignalPipeline (normalize + sort + budget-truncate) ──
         let pipeline = SignalPipeline::new(budget)
             .add_layer(StaticSignalLayer::new("up_front", up_front_signals))
             .add_layer(FnSignalLayer::new("ast_content", move |_ctx| {
                 with_hook_pool(|| ast_content_signals(&content_owned, &fp_owned, &rel_path_for_ast))
-            }));
+            }))
+            // S1 (2026-09-01): ast-grep risk patterns (unwrap/panic/eval/exec,
+            // 22 langs) over the PROPOSED content — the file may not exist yet.
+            .add_layer(
+                crate::shared::ast_grep_signal::AstGrepRiskSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
+            // S2-doc (2026-09-05): símbolos documentais do conteúdo PROPOSTO, relevância por nó.
+            .add_layer(
+                crate::shared::doc_symbol_signal::DocSymbolSignalLayer::with_root(
+                    runtime.project_root.clone(),
+                ),
+            )
+            // S7 (2026-09-01): a proposed .py that does not parse is flagged
+            // BEFORE it is written (tree-sitter, <1 ms).
+            .add_layer(crate::shared::qa_syntax::PySyntaxSignalLayer)
+            // S2 (2026-09-01): F2.4 hardcoded secrets over the PROPOSED content
+            // (P0) — the on-disk gate cannot see a file that does not exist yet.
+            .add_layer(crate::shared::secrets_signal::SecretsSignalLayer)
+            // S3 (2026-09-02): `use` paths for known pub types the PROPOSED
+            // .rs uses without importing (E0412/E0433 before the write).
+            .add_layer(missing_imports)
+            // A3 (2026-09-02): homonyms of the names the PROPOSED file declares.
+            .add_layer(related_symbols)
+            // S8 (2026-09-02): CWE patterns (credentials, SQL concat, path
+            // traversal, unwrap) over the PROPOSED content — the H6 layer,
+            // wired to a pipeline at last (REGRA #0).
+            .add_layer(touring_hook_runtime::shared::scan::CweScanLayer)
+            // S9 (2026-09-02): semantic badge of the PROPOSED .rs.
+            .add_layer(rust_badge);
 
-        match pipeline.execute(&SignalContext::new(&rel_path, "").with_cila(cila_level as usize)) {
+        // S0 v2: the proposed content travels with the context so SignalLayers
+        // can analyse the code about to be written (not only what is on disk).
+        match pipeline.execute(&context_for_write(&rel_path, content, cila_level as usize)) {
             Some(ctx) => ctx,
             None => {
                 // Pipeline produced zero signals — inject a baseline context
@@ -392,7 +505,7 @@ fn collect_upfront_signals(
 
     // Cognitive enrichment (risk + gotchas from CognitiveRuntime).
     if let Some(ref cognitive) = runtime.cognitive {
-        let enriched = enrich_with_cognitive(cognitive, file_path, false);
+        let enriched = enrich_with_cognitive(cognitive, file_path, false, None);
         if !enriched.is_empty() {
             signals.push((1.0, enriched));
         }
@@ -465,18 +578,13 @@ fn collect_upfront_signals(
         if !states.is_empty()
             && let Ok(pensieve) = runtime.learning.pensieve.try_borrow()
         {
-            let penalty = match states.first() {
-                Some(&single) if states.len() == 1 => pensieve.check_known_failure(single),
-                _ => pensieve.check_known_failure_seq(&states),
+            let matched = match states.first() {
+                Some(&single) if states.len() == 1 => pensieve.check_known_failure_detail(single),
+                _ => pensieve.check_known_failure_seq_detail(&states),
             };
-            if let Some(sim) = penalty {
-                signals.push((
-                    1.2,
-                    format!(
-                        "⚠ pensieve: similar path had recorded failures ({:.0}% match)",
-                        sim * 100.0
-                    ),
-                ));
+            if let Some(m) = matched {
+                // The notice names the command that failed on the similar path.
+                signals.push((1.2, m.path_notice()));
             }
         }
     }
@@ -546,15 +654,17 @@ fn knowledge_signals_with_runtime(
             // Look up severity and hit stats from the originating gotcha.
             let source = gotchas.iter().find(|g| &g.gotcha == msg);
             let severity = source.map(|g| g.severity.as_str()).unwrap_or("warning");
-            let score = source
-                .map(|g| {
-                    wilson_adjusted_score(
-                        1.5,
-                        g.prevented_errors.max(0) as u32,
-                        g.hit_count.max(0) as u32,
-                    )
-                })
-                .unwrap_or(1.5 * 0.5);
+            // prevented_errors has no writer (FileKnowledgeDB::PREVENTED_MEASURED is false, C7 17/10/2026): Wilson over
+            // a numerator that is always 0 scored every gotcha already shown at 0, the bottom of the context budget.
+            // Until prevention is measured, a gotcha gets the neutral confidence of one without history.
+            let score = match source {
+                Some(g) if FileKnowledgeDB::PREVENTED_MEASURED => wilson_adjusted_score(
+                    1.5,
+                    g.prevented_errors.max(0) as u32,
+                    g.hit_count.max(0) as u32,
+                ),
+                _ => 1.5 * 0.5,
+            };
             signals.push((
                 score,
                 format!("\u{26a0} GOTCHA [{}]: {}", severity, short_msg),
@@ -740,36 +850,10 @@ fn speculative_validation_signals(
         .collect()
 }
 
-/// Collect quality-baseline signals (CC, async ratio) from AST metrics.
-///
-/// Returns a single scored signal at weight 0.8, or empty vec when within limits.
-fn quality_baseline_signals(content: &str, file_path: &str) -> Vec<(f32, String)> {
-    let Some(metrics) = super::ast_bridge::analyze_file_quality(content, file_path) else {
-        return Vec::new();
-    };
-    let mut quality_parts: Vec<String> = Vec::new();
-    if !metrics.complex_symbols.is_empty() {
-        let names = metrics
-            .complex_symbols
-            .iter()
-            .take(3)
-            .map(|s| s.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        quality_parts.push(format!("CC>10: [{}]", names));
-    }
-    if metrics.avg_complexity > 8.0 {
-        quality_parts.push(format!("avg_CC={:.1}", metrics.avg_complexity));
-    }
-    if metrics.async_count > 0 {
-        quality_parts.push(format!("async_ratio={:.0}%", metrics.async_ratio * 100.0));
-    }
-    if quality_parts.is_empty() {
-        Vec::new()
-    } else {
-        vec![(0.8, format!("quality: {}", quality_parts.join(", ")))]
-    }
-}
+// S6 (2026-09-02): the quality baseline is ONE function shared with
+// `pre_edit` (`shared/quality_signal.rs`) — both hooks measure the content
+// that is about to exist, with the same thresholds and the same wording.
+use crate::shared::quality_signal::quality_baseline_signals;
 
 /// AST-based content validation signals.
 ///
@@ -911,7 +995,20 @@ fn antipattern_signals(content: &str, rel_path: &str) -> Vec<(f32, String)> {
     }
 
     let lang = detect_language(rel_path);
-    let mut issues = crate::shared::antipatterns::detect_antipatterns(content, lang);
+    // S5 (2026-09-01): the actionable variant — each warning names its line, so
+    // the fix lands on the right spot of the PROPOSED content (A5: the message
+    // teaches the correction). Line 0 means "no position" and is left bare.
+    let mut issues: Vec<String> =
+        crate::shared::antipatterns::detect_antipatterns_with_lines(content, lang)
+            .into_iter()
+            .map(|(msg, line)| {
+                if line > 0 {
+                    format!("L{line}: {msg}")
+                } else {
+                    msg
+                }
+            })
+            .collect();
     // Wire maybe_add_eval_check: appends dynamic code execution warning for JS/TS languages.
     crate::shared::antipatterns::maybe_add_eval_check(content.as_bytes(), lang, &mut issues);
     if issues.is_empty() {
@@ -985,18 +1082,14 @@ fn quality_depth_signals(content: &str, file_path: &str) -> Vec<(f32, String)> {
 ///
 /// Budget: pure in-memory (no I/O). Negligible latency (<1ms typical).
 fn callgraph_signal_for_write(content: &str, file_path: &str) -> Option<(f32, String)> {
-    // Detect language from extension — only Rust and Python supported
-    let lang_str = match std::path::Path::new(file_path)
-        .extension()
-        .and_then(|e| e.to_str())
-    {
-        Some("rs") => "rust",
-        Some("py") => "python",
-        _ => return None,
-    };
+    // S10 (2026-09-02): gate on the library's own predicate, not on a local
+    // `.rs`/`.py` list — TS/JS were dispatched by `build_call_graph` and
+    // filtered out right here.
+    let lang = touring_code::ast::Lang::from_path(std::path::Path::new(file_path))
+        .filter(|l| touring_code::ast::call_graph::supports_call_graph(*l))?;
+    let lang_str = lang.as_str();
 
     // Find the top symbol by caller count, then enrich via the module.
-    let lang: touring_code::ast::Lang = lang_str.parse().ok()?;
     let graph = touring_code::ast::call_graph::build_call_graph(content, lang);
     if graph.sites.is_empty() {
         return None;
@@ -1028,6 +1121,20 @@ fn callgraph_signal_for_write(content: &str, file_path: &str) -> Option<(f32, St
         1.1,
         crate::callgraph_enrichment::format_callgraph_context(&info, sym),
     ))
+}
+
+/// `(file, line)` of every DEFINITION of `name` in the symbol index (A3).
+///
+/// Empty when the runtime has no symbol store (fresh project, init failure) —
+/// the layer then stays silent instead of guessing.
+fn definition_sites(runtime: &HookRuntime, name: &str) -> Vec<(String, usize)> {
+    runtime
+        .symbol_store()
+        .and_then(|store| store.find_symbol(name).ok())
+        .unwrap_or_default()
+        .into_iter()
+        .map(|loc| (loc.file_path, loc.line))
+        .collect()
 }
 
 /// Detect language from file extension.
@@ -1260,3 +1367,222 @@ pub use touring_hooks_core::health_delta::emit_b302_if_low_confidence_expansion;
 #[cfg(test)]
 #[path = "pre_write_tests.rs"]
 mod tests;
+
+/// VGP sobre o Write inteiro: o proposto é o `content`; o disco é o arquivo atual (delta só nega
+/// o que a escrita introduz). `Some(resposta)` só em "ativo"; "sombra"/"off" → sempre None.
+fn vgp_sombra_de_write(
+    runtime: &HookRuntime,
+    input: &serde_json::Value,
+    file_path: &str,
+    content: &str,
+) -> Option<HookResponse> {
+    let mode = vgp_mode(&runtime.project_root);
+    // VL0 §8.4: a linguagem sai do caminho (fonte única); extensão desconhecida fica de fora
+    let lang = lang_do_caminho(file_path)?;
+    if mode == VgpMode::Off {
+        return None;
+    }
+    let vgp_in = CheckInput {
+        path: file_path.to_string(),
+        content: content.to_string(),
+        project_root: runtime.project_root.clone(),
+        disk: std::fs::read_to_string(file_path).ok(),
+        overlays: std::collections::HashMap::new(),
+        lang: lang.to_string(),
+    };
+    let out = sombra_check(
+        "pre-write",
+        &vgp_in,
+        input
+            .pointer("/session_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        input
+            .pointer("/tool_use_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or(""),
+        mode,
+        crate::vgp_l2::extra(&vgp_in),
+    );
+    if mode != VgpMode::Ativo {
+        return None;
+    }
+    let resumo = out
+        .findings
+        .iter()
+        .take(3)
+        .map(|f| {
+            format!(
+                "{} `{}` ({}:{})",
+                f.classe,
+                f.nome,
+                make_relative(file_path, &runtime.project_root),
+                f.linha
+            )
+        })
+        .collect::<Vec<_>>()
+        .join(" · ");
+    match out.verdict.as_str() {
+        "deny" => Some(HookResponse::Deny {
+            reason: format!(
+                "[VGP · deny] {resumo}{}",
+                out.findings
+                    .first()
+                    .map(|f| format!(" — {}", f.sugestao))
+                    .unwrap_or_default()
+            ),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        "warn" => Some(HookResponse::Context {
+            context: format!("[VGP · aviso] {resumo}"),
+            event_name: Some("PreToolUse".to_string()),
+        }),
+        _ => None,
+    }
+}
+
+/// Ordem dos gates (30.4.97): o `[VGP · aviso]` não encerra a cadeia do pre-write — o resto do
+/// pipeline (a armação do TRIAD, os sinais, os rewards) roda, e o aviso vai junto na resposta.
+/// O veredito do VGP entra pela costura `run_returning_with`.
+#[cfg(test)]
+mod vgp_ordem_tests {
+    use super::*;
+
+    const AVISO: &str = "[VGP · aviso] atributo `inexistente` (a.py:1)";
+
+    fn avisa(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Context {
+            context: AVISO.to_string(),
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    fn nada(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        None
+    }
+
+    fn nega(_: &HookRuntime, _: &serde_json::Value, _: &str, _: &str) -> Option<HookResponse> {
+        Some(HookResponse::Deny {
+            reason: "[VGP · deny] import `x` inexistente".to_string(),
+            context: None,
+            event_name: Some("PreToolUse".to_string()),
+        })
+    }
+
+    /// Escreve `a.py` num projeto novo e devolve (resposta, ESTADO TRIAD armado?). A sessão é
+    /// única por chamada: o TRIAD é chaveado por (sessão, caminho) e vive no processo.
+    fn escreve(sessao: &str, vgp: &VgpWriteFn) -> (HookResponse, bool) {
+        let dir = tempfile::TempDir::new().expect("tmp");
+        let path = dir.path().join("a.py");
+        std::fs::write(&path, "x = 1\n").expect("write");
+        let file_path = path.to_str().expect("utf8").to_string();
+        let mut rt = HookRuntime::new(dir.path()).expect("runtime");
+        let input = serde_json::json!({
+            "session_id": sessao,
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path, "content": "x = 2\n"}
+        });
+        let resposta = run_returning_with(&mut rt, &input, vgp);
+        // `take` became `take_lookup` (S28, 17/10): `state` is the snapshot armed by THIS process,
+        // which is what "the TRIAD was armed for this write" means here.
+        let armado = triad_hook::take_lookup(sessao, &file_path).state.is_some();
+        (resposta, armado)
+    }
+
+    /// O caso: um aviso do VGP. Antes, ele retornava na hora e o write ficava SEM o snapshot
+    /// TRIAD (o `post-write` não tinha com o que comparar) e sem os sinais próprios.
+    #[test]
+    fn aviso_do_vgp_nao_pula_o_resto_do_pipeline() {
+        let (resposta, armado) = escreve("g97-vgp-write-aviso", &avisa);
+        assert!(armado, "o aviso não pode pular a armação do TRIAD");
+        match resposta {
+            HookResponse::Context { context, .. } => {
+                assert!(context.contains(AVISO), "o aviso vai junto: {context}");
+            }
+            outra => panic!("só contexto, nunca deny: {outra:?}"),
+        }
+    }
+
+    /// Controle: sem aviso o pipeline arma o TRIAD do mesmo jeito.
+    #[test]
+    fn sem_aviso_o_triad_e_armado_do_mesmo_jeito() {
+        let (resposta, armado) = escreve("g97-vgp-write-nada", &nada);
+        assert!(armado, "controle: o pipeline arma o TRIAD");
+        match resposta {
+            HookResponse::Context { context, .. } => assert!(!context.contains("VGP"), "{context}"),
+            outra => panic!("{outra:?}"),
+        }
+    }
+
+    /// O deny do VGP continua encerrando a cadeia (é decisão, não aviso): nada é armado.
+    #[test]
+    fn deny_do_vgp_continua_encerrando_a_cadeia() {
+        let (resposta, armado) = escreve("g97-vgp-write-deny", &nega);
+        assert!(!armado, "o deny encerra antes da armação do TRIAD");
+        assert!(
+            matches!(resposta, HookResponse::Deny { .. }),
+            "{resposta:?}"
+        );
+    }
+}
+
+/// FRAG (10/10/2026): o fragmento `.py` em `/tmp` deixa de ser negado na ESCRITA — a edição
+/// seguinte ainda pode completá-lo (spec §5.1); o deny passa para a execução (`pre_bash`). O
+/// alvo EXTERNO inexistente (P1) segue negado já na escrita, em qualquer balde.
+#[cfg(test)]
+mod vgp_fragmento_tests {
+    use super::*;
+    use tempfile::TempDir;
+    use touring_code::vgp::sombra::com_log_em;
+
+    const FRAGMENTO: &str = "resultado = 1\nprint(nome_do_projeto_inexistente)\n";
+    const PATHX: &str = "import unicodedata\nprint(unicodedata.combending('a'))\n";
+
+    /// O `Write` real do `vgp_sombra_de_write` de produção, em modo ativo, sobre `file_path`
+    /// novo no scratch `/tmp`. O projeto mora fora de `/tmp/` (o balde é literal).
+    fn escreve(nome: &str, content: &str) -> Option<HookResponse> {
+        let projeto = TempDir::new_in("/var/tmp").expect("projeto");
+        std::fs::create_dir_all(projeto.path().join(".touring")).expect("mkdir");
+        std::fs::write(
+            projeto.path().join(".touring/touring.toml"),
+            "[vgp]\nmodo = \"ativo\"\ncamada2_langs = []\n",
+        )
+        .expect("toml");
+        let scratch = TempDir::new_in("/tmp").expect("scratch");
+        let file_path = scratch.path().join(nome).display().to_string();
+        let rt = HookRuntime::new(projeto.path()).expect("runtime");
+        let input = serde_json::json!({
+            "session_id": "frag-write",
+            "tool_name": "Write",
+            "tool_input": {"file_path": file_path, "content": content}
+        });
+        com_log_em(&scratch.path().join("sombra.jsonl"), || {
+            vgp_sombra_de_write(&rt, &input, &file_path, content)
+        })
+    }
+
+    #[test]
+    fn o_fragmento_em_tmp_so_avisa_na_escrita() {
+        match escreve("trecho_g3.py", FRAGMENTO) {
+            Some(HookResponse::Context { context, .. }) => {
+                assert!(context.contains("[VGP · aviso]"), "{context}");
+                assert!(context.contains("nome_do_projeto_inexistente"), "{context}");
+            }
+            outra => panic!("o fragmento é consultivo na escrita, nunca deny: {outra:?}"),
+        }
+    }
+
+    #[test]
+    fn alvo_externo_inexistente_segue_negado_na_escrita_em_tmp() {
+        match escreve("x.py", PATHX) {
+            Some(HookResponse::Deny { reason, .. }) => {
+                assert!(
+                    reason.contains("[VGP · deny]") && reason.contains("combending"),
+                    "{reason}"
+                );
+            }
+            outra => panic!("P1 nega em qualquer balde: {outra:?}"),
+        }
+    }
+}

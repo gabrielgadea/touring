@@ -1,0 +1,126 @@
+{
+    "version": "1.1.408",
+    "time": "1791484108783",
+    "generalDiagnostics": [
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "\"nao_existe_aqui\" is unknown import symbol",
+            "range": {
+                "start": {
+                    "line": 6,
+                    "character": 39
+                },
+                "end": {
+                    "line": 6,
+                    "character": 54
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "\"joinx\" is not a known attribute of module \"..path\"",
+            "range": {
+                "start": {
+                    "line": 8,
+                    "character": 8
+                },
+                "end": {
+                    "line": 8,
+                    "character": 13
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"read_textx\" for class \"Path\"\n  Attribute \"read_textx\" is unknown",
+            "range": {
+                "start": {
+                    "line": 9,
+                    "character": 10
+                },
+                "end": {
+                    "line": 9,
+                    "character": 20
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"campo_inventado\" for class \"No\"\n  Attribute \"campo_inventado\" is unknown",
+            "range": {
+                "start": {
+                    "line": 14,
+                    "character": 13
+                },
+                "end": {
+                    "line": 14,
+                    "character": 28
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "Operator \"+=\" not supported for types \"Counter[Unknown] | defaultdict[Unknown, Counter[Unknown]] | int\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"Counter[Unknown]\" and \"Literal[1]\"\n  Operator \"+\" not supported for types \"defaultdict[Unknown, Counter[Unknown]]\" and \"Literal[1]\"",
+            "range": {
+                "start": {
+                    "line": 18,
+                    "character": 0
+                },
+                "end": {
+                    "line": 18,
+                    "character": 12
+                }
+            },
+            "rule": "reportOperatorIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"most_common\" for class \"defaultdict[Unknown, Counter[Unknown]]\"\n  Attribute \"most_common\" is unknown",
+            "range": {
+                "start": {
+                    "line": 19,
+                    "character": 14
+                },
+                "end": {
+                    "line": 19,
+                    "character": 25
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        },
+        {
+            "file": "/tmp/claude-1000/-home-gabrielgadea-projects-analise/10fb71c6-ef49-4c56-b3c0-493d1f4b1837/scratchpad/vgp_sonda/sonda_ruim.py",
+            "severity": "error",
+            "message": "Cannot access attribute \"most_common\" for class \"int\"\n  Attribute \"most_common\" is unknown",
+            "range": {
+                "start": {
+                    "line": 19,
+                    "character": 14
+                },
+                "end": {
+                    "line": 19,
+                    "character": 25
+                }
+            },
+            "rule": "reportAttributeAccessIssue"
+        }
+    ],
+    "summary": {
+        "filesAnalyzed": 1,
+        "errorCount": 7,
+        "warningCount": 0,
+        "informationCount": 0,
+        "timeInSec": 0.197
+    }
+}
+

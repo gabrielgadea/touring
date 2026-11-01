@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# r3-s1a-gate — S1a (custo direto do emissor do modo sombra r3) como gate de release.
+#
+# O benchmark `r3_emission_cost_is_bounded` é `#[ignore]` (sensível a carga: fora do `cargo test`
+# comum) e, sem chamador, NINGUÉM o roda: uma regressão de custo do emissor passaria na próxima
+# propagação (cross-audit 03/10/2026, achado D; decisão A do Gabriel, XA-08). O limite é o do
+# próprio teste — absoluto e pré-registrado (Errata 5, E5.2). Este gate NÃO o altera.
+#
+# Duas defesas, cada uma contra um modo de falha já visto:
+#   · gate cego — `cargo test -- --ignored <filtro>` sai 0 quando o filtro não casa nada (teste
+#     renomeado). Exige a linha "test result: ok. 1 passed"; exit 0 sem ela conta como falha.
+#   · falso vermelho térmico — UMA re-medição (a máquina já operou a 90-96 °C): ruído vira atraso,
+#     regressão real reprova duas vezes. Nunca mais de uma: três seria loteria.
+#
+# Uso:   scripts/r3-s1a-gate                 (chamado pelo gate 1/6 do propagate-release.sh)
+# Exit:  0 passou · 1 reprovou nas duas tentativas
+# Env:   S1A_RUNNER   prefixo do comando (default "<repo>/scripts/hw-slot --class rust --")
+#        S1A_CARGO    comando cargo (default "cargo")
+#        WORKSPACE    raiz do workspace (default: o pai deste script)
+set -u
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="${WORKSPACE:-$(dirname "$HERE")}"
+read -r -a runner <<< "${S1A_RUNNER:-$HERE/hw-slot --class rust --}"
+read -r -a cargo <<< "${S1A_CARGO:-cargo}"
+
+# The cause each failed attempt SHOWED, in order. The closing line names these and nothing else: it
+# used to say "o custo do emissor r3 passou do limite" for ANY nonzero exit — a compile error, a bad
+# flag or hw-slot's 70/75 were blamed on a cost nobody measured (cross-audit 04/10/2026, X6).
+causes=()
+
+attempt() {
+    local out rc
+    out="$(mktemp)" || return 1
+    ( cd "$WORKSPACE" && "${runner[@]}" "${cargo[@]}" test -p touring-hook-runtime -- --ignored --nocapture r3_emission_cost_is_bounded ) >"$out" 2>&1
+    rc=$?
+    cat "$out"
+    if [ "$rc" -eq 0 ] && ! grep -q 'test result: ok\. 1 passed' "$out"; then
+        echo "r3-s1a-gate: cargo saiu 0 mas nenhum teste passou — o filtro não casou (teste renomeado?); gate cego conta como falha" >&2
+        rc=1
+        causes+=("gate cego: o filtro não casou nenhum teste")
+    elif [ "$rc" -ne 0 ]; then
+        if grep -q 'test result: FAILED' "$out"; then
+            causes+=("o custo do emissor r3 passou do limite do teste")
+        elif [ "$rc" -eq 70 ]; then
+            causes+=("machine check durante o job (hw-slot 70): a medição não é confiável")
+        elif [ "$rc" -eq 75 ]; then
+            causes+=("sem slot de hardware (hw-slot 75): nada foi medido")
+        else
+            causes+=("o teste não rodou (rc $rc: compilação, flag ou ambiente — ver a saída acima)")
+        fi
+    fi
+    rm -f "$out"
+    return "$rc"
+}
+
+if attempt; then
+    echo "r3-s1a-gate: S1a ok"
+    exit 0
+fi
+echo "r3-s1a-gate: S1a reprovou na 1ª tentativa — UMA re-medição (ruído térmico vira atraso; regressão reprova de novo)" >&2
+if attempt; then
+    echo "r3-s1a-gate: S1a ok na re-medição"
+    exit 0
+fi
+echo "r3-s1a-gate: S1a reprovou duas vezes — 1ª: ${causes[0]:-?}; 2ª: ${causes[1]:-?}. O limite é o do teste e não se afrouxa aqui" >&2
+exit 1

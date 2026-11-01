@@ -220,8 +220,9 @@ fn load_groups() -> anyhow::Result<Vec<CloneGroup>> {
         anyhow::bail!("no clone data found — run `touring clones detect` first");
     }
     let content = fs::read_to_string(&path)?;
-    let groups: Vec<CloneGroup> = serde_json::from_str(&content)
-        .map_err(|e| anyhow::anyhow!("failed to parse clones: {}", e))?;
+    let groups: Vec<CloneGroup> = serde_json::from_str(&content).map_err(|e| {
+        anyhow::anyhow!("failed to parse clones: {e} — run `touring clones detect` to regenerate")
+    })?;
     Ok(groups)
 }
 
@@ -399,10 +400,11 @@ enum ClonesCmd {
 
 /// Entry point for `touring clones <subcommand>`.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match ClonesCli::try_parse_from(args.iter().skip(1)) {
-        Ok(c) => c,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<ClonesCli, _, _>(args.iter().skip(1)) {
+            Ok(c) => c,
+            Err(e) => e.exit(),
+        };
 
     match cli.cmd.unwrap_or(ClonesCmd::Detect {
         threshold: 0.80,

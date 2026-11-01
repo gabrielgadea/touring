@@ -1,0 +1,11 @@
+{
+  "phase": "W12",
+  "entities": [
+    {
+      "entity_id": "phase:W12",
+      "type": "phase",
+      "description": "Verificacao: principle gate 23 skills no escopo todas conformes (vivo e CI); purpose 0 colisoes 0 gatilhos inertes; overlap NENHUM par da familia acima do limiar (as instancias sao derivadas, nao banner); pin gate 175 skills 0 fantasmas 0 drift; sync CLEAN 293. Escrita a suite que faltava: test_skill_gates.py, 18 testes cobrindo os DOIS defeitos que ja tinham passado despercebidos (ghost de 2o nivel; acusacao por vocabulario), o principal provado por mutacao. Wired no CI."
+    }
+  ],
+  "relations": []
+}

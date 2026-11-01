@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# 30-touring-doctor — run touring doctor after every Omarchy update and notify
+# on degradation. Part of OmarchyOS Agêntico (S-0.7, P0).
+#
+# Exit 0 always — a hook must never abort the Omarchy update sequence.
+# Failures are surfaced via notification and persisted to Touring memory.
+
+set -euo pipefail
+
+if ! command -v touring >/dev/null 2>&1; then
+    exit 0
+fi
+
+DOCTOR_JSON="$(touring doctor -j 2>/dev/null)" || { exit 0; }
+
+# Support both flat array format ([{status,...}]) and object format ({components:[...]}).
+# Count components whose status != "ok".
+BAD_COUNT="$(printf '%s' "${DOCTOR_JSON}" | \
+    python3 -c "
+import sys, json, os
+data = json.load(sys.stdin)
+# Normalise: flat array or {components: [...]}
+if isinstance(data, list):
+    items = data
+elif isinstance(data, dict):
+    items = data.get('components', [])
+else:
+    items = []
+bad = [x for x in items if x.get('status', 'ok') != 'ok']
+print(len(bad))
+" 2>/dev/null)" || BAD_COUNT=0
+
+if [ "${BAD_COUNT}" -gt 0 ]; then
+    MSG="Touring doctor: ${BAD_COUNT} componentes != ok"
+    # Notify via Omarchy notification system.
+    command -v omarchy-notification-send >/dev/null 2>&1 && \
+        omarchy-notification-send "${MSG}" || true
+
+    # Persist to Touring memory for later inspection.
+    SUMMARY="$(printf '%s' "${DOCTOR_JSON}" | \
+        python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+if isinstance(data, list):
+    items = data
+elif isinstance(data, dict):
+    items = data.get('components', [])
+else:
+    items = []
+bad = [x.get('name', '?') for x in items if x.get('status', 'ok') != 'ok']
+print('bad_components=' + ','.join(bad))
+" 2>/dev/null)" || SUMMARY="bad_count=${BAD_COUNT}"
+
+    command -v touring >/dev/null 2>&1 && \
+        touring memory store "omarchy-update-doctor-$(date +%F)" "${MSG}: ${SUMMARY}" \
+            --tag "#domain:omarchy" --tag "#kind:incident" >/dev/null 2>&1 || true
+fi
+
+exit 0

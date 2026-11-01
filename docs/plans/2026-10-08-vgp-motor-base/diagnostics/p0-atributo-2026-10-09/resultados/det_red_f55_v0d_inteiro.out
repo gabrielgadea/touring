@@ -1,0 +1,3 @@
+{"binario": "/home/gabrielgadea/.claude/touring/vgp/binarios/f55ec4b5/touring", "corpus": "/home/gabrielgadea/.claude/touring/vgp/corpus_v0d", "runs_por_id": 5, "ids": 738, "ids_divergentes": 7, "ids_com_erro": 0}
+divergentes: ['0dcf0bab45c5', '15d469304a03', '2463291faf76', '34511b9ac100', '8b7a3476e024', 'c876d78f82ee', 'cda03737f157']
+rc=0

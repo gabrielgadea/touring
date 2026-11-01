@@ -1,0 +1,8 @@
+entradas.jsonl_igual: True
+entradas_inline_neg.jsonl_igual: True
+snap: {'arquivos_gravado': 600, 'arquivos_reconstruido': 600, 'so_no_gravado': 0, 'so_no_reconstruido': 0, 'conteudo_diferente': []}
+snap_inline_neg: {'arquivos_gravado': 600, 'arquivos_reconstruido': 600, 'so_no_gravado': 0, 'so_no_reconstruido': 0, 'conteudo_diferente': []}
+meta: {'corte': True, 'parametros': True, 'exclusoes_tamanho': True, 'pool_inline (fora do que e posterior ao corte)': True, 'crescimento_so_posterior_ao_corte': True, 'arquivo.selecao': True, 'inline.selecao': True}
+universo_inline_cresceu: {'total': 54, 'depois_do_corte': 54, 'todo_o_crescimento_e_posterior_ao_corte': True}
+meta_chaves_so_de_um_lado: []
+IDENTICO: True

@@ -1,0 +1,14 @@
+{
+ "veredito": "NÃO PRONTO",
+ "pendencias": [
+  "V3: falso deny (arquivo) piorou: 1 > base 0"
+ ],
+ "inconclusivo_motivos": [],
+ "p95_frio_informativo_ms": {
+  "v2": 75.122771,
+  "V3": 1049.523294
+ },
+ "p95_quente_ms": 337.331736,
+ "timeouts_quente": 19,
+ "chamadas": 1064
+}

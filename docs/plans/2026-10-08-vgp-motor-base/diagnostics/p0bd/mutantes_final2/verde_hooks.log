@@ -1,0 +1,16 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.47s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-p0bd/debug/deps/touring_hook_handlers-391d28973c80e1cc)
+
+running 7 tests
+test vgp_l2::tests::a_camada_2_segue_o_momento_na_escrita_o_fragmento_em_tmp_so_avisa_na_execucao_nega ... ok
+test vgp_l2::tests::linguagem_declarada_sem_verificador_diz_que_nao_mediu ... ok
+test vgp_l2::tests::a_lista_declarada_liga_a_linguagem_e_desliga_o_resto ... ok
+test vgp_l2::tests::p0bd_mapear_carrega_a_classe_receptora_so_de_diagnostico_de_membro ... ok
+test vgp_l2::tests::sem_declaracao_so_python_tem_camada2 ... ok
+test vgp_l2::tests::p0bd_as_duas_camadas_pelo_encaixe_real_negam_o_membro_de_tipo_fechado ... ok
+test vgp_l2::tests::p0bd_a_corroboracao_nega_em_todo_balde_e_momento_a_politica_do_frag_nao_a_mascara ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 774 filtered out; finished in 0.00s
+

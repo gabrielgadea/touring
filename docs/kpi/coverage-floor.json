@@ -1,0 +1,6 @@
+{
+  "floor_pct": null,
+  "tolerance_pp": 0.5,
+  "measured_at": null,
+  "note": "Catraca de cobertura (decisao N2, 17/10/2026). floor_pct null = ainda nao medido no CI: o passo so REGISTRA o total (job summary) e passa. A primeira medicao real na main vira o piso: baixe o artefato lcov-coverage (ou leia o job summary) e rode `python3 scripts/coverage_ratchet.py --lcov lcov.info --floor docs/kpi/coverage-floor.json --update`, depois commite. O piso so sobe (--update nunca baixa). tolerance_pp 0.5 absorve o ruido entre rodadas iguais (teste ignorado/condicional); calibre-a com 3 rodadas. Referencia historica NAO CI: 0.7528 em 28/08/2026 (docs/kpi/external/touring.coverage.line.json)."
+}

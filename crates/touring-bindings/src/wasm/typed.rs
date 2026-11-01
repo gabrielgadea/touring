@@ -17,9 +17,12 @@ use crate::wasm::runner::{MAX_FUEL, WasmModule};
 /// ```
 /// use touring_bindings::wasm::TypedPluginContext;
 ///
+/// // Build the params with the crate's own `serde_json` (re-exported): the same type
+/// // the library was compiled against, whatever features the workspace unified.
 /// let ctx = TypedPluginContext::new("analyze this")
-///     .with_params(serde_json::json!({"threshold": 0.8}))
+///     .with_params(touring_bindings::serde_json::json!({"threshold": 0.8}))
 ///     .with_max_fuel(5_000_000);
+/// assert_eq!(ctx.params["threshold"], 0.8);
 /// ```
 #[derive(Debug, Clone)]
 pub struct TypedPluginContext {
@@ -180,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_with_evaluate_export() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         let module = runner
             .load_wat(r#"(module (func (export "evaluate") (result i32) i32.const 1))"#)
             .expect("module");
@@ -194,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_with_evaluate_zero() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         let module = runner
             .load_wat(r#"(module (func (export "evaluate") (result i32) i32.const 0))"#)
             .expect("module");
@@ -206,7 +209,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_with_evaluate_scored_export() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         // Module exports evaluate_scored returning 75.
         let module = runner
             .load_wat(r#"(module (func (export "evaluate_scored") (result i32) i32.const 75))"#)
@@ -219,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_scored_below_threshold() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         // Score 30 < 50 → failure.
         let module = runner
             .load_wat(r#"(module (func (export "evaluate_scored") (result i32) i32.const 30))"#)
@@ -232,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_scored_clamped_high() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         // Score 200 must be clamped to 100.
         let module = runner
             .load_wat(r#"(module (func (export "evaluate_scored") (result i32) i32.const 200))"#)
@@ -245,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_scored_clamped_negative() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         // Negative score must be clamped to 0.
         // In WAT, i32.const -5 is represented as a large unsigned value that wraps,
         // but clamp(0, 100) on i32 handles it: -5_i32.clamp(0, 100) == 0.
@@ -260,7 +263,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_no_export_returns_zero() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         let module = runner.load_wat("(module)").expect("module");
         let ctx = TypedPluginContext::new("empty");
         let result = module.call_evaluate_typed(&ctx).expect("typed eval");
@@ -271,7 +274,7 @@ mod tests {
 
     #[test]
     fn test_call_evaluate_typed_prefers_scored_over_evaluate() {
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         // Module has both exports — evaluate_scored should take precedence.
         let module = runner
             .load_wat(
@@ -293,7 +296,7 @@ mod tests {
     #[test]
     fn test_typed_result_success_threshold_boundary() {
         // Score exactly 50 should be success.
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         let module = runner
             .load_wat(r#"(module (func (export "evaluate_scored") (result i32) i32.const 50))"#)
             .expect("module");
@@ -306,7 +309,7 @@ mod tests {
     #[test]
     fn test_typed_result_success_threshold_below() {
         // Score 49 should be failure.
-        let runner = WasmRunner::new().expect("engine");
+        let runner = WasmRunner::new().unwrap_or_else(|e| panic!("wasmtime engine: {e}"));
         let module = runner
             .load_wat(r#"(module (func (export "evaluate_scored") (result i32) i32.const 49))"#)
             .expect("module");

@@ -89,7 +89,9 @@ enum SourceChangeCmd {
 /// Returns an error if the SourceChange JSON file cannot be read, parsed, or
 /// if shadow validation / atomic commit fails.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match SourceChangeCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<SourceChangeCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -102,13 +104,13 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     match cmd {
         SourceChangeCmd::Preview { file } | SourceChangeCmd::Validate { file } => {
             if file.is_empty() {
-                anyhow::bail!("--file <path> required");
+                anyhow::bail!("--file <path> required — run `touring help` for details");
             }
             run_preview(&file, is_json)
         }
         SourceChangeCmd::Apply { file } => {
             if file.is_empty() {
-                anyhow::bail!("--file <path> required");
+                anyhow::bail!("--file <path> required — run `touring help` for details");
             }
             run_apply(&file, is_json)
         }
@@ -119,11 +121,20 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 
 /// `touring source-change preview --file <path> [-j]`
 fn run_preview(file_path: &str, is_json: bool) -> anyhow::Result<()> {
-    let json_str = fs::read_to_string(file_path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", file_path, e))?;
+    let json_str = fs::read_to_string(file_path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read {} ({}); verify file exists and check permissions with `ls -l`",
+            file_path,
+            e
+        )
+    })?;
 
-    let source_change: serde_json::Value =
-        serde_json::from_str(&json_str).map_err(|e| anyhow::anyhow!("invalid JSON: {}", e))?;
+    let source_change: serde_json::Value = serde_json::from_str(&json_str).map_err(|e| {
+        anyhow::anyhow!(
+            "invalid JSON: {} — check JSON syntax; provide valid JSON object",
+            e
+        )
+    })?;
 
     let (change, files, _paths) = build_source_change_and_files(&source_change, file_path)?;
 
@@ -193,11 +204,20 @@ fn run_preview(file_path: &str, is_json: bool) -> anyhow::Result<()> {
 
 /// `touring source-change apply --file <path> [-j]`
 fn run_apply(file_path: &str, is_json: bool) -> anyhow::Result<()> {
-    let json_str = fs::read_to_string(file_path)
-        .map_err(|e| anyhow::anyhow!("failed to read {}: {}", file_path, e))?;
+    let json_str = fs::read_to_string(file_path).map_err(|e| {
+        anyhow::anyhow!(
+            "cannot read {} ({}); verify file exists and check permissions with `ls -l`",
+            file_path,
+            e
+        )
+    })?;
 
-    let source_change: serde_json::Value =
-        serde_json::from_str(&json_str).map_err(|e| anyhow::anyhow!("invalid JSON: {}", e))?;
+    let source_change: serde_json::Value = serde_json::from_str(&json_str).map_err(|e| {
+        anyhow::anyhow!(
+            "invalid JSON: {} — check JSON syntax; provide valid JSON object",
+            e
+        )
+    })?;
 
     let (change, mut files, paths) = build_source_change_and_files(&source_change, file_path)?;
 
@@ -334,9 +354,12 @@ fn build_source_change_and_files(
             paths.insert(file_id, PathBuf::from(file_path));
 
             // Parse indels array
-            let indels_array = indels_val
-                .as_array()
-                .ok_or_else(|| anyhow::anyhow!("edits[{}] must be an array", file_path))?;
+            let indels_array = indels_val.as_array().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "edits[{}] must be an array — run `touring help` for details",
+                    file_path
+                )
+            })?;
 
             let mut indels = Vec::new();
             for indel_val in indels_array {
@@ -365,8 +388,13 @@ fn build_source_change_and_files(
             }
 
             if !indels.is_empty() {
-                let text_edit = TextEdit::try_from_iter(indels)
-                    .map_err(|e| anyhow::anyhow!("invalid TextEdit for {}: {}", file_path, e))?;
+                let text_edit = TextEdit::try_from_iter(indels).map_err(|e| {
+                    anyhow::anyhow!(
+                        "invalid TextEdit for {}: {} — run `touring help` for details",
+                        file_path,
+                        e
+                    )
+                })?;
                 change = change.with_edit(file_id, text_edit);
             }
         }

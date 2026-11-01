@@ -68,6 +68,111 @@ pub fn cli_gotcha_match(rt: &mut HookRuntime, payload: &serde_json::Value) -> St
     let count = gotchas.len();
     serde_json::json!({ "file_path" : file_path, "matches" : gotchas, "count" : count }).to_string()
 }
+/// R1 (29/08, ordem de Gabriel): o PRODUTOR do canal de resolução.
+///
+/// `touring.gotcha.resolution` lê `COUNT(*) WHERE resolved_at IS NOT NULL`
+/// (via `cli-gotcha-stats:/resolved`) e ficou em 0.0 com 91 gotchas gravados
+/// porque NENHUM caminho escrevia `resolved_at` — o consumidor existia sem
+/// produtor (a classe `kpi-fonte-sem-resolvedor`). Payload: `{"id": N}` ou
+/// `{"pattern": "<substring>"}` (exatamente 1 match); `"why"` opcional ecoado.
+/// O erro estruturado ENSINA a correção (A5), nunca só recusa.
+pub fn cli_gotcha_resolve(rt: &mut HookRuntime, payload: &serde_json::Value) -> String {
+    let why = str_or(payload, "why", "").to_string();
+    let conn = rt.ctx.knowledge.conn_ref();
+    let id = match payload.get("id").and_then(serde_json::Value::as_i64) {
+        Some(i) => i,
+        None => {
+            let pattern = str_or_empty(payload, "pattern");
+            if pattern.is_empty() {
+                return serde_json::json!({
+                    "error": "id or pattern required",
+                    "hint": "ids: `touring gotcha list` — depois `touring gotcha resolve <id> --why \"<prova>\"`",
+                })
+                .to_string();
+            }
+            let like = format!("%{pattern}%");
+            let ids: Vec<i64> = match conn.prepare(
+                "SELECT id FROM gotchas WHERE pattern LIKE ?1 OR gotcha LIKE ?1 ORDER BY id",
+            ) {
+                Ok(mut stmt) => stmt
+                    .query_map(params![like], |r| r.get(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+                    .unwrap_or_default(),
+                Err(e) => {
+                    return serde_json::json!({ "error": format!("query failed: {e}") })
+                        .to_string();
+                }
+            };
+            match ids.as_slice() {
+                [only] => *only,
+                [] => {
+                    return serde_json::json!({
+                        "error": format!("no gotcha matches '{pattern}'"),
+                        "hint": "liste os ids com `touring gotcha list`",
+                    })
+                    .to_string();
+                }
+                many => {
+                    return serde_json::json!({
+                        "error": format!("'{pattern}' matches {} gotchas — use the id", many.len()),
+                        "candidates": many,
+                    })
+                    .to_string();
+                }
+            }
+        }
+    };
+    // Achado do cross-audit 29/08 (F-2): um canal só-ida convida a estado
+    // errado permanente — o próprio audit resolveu por engano um gotcha
+    // aberto e não tinha como voltar. `{"reopen": true}` limpa `resolved_at`
+    // (REGRA #0: potencializar com o verbo inverso, nunca SQL manual).
+    if payload
+        .get("reopen")
+        .and_then(serde_json::Value::as_bool)
+        .unwrap_or(false)
+    {
+        let reopened = conn
+            .execute(
+                "UPDATE gotchas SET resolved_at = NULL WHERE id = ?1 AND resolved_at IS NOT NULL",
+                params![id],
+            )
+            .unwrap_or(0);
+        return if reopened > 0 {
+            serde_json::json!({ "id": id, "reopened": true, "why": why }).to_string()
+        } else {
+            serde_json::json!({
+                "id": id, "reopened": false,
+                "hint": "not resolved (or unknown id) — nothing to reopen; ids: `touring gotcha list`",
+            })
+            .to_string()
+        };
+    }
+    let updated = conn
+        .execute(
+            "UPDATE gotchas SET resolved_at = datetime('now') WHERE id = ?1 AND resolved_at IS NULL",
+            params![id],
+        )
+        .unwrap_or(0);
+    if updated == 0 {
+        let exists = conn
+            .query_row("SELECT 1 FROM gotchas WHERE id = ?1", params![id], |_r| {
+                Ok(true)
+            })
+            .unwrap_or(false);
+        return if exists {
+            // Idempotente e declarado: re-resolver não é erro nem re-conta.
+            serde_json::json!({ "id": id, "resolved": true, "already_resolved": true }).to_string()
+        } else {
+            serde_json::json!({
+                "error": format!("gotcha id {id} not found"),
+                "hint": "ids: `touring gotcha list`",
+            })
+            .to_string()
+        };
+    }
+    serde_json::json!({ "id": id, "resolved": true, "why": why }).to_string()
+}
+
 /// Reports aggregate gotcha statistics (total, resolved, and unresolved counts) as JSON.
 pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> String {
     let (total, hits, prevented) = rt.ctx.knowledge.gotcha_stats();
@@ -81,9 +186,16 @@ pub fn cli_gotcha_stats(rt: &mut HookRuntime, _payload: &serde_json::Value) -> S
             |r| r.get(0),
         )
         .unwrap_or(0);
+    // C7 (2026-10-17): `prevented` has no production producer, so the raw
+    // column reads 0 on every real db ("0 prevented in 388.840 hits") — an
+    // absent signal is not a zero (law L2). `null` + the flag + the note that
+    // names what is missing, until a real producer exists.
+    let db = &rt.ctx.knowledge;
     serde_json::json!(
         { "total" : total, "resolved" : resolved, "unresolved" : total as i64 - resolved,
-        "total_hits" : hits, "total_prevented" : prevented }
+        "total_hits" : hits, "total_prevented" : db.reported_prevented(prevented),
+        "prevented_measured" : db.prevented_measured(),
+        "prevented_note" : db.prevented_note() }
     )
     .to_string()
 }
@@ -171,4 +283,51 @@ pub fn cli_gotcha_init(rt: &mut HookRuntime, payload: &serde_json::Value) -> Str
         written, "failed" : failed, }
     )
     .to_string()
+}
+
+/// C7 (2026-10-17): `prevented` has no production producer, so every surface
+/// that reports it shows `null` (+ the flag and the missing-piece note), never
+/// the fabricated zero of an unwritten column.
+#[cfg(test)]
+mod prevented_signal_tests {
+    use super::cli_gotcha_stats;
+    use crate::runtime::HookRuntime;
+    use serde_json::json;
+
+    fn runtime_with_hits() -> (tempfile::TempDir, HookRuntime) {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        let id = rt
+            .ctx
+            .knowledge
+            .add_gotcha("c7probe", "a pitfall", "warning", None)
+            .unwrap();
+        for _ in 0..4 {
+            rt.ctx.knowledge.increment_gotcha_hit(id);
+        }
+        (tmp, rt)
+    }
+
+    #[test]
+    fn gotcha_stats_reports_prevented_as_null_with_the_missing_piece() {
+        let (_tmp, mut rt) = runtime_with_hits();
+        let out: serde_json::Value =
+            serde_json::from_str(&cli_gotcha_stats(&mut rt, &json!({}))).unwrap();
+        assert!(out["total_hits"].as_i64().unwrap() >= 4, "{out}");
+        assert!(out["total_prevented"].is_null(), "fabricated zero: {out}");
+        assert_eq!(out["prevented_measured"], false, "{out}");
+        let note = out["prevented_note"].as_str().expect("note present");
+        assert!(note.contains("no producer"), "{note}");
+    }
+
+    #[test]
+    fn memory_stats_reports_prevented_as_null_too() {
+        let (_tmp, mut rt) = runtime_with_hits();
+        let out: serde_json::Value =
+            serde_json::from_str(&crate::cli::memory::cli_memory_stats(&mut rt, &json!({})))
+                .unwrap();
+        let stats = &out["gotcha_stats"];
+        assert!(stats["total_prevented"].is_null(), "fabricated zero: {out}");
+        assert_eq!(stats["prevented_measured"], false, "{out}");
+    }
 }

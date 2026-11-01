@@ -1,0 +1,11 @@
+{
+  "phase": "G2",
+  "entities": [
+    {
+      "entity_id": "phase:G2",
+      "type": "phase",
+      "description": "Dual schema memory_entries: os 2 RISCOS REAIS fechados com prova. (1) DROP TABLE destrutivo REMOVIDO \u2014 migracao aditiva (ADD COLUMN nullable + backfill de created_at; SQLite proibe NOT NULL+DEFAULT nao-constante em ALTER, o que o DROP escondia \u2014 o teste legacy_db_is_migrated_not_destroyed pegou esse segundo bug latente NA MINHA PRIMEIRA correcao e prova o fix final: row legado sobrevive ao store). (2) CREATE_MEMORY_ENTRIES agora e a picture COMPLETA do schema de producao (16 colunas) \u2014 zero drift entre o create e os 8 ALTERs. UNIFICACAO total do write path (RlmMemory::store_rich + handler delegar) NAO feita: exige decidir o PK canonico (key vs (key,tier)) + migracao de tabela em producao (7.4k rows) + paridade G6 byte-exata do INSERT COALESCE \u2014 refator L3 com risco de dados real, registrado como proposta concreta (nao pendencia silenciosa): o dual-schema ja nao e mais perigoso, e deivida arquitetural limpa e medida."
+    }
+  ],
+  "relations": []
+}

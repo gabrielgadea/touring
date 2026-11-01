@@ -1,0 +1,25 @@
+{
+ "session": "j14-hot-2544670-1793483403250462117",
+ "corpus": "/tmp/claude-1000/-home-gabrielgadea-projects-touring/064bba23-c3ac-461e-b4f6-e2a4d998460e/scratchpad/j14_hibrido_20261031b",
+ "metodo": "duas chamadas consecutivas por entrada no shim; a 1ª aquece e a 2ª mede; elapsed_ms da sombra VGP (L1+L2), p95 por posto mais próximo; trace comprova a rota",
+ "denominador": {
+  "entradas_esperadas": 1064,
+  "chamadas_hook_esperadas_com_aquecimento": 2128,
+  "medidas_com_sombra": 1064,
+  "medidas_com_camada2": 1064,
+  "ignoradas_antes_da_chamada": 0,
+  "rotas": {
+   "daemon": 2127,
+   "standalone": 1
+  }
+ },
+ "p50_motor_ms": 18.142406,
+ "p95_motor_ms": 252.483427,
+ "p95_wall_shim_ms": 514.182,
+ "timeouts_camada2": 15,
+ "camada2_sem_veredito": 106,
+ "limitacao": "o hook não aceita --overlay/--disk-file: mesmas entradas, paths, roots e conteúdos, mas sem replay dos overlays nem do disco histórico do juiz; o comando inline é reconstruído do snapshot integral",
+ "valido": false,
+ "veredito": "INCONCLUSIVO",
+ "ignorados": []
+}

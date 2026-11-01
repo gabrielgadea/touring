@@ -1,0 +1,17 @@
+### index find cmd_verify
+{}
+### index find extract
+{}
+### index find collect_scope_files
+{}
+### index find prova_celulas
+{}
+### index find prova_juizes
+{}
+### index find vgp_check
+{}
+### ast overview test_drift_coverage (consts)
+{'name': 'EXPECTED_TOTAL', 'kind': 'const', 'line': 98, 'line_start': None, 'line_end': None, 'signature': None}
+{'name': 'EXPECTED_BY_CAT', 'kind': 'const', 'line': 99, 'line_start': None, 'line_end': None, 'signature': None}
+{'name': 'test_scan_check_total_reconciled', 'kind': 'function', 'line': 188, 'line_start': None, 'line_end': None, 'signature': None}
+{'name': 'test_scan_categories_breakdown', 'kind': 'function', 'line': 204, 'line_start': None, 'line_end': None, 'signature': None}

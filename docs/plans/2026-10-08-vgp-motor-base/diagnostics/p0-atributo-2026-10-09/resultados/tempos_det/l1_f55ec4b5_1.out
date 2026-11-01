@@ -1,0 +1,4 @@
+recall de símbolo · arquivo 11/13 · inline 21/27 | forma (fora) {'arquivo': [0, 11], 'inline': [0, 13]} | falsos deny 0 em {'arquivo': 400, 'inline': 274} | avisos em negativos 49 | p95 145.5 ms | chamadas 738 | não classificados 0 | defeito de corpus (snap não compila) 0
+  falso deny (arquivo): 0/400 · taxa 0.000% · limite_superior_95 0.75% (teto 1%; o n=400 admite até 0 falso(s))
+  falso deny (inline): 0/274 · taxa 0.000% · limite_superior_95 1.09% (teto 1%; o n=274 não prova o teto nem com 0 falsos; exige n ≥ 299) · limite acima do teto (só reprova com --exigir-limite-superior)
+veredito: PRONTO

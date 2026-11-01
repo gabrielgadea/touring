@@ -1,0 +1,1632 @@
+   Compiling touring-foundation v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-foundation)
+   Compiling touring-storage v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-storage)
+   Compiling touring-simd v0.2.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-simd)
+   Compiling touring-offensive v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-offensive)
+   Compiling touring-code v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-code)
+   Compiling touring-analysis v0.3.3 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-analysis)
+   Compiling touring-intelligence v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-intelligence)
+   Compiling touring-quality v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-quality)
+   Compiling touring-hooks-shared v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-shared)
+   Compiling touring-bindings v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-bindings)
+   Compiling touring-hooks-prediction v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-prediction)
+   Compiling touring-ceg v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-ceg)
+   Compiling touring-hooks-rl v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-rl)
+   Compiling touring-capnp-server v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-capnp-server)
+   Compiling touring-hooks-core v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks-core)
+   Compiling touring-hook-runtime v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-runtime)
+   Compiling touring-cli v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-cli)
+   Compiling touring-hook-handlers v30.4.96 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring-wt-int97/crates/touring-hooks)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3m 00s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hooks-066e65e1bbce1818)
+
+running 2 tests
+test token_meter::tests::cl100k_counts_are_real_not_a_byte_heuristic ... ok
+test token_meter::tests::empty_text_is_zero_tokens_not_a_failure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/daemon_main.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_daemon-abcc15374cd4ee43)
+
+running 4 tests
+test tests::no_argument_runs_the_daemon ... ok
+test tests::help_answers_and_names_the_manager ... ok
+test tests::a_version_probe_answers_and_never_runs_the_daemon ... ok
+test tests::an_unknown_argument_is_refused_with_the_accepted_ones ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/main.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/touring_hook-7433623113c02867)
+
+running 4 tests
+test hookcwd_tests::a_recusa_do_daemon_pinado_tem_exit_reason_proprio ... ok
+test hookcwd_tests::o_sucesso_continua_daemon_json ... ok
+test hookcwd_tests::o_cwd_do_payload_so_vale_quando_e_texto_nao_vazio ... ok
+test hookcwd_tests::os_outros_rotulos_seguem_como_antes ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/aco_rl_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/aco_rl_integration_e2e-7776ee05be879845)
+
+running 30 tests
+test test_circuit_breaker_op_class_defaults ... ok
+test test_aco_metrics_cache_integration_e2e ... ok
+test test_cli_learning_reward_negative_clamped ... ok
+test test_cli_learning_reward_neutral ... ok
+test test_cli_learning_reward_alternate_field_names ... ok
+test test_cli_learning_reward_positive ... ok
+test test_empty_assessment_neutral_scores ... ok
+test test_hook_outcome_failure_degraded_stats ... ok
+test test_hook_outcome_success_positive_stats ... ok
+test test_hook_quality_assessment_records_outcomes ... ok
+test test_hook_quality_context_tracking ... ok
+test test_hook_quality_knowledge_tracking ... ok
+test test_hook_quality_latency_stats ... ok
+test test_hook_quality_pre_post_classification ... ok
+test test_hook_quality_success_rate ... ok
+test test_hook_quality_tracker_report_dimensions ... ok
+test test_hook_result_cache_hit_rate ... ok
+test test_hook_result_cache_hit_rate_empty ... ok
+test test_hook_result_cache_invalidate_file ... ok
+test test_hook_result_cache_miss ... ok
+test test_hook_result_cache_small_ttl_still_works ... ok
+test test_hook_result_cache_stats ... ok
+test test_hook_result_cache_store_and_retrieve ... ok
+test test_latency_target_ms_constant ... ok
+test test_multiple_outcomes_aggregate_correctly ... ok
+test test_cli_learning_reward_requires_tool_name ... ok
+test test_streaming_stats_avg_latency ... ok
+test test_cli_learning_reward_positive_clamped ... ok
+test test_cli_learning_reward_reward_field ... ok
+test test_runtime_circuit_breaker_initialized ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s
+
+     Running tests/bidirectional_suggestions_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bidirectional_suggestions_e2e-dcf0c3be1ef06a91)
+
+running 22 tests
+test cli_suggest_action_inserts_row_with_defaults ... ok
+test cli_suggest_action_rejects_empty_fields ... ok
+test cila_level_propagates_from_payload_to_db ... ok
+test action_type_deactivates_after_3_consecutive_ignores_resets_on_consume ... ok
+test cli_suggestion_mark_consumed_flips_flag ... ok
+test cli_suggestion_mark_consumed_unknown_id_returns_zero ... ok
+test cli_suggestion_list_pending_omits_consumed ... ok
+test cli_suggestion_list_pending_filters_by_action_type ... ok
+test deactivation_extends_to_72h_if_low_rate_many_samples ... ok
+test digest_action_suggestions_returns_none_when_empty ... ok
+test cli_suggestion_stats_returns_rate_correctly ... ok
+test digest_action_suggestions_returns_only_requested_type ... ok
+test digest_ranks_stop_before_update_before_plan_mode ... ok
+test full_suggestion_to_consumption_cycle_breaks_loop ... ok
+test failure_threshold_detector_finds_failed_tasks ... ok
+test gc_removes_old_consumed_suggestions ... ok
+test mark_consumed_clears_deactivation_if_rate_high ... ok
+test mark_consumed_increments_acceptance_count ... ok
+test plan_mode_detector_classifies_complex_description ... ok
+test realtime_task_create_emits_plan_mode_suggestion_on_complex_subject ... ok
+test stuck_subtask_detector_finds_old_pending_tasks ... ok
+test stuck_subtask_detector_respects_rate_limit ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.62s
+
+     Running tests/bidirectional_task_flow_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/bidirectional_task_flow_e2e-186b7234fa3a220e)
+
+running 11 tests
+test digest_returns_none_on_empty_db ... ok
+test adoption_via_mark_mirrored_preserves_single_dag_entry ... ok
+test digest_returns_none_when_only_cc_tasks ... ok
+test cc_originated_task_defaults_to_claude_code_origin ... ok
+test digest_skips_cc_originated_tasks ... ok
+test external_origin_sets_mirrored_to_cc_false ... ok
+test mark_mirrored_flips_flag_and_removes_from_digest ... ok
+test full_touring_to_cc_to_touring_cycle_breaks_loop ... ok
+test mark_mirrored_on_unknown_task_id_reports_zero_rows ... ok
+test mark_mirrored_rejects_empty_task_id ... ok
+test touring_cli_origin_sets_mirrored_to_cc_false ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.28s
+
+     Running tests/blast_radius_consistency.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/blast_radius_consistency-a8a8b00c6c1cc9c7)
+
+running 6 tests
+test test_blast_radius_intermediate_node_b_has_two_dependents ... ok
+test test_blast_radius_root_node_a_has_one_dependent ... ok
+test test_blast_radius_isolated_node_has_zero_dependents ... ok
+test test_blast_radius_leaf_node_c_has_three_dependents ... ok
+test test_diamond_graph ... ok
+test test_direct_only_chain ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/capnp_embed_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/capnp_embed_e2e-9e023f6b81cd3200)
+
+running 2 tests
+test embed_install_serves_capnp_and_delivers_events ... ok
+test install_is_idempotent ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/ceg_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/ceg_e2e-20c5491c7a1cb6c2)
+
+running 118 tests
+test bash_elixir_clean_mix_test_is_allowed ... ok
+test bash_go_forbidden_find_delete_is_denied ... ok
+test bash_elixir_forbidden_rm_rf_is_denied ... ok
+test bash_go_clean_run_is_allowed ... ok
+test bash_js_clean_node_eval_is_allowed ... ok
+test bash_js_forbidden_rm_rf_is_denied ... ok
+test bash_perl_clean_oneliner_is_allowed ... ok
+test bash_perl_forbidden_rm_rf_is_denied ... ok
+test bash_php_forbidden_rm_rf_is_denied ... ok
+test bash_php_clean_script_is_allowed ... ok
+test bash_python_clean_print_is_allowed ... ok
+test bash_python_forbidden_rm_rf_is_denied ... ok
+test bash_r_clean_rscript_is_allowed ... ok
+test bash_ruby_clean_puts_is_allowed ... ok
+test bash_r_forbidden_find_delete_is_denied ... ok
+test bash_rust_clean_cargo_test_is_allowed ... ok
+test bash_ruby_forbidden_rm_rf_is_denied ... ok
+test bash_rust_forbidden_rm_rf_target_is_denied ... ok
+test bash_sh_forbidden_rm_rf_root_is_denied ... ok
+test bash_sh_clean_echo_is_allowed ... ok
+test bash_ts_clean_tsx_run_is_allowed ... ok
+test bash_ts_git_force_push_is_warned ... ok
+test ctx_execute_elixir_clean_io_puts_is_allowed ... ok
+test ctx_execute_elixir_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_go_forbidden_find_delete_is_denied ... ok
+test ctx_execute_go_clean_fmt_println_is_allowed ... ok
+test ctx_execute_js_forbidden_destructive_shell_is_denied ... ok
+test ctx_execute_perl_clean_print_is_allowed ... ok
+test ctx_execute_perl_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_js_clean_console_log_is_allowed ... ok
+test ctx_execute_php_clean_echo_is_allowed ... ok
+test ctx_execute_php_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_python_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_python_clean_print_is_allowed ... ok
+test ctx_execute_r_clean_cat_is_allowed ... ok
+test ctx_execute_r_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_ruby_clean_puts_is_allowed ... ok
+test ctx_execute_ruby_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_rust_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_sh_clean_echo_is_allowed ... ok
+test ctx_execute_sh_forbidden_rm_rf_root_is_denied ... ok
+test ctx_execute_ts_forbidden_rm_rf_is_denied ... ok
+test ctx_execute_rust_clean_fn_main_is_allowed ... ok
+test deny_always_carries_a_canonical_fix ... ok
+test deny_reasons_are_non_empty ... ok
+test ctx_execute_ts_clean_typed_const_is_allowed ... ok
+test failopen_edit_tool_returns_err_not_panic ... ok
+test failopen_empty_payload_returns_err_not_panic ... ok
+test execution_id_is_deterministic_for_same_payload ... ok
+test failopen_non_exec_tool_returns_err_not_panic ... ok
+test failopen_read_tool_returns_err_not_panic ... ok
+test execution_id_differs_for_different_payloads ... ok
+test inferlet_elixir_clean_payload_is_allowed ... ok
+test inferlet_elixir_forbidden_rm_rf_is_denied ... ok
+test inferlet_go_clean_payload_is_allowed ... ok
+test inferlet_go_forbidden_find_delete_is_denied ... ok
+test inferlet_js_forbidden_rm_rf_is_denied ... ok
+test inferlet_js_clean_payload_is_allowed ... ok
+test inferlet_perl_clean_payload_is_allowed ... ok
+test inferlet_php_clean_payload_is_allowed ... ok
+test inferlet_perl_forbidden_rm_rf_is_denied ... ok
+test inferlet_php_forbidden_rm_rf_is_denied ... ok
+test inferlet_python_forbidden_rm_rf_is_denied ... ok
+test inferlet_r_clean_payload_is_allowed ... ok
+test inferlet_r_forbidden_rm_rf_is_denied ... ok
+test inferlet_python_clean_payload_is_allowed ... ok
+test inferlet_ruby_clean_payload_is_allowed ... ok
+test inferlet_ruby_forbidden_rm_rf_is_denied ... ok
+test inferlet_sh_clean_echo_is_allowed ... ok
+test inferlet_rust_forbidden_rm_rf_is_denied ... ok
+test inferlet_sh_forbidden_rm_rf_is_denied ... ok
+test inferlet_rust_clean_fn_main_is_allowed ... ok
+test inferlet_ts_forbidden_rm_rf_is_denied ... ok
+test jobs_surface_elixir_is_not_code_bearing ... ok
+test jobs_surface_go_is_not_code_bearing ... ok
+test jobs_surface_js_is_not_code_bearing ... ok
+test inferlet_ts_clean_payload_is_allowed ... ok
+test jobs_surface_perl_is_not_code_bearing ... ok
+test jobs_surface_php_is_not_code_bearing ... ok
+test jobs_surface_python_is_not_code_bearing ... ok
+test jobs_surface_r_is_not_code_bearing ... ok
+test jobs_surface_ruby_is_not_code_bearing ... ok
+test jobs_surface_rust_is_not_code_bearing ... ok
+test jobs_surface_sh_is_not_code_bearing ... ok
+test jobs_surface_ts_is_not_code_bearing ... ok
+test metrics_ceg_blocked_increments_on_deny ... ok
+test metrics_ceg_captured_increments_on_admit ... ok
+test pipeline_records_all_nine_stages_for_bash_sh ... ok
+test subagent_surface_elixir_is_not_code_bearing ... ok
+test subagent_surface_go_is_not_code_bearing ... ok
+test pipeline_records_all_nine_stages_for_ctx_execute_python ... ok
+test subagent_surface_js_is_not_code_bearing ... ok
+test pipeline_records_all_nine_stages_for_inferlet_js ... ok
+test subagent_surface_perl_is_not_code_bearing ... ok
+test subagent_surface_php_is_not_code_bearing ... ok
+test subagent_surface_python_is_not_code_bearing ... ok
+test subagent_surface_r_is_not_code_bearing ... ok
+test subagent_surface_ruby_is_not_code_bearing ... ok
+test subagent_surface_rust_is_not_code_bearing ... ok
+test subagent_surface_sh_is_not_code_bearing ... ok
+test subagent_surface_ts_is_not_code_bearing ... ok
+test write_surface_elixir_content_is_not_code_bearing ... ok
+test write_surface_go_content_is_not_code_bearing ... ok
+test write_surface_js_content_is_not_code_bearing ... ok
+test write_surface_perl_content_is_not_code_bearing ... ok
+test write_surface_php_content_is_not_code_bearing ... ok
+test write_surface_python_content_is_not_code_bearing ... ok
+test write_surface_r_content_is_not_code_bearing ... ok
+test write_surface_ruby_content_is_not_code_bearing ... ok
+test write_surface_sh_content_is_not_code_bearing ... ok
+test write_surface_rust_content_is_not_code_bearing ... ok
+test write_surface_ts_content_is_not_code_bearing ... ok
+test x9_learn_emit_gate_reward_does_not_panic_for_any_verdict ... ok
+test x9_learn_gate_metrics_captured_counter_increments_per_run ... ok
+test x9_learn_dry_run_bridge_returns_verdict_for_code_bearing_input ... ok
+test x9_drift_first_call_is_baseline_then_steady_is_not_drift ... ok
+test x9_learn_emit_gate_reward_is_fail_open_for_all_verdicts ... ok
+test x9_learn_persist_forbidden_skips_non_deny_and_is_fail_open ... ok
+
+test result: ok. 118 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/cli_handlers_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cli_handlers_e2e-c1551f790d6af6ca)
+
+running 159 tests
+test a_manually_started_subtask_is_never_stolen_by_the_claimer ... ok
+test a_resolved_decision_is_written_back_up_to_the_map ... ok
+test a_claim_is_refused_without_an_owner_to_attribute_it_to ... ok
+test a_closed_prototype_still_answers_the_risk ... ok
+test a_third_claimer_finds_nothing_left_rather_than_duplicating_work ... ok
+test an_expired_lease_frees_the_subtask_for_another_session ... ok
+test an_unlabelled_dag_reads_as_ungated_implementation ... ok
+test claim_subtask_blocked_names_the_pending_deps ... ok
+test claim_subtask_names_terminal_status_and_unknown_ids ... ok
+test claim_subtask_with_an_expired_lease_succeeds ... ok
+test claim_subtask_refuses_a_live_lease_naming_the_owner ... ok
+test claim_subtask_takes_the_named_one_not_the_next ... ok
+test claiming_respects_dependencies ... ok
+test hypergraph_e2e::e2e_hypergraph_complex_multi_hyperedge ... ok
+test hypergraph_e2e::e2e_hypergraph_feature_gate_lifecycle ... ok
+test hypergraph_e2e::e2e_hypergraph_multi_import_lifecycle ... ok
+test create_validates_priority_with_the_same_parser ... ok
+test fog_without_any_prototype_reads_as_waterfall_risk ... ok
+test implementation_without_an_origin_decision_is_reported_as_untraceable ... ok
+test closing_one_subtask_must_not_mark_the_whole_plan_done ... ok
+test one_prototype_ticket_answers_the_waterfall_risk ... ok
+test named_claim_can_take_hitl_and_ready_marks_it ... ok
+test only_research_decisions_may_run_unattended ... ok
+test only_decisions_travel_up_to_the_map ... ok
+test only_the_owner_may_release_its_own_claim ... ok
+test pool_claim_skips_hitl_and_takes_the_next_claimable ... ok
+test open_decisions_gate_the_implementation_frontier ... ok
+test pool_claim_with_only_hitl_left_names_the_reason ... ok
+test priority_accepts_number_and_bucket_and_refuses_garbage_loudly ... ok
+test ready_by_priority_flag_matches_the_default_order ... ok
+test ready_excludes_live_claims_and_get_names_the_owner ... ok
+test ready_first_excluding_hitl_is_what_claim_delivers ... ok
+test ready_lists_in_the_exact_order_claim_would_deliver ... ok
+test refining_a_ticket_preserves_the_facets_it_does_not_mention ... ok
+test releasing_unfinished_work_does_return_it_to_the_pool ... ok
+test releasing_returns_the_subtask_to_the_pool_for_someone_else ... ok
+test releasing_finished_work_gives_up_the_lease_not_the_completion ... ok
+test renew_extends_a_live_lease_for_its_holder ... ok
+test renew_names_terminal_status_and_unknown_ids ... ok
+test renew_race_seam_is_gated_and_the_where_defends_the_race ... ok
+test renew_never_resurrects_an_expired_lease ... ok
+test renew_refuses_another_owners_lease_and_a_pending_subtask ... ok
+test replaying_a_close_does_not_grow_the_map ... ok
+test test_ast_blast_returns_consumers_array ... ok
+test test_ast_find_missing_symbol_returns_empty ... ok
+test test_ast_overview_empty_path_returns_error ... ok
+test test_ast_overview_missing_file_returns_empty ... ok
+test test_cli_mpatch_preview_feature_off ... ok
+test test_cli_wiring_chains_filter_by_file_path ... ok
+test test_cli_wiring_chains_rebuild_and_returns_chain_count ... ok
+test test_cli_wiring_chains_rebuild_flag_returns_rebuilt_true ... ok
+test test_cli_wiring_cycles_min_depth_filters ... ok
+test test_cli_wiring_cycles_json_format ... ok
+test test_cli_wiring_cycles_returns_cycle_count ... ok
+test test_cli_wiring_cycles_returns_valid_cycle_structure ... ok
+test test_cli_wiring_impact_requires_symbol ... ok
+test test_cli_wiring_impact_json_format ... ok
+test test_cli_wiring_cycles_text_format ... ok
+test test_cli_wiring_impact_text_format_returns_lines ... ok
+test test_cli_wiring_impact_unknown_symbol_returns_zeroed ... ok
+test test_cli_wiring_orphans_diagnostics_flag_off_by_default ... ok
+test test_cli_wiring_orphans_diagnostics_flag_on_emits_w_codes ... ok
+test test_cli_wiring_impact_with_valid_symbol ... ok
+test test_cli_wiring_orphans_diagnostics_schema_matches_rfc_100 ... ok
+test test_decompose_create_persists_to_db ... ok
+test test_decompose_add_subtask_persists ... ok
+test test_decompose_add_with_dependencies ... ok
+test test_decompose_finalize_archives_task ... ok
+test test_decompose_full_taco_workflow ... ok
+test test_decompose_get_nonexistent_returns_null_task ... ok
+test test_decompose_ready_filters_pending_with_completed_deps ... ok
+test test_decompose_get_returns_task_and_subtasks ... ok
+test test_decompose_subtask_scoping_prevents_collision ... ok
+test test_decompose_status_counts_correctly ... ok
+test test_decompose_update_records_completed_at ... ok
+test test_decompose_update_records_started_at ... ok
+test test_decompose_update_status ... ok
+test test_format_validation_errors_readable ... ok
+test test_decompose_validate_empty_task_is_valid ... ok
+test test_experiment_record_teaches_on_invalid_decision_and_round_trips ... ok
+test test_decompose_validate_no_cycles ... ok
+test test_gotcha_add_and_list ... ok
+test test_gotcha_resolve_feeds_the_resolution_channel ... ok
+test test_gotcha_match ... ok
+test test_gotcha_add_missing_fields_returns_error ... ok
+test test_hook_context_chain_completion_reward_signature ... ok
+test test_hook_context_fields_public ... ok
+test test_hook_context_get_bool_method_exists ... ok
+test test_hook_context_get_f64_method_exists ... ok
+test test_hook_context_get_str_method_exists ... ok
+test test_hook_context_get_u64_method_exists ... ok
+test test_hook_context_has_key_method_exists ... ok
+test test_hook_context_with_last_method_exists ... ok
+test test_hook_meta_builder_pattern ... ok
+test test_hook_meta_fields_public ... ok
+test test_hook_meta_now_has_timestamp ... ok
+test test_hook_meta_with_file_path ... ok
+test test_hook_meta_with_session_id ... ok
+test test_hook_meta_with_tool_name ... ok
+test test_hook_services_fields_exist ... ok
+test test_hypergraph_e2e_wiring_chains_integration ... ok
+test test_gotcha_stats ... ok
+test test_learning_replay_consumes_the_outcome_corpus_once ... ok
+test test_memory_recall_empty_query_returns_empty ... ok
+test test_memory_stats_returns_structure ... ok
+test test_memory_store_persists ... ok
+test test_memory_recall_with_query ... ok
+test test_memory_suggest_links_derives_from_coservice_and_skips_linked_pairs ... ok
+test test_session_assess_returns_metrics ... ok
+test test_session_bus_get_none_for_unknown_hook ... ok
+test test_session_bus_hook_result_overwrite_on_rerun ... ok
+test test_session_bus_multiple_hooks_independent_results ... ok
+test test_pre_read_stores_hook_result_in_session_bus ... ok
+test test_session_checkpoint_persists ... ok
+test test_session_full_workflow ... ok
+test test_session_list_returns_created_sessions ... ok
+test test_post_edit_stores_hook_result_in_session_bus ... ok
+test test_session_start_persists ... ok
+test test_tasksfile_export_missing_task_id ... ok
+test test_session_start_upsert_updates_existing ... ok
+test test_tasksfile_export_nonexistent_task ... ok
+test test_tasksfile_export_roundtrip ... ok
+test test_tasksfile_import_creates_task_and_subtasks ... ok
+test test_tasksfile_import_invalid_yaml_returns_zero_added ... ok
+test test_tasksfile_import_with_deps_and_priority ... ok
+test test_session_bus_post_edit_result_retrievable_after_pre_read ... ok
+test test_tasksfile_validate_empty_yaml ... ok
+test test_tasksfile_validate_invalid_yaml ... ok
+test test_tasksfile_validate_missing_yaml_key ... ok
+test test_tasksfile_validate_valid_yaml ... ok
+test test_tasksfile_validate_with_templates ... ok
+test test_tasksfile_yaml_empty_env_file_list_no_crash ... ok
+test test_tasksfile_yaml_env_substitution_in_subtasks ... ok
+test test_tasksfile_yaml_missing_env_var_renders_empty ... ok
+test test_validate_payload_post_bash_empty_command_fails ... ok
+test test_validate_payload_post_bash_valid ... ok
+test test_validate_payload_pre_edit_valid ... ok
+test test_validate_payload_pre_read_empty_filepath_fails ... ok
+test test_validate_payload_pre_read_missing_field_fails ... ok
+test test_validate_payload_pre_read_valid ... ok
+test test_tasksfile_yaml_env_inline_overrides_env_file ... ok
+test test_tasksfile_yaml_multiple_tasks_all_rendered ... ok
+test test_tasksfile_yaml_template_params_no_substitution_when_disabled ... ok
+test test_workflow_resume_all_completed_returns_null_subtask ... ok
+test test_workflow_resume_no_completed_yields_first ... ok
+test test_workflow_compare_with_multiple_tasks ... ok
+test test_workflow_resume_returns_next_pending_subtask ... ok
+test test_workflow_run_empty_for_nonexistent_task ... ok
+test test_workflow_run_with_color_mode ... ok
+test test_workflow_run_returns_task_with_subtasks ... ok
+test test_workflow_slowest_returns_duration_list ... ok
+test test_workflow_stats_returns_counts ... ok
+test test_workflow_status_returns_correct_counts ... ok
+test test_workflow_status_empty_for_nonexistent_task ... ok
+test test_workflow_status_update_flow ... ok
+test test_workflow_status_with_scoped_subtask_ids ... ok
+test ticket_enums_are_validated_rather_than_stored_as_typos ... ok
+test two_sessions_claiming_never_receive_the_same_subtask ... ok
+test unassessed_fog_reports_as_unknown_not_clear ... ok
+
+test result: ok. 159 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.97s
+
+     Running tests/cli_suggester_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cli_suggester_e2e-3aef4a409a47a452)
+
+running 20 tests
+test classifier_bash_cargo_routes_to_doctor ... ok
+test classifier_bash_git_readonly_stays_silent ... ok
+test classifier_bash_git_destructive_reaches_the_ritual_arm ... ok
+test classifier_bash_sed_inplace_is_denied_by_g9 ... ok
+test classifier_edit_rust_emits_pre_edit_triage_with_tdg_gate ... ok
+test classifier_edit_rust_in_an_exhausted_turn_keeps_only_the_directives ... ok
+test classifier_glob_rust_pattern_suggests_workspace_info ... ok
+
+running 1 test
+test disable_env_var_worker ... test classifier_grep_free_text_routes_to_tantivy ... ok
+ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 19 filtered out; finished in 0.04s
+
+test classifier_respects_disable_env_var ... ok
+test classifier_grep_pascalcase_emits_symbol_lookup ... ok
+test classifier_read_rust_emits_rust_semantic_and_tdg ... ok
+test classifier_silent_for_missing_tool_name ... ok
+test classifier_silent_for_non_code_read ... ok
+test disable_env_var_worker ... ok
+test classifier_silent_for_unknown_tool ... ok
+test hook_registry_contains_session_handlers ... ok
+test hook_registry_dispatch_table_routes_session_handlers ... ok
+test classifier_ttl_cache_suppresses_duplicate_input_in_same_process ... ok
+test classifier_write_tsx_routes_to_perfect_create_tsx ... ok
+test every_non_empty_output_is_a_valid_json_object_with_additional_context ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.49s
+
+     Running tests/cognitive_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/cognitive_integration-5286ab3f0dbb8748)
+
+running 5 tests
+test test_focus_cache_prefetch_integration ... ok
+test test_cognitive_loop_init_and_knowledge_bridge ... ok
+test test_cognitive_graph_compaction ... ok
+test test_save_cognitive_state ... ok
+test test_session_predictor_learns_from_tool_sequence ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/compression_kill_switch_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/compression_kill_switch_e2e-0dd64371c1159512)
+
+running 1 test
+test disabled_flag_returns_raw_passthrough ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/compression_profiles_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/compression_profiles_e2e-197ebaf4384a75e5)
+
+running 33 tests
+test audit_p03_cargo_build_keeps_errors ... ok
+test audit_p02_cargo_clippy_keeps_warnings ... ok
+test audit_p01_cargo_test_keeps_failures ... ok
+test audit_p04_git_log_collapses_to_one_line ... ok
+test audit_p05_git_diff_keeps_headers ... ok
+test audit_p06_git_status_compact ... ok
+test audit_p07_gh_pr_list_keeps_essentials ... ok
+test audit_p08_gh_issue_list ... ok
+test audit_p09_kubectl_get_pods ... ok
+test audit_p10_docker_ps ... ok
+test audit_p11_pytest ... ok
+test audit_p12_ruff ... ok
+test audit_p13_tsc ... ok
+test audit_p14_npm_list ... ok
+test audit_p15_pip_list ... ok
+test audit_p16_eslint ... ok
+test audit_p17_mocha ... ok
+test audit_p18_jest ... ok
+test audit_p19_rustdoc ... ok
+test audit_p20_terraform_plan ... ok
+test audit_p22_make ... ok
+test audit_p21_ansible ... ok
+test audit_p23_jq_small_passthrough ... ok
+test audit_p24_curl_verbose ... ok
+test audit_p25_rsync ... ok
+test audit_p26_tar ... ok
+test audit_p27_ffmpeg ... ok
+test audit_p29_systemctl_status ... ok
+test audit_p30_journalctl ... ok
+test audit_p28_ripgrep ... ok
+test audit_profile_names_unique ... ok
+test audit_registry_count_30 ... ok
+test audit_unknown_tool_passthrough ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/context_mode_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/context_mode_e2e-3ee659e1462c9b66)
+
+running 17 tests
+test audit_ctx_insight_returns_no_placeholder_strings ... ok
+test audit_post_wave_rtk_ctx_tools_registered ... ok
+test audit_compression_profiles_are_reachable_from_the_sandbox_path ... ok
+test audit_precompact_filter_drops_medium_low_keeps_critical_high ... ok
+test audit_router_classifies_large_bash_as_sandbox ... ok
+test audit_priority_tier_migration_idempotent_through_multiple_calls ... ok
+test audit_router_passes_small_read_through ... ok
+test audit_rrf_constants_match_documented_default ... ok
+test audit_build_sandbox_wrapper_returns_content_hash_for_real_subprocess ... ok
+test audit_full_pipeline_subprocess_to_retrieve ... ok
+test audit_rrf_search_falls_back_when_disabled ... ok
+test audit_sandbox_blocking_captures_stdout_and_hashes ... ok
+test audit_sandbox_timeout_fallback_returns_sentinel_when_enabled ... ok
+test audit_sandbox_timeout_propagates_when_fallback_disabled ... ok
+test audit_search_summaries_finds_indexed_doc ... ok
+test audit_sandbox_to_doc_carries_all_fields ... ok
+test audit_tool_outputs_store_and_retrieve_via_router ... ok
+
+test result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/d2_predictive_blast_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d2_predictive_blast_e2e-c6a34c44744f195f)
+
+running 8 tests
+test test_context_with_updated_input_structure_via_cli ... ok
+test test_extract_pascal_symbols_basic ... ok
+test test_no_pascal_symbols_noop ... ok
+test test_many_symbols_completes_without_panic ... ok
+test test_task_create_high_blast_subject_graceful_when_no_cache ... ok
+test test_single_char_capitals_ignored ... ok
+test test_task_update_empty_subject_noop ... ok
+test test_non_task_tools_never_inject ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.15s
+
+     Running tests/d3_linucb_router_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d3_linucb_router_e2e-56b928d4c6e3072f)
+
+running 20 tests
+test case2_manual_edit_hint_is_none ... ok
+test all_arm_ids_map_to_valid_decisions ... ok
+test case1_implement_keyword_sets_dim21 ... ok
+test case2_short_task_dims_correct ... ok
+test cila_level_one_hot_populated ... ok
+test defer_task_hint_is_non_empty ... ok
+test delegate_agent_hint_contains_subject ... ok
+test empty_task_has_safe_defaults ... ok
+test feature_dim_matches_linucb_constant ... ok
+test features_sum_is_finite_and_bounded ... ok
+test generator_fn_hint_has_prefix ... ok
+test generator_struct_hint_has_prefix_and_plan_suggest ... ok
+test generator_trait_hint_has_prefix ... ok
+test multi_part_task_sets_dim24 ... ok
+test refactor_keyword_sets_dim23 ... ok
+test routing_decision_from_arm_coverage_table ... ok
+test split_task_hint_references_decompose ... ok
+test test_keyword_sets_dim22 ... ok
+test case3_bandit_noop_on_missing_tasks ... ok
+test case1_linucb_bandit_initialized_and_selects_arm ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/d43_pre_grep_glob_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d43_pre_grep_glob_e2e-4b8bea40de1d490f)
+
+running 20 tests
+test bare_payload_without_tool_input_works ... ok
+test gate_metrics_snapshot_exposes_pre_grep_fields ... ok
+test hook_registry_exposes_pre_grep_and_pre_glob ... ok
+test disable_env_var_short_circuits_to_allow ... ok
+test empty_pattern_returns_allow ... ok
+test enrichment_counter_increments_when_index_resolves ... ok
+test idle_timeout_default_is_zero_disabled ... ok
+test idle_timeout_honours_env_var_when_set ... ok
+test idle_timeout_rejects_invalid_values ... ok
+test pre_glob_delegates_to_pre_grep_for_identifiers ... ok
+test pre_glob_silent_for_glob_patterns ... ok
+test missing_pattern_returns_allow_not_panic ... ok
+test whitelist_accepts_pascal_case ... ok
+test whitelist_accepts_snake_case ... ok
+test whitelist_rejects_free_text ... ok
+test whitelist_rejects_regex_meta ... ok
+test whitelist_rejects_too_long ... ok
+test whitelist_rejects_too_short ... ok
+test whitespace_only_pattern_returns_allow ... ok
+test zero_results_increments_counter_for_made_up_symbol ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.41s
+
+     Running tests/d4_mcts_shadow_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/d4_mcts_shadow_e2e-cc2725470b29d216)
+
+running 5 tests
+test test_case1_empty_tasks_returns_none ... ok
+test test_case4_hint_format_with_deadlock ... ok
+test test_case3_budget_exhausted_graceful ... ok
+test test_case5_tasks_without_id_use_index_fallback ... ok
+test test_case2_l4_three_tasks_rollout_completes ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/dag_lifecycle_closure_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/dag_lifecycle_closure_e2e-bacbeef34b62c65e)
+
+running 39 tests
+test a_failed_subtask_with_no_policy_stays_failed ... ok
+test a_refused_finalize_archives_nothing ... ok
+test a_failed_subtask_with_a_retry_policy_goes_back_to_pending_until_the_attempts_run_out ... ok
+test a_failed_task_marks_every_stage_failed ... ok
+test a_repeated_in_progress_is_one_attempt ... ok
+test add_accepts_the_review_flag_the_finalize_gate_reads ... ok
+test a_successful_add_carries_no_error_key ... ok
+test add_defaults_review_required_to_off ... ok
+test a_subtask_that_runs_leaves_the_timing_the_workflow_reader_averages ... ok
+test add_does_not_reopen_a_finalized_plan ... ok
+test add_leaves_the_status_a_caller_set_on_an_open_plan_alone ... ok
+test add_to_a_plan_closed_as_completed_reopens_it_too ... ok
+test add_to_a_done_plan_reopens_it ... ok
+test add_reopens_a_done_plan_that_lives_in_the_global_store ... ok
+test archive_leaves_a_closed_plan_with_open_children_alone ... ok
+test archive_leaves_a_plan_with_a_failed_child_alone ... ok
+test archive_stamps_terminal_tasks_that_finalize_never_touched ... ok
+test archive_leaves_unfinished_work_alone ... ok
+test archive_names_the_plans_it_holds_and_what_holds_them ... ok
+test completing_a_mirrored_task_closes_every_scaffold_stage ... ok
+test creating_a_plan_retires_the_closed_ones_nobody_finalized ... ok
+test re_adding_a_closed_subtask_keeps_its_work ... ok
+test fechar_uma_task_sem_scaffold_nao_conta_estagio_nenhum ... ok
+test finalize_stamps_archived_at_and_reports_it ... ok
+test re_adding_an_id_that_belongs_to_another_plan_is_refused ... ok
+test ready_never_lists_a_finished_subtask_as_blocked ... ok
+test re_adding_keeps_what_the_row_accumulated ... ok
+test re_adding_an_open_subtask_still_reopens_a_plan_wrongly_marked_closed ... ok
+test reconcile_closes_a_stage_whose_siblings_all_finished ... ok
+test reopening_a_plan_the_retention_pass_archived_lifts_the_stamp ... ok
+test reconcile_refuses_to_guess_while_a_sibling_is_still_open ... ok
+test reopening_a_plan_through_update_lifts_the_archive_stamp ... ok
+test the_automatic_pass_archives_only_plans_closed_for_a_week ... ok
+test the_automatic_pass_also_reaches_the_global_store ... ok
+test the_bridge_reads_the_value_of_a_reply_not_the_presence_of_a_key ... ok
+test update_derives_the_parent_from_its_children ... ok
+test updating_a_subtask_that_does_not_exist_says_so ... ok
+test workflow_replies_carry_the_attempt_completion_rate_over_finished_attempts ... ok
+test the_parent_derivation_closes_on_every_status_the_foundation_calls_terminal ... ok
+
+test result: ok. 39 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.71s
+
+     Running tests/e2e_activity_hook.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_activity_hook-c428ed1c20b9641e)
+
+running 8 tests
+test e2e_post_write_one_event ... ok
+test e2e_post_edit_one_event ... ok
+test e2e_instructions_loaded_one_event ... ok
+test e2e_pre_compact_one_event ... ok
+test e2e_pre_edit_one_event ... ok
+test e2e_two_projects_no_interference ... ok
+test e2e_seq_monotonically_increments ... ok
+test e2e_gate_metrics_counters_increment ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/e2e_diagnostic_rfc100.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_diagnostic_rfc100-27f6b1fbfb17d4c9)
+
+running 5 tests
+test b320_emits_when_blast_crosses_feature_boundaries ... ok
+test q240_fires_when_max_complexity_exceeds_20 ... ok
+test touring_binary_wired_and_healthy ... ok
+test q230_fires_when_antipattern_score_exceeds_threshold ... ok
+test b310_path_wired_when_predictive_blast_injects_symbols ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.43s
+
+     Running tests/e2e_r1_to_r20.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_r1_to_r20-580be7ea08e60a2f)
+
+running 24 tests
+test i1_count_errors_utf8_multibyte_no_panic ... ok
+test r13_c1_replay_buffer_capacity_zero_no_panic ... ok
+test r13_replay_buffer_circular_and_sampling ... ok
+test r12_surgery_uses_parser_pool ... ok
+test r10_template_library_persistence_roundtrip ... ok
+test r14_session_insights_rl_convergence_field ... ok
+test r15_classify_with_details ... ok
+test r16_shared_pipeline_thread_safe ... ok
+test r17_predict_next_tools_with_history ... ok
+test r19_runtime_metrics_json_serialization ... ok
+test r19_runtime_metrics_without_optional_fields ... ok
+test r11_qtable_fxhashmap_performance ... ok
+test r1_contextual_bandit_polymorphism ... ok
+test r5_qlearning_metrics_convergence ... ok
+test r17_predict_next_tools_with_empty_history ... ok
+test r6_online_rl_engine_processes_rewards ... ok
+test r18_crdt_graph_record_relation ... ok
+test r7_maintain_tiers_empty_db ... ok
+test r8_symbol_path_empty_segments ... ok
+test r8_symbol_path_scope_resolution ... ok
+test r9_semantic_symbol_index_search ... ok
+test r7_rlm_maintain_tiers ... ok
+test r6_hook_runtime_process_immediate_reward ... ok
+test r2_r4_hook_runtime_bandit_lifecycle ... ok
+
+test result: ok. 24 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.14s
+
+     Running tests/e2e_touring_hooks_integration.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/e2e_touring_hooks_integration-1882724e57c36557)
+
+running 11 tests
+test e2e_aco_bridge::test_hook_outcome_recording ... ok
+test e2e_errors::test_touring_error_types ... ok
+test e2e_aco_bridge::test_hook_quality_assessment_new ... ok
+test e2e_hook_registry::test_all_daemon_hooks_registered ... ok
+test e2e_hook_response::test_hook_response_allow_variant ... ok
+test e2e_hook_response::test_hook_response_block_variant ... ok
+test e2e_aco_bridge::test_hook_result_cache_creation ... ok
+test e2e_hook_response::test_hook_response_context_variant ... ok
+test e2e_hook_response::test_hook_response_deny_variant ... ok
+test e2e_metrics::test_runtime_metrics_types ... ok
+test e2e_knowledge_db::test_knowledge_db_initializes ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/event_name_stamp.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/event_name_stamp-b075333db63577e5)
+
+running 2 tests
+test validation_deny_answers_with_the_invoking_event_not_the_handler_name ... ok
+test post_bash_answers_a_failure_as_post_tool_use_failure ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/feature_parity_standalone.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/feature_parity_standalone-8422a322c1572d03)
+
+running 4 tests
+test default_build_enables_standalone_hook_arms ... ok
+test no_trace_file_without_env ... ok
+test stateless_help_is_traced_with_empty_stdin ... ok
+test standalone_post_bash_is_alive_and_traced ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/full_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/full_integration_e2e-b9c90366e36e14ff)
+
+running 6 tests
+test bidirectional_loop_breaks_after_cc_adoption ... ok
+test run_suggester_dedup_prevents_duplicate_pending_suggestions ... ok
+test mcts_materialized_tasks_flow_through_pln2_digest ... ok
+test full_orchestration_cycle_pln2_and_pln3_interact_harmoniously ... ok
+test suggester_trait_contract_holds_for_all_three_implementations ... ok
+test suggestion_list_and_stats_reflect_inserted_suggestions ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/granularity_bandit_runtime_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/granularity_bandit_runtime_e2e-0af040ca880078de)
+
+running 12 tests
+test bandit_converges_when_monolithic_always_best_for_tiny_tasks ... ok
+test bandit_is_lazily_initialized_on_first_access ... ok
+test bandit_accessor_is_stable_across_calls ... ok
+test cli_granularity_reset_clears_state ... ok
+test cli_granularity_status_reflects_updates ... ok
+test record_outcome_accumulates_reward_across_calls ... ok
+test malformed_snapshot_falls_back_to_fresh_bandit ... ok
+test cli_granularity_status_returns_initial_json_shape ... ok
+test save_granularity_bandit_is_noop_when_never_accessed ... ok
+test select_task_split_returns_valid_factor_and_records_pull ... ok
+test snapshot_roundtrip_across_runtime_instances_preserves_pulls ... ok
+test split_factor_differs_across_contexts_after_training ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.21s
+
+     Running tests/health_delta_audit_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/health_delta_audit_e2e-3d52963f1619a9a4)
+
+running 1 test
+test wave_i_full_pipeline ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/hook_chain_synergy_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_chain_synergy_e2e-7f7c2a36c1312049)
+
+running 27 tests
+test i3_fuse_quality_evidence_returns_none_for_unsupported_file ... ok
+test i2_health_diff_regression_message_contains_dimension_names ... ok
+test i4_validate_edit_impact_detects_complexity_increase ... ok
+test i3_fuse_quality_evidence_returns_resolved_for_rust_source ... ok
+test i4_validate_edit_impact_flags_syntax_error_in_new_source ... ok
+test i4_validate_edit_impact_no_changes_when_source_identical ... ok
+test i3_fuse_quality_evidence_lower_score_for_complex_source ... ok
+test i5_pre_edit_no_callgraph_signal_for_unsupported_extension ... ok
+test i5_pre_edit_injects_callgraph_signal_for_rust_file_with_calls ... ok
+test i6_bfs_hop_signal_format_contract_verified_via_symbol_index ... ok
+test i1_post_edit_run_returning_accepts_precomputed_health_report ... ok
+test i5b_pre_write_injects_callgraph_signal_for_rust_content_with_call_sites ... ok
+test i7_learning_loop_distinguishes_success_from_failure_per_strategy ... ok
+test i7_learning_loop_records_generation_event_and_updates_stats ... ok
+test i7_learning_loop_strategy_stats_count_matches_distinct_strategies ... ok
+test i7_post_read_data_flow_knowledge_upsert_then_learning_loop_record ... ok
+test i6_pre_read_run_returning_completes_for_existing_file ... ok
+test i6_pre_read_runs_without_panic_when_no_symbol_index ... ok
+test i5b_pre_write_no_callgraph_signal_when_no_internal_calls ... ok
+test test_hook_chaining_no_signal_when_different_file ... ok
+test wave13_span_context_empty_when_no_hooks ... ok
+test wave13_span_context_records_chain_hops ... ok
+test test_hook_chaining_pre_read_to_pre_edit_injects_chain_signal ... ok
+test wave13_span_context_records_pre_read_hop ... ok
+test test_hook_chaining_full_chain_pre_read_pre_edit_post_edit ... ok
+test test_hook_chaining_post_edit_detects_chain_and_rewards ... ok
+test wave13_span_trace_id_is_monotonic ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/hook_lifecycle_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_lifecycle_e2e-52e851956183811c)
+
+running 29 tests
+test test_cila_budget_read_different_levels ... ok
+test test_cila_budget_edit_different_levels ... ok
+test test_cila_budget_write_different_levels ... ok
+test test_decompose_get_nonexistent_task_returns_empty ... ok
+test test_decompose_create_invalid_payload_returns_error_json ... ok
+test test_decompose_finalize_empty_task_returns_ready ... ok
+test test_decompose_add_without_task_returns_graceful_error ... ok
+test test_decompose_lifecycle_add_subtask ... ok
+test test_decompose_lifecycle_create_and_get ... ok
+test test_hook_response_allow_variant ... ok
+test test_hook_response_block_variant ... ok
+test test_hook_response_context_variant ... ok
+test test_hook_response_context_with_updated_input_variant ... ok
+test test_hook_response_deny_variant ... ok
+test test_hook_response_halt_variant ... ok
+test test_decompose_status_shows_all_tasks ... ok
+test test_decompose_lifecycle_update_subtask_status ... ok
+test test_knowledge_enrichment_query_extended ... ok
+test test_knowledge_record_bash_outcome_multiple_commands ... ok
+test test_knowledge_bash_outcome_record_and_recall ... ok
+test test_full_hook_pipeline_smoke_test ... ok
+test test_knowledge_upsert_and_lookup_roundtrip ... ok
+test test_runtime_init_creates_required_directories ... ok
+test test_should_enrich_respects_cila_level ... ok
+test test_should_enrich_respects_enrichment_active_flag ... ok
+test test_should_enrich_respects_tool_filter ... ok
+test test_runtime_knowledge_stats_reflects_initial_state ... ok
+test test_runtime_session_bus_accepts_signals ... ok
+test test_runtime_init_multiple_roots_independence ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/hook_root_payload_cwd_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/hook_root_payload_cwd_e2e-e769d6e969c35cc4)
+
+running 1 test
+test a_raiz_do_hook_segue_o_cwd_do_payload_e_a_recusa_tem_exit_reason_proprio ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.85s
+
+     Running tests/implementation_cross_audit_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/implementation_cross_audit_e2e-0627d683d23b82eb)
+
+running 6 tests
+test test_latency_marker_helper_functions ... ok
+test test_hook_response_to_json_all_variants ... ok
+test test_latency_marker_is_stale_behavior ... ok
+test test_latency_marker_record_and_elapsed ... ok
+test test_cleanup_stale_markers ... ok
+test test_user_prompt_submit_hook_response_format ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running tests/integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/integration_e2e-34f5935d4bfc4aa5)
+
+running 33 tests
+test test_classifier_aco_no_pipeline ... ok
+test test_classifier_multi_agent_l6 ... ok
+test test_classifier_antt_process_l3 ... ok
+test test_classifier_simple_greeting_l0 ... ok
+test test_ast_quality_enriches_knowledge ... ok
+test test_e2e_feedback_loop ... ok
+test test_linucb_context_selection ... ok
+test test_pii_scanner_detects_cpf ... ok
+test test_full_pipeline_db_integrity ... ok
+test test_pii_scanner_has_pii_quick_check ... ok
+test test_pii_scanner_ignores_whitelisted_content ... ok
+test test_pii_scanner_ignores_institutional_email ... ok
+test test_full_pipeline_ast_to_context ... ok
+test test_e2e_aco_ast_hooks_integration ... ok
+test test_post_edit_auto_gotcha_on_recurring_errors ... ok
+test test_post_bash_records_failure_with_error_pattern ... ok
+test test_pre_bash_recalls_failure_on_same_file ... ok
+test test_pipeline_reparse_and_symbol_cache ... ok
+test test_post_bash_records_outcome ... ok
+test test_pre_bash_silence_for_different_file ... ok
+test test_pre_edit_no_context_for_isolated_file ... ok
+test test_pre_read_unknown_file_produces_silence ... ok
+test test_prompt_enhance_debug_mode ... ok
+test test_prompt_enhance_general_fallback ... ok
+test test_prompt_enhance_json_contract ... ok
+test test_pre_edit_shows_dependents ... ok
+test test_pre_read_known_file_with_notes_returns_context ... ok
+test test_post_read_indexes_file ... ok
+test test_streaming_hook_stats_consistency ... ok
+test test_result_cache_cross_hook_invalidation ... ok
+test test_session_lifecycle_with_quality ... ok
+test test_session_start_with_knowledge_returns_stats ... ok
+test test_symbol_store_persistence ... ok
+
+test result: ok. 33 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.34s
+
+     Running tests/l7b_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/l7b_e2e-26789dcf48cdb946)
+
+running 15 tests
+test e2e_beta_enrichment_gate_l0_blocks_all ... ok
+test e2e_beta_enrichment_gate_l2_plus_allows_mutation_only ... ok
+test e2e_beta_enrichment_inactive_blocks_regardless_of_level ... ok
+test e2e_alpha_cila_budgets_scale_with_level ... ok
+test e2e_beta_mandatory_enrichment_only_at_l4_plus ... ok
+test e2e_delta_job_state_is_terminal_contract ... ok
+test e2e_delta_registry_singleton_is_shared ... ok
+test e2e_gamma_drop_job_returns_false_for_missing ... ok
+test e2e_gamma_gate_metrics_are_monotonic ... ok
+test e2e_gamma_gate_metrics_ratio_computation ... ok
+test e2e_gamma_job_poll_not_found_returns_sane_status ... ok
+test e2e_gamma_job_failure_path_is_captured ... ok
+test e2e_gamma_job_spawn_poll_transition ... ok
+test e2e_full_pipeline_integration ... ok
+test e2e_gamma_job_list_includes_spawned_jobs ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/locate_binary_roots.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/locate_binary_roots-070265b1de2a2078)
+
+running 6 tests
+test an_explicit_cargo_target_dir_wins ... ok
+test a_coverage_run_uses_the_coverage_build ... ok
+test an_executable_outside_a_deps_dir_adds_no_root_and_roots_do_not_repeat ... ok
+test a_plain_run_never_picks_a_stale_coverage_binary ... ok
+test coverage_is_still_found_when_it_is_the_only_build ... ok
+test nothing_built_is_none ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/master_plan_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/master_plan_e2e-e9643115d2122262)
+
+running 16 tests
+test audit_i01_trigram_substring_match_via_search_rrf ... ok
+test audit_i02_phrase_query_increments_metric ... ok
+test audit_i05_ttl_skip_then_cleanup ... ok
+test audit_i04_snippet_via_ctx_retrieve_with_query ... ok
+test audit_full_pipeline_15_initiatives ... ok
+test audit_i03_name_boost_default_5x ... ok
+test audit_i06_json_field_serialises ... ok
+test audit_i10_throttle_3_tier_progression ... ok
+test audit_i08_ctx_facets_drill_down ... ok
+test audit_i09_datefield_native_dual_write ... ok
+test audit_i07_ctx_aggregate_terms ... ok
+test audit_i13_lifecycle_5_tier_classification ... ok
+test audit_i12_credential_redactor_pattern ... ok
+test audit_i14_think_in_code_threshold_env_tunable ... ok
+test audit_i15_session_guide_renders_15_sections ... ok
+test audit_i11_sandbox_language_resolution ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/mcts_materializer_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/mcts_materializer_e2e-1bd220e7f17b279a)
+
+running 5 tests
+test materialize_from_payload_uses_defaults_when_keys_absent ... ok
+test materialize_returns_valid_json_with_expected_keys ... ok
+test materialize_from_payload_dispatches_correctly ... ok
+test materialize_max_top_n_does_not_panic ... ok
+test materialize_zero_subgoals_clamped_to_one ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/module_contracts.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/module_contracts-c4fe3fe5a7b76b8b)
+
+running 13 tests
+test test_circuit_check_skip ... ok
+test test_circuit_check_proceed ... ok
+test test_circuit_state_is_global_open ... ok
+test test_async_config_validate ... ok
+test test_circuit_state_new_is_empty ... ok
+test test_circuit_state_total_weighted_score ... ok
+test test_error_context_chaining ... ok
+test test_op_class_from_hook_name ... ok
+test test_touring_error_aco ... ok
+test test_touring_error_display ... ok
+test test_touring_error_from_io ... ok
+test test_touring_error_from_string ... ok
+test test_touring_error_knowledge ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/moka_caches_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/moka_caches_e2e-477c02bdae24d9f6)
+
+running 9 tests
+test blake3_registry_write_invalidates_cache ... ok
+test cognitive_enrichment_write_invalidates_cache ... ok
+test terminal_job_cache_rejects_non_terminal_status ... ok
+test terminal_job_cache_round_trip_preserves_payload ... ok
+test terminal_job_cache_stats_reflect_byte_sized_weight ... ok
+test community_and_coverage_writes_invalidate_cache ... ok
+test bulk_invalidation_clears_every_entry ... ok
+test query_extended_cache_hits_on_repeat_lookup ... ok
+test upsert_invalidates_extended_cache ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/no_test_exits_the_harness.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/no_test_exits_the_harness-1a035d9f787bf5bc)
+
+running 1 test
+test no_test_calls_a_diverging_hook_run ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.54s
+
+     Running tests/orphan_diagnostic_audit_2026_05_11.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/orphan_diagnostic_audit_2026_05_11-fd1624bdeb4f6d64)
+
+running 27 tests
+test a_db_without_a_derivable_root_never_deletes ... ok
+test every_row_is_counted_exactly_once ... ok
+test a_first_party_python_source_is_wiring_not_pollution ... ok
+test a_rust_file_the_gate_rejects_is_still_pollution ... ok
+test f1_legacy_md_row_filtered_out_by_select ... ok
+test f2_absolute_path_at_register_becomes_relative_in_query ... ok
+test f2_migrate_canonicalize_paths_rewrites_legacy_absolute_rows ... ok
+test f3_lowercase_method_resolves_orphan ... ok
+test f2_producer_absolute_consumer_relative_match ... ok
+test f4_eligible_rust_file_still_reaches_wiring_map ... ok
+test f3_lowercase_function_resolves_orphan ... ok
+test f4_nested_benches_path_skipped ... ok
+test f4_py_file_skipped_at_register_pub_symbol ... ok
+test f4_leading_benches_path_skipped ... ok
+test f4_leading_tests_path_skipped ... ok
+test f5_diagnostic_flags_kind_unknown_after_orphan_consumer ... ok
+test f5_diagnostic_flags_non_wireable_legacy_rows ... ok
+test f7_orphan_symbols_for_module_also_excludes_pub_mod ... ok
+test f5_diagnostic_reports_clean_db_as_ok ... ok
+test f7_pub_mod_declaration_never_appears_in_orphan_list ... ok
+test f8_derive_method_names_excluded_from_orphans ... ok
+test f8_partial_match_does_not_overfilter ... ok
+test f9_method_call_consumer_resolves_orphan_end_to_end ... ok
+test f9_empty_names_returns_empty ... ok
+test f9_find_producer_modules_for_methods_matches_callable_kinds ... ok
+test f9_cap_per_name_bounds_fanout ... ok
+test migration_evicts_foreign_rows_and_keeps_local_ones ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/pln2_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pln2_e2e-20038d5e3350048f)
+
+running 32 tests
+test pln2_all_tables_have_schema_constants ... ok
+test pln2_benchmark_runs_insert ... ok
+test pln2_blake3_registry_upsert_and_get ... ok
+test pln2_blake3_hash_computation ... ok
+test pln2_blake3_hash_unknown_file_returns_none ... ok
+test pln2_cognitive_enrichment_upsert_and_get ... ok
+test pln2_cognitive_returns_none_for_unknown_file ... ok
+test pln2_community_upsert_and_get ... ok
+test pln2_community_unknown_file_returns_none ... ok
+test pln2_edge_confidence_upsert ... ok
+test pln2_feature_flags_batch_upsert ... ok
+test pln2_feature_flags_extraction_integration ... ok
+test pln2_feature_flags_handles_empty_input ... ok
+test pln2_feature_flags_single_upsert ... ok
+test pln2_get_benchmark_runs_empty ... ok
+test pln2_get_benchmark_runs_roundtrip ... ok
+test pln2_get_edge_confidence_or_insert_existing_high ... ok
+test pln2_get_edge_confidence_or_insert_default ... ok
+test pln2_get_edge_confidence_or_insert_existing_low ... ok
+test pln2_get_test_coverage_none_before_upsert ... ok
+test pln2_get_feature_flags_for_file_empty ... ok
+test pln2_get_feature_flags_for_file_roundtrip ... ok
+test pln2_get_test_coverage_roundtrip ... ok
+test pln2_test_coverage_upsert ... ok
+test pln2_session_summary_upsert ... ok
+test pln2_symbol_events_insert ... ok
+test pln2_todos_extraction_from_content ... ok
+test pln2_todos_insert_and_resolve ... ok
+test pln2_todos_kinds_classification ... ok
+test pln2_wiring_suggestions_rejection ... ok
+test pln2_wiring_suggestions_returns_empty_when_none_pending ... ok
+test pln2_wiring_suggestions_workflow ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.25s
+
+     Running tests/post_edit_cascade_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_edit_cascade_e2e-ac1e34716ae643ca)
+
+running 4 tests
+test post_edit_non_rust_skips_cascade ... ok
+test post_edit_rust_edit_populates_cache ... ok
+test post_edit_second_rust_edit_emits_cascade_plan ... ok
+test post_edit_identical_edits_produce_empty_plan ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/post_edit_rule_engine_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_edit_rule_engine_e2e-a70c38336e925938)
+
+running 4 tests
+test hook_runtime_cascade_queue_accepts_proposal ... ok
+test bridge_rule_engine_creates_proposal_on_match ... ok
+test bridge_preserves_exit_0_invariant ... ok
+test bridge_no_match_returns_no_rule ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.07s
+
+     Running tests/post_wave_orchestration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_wave_orchestration_e2e-4b5aa9806b18b91d)
+
+running 11 tests
+test audit_mcp_ctx_router_registers_post_wave_rtk_tools ... ok
+test audit_new1_15_profiles_registered ... ok
+test audit_new1_compression_profile_invoked_for_cargo ... ok
+test audit_new3_ctx_discover_exposes_15_profiles ... ok
+test audit_new3_ctx_gain_reads_real_metrics ... ok
+test audit_new4_toml_parse_reload ... ok
+test audit_new4_user_filter_priority_over_builtin ... ok
+test audit_new5_rewrite_shell_passthrough ... ok
+test audit_new2_failure_tee_persisted_only_on_nonzero ... ok
+test audit_full_pipeline_5_new_orchestration ... ok
+test audit_new2_tee_redacts_provided_samples ... ok
+
+test result: ok. 11 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/post_wave_rtk_cross_audit.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/post_wave_rtk_cross_audit-723663185b3e6f05)
+
+running 15 tests
+test cross_audit_full_pipeline_no_pii_leak_via_tee ... ok
+test cross_audit_full_pipeline_user_filter_to_tee ... ok
+test cross_audit_new1_compression_profile_counter_wires_to_real_metric ... ok
+test cross_audit_new1_disabled_flag_short_circuits_compression ... ok
+test cross_audit_new1_registry_is_30_and_dispatches_correctly ... ok
+test cross_audit_new2_cleanup_respects_retention ... ok
+test cross_audit_new2_failure_tee_round_trip ... ok
+test cross_audit_new2_tee_redacts_secrets_before_disk ... ok
+test cross_audit_new3_ctx_discover_lists_15_or_more_profiles ... ok
+test cross_audit_new3_ctx_gain_envelope_uses_real_counters ... ok
+test cross_audit_new4_invalid_toml_returns_parse_error ... ok
+test cross_audit_new4_toml_parse_round_trips ... ok
+test cross_audit_new5_rewrite_shell_hook_exists_and_executable ... ok
+test cross_audit_post_wave_rtk_5_initiatives_complete ... ok
+test cross_audit_new4_user_filter_priority_over_builtin ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/potentialization_comprehensive_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/potentialization_comprehensive_e2e-44185b6290caacdc)
+
+running 22 tests
+test complexity_cila_budget_respected ... ok
+test complexity_should_enrich_respects_cila_level ... ok
+test antipatterns_empty_source_clean ... ok
+test documentation_module_docstrings_complete ... ok
+test antipatterns_detect_dangerous_patterns ... ok
+test documentation_public_api_documented ... ok
+test functionality_hook_registry_complete ... ok
+test functionality_hook_response_all_variants_work ... ok
+test indexing_tantivy_integration_wired ... ok
+test organization_cli_handlers_split_verified ... ok
+test documentation_knowledge_graph_documented ... ok
+test complexity_quality_score_in_knowledge ... ok
+test performance_signal_pipeline_execution_time ... ok
+test performance_gate_metrics_record ... ok
+test persistence_knowledge_db_survives_restart ... ok
+test quality_error_propagation_through_handlers ... ok
+test quality_hook_response_all_variants_construct ... ok
+test modularization_hook_runtime_accessible ... ok
+test organization_lifecycle_submodules_accessible ... ok
+test wiring_hook_outcome_recording ... ok
+test persistence_session_state_preserved ... ok
+test scalability_backpressure_handling ... ok
+
+test result: ok. 22 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s
+
+     Running tests/pre_hooks_potentialization_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/pre_hooks_potentialization_e2e-4d45c27604a1731c)
+
+running 28 tests
+test blast_radius_signal_layer_cila_gate_at_2 ... ok
+test blast_radius_signal_layer_name_is_correct ... ok
+test blast_radius_signal_empty_index_returns_isolated_signal ... ok
+test blast_radius_signal_layer_enrich_no_panic_for_unknown_file ... ok
+test blast_radius_signal_none_index_returns_none ... ok
+test blast_radius_signal_verbose_at_least_as_long_as_compact ... ok
+test detect_antipatterns_with_lines_type_is_vec_of_tuples ... ok
+test detect_antipatterns_with_lines_empty_source_returns_no_issues ... ok
+test detect_antipatterns_with_lines_returns_tuples_with_positive_line_numbers ... ok
+test detect_antipatterns_with_lines_line_attribution_is_accurate ... ok
+test gate_metrics_both_counters_are_independent ... ok
+test maybe_add_eval_check_appends_issue_for_js_with_dynamic_call ... ok
+test maybe_add_eval_check_appends_issue_for_typescript_with_dynamic_call ... ok
+test maybe_add_eval_check_appends_to_existing_issues ... ok
+test maybe_add_eval_check_no_issue_for_js_safe_code ... ok
+test maybe_add_eval_check_no_issue_for_rust ... ok
+test merge_signals_rrf_deduplicates_across_lists ... ok
+test merge_signals_rrf_empty_inputs_return_empty ... ok
+test merge_signals_rrf_fuses_two_non_empty_lists ... ok
+test merge_signals_rrf_single_list_preserves_all_items ... ok
+test pheromone_graph_evaporate_decays_edge_strength ... ok
+test pheromone_graph_reinforce_path_creates_hot_edge ... ok
+test pheromone_graph_reinforce_path_longer_chain_creates_multiple_edges ... ok
+test pheromone_graph_reinforce_path_multiple_reinforcements_increase_strength ... ok
+test pheromone_graph_reinforce_path_self_loop_is_ignored ... ok
+test gate_metrics_record_metadata_backpressure_dropped_increments_counter ... ok
+test gate_metrics_record_metadata_cache_hit_increments_counter ... ok
+test gate_metrics_snapshot_serializes_new_fields ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/predictive_wave_p99_guards.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/predictive_wave_p99_guards-0ef0e6584ae1e93c)
+
+running 9 tests
+test test_d3_extract_task_features_empty_task_p99_under_100us ... ok
+test test_d3_extract_task_features_p99_under_50ms ... ok
+test test_d2_symbol_extraction_proxy_p99_under_1ms ... ok
+test test_d4_run_shadow_rollout_p99_under_1s ... ok
+test test_d4_single_task_no_deadlock_p99_under_100ms ... ok
+test test_d5_record_helpers_p99_under_10us ... ok
+test test_d5_snapshot_nine_fields_present_and_serde_roundtrip ... ok
+test test_d5_gate_metrics_snapshot_p99_under_5ms ... ok
+test test_d2_pre_tool_use_cli_p99_under_2s ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/rkyv_ipc_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/rkyv_ipc_e2e-440c414b4b2ff849)
+
+running 3 tests
+test json_request_still_works_on_same_dispatcher ... ok
+test rkyv_response_roundtrips_through_socket ... ok
+test rkyv_framed_request_reaches_mock_daemon ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/runtime_traits_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/runtime_traits_e2e-7c3b24f04b56c18c)
+
+running 38 tests
+test aco_wiring_task_heat_query ... ok
+test aco_wiring_flush_metrics ... ok
+test cognitive_init_and_resolve ... ok
+test aco_wiring_deposit_file_edit ... ok
+test cognitive_save_state ... ok
+test crdt_graph_ref ... ok
+test crdt_graph_record_relation ... ok
+test crdt_graph_save_load ... ok
+test dependency_cache_init ... ok
+test dependency_cache_petgraph_blast ... ok
+test evolution_analyzer_ref ... ok
+test full_hook_flow_aco_pheromone_deposit_and_query ... ok
+test full_hook_flow_cache_prevents_recompute ... ok
+test full_hook_flow_linucb_select_and_record ... ok
+test full_hook_flow_pensieve_threshold_adaptation ... ok
+test full_hook_flow_metrics_export_all_subsystems ... ok
+test full_hook_flow_quality_tracking_cycle ... ok
+test knowledge_db_quality_report ... ok
+test knowledge_db_batch_pre_read_signals ... ok
+test full_hook_flow_session_turn_increments ... ok
+test knowledge_db_record_hook_outcome ... ok
+test linucb_bandit_mut_lazy_init ... ok
+test linucb_select_context_strategy ... ok
+test linucb_suggest_context_level ... ok
+test linucb_record_context_reward ... ok
+test metrics_export_consolidated ... ok
+test pipeline_cache_stats ... ok
+test pipeline_ref ... ok
+test online_rl_process_reward ... ok
+test result_cache_check_store ... ok
+test result_cache_hit_rate ... ok
+test result_cache_invalidate ... ok
+test session_turn_advance ... ok
+test session_turn_initial ... ok
+test tool_predictor_predict_next ... ok
+test symbol_index_find_symbol ... ok
+test symbol_index_get_or_init ... ok
+test tool_predictor_ref ... ok
+
+test result: ok. 38 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.46s
+
+     Running tests/saga_coordinator.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/saga_coordinator-10f02114cd8c0f76)
+
+running 12 tests
+test test_agent_accessible_after_register ... ok
+test test_2pc_rollback_on_vote_no ... ok
+test test_2pc_happy_path ... ok
+test test_concurrent_agents_and_transactions ... ok
+test test_empty_votes_not_all_prepared ... ok
+test test_handle_decision_commit ... ok
+test test_get_phase_unknown_tx ... ok
+test test_handle_decision_rollback ... ok
+test test_record_vote ... ok
+test test_store_delta_rejected_when_not_committed ... ok
+test test_register_agent_idempotent ... ok
+test test_store_delta_unknown_tx ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.16s
+
+     Running tests/signal_pipeline_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/signal_pipeline_e2e-448282f7ee76544b)
+
+running 52 tests
+test budget_empty_when_all_signals_exceed ... ok
+test blast_radius_signal_layer_should_run_threshold ... ok
+test budget_truncation_priority_ordering ... ok
+test budget_exactly_one_signal_fits ... ok
+test budget_truncation_respects_max_chars ... ok
+test build_graph_pipeline_has_five_layers ... ok
+test cila_gated_layer_respects_threshold ... ok
+test cila_gated_layer_skipped_below_threshold_in_pipeline ... ok
+test cila_gated_layer_runs_at_threshold_in_pipeline ... ok
+test build_graph_pipeline_respects_budget ... ok
+test enriched_blast_radius_signal_layer_should_run_threshold ... ok
+test execute_with_metrics_all_skipped_returns_none ... ok
+test cila_gated_multiple_layers_compose_correctly ... ok
+test execute_with_metrics_returns_metrics ... ok
+test execute_with_metrics_skips_gated_layers ... ok
+test fn_signal_layer_context_aware ... ok
+test hnsw_signal_layer_should_run_threshold ... ok
+test layer_metrics_contains_timing_info ... ok
+test normalize_scores_all_same_value ... ok
+test normalize_scores_negative_values ... ok
+test pheromone_graph_evaporate_prunes_weak_edges ... ok
+test pheromone_graph_evaporate_reduces_strength ... ok
+test pheromone_graph_hot_edges_returns_top_k ... ok
+test pheromone_graph_reinforce_accumulates ... ok
+test pheromone_graph_reinforce_creates_edges ... ok
+test pheromone_graph_signal_layer_empty_graph ... ok
+test pheromone_graph_signal_layer_hot_edges_format ... ok
+test pheromone_graph_signal_layer_normalized_scores ... ok
+test pipeline_extend_merges_layers ... ok
+test pipeline_separator_between_signals ... ok
+test rrf_fusion_empty_signals_handled ... ok
+test rrf_fusion_merges_multiple_sources ... ok
+test rrf_fusion_preserves_ordering_within_tier ... ok
+test rrf_fusion_single_signal_unchanged ... ok
+test score_cmp_handles_equal_scores ... ok
+test score_cmp_orders_descending ... ok
+test signal_context_default_cila_is_3 ... ok
+test signal_context_with_cila_sets_level ... ok
+test signal_context_with_hook_sets_name ... ok
+test signal_pipeline_cila_l0_only_basic_signals ... ok
+test signal_pipeline_cila_l1_produces_signals ... ok
+test signal_pipeline_cila_l2_includes_gated_layer ... ok
+test signal_pipeline_cila_l3_enriched_blast_radius_runs ... ok
+test signal_pipeline_cila_l4_weighted_blast_runs ... ok
+test signal_pipeline_cila_l5_hnsw_layer_runs ... ok
+test signal_pipeline_cila_l6_all_layers_runs ... ok
+test signal_pipeline_with_empty_index_no_panic ... ok
+test static_signal_layer_always_produces_output ... ok
+test static_signal_layer_in_pipeline ... ok
+test static_signal_layer_with_zero_signals ... ok
+test weighted_blast_signal_layer_should_run_threshold ... ok
+test hook_runtime_initialization_succeeds ... ok
+
+test result: ok. 52 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/snapshot_file_digest_signal.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/snapshot_file_digest_signal-30c752000b703219)
+
+running 5 tests
+test snapshot_empty_source_returns_none ... ok
+test snapshot_python_simple_two_defs ... ok
+test snapshot_rust_simple_fn_no_hot ... ok
+test snapshot_rust_with_hot_function ... ok
+test boundary_kill_gt_mutation_via_cc_calibration ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s
+
+     Running tests/standalone_parity.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/standalone_parity-a68425231b1dc06b)
+
+running 1 test
+test standalone_task_completed_keeps_stdout_in_contract_and_the_receipt_on_stderr ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/stringzilla_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/stringzilla_e2e-272a8aa0279aed30)
+
+running 13 tests
+test test_ahocorasick_suggest_skill_hook_wired ... ok
+test test_all_workflow_hooks_in_registry ... ok
+test test_ahocorasick_skill_routing_comprehensive ... ok
+test test_gotcha_count_memmem_empty_pattern_skipped ... ok
+test test_gotcha_count_memmem_no_false_positive ... ok
+test test_hook_registry_counts_match_the_dispatch_registry ... ok
+test test_gotcha_count_memmem_exact_match ... ok
+test test_gotcha_count_memmem_multiple_matches ... ok
+test test_hook_registry_complete_sync ... ok
+test test_hook_registry_no_duplicates ... ok
+test test_static_prefix_validator_rm_blocked ... ok
+test test_static_prefix_validator_rmdir_distinct_from_rm ... ok
+test test_static_prefix_validator_safe_command_passes ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+     Running tests/tantivy_signals_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/tantivy_signals_e2e-2c847927a27bded0)
+
+running 12 tests
+test tests::empty_path_does_not_panic ... ok
+test tests::fast_metadata_with_feature_flags_never_panics ... ok
+test tests::fast_metadata_with_language_never_panics ... ok
+test tests::all_tantivy_signals_have_valid_weight ... ok
+test tests::short_path_does_not_panic ... ok
+test tests::tantivy_crate_origin_signal_never_panics ... ok
+test tests::tantivy_fuzzy_file_signal_never_panics ... ok
+test tests::tantivy_fuzzy_symbol_signal_never_panics ... ok
+test tests::tantivy_kind_context_signal_never_panics ... ok
+test tests::tantivy_related_docs_signal_never_panics ... ok
+test tests::fast_metadata_full_enrichment_chain ... ok
+test tests::fast_metadata_with_cognitive_from_index_never_panics ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/token_meter_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/token_meter_e2e-4413f9c826ea2422)
+
+running 2 tests
+test routing_events_contribute_bytes_and_declare_no_tokens ... ok
+test the_ledger_measures_bytes_exactly_and_tokens_only_when_it_can ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/tracing_instrumentation.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/tracing_instrumentation-a7bc63ce041b24d4)
+
+running 3 tests
+test concept_drift_event_message_and_field_are_captured ... ok
+test multiple_events_accumulate_in_capture_buffer ... ok
+test unrelated_event_does_not_produce_false_positive ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/vgp_ativo_ordem_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/vgp_ativo_ordem_e2e-abfd1e74c5eb7e1b)
+
+running 6 tests
+test bash_controle_sem_python_o_bloqueio_existe_sem_texto_do_vgp ... ok
+test bash_controle_inofensivo_segue_com_o_aviso ... ok
+test bash_aviso_do_vgp_nao_esconde_o_bloqueio_do_comando_perigoso ... ok
+test edit_aviso_do_vgp_nao_esconde_o_deny_de_sintaxe ... ok
+test edit_controle_valida_segue_com_o_aviso ... ok
+test write_aviso_do_vgp_segue_junto_do_pipeline ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.47s
+
+     Running tests/wave24_hook_integration_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave24_hook_integration_e2e-70abb3859f3d4f04)
+
+running 5 tests
+test settings_json_contains_wave24_hooks ... ok
+test daemon_doctor_passes_after_session_warmup ... ok
+test task_created_event_returns_scaffolded_receipt ... ok
+test pre_task_scout_returns_pretooluse_envelope ... ok
+test task_completed_event_returns_full_outcome_receipt ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.25s
+
+     Running tests/wave25_task_enrichment_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave25_task_enrichment_e2e-f28cc280f4785c7e)
+
+running 6 tests
+test enter_plan_mode_prompt_is_treated_as_subject ... ok
+test file_based_tool_preserves_existing_shape ... ok
+test non_task_non_file_tool_returns_empty_context ... ok
+test task_list_without_subject_returns_empty_context ... ok
+test read_only_task_tools_suppress_wiring_hint ... ok
+test task_create_payload_returns_enriched_context ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.15s
+
+     Running tests/wave2_4_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave2_4_e2e-a0578d7c28e7f758)
+
+running 20 tests
+test file_knowledge_enriched_default_is_all_none_or_zero ... ok
+test file_knowledge_enriched_from_base_enrichment_fields_are_none ... ok
+test file_knowledge_enriched_from_base_preserves_base_fields ... ok
+test dispatch_table_has_wiring_community_entry ... ok
+test dispatch_table_has_all_tantivy_entries ... ok
+test file_knowledge_enriched_serializes_to_json ... ok
+test file_knowledge_enriched_has_23_json_fields ... ok
+test dispatch_table_and_registry_are_in_sync ... ok
+test gate_metrics_snapshot_captures_all_three_tantivy_fields ... ok
+test hook_registry_all_daemon_constant_matches_function ... ok
+test hook_registry_count_matches_the_dispatch_registry ... ok
+test hook_registry_has_all_tantivy_handlers ... ok
+test hook_registry_has_wiring_community ... ok
+test gate_metrics_tantivy_commit_increments ... ok
+test gate_metrics_tantivy_query_latency_accumulates ... ok
+test gate_metrics_tantivy_upsert_increments_monotonically ... ok
+test query_extended_returns_none_for_unknown_file ... ok
+test query_extended_includes_cognitive_enrichment_after_upsert ... ok
+test query_extended_all_enrichment_none_without_inserts ... ok
+test query_extended_returns_base_fields_when_no_enrichment ... ok
+
+test result: ok. 20 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s
+
+     Running tests/wave3_extended_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave3_extended_e2e-f8efeed8f66d18b0)
+
+running 28 tests
+test audit_t201_linucb_compression ... ok
+test audit_t202_burn_detect ... ok
+test audit_t203_precompact_recompress ... ok
+test audit_t204_session_inheritance ... ok
+test audit_t205_search_regex ... ok
+test audit_t206_search_phrase_prefix ... ok
+test audit_t207_aggregate_daily ... ok
+test audit_t208_top_compressors ... ok
+test audit_t209_think_in_code_triggers_on_keywords ... ok
+test audit_t209_think_in_code_skips_unrelated ... ok
+test audit_t212_webfetch_chunk ... ok
+test audit_t213_grep_rerank_keeps_top_n ... ok
+test audit_t211_read_summary_threshold ... ok
+test audit_t214_err_filter_keeps_errors ... ok
+test audit_t215_tier_lift_at_3 ... ok
+test audit_t215_tier_lift_below_3_inactive ... ok
+test audit_t301_lsp_status ... ok
+test audit_t302_shared_cache_status ... ok
+test audit_t303_cloud_sync_status ... ok
+test audit_t304_synthesize_profile ... ok
+test audit_t305_web_status ... ok
+test audit_t306_federated_search ... ok
+test audit_t307_otlp_status ... ok
+test audit_full_pipeline_25_t2_t3 ... ok
+test audit_t308_graphql_status ... ok
+test audit_t309_polyglot_summary ... ok
+test audit_t310_pr_risk_score ... ok
+test audit_t210_roi_sonnet_pricing ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wave3_intelligence_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave3_intelligence_e2e-f66516bd079365c9)
+
+running 29 tests
+test audit_mcp_tool_names_count_27 ... ok
+test audit_t101_replay_caps_at_50 ... ok
+test audit_t101_replay_returns_envelope ... ok
+test audit_t102_purge_targets_partial_default ... ok
+test audit_t104_history_returns_rows_and_caps_at_30 ... ok
+test audit_t105_graph_floor_one_day ... ok
+test audit_t105_graph_renders_sparkline ... ok
+test audit_t106_session_adoption_returns_ratio ... ok
+test audit_t107_init_agent_known_returns_plan ... ok
+test audit_t107_init_agent_unknown_fails_gracefully ... ok
+test audit_t108_smart_missing_file_fails_gracefully ... ok
+test audit_t108_smart_two_lines ... ok
+test audit_t109_chunk_read_passthrough_small_file ... ok
+test audit_t103_doctor_reports_components ... ok
+test audit_full_pipeline_15_t1_initiatives ... ok
+test audit_t109_chunk_read_strips_bodies_when_over_threshold ... ok
+test audit_t111_budget_alert_at_90pct ... ok
+test audit_t111_budget_ok_below_75pct ... ok
+test audit_t111_budget_warning_at_75pct ... ok
+test audit_t112_batch_execute_runs_multiple_kinds ... ok
+test audit_t112_batch_execute_unknown_kind_fails_per_item ... ok
+test audit_t113_execute_file_missing_fails_gracefully ... ok
+test audit_t113_execute_file_returns_envelope ... ok
+test audit_t114_upgrade_dry_run_returns_plan ... ok
+test audit_t115_discover_session_returns_envelope ... ok
+test audit_t110_explain_known_counter ... ok
+test audit_t110_explain_unknown_counter_returns_default ... ok
+test batch_doctor_reports_the_given_root_not_the_process_cwd ... ok
+test audit_t102_purge_targets_all ... ok
+
+test result: ok. 29 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+     Running tests/wave_c_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave_c_e2e-0484172de5d766d8)
+
+running 3 tests
+test cascade_queue_low_severity_not_enqueued ... ok
+test cascade_queue_push_and_drain ... ok
+test hook_registry_has_cascade_queue_handlers ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wave_v429_ast_grep_hooks_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wave_v429_ast_grep_hooks_e2e-ba4888120da6ae4d)
+
+running 30 tests
+test cross_lang_for_path_resolves_known_extensions ... ok
+test combined_block_overrides_warn_when_both_match ... ok
+test cross_unsupported_language_yields_no_pattern_set ... ok
+test cross_format_matches_is_none_when_total_is_zero ... ok
+test combined_silence_is_default_across_strategies ... ok
+test s1_distinguishes_string_literal_from_call ... ok
+test cross_scan_source_directly_with_pattern_set ... ok
+test s1_emits_signal_for_javascript_dynamic_call ... ok
+test s1_returns_empty_for_missing_file ... ok
+test s1_emits_signal_for_python_dynamic_calls ... ok
+test s1_should_run_gates_below_cila_2 ... ok
+test s1_silent_for_unsupported_extension ... ok
+test s1_silent_for_clean_rust ... ok
+test s1_emits_signal_for_rust_with_risk_patterns ... ok
+test s2_allows_benign_commands ... ok
+test s2_allows_dry_run_bypass ... ok
+test s2_allows_force_with_lease ... ok
+test s2_blocks_find_delete_with_intermediate_args ... ok
+test s2_blocks_rm_rf ... ok
+test s2_distinguishes_comment_carrier ... ok
+test s2_distinguishes_string_literal_carrier ... ok
+test s2_warns_on_chmod_777 ... ok
+test s2_warns_on_force_push_without_lease ... ok
+test s2_warns_on_git_reset_hard ... ok
+test s3_shape_does_not_cross_separator ... ok
+test s3_shape_extracts_git_subcommand ... ok
+test s3_shape_handles_single_command ... ok
+test s3_shape_normalises_cargo_test_variants ... ok
+test s3_shape_returns_none_for_empty ... ok
+test s3_shape_skips_env_assignments ... ok
+
+test result: ok. 30 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/wiring_aggregate_equivalence_e2e.rs (/home/gabrielgadea/projects/touring/target/wt-int97/debug/deps/wiring_aggregate_equivalence_e2e-7d0fcaca4600853d)
+
+running 3 tests
+test wiring_modules_aggregate_matches_legacy_per_module_loop ... ok
+test wiring_modules_aggregate_empty_db_matches_legacy ... ok
+test wiring_modules_aggregate_distinct_consumers_match_legacy ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+   Doc-tests touring_hooks
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

@@ -17,7 +17,7 @@ use crate::error::GenerateError;
 use crate::executor::replan::{CompletedPlan, ReplanRequest};
 use crate::plan::failure::FailureReason;
 use crate::plan::result::{Artifact, CommitReport, FileAction, RenderedFile, VgpReport};
-use crate::plan::schema::GeneratorPlan;
+use crate::plan::schema::{GeneratorPlan, PLAN_SCHEMA_VERSION};
 use crate::shape::RenderShape;
 use crate::skip::SkipContext;
 use crate::source_change::{Applier, ApplyResult, Indel, SourceChange, TextEdit};
@@ -222,9 +222,38 @@ impl PlanExecutor<Draft> {
     /// Emits RL reward +0.3 on pass.
     ///
     /// # Errors
-    /// Returns `ReplanRequest` when VGP symbol verification fails.
-    pub async fn verify(self, vgp: &VgpEngine) -> Result<PlanExecutor<Verified>, ReplanRequest> {
+    /// Returns `ReplanRequest` when VGP symbol verification fails. Boxed: the
+    /// request carries the full replan context (~936 bytes) and the happy
+    /// path must not pay its size on every return (`clippy::result_large_err`).
+    pub async fn verify(
+        self,
+        vgp: &VgpEngine,
+    ) -> Result<PlanExecutor<Verified>, Box<ReplanRequest>> {
         let plan_id = self.plan.plan_id;
+
+        // The schema gate runs before VGP: a plan of another major version can
+        // mean something else field by field, and verifying its symbols would
+        // certify a plan the engine may misread. Every entry point (submit,
+        // verify, render, speculate, replay) reaches Verified only through here.
+        if let Err(err) = self.plan.check_schema_version() {
+            tracing::warn!(
+                plan_id = %plan_id,
+                plan_version = self.plan.version(),
+                engine_version = PLAN_SCHEMA_VERSION,
+                error = %err,
+                "plan schema version rejected — replan with the engine's version"
+            );
+            let plan_version = self.plan.version().to_owned();
+            return Err(Box::new(ReplanRequest {
+                plan: self.plan,
+                iteration: self.iteration + 1,
+                reason: FailureReason::SchemaVersionMismatch {
+                    plan_version,
+                    engine_version: PLAN_SCHEMA_VERSION.to_owned(),
+                },
+                failure_history: Vec::new(),
+            }));
+        }
 
         let report = vgp
             .verify_batch(&self.plan.contracts, plan_id)
@@ -309,12 +338,12 @@ impl PlanExecutor<Draft> {
                     "VGP failed — triggering replan"
                 );
             }
-            Err(ReplanRequest {
+            Err(Box::new(ReplanRequest {
                 plan: self.plan,
                 iteration: self.iteration + 1,
                 reason: FailureReason::VgpFailed,
                 failure_history: Vec::new(),
-            })
+            }))
         }
     }
 }
@@ -456,7 +485,7 @@ impl PlanExecutor<Rendered> {
     pub async fn speculate(
         self,
         bridge: &SpeculateBridge,
-    ) -> Result<PlanExecutor<Speculated>, ReplanRequest> {
+    ) -> Result<PlanExecutor<Speculated>, Box<ReplanRequest>> {
         let plan_id = self.plan.plan_id;
         let threshold = self.ctx.capacity.speculate_threshold;
 
@@ -693,7 +722,7 @@ impl PlanExecutor<Rendered> {
                     "speculate below threshold — triggering replan"
                 );
             }
-            Err(ReplanRequest {
+            Err(Box::new(ReplanRequest {
                 plan: self.plan,
                 iteration: self.iteration + 1,
                 reason: FailureReason::SpeculateFailed {
@@ -701,7 +730,7 @@ impl PlanExecutor<Rendered> {
                     threshold,
                 },
                 failure_history: Vec::new(),
-            })
+            }))
         }
     }
 }

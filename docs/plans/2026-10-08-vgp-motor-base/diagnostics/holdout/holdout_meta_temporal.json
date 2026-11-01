@@ -1,0 +1,92 @@
+{
+ "corte": "2026-10-09T18:14:31.894Z",
+ "corte_origem": {
+  "maior_ts_do_vivo": "2026-10-09T18:13:31.894Z",
+  "origem": "entradas_inline_neg.jsonl:ee50d81d4f6a"
+ },
+ "ate": "2026-10-09T21:12:22.428Z",
+ "saida": "/home/gabrielgadea/.claude/touring/vgp/corpus_holdout",
+ "vivo_sha_tree_antes": "b06b89113c869097",
+ "parametros": {
+  "SEED": 20261008,
+  "N_NEG": 300,
+  "CAP": 300,
+  "v5_SEED": 20261009,
+  "v5_N_NEG": 300,
+  "v5_N_TMP": 100,
+  "jobs": 2
+ },
+ "positivos_v0a": {
+  "inventario_bruto": 171,
+  "na_janela": 78,
+  "por_bucket": {
+   "projeto": 37,
+   "inline": 10,
+   "atribuído": 31
+  }
+ },
+ "v0d": {
+  "gerado_em": "2026-10-09T18:13:00-0300",
+  "jobs": 2,
+  "candidatos_v0a": 0,
+  "positivos_no_corpus": 0,
+  "incompletos_por_motivo": {},
+  "reproduzem": 0,
+  "reproduzem_por_classe": {},
+  "reproduzem_por_origem": {},
+  "taxa_de_reproducao": 0.0,
+  "negativos": {
+   "universo": {
+    "vistos": 80,
+    "candidatos": 115,
+    "arquivos_no_indice": 4537,
+    "arquivos_com_atividade_na_janela": 80,
+    "candidatos_de_toda_a_historia_desses_arquivos": 333,
+    "corte": "2026-10-09T18:14:31.894Z",
+    "ate": "2026-10-09T21:12:22.428Z"
+   },
+   "pool_registrado": 76,
+   "sorteados": 76,
+   "no_corpus": 76,
+   "podas": {
+    "podados": 39,
+    "rodadas": 2
+   }
+  },
+  "wall_s": 37.7
+ },
+ "v5": {
+  "universo_total": 11971,
+  "na_janela": 239,
+  "duplicados_por_tool_use_id": 0,
+  "dentro_inline": 189,
+  "dentro_tmp": 1,
+  "excluidos": {
+   "is_error": 16,
+   "touring run sem envelope legivel": 14,
+   "traceback": 14,
+   "shell misturada no programa": 5
+  },
+  "gravados": 190,
+  "por_estrato": {
+   "c": 21,
+   "heredoc": 155,
+   "touring_run": 13,
+   "tmp_escrito_e_executado": 1
+  },
+  "snaps_que_nao_compilam": 0
+ },
+ "estado_no_instante": {
+  "entradas": 266,
+  "motivos": {
+   "ok": 44,
+   "o arquivo nasceu nesta edição (antes = vazio)": 32,
+   "inline: o programa inteiro é novo (sem delta)": 189,
+   "tmp: escrito e executado no mesmo comando (sem delta)": 1
+  },
+  "overlays": 0
+ },
+ "vivo_sha_tree_depois": "b06b89113c869097",
+ "vivo_intocado": true,
+ "wall_s": 78.2
+}

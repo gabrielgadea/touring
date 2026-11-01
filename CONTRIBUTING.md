@@ -11,8 +11,16 @@ cargo check --workspace                          # 0 errors
 cargo clippy --workspace -- -D warnings          # 0 warnings (deny-all)
 cargo test --workspace --exclude touring-python  # green (pyo3 crate excluded by design)
 python3 docs/sync_metrics.py --check             # ARCHITECTURE.md must not drift
+python3 docs/gen_reference.py --validate         # docs/reference/ is generated — no hand-drift
+python3 -m pytest scripts/test_sync_client_skills.py -q   # client/ mirror matches its manifest
+python3 -m pytest scripts/test_update_touring.py -q       # the deploy tool stays versioned + scoped
 touring doctor -j                                # daemon/index health
 ```
+
+The last three are recent and each closes a failure that shipped once: reference
+docs that drifted from the registry they claim to mirror, a `client/` mirror that
+silently accepted hand edits the next sync would revert, and a deploy script that
+lived outside version control while performing every deployment.
 
 A change that grows a file past the file-size budget, introduces a new `unwrap`
 in a gateway/L1 path, or leaves a new orphan `pub` symbol (`touring wiring orphans -j`)

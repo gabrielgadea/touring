@@ -46,14 +46,21 @@
       (use_as_clause
         path: (identifier) @symbol))))
 
-;; use module::* (glob import with pub)
+;; use crate::module::Symbol as Alias;   — capture the origin name
 (use_declaration
-  argument: (visibility_modifier
-    (_)?
-    pattern: (default_import
-      name: (identifier) @default_import)))
+  argument: (use_as_clause
+    path: (scoped_identifier
+      path: (_) @module
+      name: (identifier) @symbol)))
 
-;; use module::* (glob import without pub — direct default_import child)
+;; use module::*;   — a glob names the module and no symbol.
+;; `default_import` (a TypeScript node) stood here until 15/09/2026: it made
+;; `Query::new` fail for Rust, so every Rust file fell back to the regex
+;; extractor, which skips `pub use` lines (cross-audit R2).
 (use_declaration
-  (default_import
-    name: (identifier) @default_import))
+  argument: (use_wildcard
+    (scoped_identifier) @module))
+
+(use_declaration
+  argument: (use_wildcard
+    (identifier) @module))

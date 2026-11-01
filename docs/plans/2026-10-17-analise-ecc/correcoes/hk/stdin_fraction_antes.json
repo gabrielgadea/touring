@@ -1,0 +1,26 @@
+{
+ "lines": 839577,
+ "unparseable": 0,
+ "guard_denies_on_unreadable_stdin": 0,
+ "guard": {
+  "invocations": 129250,
+  "states": {
+   "ok": 129250
+  },
+  "unreadable": 0,
+  "unreadable_fraction": 0.0,
+  "degraded_fraction": 0.0
+ },
+ "advisory": {
+  "invocations": 710327,
+  "states": {
+   "ok": 710301,
+   "unread": 9,
+   "empty": 14,
+   "timeout": 3
+  },
+  "unreadable": 3,
+  "unreadable_fraction": 4e-06,
+  "degraded_fraction": 2.4e-05
+ }
+}

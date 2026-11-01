@@ -5,6 +5,7 @@
 use std::path::Path;
 use std::sync::Arc;
 use thiserror::Error;
+use touring_foundation::text_sanitize::{sanitize_json_strings, sanitize_memory_text};
 use touring_intelligence::rl::memory::recall::{ChunkMatch, RecallStats, SemanticRecall};
 use touring_intelligence::rl::memory::rlm::{
     MemoryMatch as RlmMatch, MemoryStats as RlmStats, MemoryTier, RlmMemory,
@@ -153,9 +154,7 @@ pub struct MemoryResult {
 }
 
 impl MemoryResult {
-    /// Get total number of matches
-    #[allow(dead_code)]
-    /// False positive: called via cross-module pub(crate) from tools_core.rs:401.
+    /// Get total number of matches (consumer: `server::tools_core`, memory query tool).
     pub(crate) fn total_matches(&self) -> usize {
         self.rlm_matches.len() + self.semantic_matches.len()
     }
@@ -163,6 +162,22 @@ impl MemoryResult {
     /// Check if result is empty
     pub fn is_empty(&self) -> bool {
         self.rlm_matches.is_empty() && self.semantic_matches.is_empty()
+    }
+
+    /// C6 (2026-10-17): the matches are handed back to the model as recall
+    /// context. Rows written before the write-side guard may still hold
+    /// secrets or bidi/zero-width characters — clean the SemanticRecall half
+    /// on the way OUT (the database is not rewritten). The RLM half is already
+    /// cleaned by [`RlmMemory::search`], the one place every RLM recall goes
+    /// through.
+    pub(crate) fn sanitized(mut self) -> Self {
+        for m in &mut self.semantic_matches {
+            m.content = sanitize_memory_text(&m.content).text;
+            if let Some(meta) = m.metadata.as_mut() {
+                sanitize_json_strings(meta);
+            }
+        }
+        self
     }
 }
 
@@ -226,9 +241,14 @@ impl MemoryStore {
     /// Store with an optional pre-computed embedding override
     pub(crate) fn store_with_embedding(
         &self,
-        entry: MemoryEntry,
+        mut entry: MemoryEntry,
         precomputed_embedding: Option<Vec<f32>>,
     ) -> Result<()> {
+        // C6 (2026-10-17): the funnel of `store` and `store_batch`, and the MCP
+        // `touring_memory_store` path. `RlmMemory::store_rich` guards the SQL
+        // row; the SemanticRecall chunk below is a SECOND sink that would
+        // otherwise keep the raw text, so the value is cleaned before either.
+        entry.value = sanitize_memory_text(&entry.value).text;
         let tier = MemoryTier::parse_tier(&entry.tier)?;
 
         // Use provided embedding, entry's own, or None
@@ -355,7 +375,8 @@ impl MemoryStore {
         Ok(MemoryResult {
             rlm_matches,
             semantic_matches,
-        })
+        }
+        .sanitized())
     }
 
     /// Query with auto-embedding of the query text via GPU service
@@ -390,19 +411,11 @@ impl MemoryStore {
         Ok(self.rlm.delete(key, tier)?)
     }
 
-    /// List entries in a tier
-    pub fn list_tier(&self, tier: &str, limit: usize) -> Result<Vec<RlmMatch>> {
-        let tier_parsed = MemoryTier::parse_tier(tier)?;
-        // Search with wildcard-like query to list entries in this tier
-        let results = self.rlm.search("*", Some(tier_parsed), limit)?;
-        Ok(results)
-    }
-
     /// Promote a memory entry to a different tier
     ///
-    /// Reads the entry from old tier, deletes it, stores in new tier.
-    #[allow(dead_code)]
-    /// False positive: called via cross-module pub(crate) from tools_analysis.rs:1062.
+    /// Reads the entry from old tier, deletes it, stores in new tier — an
+    /// explicit, requested move of the address (consumer: `server::tools_analysis`),
+    /// never an automatic heat-ladder step (decision B, 01/11/2026).
     pub(crate) fn promote_tier(&self, key: &str, old_tier: &str, new_tier: &str) -> Result<bool> {
         let old = MemoryTier::parse_tier(old_tier)?;
         let new = MemoryTier::parse_tier(new_tier)?;
@@ -609,5 +622,137 @@ mod tests {
         // Just verify it builds correctly
         let stats = store.recall_stats().unwrap();
         assert_eq!(stats.embedding_dim, 768);
+    }
+}
+
+/// C6 (2026-10-17): the MCP/server memory path redacts secrets and strips
+/// invisible characters in BOTH sinks (RLM row and SemanticRecall chunk), and
+/// cleans rows that predate the guard on the way out.
+#[cfg(test)]
+mod sanitize_tests {
+    // touring-quality:allow-secrets — synthetic secrets assembled at runtime,
+    // never a real credential.
+    use super::*;
+    use tempfile::TempDir;
+
+    fn fake_key() -> String {
+        ["sk", "-", "aB3dE6gH9jK2mN5pQ8sTuV1w"].concat()
+    }
+
+    fn fresh_store(dir: &TempDir) -> MemoryStore {
+        MemoryStore::new(&dir.path().join("rlm.db"), &dir.path().join("recall.db")).unwrap()
+    }
+
+    #[test]
+    fn store_redacts_the_secret_in_both_sinks() {
+        let dir = TempDir::new().unwrap();
+        let store = fresh_store(&dir);
+        let key = fake_key();
+        store
+            .store(MemoryEntry::new(
+                "c6-srv",
+                "working",
+                format!("deploy {key}\u{202E} done"),
+            ))
+            .unwrap();
+
+        let rlm = store.get("c6-srv", "working").unwrap().expect("row");
+        assert!(!rlm.contains(&key) && !rlm.contains('\u{202E}'), "{rlm:?}");
+
+        let chunks = store.recall().fts_search("deploy", 10).unwrap();
+        assert!(
+            !chunks.is_empty(),
+            "the SemanticRecall sink must hold the chunk"
+        );
+        for c in &chunks {
+            assert!(
+                !c.content.contains(&key),
+                "chunk kept the secret: {}",
+                c.content
+            );
+            assert!(
+                !c.content.contains('\u{202E}'),
+                "chunk kept bidi: {:?}",
+                c.content
+            );
+        }
+    }
+
+    #[test]
+    fn store_keeps_ordinary_text_byte_identical() {
+        let dir = TempDir::new().unwrap();
+        let store = fresh_store(&dir);
+        let plain = "Plain lesson: run `cargo test`.\n\tpr\u{f3}ximo passo";
+        store
+            .store(MemoryEntry::new("c6-plain", "working", plain))
+            .unwrap();
+        assert_eq!(
+            store.get("c6-plain", "working").unwrap().as_deref(),
+            Some(plain)
+        );
+    }
+
+    #[test]
+    fn query_cleans_a_legacy_row_on_the_way_out() {
+        let dir = TempDir::new().unwrap();
+        let store = fresh_store(&dir);
+        let key = fake_key();
+        // A row planted the way pre-guard writers did (raw SQL).
+        rusqlite::Connection::open(dir.path().join("rlm.db"))
+            .unwrap()
+            .execute(
+                "INSERT INTO memory_entries (key, tier, value, entry_type) \
+                 VALUES ('c6-old', 'working', ?1, 'lesson')",
+                [format!("c6srvprobe token {key} \u{202E}tail")],
+            )
+            .unwrap();
+        let result = store
+            .query(MemoryQuery::new("c6srvprobe").with_top_k(10))
+            .unwrap();
+        assert_eq!(result.rlm_matches.len(), 1);
+        let served = &result.rlm_matches[0].value;
+        assert!(
+            !served.contains(&key),
+            "secret leaked through query: {served}"
+        );
+        assert!(!served.contains('\u{202E}'), "bidi leaked: {served:?}");
+        assert!(served.contains("[REDACTED]"));
+    }
+
+    #[test]
+    fn query_cleans_a_legacy_semantic_chunk_on_the_way_out() {
+        let dir = TempDir::new().unwrap();
+        let store = fresh_store(&dir);
+        let key = fake_key();
+        // A chunk planted the way pre-guard writers did (straight into the sink).
+        store
+            .recall()
+            .store_chunk(
+                &format!("c6chunkprobe token {key} \u{202E}tail"),
+                None,
+                Some(&serde_json::json!({"note": format!("meta {key}")})),
+            )
+            .unwrap();
+        let result = store
+            .query(
+                MemoryQuery::new("c6chunkprobe")
+                    .with_top_k(10)
+                    .with_fts(true),
+            )
+            .unwrap();
+        assert_eq!(result.semantic_matches.len(), 1);
+        let chunk = &result.semantic_matches[0];
+        assert!(
+            !chunk.content.contains(&key),
+            "content leaked: {}",
+            chunk.content
+        );
+        assert!(
+            !chunk.content.contains('\u{202E}'),
+            "bidi leaked: {:?}",
+            chunk.content
+        );
+        let meta = chunk.metadata.as_ref().expect("metadata").to_string();
+        assert!(!meta.contains(&key), "metadata leaked: {meta}");
     }
 }

@@ -4,6 +4,8 @@
 
 use std::path::Path;
 
+use touring_foundation::types::TodoKind;
+
 use crate::runtime::HookRuntime;
 
 use super::feature_flags::extract_features_auto;
@@ -75,6 +77,37 @@ fn compute_edit_offsets(old: &str, new: &str) -> (usize, usize) {
 /// Fix: when a `symbol_store` is available, mirror `cli_index_rebuild`'s
 /// behaviour and atomically replace the file's symbol rows with
 /// `result.symbols_added` immediately after the pipeline succeeds.
+/// Mirrors `cli_index_rebuild`'s references branch (B 2026-06-21) on the
+/// INCREMENTAL path: appends call-sites as `is_definition=false, kind="call"`
+/// rows so find-references and wiring learn consumers from edits/ingest, not
+/// only from full rebuilds. Root cause closed (cross-audit 2026-08-12): any
+/// file only ever *edited* — never rebuilt — recorded zero references, so a
+/// symbol used cross-crate via `module::symbol(...)` (e.g. `tags::derive_tags`)
+/// read as 0 consumers and surfaced as a false wiring orphan.
+/// Same kill-switch as the rebuild: `TOURING_INDEX_REFERENCES=0` disables.
+fn with_call_sites(
+    rel_path: &str,
+    content: &str,
+    mut symbols: Vec<touring_code::ast::SymbolLocation>,
+) -> Vec<touring_code::ast::SymbolLocation> {
+    let references_on = std::env::var("TOURING_INDEX_REFERENCES")
+        .map(|v| v != "0" && v != "false")
+        .unwrap_or(true);
+    if !references_on {
+        return symbols;
+    }
+    let Some(lang) = touring_code::ast::Lang::from_path(Path::new(rel_path)) else {
+        return symbols;
+    };
+    for cs in touring_code::ast::build_call_graph(content, lang).sites {
+        symbols.push(
+            touring_code::ast::SymbolLocation::new(rel_path, cs.callee, cs.line, 0, false)
+                .with_kind(Some("call".to_string())),
+        );
+    }
+    symbols
+}
+
 fn extract_symbols_via_pipeline(
     pipeline: &touring_code::ast::incremental_pipeline::SharedPipeline,
     symbol_store: Option<&touring_code::ast::store::SymbolStore>,
@@ -82,7 +115,6 @@ fn extract_symbols_via_pipeline(
     content: &str,
     old_content: Option<&str>,
     full_path: &str,
-    language: &str,
 ) -> (String, i64) {
     // Try process_edit first when we have cached tree + old content.
     if let Some(old) = old_content
@@ -124,7 +156,10 @@ fn extract_symbols_via_pipeline(
                 pipeline.with_write(|p| p.process_edit(rel_path, start_byte, old_end_byte, content))
             {
                 if let Some(store) = symbol_store
-                    && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
+                    && let Err(e) = store.replace_file_symbols(
+                        rel_path,
+                        &with_call_sites(rel_path, content, result.symbols_added.clone()),
+                    )
                 {
                     tracing::warn!(
                         target: "touring::reindex",
@@ -145,7 +180,10 @@ fn extract_symbols_via_pipeline(
     match pipeline.with_write(|p| p.process_file(rel_path, content)) {
         Ok(result) => {
             if let Some(store) = symbol_store
-                && let Err(e) = store.replace_file_symbols(rel_path, &result.symbols_added)
+                && let Err(e) = store.replace_file_symbols(
+                    rel_path,
+                    &with_call_sites(rel_path, content, result.symbols_added.clone()),
+                )
             {
                 tracing::warn!(
                     target: "touring::reindex",
@@ -161,29 +199,79 @@ fn extract_symbols_via_pipeline(
         }
         Err(e) => {
             tracing::debug!("pipeline failed for {rel_path}: {e}, using fallback");
-            extract_symbols_fallback(content, full_path, language)
+            extract_symbols_fallback(symbol_store, rel_path, content, full_path)
         }
     }
 }
 
 /// Fallback symbol extraction when pipeline is unavailable or fails.
-/// Uses ast_bridge first, then falls back to regex-based extraction.
-#[cfg(feature = "post-hooks")]
-fn extract_symbols_fallback(content: &str, full_path: &str, language: &str) -> (String, i64) {
-    crate::ast_bridge::enrich_file_knowledge(content, full_path)
-        .map(|(json, count)| (json, count as i64))
-        .unwrap_or_else(|| {
-            let syms = crate::symbol_extractors::extract_symbols_fast(content, language);
-            let count = syms.len() as i64;
-            (serde_json::to_string(&syms).unwrap_or_default(), count)
+///
+/// Follow-up F-1 (cross-audit 2026-08-12): the old fallback returned
+/// `(json, count)` for the knowledge DB but never wrote to the symbol
+/// store — a file indexed through this path had NO rows in symbols.db at
+/// all (not even definitions), so it was invisible to find-references and
+/// its consumers never appeared in the wiring map. Now the fallback parses
+/// once via `touring_code::ast::extract_symbols` and persists definitions +
+/// call-sites through the same `replace_file_symbols` + `with_call_sites`
+/// pair the pipeline paths use — all three reindex paths keep the index.
+fn extract_symbols_fallback(
+    symbol_store: Option<&touring_code::ast::store::SymbolStore>,
+    rel_path: &str,
+    content: &str,
+    full_path: &str,
+) -> (String, i64) {
+    let Some(lang) = touring_code::ast::Lang::from_path(Path::new(full_path)) else {
+        return (String::new(), 0);
+    };
+    let symbols = match touring_code::ast::extract_symbols(content, lang) {
+        Ok(v) => v,
+        Err(_) => return (String::new(), 0),
+    };
+    let count = symbols.len();
+    // Same compact shape `enrich_file_knowledge` always produced — the
+    // knowledge.symbols_json contract is unchanged.
+    let compact: Vec<serde_json::Value> = symbols
+        .iter()
+        .map(|s| {
+            serde_json::json!({
+                "name": s.name,
+                "kind": s.kind.as_str(),
+                "is_public": s.is_public,
+                "line": s.line,
+            })
         })
-}
+        .collect();
+    let json = serde_json::to_string(&compact).unwrap_or_else(|_| "[]".to_string());
 
-#[cfg(not(feature = "post-hooks"))]
-fn extract_symbols_fallback(content: &str, full_path: &str, _language: &str) -> (String, i64) {
-    crate::ast_bridge::enrich_file_knowledge(content, full_path)
-        .map(|(json, count)| (json, count as i64))
-        .unwrap_or((String::new(), 0i64))
+    if let Some(store) = symbol_store {
+        let locations: Vec<touring_code::ast::SymbolLocation> = symbols
+            .iter()
+            .map(|s| {
+                touring_code::ast::SymbolLocation::new(
+                    rel_path,
+                    s.name.clone(),
+                    s.line,
+                    s.column,
+                    true,
+                )
+                .with_kind(Some(s.kind.as_str().to_string()))
+            })
+            .collect();
+        // Same document row the pipeline extractor adds (`ast::markdown_text`):
+        // both writers of the store must agree on what a markdown file holds.
+        let locations =
+            touring_code::ast::markdown_text::with_document_symbol(rel_path, content, locations);
+        let with_refs = with_call_sites(rel_path, content, locations);
+        if let Err(e) = store.replace_file_symbols(rel_path, &with_refs) {
+            tracing::warn!(
+                target: "touring::reindex",
+                file = %rel_path,
+                error = %e,
+                "fallback replace_file_symbols failed — symbols.db will drift;                  try `touring index rebuild`",
+            );
+        }
+    }
+    (json, count as i64)
 }
 
 /// Re-index a file after edit/write (update knowledge DB with current content).
@@ -199,12 +287,88 @@ fn extract_symbols_fallback(content: &str, full_path: &str, _language: &str) -> 
 /// When `old_content` is provided AND the pipeline has a cached tree for this
 /// file, uses `process_edit` (O(edit_region)) instead of `process_file` (O(file))
 /// — up to 6.9× faster for cached-tree edits.
+///
+/// Files the walker would refuse are not written (see [`admission_refusal`]).
 pub fn reindex_file(
     runtime: &HookRuntime,
     abs_path: &str,
     rel_path: &str,
 ) -> Result<(), ReindexError> {
     reindex_file_with_old(runtime, abs_path, rel_path, None)
+}
+
+/// The walker's verdict for a path a hook or an ingest is about to write.
+/// `Ok(key)` is the ONE spelling the store accepts for it — the project-relative
+/// path, or `@companion/<name>/<rel>` for a file under a companion root (the
+/// global rules, skills, agents and commands, the auto-memory of the project and
+/// of `~`; 13/09/2026); `Err(exclusion)` means the store must not receive it.
+/// Shared so the `index ingest` handler can REPORT the refusal where the hook
+/// only logs it — one predicate (`touring_hooks_shared::index_policy`), three
+/// readers.
+///
+/// # Errors
+///
+/// The walker's exclusion (verdict + detail) when the file must not be written.
+pub fn admission_refusal(
+    runtime: &HookRuntime,
+    rel_path: &str,
+) -> Result<String, (touring_hooks_shared::index_policy::IndexVerdict, String)> {
+    admission_key_for_root(&runtime.project_root, rel_path)
+}
+
+/// [`admission_refusal`] for a caller that holds only the project root (the
+/// wiring refresh of `file_changed` and `task_output`, which receive a path and a
+/// knowledge DB, not a runtime).
+///
+/// # Errors
+///
+/// The walker's exclusion (verdict + detail) when the file must not be written.
+pub fn admission_key_for_root(
+    project_root: &Path,
+    rel_path: &str,
+) -> Result<String, (touring_hooks_shared::index_policy::IndexVerdict, String)> {
+    // `rel_path` is what `make_relative` produced: relative under the root, or
+    // the untouched absolute path when the file lives outside it — exactly the
+    // two shapes the policy judges (an absolute path under a companion root
+    // becomes its companion key; anywhere else it is `outside_root`).
+    let policy = touring_hooks_shared::index_policy::IndexPolicy::for_root(project_root);
+    if let Some(refused) = policy.verdict_for_key(rel_path) {
+        return Err(refused);
+    }
+    let key = if Path::new(rel_path).is_absolute() {
+        policy
+            .key_for(Path::new(rel_path))
+            .unwrap_or_else(|| rel_path.to_string())
+    } else {
+        rel_path.trim_start_matches("./").to_string()
+    };
+    Ok(key)
+}
+
+/// Replaces the search documents of `key` with the rows the store now holds
+/// for it, and commits. Fail-open: a search index that cannot be written never
+/// fails the reindex — it is logged and the next rebuild converges it.
+#[cfg(feature = "tantivy-fts")]
+fn refresh_search_documents(runtime: &HookRuntime, key: &str, content: &str) {
+    let Some(idx) = crate::tantivy_index::tantivy_for(Some(&runtime.project_root)) else {
+        return;
+    };
+    let Some(store) = runtime.infra.symbol_store.as_ref() else {
+        return;
+    };
+    let symbols = match store.find_symbols_in_file(key) {
+        Ok(rows) => rows,
+        Err(e) => {
+            tracing::debug!(target: "touring::reindex", file = %key, error = %e, "search refresh skipped: store read failed");
+            return;
+        }
+    };
+    let docs = crate::shared::tantivy_docs::docs_for_file(key, &symbols, Some(content));
+    if let Err(e) =
+        crate::shared::tantivy_docs::refresh_file(idx, key, &docs).and_then(|_| idx.commit())
+    {
+        tracing::warn!(target: "touring::reindex", file = %key, error = %e, "search documents not refreshed; `touring index rebuild` converges them");
+    }
 }
 
 /// Like `reindex_file` but accepts the old file content to enable incremental
@@ -224,6 +388,30 @@ pub fn reindex_file_with_old(
             .to_string_lossy()
             .to_string()
     };
+
+    // I13/I16 (2026-09-13): the hook writers ask the SAME admission predicate the
+    // rebuild walker applies. Until this gate every edit under `.claude/`, every
+    // script in a session scratchpad and every `~/.claude/rules/*.md` landed in
+    // THIS project's symbols.db (140 files under absolute paths, measured live),
+    // and no rebuild ever removed them — the sweep only retired paths gone from
+    // disk. Refused here, reported by `touring index why <path>`.
+    let storage_key = match admission_refusal(runtime, rel_path) {
+        Ok(key) => key,
+        Err((verdict, detail)) => {
+            tracing::info!(
+                target: "touring::reindex",
+                file = %rel_path,
+                verdict = verdict.as_str(),
+                "not an index candidate — not written ({detail}); `touring index why <path>` explains"
+            );
+            return Ok(());
+        }
+    };
+    // From here on the file is known by its storage key: project-relative, or
+    // `@companion/<name>/<rel>` for a rule, skill, command, agent or memory.
+    let rel_path: &str = &storage_key;
+    // A fatal signal while this file is parsed names it in daemon-crash.jsonl.
+    let _crash_context = touring_hooks_core::panic_log::CrashContext::enter(rel_path);
 
     let content = match std::fs::read_to_string(&full_path) {
         Ok(c) => c,
@@ -255,11 +443,22 @@ pub fn reindex_file_with_old(
             &content,
             old_content,
             &full_path,
-            &language,
         )
     } else {
-        extract_symbols_fallback(&content, &full_path, &language)
+        extract_symbols_fallback(
+            runtime.infra.symbol_store.as_ref(),
+            rel_path,
+            &content,
+            &full_path,
+        )
     };
+
+    // The search index follows the store for this file — names for code, text
+    // for markdown (`shared::tantivy_docs`). Before this the hook path upserted
+    // one `file` document and a memory written in the session stayed unsearchable
+    // until someone ran `touring tantivy reindex`.
+    #[cfg(feature = "tantivy-fts")]
+    refresh_search_documents(runtime, rel_path, &content);
 
     let knowledge = crate::knowledge::FileKnowledge {
         file_path: rel_path.to_string(),
@@ -297,15 +496,11 @@ pub fn reindex_file_with_old(
         }
     }
 
-    // Wiring Intelligence: update wiring_map after edit/write.
-    crate::wiring::update_wiring_after_edit(&runtime.ctx.knowledge, rel_path);
-
-    // Direct-path consumer edges (FIX-2): detect `crate::mod::fn(...)` /
-    // `super::mod::fn(...)` call sites that don't appear as `use` imports.
-    // Without this pass, call-path consumers (e.g. `hook_registry.rs`
-    // invoking `crate::lifecycle::handle_*`) were invisible to the wiring
-    // analyzer — leaving modules mis-flagged as 100% orphaned.
-    crate::wiring::record_direct_path_consumers(&runtime.ctx.knowledge, rel_path, &content);
+    // Wiring Intelligence: every row this file owns — producers with their real
+    // visibility, `use` imports, direct-path calls (FIX-2: `crate::mod::fn(...)`
+    // sites with no `use`) and the inferred edges — through the one function the
+    // read, file-changed and task-output paths share (cross-audit 14/09/2026, B1/B2).
+    crate::wiring::refresh_file_wiring(&runtime.ctx.knowledge, rel_path, &language, &content);
 
     // ── Pln2: Wire feature flags into file_feature_flags table ─────────────
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
@@ -366,31 +561,255 @@ pub fn reindex_file_with_old(
     }
 
     // ── Pln2: Wire TODOs/FIXMEs into file_todos table ────────────────────
-    for (line_idx, line) in content.lines().enumerate() {
-        let trimmed = line.trim();
-        let kind = if trimmed.starts_with("TODO") {
-            "TODO"
-        } else if trimmed.starts_with("FIXME") {
-            "FIXME"
-        } else if trimmed.starts_with("XXX") {
-            "XXX"
-        } else {
-            continue;
-        };
-        // Extract the actual content after the tag
-        let content_part = trimmed
-            .find(':')
-            .map(|p| trimmed[p + 1..].trim())
-            .unwrap_or("");
-        if !content_part.is_empty() {
-            let _ = runtime.ctx.knowledge.insert_todo(
-                rel_path,
-                (line_idx + 1) as i64,
-                kind,
-                content_part,
-            );
-        }
-    }
+    // The rows are derived from this content, so they REPLACE the file's previous set.
+    let markers = todo_markers(&content);
+    let labels: Vec<String> = markers
+        .iter()
+        .map(|(_, kind, _)| kind.to_string())
+        .collect();
+    let rows: Vec<(i64, &str, &str)> = markers
+        .iter()
+        .zip(&labels)
+        .map(|((line, _, text), label)| (*line, label.as_str(), *text))
+        .collect();
+    let _ = runtime.ctx.knowledge.replace_todos(rel_path, &rows);
 
     Ok(())
+}
+
+/// The actionable debt markers of a file: `(1-based line, kind, text)`.
+///
+/// Markers are read behind any comment leader ([`TodoKind::from_comment_line`]); `NOTE` is left
+/// out because it is informational, not debt. Until 18/09/2026 this loop required the line to
+/// START with the keyword, so `// TODO:` comments never reached `file_todos` — the table held 6
+/// rows for a repository with 78 comment TODOs.
+pub fn todo_markers(content: &str) -> Vec<(i64, TodoKind, &str)> {
+    content
+        .lines()
+        .enumerate()
+        .filter_map(|(idx, line)| {
+            let (kind, text) = TodoKind::from_comment_line(line)?;
+            (kind != TodoKind::Note).then_some(((idx + 1) as i64, kind, text))
+        })
+        .collect()
+}
+
+#[cfg(test)]
+mod fallback_store_tests {
+    /// F-1 (cross-audit 2026-08-12): the fallback path must persist
+    /// definitions AND call-sites to the symbol store — a file indexed
+    /// through the fallback is no longer invisible to symbols.db.
+    #[test]
+    fn fallback_writes_defs_and_calls_to_store() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let db = tmp.path().join("sym.db");
+        let store = touring_code::ast::store::SymbolStore::new(&db).unwrap();
+        let src =
+            "pub fn producer() {}\nfn caller() {\n    producer();\n    tags::derive_tags();\n}\n";
+        let (json, count) = super::extract_symbols_fallback(
+            Some(&store),
+            "src/demo.rs",
+            src,
+            "/abs/proj/src/demo.rs",
+        );
+        assert!(count >= 2, "defs extracted: {json}");
+        let defs = store.find_symbol("producer").unwrap();
+        assert!(defs.iter().any(|l| l.is_definition), "def row persisted");
+        let refs = store.find_references("derive_tags").unwrap();
+        assert!(
+            refs.iter()
+                .any(|l| !l.is_definition && l.kind.as_deref() == Some("call")),
+            "call-site row persisted: {refs:?}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod call_site_tests {
+    use super::with_call_sites;
+
+    /// Cross-audit 2026-08-12 regression guard: the incremental path must
+    /// append call-site rows (kind="call", is_definition=false) for scoped
+    /// calls — the gap that made cross-crate consumers read as orphans.
+    #[test]
+    fn with_call_sites_appends_scoped_calls() {
+        let src = "fn f() {\n    tags::derive_tags(k);\n    plain_call();\n}\n";
+        let out = with_call_sites("src/rlm.rs", src, Vec::new());
+        let names: Vec<&str> = out.iter().map(|s| s.symbol_name.as_str()).collect();
+        assert!(names.contains(&"derive_tags"), "scoped call: {names:?}");
+        assert!(names.contains(&"plain_call"), "direct call: {names:?}");
+        assert!(out.iter().all(|s| s.kind.as_deref() == Some("call")));
+        assert!(out.iter().all(|s| !s.is_definition));
+    }
+
+    /// The kill-switch mirrors the rebuild: TOURING_INDEX_REFERENCES=0 keeps
+    /// the incremental path definitions-only. Env access serialized (the
+    /// Rust-2024 discipline, same as the crate-wide locks elsewhere).
+    #[test]
+    fn with_call_sites_respects_kill_switch() {
+        static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+        let _guard = ENV_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        unsafe { std::env::set_var("TOURING_INDEX_REFERENCES", "0") };
+        let out = with_call_sites("src/a.rs", "fn f() { g::h(); }", Vec::new());
+        unsafe { std::env::remove_var("TOURING_INDEX_REFERENCES") };
+        drop(_guard);
+        assert!(out.is_empty());
+    }
+
+    /// Non-source files yield no call rows (Lang::from_path → None).
+    #[test]
+    fn with_call_sites_skips_unknown_languages() {
+        let out = with_call_sites("docs/guide.txt", "anything()", Vec::new());
+        assert!(out.is_empty());
+    }
+}
+
+/// The edit path end to end (14/09/2026): an edit re-derives the file's producer
+/// rows from what is on disk. Before, it cleared them and re-registered from a
+/// stored JSON without visibility, so every edited file ended with none.
+#[cfg(test)]
+mod edit_producer_tests {
+    fn producers(rt: &crate::HookRuntime, file: &str) -> Vec<String> {
+        let mut stmt = rt
+            .ctx
+            .knowledge
+            .conn_ref()
+            .prepare(
+                "SELECT symbol_name FROM wiring_map \
+                 WHERE module_file = ?1 AND consumer_file IS NULL ORDER BY symbol_name",
+            )
+            .expect("prepare");
+        stmt.query_map([file], |r| r.get(0))
+            .expect("query")
+            .collect::<Result<_, _>>()
+            .expect("rows")
+    }
+
+    #[test]
+    fn an_edit_keeps_the_producers_its_content_declares() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let file = root.join("src/flags.rs");
+        std::fs::write(
+            &file,
+            "pub fn first() {}\npub fn second() {}\nfn private() {}\n",
+        )
+        .expect("write");
+        let rt = crate::HookRuntime::new(root).expect("runtime");
+
+        super::reindex_file_with_old(&rt, &file.to_string_lossy(), "src/flags.rs", None)
+            .expect("reindex");
+        assert_eq!(producers(&rt, "src/flags.rs"), ["first", "second"]);
+
+        let before = std::fs::read_to_string(&file).expect("read");
+        std::fs::write(&file, "pub fn first() {}\nfn private() {}\n").expect("edit");
+        super::reindex_file_with_old(&rt, &file.to_string_lossy(), "src/flags.rs", Some(&before))
+            .expect("reindex after edit");
+        assert_eq!(
+            producers(&rt, "src/flags.rs"),
+            ["first"],
+            "the removed pub fn is gone"
+        );
+    }
+}
+
+/// The TODO path end to end (18/09/2026): the reindex reads markers behind comment leaders
+/// and REPLACES the file's rows. Before, it read only lines starting with the keyword (6 rows
+/// for 78 comment TODOs in this repository) and appended on every reindex.
+#[cfg(test)]
+mod todo_marker_tests {
+    fn todos(rt: &crate::HookRuntime, file: &str) -> Vec<(i64, String, String)> {
+        rt.ctx
+            .knowledge
+            .get_unresolved_todos(file)
+            .expect("todos")
+            .into_iter()
+            .map(|(_, line, kind, text)| (line, kind, text))
+            .collect()
+    }
+
+    #[test]
+    fn a_reindex_records_comment_markers_and_replaces_them_on_the_next() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let file = root.join("src/debt.rs");
+        std::fs::write(
+            &file,
+            "// TODO: wire the cache\nfn f() {}\n    /// FIXME(gabriel): off by one\n\
+             // NOTE: informational, not debt\n// Note: prose\n",
+        )
+        .expect("write");
+        let rt = crate::HookRuntime::new(root).expect("runtime");
+        let path = file.to_string_lossy().to_string();
+
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex");
+        let first = todos(&rt, "src/debt.rs");
+        assert_eq!(
+            first,
+            [
+                (1, "TODO".to_string(), "wire the cache".to_string()),
+                (3, "FIXME".to_string(), "off by one".to_string()),
+            ]
+        );
+
+        // The same content again: the same rows, not twice as many.
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex again");
+        assert_eq!(todos(&rt, "src/debt.rs"), first);
+
+        // The marker leaves the code, the row leaves the table.
+        std::fs::write(&file, "fn f() {}\n// XXX: fragile\n").expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/debt.rs", None).expect("reindex after edit");
+        assert_eq!(
+            todos(&rt, "src/debt.rs"),
+            [(2, "XXX".to_string(), "fragile".to_string())]
+        );
+    }
+}
+
+/// D9 (18/09/2026): the edit path re-derives a file's use of its own public
+/// symbols, as the rebuild does. Only the rebuild wrote those edges, so every
+/// edit demoted the file's internal symbols to orphans until the next rebuild.
+#[cfg(test)]
+mod self_reference_tests {
+    fn internal(rt: &crate::HookRuntime, file: &str) -> Vec<String> {
+        rt.ctx
+            .knowledge
+            .internal_only_symbols()
+            .expect("internal_only")
+            .into_iter()
+            .filter(|e| e.module_file == file)
+            .map(|e| e.symbol_name)
+            .collect()
+    }
+
+    #[test]
+    fn a_symbol_used_only_by_its_own_file_stays_internal_across_edits() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).expect("src");
+        let file = root.join("src/limits.rs");
+        let body = "pub const LIMIT: usize = 3;\npub fn unused() {}\n\npub fn check(n: usize) -> bool {\n    n < LIMIT\n}\n";
+        std::fs::write(&file, body).expect("write");
+        let rt = crate::HookRuntime::new(root).expect("runtime");
+        let path = file.to_string_lossy().to_string();
+
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", None).expect("reindex");
+        assert_eq!(internal(&rt, "src/limits.rs"), ["LIMIT"]);
+
+        // An edit that keeps the use keeps the classification…
+        let edited = format!("{body}\npub fn also(n: usize) -> bool {{\n    n > LIMIT\n}}\n");
+        std::fs::write(&file, &edited).expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(body))
+            .expect("reindex after edit");
+        assert_eq!(internal(&rt, "src/limits.rs"), ["LIMIT"]);
+
+        // …and one that drops it drops the edge with it.
+        std::fs::write(&file, "pub const LIMIT: usize = 3;\n").expect("edit");
+        super::reindex_file_with_old(&rt, &path, "src/limits.rs", Some(&edited)).expect("reindex");
+        assert!(internal(&rt, "src/limits.rs").is_empty());
+    }
 }

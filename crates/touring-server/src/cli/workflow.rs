@@ -1,4 +1,4 @@
-//! `touring workflow run|stats|slowest|compare|resume` — Task execution
+//! `touring workflow run|stats|status|slowest|compare|resume` — Task execution
 //! visualization (Feature B).
 //!
 //! Provides real-time execution visualization, analytics, and step-level
@@ -41,6 +41,12 @@ enum WorkflowCmd {
         #[arg(default_value = "")]
         task_id: String,
     },
+    /// Poll a task: subtask counts by status, timing and the attempt completion rate.
+    Status {
+        /// Task identifier.
+        #[arg(default_value = "")]
+        task_id: String,
+    },
     /// Top-N slowest steps of a task.
     Slowest {
         /// Task identifier.
@@ -76,63 +82,58 @@ fn default_run() -> WorkflowCmd {
 }
 
 /// Entry point for the `touring workflow` CLI handler — dispatches the `run`
-/// (default), `stats`, `slowest`, `compare`, and `resume` subcommands of the
+/// (default), `stats`, `status`, `slowest`, `compare`, and `resume` subcommands of the
 /// task execution visualizer to their respective `cli-workflow-*` daemon
-/// queries and prints each response. `resume` reuses the `cli-workflow-run`
-/// handler with `resume: true`.
+/// queries and prints each response. `resume` asks `cli-workflow-resume` (the
+/// per-subtask state, each subtask's attempts and the next subtask to run).
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match WorkflowCli::try_parse_from(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
-    match cli.cmd.unwrap_or_else(default_run) {
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<WorkflowCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
+    let (handler, payload) = route(cli.cmd.unwrap_or_else(default_run));
+    let output = daemon_query(handler, payload)?;
+    println!("{output}");
+    Ok(())
+}
+
+/// The daemon handler and payload each subcommand sends — the one place the CLI names a
+/// `cli-workflow-*` handler, so a subcommand that reaches the wrong one is a unit-test failure.
+fn route(cmd: WorkflowCmd) -> (&'static str, serde_json::Value) {
+    match cmd {
         WorkflowCmd::Run {
             task_id,
             watch,
             json,
-        } => {
-            let payload = serde_json::json!({
-                "task_id": task_id,
-                "watch": watch,
-                "json": json,
-            });
-            let output = daemon_query("cli-workflow-run", payload)?;
-            println!("{output}");
-        }
-        WorkflowCmd::Stats { task_id } => {
-            let payload = serde_json::json!({ "task_id": task_id });
-            let output = daemon_query("cli-workflow-stats", payload)?;
-            println!("{output}");
-        }
-        WorkflowCmd::Slowest { task_id, top } => {
-            let payload = serde_json::json!({
-                "task_id": task_id,
-                "top": top,
-            });
-            let output = daemon_query("cli-workflow-slowest", payload)?;
-            println!("{output}");
-        }
+        } => (
+            "cli-workflow-run",
+            serde_json::json!({ "task_id": task_id, "watch": watch, "json": json }),
+        ),
+        WorkflowCmd::Stats { task_id } => (
+            "cli-workflow-stats",
+            serde_json::json!({ "task_id": task_id }),
+        ),
+        WorkflowCmd::Status { task_id } => (
+            "cli-workflow-status",
+            serde_json::json!({ "task_id": task_id }),
+        ),
+        WorkflowCmd::Slowest { task_id, top } => (
+            "cli-workflow-slowest",
+            serde_json::json!({ "task_id": task_id, "top": top }),
+        ),
         WorkflowCmd::Compare {
             task_id_a,
             task_id_b,
-        } => {
-            let payload = serde_json::json!({
-                "task_id_a": task_id_a,
-                "task_id_b": task_id_b,
-            });
-            let output = daemon_query("cli-workflow-compare", payload)?;
-            println!("{output}");
-        }
-        WorkflowCmd::Resume { task_id } => {
-            let payload = serde_json::json!({
-                "task_id": task_id,
-                "resume": true,
-            });
-            let output = daemon_query("cli-workflow-run", payload)?;
-            println!("{output}");
-        }
+        } => (
+            "cli-workflow-compare",
+            serde_json::json!({ "task_id_a": task_id_a, "task_id_b": task_id_b }),
+        ),
+        WorkflowCmd::Resume { task_id } => (
+            "cli-workflow-resume",
+            serde_json::json!({ "task_id": task_id }),
+        ),
     }
-    Ok(())
 }
 
 /// Expose this handler's clap Command for the completions aggregator (W7).
@@ -204,6 +205,50 @@ mod tests {
         };
         assert_eq!(task_id_a, "task_a");
         assert_eq!(task_id_b, "task_b");
+    }
+
+    /// `cli-workflow-status` was registered in the daemon and documented as `touring workflow
+    /// status <task_id>`, but the CLI had no such subcommand: the documented command answered
+    /// "unrecognized subcommand" (live proof, 04/10/2026).
+    #[test]
+    fn status_parses_task_id() {
+        let cli = WorkflowCli::try_parse_from(["workflow", "status", "task_7"]).expect("parse");
+        let Some(WorkflowCmd::Status { task_id }) = cli.cmd else {
+            panic!("expected Status");
+        };
+        assert_eq!(task_id, "task_7");
+    }
+
+    /// Each subcommand reaches the handler that answers it. `status` had no route at all, and
+    /// `resume` went to the run handler with a `resume: true` the run handler never reads, so the
+    /// documented "resume" answered a plain run report and `cli-workflow-resume` was unreachable
+    /// from the CLI (cross-audit 04/10/2026, X1).
+    #[test]
+    fn every_subcommand_routes_to_its_handler() {
+        let routed = |argv: &[&str]| {
+            let cli = WorkflowCli::try_parse_from(argv).expect("parse");
+            route(cli.cmd.unwrap_or_else(default_run))
+        };
+        let (handler, payload) = routed(&["workflow", "status", "task_7"]);
+        assert_eq!(handler, "cli-workflow-status");
+        assert_eq!(payload["task_id"], "task_7");
+        assert_eq!(routed(&["workflow", "stats", "t"]).0, "cli-workflow-stats");
+        assert_eq!(
+            routed(&["workflow", "slowest", "t"]).0,
+            "cli-workflow-slowest"
+        );
+        assert_eq!(
+            routed(&["workflow", "compare", "a", "b"]).0,
+            "cli-workflow-compare"
+        );
+        assert_eq!(routed(&["workflow"]).0, "cli-workflow-run");
+        let (handler, payload) = routed(&["workflow", "resume", "t"]);
+        assert_eq!(handler, "cli-workflow-resume");
+        assert_eq!(
+            payload,
+            serde_json::json!({ "task_id": "t" }),
+            "no key the handler does not read"
+        );
     }
 
     #[test]

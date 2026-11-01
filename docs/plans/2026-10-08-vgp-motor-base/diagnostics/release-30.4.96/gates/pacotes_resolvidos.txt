@@ -1,0 +1,43 @@
+inferlets | 
+touring-analysis | ann-blast,blast-radius,deep,default,erickson-bridge,quality,simd-temporal,simd-temporal-ac,simd-wiring,temporal,wiring
+touring-assists | default
+touring-bindings | bind-capnp,bind-desktop,bind-postgis,bind-postgis-async,bind-python,bind-wasm,bind-web,default,pooling-allocator
+touring-capnp-server | bind-capnp,default
+touring-ceg | default,txn_lock_enforcement
+touring-cli | acp-protocol,ann-blast,mpatch-fuzzy,tantivy-fts,templates
+touring-code | ann,async-pipeline,default,incremental-salsa,lang-cpp,lang-go,lang-java,lang-python,lang-ruby,lang-rust,lang-typescript,more-languages,parser-ast-grep,parser-syn,parser-tree-sitter,semantic-search,sim
+touring-contracts | 
+touring-cortex | cognitive-memory,default,fascicles
+touring-dispatch | acp-protocol,all-hooks,ann-blast,capnp-server,default,gpu-compute,hooks-active,hooks-noop,inferlets-wasm,inventory-registry,mpatch-fuzzy,nlp-enrichment,persistence,post-hooks,pre-hooks,quantization,re
+touring-foundation | default,ebpf-telemetry,mimalloc-allocator
+touring-generator | analysis-gate,blast-check,cognitive-nexus,default,enrichment-gate,full,health-gate,llm-http,mcts-synthesis,memory-integration,native-async,nlp-reranking,observability,quality-gate,rkyv,rl-integration,
+touring-hook-handlers | mpatch-fuzzy,nlp-enrichment,post-hooks,pre-hooks,resource-monitor,session-hooks,tantivy-fts
+touring-hook-runtime | acp-protocol,inferlets-wasm,post-hooks,saga,semantic-embeddings,tantivy-fts,txn_lock_enforcement
+touring-hooks | acp-protocol,all-hooks,ann-blast,capnp-server,default,gpu-compute,hooks-active,hooks-noop,inferlets-wasm,inventory-registry,mpatch-fuzzy,nlp-enrichment,persistence,post-hooks,pre-hooks,quantization,re
+touring-hooks-core | capnp-server,inventory-registry,mpatch-fuzzy,nlp-enrichment,quantization,session-hooks,shadow-workspace,tantivy-fts,utilities
+touring-hooks-prediction | default,gpu-compute,quantization
+touring-hooks-rl | 
+touring-hooks-saga | saga
+touring-hooks-shared | default,mpatch-fuzzy,nlp-enrichment
+touring-identity | 
+touring-integration-tests | 
+touring-intelligence | analysis-bridge,ast-features,async-memory,default,ebpf,esaa,ftrl,gpu-compute,hnsw-working-memory,leiden-clustering,semantic-embeddings,simd-similarity,simple-clustering,smart-cache,u4-quantization
+touring-license | default,jwt-verify,tier-enterprise,tier-free,tier-premium,tier-standard
+touring-loom-proofs | 
+touring-lsp | default,lsp-bridge
+touring-offensive | cvc5,cve-fetch,default,reqwest,stub,z3
+touring-orchestration | chrono,default,http-client,templates,yaml
+touring-pyright | 
+touring-python | default
+touring-quality | default,workspace-integration
+touring-resilience | resource-monitor,resource-monitor-bin,resource-monitor-sysinfo
+touring-rkyv | default,std,validation
+touring-search-fusion-bench | 
+touring-server | analysis-gate,async-memory,build-info,cognitive-nexus,console,default,dhat-heap,ebpf-telemetry,file-logs,generator-wasm-sandbox,generator-zero-copy,heap-profile,jemalloc,l7b-alpha,mcp-curated,mcts-syn
+touring-server-reasoning | 
+touring-server-session | 
+touring-server-visual | 
+touring-simd | ann,core-integration,cortex-integration,default,gpu-compute,learning-integration,quantization
+touring-storage | candle-bge,default,fastembed,gpu-embeddings,knowledge,postgres,qdrant,session-hooks,sqlite-vec,storage-emb-candle,storage-emb-cuda,storage-emb-fastembed,storage-emb-voyage,storage-hybrid,storage-salsa
+touring-web | default
+touring-web-server | default

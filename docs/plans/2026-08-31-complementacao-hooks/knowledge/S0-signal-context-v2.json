@@ -1,0 +1,45 @@
+{
+  "phase": "S0-signal-context-v2",
+  "entities": [
+    {
+      "entity_id": "phase:S0-signal-context-v2",
+      "type": "phase",
+      "description": "SignalContext v2 (touring-hooks-shared/signal_layer.rs): ProposedChange {Write{content} | Edit{old_string,new_string}} + campos tool_name/proposed + with_tool_name/with_proposed/analysable_text (proposta vence source; vazio cai em source). Call sites reescritos via helpers unicos context_for_write/edit/read em shared/signal_pipeline.rs (pre_write.rs, pre_edit.rs, pre_read.rs); literal do e2e atualizado. Descoberta: em pre_write/pre_edit o pipeline e 1 StaticSignalLayer com contexto pre-montado \u2014 os analisadores de conteudo rodam fora dele; S0 destrava plugar layers TIER-1 reais no pipeline."
+    },
+    {
+      "entity_id": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788294728027014117",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788294728027014117",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S0-signal-context-v2|produces|memory:loop:task_1788294728027014117:S0-signal-context-v2:done",
+      "source": "phase:S0-signal-context-v2",
+      "type": "produces",
+      "target": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done|generated-by|loop:loop:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788294728027014117"
+    },
+    {
+      "relation_id": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done|generated-by|dag:decomp:task_1788294728027014117",
+      "source": "memory:loop:task_1788294728027014117:S0-signal-context-v2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788294728027014117"
+    }
+  ]
+}

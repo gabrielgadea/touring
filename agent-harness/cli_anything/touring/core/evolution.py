@@ -1,7 +1,9 @@
-"""Evolution analytics from rlm_memory.db and touring_knowledge.db.
+"""Evolution analytics from the learning store (graph.db) and the knowledge store.
 
-Provides insights, drift detection, and tool effectiveness metrics
-using the learning_wilson, learning_drift, and bash_outcomes tables.
+Provides insights, drift detection, and tool effectiveness metrics using the learning_wilson and
+learning_drift tables (graph.db, where Touring keeps its learning state) and bash_outcomes
+(knowledge). The learning tables were read from the memory store until 04/10/2026, where they do not
+exist (cross-audit 04/10/2026, X15).
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ import json
 import math
 from typing import Any
 
-from .db import KNOWLEDGE_DB, MEMORY_DB, connect
+from .db import KNOWLEDGE_DB, LEARNING_DB, connect
 
 
 def insights() -> dict[str, Any]:
@@ -22,7 +24,7 @@ def insights() -> dict[str, Any]:
     result: dict[str, Any] = {}
 
     # Wilson-ranked items (confidence-adjusted success rate)
-    with connect(MEMORY_DB) as conn:
+    with connect(LEARNING_DB) as conn:
         wilson_rows = conn.execute(
             """
             SELECT item_id, successes, trials,
@@ -87,7 +89,7 @@ def drift() -> dict[str, Any]:
     Returns:
         Dict with metrics and their trend analysis.
     """
-    with connect(MEMORY_DB) as conn:
+    with connect(LEARNING_DB) as conn:
         rows = conn.execute(
             "SELECT metric, values_json FROM learning_drift ORDER BY metric"
         ).fetchall()
@@ -158,7 +160,7 @@ def tools() -> dict[str, Any]:
             """
         ).fetchall()
 
-    with connect(MEMORY_DB) as conn:
+    with connect(LEARNING_DB) as conn:
         # Wilson-scored tools (from hook events)
         wilson_tools = conn.execute(
             """

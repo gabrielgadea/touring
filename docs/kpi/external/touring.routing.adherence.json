@@ -1,0 +1,8 @@
+{
+  "value": 0.5,
+  "measured_at": "2026-10-17T15:46:26.674724+00:00",
+  "command": "python3 scripts/model_routing_adherence.py --since 2026-10-08 --emit docs/kpi/external/touring.routing.adherence.json",
+  "n": 16,
+  "id": "touring.routing.adherence",
+  "desde": "2026-10-08"
+}

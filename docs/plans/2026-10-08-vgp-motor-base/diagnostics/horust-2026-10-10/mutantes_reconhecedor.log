@@ -1,0 +1,13 @@
+  MORTO  r1 hw-slot nao e envoltorio: ['test_reconhece_o_cargo_atras_dos_envoltorios[scripts/hw-slot --class rust --wait 3600 -- cargo test -p touring-code]', 'test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code]', 'test_reconhece_o_cargo_atras_dos_envoltorios[hw-slot --class rust --label r3-eng --wait 5 -- cargo clippy --workspace]']
+  MORTO  r2 env -u consome 1 token so: ['test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace]', 'test_reconhece_o_cargo_atras_dos_envoltorios[env -u A -u B VAR=1 cargo build --release]', 'test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos']
+  MORTO  r3 bash -c nao abre o script: ['test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos', 'test_bash_c_com_varios_cargos_e_separadores']
+  MORTO  r4 os separadores somem: ['test_reconhece_o_cargo_atras_dos_envoltorios[cd ~/projects/touring && ./scripts/hw-slot --class rust -- cargo check -p touring-code]', 'test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos', 'test_bash_c_com_varios_cargos_e_separadores']
+  MORTO  r5 fica sempre com o transformado: ['test_nunca_devolve_menos_que_o_analisador_original']
+  MORTO  r6 timeout nao pula a duracao: ['test_reconhece_o_cargo_atras_dos_envoltorios[env -u TOURING_CODE_MODE timeout 600 cargo clippy --workspace]', 'test_reconhece_o_cargo_atras_dos_envoltorios[timeout -k 5 600 cargo nextest run]']
+  MORTO  r7 taskset -c consome 1 token so: ['test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release]']
+  MORTO  r8 instalar nao troca o analisador: ['test_instala_e_restaura_no_gerador']
+  MORTO  r9 VAR=valor nao e envoltorio: ['test_reconhece_o_cargo_atras_dos_envoltorios[CARGO_BUILD_JOBS=2 taskset -c 0-3 cargo build --release]']
+  MORTO  r10 nice -n consome 1 token so: ['test_reconhece_o_cargo_atras_dos_envoltorios[nohup nice -n 19 cargo test -p x]']
+  MORTO  r11 o cd do script de dentro se perde: ['test_bash_c_abre_o_script_e_preserva_o_cd_e_os_argumentos', 'test_bash_c_com_varios_cargos_e_separadores']
+controle sem mutacao: passou (23 passed in 0.04s) | sha do original igual antes/depois: True
+11/11 mutantes mortos

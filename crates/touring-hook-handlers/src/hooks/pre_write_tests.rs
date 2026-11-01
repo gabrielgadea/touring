@@ -249,6 +249,254 @@ fn test_pre_write_blast_radius_returns_none_when_no_index() {
 
 /// E2E: pre_write::run_returning produces context without panicking.
 /// This is an integration test that exercises the full hook pipeline.
+/// S1 (2026-09-01): the risk layer must see the PROPOSED content of a file
+/// that does not exist yet — `[risk]` reaches the pre_write context.
+#[test]
+fn test_pre_write_flags_unwrap_in_proposed_content_of_a_new_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    let risky = "pub fn parse(v: Option<u8>) -> u8 {\n    v.unwrap()\n}\n";
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/brand_new_s1.rs").display().to_string(),
+            "new_file": true,
+            "content": risky
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[risk]") && context.contains("unwrap=1"),
+                "pre_write context must carry the ast-grep risk of the PROPOSED content, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [risk], got {other:?}"),
+    }
+}
+
+/// S7 (2026-09-01): a proposed Python file that does not parse is flagged in
+/// the pre_write context before it is written.
+#[test]
+fn test_pre_write_flags_python_syntax_error_in_proposed_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("scripts/broken_s7.py").display().to_string(),
+            "new_file": true,
+            "content": "def foo(:\n    return 1\n"
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[py-syntax]"),
+                "pre_write context must flag the syntax error of the PROPOSED .py, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [py-syntax], got {other:?}"),
+    }
+}
+
+/// S5 (2026-09-01): the pre-write antipattern signal must be ACTIONABLE — it
+/// names the line, so Claude can fix the proposed content before writing it.
+#[test]
+fn test_pre_write_antipattern_signal_carries_line_numbers() {
+    let content =
+        "fn main() {\n    let a = 1;\n    let x: Option<i32> = None;\n    let _ = x.unwrap();\n}\n";
+    let signals = antipattern_signals(content, "src/main.rs");
+    assert_eq!(signals.len(), 1, "{signals:?}");
+    let text = &signals[0].1;
+    assert!(text.contains("unwrap"), "{text}");
+    assert!(
+        text.contains("L4:"),
+        "the signal must point at the offending line (L4), got: {text}"
+    );
+}
+
+/// S2 (2026-09-01): a hardcoded secret in the PROPOSED content of a new file
+/// reaches the pre_write context as a P0 — without echoing the value.
+#[test]
+fn test_pre_write_flags_hardcoded_secret_in_proposed_new_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    // Assembled at runtime so this source file never carries the pattern.
+    let dsn = format!(
+        "postgres://admin:{}@db.example.com:5432/app",
+        ["s3cr3t", "P4ssw0rd"].concat()
+    );
+    let content = format!("pub fn dsn() -> &'static str {{\n    \"{dsn}\"\n}}\n");
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/config_s2.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[secret] P0 F2.4"),
+                "pre_write context must carry the F2.4 verdict on the PROPOSED content, got: {context:?}"
+            );
+            assert!(
+                !context.contains("P4ssw0rd"),
+                "never echo the value: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [secret], got {other:?}"),
+    }
+}
+
+/// S3 (2026-09-02): a NEW .rs that uses a known pub type without importing it
+/// gets the `use` path BEFORE the write — imports read from the PROPOSED
+/// content (no DB row exists for a file that does not exist), known types from
+/// the per-name wiring lookup.
+#[test]
+fn test_pre_write_suggests_the_use_path_for_a_known_pub_type_in_a_new_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    rt.ctx
+        .knowledge
+        .register_pub_symbol("src/tfidf.rs", "TfIdfVectorizer", "struct", "public")
+        .expect("register producer");
+    let content = "pub fn build() -> TfIdfVectorizer {\n    TfIdfVectorizer::default()\n}\n";
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/search_s3.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[import] `TfIdfVectorizer`"),
+                "pre_write must predict the missing `use` from the PROPOSED content, got: {context:?}"
+            );
+            assert!(
+                context.contains("use crate::tfidf::TfIdfVectorizer;"),
+                "the suggestion carries the concrete path: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with [import], got {other:?}"),
+    }
+}
+
+/// A3 (2026-09-02): a NEW file that declares a name the symbol index already
+/// defines in another file gets the homonym BEFORE the write, with the
+/// file:line to reuse.
+#[test]
+fn test_pre_write_flags_a_homonym_of_a_name_the_new_file_declares() {
+    let (_tmp, mut rt) = setup_runtime();
+    rt.symbol_store()
+        .expect("runtime symbol store")
+        .upsert_symbol(&touring_code::ast::SymbolLocation {
+            symbol_name: "TfIdfVectorizer".to_string(),
+            file_path: "src/tfidf.rs".to_string(),
+            line: 12,
+            column: 0,
+            is_definition: true,
+            kind: Some("struct".to_string()),
+        })
+        .expect("upsert definition");
+    let content = "pub struct TfIdfVectorizer {\n    pub dims: usize,\n}\n";
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/vectorizer_a3.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[related] `TfIdfVectorizer`"),
+                "pre_write must surface the homonym from the symbol index, got: {context:?}"
+            );
+            assert!(context.contains("src/tfidf.rs:12"), "{context:?}");
+        }
+        other => unreachable!("expected Context with [related], got {other:?}"),
+    }
+}
+
+/// S8 (2026-09-02): the CWE scanner runs over the content about to be WRITTEN.
+/// `CweScanLayer` existed since H6 and was wired to no pipeline (REGRA #0).
+/// The fixture is assembled at runtime so the detector never fires on this
+/// test file itself.
+#[test]
+fn test_pre_write_flags_a_hardcoded_credential_in_the_new_content() {
+    let (_tmp, mut rt) = setup_runtime();
+    let prefix = ["s", "k", "-"].concat();
+    let content = format!(
+        "pub fn client() -> String {{\n    let api_key = \"{prefix}live-PLACEHOLDER\";\n    api_key.to_string()\n}}\n"
+    );
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/client_s8.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("CWE-798"),
+                "pre_write must name the hardcoded credential before the write, got: {context:?}"
+            );
+        }
+        other => unreachable!("expected Context with CWE-798, got {other:?}"),
+    }
+}
+
+/// S9 (2026-09-02): a proposed `.rs` carries its semantic badge — syn's
+/// `RustSemanticReport` (generics, trait impls, lifetimes) and the public API
+/// count, computed on the content BEFORE it is written.
+#[test]
+fn test_pre_write_shows_the_rust_semantic_badge_for_a_new_rs_file() {
+    let (_tmp, mut rt) = setup_runtime();
+    let content = "pub struct Holder<T: Clone> {\n    pub value: T,\n}\n\n\
+impl<T: Clone> Default for Holder<T> where T: Default {\n    fn default() -> Self {\n        Self { value: T::default() }\n    }\n}\n\n\
+pub fn make<T: Clone + Default>() -> Holder<T> {\n    Holder::default()\n}\n";
+    let input = serde_json::json!({
+        "tool_input": {
+            "file_path": rt.project_root.join("src/holder_s9.rs").display().to_string(),
+            "new_file": true,
+            "content": content
+        },
+        "tool_name": "Write"
+    });
+    match run_returning(&mut rt, &input) {
+        HookResponse::Context { context, .. } => {
+            assert!(
+                context.contains("[rust] semantic "),
+                "pre_write must carry the semantic badge for a new .rs, got: {context:?}"
+            );
+            assert!(context.contains("pub API"), "{context:?}");
+        }
+        other => unreachable!("expected Context with the [rust] badge, got {other:?}"),
+    }
+}
+
+/// S10 (2026-09-02, ex-B4): the call graph reaches TS/JS content — the library
+/// dispatched them already; only the hook's `.rs`/`.py` filter kept them out.
+#[test]
+fn test_pre_write_callgraph_signal_fires_for_typescript_and_javascript() {
+    let src = "function helper() { return 1; }\nfunction main() { helper(); helper(); }\n";
+    for path in ["src/app.ts", "src/app.js"] {
+        let (score, sig) = callgraph_signal_for_write(src, path)
+            .unwrap_or_else(|| panic!("{path}: the callgraph signal must fire for TS/JS"));
+        assert!((score - 1.1).abs() < f32::EPSILON);
+        assert!(sig.contains("callers: [main]"), "{path}: {sig}");
+    }
+    assert!(
+        callgraph_signal_for_write("# not code", "notes.md").is_none(),
+        "languages without a call graph stay silent"
+    );
+}
+
 #[test]
 fn test_pre_write_run_returning_produces_context() {
     let (_tmp, mut rt) = setup_runtime();
@@ -976,5 +1224,88 @@ fn b302_silent_on_contraction_even_with_low_confidence() {
     assert!(
         result.is_none(),
         "B-302 must NOT fire on contraction (only expansions)"
+    );
+}
+
+// ── VL0 §8.4 — the hook derives `lang` from the path and writes the shadow with it ──
+
+/// Runs the VGP shadow of the Write hook for `file_path` with the log redirected to a temp dir.
+fn linhas_da_sombra_de_write(file_path: &str) -> Vec<serde_json::Value> {
+    let (tmp, rt) = setup_runtime();
+    let log = tmp.path().join("sombra.jsonl");
+    let content = "alfa\nbeta\n";
+    let input = serde_json::json!({
+        "tool_name": "Write",
+        "tool_input": {"file_path": file_path, "content": content}
+    });
+    touring_code::vgp::sombra::com_log_em(&log, || {
+        let _ = vgp_sombra_de_write(&rt, &input, file_path, content);
+    });
+    std::fs::read_to_string(&log)
+        .unwrap_or_default()
+        .lines()
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+#[test]
+fn test_vgp_write_grava_a_sombra_com_o_lang_do_caminho() {
+    for (nome, lang) in [
+        ("a.py", "python"),
+        ("src/lib.rs", "rust"),
+        ("a.ts", "typescript"),
+        ("a.tsx", "tsx"),
+        ("a.js", "javascript"),
+        ("a.html", "html"),
+        ("a.css", "css"),
+    ] {
+        let linhas = linhas_da_sombra_de_write(&format!("/tmp/vl0-write/{nome}"));
+        assert_eq!(linhas.len(), 1, "{nome}: {linhas:?}");
+        assert_eq!(linhas[0]["lang"], lang, "{nome}");
+        assert_eq!(linhas[0]["hook"], "pre-write", "{nome}");
+    }
+}
+
+#[test]
+fn test_vgp_write_extensao_desconhecida_nao_grava_sombra() {
+    for nome in ["README.md", "a.json", "Makefile"] {
+        assert!(
+            linhas_da_sombra_de_write(&format!("/tmp/vl0-write/{nome}")).is_empty(),
+            "{nome} não é linguagem do VGP"
+        );
+    }
+}
+
+#[test]
+fn test_knowledge_signals_gotcha_score_is_neutral_while_prevented_is_unmeasured() {
+    // No writer increments prevented_errors (FileKnowledgeDB::PREVENTED_MEASURED is false, C7 17/10/2026). Wilson
+    // over a numerator that is always 0 scored every gotcha already shown at 0, the bottom of the context budget;
+    // until prevention is measured a gotcha gets the neutral confidence of one without history.
+    let (_tmp, db) = setup();
+    let id = db
+        .add_gotcha(
+            "blocking_call",
+            "do not use blocking calls inside async fn",
+            "warning",
+            None,
+        )
+        .expect("add gotcha");
+    for _ in 0..20 {
+        db.increment_gotcha_hit(id);
+    }
+    let signals = knowledge_signals(
+        &db,
+        "async_handler.rs",
+        "async fn handler() { blocking_call() }",
+    );
+    let score = signals
+        .iter()
+        .find(|(_, t)| t.contains("GOTCHA"))
+        .map(|(s, _)| *s)
+        .expect("content-matched gotcha should appear in signals");
+    assert!(!FileKnowledgeDB::PREVENTED_MEASURED);
+    assert!(
+        (score - 1.5 * 0.5).abs() < 1e-6,
+        "an unmeasured prevented count must not zero a gotcha shown 20 times: score {score}"
     );
 }

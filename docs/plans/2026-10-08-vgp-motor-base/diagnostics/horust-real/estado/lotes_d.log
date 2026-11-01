@@ -1,0 +1,23 @@
+hw-slot: aguardando — temp 95C > 88C
+rodada 1: 161 tentativas pendentes em 30 lotes por pacote
+  19 lotes (camadas); rodando todos
+  lote 12/lib/T (1 pacotes): 6 tentativas, 6 válidas, descartes {}, 23 s
+  lote 0/bins/T (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 1 s
+  lote 2/lib/T (1 pacotes): 4 tentativas, 4 válidas, descartes {}, 17 s
+  lote 8/lib/T (1 pacotes): 5 tentativas, 4 válidas, descartes {'outro_erro_no_arquivo': 1}, 5 s
+  lote 11/lib/T (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 5 s
+  lote 9/lib/R (1 pacotes): 8 tentativas, 2 válidas, descartes {'sem_erro': 5, 'codigo_inesperado': 1}, 1 s
+  lote 6/lib/R (2 pacotes): 13 tentativas, 5 válidas, descartes {'outro_erro_no_arquivo': 6, 'sem_erro': 1, 'codigo_inesperado': 1}, 4 s
+  lote 1/lib/R (3 pacotes): 17 tentativas, 8 válidas, descartes {'outro_erro_no_arquivo': 5, 'sem_erro': 2, 'codigo_inesperado': 2}, 1 s
+  lote 8/lib/R (1 pacotes): 8 tentativas, 5 válidas, descartes {'sem_erro': 1, 'outro_erro_no_arquivo': 1, 'codigo_inesperado': 1}, 7 s
+  lote 12/lib/R (1 pacotes): 7 tentativas, 4 válidas, descartes {'outro_erro_no_arquivo': 3}, 8 s
+  lote 3/lib/R (2 pacotes): 15 tentativas, 10 válidas, descartes {'sem_erro': 1, 'outro_erro_no_arquivo': 2, 'codigo_inesperado': 2}, 6 s
+  lote 10/lib/R (1 pacotes): 7 tentativas, 4 válidas, descartes {'outro_erro_no_arquivo': 2, 'codigo_inesperado': 1}, 9 s
+  lote 0/lib/R (5 pacotes): 19 tentativas, 9 válidas, descartes {'outro_erro_no_arquivo': 5, 'codigo_inesperado': 5}, 1 s
+  lote 5/lib/R (2 pacotes): 14 tentativas, 9 válidas, descartes {'sem_erro': 1, 'outro_erro_no_arquivo': 1, 'codigo_inesperado': 3}, 5 s
+  lote 4/lib/R (3 pacotes): 17 tentativas, 6 válidas, descartes {'outro_erro_no_arquivo': 4, 'sem_erro': 6, 'codigo_inesperado': 1}, 5 s
+  lote 7/lib/R (1 pacotes): 6 tentativas, 3 válidas, descartes {'outro_erro_no_arquivo': 1, 'codigo_inesperado': 2}, 5 s
+  lote 2/lib/R (1 pacotes): 7 tentativas, 4 válidas, descartes {'outro_erro_no_arquivo': 1, 'codigo_inesperado': 2}, 4 s
+  lote 13/lib/R (1 pacotes): 5 tentativas, 4 válidas, descartes {'codigo_inesperado': 1}, 20 s
+  lote 0/bins/R (1 pacotes): 1 tentativas, 1 válidas, descartes {}, 11 s
+rc=0

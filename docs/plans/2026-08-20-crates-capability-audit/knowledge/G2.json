@@ -1,0 +1,11 @@
+{
+  "phase": "G2",
+  "entities": [
+    {
+      "entity_id": "phase:G2",
+      "type": "phase",
+      "description": "G2: parse_outcomes_json devolvia Ok com kill_rate 0.0 quando o artefato nao tinha mutante viavel - forma indistinguivel de uma suite que genuinamente nao matou nada. Nova variante MutationError::NoViableMutants{path,total,unviable} retornada quando caught+timeout+missed==0; compute_kill_rate ficou intocado (contrato puro documentado com testes proprios). O handler do CLI casava exaustivamente sobre MutationError e o compilador forcou o arm novo -> kind no_viable_mutants com ok:false. 4 testes novos (2 no parser, incl. all-unviable, 1 no envelope), 482+345 testes passam, clippy -D warnings limpo. NOTA: o daemon vivo ainda roda o binario antigo ate um update-touring."
+    }
+  ],
+  "relations": []
+}

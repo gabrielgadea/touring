@@ -1,0 +1,45 @@
+{
+  "phase": "S-5",
+  "entities": [
+    {
+      "entity_id": "phase:S-5",
+      "type": "phase",
+      "description": "Gold do A2 existe: rater 1 = subagente MiniMax limpo (Errata 7, verificado por scan mecanico; falso-positivo do verificador corrigido e divulgado), rater 2 = Claude cego, kappa 0,7707; desempate por subagente Claude limpo (15 itens contra followed). 171 itens de gold."
+    },
+    {
+      "entity_id": "memory:loop:task_1790956285165149342:S-5:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1790956285165149342",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1790956285165149342",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S-5|produces|memory:loop:task_1790956285165149342:S-5:done",
+      "source": "phase:S-5",
+      "type": "produces",
+      "target": "memory:loop:task_1790956285165149342:S-5:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-5:done|generated-by|loop:loop:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-5:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1790956285165149342"
+    },
+    {
+      "relation_id": "memory:loop:task_1790956285165149342:S-5:done|generated-by|dag:decomp:task_1790956285165149342",
+      "source": "memory:loop:task_1790956285165149342:S-5:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1790956285165149342"
+    }
+  ]
+}

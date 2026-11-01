@@ -220,8 +220,8 @@ fn test_post_bash_records_outcome() {
         }
     });
 
-    let result = touring_hooks::post_bash::run(&mut rt, &input);
-    assert!(result.is_ok(), "post-bash should succeed");
+    // S216: `run` ends in process::exit(0) — it would end this test binary silently.
+    let _response = touring_hooks::post_bash::run_returning(&mut rt, &input);
 
     // Verify outcome was recorded
     let outcomes = rt
@@ -241,17 +241,18 @@ fn test_post_bash_records_outcome() {
 fn test_post_bash_records_failure_with_error_pattern() {
     let (_tmp, mut rt) = setup_runtime();
 
+    // S216: a failure is the EVENT (S21 — post-bash never infers failure from text);
+    // the old `tool_output.output` shape is not read at all.
     let input = serde_json::json!({
+        "hook_event_name": "PostToolUseFailure",
+        "tool_name": "Bash",
         "tool_input": {
             "command": "ruff check src/broken.py"
         },
-        "tool_output": {
-            "output": "Error: src/broken.py:42: E501 Line too long (120 > 88 characters)\nFAILED"
-        }
+        "error": "Error: src/broken.py:42: E501 Line too long (120 > 88 characters)\nFAILED"
     });
 
-    let result = touring_hooks::post_bash::run(&mut rt, &input);
-    assert!(result.is_ok());
+    let _response = touring_hooks::post_bash::run_returning(&mut rt, &input);
 
     let outcomes = rt
         .ctx
@@ -301,7 +302,7 @@ fn test_pre_edit_no_context_for_isolated_file() {
     let ctx = touring_hooks::pre_edit::compose_edit_context(None, &db, "isolated.py");
     assert!(
         ctx.is_none(),
-        "File with no dependents/notes/failures should produce no context"
+        "File with no dependents/notes/failures should produce no context: {ctx:?}"
     );
 }
 
@@ -524,8 +525,15 @@ fn test_prompt_enhance_json_contract() {
     );
     assert!(ctx.contains("DEBUG MODE"), "Should enhance as DEBUG");
 
-    // Verify new TACO phase protocol field
-    let taco_phase = &hso["taco_phase_protocol"];
+    // S27: classification metadata is diagnostics, never the wire — UserPromptSubmit's
+    // hookSpecificOutput accepts additionalContext/sessionTitle/suppressOriginalPrompt only.
+    assert!(
+        hso.get("taco_phase_protocol").is_none() && hso.get("touring_cli_hints").is_none(),
+        "classification metadata must stay off the wire: {hso}"
+    );
+    let details = touring_hooks::prompt_enhance::compose_details("fix the error in auth");
+
+    let taco_phase = &details["taco_phase_protocol"];
     assert!(
         taco_phase.is_object(),
         "taco_phase_protocol should be an object"
@@ -538,8 +546,7 @@ fn test_prompt_enhance_json_contract() {
         "description should not be empty"
     );
 
-    // Verify new touring_cli_hints field
-    let hints = &hso["touring_cli_hints"];
+    let hints = &details["touring_cli_hints"];
     assert!(hints.is_object(), "touring_cli_hints should be an object");
     let tier1 = hints["tier_1_commands"]
         .as_array()
@@ -574,10 +581,9 @@ fn test_prompt_enhance_general_fallback() {
     assert!(output.contains("Chain Of Thought"));
     assert!(output.contains("Precision Hints"));
 
-    // Verify TACO L0 SOLO mode for General intent
-    let json = touring_hooks::prompt_enhance::compose_json("hello world");
-    let hso = &json["hookSpecificOutput"];
-    let taco_phase = &hso["taco_phase_protocol"];
+    // Verify TACO L0 SOLO mode for General intent (S27: read from the details, not the wire)
+    let details = touring_hooks::prompt_enhance::compose_details("hello world");
+    let taco_phase = &details["taco_phase_protocol"];
     assert_eq!(taco_phase["level"], 0, "General intent -> CILA L0");
     assert_eq!(taco_phase["mode"], "SOLO", "General intent -> SOLO mode");
     assert!(
@@ -1061,10 +1067,12 @@ fn test_full_pipeline_db_integrity() {
 
     // 4. Simulate post-bash (record a failure on this file)
     let bash_input = serde_json::json!({
+        "hook_event_name": "PostToolUseFailure",
+        "tool_name": "Bash",
         "tool_input": {"command": "ruff check pipeline_test.py"},
-        "tool_output": {"output": "Error: pipeline_test.py:1: F401 unused import"}
+        "error": "Error: pipeline_test.py:1: F401 unused import"
     });
-    touring_hooks::post_bash::run(&mut rt, &bash_input).expect("post-bash");
+    let _response = touring_hooks::post_bash::run_returning(&mut rt, &bash_input);
 
     // 5. Verify bash outcome recorded
     let outcomes = rt

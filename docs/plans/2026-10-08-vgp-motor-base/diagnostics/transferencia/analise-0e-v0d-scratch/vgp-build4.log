@@ -1,0 +1,11 @@
+   Compiling touring-pyright v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-pyright)
+   Compiling touring-cli v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-cli)
+   Compiling touring-server v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-server)
+   Compiling touring-hook-handlers v30.4.95 (/home/gabrielgadea/projects/touring/crates/touring-hook-handlers)
+   Compiling touring-dispatch v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-dispatch)
+   Compiling touring-hooks v0.1.0 (/home/gabrielgadea/projects/touring/crates/touring-hooks)
+   Compiling touring-cortex v1.0.0 (/home/gabrielgadea/projects/touring/crates/touring-cortex)
+    Finished `release` profile [optimized + debuginfo] target(s) in 5m 47s
+warning: the following packages contain code that will be rejected by a future version of Rust: proc-macro-error2 v2.0.1
+note: to see what the problems were, use the option `--future-incompat-report`, or run `cargo report future-incompatibilities --id 1`
+build_rc=0

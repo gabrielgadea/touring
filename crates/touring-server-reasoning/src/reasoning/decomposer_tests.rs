@@ -841,6 +841,53 @@ fn test_retry_policy_backoff() {
     assert_eq!(large.backoff_delay(5), Duration::from_millis(30_000));
 }
 
+/// `max_attempts` counts EXECUTIONS, the first run included — the meaning the decompose CLI's
+/// `evaluate_retry_policy` gives the persisted `retry_policy` column, the one the tasksfile/devrc
+/// schemas declare, and the one this module's own `attempts` counter and backoff numbering use. The
+/// doc said "retry attempts after failure" and the budget read it as retries, so the same column had
+/// two meanings (cross-audit 04/10/2026, blind review of X7). The default keeps its intent — one
+/// retry — as two executions, and the budget's retry allowance is executions minus one.
+#[test]
+fn test_max_attempts_counts_executions_and_the_budget_retries_are_one_less() {
+    assert_eq!(
+        RetryPolicy::default().max_attempts,
+        2,
+        "the default still allows one retry"
+    );
+    let mut d = TaskDecomposer::new();
+    let tid = d.create_task("feature", "budget");
+    let sid = d.add_subtask(&tid, "Work", vec![], 0).unwrap();
+    let mut plan = d.get_plan(&tid).unwrap().clone();
+    plan.get_subtask_mut(&sid)
+        .unwrap()
+        .retry_policy
+        .max_attempts = 3;
+    let budgets = plan.subtask_budgets();
+    assert_eq!(
+        budgets[0].max_retries, 2,
+        "three executions are two retries"
+    );
+    assert_eq!(
+        budgets[0].attempts_used, 0,
+        "a subtask never run spent no retry"
+    );
+
+    // Both retry dimensions share one unit: `attempts` counts executions, so the first run
+    // spends no retry and the second spends one.
+    plan.get_subtask_mut(&sid).unwrap().attempts = 1;
+    assert_eq!(
+        plan.subtask_budgets()[0].attempts_used,
+        0,
+        "the first run is not a retry"
+    );
+    plan.get_subtask_mut(&sid).unwrap().attempts = 2;
+    assert_eq!(
+        plan.subtask_budgets()[0].attempts_used,
+        1,
+        "the second run is the first retry"
+    );
+}
+
 #[test]
 fn test_subtask_mark_in_progress() {
     let mut d = TaskDecomposer::new();

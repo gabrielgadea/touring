@@ -1,0 +1,49 @@
+<unknown>:13: SyntaxWarning: invalid escape sequence '\$'
+/tmp/eleitoral_probe/fase2_purpose.py:76: SyntaxWarning: invalid escape sequence '\d'
+/home/gabrielgadea/projects/analise/.cache/scratch-inspecao/i3.py:7: SyntaxWarning: invalid escape sequence '\|'
+  [
+{
+ "gerado_em": "2026-10-09T12:50:42-0300",
+ "jobs": 4,
+ "candidatos_v0a": 100,
+ "positivos_no_corpus": 91,
+ "incompletos_por_motivo": {
+  "[atribuido] Edit que nao casa sobre a base do git": 2,
+  "[inline] erro dentro de script .sh — programa indireto, nao extraivel": 1,
+  "[atribuido] o arquivo nao existia no commit anterior e a dobra quebrou": 1,
+  "duplicata de inventario (mesmo evento)": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-05T14:44:33.082Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T14:47:14.849Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T16:48:04.154Z e nenhum Write da sessao o criou": 1,
+  "[atribuido] o arquivo nao existia no commit anterior a 2026-10-02T16:48:36.055Z e nenhum Write da sessao o criou": 1
+ },
+ "reproduzem": 65,
+ "reproduzem_por_classe": {
+  "atributo": 39,
+  "import": 4,
+  "kwarg": 1,
+  "nome": 21
+ },
+ "reproduzem_por_origem": {
+  "atribuido": 10,
+  "inline": 41,
+  "tmp": 14
+ },
+ "taxa_de_reproducao": 0.7143,
+ "negativos": {
+  "universo": {
+   "vistos": 4473,
+   "candidatos": 13144
+  },
+  "pool_registrado": 9985,
+  "sorteados": 300,
+  "no_corpus": 300,
+  "podas": {
+   "podados": 3159,
+   "rodadas": 77
+  }
+ },
+ "wall_s": 486.9
+}
+nao reproduzem: 26
+build3 rc=0

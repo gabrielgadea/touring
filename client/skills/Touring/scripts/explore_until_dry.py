@@ -19,6 +19,13 @@ docs/plans/2026-07-19-touring-adw-software-factory/plan.md:
     D2 (corroborated by 2+ independent lenses — computed, not asserted).
   * OPEN QUESTIONS gate convergence: findings spawn questions (endogenous
     targets); the queue must be empty (answered/waived) to converge.
+  * SELF-ECHO suppression (2026-08-29): a memory stored AFTER the campaign
+    began that resurfaces via recall is the campaign's own output echoing
+    back — recorded VISIBLE (``echo: true``, ``echoes_suppressed`` in the
+    verdict) but never wetting the dry-tail, or a self-referential topic
+    livelocks ([1,0,0,1,…] measured). Suppression needs POSITIVE temporal
+    proof (``stored_at`` from recall vs the ledger's ``created_at``); any
+    missing timestamp counts the finding normally.
   * The verdict is epistemically honest: never "complete" — always "no new
     findings UNDER current questions/lenses/depth after K dry rounds".
 
@@ -43,7 +50,9 @@ import hashlib
 import json
 import sys
 import time
+import unicodedata
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -54,7 +63,8 @@ from lib_touring import (  # noqa: E402
 )
 
 LEDGER_DIRNAME = ".touring-explore"
-AUTOMATED_LENSES = ("lexical", "structural", "institutional", "antistaleness", "quality")
+AUTOMATED_LENSES = ("lexical", "structural", "institutional", "antistaleness",
+                    "quality", "portfolio")
 MANUAL_LENSES = ("external",)          # requires --mark-lens visited|waived
 ALL_LENSES = AUTOMATED_LENSES + MANUAL_LENSES
 DEFAULT_DRY_ROUNDS = 2
@@ -71,11 +81,38 @@ def det_id(prefix: str, *parts: str) -> str:
 
 # === ledger ================================================================
 
+def _slugify(topic: str, fold: bool = True) -> str:
+    """Topic → ledger filename stem.
+
+    `"ê".isalnum()` is True in Python, so the pre-2026-08-25 slug carried
+    diacritics straight into the filename: `…inteligência…` and
+    `…inteligencia…` — the SAME question typed twice, once with the accent —
+    opened two ledgers side by side in one scope. Convergence reached in one
+    said nothing about the other, and the gate could be satisfied by whichever
+    was fresher (observed live, both defects together).
+
+    Folding to the unaccented form makes one question map to one ledger.
+    """
+    text = topic
+    if fold:
+        text = "".join(c for c in unicodedata.normalize("NFKD", topic)
+                       if not unicodedata.combining(c))
+    return "".join(c if c.isalnum() else "-" for c in text.lower()).strip("-")[:48]
+
+
 def ledger_path_for(topic: str, scope: Path, explicit: str | None) -> Path:
     if explicit:
         return Path(explicit).expanduser().resolve()
-    slug = "".join(c if c.isalnum() else "-" for c in topic.lower()).strip("-")[:48]
-    return scope / LEDGER_DIRNAME / f"{slug}.ledger.json"
+    path = scope / LEDGER_DIRNAME / f"{_slugify(topic)}.ledger.json"
+    if not path.exists():
+        # A ledger written before folding keeps its diacritics in the filename.
+        # Adopting it is the non-destructive migration: opening the folded path
+        # instead would start a second empty ledger and silently strand every
+        # round the first one had already converged.
+        legacy = scope / LEDGER_DIRNAME / f"{_slugify(topic, fold=False)}.ledger.json"
+        if legacy != path and legacy.exists():
+            return legacy
+    return path
 
 
 def load_ledger(path: Path, topic: str, scope: Path) -> dict[str, Any]:
@@ -90,6 +127,11 @@ def load_ledger(path: Path, topic: str, scope: Path) -> dict[str, Any]:
         "version": 2,
         "topic": topic,
         "scope": str(scope),
+        # Campaign birth (2026-08-29): the self-echo boundary. A memory stored
+        # AFTER this instant that resurfaces via recall is the campaign's own
+        # output echoing back — it must not keep the dry-tail wet forever
+        # (measured live: [1,0,0,1,...] on a self-referential topic).
+        "created_at": time.time(),
         "rounds": [],
         "findings": {},
         "coverage": {lens: {"visits": 0, "max_depth": None, "truncated_total": 0}
@@ -105,6 +147,38 @@ def save_ledger(ledger: dict[str, Any], path: Path) -> None:
     tmp.write_text(json.dumps(ledger, indent=1, ensure_ascii=False, default=str),
                    encoding="utf-8")
     tmp.replace(path)
+
+
+def ledger_created_at(ledger: dict[str, Any]) -> float | None:
+    """Campaign birth epoch — the field on new ledgers, derived from round 1's
+    timestamp on legacy ones, ``None`` when neither exists. A ``None`` start
+    NEVER suppresses anything: no proof, no echo (Lei L2 — absent signal is
+    unknown, not zero)."""
+    if isinstance(ledger.get("created_at"), (int, float)):
+        return float(ledger["created_at"])
+    rounds = ledger.get("rounds") or []
+    at = rounds[0].get("at") if rounds and isinstance(rounds[0], dict) else None
+    if isinstance(at, str):
+        try:
+            return datetime.strptime(at, "%Y-%m-%dT%H:%M:%S%z").timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def stored_epoch(value: Any) -> float | None:
+    """Epoch of a recall entry's ``stored_at`` — INTEGER epoch or the SQLite
+    TEXT shape ``YYYY-MM-DD HH:MM:SS`` (UTC). Unparseable → ``None`` (and the
+    finding then counts as a normal discovery — never suppressed on doubt)."""
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return (datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+                    .replace(tzinfo=timezone.utc).timestamp())
+        except ValueError:
+            return None
+    return None
 
 
 # === lens machinery ========================================================
@@ -187,6 +261,10 @@ def lens_institutional(topic: str, scope: Path, run: Runner, timeout: float) -> 
     for e in sweep.take_head(strong, "memory recall"):
         sweep.add("memory", str(e.get("key", "?")), f"touring memory recall {topic}",
                   str(e.get("value", ""))[:200], depth="D1")
+        # The lens reports the FACT (the entry's age); run_round applies the
+        # POLICY (echo suppression). Absent stored_at travels as absent.
+        if e.get("stored_at") is not None:
+            sweep.findings[-1]["stored_at"] = e["stored_at"]
     if not strong and entries:
         sweep.notes.append(f"memory: {len(entries)} entries all below "
                            f"score {MEMORY_SCORE_FLOOR} (noise floor)")
@@ -202,6 +280,42 @@ def lens_antistaleness(topic: str, scope: Path, run: Runner, timeout: float) -> 
         key = line.split(":", 2)
         sweep.add("grep-hit", ":".join(key[:2]) if len(key) >= 2 else line,
                   f"rg '\\b{token}\\b' {scope}", (key[2] if len(key) > 2 else "")[:120])
+    return sweep
+
+
+def lens_portfolio(topic: str, scope: Path, run: Runner, timeout: float) -> LensSweep:
+    """Prior-art by PURPOSE — what already solves this intent (cross-project).
+
+    The other lenses are keyed by symbol name; this one is keyed by the purpose
+    prose artifacts carry (docstrings, `//!` headers, SKILL.md frontmatter). It
+    is the lens that answers "has someone already built this?" before anything
+    new is written, and it spans every project, not just the current scope.
+
+    Gaps are recorded as findings on purpose: "nothing covers X" is exactly the
+    kind of endogenous target that should keep the exploration from drying.
+    """
+    sweep = LensSweep("portfolio")
+    res = run(["portfolio", topic, "-j"], timeout=timeout)
+    sweep.degraded |= res.daemon_degraded
+    ans = res.parsed if isinstance(res.parsed, dict) else {}
+    hits = [h for h in ans.get("prior_art", []) if isinstance(h, dict)]
+    for h in sweep.take_head(hits, "portfolio prior-art"):
+        entry = h.get("entry", {}) if isinstance(h.get("entry"), dict) else {}
+        key = str(entry.get("display_path", entry.get("id", "?")))
+        sweep.add("prior-art", key, f"touring portfolio {topic}",
+                  str(entry.get("purpose", ""))[:200], depth="D1")
+    for gap in ans.get("gaps", [])[:TOP_HITS_PER_LENS]:
+        sweep.add("gap", str(gap)[:120], f"touring portfolio {topic}", str(gap))
+    corpus = ans.get("corpus_size")
+    if corpus == 0:
+        sweep.notes.append("portfolio vazio — rode `touring portfolio refresh`")
+    elif not hits:
+        sweep.notes.append(f"portfolio: 0 candidatos em {corpus} artefatos indexados")
+    for lens_ref in ans.get("external", [])[:3]:
+        if isinstance(lens_ref, dict):
+            sweep.notes.append(
+                f"lente externa sugerida: [{lens_ref.get('source')}] "
+                f"{lens_ref.get('subject')} — {lens_ref.get('question')}")
     return sweep
 
 
@@ -226,6 +340,7 @@ def lens_quality(topic: str, scope: Path, run: Runner, timeout: float,
 
 
 LENS_FNS: dict[str, Callable[..., LensSweep]] = {
+    "portfolio": lens_portfolio,
     "lexical": lens_lexical,
     "structural": lens_structural,
     "institutional": lens_institutional,
@@ -242,6 +357,7 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
     topic = ledger["topic"]
     round_no = len(ledger["rounds"]) + 1
     seen = set(ledger["findings"].keys())
+    campaign_start = ledger_created_at(ledger)
     new_ids: list[str] = []
     degraded = False
     lens_stats: dict[str, dict[str, int]] = {}
@@ -251,10 +367,24 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
                  if lens == "quality" else fn(topic, scope, run, timeout))
         degraded |= sweep.degraded
         fresh = 0
+        echoes = 0
         for f in sweep.findings:
             if f["id"] in seen:
                 continue
             f["round"] = round_no
+            # Self-echo suppression (2026-08-29): a memory stored AFTER the
+            # campaign began is the campaign's own output echoing back — it
+            # enters the ledger VISIBLE (echo: true) but never wets the
+            # dry-tail, or a self-referential topic loops [1,0,0,1,…] forever.
+            # Suppression requires POSITIVE temporal proof; any missing
+            # timestamp counts the finding normally.
+            born = stored_epoch(f.get("stored_at"))
+            if campaign_start is not None and born is not None and born > campaign_start:
+                f["echo"] = True
+                ledger["findings"][f["id"]] = f
+                seen.add(f["id"])
+                echoes += 1
+                continue
             ledger["findings"][f["id"]] = f
             seen.add(f["id"])
             new_ids.append(f["id"])
@@ -267,6 +397,8 @@ def run_round(ledger: dict[str, Any], scope: Path, run: Runner,
         cov["max_depth"] = best
         lens_stats[lens] = {"found": len(sweep.findings), "new": fresh,
                             "truncated": sweep.truncated}
+        if echoes:
+            lens_stats[lens]["echo"] = echoes
     promote_corroborated(ledger)
     entry = {"round": round_no, "new_findings": len(new_ids),
              "lens_stats": lens_stats, "degraded": degraded,
@@ -291,20 +423,34 @@ def promote_corroborated(ledger: dict[str, Any]) -> int:
 
 
 def _unmet_clauses(rounds: list, dry_rounds: int, dry_tail: bool,
-                   manual_pending: list[str], open_qs: list[dict]) -> list[str]:
+                   manual_pending: list[str], open_qs: list[dict],
+                   max_rounds: int | None = None) -> list[str]:
     unmet: list[str] = []
     if not dry_tail:
         last = rounds[-1]["new_findings"] if rounds else None
-        unmet.append(f"need {dry_rounds} consecutive dry rounds "
-                     f"(last round new={last})")
+        # "ainda há o que achar" e "o teto me interrompeu" são causas OPOSTAS que produziam a
+        # mesma frase — e a segunda se lê como a primeira, levando a encerrar uma exploração
+        # que apenas bateu no cap. Medido em 07/08/2026: parada em 12 rodadas soava "incompleto";
+        # elevando o teto, as rodadas 13-21 renderam mais 18 achados e SÓ ENTÃO secou.
+        if max_rounds is not None and len(rounds) >= max_rounds:
+            unmet.append(f"parou no TETO de {max_rounds} rodadas, não por secar "
+                         f"(última rodada new={last}) — repita com --max-rounds maior")
+        else:
+            unmet.append(f"need {dry_rounds} consecutive dry rounds "
+                         f"(last round new={last})")
     unmet += [f"lens '{m}' pending — mark visited/waived (--mark-lens)"
               for m in manual_pending]
     unmet += [f"open question {q['id']}: {q['text'][:60]}" for q in open_qs[:5]]
     return unmet
 
 
-def convergence(ledger: dict[str, Any], dry_rounds: int) -> dict[str, Any]:
-    """The CCE verdict — honest, conditioned, computed by code (Lei L2)."""
+def convergence(ledger: dict[str, Any], dry_rounds: int,
+                max_rounds: int | None = None) -> dict[str, Any]:
+    """The CCE verdict — honest, conditioned, computed by code (Lei L2).
+
+    ``max_rounds`` só entra no texto do ``unmet``: com ele o veredito distingue
+    "não secou" de "bateu no teto", que são causas opostas com a mesma aparência.
+    """
     rounds = ledger["rounds"]
     open_qs = [q for q in ledger["questions"] if q["status"] == "open"]
     manual_pending = [lens for lens in MANUAL_LENSES
@@ -312,7 +458,7 @@ def convergence(ledger: dict[str, Any], dry_rounds: int) -> dict[str, Any]:
     tail = rounds[-dry_rounds:] if len(rounds) >= dry_rounds else []
     dry_tail = bool(tail) and all(r["new_findings"] == 0 for r in tail)
     converged = dry_tail and not manual_pending and not open_qs
-    unmet = _unmet_clauses(rounds, dry_rounds, dry_tail, manual_pending, open_qs)
+    unmet = _unmet_clauses(rounds, dry_rounds, dry_tail, manual_pending, open_qs, max_rounds)
     verdict = {
         "converged": converged,
         "statement": ("no new findings under current questions/lenses after "
@@ -325,6 +471,10 @@ def convergence(ledger: dict[str, Any], dry_rounds: int) -> dict[str, Any]:
             "manual_lenses_pending": manual_pending,
             "open_questions": len(open_qs),
             "degraded_rounds": sum(1 for r in rounds if r.get("degraded")),
+            # E4: suppression is DECLARED, never silent — how many findings
+            # were recorded as the campaign's own echo and kept off the dry-tail.
+            "echoes_suppressed": sum(1 for f in ledger["findings"].values()
+                                     if f.get("echo")),
         },
         "unmet": unmet,
         "next_action": (None if converged else
@@ -428,6 +578,44 @@ def human_report(ledger: dict[str, Any], verdict: dict[str, Any]) -> None:
         print(f"  ✗ {u}")
 
 
+def lens_yield_totals(ledger: dict[str, Any], rounds_before: int) -> dict[str, Any]:
+    """Per-lens yield for the payload: lifetime findings + new in the fresh
+    rounds (N2, 2026-09-23). The dry-lens-cut hypothesis died on data nobody
+    could see — 174 ledgers showed cutting a lens with 2 dry rounds saves 1
+    round total — so the yield stops being private to the ledger file and
+    travels with every answer."""
+    findings: dict[str, int] = {}
+    for f in ledger["findings"].values():
+        lens = f.get("lens", "?")
+        findings[lens] = findings.get(lens, 0) + 1
+    new_this_run: dict[str, int] = {}
+    for r in ledger["rounds"][rounds_before:]:
+        for lens, st in (r.get("lens_stats") or {}).items():
+            if isinstance(st, dict):
+                new_this_run[lens] = new_this_run.get(lens, 0) + (st.get("new") or 0)
+    return {"findings": findings, "new_this_run": new_this_run}
+
+
+def emit_dry_signal(ledger: dict[str, Any], rounds_before: int) -> None:
+    """Emit the ADW loop-node dryness signal (``adw.py`` Law L2 protocol).
+
+    The RUNNER owns loop termination, so the producer — never the agent — must
+    state how many findings a round actually added. Three deliberate choices:
+
+    * **stderr**, so ``--json`` stdout stays strict JSON for programmatic callers
+      while the ADW specs (which all merge with ``2>&1``) still see it;
+    * **last line**, so a ``tail -c <n>`` in the spec's command cannot eat it;
+    * **silence when no round ran** (``--status``, or a spent round budget) —
+      absence means *unknown*, and ``adw.py`` treats unknown as NOT dry
+      (fail-closed). Emitting ``0`` here would let a read-only status call
+      masquerade as a dry round and terminate the loop.
+    """
+    fresh = ledger["rounds"][rounds_before:]
+    if not fresh:
+        return
+    print(f"NEW_FINDINGS={sum(r['new_findings'] for r in fresh)}", file=sys.stderr)
+
+
 # === main ==================================================================
 
 def build_parser() -> argparse.ArgumentParser:
@@ -515,11 +703,12 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
         return 2
 
     degraded_any = False
+    rounds_before = len(ledger["rounds"])
     if not args.status:
         ran, degraded_any = execute_rounds(ledger, scope, args, run)
         mutated = mutated or ran
 
-    verdict = convergence(ledger, args.dry_rounds)
+    verdict = convergence(ledger, args.dry_rounds, args.max_rounds)
     if mutated:
         save_ledger(ledger, lpath)
 
@@ -530,10 +719,12 @@ def main(argv: list[str] | None = None, run: Runner = touring_run) -> int:
                    for r in ledger["rounds"]],
         "coverage": ledger["coverage"],
         "open_questions": [q for q in ledger["questions"] if q["status"] == "open"],
+        "lens_yield": lens_yield_totals(ledger, rounds_before),
         "verdict": verdict,
     }, degraded_any, "daemon degraded during ≥1 lens — grep fallback used")
     if not emit_result(payload, args):
         human_report(ledger, verdict)
+    emit_dry_signal(ledger, rounds_before)
     if degraded_any:
         return 3
     return 0 if verdict["converged"] else 1

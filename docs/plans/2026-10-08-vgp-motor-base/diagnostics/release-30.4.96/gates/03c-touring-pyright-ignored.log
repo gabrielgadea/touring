@@ -1,0 +1,54 @@
+# gate=03c-touring-pyright-ignored
+# cmd=scripts/hw-slot --class rust --label release-30.4.96 -- cargo test -p touring-pyright --no-fail-fast -- --ignored
+# inicio_utc=2026-10-09T22:00:18Z
+# disco_livre_gb=436
+hw-slot: aguardando — temp 99C > 88C
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/lib.rs (target/debug/deps/touring_pyright-db58730e20bb9c48)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 71 filtered out; finished in 0.00s
+
+     Running tests/pool_guard.rs (target/debug/deps/pool_guard-94f1d62206ac0157)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 1 filtered out; finished in 0.00s
+
+     Running tests/pool_real.rs (target/debug/deps/pool_real-d21ef3caf3078c40)
+
+running 1 test
+test twenty_checks_on_one_root_share_one_server_and_the_warm_ones_are_fast ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.42s
+
+     Running tests/pyright_real.rs (target/debug/deps/pyright_real-2edc231c8a05692e)
+
+running 15 tests
+test dunder_attribute_of_a_class_is_dynamic_and_only_warns ... ok
+test invented_attribute_of_a_stdlib_module ... ok
+test clean_code_and_a_real_module_have_no_achado ... ok
+test delta_against_the_real_disk_content_blames_only_the_edit ... ok
+test invented_import_of_a_name_missing_from_a_project_module ... ok
+test invented_keyword_argument ... ok
+test invented_member_of_a_stdlib_class_instance_is_project_scope_and_denies_inline ... ok
+test invented_method_of_a_str ... ok
+test invented_undefined_name ... ok
+test session_for_a_project_without_a_venv_fails_open_with_a_reason ... ok
+test known_gaps_literal_receiver_overloaded_callee_and_class_object_are_not_negations ... ok
+test reopening_the_same_uri_returns_each_contents_own_result_not_the_cleanup ... ok
+test overlay_makes_an_unsaved_symbol_resolvable ... ok
+test undefined_name_under_a_star_import_is_dynamic_and_only_warns ... ok
+test warm_latency_p95_fits_the_one_second_budget ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.55s
+
+   Doc-tests touring_pyright
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+# rc=0
+# fim_utc=2026-10-09T22:00:29Z

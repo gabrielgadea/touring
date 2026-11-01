@@ -111,10 +111,50 @@ fn registry_has_expected_count() {
     //   2 ao literal consertaria `--all-features` e quebraria o default.
     // 2026-08-04: +1 cli-memory-credit (case attribution — closes the
     //   recall->outcome loop the case bank never had): 222->223 / 224->225.
+    // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands —
+    //   cli-memory-tag-add / tags / query (F1), cli-memory-sync-tags (F2),
+    //   cli-memory-link / links (F3), cli-memory-backfill-tags (F4),
+    //   cli-memory-moc / communities / unlink (F5-F6): 223->233 / 225->235.
+    // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest:
+    //   233->234 / 235->236.
+    // 2026-08-18 (plano graph-engineering-flow-portfolio, C2+C3): +4 decompose
+    //   verbs — cli-decompose-claim / cli-decompose-release (atomic claim with an
+    //   expiring lease: `ready` only READS, so two sessions polling it received the
+    //   SAME subtask) and cli-decompose-ticket / cli-decompose-frontier (Wayfinder:
+    //   decision tickets gate the implementation frontier): 234->238 / 236->240.
+    // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run — o `touring run` é um
+    //   CLI efêmero, então o `record_code_mode_run` do executor incrementava um
+    //   counter que morria com o processo; o `gate-metrics` lê do daemon, e por
+    //   isso o canal SEM MCP contava zero (163 runs no journal contra
+    //   `code_mode_runs_count = 0`) enquanto a rota MCP contava tudo. Este hook
+    //   é o relay que o CLI usa para o daemon contabilizar: 238->239 / 240->241.
+    // 2026-08-29 (R1 ligar-não-construir): +1 cli-gotcha-resolve — o produtor
+    //   do canal que `touring.gotcha.resolution` lê (91 gotchas, meter 0.0:
+    //   `resolved_at` existia no schema e nenhum caminho o escrevia):
+    //   239->240 / 241->242.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list} — a superfície do
+    //   ExperimentLog (zero chamadores de produção; o A/B do variant_archive
+    //   passa a registrar e ler de volta): 240->242 / 242->244.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay — o canal offline→engine
+    //   (o corpus de outcomes recompensados nunca alcançava o OnlineRLEngine;
+    //   o motor recomeçava do zero a cada restart): 242->243 / 244->245.
+    // 2026-09-13 (I13, análise Graft §27 opção B): +1 cli-index-why — o rebuild já
+    //   contava e amostrava os arquivos recusados (`oversized_skipped`, ≤10 paths),
+    //   mas a resposta era transiente; `touring index why <path>` aplica as regras
+    //   do próprio walker a um arquivo, sob demanda, e nomeia a exclusão
+    //   (skipped_dir / unsupported_extension / oversized / …): 243->244 / 245->246.
+    // 2026-09-20: +1 cli-decompose-reconcile-stages — fecha estagio cujos
+    //   irmaos todos terminaram (os 74 ::scout que o closer nunca vera):
+    //   246->247 / 248->249 (o e7f47c1d adicionou o handler e este comentário
+    //   SEM bump das constantes — 5 dias vermelho; corrigido 25/09, REGRA #21).
+    // 2026-09-19: +1 cli-decompose-archive — `archive_completed_tasks` existia,
+    //   estava testada e tinha ZERO chamadores de produção, então nenhuma task
+    //   terminal jamais recebia `archived_at` (NULL em 381 de 381, medido).
+    //   O handler é a rota que faltava (REGRA #0): 244->245 / 246->247.
     #[cfg(feature = "acp-protocol")]
-    const EXPECTED_NAMES: usize = 225;
+    const EXPECTED_NAMES: usize = 249;
     #[cfg(not(feature = "acp-protocol"))]
-    const EXPECTED_NAMES: usize = 223;
+    const EXPECTED_NAMES: usize = 247;
     assert_eq!(names.len(), EXPECTED_NAMES);
     // Backward-compat constant (204, feature-gated entries differ)
     // 2026-05-07: +1 user_prompt_submit = 205
@@ -131,7 +171,70 @@ fn registry_has_expected_count() {
     // 2026-05-30 (ES2 P2): +1 cli-attest-contract = 217.
     // 2026-06-01 (ES1 P4): +1 cli-prove-claim = 218.
     // 2026-08-04: +1 cli-memory-credit = 219.
-    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 219);
+    // 2026-08-12 (hashtag library F1-F6): +10 memory facet commands = 229.
+    // 2026-08-12 (H2 SCIP type-aware wiring): +1 cli-wiring-scip-ingest = 230.
+    // 2026-08-18 (C2+C3): +4 cli-decompose-{claim,release,ticket,frontier} = 234.
+    // 2026-08-24 (code-mode máximo): +1 cli-code-mode-run = 235.
+    // 2026-08-29 (R1): +1 cli-gotcha-resolve = 236.
+    // 2026-08-29 (R4): +2 cli-experiment-{record,list} = 238.
+    // 2026-08-29 (P2 replay): +1 cli-learning-replay = 239.
+    // 2026-09-13 (I13): +1 cli-index-why = 240.
+    // 2026-09-20: +1 cli-decompose-reconcile-stages = 241 (o e7f47c1d não
+    //   bumpou NENHUMA das 4 cópias do tripwire; corrigido 25/09, REGRA #21).
+    assert_eq!(ALL_DAEMON_HOOK_NAMES.len(), 241);
+}
+
+/// The tripwire literal is duplicated across four files; this asserts they agree.
+///
+/// The count guard exists in `touring-dispatch/src/hook_registry_tests.rs` and in
+/// three `touring-hooks` integration tests. Updating a SUBSET is how
+/// `cli-memory-credit` reached CI with three red tests — and, on 2026-08-18, how
+/// adding four decompose verbs turned up as three separate failures discovered one
+/// run at a time. Per the injection-density lesson, a quality invariant has to be
+/// enforced over ALL its instances at once or it recurs in the next uncovered one.
+///
+/// This does not weaken the tripwire: a new hook still requires a human to change
+/// the number deliberately. It only makes the four copies unable to drift apart.
+#[test]
+fn every_hook_count_tripwire_agrees_with_the_others() {
+    use std::path::Path as StdPath;
+
+    // The workspace root, from this file's location at compile time.
+    let root = StdPath::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(StdPath::parent)
+        .expect("workspace root");
+    let sites = [
+        "crates/touring-dispatch/src/hook_registry_tests.rs",
+        "crates/touring-hooks/tests/stringzilla_e2e.rs",
+        "crates/touring-hooks/tests/wave2_4_e2e.rs",
+        "crates/touring-hooks/tests/wave_c_e2e.rs",
+    ];
+    let mut found: Vec<(&str, Vec<String>)> = Vec::new();
+    for site in sites {
+        let path = root.join(site);
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|e| panic!("tripwire site {site} unreadable: {e}"));
+        let counts: Vec<String> = text
+            .lines()
+            .filter_map(|l| l.trim().strip_prefix("const EXPECTED_NAMES: usize = "))
+            .map(|v| v.trim_end_matches(';').to_string())
+            .collect();
+        assert!(
+            !counts.is_empty(),
+            "{site} no longer declares EXPECTED_NAMES — either the tripwire was \
+             removed or this guard's site list is stale"
+        );
+        found.push((site, counts));
+    }
+    let (first_site, first) = &found[0];
+    for (site, counts) in &found[1..] {
+        assert_eq!(
+            counts, first,
+            "hook-count tripwires disagree: {site} has {counts:?} while \
+             {first_site} has {first:?} — update every site together"
+        );
+    }
 }
 
 /// Sprint 4.6 regression guard (2026-05-23).
@@ -259,6 +362,84 @@ fn sprint_4_6_no_dispatch_entry_may_call_an_emitting_run() {
                  dispatch entries are guarded.",
             violations.len(),
             violations.join("\n")
+        );
+    }
+}
+
+// ── C4 (2026-10-17): guards vs advisories ─────────────────────────────────────────
+
+/// Handler sources whose deny is a helper of another hook, not a hook of its own.
+const DENY_HELPER_FILES: &[&str] = &["vgp-execucao"];
+
+/// Production part of a source file: everything before its first `#[cfg(test)]`.
+fn production_part(src: &str) -> &str {
+    src.split("#[cfg(test)]").next().unwrap_or(src)
+}
+
+/// The set of hooks whose handler source can deny is DERIVED from the code, so the
+/// declared [`GUARD_HOOK_NAMES`] cannot drift: a new denying handler that is not declared a
+/// guard would stay fail-open on a degraded stdin — exactly the defect C4 closes.
+#[test]
+fn guard_set_matches_the_handlers_that_can_deny() {
+    let dir =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../touring-hook-handlers/src/hooks");
+    let mut derived: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    for entry in std::fs::read_dir(&dir).unwrap_or_else(|e| panic!("read {}: {e}", dir.display())) {
+        let path = entry.expect("dir entry").path();
+        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+            continue;
+        }
+        let src = std::fs::read_to_string(&path).expect("read handler source");
+        let prod = production_part(&src);
+        let can_deny = prod.contains("HookResponse::Deny")
+            || prod.contains("build_deny(")
+            || prod.contains("build_deny_with_context(")
+            || prod.contains("validation_deny(");
+        if !can_deny {
+            continue;
+        }
+        let name = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .expect("utf8 stem")
+            .replace('_', "-");
+        if DENY_HELPER_FILES.contains(&name.as_str()) {
+            continue;
+        }
+        derived.insert(name);
+    }
+    let declared: std::collections::BTreeSet<String> =
+        GUARD_HOOK_NAMES.iter().map(|s| (*s).to_string()).collect();
+    assert_eq!(
+        derived, declared,
+        "GUARD_HOOK_NAMES must be exactly the hooks whose handler source can deny"
+    );
+}
+
+/// Every guard is a registered hook (a typo would make the guard branch dead code), and the
+/// advisories — the rest of the registry — are not guards.
+#[test]
+fn guards_are_registered_hooks_and_advisories_are_not_guards() {
+    let names = all_daemon_hook_names();
+    for g in GUARD_HOOK_NAMES {
+        assert!(names.contains(g), "guard '{g}' is not a registered hook");
+        assert!(is_guard_hook(g));
+    }
+    for advisory in [
+        "pre-grep",
+        "pre-glob",
+        "cli-suggest",
+        "ceg-observe",
+        "post-bash",
+        "post-edit",
+        "post-write",
+        "post-read",
+        "session-start",
+        "prompt-enhance",
+    ] {
+        assert!(
+            !is_guard_hook(advisory),
+            "'{advisory}' must stay an advisory"
         );
     }
 }

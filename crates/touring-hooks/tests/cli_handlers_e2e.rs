@@ -27,7 +27,11 @@ use touring_hooks::cli_handlers::*;
 // verde sobre código que nunca roda em produção. Agora `cli_decompose_*` vem
 // todo do glob `cli_handlers::*` = o que o daemon executa de fato.
 // `cli_tasksfile_*` seguem aqui porque só existem neste módulo.
-use touring_hooks::cli_handlers_decompose::{cli_tasksfile_export, cli_tasksfile_validate};
+use touring_hooks::cli_handlers_decompose::{
+    cli_decompose_claim, cli_decompose_frontier, cli_decompose_release, cli_decompose_renew,
+    cli_decompose_ticket, cli_tasksfile_export, cli_tasksfile_validate, disable_test_seams,
+    enable_test_seams,
+};
 use touring_hooks::cli_handlers_index::{cli_ast_blast, cli_ast_find, cli_ast_overview};
 use touring_hooks::runtime::HookRuntime;
 
@@ -722,6 +726,235 @@ fn test_gotcha_stats() {
     assert!(stats["total"].is_number());
     assert!(stats["resolved"].is_number());
     assert!(stats["unresolved"].is_number());
+}
+
+/// R1 (29/08): `resolve` é o PRODUTOR do canal que `touring.gotcha.resolution`
+/// lê — add → resolve incrementa `stats.resolved`; re-resolver é idempotente e
+/// declarado; id fantasma ensina a correção em vez de só recusar.
+#[test]
+fn test_gotcha_resolve_feeds_the_resolution_channel() {
+    let (_tmp, mut rt) = setup_runtime();
+    cli_gotcha_add(
+        &mut rt,
+        &serde_json::json!({
+            "pattern": "resolve_e2e.rs",
+            "description": "gotcha de prova do canal de resolução",
+            "severity": "low"
+        }),
+    );
+    let before = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    let resolved = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "pattern": "resolve_e2e", "why": "prova e2e" }),
+    ));
+    assert_eq!(resolved["resolved"], true, "payload: {resolved}");
+    let id = resolved["id"].as_i64().expect("id ecoado");
+    let after = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    assert_eq!(
+        after["resolved"].as_i64().unwrap_or(0),
+        before["resolved"].as_i64().unwrap_or(0) + 1,
+        "o meter que estava em 0.0 agora tem produtor"
+    );
+    // idempotente e declarado
+    let again = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id }),
+    ));
+    assert_eq!(again["already_resolved"], true, "payload: {again}");
+    // id fantasma → erro que ensina
+    let ghost = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": 999_999 }),
+    ));
+    assert!(
+        ghost["error"].is_string() && ghost["hint"].is_string(),
+        "payload: {ghost}"
+    );
+    // reopen (achado F-2 do cross-audit 29/08): o inverso existe e o meter volta
+    let reopened = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id, "reopen": true, "why": "prova do verbo inverso" }),
+    ));
+    assert_eq!(reopened["reopened"], true, "payload: {reopened}");
+    let final_stats = parse_json(&cli_gotcha_stats(&mut rt, &serde_json::json!({})));
+    assert_eq!(
+        final_stats["resolved"].as_i64().unwrap_or(-1),
+        before["resolved"].as_i64().unwrap_or(0),
+        "reopen devolve o meter ao estado anterior"
+    );
+    // reopen de algo não-resolvido: declarado, nunca silencioso
+    let noop = parse_json(&cli_gotcha_resolve(
+        &mut rt,
+        &serde_json::json!({ "id": id, "reopen": true }),
+    ));
+    assert_eq!(noop["reopened"], false, "payload: {noop}");
+    assert!(noop["hint"].is_string(), "payload: {noop}");
+}
+
+/// P5 (graph contract, 2026-08-30): sugestões derivadas do co-serviço
+/// durável — pares co-servidos >= min_co sem aresta tipada; par já ligado
+/// jamais ressurge; abaixo do piso não aparece; cada sugestão carrega o
+/// comando de aplicação exato (o nudge entrega o programa).
+#[test]
+fn test_memory_suggest_links_derives_from_coservice_and_skips_linked_pairs() {
+    let (_tmp, mut rt) = setup_runtime();
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+    let conn = rusqlite::Connection::open(&db).expect("open memory.db");
+    touring_intelligence::rl::memory::tags::ensure_tag_schema(&conn).expect("tag schema");
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS memory_coserved (
+             pair TEXT PRIMARY KEY, a TEXT NOT NULL, b TEXT NOT NULL,
+             count INTEGER NOT NULL DEFAULT 1,
+             last_at TEXT NOT NULL DEFAULT (datetime('now')));
+         INSERT INTO memory_coserved(pair, a, b, count) VALUES
+             ('ka|kb', 'ka', 'kb', 5),
+             ('ka|kc', 'ka', 'kc', 4),
+             ('kd|ke', 'kd', 'ke', 2);",
+    )
+    .expect("seed coserved");
+    // ka<->kc já tem aresta tipada: a sugestão jamais o repete.
+    touring_intelligence::rl::memory::tags::upsert_link(
+        &conn,
+        "ka",
+        touring_intelligence::rl::memory::tags::LinkRel::RelatesTo,
+        "kc",
+    )
+    .expect("link");
+    drop(conn);
+    let out = parse_json(&touring_hook_runtime::ceg_impls::cli_memory_links(
+        &mut rt,
+        &serde_json::json!({ "suggest": true, "min_co": 3 }),
+    ));
+    assert_eq!(out["count"], 1, "payload: {out}");
+    let s = &out["suggestions"][0];
+    assert_eq!(s["a"], "ka", "payload: {out}");
+    assert_eq!(s["b"], "kb", "payload: {out}");
+    assert_eq!(s["co_served"], 5, "payload: {out}");
+    assert_eq!(s["derived"], true, "nunca gravação automática: {out}");
+    assert!(
+        s["apply"]
+            .as_str()
+            .expect("apply")
+            .contains("touring memory link ka kb --rel relates-to"),
+        "a sugestão carrega o comando exato: {out}"
+    );
+    assert!(
+        !out.to_string().contains("kd"),
+        "abaixo do min_co não aparece: {out}"
+    );
+}
+
+/// P2 replay (29/08): o canal offline→engine. Semeia outcomes recompensados
+/// no memory.db e prova: (a) o replay consome TODOS e o update_count do
+/// engine avança na mesma medida; (b) o cursor é durável — a 2ª chamada
+/// replaya 0; (c) dry_run não toca engine nem cursor; (d) corpus_pending
+/// zera após o consumo; (e) o snapshot de identidade vai ao disco.
+#[test]
+fn test_learning_replay_consumes_the_outcome_corpus_once() {
+    let (_tmp, mut rt) = setup_runtime();
+    let db = touring_foundation::TouringConfig::memory_db_canonical(&rt.project_root);
+    std::fs::create_dir_all(db.parent().expect("parent")).expect("mkdir");
+    let conn = rusqlite::Connection::open(&db).expect("open memory.db");
+    // HookRuntime::new já cria o memory.db com o schema real — o seed insere
+    // NELE (teste do caminho, não de uma fixture paralela); o IF NOT EXISTS
+    // cobre apenas um harness futuro que não o crie.
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS memory_entries \
+         (key TEXT PRIMARY KEY, value TEXT, outcome_reward REAL);",
+    )
+    .expect("schema");
+    for i in 0..5 {
+        conn.execute(
+            "INSERT INTO memory_entries (key, value, outcome_reward) VALUES (?1, ?2, ?3)",
+            rusqlite::params![
+                format!("outcome:bash:seed-{i}"),
+                "seed",
+                if i % 2 == 0 { 0.9 } else { 0.2 }
+            ],
+        )
+        .expect("seed row");
+    }
+    // Uma entrada SEM reward jamais é replayada.
+    conn.execute(
+        "INSERT INTO memory_entries (key, value) VALUES ('lesson:sem-reward', 'x')",
+        [],
+    )
+    .expect("unrewarded row");
+    let count_before = rt
+        .learning
+        .online_rl
+        .as_ref()
+        .map(touring_intelligence::rl::OnlineRLEngine::update_count)
+        .expect("engine");
+    // (c) dry_run: conta sem consumir.
+    let dry = parse_json(&cli_learning_replay(
+        &mut rt,
+        &serde_json::json!({ "dry_run": true }),
+    ));
+    assert_eq!(dry["available"], 5, "payload: {dry}");
+    assert_eq!(dry["replayed"], 0, "payload: {dry}");
+    assert_eq!(dry["corpus_pending"], 5, "dry_run não avança cursor: {dry}");
+    // (a) consumo real.
+    let first = parse_json(&cli_learning_replay(&mut rt, &serde_json::json!({})));
+    assert_eq!(first["replayed"], 5, "payload: {first}");
+    assert_eq!(first["corpus_pending"], 0, "payload: {first}");
+    let count_after = rt
+        .learning
+        .online_rl
+        .as_ref()
+        .map(touring_intelligence::rl::OnlineRLEngine::update_count)
+        .expect("engine");
+    assert_eq!(
+        count_after,
+        count_before + 5,
+        "cada outcome vira exatamente 1 update no engine"
+    );
+    // (e) identidade persistida em disco (a retenção que faltava).
+    let stats_raw =
+        std::fs::read_to_string(rt.project_root.join(".claude/data/online_rl_state.json"))
+            .expect("snapshot de identidade no disco");
+    let stats: serde_json::Value = serde_json::from_str(&stats_raw).expect("json");
+    assert_eq!(stats["update_count"].as_u64(), Some(count_after));
+    // (b) cursor durável: nada resta para a 2ª chamada.
+    let second = parse_json(&cli_learning_replay(&mut rt, &serde_json::json!({})));
+    assert_eq!(second["replayed"], 0, "payload: {second}");
+    assert_eq!(second["cursor"]["replayed_total"], 5, "payload: {second}");
+}
+
+/// F-1 do cross-audit 29/08: um rótulo de decisão inválido era coagido em
+/// silêncio para `keep` — o veredito MAIS FORTE (atualiza best_reward).
+/// Agora ensina; e o round-trip record→list devolve variant/target/reward.
+#[test]
+fn test_experiment_record_teaches_on_invalid_decision_and_round_trips() {
+    let (_tmp, mut rt) = setup_runtime();
+    let bad = parse_json(&cli_experiment_record(
+        &mut rt,
+        &serde_json::json!({ "variant": "v", "target": "t", "decision": "banana" }),
+    ));
+    assert!(
+        bad["error"].is_string() && bad["hint"].is_string(),
+        "payload: {bad}"
+    );
+    let ok = parse_json(&cli_experiment_record(
+        &mut rt,
+        &serde_json::json!({
+            "variant": "variante de prova", "target": "alvo-e2e",
+            "reward": 0.7, "decision": "keep",
+        }),
+    ));
+    assert_eq!(ok["recorded"], true, "payload: {ok}");
+    let listed = parse_json(&cli_experiment_list(
+        &mut rt,
+        &serde_json::json!({ "limit": 5 }),
+    ));
+    let first = &listed["entries"][0];
+    assert_eq!(first["target"], "alvo-e2e");
+    assert_eq!(
+        first["variant"], "variante de prova",
+        "diagnostic volta no reader: {listed}"
+    );
+    assert_eq!(listed["best_reward"], 0.7);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1713,6 +1946,1275 @@ fn test_decompose_ready_filters_pending_with_completed_deps() {
         ready["ready_subtasks"].is_array(),
         "ready_subtasks array expected"
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// C2: ATOMIC CLAIM — two sessions must never receive the same subtask
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Create a task with `n` independent, immediately-ready subtasks.
+fn seed_ready_task(rt: &mut HookRuntime, n: usize) -> String {
+    let create = parse_json(&cli_decompose_create(
+        rt,
+        &serde_json::json!({"task_type": "intent", "description": "claim test"}),
+    ));
+    let task_id = create["task_id"].as_str().unwrap().to_string();
+    for i in 0..n {
+        cli_decompose_add(
+            rt,
+            &serde_json::json!({
+                "task_id": task_id,
+                "subtask_id": format!("S-{i:02}"),
+                "description": format!("subtask {i}"),
+                "depends_on": []
+            }),
+        );
+    }
+    task_id
+}
+
+/// THE C2 GATE. `ready` only reads, so two sessions polling it are handed the
+/// same subtask and both start it. Claiming is a conditional write, so of two
+/// racing claimers each gets a DIFFERENT subtask.
+#[test]
+fn two_sessions_claiming_never_receive_the_same_subtask() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    // Both sessions see the same thing through the read-only view...
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        ready["ready_subtasks"].as_array().map(Vec::len),
+        Some(2),
+        "both subtasks are ready — which is exactly why reading cannot allocate work"
+    );
+
+    // ...but only one of them can CLAIM any given subtask.
+    let a = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "session-a"}),
+    ));
+    let b = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "session-b"}),
+    ));
+    assert_eq!(a["claimed"], serde_json::json!(true), "{a}");
+    assert_eq!(b["claimed"], serde_json::json!(true), "{b}");
+    assert_ne!(
+        a["subtask_id"], b["subtask_id"],
+        "two sessions received the SAME subtask: {a} vs {b}"
+    );
+}
+
+#[test]
+fn a_third_claimer_finds_nothing_left_rather_than_duplicating_work() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    for owner in ["a", "b"] {
+        let got = parse_json(&cli_decompose_claim(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "owner": owner}),
+        ));
+        assert_eq!(got["claimed"], serde_json::json!(true));
+    }
+    let third = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "c"}),
+    ));
+    assert_eq!(third["claimed"], serde_json::json!(false), "{third}");
+    assert!(third["reason"].as_str().unwrap().contains("no unblocked"));
+}
+
+#[test]
+fn a_claim_is_refused_without_an_owner_to_attribute_it_to() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let got = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(got["claimed"], serde_json::json!(false));
+    assert!(got["error"].as_str().unwrap().contains("owner"));
+}
+
+#[test]
+fn claiming_respects_dependencies() {
+    let (_tmp, mut rt) = setup_runtime();
+    let create = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "dep test"}),
+    ));
+    let task_id = create["task_id"].as_str().unwrap().to_string();
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "first",
+                            "description": "first", "depends_on": []}),
+    );
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "second",
+                            "description": "second", "depends_on": ["first"]}),
+    );
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    assert!(
+        first["subtask_id"].as_str().unwrap().ends_with("first"),
+        "{first}"
+    );
+    let blocked = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "b"}),
+    ));
+    assert_eq!(
+        blocked["claimed"],
+        serde_json::json!(false),
+        "`second` depends on an unfinished `first` — it is not claimable: {blocked}"
+    );
+}
+
+#[test]
+fn releasing_returns_the_subtask_to_the_pool_for_someone_else() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    let subtask_id = claim["subtask_id"].as_str().unwrap().to_string();
+
+    let released = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask_id, "owner": "a"}),
+    ));
+    assert_eq!(released["released"], serde_json::json!(true), "{released}");
+
+    let next = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "b"}),
+    ));
+    assert_eq!(next["claimed"], serde_json::json!(true), "{next}");
+    assert_eq!(next["subtask_id"].as_str().unwrap(), subtask_id);
+}
+
+#[test]
+fn only_the_owner_may_release_its_own_claim() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "a"}),
+    ));
+    let stolen = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id,
+            "subtask_id": claim["subtask_id"].as_str().unwrap(),
+            "owner": "an-impostor"
+        }),
+    ));
+    assert_eq!(stolen["released"], serde_json::json!(false), "{stolen}");
+    assert!(
+        stolen["reason"]
+            .as_str()
+            .unwrap()
+            .contains("not held by this owner")
+    );
+}
+
+/// A session killed mid-work must not strand its subtask forever — but the lease
+/// is the FALLBACK, not the normal path, so it only frees work after it expires.
+#[test]
+fn an_expired_lease_frees_the_subtask_for_another_session() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "died", "lease_secs": 1}),
+    ));
+    assert_eq!(claim["claimed"], serde_json::json!(true));
+
+    // Still held while the lease is live.
+    let too_soon = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next"}),
+    ));
+    assert_eq!(too_soon["claimed"], serde_json::json!(false), "{too_soon}");
+
+    // Expire it by hand rather than sleeping — the clock is not what is under test.
+    let expired = chrono::Utc::now().timestamp() - 60;
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![expired, task_id],
+        )
+        .expect("expire the lease");
+
+    let reclaimed = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next"}),
+    ));
+    assert_eq!(reclaimed["claimed"], serde_json::json!(true), "{reclaimed}");
+    assert_eq!(reclaimed["owner"].as_str(), Some("next"));
+}
+
+/// A subtask a human moved to in_progress carries no claim, and no lease of ours
+/// expires it — someone said they are on it.
+#[test]
+fn a_manually_started_subtask_is_never_stolen_by_the_claimer() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "status": "in_progress"
+        }),
+    );
+    let got = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "opportunist"}),
+    ));
+    assert_eq!(got["claimed"], serde_json::json!(false), "{got}");
+}
+
+#[test]
+fn releasing_finished_work_gives_up_the_lease_not_the_completion() {
+    // O fluxo ORDINÁRIO: reivindicar → trabalhar → marcar completed → liberar.
+    // O release setava `pending` incondicionalmente, então esse último passo
+    // DESFAZIA a conclusão e o próximo claim entregava o trabalho pronto a
+    // outra sessão (visto em 2026-08-24 com `w3b`, fechado com evidência e de
+    // volta ao conjunto ready minutos depois).
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let claimed = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "worker"}),
+    ));
+    assert_eq!(claimed["claimed"], serde_json::json!(true), "{claimed}");
+
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "status": "completed"
+        }),
+    );
+    let released = parse_json(&cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "worker"}),
+    ));
+    assert_eq!(released["released"], serde_json::json!(true), "{released}");
+
+    // A conclusão sobrevive à liberação...
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let still_ready = ready["ready_subtasks"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .any(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00"))
+        })
+        .unwrap_or(false);
+    assert!(
+        !still_ready,
+        "completed work must NOT return to the ready set after release: {ready}"
+    );
+
+    // ...e ninguém mais consegue reivindicá-la.
+    let stolen = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next-session"}),
+    ));
+    assert_eq!(
+        stolen["claimed"],
+        serde_json::json!(false),
+        "finished work must not be handed to the next claimer: {stolen}"
+    );
+}
+
+#[test]
+fn releasing_unfinished_work_does_return_it_to_the_pool() {
+    // O outro lado do mesmo contrato: quem larga sem terminar devolve o
+    // trabalho — senão uma sessão que desiste bloquearia o subtask.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "quitter"}),
+    );
+    cli_decompose_release(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "quitter"}),
+    );
+    let retaken = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "next-session"}),
+    ));
+    assert_eq!(retaken["claimed"], serde_json::json!(true), "{retaken}");
+}
+
+/// Coordenação multi-sessão (2026-09-23): `ready` listed a subtask claimed by a
+/// LIVE lease in another session, and `get` exposed no owner at all — a new
+/// session had no way to tell "someone alive holds this" from "abandoned work".
+/// The claim's own predicate is the contract: pending, or in_progress only when
+/// the lease has EXPIRED; everything claimed-live stays OUT of ready, and both
+/// views name the owner, the lease and its liveness.
+#[test]
+fn ready_excludes_live_claims_and_get_names_the_owner() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let claim = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-viva", "lease_secs": 3600}),
+    ));
+    assert_eq!(claim["claimed"], serde_json::json!(true), "{claim}");
+    let claimed_id = claim["subtask_id"].as_str().unwrap().to_string();
+
+    // ready: the live-claimed subtask leaves the pool; the free one stays.
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ready_ids: Vec<&str> = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|s| s["subtask_id"].as_str().unwrap())
+        .collect();
+    assert!(
+        !ready_ids.contains(&claimed_id.as_str()),
+        "a live-claimed subtask is NOT ready: {ready_ids:?}"
+    );
+    assert_eq!(
+        ready_ids.len(),
+        1,
+        "the free subtask stays ready: {ready_ids:?}"
+    );
+
+    // get: every subtask names its owner, lease and liveness.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = got["subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str() == Some(claimed_id.as_str()))
+        .expect("the claimed subtask is in get");
+    assert_eq!(sub["claimed_by"].as_str(), Some("sessao-viva"), "{sub}");
+    assert_eq!(sub["claim_live"].as_bool(), Some(true), "{sub}");
+
+    // The claim's own predicate, mirrored: once the lease EXPIRES the subtask
+    // is ready again — abandoned work must not strand the pool.
+    let expired = chrono::Utc::now().timestamp() - 60;
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![expired, task_id],
+        )
+        .expect("expire the lease");
+    let ready2 = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ready2_ids: Vec<&str> = ready2["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .map(|s| s["subtask_id"].as_str().unwrap())
+        .collect();
+    assert!(
+        ready2_ids.contains(&claimed_id.as_str()),
+        "an EXPIRED claim returns the subtask to ready: {ready2_ids:?}"
+    );
+    let got2 = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub2 = got2["subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str() == Some(claimed_id.as_str()))
+        .expect("subtask present");
+    assert_eq!(sub2["claim_live"].as_bool(), Some(false), "{sub2}");
+}
+
+/// analise-d4 → touring-36 (2026-09-24): wanting a SPECIFIC subtask (A1, held
+/// by a dead session's still-live lease), it ran plain `claim` twice and was
+/// handed A5 and A6 with no explanation. `claim --subtask <id>` names the
+/// work — and every refusal names its reason.
+#[test]
+fn claim_subtask_takes_the_named_one_not_the_next() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    // S-00 sorts first in the pool; naming S-01 must claim S-01.
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-01"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-01"),
+        "the NAMED subtask, not the pool's first: {c}"
+    );
+}
+
+#[test]
+fn claim_subtask_refuses_a_live_lease_naming_the_owner() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-morta", "lease_secs": 3600}),
+    ));
+    assert_eq!(first["claimed"], serde_json::json!(true), "{first}");
+    let held = first["subtask_id"].as_str().unwrap().to_string();
+    let held_short = held.rsplit("::").next().unwrap_or(&held).to_string();
+
+    let refused = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": held_short}),
+    ));
+    assert_eq!(refused["claimed"], serde_json::json!(false), "{refused}");
+    let reason = refused["reason"].as_str().unwrap_or("");
+    assert!(
+        reason.contains("sessao-morta"),
+        "the refusal names the live owner: {refused}"
+    );
+    assert!(reason.contains("lease"), "and the lease: {refused}");
+
+    // The free sibling is still claimable by name.
+    let other = if held_short == "S-00" { "S-01" } else { "S-00" };
+    let ok = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": other}),
+    ));
+    assert_eq!(ok["claimed"], serde_json::json!(true), "{ok}");
+}
+
+#[test]
+fn claim_subtask_with_an_expired_lease_succeeds() {
+    // The analise-d4 case once the dead session's lease lapses.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let first = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "sessao-morta", "lease_secs": 60}),
+    ));
+    assert_eq!(first["claimed"], serde_json::json!(true), "{first}");
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![chrono::Utc::now().timestamp() - 1, task_id],
+        )
+        .expect("expire the lease");
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert_eq!(c["owner"], serde_json::json!("eu"), "{c}");
+}
+
+#[test]
+fn claim_subtask_names_terminal_status_and_unknown_ids() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let done = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(done["claimed"], serde_json::json!(false), "{done}");
+    assert!(
+        done["reason"].as_str().unwrap_or("").contains("completed"),
+        "the refusal names the terminal status: {done}"
+    );
+
+    let missing = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-99"}),
+    ));
+    assert_eq!(missing["claimed"], serde_json::json!(false), "{missing}");
+    assert!(
+        missing["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("not found"),
+        "an unknown id says so: {missing}"
+    );
+}
+
+#[test]
+fn claim_subtask_blocked_names_the_pending_deps() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id,
+            "subtask_id": "S-01",
+            "description": "blocked",
+            "depends_on": ["S-00"]
+        }),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "subtask_id": "S-01"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(false), "{c}");
+    assert!(
+        c["reason"].as_str().unwrap_or("").contains("S-00"),
+        "the refusal names the pending dep: {c}"
+    );
+}
+
+/// analise-d4 → touring-36 (2026-09-24): a subtask ticketed
+/// `kind=decision, autonomy=hitl` — Gabriel's own decision — entered the
+/// `ready` pool and plain `claim` could take it: the ticket DECLARES "human
+/// present" and the claim never read the field. The pool path now skips
+/// `hitl`; the NAMED path (`--subtask`) stays open as the directed way in;
+/// `ready` keeps listing the work but marks it.
+#[test]
+fn pool_claim_skips_hitl_and_takes_the_next_claimable() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    // S-00 sorts first and would be claimed first — make it the human's.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-01"),
+        "the pool claim skips the human's decision: {c}"
+    );
+}
+
+#[test]
+fn pool_claim_with_only_hitl_left_names_the_reason() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(false), "{c}");
+    assert_eq!(c["hitl_skipped"], serde_json::json!(1), "{c}");
+    let reason = c["reason"].as_str().unwrap_or("");
+    assert!(reason.contains("HITL"), "the refusal names the class: {c}");
+    assert!(
+        reason.contains("--subtask"),
+        "and names the directed path: {c}"
+    );
+}
+
+#[test]
+fn named_claim_can_take_hitl_and_ready_marks_it() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    // ready: the hitl work stays LISTED (it is unblocked), but marked.
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let item = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-00"))
+        .expect("hitl stays listed");
+    assert_eq!(item["hitl"].as_bool(), Some(true), "{item}");
+    // the directed path — the human's own session — can still take it.
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "gabriel", "subtask_id": "S-00"}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+}
+
+/// touring-36 (2026-09-24): `claim` ordered by (priority, id) while `ready`
+/// listed INSERTION order — with everything at priority 128, `ready` showed
+/// A6 first and `claim` delivered A3a ('3' < '6'), so a guard trusting
+/// `ready[0]` mispredicted the claim. The queue order has ONE source now:
+/// `queue_order`, shared by both — ready's first (excluding hitl) IS the
+/// subtask a pool claim delivers.
+#[test]
+fn ready_lists_in_the_exact_order_claim_would_deliver() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    // Same priority, ids OUT of insertion order: S-06 added before S-03.
+    for id in ["S-06", "S-03"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let first = ready["ready_subtasks"][0]["subtask_id"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    assert!(
+        first.ends_with("S-03"),
+        "ready's first is the queue's first: {ready}"
+    );
+
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert!(
+        c["subtask_id"].as_str().unwrap_or("").ends_with("S-03"),
+        "claim delivers what ready listed first: {c}"
+    );
+}
+
+#[test]
+fn ready_first_excluding_hitl_is_what_claim_delivers() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    for id in ["S-06", "S-03"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    // The queue's first is the human's decision.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-03",
+                            "kind": "decision", "autonomy": "hitl"}),
+    );
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    // ready still lists S-03 first — marked.
+    let items = ready["ready_subtasks"].as_array().expect("array");
+    assert!(
+        items[0]["subtask_id"]
+            .as_str()
+            .unwrap_or("")
+            .ends_with("S-03"),
+        "{ready}"
+    );
+    assert_eq!(items[0]["hitl"].as_bool(), Some(true), "{ready}");
+    // The first EXCLUDING hitl predicts the pool claim.
+    let first_free = items
+        .iter()
+        .find(|s| s["hitl"].as_bool() != Some(true))
+        .and_then(|s| s["subtask_id"].as_str())
+        .unwrap_or("")
+        .to_string();
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "agente"}),
+    ));
+    assert_eq!(
+        c["subtask_id"].as_str().unwrap_or(""),
+        first_free.as_str(),
+        "ready (excluding hitl) predicts the claim: ready={first_free} claim={c}"
+    );
+}
+
+/// 30.4.67 (touring-36, REGRA #21): `--by-priority` was accepted and re-sorted
+/// by priority ONLY over the delegate's insertion order — two order sources
+/// diverging on ties (all at 128: A6 listed before A3a). The delegate now
+/// emits `queue_order(priority, id)` — the claim's exact order — so the flag
+/// is true by construction and the wrapper only RECORDS it. Flagged ≡ plain,
+/// pinned here with tied priorities and out-of-order ids; the markers also
+/// prove this test exercises the flag-reading wrapper, never the bare delegate.
+#[test]
+fn ready_by_priority_flag_matches_the_default_order() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+    for id in ["S-06", "S-03", "S-09"] {
+        cli_decompose_add(
+            &mut rt,
+            &serde_json::json!({"task_id": task_id, "subtask_id": id,
+                                "description": id, "depends_on": []}),
+        );
+    }
+    let order = |r: &serde_json::Value| {
+        r["ready_subtasks"]
+            .as_array()
+            .expect("array")
+            .iter()
+            .map(|s| s["subtask_id"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+    let plain = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let flagged = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "by_priority": true}),
+    ));
+    assert_eq!(
+        order(&plain),
+        order(&flagged),
+        "the flag changes nothing — flagged ≡ plain: {plain} vs {flagged}"
+    );
+    assert_eq!(
+        flagged["sorted_by_priority"],
+        serde_json::json!(true),
+        "{flagged}"
+    );
+    assert_eq!(
+        plain["sorted_by_priority"],
+        serde_json::json!(false),
+        "{plain}"
+    );
+}
+
+/// analise-d4 → touring-36 (2026-09-24): no verb could RENEW a lease — the
+/// L11 claim lapsed mid-work at ~18:50 UTC and `claim` only takes the NEXT
+/// ready (naming the same subtask REFUSES even for the holder). `renew` is
+/// the claim lifecycle's heartbeat: a conditional write that extends only
+/// `in_progress` + this owner + a LIVE lease, and names every refusal.
+#[test]
+fn renew_extends_a_live_lease_for_its_holder() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let c = parse_json(&cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 60}),
+    ));
+    assert_eq!(c["claimed"], serde_json::json!(true), "{c}");
+    let old_exp = c["claim_expires_at"].as_i64().unwrap();
+
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(true), "{r}");
+    assert!(
+        r["claim_expires_at"].as_i64().unwrap() > old_exp,
+        "the lease moved forward: {r}"
+    );
+
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = &got["subtasks"].as_array().expect("array")[0];
+    assert_eq!(sub["status"], serde_json::json!("in_progress"), "{sub}");
+    assert_eq!(sub["claimed_by"], serde_json::json!("eu"), "{sub}");
+}
+
+#[test]
+fn renew_refuses_another_owners_lease_and_a_pending_subtask() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "outra-sessao", "lease_secs": 3600}),
+    );
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "eu"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("outra-sessao"),
+        "the refusal names the holder: {r}"
+    );
+
+    // The pending sibling was never claimed — there is no lease to renew.
+    let r2 = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "owner": "eu"}),
+    ));
+    assert_eq!(r2["renewed"], serde_json::json!(false), "{r2}");
+    assert!(
+        r2["reason"].as_str().unwrap_or("").contains("pending"),
+        "the refusal names the status: {r2}"
+    );
+}
+
+#[test]
+fn renew_never_resurrects_an_expired_lease() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 60}),
+    );
+    rt.ctx
+        .knowledge
+        .conn_ref()
+        .execute(
+            "UPDATE decomposition_subtasks SET claim_expires_at = ?1 WHERE task_id = ?2",
+            rusqlite::params![chrono::Utc::now().timestamp() - 1, task_id],
+        )
+        .expect("expire the lease");
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("EXPIRED"),
+        "the refusal names the expiry: {r}"
+    );
+    // The expiry was NOT extended — the subtask returned to the pool.
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let sub = &got["subtasks"].as_array().expect("array")[0];
+    assert!(
+        sub["claim_expires_at"].as_i64().unwrap() < chrono::Utc::now().timestamp(),
+        "an expired lease never moves forward: {sub}"
+    );
+}
+
+#[test]
+fn renew_names_terminal_status_and_unknown_ids() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "owner": "eu"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"].as_str().unwrap_or("").contains("completed"),
+        "the refusal names the terminal status: {r}"
+    );
+
+    let missing = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-99", "owner": "eu"}),
+    ));
+    assert_eq!(missing["renewed"], serde_json::json!(false), "{missing}");
+    assert!(
+        missing["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("not found"),
+        "an unknown id says so: {missing}"
+    );
+}
+
+/// TOCTOU (touring-36, 24/09/2026): the pre-read and the conditional UPDATE
+/// are TWO steps — between them another session can take the subtask, and in
+/// that race the UPDATE's WHERE is the ONLY defense. The seam swaps the
+/// claim between the steps — and the seam itself is GATED by construction:
+/// a Rust static the daemon never flips and no RPC payload can reach.
+/// Unarmed (every shipped binary), the field is refused and the owner never
+/// moves; armed (this test binary), the swap happens and the WHERE defends.
+#[test]
+fn renew_race_seam_is_gated_and_the_where_defends_the_race() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_claim(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "owner": "eu", "lease_secs": 3600}),
+    );
+    let owner_of = |rt: &mut HookRuntime| {
+        let got = parse_json(&cli_decompose_get(
+            rt,
+            &serde_json::json!({"task_id": task_id}),
+        ));
+        got["subtasks"].as_array().expect("array")[0]["claimed_by"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    };
+
+    // UNARMED (the shipped state): the field is refused with a named error,
+    // and the owner does NOT move — the convention is now construction.
+    disable_test_seams();
+    let refused = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "_test_swap_claimed_by": "ladrao"}),
+    ));
+    assert_eq!(refused["renewed"], serde_json::json!(false), "{refused}");
+    assert!(
+        refused["error"]
+            .as_str()
+            .unwrap_or("")
+            .contains("seam de teste desativado"),
+        "the field unarmed is refused, named: {refused}"
+    );
+    assert_eq!(
+        owner_of(&mut rt),
+        "eu",
+        "an unarmed seam never moves the owner"
+    );
+
+    // ARMED (this test binary): the swap happens BETWEEN the check and the
+    // write — the UPDATE changes 0 rows and the refusal names the race.
+    enable_test_seams();
+    let r = parse_json(&cli_decompose_renew(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "owner": "eu", "lease_secs": 7200,
+                            "_test_swap_claimed_by": "ladrao"}),
+    ));
+    assert_eq!(r["renewed"], serde_json::json!(false), "{r}");
+    assert!(
+        r["reason"]
+            .as_str()
+            .unwrap_or("")
+            .contains("between the check and the write"),
+        "the refusal names the race: {r}"
+    );
+    assert_eq!(
+        owner_of(&mut rt),
+        "ladrao",
+        "the WHERE changed 0 rows: the claim that beat us is untouched"
+    );
+    disable_test_seams();
+}
+
+/// analise-d4 → touring-36 (2026-09-24): `add --priority 100` ACCEPTED
+/// the number and silently stored "normal"/128 — `add` was bucket-or-silent,
+/// `update` numeric-only: two parsers for one field, and the old unit tests
+/// even PINNED the silent discard ("xyz" → 128). `parse_priority` is the ONE
+/// parser now: bucket, integer, or a loud refusal naming the accepted forms.
+#[test]
+fn priority_accepts_number_and_bucket_and_refuses_garbage_loudly() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 0);
+
+    // A number — the analise-d4 case — stores the number.
+    let n = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01",
+                            "description": "numeric", "depends_on": [], "priority": "100"}),
+    ));
+    assert_eq!(n["priority_int"], serde_json::json!(100), "{n}");
+
+    // A bucket stores the bucket's integer.
+    let b = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-02",
+                            "description": "bucket", "depends_on": [], "priority": "high"}),
+    ));
+    assert_eq!(b["priority_int"], serde_json::json!(50), "{b}");
+
+    // Garbage is a LOUD refusal naming the accepted forms — and stores nothing.
+    let bad = parse_json(&cli_decompose_add(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-03",
+                            "description": "garbage", "depends_on": [], "priority": "xyz"}),
+    ));
+    assert_eq!(bad["persisted"], serde_json::json!(false), "{bad}");
+    let err = bad["error"].as_str().unwrap_or("");
+    assert!(err.contains("high") && err.contains("low"), "{bad}");
+    let got = parse_json(&cli_decompose_get(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        got["subtasks"].as_array().expect("array").len(),
+        2,
+        "nothing may be stored for garbage: {got}"
+    );
+
+    // `update` speaks the SAME two forms through the SAME parser.
+    let u = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "priority": "low"}),
+    ));
+    assert_eq!(u["subtask_updated"], serde_json::json!(true), "{u}");
+    let ready = parse_json(&cli_decompose_ready(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let s1 = ready["ready_subtasks"]
+        .as_array()
+        .expect("array")
+        .iter()
+        .find(|s| s["subtask_id"].as_str().unwrap_or("").ends_with("S-01"))
+        .expect("S-01 ready");
+    assert_eq!(s1["priority"], serde_json::json!(200), "{s1}");
+
+    // And update refuses garbage by name too.
+    let ub = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01", "priority": "urgent"}),
+    ));
+    assert_eq!(ub["updated"], serde_json::json!(false), "{ub}");
+    assert!(
+        ub["error"].as_str().unwrap_or("").contains("bucket"),
+        "update's refusal names the accepted forms: {ub}"
+    );
+}
+
+/// The create side of the ONE parser (touring-36, 2026-09-24): `create` used
+/// to ECHO the priority token UNVALIDATED — the response asserted a priority
+/// nobody had checked. Same parser, same loud refusal as `add`; buckets keep
+/// their old surface, numbers echo the parsed form.
+#[test]
+fn create_validates_priority_with_the_same_parser() {
+    let (_tmp, mut rt) = setup_runtime();
+
+    // A number parses and echoes as label + int.
+    let n = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "com numero",
+                            "priority": "100"}),
+    ));
+    assert_eq!(n["persisted"], serde_json::json!(true), "{n}");
+    assert_eq!(n["priority_int"], serde_json::json!(100), "{n}");
+    assert_eq!(n["priority"], serde_json::json!("high"), "{n}");
+
+    // A bucket keeps the old surface (backward compat).
+    let b = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "com bucket",
+                            "priority": "low"}),
+    ));
+    assert_eq!(b["priority"], serde_json::json!("low"), "{b}");
+    assert_eq!(b["priority_int"], serde_json::json!(200), "{b}");
+
+    // Garbage is a loud refusal — and creates nothing.
+    let bad = parse_json(&cli_decompose_create(
+        &mut rt,
+        &serde_json::json!({"task_type": "intent", "description": "lixo",
+                            "priority": "xyz"}),
+    ));
+    assert_eq!(bad["persisted"], serde_json::json!(false), "{bad}");
+    assert!(
+        bad["error"].as_str().unwrap_or("").contains("bucket"),
+        "create's refusal names the accepted forms: {bad}"
+    );
+    assert!(
+        bad.get("task_id").is_none() || bad["task_id"].is_null(),
+        "nothing created for garbage: {bad}"
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// C3: WAYFINDER — decisions gate implementation; the map indexes, it does not store
+// ═══════════════════════════════════════════════════════════════════════
+
+/// THE C3 GATE. An objective under fog produces DECISION tickets, and while any
+/// is open the frontier says so — implementation planned past an unmade decision
+/// is a plan resting on a guess.
+#[test]
+fn open_decisions_gate_the_implementation_frontier() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let ticketed = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "research", "autonomy": "hitl", "fog": "unknown"
+        }),
+    ));
+    assert_eq!(ticketed["updated"], serde_json::json!(true), "{ticketed}");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["gated_by_open_decisions"],
+        serde_json::json!(true),
+        "{frontier}"
+    );
+    assert_eq!(frontier["decisions"].as_array().map(Vec::len), Some(1));
+    assert!(
+        frontier["next_action"]
+            .as_str()
+            .unwrap()
+            .contains("resolve the decision tickets first")
+    );
+
+    // Resolve the decision → the gate lifts.
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+    let cleared = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        cleared["gated_by_open_decisions"],
+        serde_json::json!(false),
+        "{cleared}"
+    );
+    assert!(
+        cleared["next_action"]
+            .as_str()
+            .unwrap()
+            .contains("may be claimed")
+    );
+}
+
+/// Map-as-index: the reasoning lives in the ticket; the map keeps a pointer. Work
+/// that points at no decision, while decisions are open, is untraceable.
+#[test]
+fn implementation_without_an_origin_decision_is_reported_as_untraceable() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 3);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "grilling", "autonomy": "hitl", "fog": "hazy"}),
+    );
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-01",
+                            "kind": "implementation", "origin_ticket": "S-00"}),
+    );
+    // S-02 is left with no origin on purpose.
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let untraceable: Vec<String> = frontier["untraceable_implementation"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    assert_eq!(untraceable.len(), 1, "{frontier}");
+    assert!(untraceable[0].ends_with("S-02"), "{untraceable:?}");
+}
+
+/// Gathering evidence can run unattended; reaching a verdict cannot.
+#[test]
+fn only_research_decisions_may_run_unattended() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let refused = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "grilling", "autonomy": "afk"}),
+    ));
+    assert_eq!(refused["updated"], serde_json::json!(false), "{refused}");
+    assert!(
+        refused["errors"][0]
+            .as_str()
+            .unwrap()
+            .contains("reaching a verdict cannot")
+    );
+
+    let allowed = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "research", "autonomy": "afk"}),
+    ));
+    assert_eq!(allowed["updated"], serde_json::json!(true), "{allowed}");
+}
+
+#[test]
+fn ticket_enums_are_validated_rather_than_stored_as_typos() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    let got = parse_json(&cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00",
+                            "kind": "desicion", "fog": "foggy"}),
+    ));
+    assert_eq!(got["updated"], serde_json::json!(false));
+    let errors = got["errors"].as_array().unwrap();
+    assert_eq!(errors.len(), 2, "{got}");
+}
+
+/// Refining one facet must not blank the others — a ticket is filled in over time.
+#[test]
+fn refining_a_ticket_preserves_the_facets_it_does_not_mention() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 1);
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "kind": "decision",
+                            "subtype": "research", "autonomy": "hitl", "fog": "unknown"}),
+    );
+    // The fog lifts; nothing else was restated.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "fog": "clear"}),
+    );
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let ticket = &frontier["decisions"][0];
+    assert_eq!(ticket["fog"], serde_json::json!("clear"), "{frontier}");
+    assert_eq!(
+        ticket["subtype"],
+        serde_json::json!("research"),
+        "{frontier}"
+    );
+    assert_eq!(ticket["autonomy"], serde_json::json!("hitl"), "{frontier}");
+}
+
+/// An un-ticketed DAG must keep meaning exactly what it meant before Wayfinder.
+#[test]
+fn an_unlabelled_dag_reads_as_ungated_implementation() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["gated_by_open_decisions"],
+        serde_json::json!(false)
+    );
+    assert_eq!(frontier["implementation"].as_array().map(Vec::len), Some(2));
+    // Unlabelled work is implementation — a DAG meant that before Wayfinder
+    // existed. Its FOG is a different question: nobody measured it, so it reads
+    // `unknown`. This line asserted `clear` and was encoding the defect it was
+    // meant to guard, which is why the frontier once reported an all-clear over
+    // a plan nobody had assessed. See `unassessed_fog_reports_as_unknown_not_clear`.
+    assert_eq!(frontier["fog"]["unknown"], serde_json::json!(2));
+    assert!(frontier["fog"].get("clear").is_none(), "{frontier}");
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -3609,4 +5111,222 @@ tasks:
         &serde_json::json!({"task_id": task_id}),
     ));
     assert_eq!(stored["subtasks"][0]["description"], "KEY=inline_wins");
+}
+
+/// Fog nobody measured is `unknown`, never `clear`.
+///
+/// The frontier exists to show where the fog is. A subtask that was never
+/// ticketed has no fog assessment at all, and reporting it as `clear` made the
+/// histogram answer "nothing uncertain here" about work nobody had looked at —
+/// the reassuring lie the Wayfinder is built to prevent. `kind` still defaults,
+/// because an unlabelled ticket genuinely was implementation work before this
+/// feature existed; unmeasured fog has no such prior meaning.
+#[test]
+fn unassessed_fog_reports_as_unknown_not_clear() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let fog = &frontier["fog"];
+    assert!(
+        fog.get("clear").is_none(),
+        "no subtask was ever assessed, so none may be reported clear: {frontier}"
+    );
+    assert_eq!(
+        fog["unknown"],
+        serde_json::json!(2),
+        "both untouched subtasks must read as unknown fog: {frontier}"
+    );
+
+    // And a fog level that WAS declared is reported as declared, not overridden.
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00", "fog": "clear"
+        }),
+    );
+    let refined = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(refined["fog"]["clear"], serde_json::json!(1), "{refined}");
+    assert_eq!(refined["fog"]["unknown"], serde_json::json!(1), "{refined}");
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// T3.1 / T3.2 — the map ages with the work, and names its own waterfall risk
+// ═══════════════════════════════════════════════════════════════════════
+
+/// Mark one subtask as a decision ticket and close it.
+fn decide_and_close(rt: &mut HookRuntime, task_id: &str, subtask: &str, kind: &str) {
+    cli_decompose_ticket(
+        rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask, "kind": kind}),
+    );
+    cli_decompose_update(
+        rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": subtask, "status": "completed"}),
+    );
+}
+
+#[test]
+fn a_resolved_decision_is_written_back_up_to_the_map() {
+    // Pocock: "that resolution also gets written back up to the parent map."
+    // Without this the decisions live in the children while the parent keeps
+    // describing the world as it was before any of them were made — and the next
+    // session reads the parent first.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "decision");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let resolutions = frontier["resolutions"]
+        .as_array()
+        .expect("resolutions array");
+    assert_eq!(
+        resolutions.len(),
+        1,
+        "the map must record the decision: {frontier}"
+    );
+    assert!(
+        resolutions[0]["subtask_id"]
+            .as_str()
+            .unwrap_or_default()
+            .ends_with("S-00"),
+        "{frontier}"
+    );
+    assert!(resolutions[0]["resolved_at"].is_string(), "{frontier}");
+}
+
+#[test]
+fn only_decisions_travel_up_to_the_map() {
+    // Implementation tickets close constantly; logging them would drown the map
+    // in exactly the noise a summary exists to avoid.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "implementation");
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["resolutions"].as_array().map(|a| a.len()),
+        Some(0),
+        "an implementation ticket is not a decision: {frontier}"
+    );
+}
+
+#[test]
+fn replaying_a_close_does_not_grow_the_map() {
+    // Retries and resumes re-issue the same close. A map that grew each time
+    // would report the same decision as several.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    decide_and_close(&mut rt, &task_id, "S-00", "decision");
+    let second = parse_json(&cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    ));
+    assert_eq!(
+        second["resolution_logged"],
+        serde_json::json!(false),
+        "the replay must be a no-op: {second}"
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(frontier["resolutions"].as_array().map(|a| a.len()), Some(1));
+}
+
+#[test]
+fn fog_without_any_prototype_reads_as_waterfall_risk() {
+    // "Doesn't that look like waterfall?" — it does, when the uncertainty will
+    // only be tested after the planning is over.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let risk = &frontier["waterfall_risk"];
+    assert_eq!(risk["at_risk"], serde_json::json!(true), "{frontier}");
+    assert_eq!(
+        risk["foggy_open_tickets"],
+        serde_json::json!(2),
+        "{frontier}"
+    );
+    assert_eq!(
+        risk["prototype_tickets"],
+        serde_json::json!(0),
+        "{frontier}"
+    );
+}
+
+#[test]
+fn one_prototype_ticket_answers_the_waterfall_risk() {
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "prototype", "fog": "hazy"
+        }),
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    let risk = &frontier["waterfall_risk"];
+    assert_eq!(risk["at_risk"], serde_json::json!(false), "{frontier}");
+    assert_eq!(
+        risk["prototype_tickets"],
+        serde_json::json!(1),
+        "{frontier}"
+    );
+}
+
+#[test]
+fn a_closed_prototype_still_answers_the_risk() {
+    // A prototype that already ran did its job of lifting fog; demanding a fresh
+    // one would punish the map for having worked.
+    let (_tmp, mut rt) = setup_runtime();
+    let task_id = seed_ready_task(&mut rt, 2);
+
+    cli_decompose_ticket(
+        &mut rt,
+        &serde_json::json!({
+            "task_id": task_id, "subtask_id": "S-00",
+            "kind": "decision", "subtype": "prototype", "fog": "hazy"
+        }),
+    );
+    cli_decompose_update(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id, "subtask_id": "S-00", "status": "completed"}),
+    );
+
+    let frontier = parse_json(&cli_decompose_frontier(
+        &mut rt,
+        &serde_json::json!({"task_id": task_id}),
+    ));
+    assert_eq!(
+        frontier["waterfall_risk"]["at_risk"],
+        serde_json::json!(false),
+        "{frontier}"
+    );
 }

@@ -26,6 +26,7 @@ use touring_code::ast::{
     // Strategy 5: Speculate v2
     speculate_v2,
 };
+use touring_foundation::truncate_str;
 
 // ═══════════════════════════════════════════════════════════════════════════
 // AUDITORIA 1: VGP v2 — symbol_detail.rs
@@ -732,7 +733,7 @@ fn audit_speculate_v2_score_range_valido() {
             result.composite_score >= 0.0 && result.composite_score <= 1.0,
             "FALHOU: composite_score deve estar entre 0.0 e 1.0, obteve {:.4} para src={:?}",
             result.composite_score,
-            &src[..src.len().min(40)]
+            truncate_str(src, 40)
         );
     }
 }

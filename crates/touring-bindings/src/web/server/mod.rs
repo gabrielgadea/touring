@@ -1081,7 +1081,11 @@ pub async fn api_quality_history(
 }
 
 /// GET /api/viz/wiring/svg
-pub async fn api_viz_svg(State(state): State<AppState>) -> axum::response::Result<Response<Body>> {
+///
+/// Returns `AppError` (small, `IntoResponse`) rather than
+/// `axum::response::Result` — the latter's `ErrorResponse` embeds a full
+/// `Response` (≥128 bytes) and trips `clippy::result_large_err`.
+pub async fn api_viz_svg(State(state): State<AppState>) -> Result<Response<Body>, AppError> {
     let dot_output = tokio::process::Command::new("touring")
         .current_dir(&state.project_path)
         .args(["viz", "wiring"])
@@ -1091,8 +1095,7 @@ pub async fn api_viz_svg(State(state): State<AppState>) -> axum::response::Resul
     if !dot_output.status.success() {
         return Err(AppError::TouringCommand(
             String::from_utf8_lossy(&dot_output.stderr).to_string(),
-        )
-        .into());
+        ));
     }
     let dot_input = dot_output.stdout;
     let mut dot_child = tokio::process::Command::new("dot")
@@ -1113,9 +1116,9 @@ pub async fn api_viz_svg(State(state): State<AppState>) -> axum::response::Resul
         .await
         .map_err(|e| AppError::DotProcess(e.to_string()))?;
     if !output.status.success() {
-        return Err(
-            AppError::DotProcess(String::from_utf8_lossy(&output.stderr).to_string()).into(),
-        );
+        return Err(AppError::DotProcess(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
     }
     let response = Response::builder()
         .status(StatusCode::OK)
@@ -1141,7 +1144,7 @@ pub async fn api_viz_svg(State(state): State<AppState>) -> axum::response::Resul
 pub async fn api_viz_workspace(
     State(state): State<AppState>,
     Query(p): Query<std::collections::HashMap<String, String>>,
-) -> axum::response::Result<Response<Body>> {
+) -> Result<Response<Body>, AppError> {
     let include_orphans = !matches!(
         p.get("include_orphans").map(String::as_str),
         Some("0") | Some("false"),
@@ -1170,9 +1173,9 @@ pub async fn api_viz_workspace(
         .await
         .map_err(|e| AppError::TouringCommand(e.to_string()))?;
     if !output.status.success() {
-        return Err(
-            AppError::TouringCommand(String::from_utf8_lossy(&output.stderr).to_string()).into(),
-        );
+        return Err(AppError::TouringCommand(
+            String::from_utf8_lossy(&output.stderr).to_string(),
+        ));
     }
 
     let bytes = if enrich {

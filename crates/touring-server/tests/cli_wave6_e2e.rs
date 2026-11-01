@@ -44,12 +44,40 @@ fn touring_bin() -> PathBuf {
     resolve_bin("touring")
 }
 
-fn start_daemon() -> u32 {
+/// A temp dir that `normalize_project_root` actually RECOGNISES as a project.
+///
+/// Twin of the helper in `e2e_diary.rs`, and for the same measured reason: a
+/// bare `TempDir` under `/tmp` carries no project marker, so the walk-up in
+/// `normalize_project_root` reaches `/` and falls back to `$HOME` — every test
+/// wrote into the MACHINE'S OWN diary and read the other tests' entries back
+/// (2026-08-25: expected 1, got exactly 3; expected 2, got 6). One `.touring/`
+/// makes the temp dir a real root: isolation by CONSTRUCTION.
+fn test_project() -> TempDir {
+    let tmp = TempDir::new().expect("tempdir");
+    std::fs::create_dir_all(tmp.path().join(".touring")).expect("project marker");
+    tmp
+}
+
+/// Socket keyed on the test's own `TempDir` — unique per test in EVERY
+/// execution mode. Keying on `process::id()` alone gave every test in this
+/// binary ONE socket and one daemon, and `start_daemon` removes the socket on
+/// the way in, so a starting test tore down a neighbour's live endpoint.
+fn socket_path(tmpdir: &TempDir) -> String {
+    let key = tmpdir
+        .path()
+        .file_name()
+        .and_then(|s| s.to_str())
+        .unwrap_or("notmp")
+        .replace([':', '/'], "_");
+    format!("/tmp/touring-daemon-{}-{}.sock", std::process::id(), key)
+}
+
+fn start_daemon(tmpdir: &TempDir) -> DaemonGuard {
     // REGRA #19: per-process socket isolation (TOURING_DAEMON_SOCKET below)
     // makes broad `pkill -9 -f touring-daemon` unnecessary AND dangerous —
     // it would also kill the daemon of any parallel test process or of
     // other CC sessions on the same host. Clean only OUR socket/lock here.
-    let socket_path = format!("/tmp/touring-daemon-{}.sock", std::process::id());
+    let socket_path = socket_path(tmpdir);
     let _ = std::fs::remove_file(&socket_path);
     let _ = std::fs::remove_file(format!("{socket_path}.lock"));
 
@@ -62,15 +90,33 @@ fn start_daemon() -> u32 {
     std::thread::sleep(std::time::Duration::from_secs(2));
     let pid = daemon.id();
     std::mem::forget(daemon);
-    pid
+    DaemonGuard { pid, socket_path }
 }
 
-fn stop_daemon(pid: u32) {
+fn stop_daemon(pid: u32, socket_path: &str) {
     let _ = Command::new("kill").arg("-9").arg(pid.to_string()).output();
+    // Also on the way OUT: this helper only removed the socket on the way IN,
+    // so every run left its file behind (174 stale test sockets by 09/08/2026).
+    let _ = std::fs::remove_file(socket_path);
+    let _ = std::fs::remove_file(format!("{socket_path}.lock"));
+}
+
+/// Stops the test daemon even when the test PANICS — see the twin guard in
+/// `e2e_diary.rs`. `stop_daemon(pid)` as the last statement of a test body is
+/// skipped by a failing assertion, and the daemon then outlives the run.
+struct DaemonGuard {
+    pid: u32,
+    socket_path: String,
+}
+
+impl Drop for DaemonGuard {
+    fn drop(&mut self) {
+        stop_daemon(self.pid, &self.socket_path);
+    }
 }
 
 fn touring(args: &[&str], tmpdir: &TempDir) -> std::process::Output {
-    let socket_path = format!("/tmp/touring-daemon-{}.sock", std::process::id());
+    let socket_path = socket_path(tmpdir);
     let mut cmd = Command::new(touring_bin());
     for arg in args {
         cmd.arg(arg);
@@ -94,8 +140,8 @@ fn parse_json(output: &std::process::Output) -> serde_json::Value {
 
 #[test]
 fn test_diary_write_project_scoped() {
-    let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(
         &[
@@ -128,16 +174,14 @@ fn test_diary_write_project_scoped() {
     assert_eq!(json["task_id"], "T-001");
     assert_eq!(json["subtask_id"], "S-001");
     assert_eq!(json["project_scoped"], true);
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: read by project ─────────────────────────────────────────────────────
 
 #[test]
 fn test_diary_read_by_project() {
-    let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     // Write two entries for same project, one for another project
     let _ = touring(
@@ -192,16 +236,14 @@ fn test_diary_read_by_project() {
     assert!(contents.iter().any(|c| c.contains("module A")));
     assert!(contents.iter().any(|c| c.contains("module B")));
     assert!(!contents.iter().any(|c| c.contains("unrelated")));
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: read by project + task ──────────────────────────────────────────────
 
 #[test]
 fn test_diary_read_by_task() {
-    let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let _ = touring(
         &[
@@ -251,16 +293,14 @@ fn test_diary_read_by_task() {
             .unwrap()
             .contains("auth")
     );
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: diary projects subcommand ───────────────────────────────────────────
 
 #[test]
 fn test_diary_projects_lists_known_projects() {
-    let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let _ = touring(
         &[
@@ -310,16 +350,14 @@ fn test_diary_projects_lists_known_projects() {
         "proj-y missing from projects list"
     );
     assert_eq!(json["count"], 2);
-
-    stop_daemon(daemon_pid);
 }
 
 // ─── W6: project + topic filtering ───────────────────────────────────────────
 
 #[test]
 fn test_diary_write_project_with_topic() {
-    let tmpdir = TempDir::new().unwrap();
-    let daemon_pid = start_daemon();
+    let tmpdir = test_project();
+    let _daemon = start_daemon(&tmpdir);
 
     let out = touring(
         &[
@@ -343,6 +381,4 @@ fn test_diary_write_project_with_topic() {
     let out = touring(&["diary", "read", "planner", "--project", "wave6"], &tmpdir);
     let json = parse_json(&out);
     assert!(json["count"].as_u64().unwrap_or(0) >= 1);
-
-    stop_daemon(daemon_pid);
 }

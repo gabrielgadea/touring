@@ -1,0 +1,448 @@
+--- /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/diagnostics/holdout-20261011/juiz_motor_vgp.ORIG-b7f7fd9b.py	2026-10-09 17:57:51.098016136 -0300
++++ /home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/juiz_motor_vgp.py	2026-10-09 19:08:57.499721825 -0300
+@@ -39,13 +39,22 @@
+ V3 (proposta §6 — comparativo): `--arg-motor=--camadas --arg-motor=1,2 --p95-ms 1000 --base <json da V2>` reprova se o
+ recall de símbolo de QUALQUER balde não superar o da base, se o falso deny de algum balde piorar, ou p95 > 1 s.
+ 
++Revisão v3 (09/10/2026, held-out disjunto 20261010 — `diagnostics/holdout/RELATORIO.md` §0, §3):
++  o e935 deu 5/600 (arquivo) e 2/600 (inline) falsos deny: a taxa pontual (0,83 % e 0,33 %) passa de 1 %, o limite
++  superior unilateral de Clopper-Pearson a 95 % (1,74 % e 1,05 %) não. Taxa pontual não prova "falso deny ≤ 1 %".
++  (1) O limite superior 95 % de cada balde vai SEMPRE ao JSON (`falso_deny_por_balde.<balde>.limite_superior_95`) e à tabela.
++  (2) `--exigir-limite-superior`: balde com limite > 1 % vira pendência (k, n, limite e quantos falsos o n permitiria).
++      Sem a flag o veredito é o de antes, byte a byte (prova: `diagnostics/holdout-20261011/`).
++
+ Uso: python3 juiz_motor_vgp.py [--touring <bin>] [--corpus <dir>] [--v5-estrito] [--arg-motor A]... [--p95-ms N]
+-                               [--base <json>] [--json <saida>] | --selftest
++                               [--base <json>] [--json <saida>] [--exigir-limite-superior] | --selftest
+ """
+ 
+ from __future__ import annotations
+ 
+ import argparse
++import contextlib
++import io
+ import json
+ import math
+ import re
+@@ -59,6 +68,7 @@
+ CORPUS = Path.home() / ".claude/touring/vgp/corpus_v0d"
+ LIMIAR_RECALL = 0.70
+ LIMIAR_FALSO_DENY = 0.01
++CONF_LIMITE = 0.95  # confiança do limite superior UNILATERAL do falso deny (Clopper-Pearson)
+ LIMIAR_P95_MS = 150.0
+ ORIGENS_ARQUIVO = (
+     "atribuido",
+@@ -303,7 +313,110 @@
+     return par[0] / par[1] if par[1] else 0.0
+ 
+ 
+-def pendencias(m: dict, v5_estrito: bool) -> list[str]:
++# Cópia de `diagnostics/instrumentos-2026-10-09/limites.py` (o juiz é autocontido: não importa nada do bundle).
++def cdf_binomial(k: int, n: int, p: float) -> float:
++    """P(X <= k) para X ~ Binomial(n, p), somando em escala log (estável para n grande)."""
++    if p <= 0.0:
++        return 1.0
++    if p >= 1.0:
++        return 1.0 if k >= n else 0.0
++    termos = [
++        math.lgamma(n + 1)
++        - math.lgamma(i + 1)
++        - math.lgamma(n - i + 1)
++        + i * math.log(p)
++        + (n - i) * math.log1p(-p)
++        for i in range(k + 1)
++    ]
++    m = max(termos)
++    return math.exp(m) * sum(math.exp(t - m) for t in termos)
++
++
++def limite_superior(k: int, n: int, conf: float = CONF_LIMITE) -> float:
++    """Limite superior UNILATERAL de Clopper-Pearson (exato) para k falhas em n: k = 0 → 1 − (1−conf)^(1/n); k > 0 → o p
++    que resolve P(X <= k | n, p) = 1 − conf, por bisseção (sem scipy)."""
++    if n <= 0:
++        raise ValueError("n deve ser positivo")
++    if k >= n:
++        return 1.0
++    if k == 0:
++        return 1.0 - (1.0 - conf) ** (1.0 / n)
++    lo, hi = k / n, 1.0
++    for _ in range(80):
++        meio = (lo + hi) / 2
++        if cdf_binomial(k, n, meio) > 1.0 - conf:
++            lo = meio
++        else:
++            hi = meio
++    return (lo + hi) / 2
++
++
++def limite_do_balde(falsos: int, n: int) -> float:
++    """O limite superior 95 % do falso deny de um balde: é ele, não a taxa pontual, que prova `falso deny ≤ teto`."""
++    return limite_superior(falsos, n, CONF_LIMITE)
++
++
++def falsos_permitidos(n: int, teto: float = LIMIAR_FALSO_DENY) -> int:
++    """Maior k com limite_do_balde(k, n) <= teto (monótono em k → bisseção); −1 se nem k = 0 cabe (n pequeno demais).
++    O limite é maior que k/n, então k < teto·n: o intervalo de busca é [−1, teto·n]."""
++    lo, hi = -1, int(teto * n)
++    while lo < hi:
++        meio = (lo + hi + 1) // 2
++        if limite_do_balde(meio, n) <= teto:
++            lo = meio
++        else:
++            hi = meio - 1
++    return lo
++
++
++def n_minimo_para_zero_falsos(teto: float = LIMIAR_FALSO_DENY, conf: float = CONF_LIMITE) -> int:
++    """Menor n em que 0 falsos já dá limite superior <= teto (1 − (1−conf)^(1/n) <= teto)."""
++    return math.ceil(math.log(1.0 - conf) / math.log(1.0 - teto))
++
++
++def falsos_do_balde(m: dict, b: str) -> int:
++    return sum(f["balde"] == b for f in m["falsos"])
++
++
++def tabela_falso_deny(m: dict) -> dict:
++    """Por balde com negativos: falsos, n, taxa pontual, limite superior 95 % e quantos falsos o n permitiria."""
++    saida = {}
++    for b, n in m["negativos"].items():
++        if not n:
++            continue
++        k = falsos_do_balde(m, b)
++        lim = limite_do_balde(k, n)
++        saida[b] = {
++            "falsos": k,
++            "n": n,
++            "taxa": k / n,
++            "limite_superior_95": lim,
++            "teto": LIMIAR_FALSO_DENY,
++            "limite_ate_o_teto": lim <= LIMIAR_FALSO_DENY,
++            "falsos_permitidos_pelo_teto": falsos_permitidos(n),
++        }
++    return saida
++
++
++def pendencias_limite(m: dict) -> list[str]:
++    """`--exigir-limite-superior`: o balde cujo limite superior 95 % passa do teto é pendência, mesmo que a taxa pontual
++    passe. A mensagem diz k, n, o limite e quantos falsos esse n permitiria (ou o n necessário, se nem 0 falsos basta)."""
++    pend = []
++    for b, t in tabela_falso_deny(m).items():
++        if t["limite_ate_o_teto"]:
++            continue
++        k, n, perm = t["falsos"], t["n"], t["falsos_permitidos_pelo_teto"]
++        prefixo = f"falso deny ({b}) limite superior 95% {t['limite_superior_95']:.2%} > {LIMIAR_FALSO_DENY:.0%} ({k}/{n}, taxa {t['taxa']:.3%})"
++        if perm >= 0:
++            pend.append(f"{prefixo} — com n={n} o teto admite no máximo {perm} falso(s)")
++        else:
++            pend.append(
++                f"{prefixo} — n={n} não prova ≤ {LIMIAR_FALSO_DENY:.0%} nem com 0 falsos; exige n ≥ {n_minimo_para_zero_falsos()}"
++            )
++    return pend
++
++
++def pendencias(m: dict, v5_estrito: bool, exigir_limite: bool = False) -> list[str]:
+     pend = []
+     if m["erros"]:
+         pend.append(
+@@ -319,11 +432,13 @@
+                 f"recall de símbolo ({b}) {razao(par):.3f} < {LIMIAR_RECALL} ({par[0]}/{par[1]})"
+             )
+     for b, n in m["negativos"].items():
+-        falsos = sum(f["balde"] == b for f in m["falsos"])
++        falsos = falsos_do_balde(m, b)
+         if n and falsos / n > LIMIAR_FALSO_DENY:
+             pend.append(
+                 f"falso deny ({b}) {falsos / n:.3%} > {LIMIAR_FALSO_DENY:.0%} ({falsos}/{n})"
+             )
++    if exigir_limite:
++        pend += pendencias_limite(m)
+     if p95(m["tempos"]) > LIMIAR_P95["ms"]:
+         pend.append(f"p95 {p95(m['tempos']):.1f} ms > {LIMIAR_P95['ms']} ms")
+     return pend
+@@ -355,7 +470,12 @@
+     return pend
+ 
+ 
+-def julgar(touring: list[str], corpus: Path, v5_estrito: bool) -> dict:
++def julgar(
++    touring: list[str],
++    corpus: Path,
++    v5_estrito: bool,
++    exigir_limite: bool = False,
++) -> dict:
+     pos, neg = carregar(corpus)
+     if not pos or not neg:
+         return {
+@@ -372,10 +492,12 @@
+                 "corpus sem positivo de SÍMBOLO de arquivo — o recall não é medível"
+             ],
+         }
+-    pend = pendencias(m, v5_estrito)
++    pend = pendencias(m, v5_estrito, exigir_limite)
+     return {
+         "pronto": not pend,
+         "pendencias": pend,
++        "exigir_limite_superior": exigir_limite,
++        "falso_deny_por_balde": tabela_falso_deny(m),
+         "recall_simbolo": {b: razao(par) for b, par in m["simbolo"].items()},
+         "positivos_simbolo": m["simbolo"],
+         "recall_deny_informativo": m["deny"],
+@@ -435,9 +557,16 @@
+ """
+ 
+ 
+-def corpus_sintetico(raiz: Path) -> Path:
+-    """10 positivos de símbolo (7 de arquivo, 3 inline) + 4 de FORMA (que nenhum motor estático vê) e 120 negativos;
+-    o nome esperado viaja no conteúdo dos de símbolo."""
++def corpus_sintetico(
++    raiz: Path,
++    n_arquivo: int = 120,
++    n_inline: int = 10,
++    nega_arquivo: int = 0,
++    nega_inline: int = 0,
++) -> Path:
++    """10 positivos de símbolo (7 de arquivo, 3 inline) + 4 de FORMA (que nenhum motor estático vê) e 120 negativos
++    (+ 10 inline); o nome esperado viaja no conteúdo dos de símbolo. `nega_*` marca (`#NEGA`) os primeiros negativos do
++    balde — o `_motor_em_processo` nega só esses (k falsos deny exatos em n)."""
+     corpus = raiz / "corpus"
+     (corpus / "snap").mkdir(parents=True)
+     linhas = []
+@@ -493,8 +622,10 @@
+                 "lang": "python",
+             }
+         )
+-    for i in range(120):
+-        (corpus / "snap" / f"n{i}.py").write_text("y = 2\n")
++    for i in range(n_arquivo):
++        (corpus / "snap" / f"n{i}.py").write_text(
++            "y = 2  #NEGA\n" if i < nega_arquivo else "y = 2\n"
++        )
+         linhas.append(
+             {
+                 "id": f"n{i}",
+@@ -511,8 +642,10 @@
+     )
+     # V5: 10 negativos INLINE no arquivo à parte (execuções bem-sucedidas) — o balde inline é julgado sozinho
+     inline = []
+-    for i in range(10):
+-        (corpus / "snap" / f"i{i}.py").write_text("z = 3  #INLINE\n")
++    for i in range(n_inline):
++        (corpus / "snap" / f"i{i}.py").write_text(
++            "z = 3  #INLINE #NEGA\n" if i < nega_inline else "z = 3  #INLINE\n"
++        )
+         inline.append(
+             {
+                 "id": f"i{i}",
+@@ -598,6 +731,136 @@
+     return falhas
+ 
+ 
++# (falsos, n, limite superior 95 % em pontos percentuais): os valores de `diagnostics/holdout/RELATORIO.md` §3 — escritos à
++# mão, de propósito: a conferência não pode derivar da função que confere.
++REFERENCIAS_LIMITE = (
++    (0, 600, 0.50),
++    (1, 600, 0.79),
++    (3, 1200, 0.64),
++    (5, 600, 1.74),
++    (2, 600, 1.05),
++)
++TOLERANCIA_PP = 0.01
++# (n, falsos que o n permite sob o teto de 1 %): 298 não prova nem com 0 falsos; 299 prova com 0; 600 admite 1.
++PERMITIDOS_REFERENCIA = ((100, -1), (298, -1), (299, 0), (600, 1))
++# (nome, falsos arquivo, falsos inline, n arquivo, n inline, --exigir-limite-superior, pronto, trechos presentes, ausentes)
++CENARIOS_LIMITE = (
++    ("0/600 sem a flag", 0, 0, 600, 600, False, True, (), ()),
++    ("0/600 com a flag (0,50%)", 0, 0, 600, 600, True, True, (), ()),
++    ("1/600 com a flag (0,79%)", 1, 1, 600, 600, True, True, (), ()),
++    ("5/600 e 2/600 sem a flag: a taxa pontual passa", 5, 2, 600, 600, False, True, (), ("limite superior",)),
++    (
++        "5/600 e 2/600 com a flag: o limite reprova",
++        5,
++        2,
++        600,
++        600,
++        True,
++        False,
++        (
++            "falso deny (arquivo) limite superior 95% 1.74% > 1% (5/600",
++            "com n=600 o teto admite no máximo 1 falso(s)",
++            "falso deny (inline) limite superior 95% 1.05% > 1% (2/600",
++        ),
++        (),
++    ),
++    (
++        "2/600 só no arquivo com a flag: só esse balde reprova",
++        2,
++        0,
++        600,
++        600,
++        True,
++        False,
++        ("falso deny (arquivo) limite superior 95% 1.05%",),
++        ("falso deny (inline)",),
++    ),
++    ("n pequeno (120 e 10), 0 falsos, sem a flag", 0, 0, 120, 10, False, True, (), ()),
++    (
++        "n pequeno (120 e 10), 0 falsos, com a flag",
++        0,
++        0,
++        120,
++        10,
++        True,
++        False,
++        ("n=120 não prova ≤ 1% nem com 0 falsos; exige n ≥ 299", "n=10 não prova"),
++        (),
++    ),
++)
++
++
++def _motor_em_processo(touring: list[str], entrada: dict, corpus: Path) -> dict:
++    """Motor falso SEM subprocesso (centenas de chamadas em milissegundos): acerta o `#ESPERADO=` e nega o que traz
++    `#NEGA` — k falsos deny exatos em n, para provar a aritmética do limite sem o custo de 1.200 spawns."""
++    texto = (corpus / entrada["snap"]).read_text()
++    achados = []
++    if "#ESPERADO=" in texto:
++        nome = texto.split("#ESPERADO=")[1].split()[0]
++        achados.append({"classe": "atributo", "nome": nome, "linha": 1, "severidade": "deny"})
++    if "#NEGA" in texto:
++        achados.append({"classe": "nome", "nome": "x", "linha": 1, "severidade": "deny"})
++    return {"verdict": "deny" if achados else "allow", "findings": achados, "elapsed_ms": 2.0}
++
++
++def _falhas_limite_superior() -> list[str]:
++    """Valores de referência do limite, `falsos_permitidos` e os cenários da flag `--exigir-limite-superior`."""
++    falhas = []
++    for k, n, ref in REFERENCIAS_LIMITE:
++        pct = 100 * limite_do_balde(k, n)
++        if abs(pct - ref) > TOLERANCIA_PP:
++            falhas.append(f"limite superior 95% de {k}/{n} = {pct:.4f}% ≠ {ref}% (±{TOLERANCIA_PP} pp)")
++    for n, esperado in PERMITIDOS_REFERENCIA:
++        if (obtido := falsos_permitidos(n)) != esperado:
++            falhas.append(f"falsos_permitidos({n}) = {obtido} ≠ {esperado}")
++    if (nmin := n_minimo_para_zero_falsos()) != 299:
++        falhas.append(f"n_minimo_para_zero_falsos() = {nmin} ≠ 299")
++    return falhas + _falhas_cenarios_limite()
++
++
++def _falhas_cenarios_limite() -> list[str]:
++    """Cada cenário de `CENARIOS_LIMITE` com o motor em processo (a troca de `rodar_motor` é desfeita no `finally`)."""
++    falhas = []
++    original = globals()["rodar_motor"]
++    globals()["rodar_motor"] = _motor_em_processo
++    try:
++        for nome, k_arq, k_inl, n_arq, n_inl, exigir, pronto, presentes, ausentes in CENARIOS_LIMITE:
++            with tempfile.TemporaryDirectory() as tmp:
++                corpus = corpus_sintetico(Path(tmp), n_arq, n_inl, k_arq, k_inl)
++                v = julgar(["motor-em-processo"], corpus, v5_estrito=True, exigir_limite=exigir)
++            pend = " | ".join(v["pendencias"])
++            if v["pronto"] != pronto:
++                falhas.append(f"cenário «{nome}»: pronto = {v['pronto']} ≠ {pronto} — {pend or 'sem pendências'}")
++            falhas += [f"cenário «{nome}»: falta «{t}» nas pendências — {pend}" for t in presentes if t not in pend]
++            falhas += [f"cenário «{nome}»: sobrou «{t}» nas pendências — {pend}" for t in ausentes if t in pend]
++    finally:
++        globals()["rodar_motor"] = original
++    return falhas
++
++
++def _falhas_flag_na_cli(motor: Path, corpus: Path, saida: Path) -> list[str]:
++    """`main()` de ponta a ponta com o motor `bom` no corpus pequeno (n = 120 e 10): o limite de 0 falsos em 120 é 2,47 %.
++    Sem a flag o veredito é PRONTO (rc 0); com a flag, NÃO PRONTO (rc 1) e o limite vai à tabela e ao JSON."""
++    falhas = []
++    for exigir, rc_esperado in ((False, 0), (True, 1)):
++        argv = ["--touring", str(motor), "--corpus", str(corpus), "--v5-estrito", "--json", str(saida)]
++        argv += ["--exigir-limite-superior"] if exigir else []
++        with contextlib.redirect_stdout(io.StringIO()) as buf:
++            rc = main(argv)
++        tabela, v = buf.getvalue(), json.loads(saida.read_text())
++        lim = v.get("falso_deny_por_balde", {}).get("arquivo", {}).get("limite_superior_95", -1.0)
++        rotulo = "com a flag" if exigir else "sem a flag"
++        if rc != rc_esperado:
++            falhas.append(f"CLI {rotulo}: rc {rc} ≠ {rc_esperado}")
++        if abs(lim - 0.02466) > 5e-4:
++            falhas.append(f"CLI {rotulo}: limite_superior_95 do arquivo no JSON = {lim} ≠ 0.0247 (0 em 120)")
++        if "limite_superior_95 2.47%" not in tabela:
++            falhas.append(f"CLI {rotulo}: a tabela não traz o limite superior 95% (2.47%)")
++        if exigir != ("PENDENTE: falso deny (arquivo) limite superior 95% 2.47%" in tabela):
++            falhas.append(f"CLI {rotulo}: a pendência do limite {'faltou' if exigir else 'apareceu'}")
++    return falhas
++
++
+ def selftest() -> int:
+     """Cada motor falso tem de produzir o veredito esperado — senão o juiz não discrimina."""
+     # `bom` passa SEM ver a forma (se a forma voltasse ao recall, ele reprovaria); `so_avisa` passa porque o recall é de
+@@ -622,19 +885,40 @@
+             motor.chmod(0o755)
+             v = julgar([str(motor)], corpus, v5_estrito=True)
+             resultados[modo] = (v["pronto"] == esperado, v["pendencias"][:2])
++        falhas_cli = _falhas_flag_na_cli(
++            Path(tmp) / "motor_bom", corpus, Path(tmp) / "veredito.json"
++        )
+     for modo, (certo, pend) in resultados.items():
+         print(f"  {'OK ' if certo else 'FALHA'} motor {modo}: {pend or 'pronto'}")
+     falhas = _falhas_classe_erro()
++    falhas += _falhas_limite_superior()
++    falhas += falhas_cli
+     for f in falhas:
+         print(f"  FALHA {f}")
+     ok = all(r[0] for r in resultados.values()) and not falhas
++    limite = f"{len(REFERENCIAS_LIMITE)} valores de referência + {len(CENARIOS_LIMITE)} cenários do limite superior + 2 da CLI"
+     print(
+-        f"selftest: {f'{len(cenarios)}/{len(cenarios)} cenários + {len(CASOS_CLASSE_ERRO)} casos de classe_erro' if ok else 'REPROVOU'}"
++        f"selftest: {f'{len(cenarios)}/{len(cenarios)} cenários + {len(CASOS_CLASSE_ERRO)} casos de classe_erro + {limite}' if ok else 'REPROVOU'}"
+     )
+     return 0 if ok else 1
+ 
+ 
+-def main() -> int:
++def linha_falso_deny(b: str, t: dict, exigido: bool) -> str:
++    """Uma linha da tabela de falso deny: taxa pontual ao lado do limite superior 95 %."""
++    linha = (
++        f"  falso deny ({b}): {t['falsos']}/{t['n']} · taxa {t['taxa']:.3%} · limite_superior_95 {t['limite_superior_95']:.2%} "
++        f"(teto {t['teto']:.0%}; o n={t['n']} admite até {t['falsos_permitidos_pelo_teto']} falso(s))"
++    )
++    if t["limite_ate_o_teto"]:
++        return linha
++    return linha + (
++        " · LIMITE ACIMA DO TETO"
++        if exigido
++        else " · limite acima do teto (só reprova com --exigir-limite-superior)"
++    )
++
++
++def main(argv: list[str] | None = None) -> int:
+     ap = argparse.ArgumentParser(description="Juiz do motor VGP contra o corpus V0d")
+     ap.add_argument("--touring", default=shutil.which("touring") or "touring")
+     ap.add_argument("--corpus", type=Path, default=CORPUS)
+@@ -647,8 +931,13 @@
+         type=Path,
+         help="JSON do juiz para a fase anterior (V3 compara com a V2)",
+     )
++    ap.add_argument(
++        "--exigir-limite-superior",
++        action="store_true",
++        help="balde cujo limite superior 95%% (Clopper-Pearson unilateral) de falso deny passa do teto vira pendência",
++    )
+     ap.add_argument("--selftest", action="store_true")
+-    a = ap.parse_args()
++    a = ap.parse_args(argv)
+     if a.selftest:
+         return selftest()
+     ARGS_MOTOR[:] = a.arg_motor
+@@ -657,7 +946,7 @@
+     if ausente := motor_ausente(touring):
+         print(f"veredito: MOTOR AUSENTE — {ausente}")
+         return 2
+-    v = julgar(touring, a.corpus, a.v5_estrito)
++    v = julgar(touring, a.corpus, a.v5_estrito, a.exigir_limite_superior)
+     if a.base and "positivos_simbolo" in v:
+         v["pendencias"] += contra_a_base(v, json.loads(a.base.read_text()))
+         v["pronto"] = not v["pendencias"]
+@@ -672,6 +961,8 @@
+         f"| chamadas {v.get('chamadas', 0)} | não classificados {len(v.get('nao_classificado', []))} "
+         f"| defeito de corpus (snap não compila) {len(v.get('defeito_de_corpus', []))}"
+     )
++    for b, t in v.get("falso_deny_por_balde", {}).items():
++        print(linha_falso_deny(b, t, a.exigir_limite_superior))
+     for p in v["pendencias"]:
+         print(f"  PENDENTE: {p}")
+     print(f"veredito: {'PRONTO' if v['pronto'] else 'NÃO PRONTO'}")

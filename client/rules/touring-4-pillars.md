@@ -22,6 +22,26 @@ The four are the standing reflex for code work. Code Mode + Intelligence already
 
 > **A ESSÊNCIA ACO/Touring são Code Mode + Learning Memory** (Gabriel 2026-06-29) — os 2 diferenciais que mais distinguem TACO de um modelo genérico. Code Mode é a execução-em-código que gera o sinal; Learning Memory é o **feromônio** que acumula trilhas de sucesso (cada `memory store` + `learning reward`) e as reusa (`memory recall`). Juntos = o loop _consultar → executar → observar → aprender → registrar → reforçar_ que faz o TACO compor melhoria a cada sessão. Reforçar sempre.
 
+## Reflexo agregado-não-dump (D5, aprovado por Gabriel 24/08/2026)
+
+Toda verificação que toca **≥3 arquivos** roda como **1 script** cuja saída no contexto é
+só o **agregado** (≤~200 tokens; `--brief`); intermediários ficam no scratchpad ou no
+`stored_path` do spill (`retrieval_hint` ensina a leitura sob demanda). É a prática M5 das
+5 fontes de code mode: dsh SDK_INSTRUCTIONS — *"every other intermediate result stays out
+of the conversation, so extract just what you need"* — e TanStack medido (9,8→1,7 KB de
+contexto, resposta correta). A infraestrutura é executável desde 2026-08-23 (Wave Code
+Mode Máximo: spill+locator, `--brief`, journal).
+
+## Enforcement mora no executor, não no anúncio (D8, aprovado por Gabriel 24/08/2026)
+
+Nudge/prompt só **ensina** a regra; quem a **aplica** é gate/hook/executor determinístico —
+e o texto declarado ao modelo e o predicado do executor devem derivar da **mesma fonte**
+(o prompt nunca promete o que o executor não aplica). Evidência interna:
+`protocol-adherence-diagnosis` (nudges MUST conf 0.95 ignorados na própria sessão).
+Evidência externa independente: postmortem dsh 2026-08-07 — *"schema omission enforced
+nothing"* (omitir schemas do anúncio não impediu chamadas diretas; o fix foi o colapso no
+executor + a regra dita no prompt pelo MESMO predicado, `CODE_ONLY_INSTRUCTION`).
+
 ## Injection-density invariant (Gabriel, 2026-06-29) — applies to EVERY context injection AND every answer
 
 **ABSOLUTELY EVERY** context injection (hook `additionalContext`, every nudge, every answer) MUST be:
@@ -43,21 +63,6 @@ export TOURING_PILLAR_INDUCTION_ARMED=1   # arm the pillar nudges (a human decis
 touring daemon-ctl restart                 # daemon picks up the env (REGRA #19)
 ```
 
-## The compounding loop — measure → attribute → refine
-
-Adoption is **measured, not assumed**: `pillar_induction_{emitted,followed}` counters → `touring.coupling.pillar_induction_ratio` KPI (`touring kpi -j`) → F7 promote/demote. Per the roadmap thesis ① (**affordance changes `U(a)=P·V−C(tokens)`; persuasion does not**), if the ratio stays low while armed, that telemetry is the evidence pushing from persuasion (this nudge) toward affordance (productization ⑨) — the experiment, not just the nudge.
-
-## Cross-references
-
-| Topic | Local |
-|---|---|
-| Task→command matrix (C01-C12) | `~/.claude/rules/touring-decision-matrix.md` |
-| STR / combination patterns (P1-P10) | `~/.claude/rules/tool-combination-patterns.md` |
-| Master command scripts (Layer-3) | `~/.claude/skills/Touring/scripts/` (`discover_symbol`/`discover_workspace`/`analyze_blast`/`read_file`/`investigate`/`pre_edit_gate`) |
-| Hook (active layer) | `crates/touring-cli/src/cli_suggester.rs` (pillar induction, `Pillar` enum) |
-| Coupling telemetry (F1-F7) | `~/projects/touring/docs/2026-06-27-coupling-telemetry-infrastructure.md` |
-| CLI ranks (atomic detail) | `~/.claude/rules/touring-cli-index.md` |
-
 ---
 
-_v1.0 — 2026-06-29 | The four differentials are the reflex; the hook induces the two that are under-used; the loop measures whether induction works._
+> **Proveniência, oarming e o compounding loop:** [`references/touring-4-pillars-provenance.md`](~/.claude/skills/Touring/references/touring-4-pillars-provenance.md)

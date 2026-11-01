@@ -54,3 +54,13 @@ serial_test = { workspace = true }
 
 [lints]
 workspace = true
+
+# `search_eval` builds a private index with the same document builder the daemon
+# uses (`shared::tantivy_docs`), which only exists with the search index compiled
+# in. Under `-p touring-cli` alone the feature is off and the example failed to
+# build, breaking a per-crate clippy that the workspace run (features unified)
+# never saw (14/09/2026).
+[[example]]
+name = "search_eval"
+required-features = ["tantivy-fts"]
+

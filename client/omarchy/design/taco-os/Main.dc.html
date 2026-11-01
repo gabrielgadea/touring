@@ -1,0 +1,263 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Michroma&family=Space+Mono:wght@400;700&display=swap">
+  <style>
+    body { margin: 0; background: #00101f; }
+    a { color: #faa968; } a:hover { color: #f6dcac; }
+    @keyframes phosphor { 0%,100% { opacity: .45 } 50% { opacity: 1 } }
+    @keyframes corebreathe { 0%,100% { opacity: .75; transform: scale(1) } 50% { opacity: 1; transform: scale(1.045) } }
+    @keyframes orbitspin { 0% { transform: rotate(0deg) } 100% { transform: rotate(360deg) } }
+    @keyframes tickerslide { 0% { transform: translateX(0) } 100% { transform: translateX(-50%) } }
+    @keyframes sweep { 0% { top: -8% } 100% { top: 108% } }
+    .dockbtn:hover { border-color: #faa968 !important; box-shadow: 0 0 22px rgba(250,169,104,0.25); }
+    .dockbtn:hover .docklabel { color: #f6dcac !important; }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+    }
+  </style>
+</helmet>
+<div style="position: relative; width: 1720px; height: 1080px; overflow: hidden; background:
+  radial-gradient(820px 520px at 50% 46%, rgba(250,169,104,0.09) 0%, rgba(250,169,104,0) 62%),
+  radial-gradient(700px 460px at 92% 4%, rgba(2,131,145,0.16) 0%, rgba(2,131,145,0) 70%),
+  radial-gradient(600px 420px at 4% 100%, rgba(2,131,145,0.10) 0%, rgba(2,131,145,0) 70%),
+  linear-gradient(180deg, #002138 0%, #00172e 52%, #000c1a 100%);
+  font-family: 'Space Mono', ui-monospace, monospace; color: #f6dcac;">
+
+  <div style="position: absolute; inset: 0; opacity: 0.05; pointer-events: none; background-image:
+    repeating-linear-gradient(0deg, rgba(246,220,172,0.55) 0 1px, transparent 1px 3px);"></div>
+  <div style="position: absolute; inset: 0; opacity: 0.04; pointer-events: none; background-image:
+    repeating-linear-gradient(0deg, rgba(140,191,184,0.6) 0 1px, transparent 1px 56px),
+    repeating-linear-gradient(90deg, rgba(140,191,184,0.6) 0 1px, transparent 1px 56px);"></div>
+  <div style="position: absolute; left: 0; right: 0; height: 100px; opacity: 0.045; pointer-events: none; background: linear-gradient(180deg, transparent, rgba(246,220,172,0.8), transparent); animation: sweep 10s linear infinite;"></div>
+  <svg width="240" height="220" viewBox="0 0 240 220" fill="none" style="position: absolute; right: 26px; bottom: 74px; opacity: 0.25;">
+    <path d="M60 10 L90 27 L90 61 L60 78 L30 61 L30 27 Z" stroke="#3f8f8a" stroke-width="1"/>
+    <path d="M130 60 L160 77 L160 111 L130 128 L100 111 L100 77 Z" stroke="#3f8f8a" stroke-width="1"/>
+    <path d="M95 130 L125 147 L125 181 L95 198 L65 181 L65 147 Z" stroke="#0a3050" stroke-width="1"/>
+    <line x1="90" y1="44" x2="100" y2="94" stroke="#3f8f8a" stroke-width="0.7"/>
+  </svg>
+
+  <div style="position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 26px 44px 0 44px; z-index: 5;">
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <svg width="34" height="34" viewBox="0 0 34 34" fill="none">
+        <path d="M17 2 L32 17 L17 32 L2 17 Z" stroke="{{accent}}" stroke-width="2"/>
+        <path d="M17 9 L25 17 L17 25 L9 17 Z" stroke="#8cbfb8" stroke-width="1.2"/>
+        <circle cx="17" cy="17" r="2.6" fill="{{accent}}" style="animation: phosphor 2.8s ease-in-out infinite;"/>
+      </svg>
+      <div>
+        <div style="font-family: Michroma, system-ui, sans-serif; font-size: 22px; letter-spacing: 0.14em; color: #f6dcac;">TACO&nbsp;<span style="color: {{accent}};">OS</span></div>
+        <div style="font-size: 9px; letter-spacing: 0.34em; color: #57898a; margin-top: 3px;">UNIFIED INTERFACE &middot; THE WHOLE MACHINE &middot; RETRO 82</div>
+      </div>
+    </div>
+    <div style="width: 620px; position: relative; display: flex; align-items: center; gap: 14px; background: rgba(0,13,26,0.72); border: 1px solid rgba(250,169,104,0.45); padding: 13px 18px;">
+      <span style="position: absolute; top: -1px; left: -1px; width: 12px; height: 12px; border-top: 2px solid {{accent}}; border-left: 2px solid {{accent}};"></span>
+      <span style="position: absolute; bottom: -1px; right: -1px; width: 12px; height: 12px; border-bottom: 2px solid {{accent}}; border-right: 2px solid {{accent}};"></span>
+      <span style="font-size: 12px; color: {{accent}};">&#10095;</span>
+      <span style="font-size: 12px; color: #a3ccc6;">what should the machine do?</span>
+      <span style="width: 9px; height: 17px; background: {{accent}}; animation: phosphor 1.1s steps(2) infinite;"></span>
+      <span style="margin-left: auto; font-size: 8.5px; letter-spacing: 0.2em; color: #57898a;">SUPER+SPACE</span>
+    </div>
+    <div style="text-align: right;">
+      <div style="font-family: Michroma, system-ui, sans-serif; font-size: 18px; color: {{accent}}; letter-spacing: 0.08em; text-shadow: 0 0 14px rgba(250,169,104,0.5);">21:38:12</div>
+      <div style="font-size: 9px; letter-spacing: 0.2em; color: #57898a; margin-top: 3px;">W35 &middot; SUN 23 AUG &middot; <span style="color: #35a2a7;">DAEMON LIVE</span></div>
+    </div>
+  </div>
+
+  <div style="position: absolute; top: 118px; left: 32px; bottom: 76px; width: 236px; display: flex; flex-direction: column; gap: 9px; z-index: 5;">
+    <div style="font-size: 9px; letter-spacing: 0.3em; color: #8cbfb8; padding: 4px 2px 7px 2px; border-bottom: 1px solid #0a3050;">MODULES</div>
+    <sc-for list="{{modules}}" as="mod" hint-placeholder-count="8">
+      <div class="dockbtn" style="display: flex; align-items: center; gap: 13px; min-height: 52px; padding: 8px 13px; background: rgba(0,19,36,0.8); border: 1px solid #0a3050; cursor: pointer; transition: box-shadow .2s, border-color .2s;">
+        <span style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; border: 1px solid #12456b; background: rgba(0,13,26,0.6);">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="{{mod.d}}" stroke="{{mod.tint}}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span style="flex: 1;">
+          <span class="docklabel" style="display: block; font-size: 10.5px; letter-spacing: 0.1em; color: #a3ccc6;">{{mod.name}}</span>
+          <span style="display: block; font-size: 8px; letter-spacing: 0.06em; color: #57898a; margin-top: 2px;">{{mod.cmd}}</span>
+        </span>
+        <span style="width: 5px; height: 5px; background: {{mod.tint}}; box-shadow: 0 0 7px {{mod.tint}};"></span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="position: absolute; top: 128px; left: 300px; width: 800px; height: 810px;">
+    <svg width="800" height="810" viewBox="0 0 800 810" fill="none" style="position: absolute; inset: 0;">
+      <g style="transform-origin: 400px 400px; animation: orbitspin 90s linear infinite;">
+        <ellipse cx="400" cy="400" rx="330" ry="330" stroke="#0a3050" stroke-width="1"/>
+        <ellipse cx="400" cy="400" rx="330" ry="330" stroke="#8cbfb8" stroke-width="1.4" stroke-dasharray="3 220" opacity="0.9"/>
+      </g>
+      <g style="transform-origin: 400px 400px; animation: orbitspin 140s linear infinite reverse;">
+        <ellipse cx="400" cy="400" rx="250" ry="250" stroke="#0a3050" stroke-width="1"/>
+        <ellipse cx="400" cy="400" rx="250" ry="250" stroke="#3f8f8a" stroke-width="1.2" stroke-dasharray="2 160" opacity="0.9"/>
+      </g>
+      <ellipse cx="400" cy="400" rx="170" ry="170" stroke="#12456b" stroke-width="1" stroke-dasharray="5 7"/>
+      <circle cx="400" cy="400" r="150" stroke="#faa968" stroke-width="0.6" opacity="0.35"/>
+      <line x1="70" y1="400" x2="180" y2="400" stroke="#0a3050" stroke-width="1"/>
+      <line x1="620" y1="400" x2="730" y2="400" stroke="#0a3050" stroke-width="1"/>
+      <line x1="400" y1="70" x2="400" y2="130" stroke="#0a3050" stroke-width="1"/>
+      <circle cx="400" cy="400" r="88" fill="url(#coreglow)" style="transform-origin: 400px 400px; animation: corebreathe 4.6s ease-in-out infinite;"/>
+      <circle cx="400" cy="400" r="60" stroke="#f85525" stroke-width="1" opacity="0.7"/>
+      <circle cx="400" cy="400" r="45" stroke="#faa968" stroke-width="1.6"/>
+      <defs>
+        <radialGradient id="coreglow">
+          <stop offset="0%" stop-color="#f6dcac" stop-opacity="0.95"/>
+          <stop offset="34%" stop-color="#faa968" stop-opacity="0.8"/>
+          <stop offset="62%" stop-color="#f85525" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#f85525" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+    </svg>
+    <div style="position: absolute; left: 400px; top: 400px; transform: translate(-50%,-50%); text-align: center; pointer-events: none;">
+      <div style="font-family: Michroma, system-ui, sans-serif; font-size: 13px; letter-spacing: 0.18em; color: #00172e; text-shadow: 0 0 10px rgba(246,220,172,0.8);">TOURING</div>
+      <div style="font-size: 8.5px; letter-spacing: 0.22em; color: #00172e; margin-top: 2px;">284,770 SYMBOLS</div>
+    </div>
+    <sc-for list="{{projects}}" as="proj" hint-placeholder-count="4">
+      <div onClick="{{ proj.pick }}" style="position: absolute; left: {{proj.left}}px; top: {{proj.top}}px; transform: translate(-50%,-50%); min-width: 148px; min-height: 44px; cursor: pointer; background: {{proj.bg}}; border: 1px solid {{proj.border}}; padding: 10px 14px; box-shadow: {{proj.shadow}}; transition: box-shadow .25s, border-color .25s;">
+        <span style="position: absolute; top: -1px; left: -1px; width: 9px; height: 9px; border-top: 2px solid {{proj.border}}; border-left: 2px solid {{proj.border}};"></span>
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <span style="width: 8px; height: 8px; border-radius: 50%; background: {{proj.dot}}; box-shadow: 0 0 9px {{proj.dot}};"></span>
+          <span style="font-family: Michroma, system-ui, sans-serif; font-size: 11px; letter-spacing: 0.12em; color: {{proj.titleColor}};">{{proj.name}}</span>
+        </div>
+        <div style="font-size: 8.5px; color: #57898a; margin-top: 5px; letter-spacing: 0.08em;">{{proj.sub}}</div>
+      </div>
+    </sc-for>
+    <div style="position: absolute; left: 0; right: 0; bottom: -6px; text-align: center; font-size: 9px; letter-spacing: 0.32em; color: #57898a;">EVERY PROJECT ORBITS THE CORE &middot; CLICK A SATELLITE</div>
+  </div>
+
+  <div style="position: absolute; top: 128px; right: 32px; width: 520px; height: 812px; background: rgba(0,19,36,0.84); border: 1px solid #0a3050; padding: 26px 28px; z-index: 5;">
+    <span style="position: absolute; top: -1px; left: -1px; width: 15px; height: 15px; border-top: 2px solid #8cbfb8; border-left: 2px solid #8cbfb8;"></span>
+    <span style="position: absolute; bottom: -1px; right: -1px; width: 15px; height: 15px; border-bottom: 2px solid #8cbfb8; border-right: 2px solid #8cbfb8;"></span>
+    <div style="display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid #0a3050; padding-bottom: 14px;">
+      <div>
+        <div style="font-size: 9px; letter-spacing: 0.3em; color: #8cbfb8;">FOCUSED PROJECT &middot; LATEST DAG</div>
+        <div style="font-family: Michroma, system-ui, sans-serif; font-size: 21px; color: #f6dcac; margin-top: 7px; letter-spacing: 0.08em;">{{selp.name}}</div>
+        <div style="font-size: 9px; color: #57898a; margin-top: 5px;">{{selp.dagId}}</div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-family: Michroma, system-ui, sans-serif; font-size: 19px; color: {{accent}};">{{selp.progress}}</div>
+        <div style="font-size: 9px; letter-spacing: 0.2em; color: #57898a; margin-top: 4px;">{{selp.progressLabel}}</div>
+      </div>
+    </div>
+    <div style="font-size: 11px; line-height: 1.7; color: #a3ccc6; margin: 14px 0 16px 0;">{{selp.desc}}</div>
+    <div style="display: flex; flex-direction: column; gap: 8px; max-height: 430px; overflow: hidden;">
+      <sc-for list="{{selp.nodes}}" as="node" hint-placeholder-count="6">
+        <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,13,26,0.55); border: 1px solid #0a3050; border-left: 3px solid {{node.edge}}; padding: 10px 13px; min-height: 40px;">
+          <span style="font-size: 8.5px; letter-spacing: 0.18em; color: {{node.edge}}; min-width: 66px;">{{node.state}}</span>
+          <span style="font-size: 11px; color: #f6dcac; flex: 1;">{{node.name}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display: flex; gap: 10px; margin-top: 18px;">
+      <div style="flex: 1; min-height: 46px; display: flex; align-items: center; justify-content: center; gap: 9px; background: {{accent}}; color: #00172e; font-size: 10px; font-weight: 700; letter-spacing: 0.16em; cursor: pointer; box-shadow: 0 0 24px rgba(250,169,104,0.3);">{{selp.action}}</div>
+      <div style="min-width: 108px; min-height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid #3f8f8a; color: #8cbfb8; font-size: 9.5px; letter-spacing: 0.16em; cursor: pointer;">FRONTIER</div>
+      <div style="min-width: 96px; min-height: 46px; display: flex; align-items: center; justify-content: center; border: 1px solid #12456b; color: #57898a; font-size: 9.5px; letter-spacing: 0.16em; cursor: pointer;">BUNDLE</div>
+    </div>
+  </div>
+
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; height: 54px; border-top: 1px solid #0a3050; background: rgba(0,11,22,0.9); overflow: hidden; display: flex; align-items: center; z-index: 5;">
+    <div style="display: flex; gap: 66px; white-space: nowrap; animation: tickerslide 40s linear infinite; padding-left: 44px;">
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #35a2a7;">&#9632;</span> 21:16 cross-audit exit 0 &middot; 44m37s &middot; via herdr</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: {{accent}};">&#9632;</span> 21:31 command centre rebuilt &middot; 3 widgets ok</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #35a2a7;">&#9632;</span> 20:59 scip-ingest 628,542 refs &middot; wiring 74k &#8594; 116k</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #e97b3c;">&#9632;</span> 07:00 validate-all next fire 9h22m &middot; 9/9 green</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #8cbfb8;">&#9632;</span> analise inventory DAG closed &middot; 6/6 phases</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #35a2a7;">&#9632;</span> 21:16 cross-audit exit 0 &middot; 44m37s &middot; via herdr</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: {{accent}};">&#9632;</span> 21:31 command centre rebuilt &middot; 3 widgets ok</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #35a2a7;">&#9632;</span> 20:59 scip-ingest 628,542 refs &middot; wiring 74k &#8594; 116k</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #e97b3c;">&#9632;</span> 07:00 validate-all next fire 9h22m &middot; 9/9 green</span>
+      <span style="font-size: 10px; color: #57898a;"><span style="color: #8cbfb8;">&#9632;</span> analise inventory DAG closed &middot; 6/6 phases</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"accent":{"editor":"color","default":"#faa968","options":["#faa968","#f85525","#8cbfb8","#35a2a7"]},"$preview":{"width":1720,"height":1080}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#faa968';
+    const selId = (this.state && this.state.project) || 'touring';
+    const modules = [
+      { name: 'ANALYSIS LOOP', cmd: '/analysis-loop · blind critics', tint: '#8cbfb8',
+        d: 'M9 3.2a5.8 5.8 0 1 1 0 11.6A5.8 5.8 0 0 1 9 3.2Zm0 3.4a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8Zm4.6 7L16 16' },
+      { name: 'LOOP ENGINEERING', cmd: '/loop-engineering · exit 0', tint: '#8cbfb8',
+        d: 'M14.6 9a5.6 5.6 0 1 1-1.7-4M13 2.4v2.7h2.7M7 9l1.6 1.6L11.6 7.4' },
+      { name: 'GEO AI', cmd: 'kazuba-geo-engine · HDM-4', tint: '#35a2a7',
+        d: 'M9 2.8a6.2 6.2 0 1 1 0 12.4A6.2 6.2 0 0 1 9 2.8ZM2.8 9h12.4M9 2.8c-2.3 3.9-2.3 8.5 0 12.4M9 2.8c2.3 3.9 2.3 8.5 0 12.4' },
+      { name: 'DOCUMENTS', cmd: 'antt vote · nota · parecer', tint: '#faa968',
+        d: 'M5 2.5h6l3 3v10H5v-13ZM11 2.5v3h3M7.2 9.2h5.6M7.2 11.8h5.6' },
+      { name: 'MISSIONS', cmd: 'touring decompose · claim', tint: '#faa968',
+        d: 'M4.5 3.6a1.9 1.9 0 1 1 0 3.8 1.9 1.9 0 0 1 0-3.8Zm9 0a1.9 1.9 0 1 1 0 3.8 1.9 1.9 0 0 1 0-3.8ZM9 10.6a1.9 1.9 0 1 1 0 3.8 1.9 1.9 0 0 1 0-3.8ZM5.6 7l2.4 3.8M12.4 7 10 10.8' },
+      { name: 'CONTENT FORGE', cmd: 'story · verbum · research', tint: '#e97b3c',
+        d: 'M14.6 3.4c-4.4.3-7.8 2.6-9.3 6.8L4 14.6l4.4-1.3c4.2-1.5 6.4-4.9 6.2-9.9ZM6.6 11.4 11.8 6.2' },
+      { name: 'SKILLS DECK', cmd: 'omarchy-skill-run · 4 tiles', tint: '#e97b3c',
+        d: 'M10.2 2.2 4.4 10.4h3.6L7.8 15.8l5.8-8.2h-3.6l.2-5.4Z' },
+      { name: 'LEXHUB', cmd: 'KB wiki · 269 aditivos · citations', tint: '#faa968',
+        d: 'M9 3.6C7.4 2.4 5.3 2.1 2.8 2.5v11.3c2.5-.4 4.6-.1 6.2 1.1 1.6-1.2 3.7-1.5 6.2-1.1V2.5c-2.5-.4-4.6-.1-6.2 1.1Zm0 0v11.3' },
+      { name: 'SECOND BRAIN', cmd: 'memory moc · 4 months deep', tint: '#8cbfb8',
+        d: 'M9 6.6a2.4 2.4 0 1 1 0 4.8 2.4 2.4 0 0 1 0-4.8Zm0-3.6a6 6 0 1 1 0 12 6 6 0 0 1 0-12Z' },
+    ];
+    const projDefs = [
+      { id: 'touring', name: 'TOURING', left: 400, top: 74, dot: '#e97b3c',
+        sub: 'omarchyos-agentico · 17/18', dagId: 'task_1787501528611029513 · in_progress',
+        progress: '17/18', progressLabel: 'SUBTASKS DONE',
+        desc: 'OmarchyOS Agentico: the whole machine became an agentic OS. Every phase gate green; convergence is one CLOSE away.',
+        action: 'RUN CLOSE',
+        nodes: [
+          { state: 'DONE', name: 'P0 pre-flight · 9 validators fail-closed', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P1-P4 wipe · dual boot · harness · touring', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P5 skills deck · P6 memory · P7 routines', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P8 apps + command centre · 6/6', edge: '#35a2a7' },
+          { state: 'DONE', name: 'D6 pop!_os stays as fallback', edge: '#35a2a7' },
+          { state: 'READY', name: 'CLOSE · loop_converged exit 0', edge: '#faa968' } ] },
+      { id: 'analise', name: 'ANALISE', left: 116, top: 400, dot: '#35a2a7',
+        sub: 'inventario-omarchy · done', dagId: 'task_1787520285393221190 · done',
+        progress: '6/6', progressLabel: 'PHASES CLOSED',
+        desc: 'ANTT Regulatory Intelligence: 648k files recovered, environment rebuilt and proven post-migration. GEO AI, LexHub KB and the document forges live here.',
+        action: 'OPEN ANALYSIS LOOP',
+        nodes: [
+          { state: 'LIVE', name: 'LexHub KB · 269 aditivos · wiki compiled', edge: '#faa968' },
+          { state: 'DONE', name: 'P1 consolidate sweep · 4 agents + baseline', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P2 doctor_omarchy.py executable', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P3 pacman/AUR single transaction', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P4 uv sync all-packages green', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P5 GPU service 8200 · GitNexus', edge: '#35a2a7' },
+          { state: 'DONE', name: 'P6 inventory doc + doctor delta', edge: '#35a2a7' } ] },
+      { id: 'konverter', name: 'KONVERTER', left: 684, top: 400, dot: '#57898a',
+        sub: 'LexCore · no active DAG', dagId: 'no active DAG in this project',
+        progress: '—', progressLabel: 'IDLE',
+        desc: 'LexCore legal AI, pinned to its own Touring toolchain. 148k files migrated and verified. Quiet — waiting for the next mission.',
+        action: 'START A MISSION',
+        nodes: [
+          { state: 'IDLE', name: 'touring factory route "<ticket>"', edge: '#57898a' },
+          { state: 'IDLE', name: 'decompose create plan "<intent>"', edge: '#57898a' },
+          { state: 'READY', name: 'per-project daemon · .touring/ pinned', edge: '#8cbfb8' } ] },
+      { id: 'data', name: 'DATA', left: 400, top: 726, dot: '#8cbfb8',
+        sub: 'BM25 + vector indices', dagId: 'storage layer · no DAG',
+        progress: '346', progressLabel: 'MB INDEXED',
+        desc: 'The shared indices: BM25 and vector stores for the ANTT process corpus. Every search across projects drinks from here.',
+        action: 'QUERY INDICES',
+        nodes: [
+          { state: 'LIVE', name: 'BM25 corpus · processos ANTT', edge: '#35a2a7' },
+          { state: 'LIVE', name: 'vector store · 8 files verified sha256', edge: '#35a2a7' } ] },
+    ];
+    const projects = projDefs.map((p) => {
+      const isSel = p.id === selId;
+      return { ...p,
+        bg: isSel ? 'rgba(1,36,62,0.96)' : 'rgba(0,19,36,0.88)',
+        border: isSel ? accent : '#12456b',
+        titleColor: isSel ? '#f6dcac' : '#a3ccc6',
+        shadow: isSel ? ('0 0 30px ' + accent + '3d') : '0 8px 20px rgba(0,4,10,0.5)',
+        pick: () => this.setState({ project: p.id }),
+      };
+    });
+    const selp = projDefs.find((p) => p.id === selId) || projDefs[0];
+    return { accent, modules, projects, selp };
+  }
+}
+</script>
+</body>
+</html>

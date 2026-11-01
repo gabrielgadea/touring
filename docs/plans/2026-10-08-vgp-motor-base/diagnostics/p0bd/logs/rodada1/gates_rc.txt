@@ -1,0 +1,7 @@
+fmt rc=0
+clippy rc=0
+test_code rc=0
+test_pyright rc=0
+test_hooks rc=0
+test_server rc=101
+FIM

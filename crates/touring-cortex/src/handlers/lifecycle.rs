@@ -71,7 +71,7 @@ impl Handler for PreCompactHandler {
              RULES: CODE-FIRST UNIVERSAL (DISCOVER\u{2192}CREATE\u{2192}EXECUTE) | \
              CILA routing active | Zero-hallucination (verify before assert) | \
              Hooks inviolable (NEVER bypass) | ACTIVE: touring_mask_context(summarize large observations) + touring_checkpoint(auto-saved) + touring_incremental_status(index current)",
-            &ctx.session_id[..ctx.session_id.len().min(8)],
+            truncate_str(&ctx.session_id, 8),
             parts.join(" "),
         );
 
@@ -692,7 +692,7 @@ impl Handler for SessionEndHandler {
             .record_bash_outcome(&touring_hooks::knowledge::BashOutcome {
                 command: format!(
                     "session_end:{} tools={} errors={} duration={:.0}s",
-                    &ctx.session_id[..ctx.session_id.len().min(12)],
+                    truncate_str(&ctx.session_id, 12),
                     tool_count,
                     error_count,
                     duration_secs,
@@ -712,10 +712,7 @@ impl Handler for SessionEndHandler {
 
         // Record access for session frequency tracking
         let _ = ctx.knowledge.record_access(
-            &format!(
-                "__session_end:{}__",
-                &ctx.session_id[..ctx.session_id.len().min(12)]
-            ),
+            &format!("__session_end:{}__", truncate_str(&ctx.session_id, 12)),
             &ctx.session_id,
         );
 
@@ -723,7 +720,7 @@ impl Handler for SessionEndHandler {
         let stats = ctx.knowledge.stats().ok();
 
         tracing::info!(
-            session_id = %&ctx.session_id[..ctx.session_id.len().min(12)],
+            session_id = %truncate_str(&ctx.session_id, 12),
             tool_count = tool_count,
             error_count = error_count,
             duration_secs = duration_secs,
@@ -821,7 +818,7 @@ impl Handler for PostCompactHandler {
              CODE-FIRST (DISCOVER\u{2192}CREATE\u{2192}EXECUTE) | \
              CILA routing active | Zero-hallucination (verify before assert) | \
              Hooks inviolable (NEVER bypass) | Touring v9.0 active",
-            &ctx.session_id[..ctx.session_id.len().min(8)],
+            truncate_str(&ctx.session_id, 8),
         );
         if tier1.len() <= budget_remaining {
             output.push_str(&tier1);
@@ -913,15 +910,31 @@ impl Handler for ConfigChangeHandler {
 // H44-H46: Worktree + Instructions handlers (Sprint 5)
 // ══════════════════════════════════════════════════════════════════════
 
+/// The index rebuild a new worktree gets: `touring index rebuild` run INSIDE the
+/// worktree, so the worktree is indexed as its own project. `None` when the
+/// worktree does not exist. Running it with the parent as cwd and `--dir
+/// <worktree>` sealed an empty "complete" generation over the parent's index
+/// (14/09/2026); the rebuild now also refuses a `--dir` outside its project.
+fn worktree_rebuild_command(worktree_path: &str) -> Option<std::process::Command> {
+    let path = std::path::Path::new(worktree_path);
+    if !path.is_dir() {
+        return None;
+    }
+    let mut cmd = std::process::Command::new("touring");
+    cmd.current_dir(path).args(["index", "rebuild"]);
+    Some(cmd)
+}
+
 /// Record worktree creation, set project context, and schedule async index rebuild.
 ///
 /// Wave C Subtask 3 — WorktreeCreate index isolation:
 /// 1. Extracts `worktree_path` from hook input.
 /// 2. Writes `CLAUDE_PROJECT_DIR=<path>` to `CLAUDE_ENV_FILE` when that file exists,
 ///    so subsequent Bash commands in the worktree session pick up the correct root.
-/// 3. Spawns an async `touring index rebuild --dir <path>` as a detached background
-///    process (fire-and-forget via `std::thread::spawn`). This prevents cross-pollution
-///    between worktrees without blocking the hook return.
+/// 3. Spawns an async `touring index rebuild` INSIDE the worktree (see
+///    [`worktree_rebuild_command`]) as a detached background process
+///    (fire-and-forget via `std::thread::spawn`), so the worktree is indexed as
+///    its own project without blocking the hook return.
 /// 4. Snapshots a semantic-tier memory entry so future sessions can recall isolation
 ///    context for the worktree.
 pub struct WorktreeEnterHandler;
@@ -983,11 +996,10 @@ impl Handler for WorktreeEnterHandler {
         // not available in CortexContext). Instead we spawn the `touring` binary
         // as a detached background process. The thread exits as soon as `Command`
         // is launched; we do not join it (true fire-and-forget).
-        {
+        if let Some(mut rebuild) = worktree_rebuild_command(&worktree_path) {
             let path_for_rebuild = worktree_path.clone();
             std::thread::spawn(move || {
-                let status = std::process::Command::new("touring")
-                    .args(["index", "rebuild", "--dir", &path_for_rebuild])
+                let status = rebuild
                     .stdout(std::process::Stdio::null())
                     .stderr(std::process::Stdio::null())
                     .status();

@@ -1,0 +1,104 @@
+{
+ "version": 1,
+ "iterations": [
+  {
+   "coverage": 0.1304,
+   "gap_count": 11,
+   "top_gaps": [
+    {
+     "key": "decisao:touring-proxima-geracao:fronteira-modulo:2026-09-02",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "medicao:custo-de-contexto-baseline:2026-09-04",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "lesson:pretooluse-learning-strategy:2026-05-15",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "f1.5-cadeia-injecao-completa-2026-08-31",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "strategy:tier2-wave-signal-layer:2026-09-02",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "licao:claude-md-nao-e-changelog:2026-09-02",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "f2-sdk-surface-hibrida-2026-09-01",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    },
+    {
+     "key": "licao:ambiente-do-medidor-antes-do-medido:2026-09-22",
+     "lens": "institutional",
+     "depth": "D1",
+     "weight": 2.0
+    }
+   ],
+   "open_questions": 0,
+   "open_question_items": [],
+   "unverified_claims": 54,
+   "unverified_items": [
+    "TOURING_HOOK_INJECTION",
+    "TOURING_HOOK_TRACE_FILE",
+    "TOURING_PILLAR_INDUCTION_ARMED",
+    "TOURING_TURN_BUDGET",
+    "additionalContext",
+    "advisory_response",
+    "agent_model_gate.py",
+    "block_git.sh"
+   ],
+   "plan_delta": {
+    "headings_added": 17,
+    "headings_removed": 0,
+    "effort_reclassified": 0,
+    "is_zero": false,
+    "first": true
+   },
+   "signature": {
+    "headings": [
+     "Interruptor de injeção de contexto — desenho e uso",
+     "1. A chave",
+     "Como ligar",
+     "Como desligar de volta",
+     "2. A separação que sustenta o desenho",
+     "3. Onde o interruptor mora (a cobertura)",
+     "3.1 Lado Rust — o shim",
+     "3.2 Lado Python/shell — o guard no próprio hook",
+     "3.3 A guarda de conformidade",
+     "4. O custo do interruptor",
+     "5. Provas (executadas nesta sessão)",
+     "6. Onde isto se liga ao resto (e o que NÃO está feito)",
+     "6.1 A régua precisa de dois emojis novos",
+     "6.2 O orçamento por turno já existe e não amarra",
+     "6.3 Wave 2 — o que fica",
+     "6.4 A semântica exata, por nível",
+     "7. A tese, em uma frase"
+    ],
+    "efforts": {},
+    "hash": "d85f57d884d2"
+   },
+   "at": "2026-10-26T12:32:08-0300",
+   "iter": 1
+  }
+ ]
+}

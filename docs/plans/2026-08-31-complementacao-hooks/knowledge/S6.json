@@ -1,0 +1,45 @@
+{
+  "phase": "S6",
+  "entities": [
+    {
+      "entity_id": "phase:S6",
+      "type": "phase",
+      "description": "S6 quality do conteudo PROPOSTO no pre_edit: quality_baseline_signals movido para shared/quality_signal.rs (pre_write importa a funcao unica); QualityBaselineLayer::for_edit aplica old->new em memoria (apply_edit, guard 200KB) e mede com analyze_file_quality \u2014 'quality: CC>10: [f]' antes do edit (simetria com pre_write). RED: contexto so tinha 'complexity: medium (14)'. 4 testes unitarios + 1 runtime; mutacao (medir o disco) flagrada por 2 testes; pre_write 73 verdes; clippy prod limpo."
+    },
+    {
+      "entity_id": "memory:loop:task_1788318067626657742:S6:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1788318067626657742",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1788318067626657742",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:S6|produces|memory:loop:task_1788318067626657742:S6:done",
+      "source": "phase:S6",
+      "type": "produces",
+      "target": "memory:loop:task_1788318067626657742:S6:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S6:done|generated-by|loop:loop:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S6:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1788318067626657742"
+    },
+    {
+      "relation_id": "memory:loop:task_1788318067626657742:S6:done|generated-by|dag:decomp:task_1788318067626657742",
+      "source": "memory:loop:task_1788318067626657742:S6:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1788318067626657742"
+    }
+  ]
+}

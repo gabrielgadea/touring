@@ -5,6 +5,7 @@ pub mod ast;
 pub mod calibrate;
 pub mod cascade;
 pub mod cognitive;
+pub mod context_budget;
 pub mod contract;
 pub mod decompose;
 pub mod evolution;

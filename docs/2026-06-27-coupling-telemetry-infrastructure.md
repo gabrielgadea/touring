@@ -42,7 +42,7 @@ restart) e `C(tokens)` vem do gate-metrics. O substrato existe; falta **derivar,
 | Camada | O que é | Estado |
 |---|---|---|
 | **gate-metrics** (142 counters) | `crates/touring-foundation/src/gate_metrics.rs`; `touring gate-metrics -j` | ✅ rico, in-memory (zera no restart) |
-| **`touring kpi`** | `kpi-commitments-v1`; `source: daemon:<handler>:<json_pointer>`; resolver em `crates/touring-cli/src/cli/kpi.rs:231`. Handlers reais: `cli-wiring-status`, `cli-learning-status`, `cli-gate-metrics`, `cli-gotcha-stats`. `external:` = **STUB** | ✅ **a fundação** — 9 commitments, **0 de coupling** |
+| **`touring kpi`** | `kpi-commitments-v1`; `source: daemon:<handler>:<json_pointer>`; resolver em `crates/touring-cli/src/cli/kpi.rs:231`. Handlers reais: `cli-wiring-status`, `cli-learning-status`, `cli-gate-metrics`, `cli-gotcha-stats`. ~~`external:` = **STUB**~~ **[atualização 2026-08-28]**: `external:` é canal REAL (`docs/kpi/external/<id>.json`, STUB se mtime > 14d); a gramática ganhou escopo `daemon:<handler>@<scope>:<pointer>`; `cli-mutation-test` entrou nos handlers com braço. Guia vivo: `docs/kpi/README.md` | ✅ **a fundação** — 9 commitments, **0 de coupling** |
 | **STR / TR-2** | `enrichment_{context_bytes_total,emit_count,mean_bytes_per_emit}` | ✅ existe (medido: 1029 B/emit) |
 | **health-delta** | `health_delta_{regression,improvement,recovery,streak}_count` por path | ✅ **efetividade real** (in-memory) |
 | **RL / outcome** | `ema_reward`, `mean_td_error`; `outcome_learner_brier_running_sum` | ✅ efetividade real |

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# touring-quality:allow-attack-fixture — the outcome axis embeds SQLi/XSS payloads
+# on purpose: they are the known-vulnerable fixtures `touring_audit` must flag.
 """Agentic Tool Benchmark — τ-bench-style harness for Touring's MCP tools.
 
 Turns the qualitative "touring covers 9/10 agentic best-practices" verdict into a

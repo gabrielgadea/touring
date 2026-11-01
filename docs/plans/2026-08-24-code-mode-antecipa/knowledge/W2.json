@@ -1,0 +1,11 @@
+{
+  "phase": "W2",
+  "entities": [
+    {
+      "entity_id": "phase:W2",
+      "type": "phase",
+      "description": "W2 completa: G1 teeth \u2014 4\u00aa inspe\u00e7\u00e3o da MESMA classe nega com a rajada REAL acumulada como corpo do programa (burst_ledger por projeto+classe, TTL 180s); advisory legado segue dono da 3\u00aa; bypass por-comando reseta a janela; continuation-check A/B (same/other) alimenta autodemote puro (piso 0.70 com 100+ eventos \u2014 g1_should_deny testado nas 4 bordas). Provado vivo: deny real na 4\u00aa rg desta sess\u00e3o com os 4 comandos verbatim no rem\u00e9dio, seguido do rem\u00e9dio em 1 touring run."
+    }
+  ],
+  "relations": []
+}

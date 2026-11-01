@@ -1,0 +1,14 @@
+{
+  "name": "ab34-local",
+  "description": "Marketplace local do experimento AB34 (3.4): só o mod touring-compact-evict, congelado por cópia",
+  "owner": {
+    "name": "Gabriel Gadea"
+  },
+  "plugins": [
+    {
+      "name": "touring-compact-evict",
+      "source": "./touring-compact-evict",
+      "description": "Evicção determinística de resultados de ferramenta já superados na fronteira da compactação; desligado sem TOURING_COMPACT_EVICT=on"
+    }
+  ]
+}

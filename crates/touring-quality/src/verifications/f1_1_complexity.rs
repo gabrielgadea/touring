@@ -39,7 +39,7 @@ impl Verification for F1_1_Complexity {
 #[cfg(feature = "workspace-integration")]
 fn analyze_complexity_dim(target: &Path) -> Result<(f32, String)> {
     let raw = crate::verifications::read_target_source(target)?;
-    let lang = crate::verifications::lang_from_ext(target);
+    let lang = crate::verifications::lang_of(target);
     let m = touring_analysis::quality::estimate_complexity(&raw, lang);
     let value = score_complexity(m.max_complexity, m.cognitive_complexity, m.function_count);
     let evidence = format!(

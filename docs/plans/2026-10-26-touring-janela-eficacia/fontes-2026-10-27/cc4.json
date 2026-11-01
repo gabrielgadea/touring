@@ -1,0 +1,359 @@
+{
+  "answer": "In modern AI coding agents and agentic harnesses (such as Claude Code, DeepSeek Harness, and LeanCTX), managing how source code is read and how execution outputs enter the context window is critical to preventing **context rot**, reducing token expenditure, and maintaining high reasoning quality [1, 2].\n\n---\n\n### 1. Read Tool Behavior, Limits, and Truncation\n\nWhen an agent accesses repository files, tool interactions are governed by line limits, preview restrictions, and size filters:\n\n* **Nested File Preview Limit (100 Lines)**: In progressive disclosure workflows, if a master instruction or reference file points to a nested secondary file (a file reached through another file reference), the agent preview mechanism truncates the file and loads only the **first 100 lines** [3, 4]. Because of this, best practices dictate that any reference file over 100 lines must include a table of contents or structural index at the top so the agent can discover deeper sections without losing context [3, 4].\n* **Structured Read Modes & Line Selection**: Rather than reading entire raw files into context, advanced context gateways (like LeanCTX) supply specialized read modes (such as `map`, `signatures`, `diff`, `lines:N-M`, or `density:X`) [5]. Under a Just-In-Time (JIT) disclosure pattern, the agent first calls `signatures` to retrieve structural outlines and line spans, and subsequently issues targeted reads for specific line ranges (`lines:N-M`) [5].\n* **Large File & Lockfile Pruning**: Automated file expansion routines explicitly enforce maximum file byte thresholds (`maxBytes`) and ignore non-human-editable or large generated artifacts (such as `.lock` files or large binary dumps) to prevent flooding the model's context [6].\n\n---\n\n### 2. Large Bash Outputs & Persisted-Output Behavior (\"Output Diet\")\n\nWhen a command executed in the shell produces a massive output (e.g., long compilation logs, test outputs, or database dumps), dumping the raw `stdout`/`stderr` into the conversation history quickly consumes thousands of tokens and degrades model attention [1, 7, 8]. To solve this, harnesses implement an **Output Diet** middleware [7-9]:\n\n* **Threshold Interception**: Whenever a shell execution's stdout string exceeds a pre-configured character budget (`OUTPUT_DIET_MAX_CHARS`), the Output Diet filter intercepts the result before it reaches the model [7, 9].\n* **Persisted Raw Output**: The raw, uncompressed execution log is saved in full to a temporary file on disk (for example, `/active/tmp/bash-${Date.now()}.log` or `/active/tmp/<run-id>.log`) [7, 9].\n* **Sanitized Context Injection**: Instead of the full log, the harness injects a compressed, structured summary into the agent's context window containing [7, 9]:\n  1. A header tag identifying the original character length and the path to the complete persisted log on disk (e.g., `[OUTPUT DIET: Saida bruta de X chars salva integralmente em /active/tmp/...]`) [7, 9].\n  2. The **Header / Beginning lines** (typically the first 12 lines) [9].\n  3. Filtered **Error lines** matching diagnostic regex patterns (`error`, `exception`, `fail`, `fatal`, `panic`, `ERR!`) (typically capped at 15 lines) [9].\n  4. The **Footer / Trailing lines** (typically the last 15 lines) [9].\n\nThis ensures the agent receives immediate error diagnostics and status lines while preserving the full log on disk for deliberate follow-up inspection if needed [7-9].\n\n---\n\n### 3. Documented Best Practices to Reduce Context Consumption\n\nTo minimize token usage and maximize agent execution accuracy, key harness engineering principles include:\n\n1. **Lazy Tool Loading / Tool Diet**: Statically injecting dozens of Model Context Protocol (MCP) tool schemas into the system prompt bloats rest context [1]. Switching to **Lazy Tool Loading** via local CLI binaries and Agent Skills reduces resting token footprint by ~85% and improves tool execution accuracy [1].\n2. **Code Mode & Deterministic Pipe Filtering**: Instead of making multiple sequential tool calls that dump raw JSON-RPC data, run CLI commands in the terminal and chain them with deterministic text-processing utilities like `jq`, `grep`, `ripgrep`, and `ast-grep` to filter and slice output before it touches the context window [1].\n3. **Instruction Router Architecture**: Keep top-level instruction files (`CLAUDE.md`, `AGENTS.md`) lightweight (under 120–200 lines) [10, 11]. Structure them as a \"contents page\" using backticked file paths rather than `@` imports (which eagerly load entire files into every turn) [12, 13].\n4. **Strategic Compaction & State Persistence**: Trigger manual compaction (`/compact`) at logical milestones (e.g., after exploration and before implementation) [14, 15]. Maintain active task state in persistent disk files (`NOTAS-DA-SESSAO.md`, `PLAN.md`, `PASSAGEM.md`) and re-inject them on startup via a `SessionStart` hook so critical decisions survive conversation pruning [16, 17].\n5. **Subagent Delegation**: Offload large-scale codebase searches, multi-file reviews, or heavy log audits to subagents or dedicated CLI tools (`code-buster`, `reflex-search`) so raw file content remains isolated in temporary sub-sessions [18-20].\n\n💡 *Would you like to explore setting up an Output Diet hook or configuring a lightweight `CLAUDE.md` router for your setup?*",
+  "question": "Read tool: default line limit, long-line truncation, behavior on large files and images, and documented best practices to reduce the context consumed by Read and by large Bash outputs (including the persisted-output behavior).",
+  "conversation_id": "78ed07a2-5858-459c-ac45-64ffcdbfae4b",
+  "sources_used": [
+    "20d279bf-d319-4319-a12a-144c1f85742b",
+    "9b0ac943-db87-404d-bf53-dfe846ed8904",
+    "9585f4d3-1e5e-4425-ac40-2bffa7063eb3",
+    "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "48a9fbc3-0df0-4baa-a4a0-2409f5f08166",
+    "4098af5e-3826-4273-9905-3632177d06e6",
+    "8a4ca92e-a280-4979-bdb4-5951c361a641",
+    "f603fc03-0e05-4c7d-b6bd-e060219c7271",
+    "f2593594-24ae-4109-9a19-f2d055747bf4",
+    "e37cfdfd-ee4f-44dd-9ea9-825268845854",
+    "e4af7f24-df34-466d-98a7-219838de8be7",
+    "992295e1-c1d7-4757-a9de-758ee41b2749"
+  ],
+  "citations": {
+    "1": "20d279bf-d319-4319-a12a-144c1f85742b",
+    "2": "9b0ac943-db87-404d-bf53-dfe846ed8904",
+    "3": "9585f4d3-1e5e-4425-ac40-2bffa7063eb3",
+    "4": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "5": "48a9fbc3-0df0-4baa-a4a0-2409f5f08166",
+    "6": "4098af5e-3826-4273-9905-3632177d06e6",
+    "7": "4098af5e-3826-4273-9905-3632177d06e6",
+    "8": "8a4ca92e-a280-4979-bdb4-5951c361a641",
+    "9": "4098af5e-3826-4273-9905-3632177d06e6",
+    "10": "20d279bf-d319-4319-a12a-144c1f85742b",
+    "11": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "12": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "13": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+    "14": "f603fc03-0e05-4c7d-b6bd-e060219c7271",
+    "15": "f2593594-24ae-4109-9a19-f2d055747bf4",
+    "16": "e37cfdfd-ee4f-44dd-9ea9-825268845854",
+    "17": "4098af5e-3826-4273-9905-3632177d06e6",
+    "18": "f2593594-24ae-4109-9a19-f2d055747bf4",
+    "19": "e4af7f24-df34-466d-98a7-219838de8be7",
+    "20": "992295e1-c1d7-4757-a9de-758ee41b2749"
+  },
+  "references": [
+    {
+      "source_id": "20d279bf-d319-4319-a12a-144c1f85742b",
+      "citation_number": 1,
+      "cited_text": "Essa deterioração assintótica é alimentada por dois mecanismos patológicos acoplados na operação dos harnesses de primeira geração: a saturação precoce da janela de contexto pelo carregamento estático de ferramentas e a exploração infinita ( Infinite Exploration ) durante a leitura de repositórios massivos 3 . Quando definições completas de dezenas de servidores Model Context Protocol (MCP) são injetadas antecipadamente ( eager loading ) no system prompt , os mecanismos de atenção cruzada do modelo sofrem dispersão severa antes mesmo que a tarefa do utilizador seja processada. A substituição desse modelo estático pela arquitetura de Carregamento Tardio de Ferramentas ( Lazy Tool Loading ) combinada a Interfaces de Linha de Comando e Skills (CLI + Skills) reduz o consumo de tokens de contexto em repouso em 85%, elevando empiricamente a acurácia de seleção e execução de ferramentas de 49,0% para 74,0% em modelos da geração Opus 4 e de 79,5% para 88,1% no Opus 4.5 11 . Diferentemente de servidores MCP persistentes cujas respostas JSON-RPC volumosas são despejadas diretamente na janela conversacional, binários CLI instalados no ambiente possuem custo zero de contexto em repouso e viabilizam o paradigma de Code Mode : o agente utiliza o shell como um ambiente de composição programática, encadeando chamadas de ferramentas com utilitários determinísticos de filtragem sintática e textual (jq, grep, ripgrep, ast-grep) para comprimir e fatiar a saída antes que qualquer byte seja ingerido na janela de contexto 13 . O padrão estabelecido pelo Context7 CLI + Skill (ctx7 setup --cli) ilustra essa transição ao permitir que o agente resolva identificadores de bibliotecas e consulte documentação atualizada diretamente via linha de comando estruturada (--json), dispensando o overhead de protocolos de transporte MCP para tarefas de consulta e manipulação local 11 ."
+    },
+    {
+      "source_id": "9b0ac943-db87-404d-bf53-dfe846ed8904",
+      "citation_number": 2,
+      "cited_text": "Researchers have taken to giving this thing a name, and that is context rot. The more tokens in the window, the less reliably the model uses any of them. And this is the problem that context engineering is there to solve. Context engineering is deciding what actually goes into this context window at each step of an agent's run. Now there are many ways an agent context can go wrong and I'm going to cover four of them, the four failure modes that you can encounter when working with these big context windows."
+    },
+    {
+      "source_id": "9585f4d3-1e5e-4425-ac40-2bffa7063eb3",
+      "citation_number": 3,
+      "cited_text": "that pricing file that we were viewing once again and at the very top it lists the contents of what's within once Claude sees that it now knows that the information for discounts for example is down at the bottom even if it only previewed the first 100 lines rule three is around degrees of freedom the principle for this rule is basically where a step or a task is risky you will need to give more detail in guardrails but if it's not as consequential you can be less rigid and let the model be creative in solving the problem entropic calls this setting the degrees of freedom and there are actually three levels that they are mentioning high freedom is basically plain instructions so you just tell it what you need like if you just starting to brainstorm on ways to automate your business processes because there are a lot of good ways to do that medium freedom is a template with a few settings like for example in a weekly report where you want a certain shape but a bit of variation is fine so"
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 4,
+      "cited_text": "'re going to use an at simple it's going to load the whole file into every single session so basically we need to write the path in these back ticks with when to open it like read the client brief before any client work that way Claude knows to go and open that file only at the right time and load it into context secondly we're going to point to every file straight from claw.md because anthropics say that a file that's only reached through another file so if it's nested it's just going to get its first 100 lines previewed and therefore we might be missing the detail that we actually need in those reference files and then thirdly any file over 100 lines should get a contents list at the top and anthropic set that rule for skill files but I'm actually applying it to everything the index points at because with every file we're going to get the same partial read of only the first 100 lines now that's quite a few rules right and you can make these changes yourself or you can simply run /doc"
+    },
+    {
+      "source_id": "48a9fbc3-0df0-4baa-a4a0-2409f5f08166",
+      "citation_number": 5,
+      "cited_text": "File reads : 16 read modes ( full , map , signatures , diff , lines:N-M , density:X , …) — eligible cached re-reads return a compact reference instead of repeating content Target density ( density:0.4 ): SDE-style budget compression — keeps the highest-entropy lines until ~40% of the original tokens remain, deterministic JIT disclosure : signatures carries line spans and points at lines:N-M for targeted expansion — outline first, bodies on demand Shell output : 85+ shell-output patterns compress git, npm, cargo, docker, kubectl, terraform and more (250+ passthrough rules) Tree-sitter AST : structural understanding for 27 languages — not just text compression Source recovery (CCR) : supported compact views retain source or archive references for expansion through ctx_expand , ctx_retrieve or the reference API. Recovery depends on permissions, retention and the source remaining available. Read modes and detail →"
+    },
+    {
+      "source_id": "4098af5e-3826-4273-9905-3632177d06e6",
+      "citation_number": 6,
+      "cited_text": "shouldSkipPath (filePath: string ): boolean { const parts = filePath.split( /[\\\\/]/ ); return parts.some( (part) => IGNORED_SEGMENTS.has(part)) || filePath.endsWith( \".lock\" );\u000b} async function expandAndPruneFiles (patterns: string [], maxBytes: number ): Promise < string []> { const discovered = new Set < string >(); const cwd = process.cwd(); for ( const pattern of patterns) { for await ( const entry of glob(pattern, { cwd })) { const relPath = relative(cwd, resolve(cwd, entry)); if (shouldSkipPath(relPath)) continue ; try { const fileStat = await stat(relPath); if (fileStat.isFile() && fileStat.size > 0 && fileStat.size <= maxBytes) {\u000b          discovered.add(relPath);\u000b        }\u000b      } catch { // Ignora symlinks quebrados ou arquivos inacessiveis }\u000b    }\u000b  } return Array .from(discovered).sort();\u000b} async function evaluateFileWithJev (\u000b  filePath: string ,\u000b  questions: Record< string , JevQuestion>,\u000b  model: string ,\u000b  apiKey: string ,\u000b  endpoint: string ): Promise < { file: string ; answers: Record< string , any >; latencyMs: number } | null > { const content = await readFile(filePath, \"utf8\" ); const start = performance.now(); const response = await fetch(endpoint, { method : \"POST\" , headers : { \"Content-Type\" : \"application/json\" , Authorization : `Bearer ${apiKey}` }, body : JSON .stringify({\u000b      model, state : { file_path : filePath, source_code : content\u000b      },\u000b      questions\u000b    })\u000b  }); if (!response.ok) { return null ;\u000b  } const payload = ( await response.json()) as { answers : Record< string , any > }; return { file : filePath, answers : payload.answers, latencyMs : Math .round(performance.now() - start)\u000b  };\u000b} async function main (): Promise < void > { const apiKey = process.env.TYPESAFE_API_KEY; const endpoint = process.env.TYPESAFE_BASE_URL ?? \"https://api.typesafe.ai/v1/systemone\" ; if (!apiKey) { console .error( JSON .stringify({ error : \"MISSING_TYPESAFE_API_KEY\" }));\u000b    process.exit( 1 );\u000b  } const args = parseArguments(process.argv); const candidateFiles = await expandAndPruneFiles(args.globs, args.maxFileBytes); const matchedResults: Array <{ file : string ; answers: Record< string , any >; latencyMs: number }> =\u000b    []; // Execucao concorrente controlada em lotes for ( let i = 0 ; i < candidateFiles.length; i += args.concurrency) { const batch = candidateFiles.slice(i, i + args.concurrency); const batchOutputs = await Promise .all(\u000b      batch.map( (f) => evaluateFileWithJev(f, args.questions, args.model, apiKey, endpoint))\u000b    ); for ( const item of batchOutputs) { if (!item) continue ; if (args.filterKey && item.answers[args.filterKey]) { const targetAns = item.answers[args.filterKey]; if (targetAns.type === \"noul\" && targetAns.noul < args.minProb) { continue ;\u000b        } if (\u000b          (targetAns.type === \"choice\" || targetAns.type === \"score\" ) &&\u000b          targetAns.confidence < args.minConfidence\u000b        ) { continue ;\u000b        }\u000b      }\u000b      matchedResults.push(item);\u000b    }\u000b  } // Saida deterministica enxuta (sem o codigo-fonte bruto dos arquivos) console .log( JSON .stringify(\u000b      { summary : { model : args.model, total_files_evaluated_by_jev : candidateFiles.length, files_matched_after_cut : matchedResults.length, files_never_loaded_into_llm_context : candidateFiles.length - matchedResults.length\u000b        }, matches : matchedResults\u000b      }, null , 2 )\u000b  );\u000b}\u000b\u000bmain().catch( (err) => { console .error( JSON .stringify({ error : String (err?.message ?? err) }));\u000b  process.exit( 1 );\u000b});"
+    },
+    {
+      "source_id": "4098af5e-3826-4273-9905-3632177d06e6",
+      "citation_number": 7,
+      "cited_text": "Para que uma CLI corporativa seja classificada como Agent-First , seu contrato de engenharia deve obedecer a cinco invariantes estruturais. Primeiramente, a ferramenta deve implementar detecção automática de ambientes não-interativos (!process.stdout.isTTY), desativando instantaneamente spinners animados, barras de progresso ANSI e cores de terminal para emitir uma saída limpa pronta para piping (| jq) 45 . Em segundo lugar, deve oferecer um modo nativo de Output Diet (--agent-diet ou --json): caso a saída bruta ultrapasse um orçamento estrito de caracteres (por exemplo, caracteres em logs de compilação ou suítes de teste), a própria CLI grava o conteúdo integral em /active/tmp/<run-id>.log e imprime no stdout exclusivamente o cabeçalho de resumo, o rodapé, as linhas contendo erros ou exceções (error, FAIL, panic) e o ponteiro exato para o arquivo bruto em disco 53 ."
+    },
+    {
+      "source_id": "8a4ca92e-a280-4979-bdb4-5951c361a641",
+      "citation_number": 8,
+      "cited_text": "que você tá na ruis olha também o Windows 11 Pro com o mesmo cupom WKA O preço final é R$ 136 Chave original sistema que recebe update de segurança normalmente E a mesma situação ativação online e na hora A rookis tem pagamento seguro suporte 24 horas e política de troca e reembolso Tudo com o mesmo cupom WKA para 25% de desconto Escolha a ruis para fazer barato Os links estão na descrição e no primeiro comentário fixado E muito obrigado a Rquis por patrocinar esse vídeo Um comando terminou devolveu um relatório enorme e a resposta que você precisava tava em uma linha O resto entrou na conversa junto Dependendo da tarefa isso acontece várias vezes seguidas Porque cada ferramenta vai produzir muito mais texto do que o agente precisa naquele momento O output diet filtra resultados extensos de algumas ferramentas antes de eles entrarem no contexto e guarda uma versão completa para consultar depois O modo de cortar ele vai depender do resultado Num log de comandos por exemplo ele pode pres"
+    },
+    {
+      "source_id": "4098af5e-3826-4273-9905-3632177d06e6",
+      "citation_number": 9,
+      "cited_text": "};\u000b            }\u000b          }\u000b        }\u000b      }\u000b    } // 4. Executa a ferramenta e aplica o Output Diet sobre o resultado bruto const toolResult = await next(e); const rawStdout = String (toolResult?.output ?? \"\" ); if (rawStdout.length > OUTPUT_DIET_MAX_CHARS) { const logId = `bash-${ Date .now()}.log` ; const logPath = `/active/tmp/${logId}` ; try { await $.fs.write(logPath, rawStdout);\u000b      } catch (_fsErr) { // Prossegue com truncamento em memoria caso o diretorio ainda nao exista } const lines = rawStdout.split( \"\\n\" ); const head = lines.slice( 0 , 12 ).join( \"\\n\" ); const tail = lines.slice(- 15 ).join( \"\\n\" ); const errorLines = lines\u000b        .filter( (l: string ) => /(error|exception|fail|fatal|panic|ERR!)/i .test(l))\u000b        .slice( 0 , 15 )\u000b        .join( \"\\n\" ); const savedBytes = rawStdout.length - (head.length + tail.length + errorLines.length); .state.trimmedBytes ?? 0 ) + Math .max( 0 , savedBytes); await $.store.set( \"gov.trimmedBytes\" , $.state.trimmedBytes);\u000b      $.ui.invalidate( \"ui.render\" ); const dietOutput = [ `[OUTPUT DIET: Saida bruta de ${rawStdout.length} chars salva integralmente em ${logPath}]` , `--- CABECALHO (Primeiras 12 linhas) ---` ,\u000b        head,\u000b        errorLines ? `--- LINHAS DE ERRO DETECTADAS ---\\n${errorLines}` : \"\" , `--- RODAPE (Ultimas 15 linhas) ---` ,\u000b        tail\u000b      ]\u000b        .filter( Boolean )\u000b        .join( \"\\n\" ); return {\u000b        ...toolResult, output : dietOutput\u000b      };\u000b    } return toolResult;\u000b  }); // 5. Renderizacao da Context Bar na faixa superior do prompt (Band) on( \"ui.render\" , { component : \"Band\" }, ($: any , _e: any , _next: any ) => { const calls = $.state.jevCalls ?? 0 ; const kbSaved = (($.state.trimmedBytes ?? 0 ) / 1024 ).toFixed( 1 ); const verdict = $.state.lastVerdict ?? \"IDLE\" ; return { text : `[GovMod S1: ${PINNED_JEV_MODEL} | Decisoes Jev: ${calls} | Output Diet Poupado: ${kbSaved} KB | Ultimo Veredito: ${verdict}]` };\u000b  });\u000b}"
+    },
+    {
+      "source_id": "20d279bf-d319-4319-a12a-144c1f85742b",
+      "citation_number": 10,
+      "cited_text": "<cited_table>",
+      "cited_table": {
+        "num_columns": 4,
+        "rows": [
+          [
+            "Caminho Físico no Monorepo (enterprise-factory-monorepo/)",
+            "Classificação Arquitetural",
+            "Agente Gerador / Consumidor Primário",
+            "Contrato Físico, Permissões e Invariantes Determinísticas"
+          ],
+          [
+            "AGENTS.md",
+            "Índice Mestre Universal (< 120 linhas)",
+            "Todos os Harnesses (Claude Code v2.1.277+, Codex CLI, OpenCode, Cursor, Pi)",
+            "Lido na raiz; define regras globais compiladas pelo Abide e proíbe edições fora do escopo do PLAN.md"
+          ],
+          [
+            "CLAUDE.md",
+            "Diretiva de Harness e Sincronia Dual",
+            "Claude Code (sincronizado com AGENTS.md via /config)",
+            "Configura carregamento de Mods padrão e prioridades de contexto para sessões locais e Cloud Threads"
+          ],
+          [
+            "PLAN.md",
+            "Manifesto de Escopo Cirúrgico da Sessão",
+            "Gerado pelo Arquiteto Nível 1 (Opus 5.5); lido pelo Mod Seam-Enforcer.",
+            "Declara @active_plugin e lista explícita @allow_edit; governa os bloqueios de permission_check"
+          ],
+          [
+            ".claude/settings.json",
+            "Configuração de Runtime e Segurança",
+            "Claude Code CLI / Desktop e perfis geridos pelo @digital-threads/aimux",
+            "Ativa Function Hooks, define mapeamento de diretórios de plugins e políticas de --safe-mode"
+          ],
+          [
+            ".claude/skills/context7-cli/SKILL.md",
+            "Skill Padrão",
+            "Gerado via npx ctx7 setup --cli; consumido por Trabalhadores Nível 3",
+            "Guia a execução em 2 passos (ctx7 library"
+          ],
+          [
+            ".claude/skills/reverse-engineer-anything/SKILL.md",
+            "Skill de Engenharia Reversa (morluto/rea)",
+            "Consumido por Agentes Sintetizadores de Ferramentas",
+            "Impõe roteamento específico por binário/app, modo"
+          ],
+          [
+            ".claude/skills/abide-compile/SKILL.md",
+            "Procedimento de Compilação de Rubrica",
+            "Invocado por npx @coldtea/abide init / abide compile",
+            "Traduz regras em prosa de AGENTS.md em perguntas tipadas de probabilidade para o modelo JEV"
+          ],
+          [
+            ".claude/skills/caliper-eval/SKILL.md",
+            "Orquestrador de Testes A/B de Skills",
+            "Invocado por Engenheiros de Tooling e CI (grill-skill + evaluate-skill)",
+            "Executa"
+          ],
+          [
+            ".claude/skills/ouroboros-workflow/SKILL.md",
+            "Protocolo Specification-First (Grade A)",
+            "Instalado via skills add ... --skill run-specification-first-coding-workflows-with-ouroboros",
+            "Governa o fluxo ooo interview"
+          ],
+          [
+            ".abide/rubric.json",
+            "Rubrica Determinística Versionada",
+            "Compilado pelo Abide; avaliado em 300ms pelo modelo JEV da TypeSafe",
+            "Contém regras com escopo globs, momento (edit ou turn), citação da linha fonte e flag \"manual\""
+          ],
+          [
+            ".abide/calibration.json",
+            "Telemetria de Calibração Histórica",
+            "Gerado por abide calibrate e abide report",
+            "Pontua cada regra contra 20"
+          ],
+          [
+            ".caliper/evals/*.eval.yaml",
+            "Especificações Declarativas de Benchmark",
+            "Executado pelo harness caliper-eval em Python / PyPI",
+            "Define tarefas, asserções Python, rubricas de"
+          ],
+          [
+            ".ouroboros/seed-spec.yaml",
+            "Especificação Semente Imutável",
+            "Gerado pelo comando ooo seed após entrevista socrática",
+            "Contrato imutável de intenção de negócio usado para deteção de"
+          ],
+          [
+            ".ouroboros/story-map.json",
+            "Grafo Narrativo Story-Spec e Arcos",
+            "Gerado pelo pipeline OuroborosAI; consultado pelo Arquiteto Nível 1",
+            "Mapa hierárquico (1–2 frases por arquivo/classe) + arcs transacionais; reduz contexto em"
+          ],
+          [
+            ".ouroboros/work.md & .ouroboros/memory/",
+            "Bancada Recuperável e Memória Durável",
+            "Gerido pelas primitivas oo_start_work e oo_status do pi-ouroboros",
+            "work.md guarda o plano ativo (active|done|blocked); memory/ persiste entre limpezas de tarefas"
+          ],
+          [
+            ".agit/ledger.jsonl",
+            "Livro-Razão Forense de Identidade e Trust",
+            "Escrito pelos wrappers OIDC (Vercel Connect), Conductor e r2r-jev",
+            "Regista X-Conductor-Session-Id, tokens OIDC efêmeros e histórico de degradação de Trust"
+          ],
+          [
+            ".agit/seam-locks.json",
+            "Registo de Locks de Concorrência (20–100 Agentes)",
+            "Lido e atualizado atomicamente pelo Mod Seam-Enforcer",
+            "Armazena"
+          ],
+          [
+            "/active/.tmp/worktrees/agent-<id>/",
+            "Árvores de Trabalho Git Efêmeras",
+            "Criado automaticamente por subagentes Nível 3 e Threads locais",
+            "Isolamento físico de sistema de arquivos por trabalhador; destruído após merge ou descarte"
+          ],
+          [
+            "/active/.tmp/tools/<candidate-cli>/",
+            "Estágio Quarentena de Síntese de CLIs",
+            "Gerado pelo",
+            "CLIs auto-geradas permanecem aqui até vencerem o portão A/B do Caliper e auditoria SKILLDETONATE"
+          ],
+          [
+            "mods/factory-governance-mod/.claude-plugin/plugin.json",
+            "Manifesto de Plugin do Harness",
+            "Carregado pelo Claude Code (--plugin-dir ou marketplace privado)",
+            "Declara nome, versão, autor e metadados de validação estática do Mod"
+          ],
+          [
+            "mods/factory-governance-mod/hooks/hooks.json",
+            "Ativador de Execução In-Process",
+            "Lido pelo motor de Mods do Claude Code",
+            "Contém \"modules\": [\"./mod.ts\"], convertendo o plugin num Mod in-process"
+          ],
+          [
+            "mods/factory-governance-mod/hooks/mod.ts",
+            "Middleware Unificado ($, event, next)",
+            "Executado in-process pelo Claude Code a cada evento do ciclo de vida",
+            "Implementa Lazy-CLI-Router, Seam-Enforcer, Blast-Radius-Guard e Cross-Harness Bridge"
+          ],
+          [
+            "clis/cia-cli/",
+            "CLI Agêntica do Data Plane Organizacional",
+            "Consumido por todos os agentes em",
+            "Consulta"
+          ],
+          [
+            "clis/factory-scaffold/",
+            "Compilador da DSL Híbrida e Grafo Visual",
+            "Consumido pelo Agente Principal em",
+            "Compila .scaffold.md em contract.d.ts, *.seam.spec.ts e gera"
+          ],
+          [
+            "clis/conductor-ctl/",
+            "CLI de Orquestração de Frota Cloud",
+            "Consumido pelo daemon OpenClaw (\"Lord Crandon\") e Coordenadores Nível 2",
+            "Governa https://api.conductor.build/v0 e monitoriza transições idle -> working -> idle"
+          ],
+          [
+            "packages/kernel/",
+            "Micro-Kernel e",
+            "Executado em produção;",
+            "Descobre e monta plugins/* dinamicamente sem arquivos centrais de registo."
+          ],
+          [
+            "plugins/<feature-name>/",
+            "Módulo Profundo (",
+            "Construído em",
+            "Contém AGENTS.md (5–10 tokens), PLUGIN_SPEC.md, plugin.manifest.json, contract.d.ts, migrations/, src/, cli/ e tests/*.seam.spec.ts"
+          ],
+          [
+            "docs/",
+            "Documentação Viva Sincronizada",
+            "Auditado e atualizado autonomamente pelo Context7 Agent (Docs7)",
+            "Agente de PR Review e filas de"
+          ]
+        ]
+      }
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 11,
+      "cited_text": "time we just have to validate that the outputs are exactly as we expected so now we've got our agents running loops around us we've got to make sure that our base instructions in our claw.md don't defy anthropic's latest advice but before that if you've learned something so far then you probably love the new course we're about to drop in our Aentic Academy so it's going to be focused on handing off more of your day-to-day to Claude Codeex and other AI tools so you can effectively get more done so check it out in the first link in the description below so let's make sure that our foundations of our setup are solid because everything we've spoken about so far is underpinned by all of this now when Opus 5 shipped recently Anthropic did something crazy they went ahead and deleted over 80% of claw code's own instructions because most of them were fixing things that the older models would get wrong and it's not new advice that anthropics docs say to keep claw.md under 200 lines because longe"
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 12,
+      "cited_text": "r files cost more and get followed less but here's how I'm actually starting to think about claw.md and it might be useful for you too to think about it like this so claw.md to me now is the contents page for your workspace it's the same job that skill.md does inside a skill folder so there's four things that should still be inside your Claude.md number one is the tools and commands that Claude can't guess number two is anything you do differently to the normal way that Claude would do it number three slightly related is the gotchas that it's got wrong more than once and number four are those boundaries we mentioned earlier like only write the email draft and everything else in claw.md is basically becoming a pointer or a reference to another file where it can go and extract the additional information that it needs and then for those pointers themselves there are also three rules that you need to follow so first is going to be writing any reference as a path and not an import so if you"
+    },
+    {
+      "source_id": "4f45f9c6-116f-4870-b532-563ad3e1da1a",
+      "citation_number": 13,
+      "cited_text": "ctor prompt audit that's going to go and check your claw.md it's going to check your skills and your rules for instructions written for older models paths that no longer exist and files that contradict each other and it's going to change nothing until you basically validate it and say yes it's then going to cut anything that Claude does anyway from those instructions and turn what's left into a contents list into an index with a bunch of pointers and references to other files so back to where we're at on the board claude.mmd is going to sit underneath claude because it's read before anything else and it's integral foundations for all the work you do and you can think of it as the index and every arrow out of the claw.md is going to point to a file that claude only opens when it needs that i.e it's progressive disclosure it's only loading in the context it needs when it needs it and claude.md itself is only going to hold information that's always true now going back to our weekly client"
+    },
+    {
+      "source_id": "f603fc03-0e05-4c7d-b6bd-e060219c7271",
+      "citation_number": 14,
+      "cited_text": "If you use a subscription and the context monitor's API-rate estimates are not useful, set ECC_CONTEXT_MONITOR_COST_WARNINGS=off . This only suppresses the agent-facing cost warnings; it does not disable context exhaustion, scope, or loop warnings. Strategic compaction The strategic-compact skill suggests /compact at logical breakpoints instead of relying on auto-compaction at 95% context. See skills/strategic-compact/SKILL.md for the full decision guide. When to compact: After research/exploration, before implementation After completing a milestone, before starting the next After debugging, before continuing feature work After a failed approach, before trying a new one"
+    },
+    {
+      "source_id": "f2593594-24ae-4109-9a19-f2d055747bf4",
+      "citation_number": 15,
+      "cited_text": "ust type /clear if you're already done with a conversation or if saving tokens is your priority you can use compact while it's still warm so that when you prompt it next it doesn't cost you as much And if you really need to keep your conversation warm a trick that a lot of power users use is to have Claude ping itself with something like a /loop command let's say every 30 minutes so that each ping would keep your cash warm on a big session that costs only around 10 cents That way the moment you get back that whole conversation is still ready for you for your next prompt Number 13 is stuffing your claw.md Claw.md which is the instruction file that Claude reads at the start of every session Some people actually store every rule every preference your whole life story into that claw.md until it's hundreds sometimes thousands of lines long Now that file loads on every single message So it costs usage every turn And Tropic says that when it gets too long Claude also starts ignoring parts of"
+    },
+    {
+      "source_id": "e37cfdfd-ee4f-44dd-9ea9-825268845854",
+      "citation_number": 16,
+      "cited_text": "10. Proteja o que nao pode sumir, com ou sem plugin O plugin decide por probabilidade, e o proprio README avisa que uma probabilidade nao prova que a saida podia ir embora. O que nao pode sumir vai pra um arquivo no disco que volta sozinho depois de cada compactacao, e isso funciona ate pra quem nao instala nada. 1) Cole a secao Compact instructions, dos prompts abaixo, no CLAUDE.md da raiz do projeto. O CLAUDE.md da raiz e relido do disco depois de toda compactacao.  2) Peca ao Claude pra manter o NOTAS-DA-SESSAO.md com o prompt Arquivo de fatos da sessao.  3) Adicione o hook abaixo no .claude/settings.json do projeto. Depois de toda compactacao ele cola o arquivo de volta no contexto.  4) Antes de fechar o dia, use o prompt Passagem pra um agente novo, e no dia seguinte comece com /clear e a leitura do arquivo.  {   \"hooks\": {     \"SessionStart\": [       {"
+    },
+    {
+      "source_id": "4098af5e-3826-4273-9905-3632177d06e6",
+      "citation_number": 17,
+      "cited_text": "Como a poda binária do Jev ainda possui o risco intrínseco de descartar um resultado antigo sem sinal visível 91 , ela é acoplada a cinco mecanismos determinísticos em disco. Primeiramente, o CLAUDE.md inclui instruções literais de compactação determinando quais invariantes nunca podem ser omitidas. Em segundo lugar, o agente mantém atualizado em tempo real o arquivo /active/NOTAS-DA-SESSAO.md com o registro estruturado de decisões e arquivos modificados. Em terceiro lugar, na troca de turnos ou delegação entre agentes, um Mod invoca $.model.fork (reutilizando o Prompt Cache da conversa atual) para gerar o documento de transferência /active/PASSAGEM.md 70 . Em quarto lugar, um hook SessionStart configurado com \"matcher\": \"startup|resume|clear|compact\" executa imediatamente após a compactação e imprime o conteúdo de NOTAS-DA-SESSAO.md e PASSAGEM.md no stdout, reinjetando a memória crítica diretamente no contexto ativo do Claude 84 . Em quinto lugar, aplica-se o Teste de Sobrevivência via Jev (Noul): avalia-se se o par NOTAS-DA-SESSAO.md + PASSAGEM.md contém todos os caminhos de arquivos, contratos e comandos necessários para que uma sessão recém-iniciada do zero conclua a tarefa sem perda de estado."
+    },
+    {
+      "source_id": "f2593594-24ae-4109-9a19-f2d055747bf4",
+      "citation_number": 18,
+      "cited_text": "er and faster Because a CLI is just a way to control an app just by typing text And guess who's really good at text is all the LLM AI models So Claude already knows how to use most of these CLIs They cost nothing until they run And Claude can trim the results before they fill up your chat Number 17 is infinite exploration Like having Claude look into why sales dropped or going through all of your client folders without limit in the same session you're working in What happens there is that Claude reads hundreds of files and every one of them lands in your main chat before the real work even start Antropic calls this the infinite exploration So a better way is to either scope it like let's say you only want the Q3 reports in the sales folder or say to use a sub agent to investigate this If you're new a sub agent is a helper that claude can spawn that can read everything in its own separate window and only hands back a summary It also has that added benefit of course that you can run it o"
+    },
+    {
+      "source_id": "e4af7f24-df34-466d-98a7-219838de8be7",
+      "citation_number": 19,
+      "cited_text": "Use it with an AI coding agent Make Code Buster part of the agent's working loop rather than waiting for a final review: Let the agent implement a focused change. Run the narrowest relevant Code Buster command. Have the agent evaluate relevant findings and iterate. Review the resulting diff, run the project's tests, and exercise the changed behavior. For a compact, repository-aware review signal without placing the whole codebase in the model's context: Code Buster finds potential issues; the developer or agent decides what matters and makes the fix."
+    },
+    {
+      "source_id": "992295e1-c1d7-4757-a9de-758ee41b2749",
+      "citation_number": 20,
+      "cited_text": "<cited_table> What drives the cost. It is round-trips, not payload. Claude Code defers MCP tool schemas, so the first Reflex call costs an extra ToolSearch turn; Sonnet 5 also added check_index_status calls. Trials where the agent ignored Reflex cost the same as the control (1.04–1.07×); trials that used it cost 1.55–1.68×. Columnar results already save about 20% of bytes per call, which the extra turns outweigh.",
+      "cited_table": {
+        "num_columns": 6,
+        "rows": [
+          [
+            "Tasks",
+            "Model",
+            "Tokens (95% CI)",
+            "Cost",
+            "Turns (median)",
+            "Accuracy"
+          ],
+          [
+            "9 find-all-usages",
+            "Opus 5.5",
+            "1.66",
+            "1.27×",
+            "2 → 3",
+            "equal (both near-perfect)"
+          ],
+          [
+            "9 find-all-usages",
+            "Sonnet 5",
+            "1.65",
+            "2.07×",
+            "2 → 4",
+            "Reflex more complete on 6 of 9 tasks"
+          ],
+          [
+            "13 comprehension / cross-module",
+            "Opus 5.5",
+            "1.26",
+            "1.10×",
+            "6 → 6 (B more in 55 of 104 pairs, fewer in 27)",
+            "equal recall"
+          ]
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "F3 gates de co-evolucao: skill_pin_gate.py estendido (deteccao de comandos fantasma com distincao uso-vs-negacao; --claude-root para rodar no CI; fonte ausente != deletada). Registrado no ci.yml. Achado: 5 comandos ensinados que nao existem em 3 skills (touring-scip inteira, touring-evolve, touring-generator); 2 do master corrigidos (eram hooks). Falso positivo evitado: 5 skills AVISAM sobre touring quality, nao o ensinam."
+    }
+  ],
+  "relations": []
+}

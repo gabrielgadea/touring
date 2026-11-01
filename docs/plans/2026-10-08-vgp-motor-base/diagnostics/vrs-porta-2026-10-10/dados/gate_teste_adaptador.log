@@ -1,0 +1,65 @@
+   Compiling touring-code v30.4.95 (/home/gabrielgadea/projects/touring-wt-vrs2/crates/touring-code)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 5.02s
+     Running unittests src/lib.rs (/home/gabrielgadea/projects/touring/target/wt-vrs2/debug/deps/touring_code-0b4d13284784e7a9)
+
+running 57 tests
+test vgp::lang::rust::tests::cabeca_de_caminho_no_modulo_inline_exige_o_use ... ok
+test vgp::lang::rust::tests::atributo_variante_inventada_de_enum_do_projeto ... ok
+test vgp::lang::rust::tests::comentarios_na_lista_de_argumentos_nao_contam_como_argumento ... ok
+test vgp::lang::rust::tests::abstencao_tentada_e_nao_fechada_e_nao_medido_com_motivo_nunca_allow ... ok
+test vgp::lang::rust::tests::delta_pre_existente_vira_warn_nunca_deny ... ok
+test vgp::lang::rust::tests::const_e_static_declaram_o_nome_e_o_tipo_nao_e_uso_de_valor ... ok
+test vgp::lang::rust::tests::despacho_do_nucleo_rust_responde_pelo_adaptador_real_nao_pelo_stub ... ok
+test vgp::lang::rust::tests::fn_de_mesmo_nome_em_mod_inline_ou_na_fn_sombreia_a_do_arquivo ... ok
+test vgp::lang::rust::tests::atributo_item_associado_de_enum_nao_e_variante_ausente ... ok
+test vgp::lang::rust::tests::glob_em_cadeia_com_ciclo_segue_o_reexporte_e_termina ... ok
+test vgp::lang::rust::tests::enum_alcancado_por_glob_reexportado_julga_a_variante ... ok
+test vgp::lang::rust::tests::glob_reexportado_em_ciclo_termina_e_o_ausente_continua_ausente ... ok
+test vgp::lang::rust::tests::glob_reexportado_dentro_de_modulo_inline_e_seguido_pela_posicao ... ok
+test vgp::lang::rust::tests::glob_super_de_arquivo_filho_declarado_resolve_o_pai_em_disco ... ok
+test vgp::lang::rust::tests::glob_super_de_mod_tests_inline_traz_itens_e_usos_do_pai_e_fecha_o_escopo ... ok
+test vgp::lang::rust::tests::glob_super_cujo_pai_tem_glob_externo_ou_macro_de_item_e_dinamico ... ok
+test vgp::lang::rust::tests::import_crate_nao_declarada_avisa_externo_declarado_abstem ... ok
+test vgp::lang::rust::tests::import_mod_com_path_attr_resolve_o_arquivo_apontado ... ok
+test vgp::lang::rust::tests::glob_reexportado_segue_reexport_explicito_e_glob_aninhado_do_alvo ... ok
+test vgp::lang::rust::tests::import_cross_crate_do_workspace ... ok
+test vgp::lang::rust::tests::import_mod_decl_sem_arquivo_e_com_arquivo ... ok
+test vgp::lang::rust::tests::import_nome_inventado_em_modulo_do_projeto ... ok
+test vgp::lang::rust::tests::import_privado_do_pai_e_visivel_ao_filho_por_super ... ok
+test vgp::lang::rust::tests::import_pub_use_glob_e_seguido ... ok
+test vgp::lang::rust::tests::import_pub_use_reexport_passa_e_e_seguido ... ok
+test vgp::lang::rust::tests::import_segmento_intermediario_e_lista_mista ... ok
+test vgp::lang::rust::tests::import_super_e_self_resolvem_do_lugar_certo ... ok
+test vgp::lang::rust::tests::kwarg_non_exhaustive_e_struct_tupla_abstem ... ok
+test vgp::lang::rust::tests::import_pacote_em_tests_benches_examples_resolve_a_biblioteca_do_pacote ... ok
+test vgp::lang::rust::tests::macro_de_item_dentro_do_modulo_inline_abre_so_aquele_escopo ... ok
+test vgp::lang::rust::tests::kwarg_aridade_de_funcao_do_projeto ... ok
+test vgp::lang::rust::tests::modulo_alcancado_por_reexport_segue_dentro_dele_nao_vira_o_nome_do_item ... ok
+test vgp::lang::rust::tests::kwarg_campo_inventado_em_literal_de_struct ... ok
+test vgp::lang::rust::tests::modulo_com_macro_de_item_nao_prova_a_ausencia_do_nome ... ok
+test vgp::lang::rust::tests::modulo_fundo_demais_para_modelar_nao_prova_ausencia ... ok
+test vgp::lang::rust::tests::nome_chamada_direta_ausente_nega_em_tmp ... ok
+test vgp::lang::rust::tests::nome_controles_de_escopo_passam_limpos ... ok
+test vgp::lang::rust::tests::modulos_inline_aninhados_enxergam_os_itens_do_proprio_bloco ... ok
+test vgp::lang::rust::tests::nome_glob_de_crate_declarado_e_incerto_nunca_projeto ... ok
+test vgp::lang::rust::tests::nome_glob_externo_e_macro_nunca_negam ... ok
+test vgp::lang::rust::tests::nome_preludio_e_itens_locais_de_funcao_estao_no_escopo ... ok
+test vgp::lang::rust::tests::nome_referencia_como_valor_e_path_head ... ok
+test vgp::lang::rust::tests::parse_quebrado_e_unknown_com_motivo_nunca_deny_nem_allow ... ok
+test vgp::lang::rust::tests::modulo_inline_so_ve_do_arquivo_o_que_o_use_super_traz ... ok
+test vgp::lang::rust::tests::nome_self_fora_de_impl_e_dentro ... ok
+test vgp::lang::rust::tests::politica_arquivo_do_projeto_so_avisa_e_onde_roda_agora_nega ... ok
+test vgp::lang::rust::tests::path_attr_fora_de_inline_e_relativo_ao_diretorio_do_arquivo_nao_a_foo ... ok
+test vgp::lang::rust::tests::pub_use_de_dependencia_liga_o_crate_externo_nao_um_item_local ... ok
+test vgp::lang::rust::tests::reexport_dentro_de_modulo_inline_e_seguido_pela_posicao ... ok
+test vgp::lang::rust::tests::projeto_sob_tmp_nao_e_scratch_o_ausente_vira_incerto_e_so_avisa ... ok
+test vgp::lang::rust::tests::reexport_do_nome_que_nao_fechou_nao_vira_ausencia ... ok
+test vgp::lang::rust::tests::super_de_arquivo_declarado_por_path_attr_sobe_ao_declarante_nao_ao_diretorio ... ok
+test vgp::lang::rust::tests::struct_unit_ou_tupla_com_associada_nao_e_import_inexistente ... ok
+test vgp::lang::rust::tests::use_de_enum_antes_do_glob_que_o_traz_tambem_fecha ... ok
+test vgp::lang::rust::tests::use_cujo_caminho_comeca_pelo_proprio_nome_liga_o_crate_externo_e_nao_um_item_local ... ok
+test vgp::lang::rust::tests::use_de_enum_no_modulo_inline_com_a_cabeca_trazida_por_glob_do_mesmo_modulo ... ok
+test vgp::lang::rust::tests::use_de_enum_ligado_por_glob_dentro_de_fn_nao_e_import_inexistente ... ok
+
+test result: ok. 57 passed; 0 failed; 0 ignored; 0 measured; 888 filtered out; finished in 0.01s
+

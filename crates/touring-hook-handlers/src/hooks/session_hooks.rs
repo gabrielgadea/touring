@@ -6,28 +6,47 @@
 //!   for cross-session intelligence.
 
 use super::error_predictor::ErrorPredictor;
-use super::runtime::HookRuntime;
+use super::runtime::{HookResponse, HookRuntime};
 use super::session_insights::{self, SessionInsights};
 use crate::cross_agent_ledger::{ActorId, CrossAgentLedger};
 use crate::gateway::harness_contract::HarnessContract;
 use crate::schemas::validate_payload;
+use touring_foundation::truncate_str;
 
 use touring_analysis::e2e::schema_guard;
 use touring_intelligence::rl::aco::tracker::TrackerStatus;
 
 use std::sync::Arc;
 
-/// Run the session-start hook. Injects knowledge stats, trend, and predictor status.
-/// Also initializes ACO quality tracking for the session.
-#[tracing::instrument(skip(runtime, input), fields(hook = "session_start"))]
+/// Run the session-start hook in a ONE-SHOT process (the `touring-hook` binary / CLI):
+/// computes the response and emits it, which exits the process.
+///
+/// NEVER call this from the daemon — use [`run_session_start_returning`]. The daemon's
+/// dispatch table used this function until S13 (25/09/2026): `emit` calls
+/// `process::exit(0)`, so every session start killed the SHARED daemon (trace: 510 of 515
+/// session-starts `daemon-unavailable`; reproduced live at 16:59 on 25/09).
 pub fn run_session_start(
     runtime: &mut HookRuntime,
     input: &serde_json::Value,
 ) -> Result<(), touring_hook_runtime::hook_runtime::HookDispatchError> {
-    // D9: Validate payload with typed schema — fail fast on malformed input.
+    run_session_start_returning(runtime, input).emit()
+}
+
+/// Session-start as a VALUE: injects knowledge stats, trend and predictor status, and
+/// initializes ACO quality tracking — without ever exiting the process (daemon-safe).
+/// Invariant: session start never fails — any early exit is `Allow`.
+#[tracing::instrument(skip(runtime, input), fields(hook = "session_start"))]
+pub fn run_session_start_returning(
+    runtime: &mut HookRuntime,
+    input: &serde_json::Value,
+) -> HookResponse {
+    // D9: Validate payload with typed schema — a malformed payload is logged and allowed.
     let validated = match validate_payload::<crate::schemas::SessionStartPayload>(input) {
         Ok(v) => v,
-        Err(errors) => return Err(format!("session_start validation failed: {}", errors).into()),
+        Err(errors) => {
+            tracing::warn!(%errors, "session_start validation failed — allowing");
+            return HookResponse::Allow;
+        }
     };
     let session_id = validated
         .session_id
@@ -101,6 +120,25 @@ pub fn run_session_start(
         }
     }
 
+    // P1 elos-exponenciais (29/08/2026): incremental replay drain — the
+    // rewarded-outcome corpus can never silently accumulate again. The manual
+    // verb (`touring learning replay`) proved the channel (818 backfilled,
+    // replay_share 1.0); this makes consumption automatic BY CONSTRUCTION,
+    // once per session, capped and fail-open (an unreadable memory.db is a
+    // JSON error object here, never a panic — exit-0 invariant).
+    {
+        let drained =
+            touring_hook_runtime::runtime::replay::replay_outcomes_into(runtime, 500, false);
+        if let Some(n) = drained.get("replayed").and_then(serde_json::Value::as_u64)
+            && n > 0
+        {
+            tracing::info!(
+                replayed = n,
+                "session-start replay drain: outcomes → OnlineRL"
+            );
+        }
+    }
+
     // S12: Pre-warm result cache with context for most accessed files
     prewarm_result_cache(runtime);
 
@@ -136,23 +174,19 @@ pub fn run_session_start(
     }
 
     // Get knowledge stats — fallback to early return on error (e.g. DB locked during
-    // daemon restart). Session-start must never fail — exit 0 invariant.
-    // NOTE: We use `return Ok(())` instead of `emit_allow()` because `emit_allow()`
-    // calls `process::exit(0)` which would kill the entire daemon process when this
-    // handler runs inside the daemon's dispatch pipeline. Returning Ok(()) produces
-    // the same effect: the hook registry wrapper returns `String::new()` → empty
-    // output → client interprets as "allow".
+    // daemon restart). Session-start must never fail — exit 0 invariant. The response is a
+    // value; only the one-shot wrapper `run_session_start` emits (and exits).
     let stats = match runtime.ctx.knowledge.stats() {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!(error = %e, "stats query failed — using empty defaults");
-            return Ok(()); // safe for both daemon and standalone contexts
+            return HookResponse::Allow;
         }
     };
 
     if stats.file_count == 0 && stats.bash_count == 0 {
         // No accumulated knowledge yet — nothing to inject
-        return Ok(());
+        return HookResponse::Allow;
     }
 
     // Compose context about accumulated knowledge
@@ -188,10 +222,7 @@ pub fn run_session_start(
             .map(|qt| qt.metrics()),
     );
 
-    // EC44: Persist enriched insights so next session load_latest() returns RL-aware data.
-    if let Err(e) = current_insights.save(&data_dir) {
-        tracing::debug!("session insights save failed (non-critical): {e}");
-    }
+    persist_session_insights(&current_insights, &data_dir, &session_id);
 
     if let Some(prior) = SessionInsights::load_latest(&data_dir) {
         // EC45: First real caller of summary_line() — injects compact prior session
@@ -212,6 +243,9 @@ pub fn run_session_start(
     } else if seq_count > 0 {
         parts.push(format!("predictor=warming({seq_count} seq)"));
     }
+
+    // ── F7 complementacao-hooks wirings: H7 + H12 + H15 ──
+    parts.push(wire_complementacao_session_signals(runtime));
     // T2.5: Cache the trained predictor for use by pre_edit/pre_write
     runtime.ctx.error_predictor = Some(predictor);
     runtime.ctx.error_predictor_last_trained = Some(std::time::Instant::now());
@@ -228,11 +262,13 @@ pub fn run_session_start(
 
     // S6: Classify session intent to inform pre-hook context budgets.
     // Store CILA level in result_cache so pre_read can adjust budget dynamically.
-    if let Some(context_text) = input
-        .get("context")
-        .or_else(|| input.get("message"))
-        .and_then(|v| v.as_str())
-    {
+    // One source for the field name — see `IntentClassifier::prompt_from_input`.
+    // This site read only "context"/"message", which the SessionStart payload does
+    // not carry, so `__session_cila_level__` was NEVER written: eight readers fell
+    // through to their hardcoded default and the CILA dial sat welded at 3 — the same
+    // budget (3000 chars) for a typo and for a 144-consumer refactor.
+    let context_text = touring_hooks_prediction::classifier::prompt_from_input(input);
+    if !context_text.is_empty() {
         let cila_result = runtime.ctx.classifier.classify(context_text);
         runtime.ctx.result_cache.cache_result(
             "__meta__",
@@ -282,7 +318,7 @@ pub fn run_session_start(
     let context = format!(
         "Touring Knowledge: {} | session={}",
         parts.join(", "),
-        &session_id[..session_id.len().min(8)]
+        truncate_str(&session_id, 8)
     );
 
     // ES2 P3 — re-attend HarnessContract on session start so the constitutional
@@ -312,15 +348,29 @@ pub fn run_session_start(
     // demand (CAH roadmap §3).
     let _ = open_cross_agent_ledger(runtime, &session_id);
 
-    // Emit context + exit LAST (diverging `-> !`). Everything that mutates
-    // `runtime` state for this session must run before this line.
-    HookRuntime::emit_context_for_event(&context, Some("SessionStart"));
+    // The context is RETURNED, never emitted here: this runs inside the shared daemon.
+    HookRuntime::build_context_for_event(&context, "SessionStart")
 }
 
 /// Open the cross-agent outcome ledger (ES3 P4) — fail-open helper. Returns
 /// `()` because the function is a side-effect initializer (the runtime state
 /// is the side effect; no value is propagated). Failures degrade to solo mode
 /// (runtime.cross_agent_ledger stays `None`).
+/// EC44: persist enriched insights so the next session's `load_latest()` returns RL-aware
+/// data — never for a synthetic (test-harness) session, whose insights would become the
+/// next real session's "prior" (2026-09-26).
+fn persist_session_insights(
+    insights: &SessionInsights,
+    data_dir: &std::path::Path,
+    session_id: &str,
+) {
+    if touring_foundation::synthetic_session::is_synthetic_session_id(session_id) {
+        tracing::debug!(%session_id, "synthetic session: insights not persisted");
+    } else if let Err(e) = insights.save(data_dir) {
+        tracing::debug!("session insights save failed (non-critical): {e}");
+    }
+}
+
 fn open_cross_agent_ledger(runtime: &mut HookRuntime, session_id: &str) {
     let actor = ActorId::derive(session_id, "primary");
     runtime.actor_id = Some(actor.clone());
@@ -444,6 +494,17 @@ pub fn run_session_stop(
     let session_id = validated
         .session_id
         .unwrap_or_else(|| "unknown".to_string());
+
+    // A synthetic (test-harness) session is observed, never learned from: no access record,
+    // rewards, snapshots, bandit, CRDT, AgenticRL, file summaries nor gotcha decay
+    // (2026-09-26). The per-session caches are still flushed — that is hygiene, not learning.
+    if touring_foundation::synthetic_session::is_synthetic_session_id(&session_id) {
+        tracing::debug!(%session_id, "synthetic session: stop persists no learning");
+        crate::post_edit::flush_dedup();
+        crate::post_write::flush_dedup();
+        crate::pre_edit::flush_cache();
+        return Ok(());
+    }
 
     // Record a session end marker in the access log
     let _ = runtime
@@ -626,6 +687,76 @@ pub fn run_session_stop(
 /// Loads `bandit_snapshot.json` from `.claude/data/`, deserializes, and imports
 /// into the current bandit. If the snapshot doesn't exist or is invalid, falls
 /// back to cold start (the bandit begins with uniform priors).
+///
+/// F7 complementacao-hooks: emits H7 (code_mode_status), H12 (entity_id),
+/// H15 (evolution_status) as a compact JSON line injected into the session
+/// additionalContext. Pure over the runtime — no I/O beyond reading
+/// `.touring/touring.toml`.
+fn wire_complementacao_session_signals(runtime: &HookRuntime) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    use std::path::Path;
+
+    // H7 — code_mode_status: parse `[code_mode]` section of `.touring/touring.toml`.
+    let toml_path = runtime.project_root.join(".touring").join("touring.toml");
+    let code_mode_status = std::fs::read_to_string(&toml_path)
+        .ok()
+        .and_then(|t| {
+            // Minimal TOML parse: locate [code_mode] line + the mode value.
+            let mut in_section = false;
+            for line in t.lines() {
+                if line.trim_start().starts_with("[code_mode]") {
+                    in_section = true;
+                    continue;
+                }
+                if in_section && line.trim_start().starts_with("[") {
+                    break;
+                }
+                if in_section
+                    && line.trim_start().starts_with("mode")
+                    && let Some(val) = line.split('=').nth(1)
+                {
+                    return Some(val.trim().trim_matches('"').to_string());
+                }
+            }
+            None
+        })
+        .unwrap_or_else(|| "Unknown".to_string());
+
+    // H12 — entity_id: derive deterministically from canonical project root.
+    let canonical = runtime
+        .project_root
+        .canonicalize()
+        .unwrap_or_else(|_| Path::new(&runtime.project_root).to_path_buf());
+    let mut hasher = DefaultHasher::new();
+    canonical.hash(&mut hasher);
+    let entity_id = format!("entity:{:x}", hasher.finish());
+
+    // H15 — evolution_status: surface qtable_cache metrics if available, else
+    // report graceful "warming" status.
+    let evolution_status = runtime
+        .learning
+        .qtable_cache
+        .as_ref()
+        .map(|qt| {
+            let m = qt.metrics();
+            format!(
+                "{{\"converging\":{},\"total_updates\":{},\"avg_reward\":{:.2}}}",
+                m.is_converging(),
+                m.total_updates(),
+                m.avg_reward()
+            )
+        })
+        .unwrap_or_else(|| {
+            "{\"converging\":false,\"total_updates\":0,\"avg_reward\":0.0}".to_string()
+        });
+
+    format!(
+        "complementacao=[h7_code_mode={};h12_entity_id={};h15_evolution={}]",
+        code_mode_status, entity_id, evolution_status
+    )
+}
+
 fn warm_start_bandit(runtime: &mut HookRuntime) {
     let snapshot_path = runtime
         .project_root
@@ -1027,6 +1158,53 @@ mod tests {
         );
     }
 
+    /// S13: with accumulated knowledge the handler reaches its LAST line — the one that
+    /// used to `process::exit(0)` inside the shared daemon. It must return a value.
+    #[test]
+    fn session_start_in_daemon_returns_without_exit() {
+        let (_tmp, mut rt) = setup();
+        // file_count > 0 is what makes the handler reach its (formerly diverging) last line.
+        let row = super::super::knowledge::FileKnowledge {
+            file_path: "src/lib.rs".into(),
+            language: Some("rust".into()),
+            line_count: 3,
+            symbol_count: 1,
+            read_count: 1,
+            last_read_at: None,
+            imports_json: Some("[]".into()),
+            symbols_json: Some("[]".into()),
+            content_hash: None,
+            notes: None,
+        };
+        rt.ctx.knowledge.upsert(&row).expect("seed knowledge");
+        assert!(
+            rt.ctx.knowledge.stats().expect("stats").file_count > 0,
+            "seed must reach the full path"
+        );
+        let input =
+            serde_json::json!({"session_id": "sess-live", "hook_event_name": "SessionStart"});
+        let response = run_session_start_returning(&mut rt, &input);
+        let json: serde_json::Value = serde_json::from_str(&response.to_json()).expect("json");
+        assert_eq!(
+            json.pointer("/hookSpecificOutput/hookEventName")
+                .and_then(|v| v.as_str()),
+            Some("SessionStart")
+        );
+        assert!(
+            json.pointer("/hookSpecificOutput/additionalContext")
+                .is_some(),
+            "{json}"
+        );
+        // Reaching this line at all is the point: the old tail was `-> !`.
+    }
+
+    #[test]
+    fn session_start_with_malformed_payload_is_allow_not_error() {
+        let (_tmp, mut rt) = setup();
+        let response = run_session_start_returning(&mut rt, &serde_json::json!({"session_id": 42}));
+        assert!(matches!(response, HookResponse::Allow));
+    }
+
     #[test]
     fn test_session_start_loads_got_snapshot() {
         let (_tmp, mut rt) = setup();
@@ -1039,15 +1217,82 @@ mod tests {
             .save("sess-abc", &build_test_snapshot("sess-abc"))
             .expect("save");
 
-        // Run session start — should load the snapshot
+        // Run session start — should load the snapshot (the RETURNING form: the emitting
+        // wrapper exits the process, which would end this test binary)
         let input = serde_json::json!({"session_id": "sess-abc"});
-        let result = run_session_start(&mut rt, &input);
-        assert!(result.is_ok());
+        let _ = run_session_start_returning(&mut rt, &input);
 
         let loaded = rt
             .got_snapshot
             .as_ref()
             .expect("snapshot should be loaded by session-start");
         assert_eq!(loaded.session_id, "sess-abc");
+    }
+
+    fn seed_knowledge(rt: &mut HookRuntime) {
+        let row = super::super::knowledge::FileKnowledge {
+            file_path: "src/lib.rs".into(),
+            language: Some("rust".into()),
+            line_count: 3,
+            symbol_count: 1,
+            read_count: 1,
+            last_read_at: None,
+            imports_json: Some("[]".into()),
+            symbols_json: Some("[]".into()),
+            content_hash: None,
+            notes: None,
+        };
+        rt.ctx.knowledge.upsert(&row).expect("seed knowledge");
+    }
+
+    fn insights_files(rt: &HookRuntime) -> usize {
+        std::fs::read_dir(rt.project_root.join(".claude/data"))
+            .map(|dir| {
+                dir.filter_map(Result::ok)
+                    .filter(|e| {
+                        e.file_name()
+                            .to_string_lossy()
+                            .starts_with("session_insights_")
+                    })
+                    .count()
+            })
+            .unwrap_or(0)
+    }
+
+    fn start(rt: &mut HookRuntime, session_id: &str) {
+        let input =
+            serde_json::json!({"session_id": session_id, "hook_event_name": "SessionStart"});
+        let _ = run_session_start_returning(rt, &input);
+    }
+
+    /// 2026-09-26: the analise contract suite mints `hooks-contract-*` sessions and every
+    /// run persisted one `session_insights_*.json` (69 found in that project) — so the next
+    /// REAL session loaded a synthetic one as its "prior" and computed its trend against it.
+    #[test]
+    fn synthetic_session_start_persists_no_insights() {
+        let (_tmp, mut rt) = setup();
+        seed_knowledge(&mut rt);
+        start(&mut rt, "hooks-contract-4f1c");
+        assert_eq!(insights_files(&rt), 0);
+    }
+
+    /// Positive control: the gate is on the session's origin, not on persistence itself.
+    #[test]
+    fn real_session_start_still_persists_insights() {
+        let (_tmp, mut rt) = setup();
+        seed_knowledge(&mut rt);
+        start(&mut rt, "0b4d1f2e-9a3c-4e5f-8a7b-1c2d3e4f5a6b");
+        assert_eq!(insights_files(&rt), 1);
+    }
+
+    /// A synthetic session's stop writes no learning: no access record, rewards, snapshots,
+    /// bandit, CRDT, AgenticRL, file summaries nor gotcha decay. `test_session_stop_records_end`
+    /// above is the positive control (a real stop records the end marker).
+    #[test]
+    fn synthetic_session_stop_records_no_learning() {
+        let (_tmp, mut rt) = setup();
+        let input = serde_json::json!({"session_id": "hooks-contract-4f1c"});
+        assert!(run_session_stop(&mut rt, &input).is_ok());
+        assert_eq!(rt.ctx.knowledge.access_count("__session_end__").unwrap(), 0);
     }
 }

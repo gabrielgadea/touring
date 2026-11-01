@@ -1,0 +1,11 @@
+{
+  "artifacts_dir": "~/Work/artifacts",
+  "runs_log": "~/Work/runs.log",
+  "state_dir": "~/Work/state",
+  "deck_json": "~/.config/omarchy/plugins/gabriel.skills-deck/deck.json",
+  "routines_toml": "~/Work/routines.toml",
+  "theme_json": "~/.config/omarchy/current/theme/colors.json",
+  "out": "~/Work/cc/index.html",
+  "brain_moc": "~/Work/brain/moc.md",
+  "brain_out": "~/Work/cc/brain/index.html"
+}

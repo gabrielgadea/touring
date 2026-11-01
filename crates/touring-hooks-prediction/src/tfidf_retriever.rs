@@ -355,9 +355,11 @@ fn collect_memory(memory_db: &Path, out: &mut Vec<RawDoc>) {
             return;
         }
     };
-    let mut stmt = match conn
-        .prepare("SELECT key, value FROM memory_entries WHERE value IS NOT NULL AND value != ''")
-    {
+    // A retired entry (`--supersedes`) is not part of the corpus a recall ranks.
+    let live = touring_intelligence::rl::memory::retirement::live_predicate(&conn, "");
+    let mut stmt = match conn.prepare(&format!(
+        "SELECT key, value FROM memory_entries WHERE value IS NOT NULL AND value != ''{live}"
+    )) {
         Ok(s) => s,
         Err(e) => {
             tracing::debug!(target: "touring::tfidf", "memory_entries prepare failed: {e}");
@@ -421,6 +423,14 @@ fn collect_decompose_table(
     });
     if let Ok(iter) = rows {
         for (id, desc) in iter.flatten() {
+            // The scout's own tickets are bookkeeping, not knowledge. Indexing
+            // them closed a loop measured on 19/09/2026: a cycle files a ticket,
+            // the corpus indexes it, the next cycle retrieves it and counts it
+            // as a NEW finding, which files another ticket — the live proof
+            // being a ticket whose sample was `decomp:<the previous ticket>`.
+            if touring_foundation::task_lifecycle::is_scout_ticket(&desc) {
+                continue;
+            }
             out.push(RawDoc {
                 key: format!("{source}:{id}"),
                 text: desc,
@@ -486,6 +496,74 @@ mod tests {
             text: text.to_string(),
             source,
         }
+    }
+
+    /// A knowledge db holding one real task and one ticket the scout filed.
+    fn knowledge_db_with(rows: &[(&str, &str)]) -> (TempDir, PathBuf) {
+        let tmp = TempDir::new().expect("tempdir");
+        let path = tmp.path().join("knowledge.db");
+        let conn = Connection::open(&path).expect("open");
+        conn.execute_batch(
+            "CREATE TABLE task_decompositions (task_id TEXT PRIMARY KEY, description TEXT);
+             CREATE TABLE decomposition_subtasks (subtask_id TEXT PRIMARY KEY, description TEXT);",
+        )
+        .expect("schema");
+        for (id, desc) in rows {
+            conn.execute(
+                "INSERT INTO task_decompositions (task_id, description) VALUES (?1, ?2)",
+                rusqlite::params![id, desc],
+            )
+            .expect("insert");
+        }
+        (tmp, path)
+    }
+
+    /// The scout's own ticket must never re-enter the corpus it explores.
+    ///
+    /// Measured 19/09/2026: ticket `task_1788296582280254749` carried
+    /// `decomp:task_1787922622533751850` as its sample — the previous ticket.
+    /// The scout had found its own output and counted it as discovery.
+    #[test]
+    fn the_corpus_excludes_the_scouts_own_tickets() {
+        let (_tmp, db) = knowledge_db_with(&[
+            ("task_real", "fix the wiring of the module path resolver"),
+            (
+                "task_ticket",
+                "scout-ticket: 'idle-infra-exercise' yielded 2 new finding(s); \
+                 sample: decomp:task_1787922622533751850 — review for plan-delta",
+            ),
+        ]);
+
+        let mut out = Vec::new();
+        collect_decompose(&db, &mut out);
+
+        let keys: Vec<&str> = out.iter().map(|d| d.key.as_str()).collect();
+        assert!(
+            keys.contains(&"decomp:task_real"),
+            "real work must stay in the corpus: {keys:?}"
+        );
+        assert!(
+            !keys.contains(&"decomp:task_ticket"),
+            "the scout's own ticket must not be indexed as knowledge: {keys:?}"
+        );
+    }
+
+    /// A description that merely MENTIONS the scout is still knowledge.
+    #[test]
+    fn only_the_tickets_own_opening_excludes_a_row() {
+        let (_tmp, db) = knowledge_db_with(&[(
+            "task_about",
+            "investigate why the scout-ticket loop kept feeding itself",
+        )]);
+
+        let mut out = Vec::new();
+        collect_decompose(&db, &mut out);
+
+        assert_eq!(
+            out.len(),
+            1,
+            "a task ABOUT the tickets is not a ticket — it must stay indexed"
+        );
     }
 
     #[test]
@@ -668,6 +746,32 @@ mod tests {
         assert!(!hits.is_empty());
         assert_eq!(hits[0].key, "memory:lesson:tfidf");
         assert_eq!(hits[0].source, "memory");
+    }
+
+    /// A retired entry (`--supersedes`) is not in the corpus a recall ranks:
+    /// the TF-IDF arm served one in the analise project (18/09/2026).
+    #[test]
+    fn a_retired_entry_is_not_in_the_corpus() {
+        let dir = TempDir::new().unwrap();
+        let mem = dir.path().join("memory.db");
+        {
+            let conn = Connection::open(&mem).unwrap();
+            conn.execute_batch(
+                "CREATE TABLE memory_entries (
+                    key TEXT PRIMARY KEY, value TEXT NOT NULL, superseded_by TEXT);
+                 INSERT INTO memory_entries VALUES ('lesson:old', 'retired retrieval advice', 'lesson:new');
+                 INSERT INTO memory_entries VALUES ('lesson:new', 'current retrieval advice', NULL);",
+            )
+            .unwrap();
+        }
+        let idx = TfidfIndex::build_from_db(&mem, &dir.path().join("knowledge.db")).unwrap();
+        assert_eq!(idx.docs.len(), 1);
+        let keys: Vec<String> = idx
+            .query("retrieval advice", 5)
+            .into_iter()
+            .map(|hit| hit.key)
+            .collect();
+        assert_eq!(keys, ["memory:lesson:new"]);
     }
 
     #[test]

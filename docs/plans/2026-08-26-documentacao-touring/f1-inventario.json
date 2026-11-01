@@ -1,0 +1,495 @@
+{
+  "nucleo": [
+    {
+      "path": "ARCHITECTURE.md",
+      "mencoes": 20,
+      "por_nome": {
+        "core": 2,
+        "rules": 1,
+        "ast": 3,
+        "learning": 5,
+        "index": 1,
+        "cognitive": 5,
+        "wasm": 1,
+        "antt": 2
+      }
+    },
+    {
+      "path": "docs/RFC-004-entity-identity-registry.md",
+      "mencoes": 19,
+      "por_nome": {
+        "ast": 15,
+        "core": 4
+      }
+    },
+    {
+      "path": "docs/RFC-001-activity-event-catalog.md",
+      "mencoes": 9,
+      "por_nome": {
+        "activity": 9
+      }
+    },
+    {
+      "path": "crates/touring-server/.claude/CLAUDE.md",
+      "mencoes": 8,
+      "por_nome": {
+        "wasm": 1,
+        "learning": 2,
+        "cognitive": 2,
+        "antt": 1,
+        "core": 1,
+        "telemetry": 1
+      }
+    },
+    {
+      "path": "crates/touring-rkyv/README.md",
+      "mencoes": 7,
+      "por_nome": {
+        "cognitive": 4,
+        "index": 1,
+        "learning": 2
+      }
+    },
+    {
+      "path": "docs/CONSTITUTION-v8.md",
+      "mencoes": 6,
+      "por_nome": {
+        "activity": 6
+      }
+    },
+    {
+      "path": "crates/touring-foundation/touring-core-ARCHITECTURE.md",
+      "mencoes": 4,
+      "por_nome": {
+        "core": 2,
+        "learning": 1,
+        "index": 1
+      }
+    },
+    {
+      "path": "crates/touring-generator/.claude/CLAUDE.md",
+      "mencoes": 4,
+      "por_nome": {
+        "cognitive": 3,
+        "wasm": 1
+      }
+    },
+    {
+      "path": "crates/touring-simd/touring-simd-ARCHITECTURE.md",
+      "mencoes": 3,
+      "por_nome": {
+        "vector-store": 1,
+        "search-fusion": 1,
+        "learning": 1
+      }
+    },
+    {
+      "path": "crates/touring-assists/touring-assists-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "ast": 1,
+        "core": 1
+      }
+    },
+    {
+      "path": "crates/touring-hooks/touring-hooks-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "ast": 1,
+        "core": 1
+      }
+    },
+    {
+      "path": "crates/touring-integration-tests/touring-integration-tests-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "learning": 2
+      }
+    },
+    {
+      "path": "crates/touring-loom-proofs/touring-loom-proofs-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "core": 2
+      }
+    },
+    {
+      "path": "crates/touring-python/touring-python-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "learning": 1,
+        "ast": 1
+      }
+    },
+    {
+      "path": "crates/touring-rkyv/touring-rkyv-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "learning": 1,
+        "cognitive": 1
+      }
+    },
+    {
+      "path": "crates/touring-server/touring-server-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "ast": 1,
+        "learning": 1
+      }
+    },
+    {
+      "path": "crates/touring-web-server/touring-web-server-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "core": 2
+      }
+    },
+    {
+      "path": "crates/inferlets/inferlets-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "wasm": 1
+      }
+    },
+    {
+      "path": "crates/touring-analysis/.claude/CLAUDE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "ast": 1
+      }
+    },
+    {
+      "path": "crates/touring-analysis/touring-analysis-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "learning": 1
+      }
+    },
+    {
+      "path": "crates/touring-capnp-server/touring-capnp-server-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "wasm": 1
+      }
+    },
+    {
+      "path": "crates/touring-cortex/touring-cortex-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "learning": 1
+      }
+    },
+    {
+      "path": "crates/touring-generator/touring-generator-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "ast": 1
+      }
+    },
+    {
+      "path": "crates/touring-identity/touring-identity-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "ast": 1
+      }
+    },
+    {
+      "path": "crates/touring-loom-proofs/README.md",
+      "mencoes": 1,
+      "por_nome": {
+        "core": 1
+      }
+    },
+    {
+      "path": "crates/touring-offensive/touring-offensive-ARCHITECTURE.md",
+      "mencoes": 1,
+      "por_nome": {
+        "learning": 1
+      }
+    }
+  ],
+  "indefinidos": [
+    {
+      "path": "docs/implementation-plan-v20.md",
+      "mencoes": 68,
+      "por_nome": {
+        "index": 27,
+        "learning": 10,
+        "cognitive": 9,
+        "wasm": 1,
+        "ast": 15,
+        "core": 5,
+        "rules": 1
+      }
+    },
+    {
+      "path": "docs/01-suggestions.md",
+      "mencoes": 58,
+      "por_nome": {
+        "ast": 12,
+        "learning": 21,
+        "cognitive": 4,
+        "rules": 5,
+        "telemetry": 11,
+        "index": 3,
+        "core": 2
+      }
+    },
+    {
+      "path": "docs/graphviz-integration-plan.md",
+      "mencoes": 50,
+      "por_nome": {
+        "graph-core": 11,
+        "graph-viz": 13,
+        "learning": 13,
+        "ast": 13
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_STATUS.md",
+      "mencoes": 41,
+      "por_nome": {
+        "rule-engine": 4,
+        "definitions": 9,
+        "vector-store": 5,
+        "wasm": 1,
+        "vfs": 2,
+        "core": 8,
+        "graph-viz": 1,
+        "embeddings": 4,
+        "search-fusion": 6,
+        "ast": 1
+      }
+    },
+    {
+      "path": "docs/touring-system.md",
+      "mencoes": 33,
+      "por_nome": {
+        "ast": 4,
+        "core": 3,
+        "learning": 11,
+        "cognitive": 8,
+        "wasm": 2,
+        "index": 4,
+        "antt": 1
+      }
+    },
+    {
+      "path": "docs/touring-pro.md",
+      "mencoes": 25,
+      "por_nome": {
+        "core": 5,
+        "learning": 2,
+        "ast": 7,
+        "index": 4,
+        "cognitive": 7
+      }
+    },
+    {
+      "path": "docs/touring-pro-status-atual.md",
+      "mencoes": 23,
+      "por_nome": {
+        "index": 1,
+        "cognitive": 6,
+        "learning": 9,
+        "ast": 1,
+        "wasm": 5,
+        "antt": 1
+      }
+    },
+    {
+      "path": "docs/touring-implementation-plan.md",
+      "mencoes": 22,
+      "por_nome": {
+        "core": 2,
+        "wasm": 7,
+        "learning": 6,
+        "cognitive": 7
+      }
+    },
+    {
+      "path": "docs/DEEP_ANALYSIS_ENGINE_PLAN.md",
+      "mencoes": 18,
+      "por_nome": {
+        "core": 7,
+        "ast": 7,
+        "learning": 3,
+        "index": 1
+      }
+    },
+    {
+      "path": "docs/mutation-testing.md",
+      "mencoes": 17,
+      "por_nome": {
+        "ast": 11,
+        "cache": 6
+      }
+    },
+    {
+      "path": "docs/touring-analysis-report-20260322.md",
+      "mencoes": 13,
+      "por_nome": {
+        "learning": 6,
+        "ast": 7
+      }
+    },
+    {
+      "path": "docs/touring-pro-implementation-strategies.md",
+      "mencoes": 12,
+      "por_nome": {
+        "index": 3,
+        "wasm": 4,
+        "learning": 2,
+        "core": 1,
+        "cognitive": 2
+      }
+    },
+    {
+      "path": "docs/PLAN-diagnostic-precision-v1.md",
+      "mencoes": 10,
+      "por_nome": {
+        "memory": 10
+      }
+    },
+    {
+      "path": "docs/IMPLEMENTATION_PLAN_v29.md",
+      "mencoes": 8,
+      "por_nome": {
+        "core": 2,
+        "learning": 3,
+        "antt": 1,
+        "index": 2
+      }
+    },
+    {
+      "path": "docs/autoresearch-cross-analysis.md",
+      "mencoes": 8,
+      "por_nome": {
+        "core": 1,
+        "learning": 2,
+        "ast": 2,
+        "cognitive": 1,
+        "rules": 2
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVE_4.md",
+      "mencoes": 8,
+      "por_nome": {
+        "core": 3,
+        "vfs": 1,
+        "ast": 2,
+        "definitions": 2
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_OVERVIEW.md",
+      "mencoes": 7,
+      "por_nome": {
+        "search-fusion": 1,
+        "core": 3,
+        "vfs": 1,
+        "embeddings": 1,
+        "vector-store": 1
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVES_1_2.md",
+      "mencoes": 7,
+      "por_nome": {
+        "search-fusion": 3,
+        "core": 4
+      }
+    },
+    {
+      "path": "docs/PLAN-diagnostic-precision-v2.md",
+      "mencoes": 5,
+      "por_nome": {
+        "memory": 5
+      }
+    },
+    {
+      "path": "docs/SPRINT-INTEGRATION-LOOPS-5-8.md",
+      "mencoes": 5,
+      "por_nome": {
+        "learning": 4,
+        "core": 1
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVE_5.md",
+      "mencoes": 4,
+      "por_nome": {
+        "embeddings": 1,
+        "search-fusion": 3
+      }
+    },
+    {
+      "path": "docs/Crates-Para-Melhorar-Geracao-de-Codigo.md",
+      "mencoes": 3,
+      "por_nome": {
+        "ast": 1,
+        "core": 1,
+        "index": 1
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVE_3.md",
+      "mencoes": 3,
+      "por_nome": {
+        "ast": 2,
+        "vfs": 1
+      }
+    },
+    {
+      "path": "docs/touring-semantics-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "ast": 1,
+        "vfs": 1
+      }
+    },
+    {
+      "path": "docs/touring-vfs-ARCHITECTURE.md",
+      "mencoes": 2,
+      "por_nome": {
+        "vfs": 2
+      }
+    },
+    {
+      "path": "docs/audit-touring-hooks-2026-03-28.md",
+      "mencoes": 1,
+      "por_nome": {
+        "index": 1
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVE_7.md",
+      "mencoes": 1,
+      "por_nome": {
+        "rule-engine": 1
+      }
+    },
+    {
+      "path": "docs/graph-viz-master-plan_WAVE_8.md",
+      "mencoes": 1,
+      "por_nome": {
+        "wasm": 1
+      }
+    },
+    {
+      "path": "docs/pre_read_enhancement_strategy.md",
+      "mencoes": 1,
+      "por_nome": {
+        "ast": 1
+      }
+    },
+    {
+      "path": "docs/repo-health.md",
+      "mencoes": 1,
+      "por_nome": {
+        "ast": 1
+      }
+    }
+  ]
+}

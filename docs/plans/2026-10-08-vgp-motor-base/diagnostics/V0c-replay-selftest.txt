@@ -1,0 +1,2 @@
+selftest: ok (isolamento+classe True · reconstrução True · controle negativo True)
+selftest rc=0

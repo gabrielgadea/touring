@@ -1,0 +1,1308 @@
+{
+  "PreToolUse": [
+    {
+      "matcher": "Read",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-read",
+          "if": "Read(*.sql)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing file context..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit",
+          "if": "Edit(*.sql)",
+          "timeout": 10,
+          "statusMessage": "Touring: analyzing blast radius..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-edit-prevention",
+          "if": "Edit(*.sql)",
+          "timeout": 10,
+          "statusMessage": "Touring: syntax pre-check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-quality-block-all.sh",
+          "timeout": 30,
+          "statusMessage": "touring-quality: 6 BLOCK dims (F2.1/F2.4/F2.5/F2.6/F4.3/F4.5)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.rs)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.py)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.ts)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.tsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.js)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.jsx)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.go)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.java)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.c)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.cpp)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.h)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.toml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.json)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.yaml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.yml)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.sh)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-write",
+          "if": "Write(*.sql)",
+          "timeout": 10,
+          "statusMessage": "Touring: speculative validation..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-quality-block-all.sh",
+          "timeout": 30,
+          "statusMessage": "touring-quality: 6 BLOCK dims (F2.1/F2.4/F2.5/F2.6/F4.3/F4.5)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-bash",
+          "timeout": 10,
+          "statusMessage": "Touring: checking command history..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/block_git.sh",
+          "timeout": 2,
+          "statusMessage": "Git guard: checking for prohibited commands..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-process-guard.sh Bash",
+          "timeout": 5,
+          "statusMessage": "touring-process-guard: REGRA #19 anti-pkill check..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook ceg-observe",
+          "timeout": 5,
+          "statusMessage": "Touring CEG: observing action (X0..X7 telemetry, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Grep|Glob",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "node \"/home/gabrielgadea/.claude/hooks/gitnexus/gitnexus-hook.cjs\"",
+          "timeout": 8,
+          "statusMessage": "Enriching with GitNexus graph context..."
+        }
+      ]
+    },
+    {
+      "matcher": "EnterPlanMode",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook enter-plan-mode",
+          "timeout": 5,
+          "statusMessage": "Touring: surfacing generator suggestions for planning..."
+        }
+      ]
+    },
+    {
+      "matcher": "TaskCreate|TaskUpdate|TaskList|TaskOutput|TaskGet",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "touring pre-task-scout",
+          "timeout": 8,
+          "statusMessage": "Touring: LRU-cached scout for task..."
+        }
+      ]
+    },
+    {
+      "matcher": "Grep",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-grep",
+          "timeout": 2
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Glob",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-glob",
+          "timeout": 2
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Task|Agent",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Agent",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/agent_model_gate.py",
+          "timeout": 5,
+          "statusMessage": "agent-model-gate: o subagente tem modelo decidido?"
+        }
+      ]
+    },
+    {
+      "matcher": "Read|Grep|Glob",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/delegation_nudge.py",
+          "timeout": 5,
+          "statusMessage": "delegation-nudge: rajada de leitura?"
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/fable_consent_guard.sh",
+          "timeout": 2,
+          "statusMessage": "fable-consent-guard: o consentimento é do humano"
+        }
+      ]
+    },
+    {
+      "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/fable_consent_guard.sh",
+          "timeout": 2,
+          "statusMessage": "fable-consent-guard: o consentimento é do humano"
+        }
+      ]
+    },
+    {
+      "matcher": "WebFetch",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "WebSearch",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cli-suggest",
+          "timeout": 3,
+          "statusMessage": "touring cli-suggest: classifying operation (Rust, in-daemon)..."
+        }
+      ]
+    },
+    {
+      "matcher": "Edit|Write|NotebookEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_effect.py",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "SendMessage|Write|Edit|MultiEdit|NotebookEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/prose_integrity_gate.py",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/config_protection.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-edit",
+          "timeout": 10,
+          "statusMessage": "Touring: verifying edit quality..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/doc-coverage-gate.sh \"$ARGUMENTS.tool_input.file_path\"",
+          "if": "Edit(*.rs)",
+          "timeout": 3,
+          "statusMessage": "doc-coverage-gate: soft pub-doc check..."
+        }
+      ]
+    },
+    {
+      "matcher": "Write",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-write",
+          "timeout": 10,
+          "statusMessage": "Touring: registering new file..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/doc-coverage-gate.sh \"$ARGUMENTS.tool_input.file_path\"",
+          "if": "Write(*.rs)",
+          "timeout": 3,
+          "statusMessage": "doc-coverage-gate: soft pub-doc check..."
+        }
+      ]
+    },
+    {
+      "matcher": "Read",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-read",
+          "timeout": 10,
+          "statusMessage": "Touring: indexing file knowledge...",
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-bash",
+          "timeout": 10
+        }
+      ]
+    },
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-tool-rl",
+          "timeout": 10,
+          "async": true
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/check_context.sh",
+          "timeout": 1
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/telemetry_logger.sh",
+          "timeout": 2,
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "ExitPlanMode",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook exit-plan-mode",
+          "timeout": 5,
+          "statusMessage": "Touring: persisting planning state..."
+        }
+      ]
+    },
+    {
+      "matcher": "TaskCreate",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-create",
+          "timeout": 5,
+          "statusMessage": "Touring: syncing task to decompose DAG..."
+        }
+      ]
+    },
+    {
+      "matcher": "TaskUpdate",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-update",
+          "timeout": 5,
+          "statusMessage": "Touring: mirroring task status to decompose..."
+        }
+      ]
+    },
+    {
+      "matcher": "TaskList",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-list",
+          "timeout": 5,
+          "statusMessage": "Touring: appending decompose DAG summary...",
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "TaskOutput",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-output",
+          "timeout": 5,
+          "statusMessage": "Touring: capturing task output to memory...",
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "TaskGet",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-get",
+          "timeout": 5,
+          "statusMessage": "Touring: bridging task to decompose DAG...",
+          "async": true
+        }
+      ]
+    },
+    {
+      "matcher": "TaskStop",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-stop",
+          "timeout": 5,
+          "statusMessage": "Touring: recording task stop in decompose DAG..."
+        }
+      ]
+    },
+    {
+      "matcher": "TaskDelete",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-sync-delete",
+          "timeout": 5,
+          "statusMessage": "Touring: cleaning up deleted task from decompose..."
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/evidence_guard.py --stdin",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PostToolBatch": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-tool-batch",
+          "timeout": 15,
+          "statusMessage": "TACO: batch RL consolidation + wiring delta..."
+        }
+      ]
+    }
+  ],
+  "PostToolUseFailure": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-tool-failure",
+          "timeout": 5,
+          "statusMessage": "Touring: learning from failure..."
+        }
+      ]
+    },
+    {
+      "matcher": "Bash",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-bash",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "matcher": "startup|resume|clear|fork",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook session-start",
+          "timeout": 30,
+          "statusMessage": "Touring: initializing cognitive engine..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/scripts/rl_warmup.sh",
+          "timeout": 15,
+          "statusMessage": "RL: warming up bandit..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/session_startup_intelligence.py",
+          "timeout": 8,
+          "statusMessage": "Touring: collecting session intelligence dashboard..."
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/investigate_on_start.py",
+          "timeout": 10,
+          "statusMessage": "Touring: topic map (opt-in: TOURING_INVESTIGATE_ON_START=1)..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/Touring/scripts/hooks/scout_perpetuo_reminder.py",
+          "timeout": 10,
+          "statusMessage": "Scout Perpétuo: checking demand-generator cadence..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/painel_emanacao.py",
+          "timeout": 15
+        }
+      ]
+    },
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/session_env_setup.sh",
+          "timeout": 15,
+          "statusMessage": "Touring: loading knowledge graph..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/code_mode_sdk_section.py",
+          "timeout": 10,
+          "statusMessage": "Code Mode: contrato do SDK (1x por sessão)..."
+        },
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "SessionEnd": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook session-stop",
+          "timeout": 10,
+          "statusMessage": "Touring: persisting session state...",
+          "async": true
+        }
+      ]
+    }
+  ],
+  "FileChanged": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook file-changed",
+          "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/guard_settings.sh",
+          "timeout": 2
+        }
+      ]
+    }
+  ],
+  "TaskCreated": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-created",
+          "timeout": 5,
+          "statusMessage": "Touring: recording task creation + RL +0.1..."
+        }
+      ]
+    }
+  ],
+  "TaskCompleted": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook task-completed",
+          "timeout": 5,
+          "statusMessage": "Touring: recording task outcome + RL reward...",
+          "async": true
+        }
+      ]
+    }
+  ],
+  "CwdChanged": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook cwd-changed",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "SubagentStart": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook subagent-start",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "SubagentStop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook subagent-stop",
+          "timeout": 5,
+          "async": true
+        }
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_stop_guard.py",
+          "timeout": 150
+        }
+      ]
+    }
+  ],
+  "PreCompact": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook pre-compact",
+          "timeout": 10,
+          "statusMessage": "Touring: flushing state before compaction..."
+        }
+      ]
+    },
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/skills/loop-engineering/scripts/hooks/loop_snapshot.py",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PostCompact": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook post-compact",
+          "timeout": 5,
+          "statusMessage": "Touring: rebuilding cache after compaction..."
+        }
+      ]
+    },
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_resume.py",
+          "timeout": 5
+        }
+      ]
+    }
+  ],
+  "InstructionsLoaded": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook instructions-loaded",
+          "timeout": 5,
+          "statusMessage": "Touring: enriching instructions context..."
+        }
+      ]
+    }
+  ],
+  "Setup": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook setup",
+          "timeout": 10
+        }
+      ]
+    }
+  ],
+  "PermissionRequest": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook permission-request",
+          "timeout": 8,
+          "statusMessage": "Touring VGP: evaluating permission risk..."
+        }
+      ]
+    }
+  ],
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook prompt-enhance",
+          "timeout": 5,
+          "statusMessage": "Touring: enhancing prompt (Rust)..."
+        }
+      ]
+    },
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/skills/loop-engineering/scripts/hooks/loop_outer_arm.py",
+          "timeout": 5,
+          "statusMessage": "Flow guard: arming gated-flow marker..."
+        }
+      ]
+    },
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/skill_picker_hook.py",
+          "statusMessage": "Skill suggestion (async, τ=0.55 medido)",
+          "timeout": 5
+        }
+      ]
+    },
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "python3 $HOME/.claude/hooks/delegation_nudge.py",
+          "timeout": 5,
+          "statusMessage": "delegation-nudge: troca de modelo?"
+        }
+      ]
+    }
+  ],
+  "TeammateIdle": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook teammate-idle",
+          "timeout": 15,
+          "statusMessage": "TACO: noting idle teammate (observation)..."
+        }
+      ]
+    }
+  ],
+  "ConfigChange": [
+    {
+      "matcher": "user_settings|project_settings|skills",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook config-change",
+          "timeout": 5,
+          "async": true
+        }
+      ]
+    }
+  ],
+  "StopFailure": [
+    {
+      "matcher": "rate_limit|max_output_tokens|server_error",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook stop-failure",
+          "timeout": 5,
+          "async": true
+        }
+      ]
+    }
+  ],
+  "Notification": [
+    {
+      "matcher": "idle_prompt|permission_prompt",
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook notification",
+          "timeout": 3,
+          "async": true
+        }
+      ]
+    }
+  ],
+  "Elicitation": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook elicitation",
+          "timeout": 3,
+          "async": true
+        }
+      ]
+    }
+  ],
+  "ElicitationResult": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "$HOME/.claude/hooks/touring-hook elicitation-result",
+          "timeout": 3,
+          "async": true
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,258 @@
+#!/usr/bin/env python3
+"""Teste de guarda — tamanho de SKILL.md acima do corte de compactação.
+
+POR QUE ESTE TESTE EXISTE (medido, 08/10/2026)
+  Depois de cada compactação o Claude Code reinjeta as skills invocadas
+  truncadas em 20.000 caracteres, com o marcador:
+    "[... skill content truncated for compaction; use Read on the skill path...]"
+  O que fica DEPOIS do corte o modelo deixa de ver — o procedimento, os
+  comandos, as regras de ouro. A Touring tinha 41.661 e voltava pela metade.
+
+REGRA
+  SKILL.md ate LIMIJE chars (2.000 de folga sob o corte, para que uma
+  edicao pequena nao requebre o limite). Alem disso: REPROVA.
+
+ISENCAO
+  ~/.claude/skills/synced/** — vem da sincronizacao do claude.ai e seria
+  sobrescrito na proxima sincronizacao. A razao e impressa, nao silenciosa.
+
+COMO PROVAR QUE O TESTE FUNCIONA (controle positivo e negativo)
+  Positivo: um SKILL.md sintetico de LIMIJE+1 chars num tmpdir REPROVA.
+  Negativo: um de LIMIJE-1 chars PASSA.
+  Um teste de guarda que nunca falhou nao distingue "nada grande" de "nao olha".
+
+Uso:
+    python3 scripts/test_skill_size_guard.py           # exit 0 se OK
+    python3 scripts/test_skill_size_guard.py --verbose # tabela por skill
+    python3 -m pytest scripts/test_skill_size_guard.py # coletavel
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+import tempfile
+from pathlib import Path
+
+try:  # coletavel por pytest, executavel como script (o modelo do test_drift_coverage)
+    import pytest
+except ImportError:  # pragma: no cover
+    pytest = None  # type: ignore[assignment]
+
+LIMITE = 20_000
+FOLGA = 2_000  # alvo do gerador = LIMITE - FOLGA
+
+#: As raizes varridas. Os projetos ficam num array no topo, por nome —
+#: o mesmo padrao de scripts/test_drift_coverage.py.
+SKILLS_DIRS: tuple[Path, ...] = (
+    Path.home() / ".claude/skills",
+    Path("/home/gabrielgadea/projects/analise/.claude/skills"),
+)
+
+#: Prefixos isentos, com a razao — exigida pelo pedido da analise-6b.
+ISENCOES: dict[str, str] = {
+    "synced": (
+        "vem da sincronizacao do claude.ai; seria sobrescrito na proxima "
+        "sincronizacao, e mexer aqui nao dura"
+    ),
+}
+
+
+def is_isento(caminho: Path, raiz: Path) -> str | None:
+    """Razao da isencao, ou None se o caminho e auditado."""
+    try:
+        rel = caminho.relative_to(raiz)
+    except ValueError:
+        return None
+    for parte in rel.parts[:-1]:
+        if parte in ISENCOES:
+            return ISENCOES[parte]
+    return None
+
+
+def varrer(raizes: tuple[Path, ...] = SKILLS_DIRS) -> tuple[list[dict], list[dict]]:
+    """Retorna (violacoes, isentos). Cada item de violacao tem nome e chars."""
+    violacoes: list[dict] = []
+    isentos: list[dict] = []
+    for raiz in raizes:
+        if not raiz.is_dir():
+            continue
+        # `**` e obrigatorio: `synced/<skill>/SKILL.md` esta DOIS niveis abaixo
+        # da raiz. Com `*/SKILL.md` o glob nao alcanca nada de synced — e o
+        # teste de isencao passa por ter medido VAZIO (medido 08/10/2026).
+        for skill_md in sorted(raiz.glob("**/SKILL.md")):
+            nome = skill_md.parent.name
+            texto = skill_md.read_text(encoding="utf-8", errors="replace")
+            chars = len(texto)
+            razao = is_isento(skill_md, raiz)
+            if razao:
+                isentos.append({"nome": nome, "chars": chars, "razao": razao,
+                                "caminho": str(skill_md)})
+            elif chars > LIMITE:
+                violacoes.append({"nome": nome, "chars": chars, "limite": LIMITE,
+                                  "excesso": chars - LIMITE, "caminho": str(skill_md)})
+    return violacoes, isentos
+
+
+# --------------------------------------------------------------------------
+# helpers de teste (funcionam com pytest E como script)
+# --------------------------------------------------------------------------
+def _sintetico(tmp: Path, nome: str, chars: int) -> Path:
+    """Um SKILL.md de exatamente `chars` caracteres, com frontmatter valido."""
+    d = tmp / nome
+    d.mkdir(parents=True, exist_ok=True)
+    cabeca = "---\nname: x\ndescription: sintetico\n---\n\n"
+    corpo = "x" * max(0, chars - len(cabeca))
+    (d / "SKILL.md").write_text(cabeca + corpo, encoding="utf-8")
+    return d
+
+
+def raizes_presentes(raizes: tuple[Path, ...] | None = None) -> list[Path]:
+    """As raizes que EXISTEM neste ambiente. `varrer` pula as ausentes em silencio: zero raizes = zero medidas."""
+    return [raiz for raiz in (SKILLS_DIRS if raizes is None else raizes) if raiz.is_dir()]
+
+
+def test_nada_acima_do_limite():
+    """A varredura real das raizes do usuario passa.
+
+    Sem nenhuma raiz (o runner do CI nao tem ~/.claude/skills) a varredura mede VAZIO e passaria sem olhar
+    nada — o exato "nao olha" que o docstring do modulo condena. Entao PULA dizendo isso; no rito de release
+    (SKILL_SIZE_GUARD_REQUIRE_ROOTS=1, onde o lado vivo existe) a ausencia REPROVA.
+    """
+    if not raizes_presentes():
+        motivo = ("nenhuma raiz de skills existe neste ambiente (" + ", ".join(str(r) for r in SKILLS_DIRS)
+                  + "): a varredura real nao mediu nada")
+        if os.environ.get("SKILL_SIZE_GUARD_REQUIRE_ROOTS") == "1":
+            pytest.fail(motivo)
+        pytest.skip(motivo)
+    violacoes, _ = varrer()
+    nomes = ", ".join(f"{v['nome']} ({v['chars']})" for v in violacoes)
+    assert not violacoes, f"{len(violacoes)} SKILL.md acima de {LIMITE}: {nomes}"
+
+
+def test_controle_negativo_um_char_abaixo_passa():
+    """LIMIJE-1 chars: tem que passar. Sem isto, um teste que sempre falha tambem 'cumpre'."""
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        _sintetico(tmp, "ok", LIMITE - 1)
+        violacoes, _ = varrer((tmp,))
+        assert not violacoes, f"um arquivo de {LIMITE-1} reprovou: {violacoes}"
+
+
+def test_controle_positivo_um_char_acima_reprova():
+    """LIMIJE+1 chars: tem que reprovar. Prova que o teste OLHA o tamanho."""
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        _sintetico(tmp, "grande", LIMITE + 1)
+        violacoes, _ = varrer((tmp,))
+        assert violacoes, f"um arquivo de {LIMITE+1} passou: o teste nao mede o tamanho"
+        assert violacoes[0]["chars"] == LIMITE + 1
+        assert violacoes[0]["excesso"] == 1
+
+
+def test_isencao_synced_e_impressa_com_razao():
+    """A isencao nao e silenciosa: a razao viaja com o registro.
+
+    Reproduz a FORMA REAL (`<raiz>/synced/<skill>/SKILL.md`), nao um atalho
+    com `synced` no primeiro nivel — `varrer` globa `*/SKILL.md`, entao um
+    `tmp/synced/SKILL.md` nunca seria alcancado e o teste passaria por um
+    motivo errado.
+    """
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        _sintetico(tmp / "synced", "grande", LIMITE + 5_000)
+        violacoes, isentos = varrer((tmp,))
+        assert not violacoes, f"synced deveria estar isento: {violacoes}"
+        assert len(isentos) == 1, f"esperava 1 isencao, veio {len(isentos)}"
+        assert isentos[0]["nome"] == "grande"
+        assert isentos[0]["razao"], "a razao da isencao veio vazia"
+
+
+def test_isencao_aplica_ao_padrao_real_de_synced():
+    """O caminho de verdade (`synced/pptx/SKILL.md`) e isento; um irmao nao."""
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        _sintetico(tmp / "synced", "do-sync", LIMITE + 5_000)
+        _sintetico(tmp, "do-usuario", LIMITE + 5_000)
+        violacoes, isentos = varrer((tmp,))
+        nomes_i = {i["nome"] for i in isentos}
+        nomes_v = {v["nome"] for v in violacoes}
+        assert "do-sync" in nomes_i, "synced/<skill>/SKILL.md deveria estar isento"
+        assert "do-usuario" in nomes_v, "<skill>/SKILL.md fora do synced deve reprovar"
+
+
+def test_raizes_ausentes_nao_sao_aprovacao(tmp_path, monkeypatch, capsys):
+    """Controle do achado 17/10/2026: com todas as raizes ausentes o modo script saia 0 ("OK") sem medir nada."""
+    ausentes = (tmp_path / "nao-existe-a", tmp_path / "nao-existe-b")
+    assert raizes_presentes(ausentes) == []
+    monkeypatch.setattr(sys.modules[__name__], "SKILLS_DIRS", ausentes)
+    assert _rodar() == 2
+    assert "nenhuma raiz" in capsys.readouterr().err
+    assert raizes_presentes((tmp_path, ausentes[0])) == [tmp_path]
+
+
+def test_varredura_real_pula_sem_raizes_e_reprova_quando_o_release_as_exige(tmp_path, monkeypatch):
+    """No runner do CI nao ha ~/.claude/skills: pula DIZENDO; no release (REQUIRE_ROOTS=1) a ausencia reprova."""
+    monkeypatch.setattr(sys.modules[__name__], "SKILLS_DIRS", (tmp_path / "nao-existe",))
+    monkeypatch.delenv("SKILL_SIZE_GUARD_REQUIRE_ROOTS", raising=False)
+    with pytest.raises(pytest.skip.Exception, match="nao mediu nada"):
+        test_nada_acima_do_limite()
+    monkeypatch.setenv("SKILL_SIZE_GUARD_REQUIRE_ROOTS", "1")
+    try:
+        test_nada_acima_do_limite()
+    except pytest.fail.Exception as falha:
+        assert "nao mediu nada" in str(falha)
+    except pytest.skip.Exception:  # um skip aqui escaparia do pytest.raises e contaria como teste PULADO, nao falho
+        pytest.fail("com SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 a ausencia das raizes tem de REPROVAR, nao pular")
+    else:
+        pytest.fail("com SKILL_SIZE_GUARD_REQUIRE_ROOTS=1 a ausencia das raizes passou sem medir nada")
+
+
+def test_fronteira_exata_no_limite_passa():
+    """Exatamente LIMITE chars passa; e LIMITE+1 que reprova. A fronteira e medidas."""
+    with tempfile.TemporaryDirectory() as t:
+        tmp = Path(t)
+        _sintetico(tmp, "exato", LIMITE)
+        violacoes, _ = varrer((tmp,))
+        assert not violacoes, f"{LIMITE} chars deveria passar: {violacoes}"
+
+
+def _rodar() -> int:
+    if not raizes_presentes(SKILLS_DIRS):
+        print("nenhuma raiz de skills existe neste ambiente: nada foi medido (sinal ausente nao e aprovacao)",
+              file=sys.stderr)
+        return 2
+    violacoes, isentos = varrer(SKILLS_DIRS)
+    print(f"limite: {LIMITE} chars  ·  alvo do gerador: {FOLGA}")
+    print(f"varridas: {len(raizes_presentes(SKILLS_DIRS))} de {len(SKILLS_DIRS)} raizes\n")
+    if isentos:
+        print("ISENTAS:")
+        for i in isentos:
+            print(f"  {i['nome']:<26} {i['chars']:>7} chars  — {i['razao']}")
+        print()
+    if violacoes:
+        print(f"VIOLACOES ({len(violacoes)}):")
+        for v in violacoes:
+            print(f"  {v['nome']:<26} {v['chars']:>7} chars  (+{v['excesso']} sobre o limite)")
+        return 1
+    print("OK: nenhuma SKILL.md acima do limite.")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--verbose", action="store_true", help="mostra o tamanho de todas")
+    args = ap.parse_args(argv)
+    if args.verbose:
+        for raiz in SKILLS_DIRS:
+            if not raiz.is_dir():
+                continue
+            for p in sorted(raiz.glob("*/SKILL.md")):
+                n = len(p.read_text(encoding="utf-8", errors="replace"))
+                marca = "ISENT" if is_isento(p, raiz) else ("ACIMA" if n > LIMITE else "ok")
+                print(f"  {marca:<6} {n:>7}  {p.parent.name}")
+    return _rodar()
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

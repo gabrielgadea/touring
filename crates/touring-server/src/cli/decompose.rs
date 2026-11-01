@@ -1,4 +1,4 @@
-//! `touring decompose create|add|get|update|validate|status|finalize|ready|templates|template`
+//! `touring decompose create|add|get|update|validate|status|finalize|ready|claim|release|ticket|frontier|templates|template`
 //! — DAG task decomposition.
 //!
 //! Manages hierarchical task decomposition for multi-step workflows.
@@ -36,7 +36,7 @@ enum DecomposeCmd {
         /// claude-code surface in the digest for CC to adopt).
         #[arg(long, default_value = "touring-cli")]
         origin: String,
-        /// Priority bucket (high|normal|low).
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100).
         #[arg(long, default_value = "normal")]
         priority: String,
         /// CILA complexity level 0-4. When omitted the daemon defaults to 3
@@ -51,7 +51,7 @@ enum DecomposeCmd {
         subtask_id: String,
         /// Subtask description (remaining positional args, joined).
         description: Vec<String>,
-        /// Priority bucket.
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100).
         #[arg(long, default_value = "normal")]
         priority: String,
         /// Optional deadline (ISO date).
@@ -73,15 +73,19 @@ enum DecomposeCmd {
         /// Legacy positional status (deprecated; prefer `--status=<value>`).
         #[arg(hide = true)]
         legacy_status: Option<String>,
-        /// New status (pending|in_progress|completed|failed).
+        /// New status: pending|in_progress|completed|blocked|failed|cancelled|skipped
+        /// (`done`/`complete` = completed). `failed` = it ran and broke; `cancelled` = it no
+        /// longer applies (obsolete, out of plan) — a cancelled dependency never releases its
+        /// dependents; `skipped` = deliberately not run, and it does release them.
         #[arg(long)]
         status: Option<String>,
         /// Comma-separated dependency list.
         #[arg(long, value_delimiter = ',')]
         depends_on: Option<Vec<String>>,
-        /// Numeric priority.
+        /// Priority: bucket (high|normal|low) or an integer (e.g. 100) —
+        /// same ONE parser as `add` since 30.4.67; anything else is refused.
         #[arg(long)]
-        priority: Option<i64>,
+        priority: Option<String>,
         /// Quality score 0.0-1.0.
         #[arg(long)]
         quality_score: Option<f64>,
@@ -96,14 +100,109 @@ enum DecomposeCmd {
         /// Optional minimum quality threshold.
         quality_threshold: Option<f64>,
     },
-    /// List subtasks ready to execute (all deps satisfied).
+    /// Stamp `archived_at` on terminal tasks that never got one.
+    ///
+    /// `finalize` archives the task it finalizes, but tasks that reached a
+    /// terminal status by other routes — and every task finalized before
+    /// 19/09/2026 — carry a NULL `archived_at`, so any query filtering on the
+    /// archive reads the whole history as live. This is the retention pass:
+    /// the logic existed and had no caller.
+    Archive {
+        /// Only archive tasks untouched for at least this long (0 = all).
+        #[arg(long, default_value_t = 0u64)]
+        older_than_secs: u64,
+        /// Report how many WOULD be archived, writing nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// Close scaffold stages whose every sibling already finished.
+    ///
+    /// The closer only runs on a task-completion event, so stages under tasks
+    /// that never emitted one stay open forever. A stage with NO open sibling
+    /// is closed by deduction from the DAG's edges; one with an open sibling is
+    /// real pending work and is left alone.
+    ReconcileStages {
+        /// Report how many WOULD be closed, writing nothing.
+        #[arg(long)]
+        dry_run: bool,
+    },
+    /// List subtasks ready to execute (all deps satisfied), in the claim's own
+    /// queue order — priority, then id (one source for both since 30.4.67).
     Ready {
         /// Optional task id filter.
         task_id: Option<String>,
-        /// Sort output by priority (high → low).
+        /// Kept for compatibility: since 30.4.67 the DEFAULT order already is
+        /// (priority, id) — the flag changes nothing and stays accepted so old
+        /// callers keep working. `sorted_by_priority` in the output records
+        /// the flag, not the order.
         #[arg(long)]
         by_priority: bool,
     },
+    /// Atomically take the next ready subtask for one owner. Unlike `ready`,
+    /// which only reads (so two sessions polling it receive the SAME subtask),
+    /// this claims exclusively via a conditional write, with an expiring lease
+    /// so a session that dies mid-work frees its subtask. `--subtask` names ONE
+    /// subtask instead of the next ready one; every refusal names its reason
+    /// (the owner and lease when live, the pending deps when blocked).
+    Claim {
+        task_id: String,
+        /// Who is taking the work — required, so a claim can be released or expired.
+        #[arg(long)]
+        owner: String,
+        /// Lease length in seconds (default 3600).
+        #[arg(long)]
+        lease_secs: Option<i64>,
+        /// Claim THIS subtask rather than the next ready one (24/09/2026,
+        /// analise-d4: wanting A1, plain claim handed out A5/A6 silently).
+        #[arg(long)]
+        subtask: Option<String>,
+    },
+    /// Hand a claimed subtask back to the pool. Only its own owner may.
+    Release {
+        task_id: String,
+        subtask_id: String,
+        #[arg(long)]
+        owner: String,
+    },
+    /// Extend the lease on a subtask YOU hold, while it is still live —
+    /// the heartbeat of long work (24/09/2026, analise-d4: the L11 claim
+    /// lapsed mid-flight and `claim` could only take the NEXT ready). The
+    /// write is conditional: `in_progress`, this owner, lease not yet
+    /// expired — every refusal names its reason.
+    Renew {
+        task_id: String,
+        subtask_id: String,
+        #[arg(long)]
+        owner: String,
+        /// New lease length in seconds, from now (default 3600).
+        #[arg(long)]
+        lease_secs: Option<i64>,
+    },
+    /// Annotate a subtask as a Wayfinder ticket: is it here to DECIDE something
+    /// or to BUILD it, how much fog surrounds it, and whether a human must be
+    /// present. Every field is optional so a ticket is refined as fog lifts.
+    Ticket {
+        task_id: String,
+        subtask_id: String,
+        /// decision | implementation
+        #[arg(long)]
+        kind: Option<String>,
+        /// research | prototype | grilling | task
+        #[arg(long)]
+        subtype: Option<String>,
+        /// hitl | afk
+        #[arg(long)]
+        autonomy: Option<String>,
+        /// clear | hazy | unknown
+        #[arg(long)]
+        fog: Option<String>,
+        /// The decision ticket this work came out of (map-as-index).
+        #[arg(long)]
+        origin_ticket: Option<String>,
+    },
+    /// The frontier: unblocked work partitioned into open DECISIONS and the
+    /// implementation they gate, with the map's traceability reported.
+    Frontier { task_id: String },
     /// List the 10 reusable workflow templates W1-W10 (TR-5). Emits JSON
     /// `{count, templates: [...]}` — consumed by touring-web `/plans`.
     Templates,
@@ -164,7 +263,9 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
     // "decompose" as the program name and args[2] as its subcommand. Passing
     // the full slice would make clap try to match "decompose" itself as a
     // DecomposeCmd variant (spec Q7 resolution, 2026-06-11).
-    let cli = match DecomposeCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<DecomposeCli, _, _>(
+        args.iter().skip(1),
+    ) {
         Ok(cli) => cli,
         // --help/--version arrive as clap "errors"; e.exit() prints to the
         // right stream and exits 0 (help) or 2 (real parse error) — matching
@@ -282,6 +383,22 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let output = daemon_query("cli-decompose-finalize", payload)?;
             println!("{output}");
         }
+        DecomposeCmd::ReconcileStages { dry_run } => {
+            let payload = serde_json::json!({ "dry_run": dry_run });
+            let output = daemon_query("cli-decompose-reconcile-stages", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Archive {
+            older_than_secs,
+            dry_run,
+        } => {
+            let payload = serde_json::json!({
+                "older_than_secs": older_than_secs,
+                "dry_run": dry_run,
+            });
+            let output = daemon_query("cli-decompose-archive", payload)?;
+            println!("{output}");
+        }
         DecomposeCmd::Ready {
             task_id,
             by_priority,
@@ -291,6 +408,77 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
                 "by_priority": by_priority,
             });
             let output = daemon_query("cli-decompose-ready", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Claim {
+            task_id,
+            owner,
+            lease_secs,
+            subtask,
+        } => {
+            let mut payload = serde_json::json!({ "task_id": task_id, "owner": owner });
+            if let Some(secs) = lease_secs {
+                payload["lease_secs"] = serde_json::json!(secs);
+            }
+            if let Some(want) = subtask {
+                payload["subtask_id"] = serde_json::json!(want);
+            }
+            let output = daemon_query("cli-decompose-claim", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Release {
+            task_id,
+            subtask_id,
+            owner,
+        } => {
+            let payload = serde_json::json!({
+                "task_id": task_id, "subtask_id": subtask_id, "owner": owner,
+            });
+            let output = daemon_query("cli-decompose-release", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Renew {
+            task_id,
+            subtask_id,
+            owner,
+            lease_secs,
+        } => {
+            let mut payload = serde_json::json!({
+                "task_id": task_id, "subtask_id": subtask_id, "owner": owner,
+            });
+            if let Some(secs) = lease_secs {
+                payload["lease_secs"] = serde_json::json!(secs);
+            }
+            let output = daemon_query("cli-decompose-renew", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Ticket {
+            task_id,
+            subtask_id,
+            kind,
+            subtype,
+            autonomy,
+            fog,
+            origin_ticket,
+        } => {
+            let mut payload = serde_json::json!({ "task_id": task_id, "subtask_id": subtask_id });
+            for (key, value) in [
+                ("kind", kind),
+                ("subtype", subtype),
+                ("autonomy", autonomy),
+                ("fog", fog),
+                ("origin_ticket", origin_ticket),
+            ] {
+                if let Some(v) = value {
+                    payload[key] = serde_json::json!(v);
+                }
+            }
+            let output = daemon_query("cli-decompose-ticket", payload)?;
+            println!("{output}");
+        }
+        DecomposeCmd::Frontier { task_id } => {
+            let payload = serde_json::json!({ "task_id": task_id });
+            let output = daemon_query("cli-decompose-frontier", payload)?;
             println!("{output}");
         }
         DecomposeCmd::Templates => {

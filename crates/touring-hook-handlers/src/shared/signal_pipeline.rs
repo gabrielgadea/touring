@@ -30,7 +30,7 @@ use super::signals::{normalize_scores, score_cmp};
 use std::sync::Arc;
 use touring_analysis::{AnalysisConfig, BlastRadiusEngine, BlastRadiusStrategy, HnswStrategy};
 use touring_code::ast::graph::pheromone::PheromoneGraph;
-use touring_code::ast::{SymbolIndex, compute_enriched_blast_radius};
+use touring_code::ast::{ImpactCategory, SymbolIndex, compute_enriched_blast_radius};
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -40,7 +40,9 @@ use touring_code::ast::{SymbolIndex, compute_enriched_blast_radius};
 // reaching back into this crate. Re-exported here so every historical
 // `crate::shared::signal_pipeline::{SignalContext, SignalLayer}` path — and the
 // `impl SignalLayer` blocks below — keep resolving unchanged.
-pub use touring_hooks_shared::signal_layer::{LayerMetrics, SignalContext, SignalLayer};
+pub use touring_hooks_shared::signal_layer::{
+    LayerMetrics, ProposedChange, SignalContext, SignalLayer,
+};
 
 // ─── Pipeline ───────────────────────────────────────────────────────────
 
@@ -95,59 +97,13 @@ impl SignalPipeline {
     ///
     /// Returns `None` if no signals were produced.
     pub fn execute(&self, ctx: &SignalContext<'_>) -> Option<String> {
-        let mut all_signals: Vec<(f32, String)> = Vec::with_capacity(self.layers.len() * 2);
-        let mut _metrics: Vec<LayerMetrics> = Vec::with_capacity(self.layers.len());
-
-        for layer in &self.layers {
-            if !layer.should_run(ctx.cila_level) {
-                continue;
-            }
-
-            let start = std::time::Instant::now();
-            let signals = layer.enrich(ctx);
-            let duration_us = start.elapsed().as_micros() as u64;
-
-            _metrics.push(LayerMetrics {
-                name: layer.name(),
-                signal_count: signals.len(),
-                duration_us,
-            });
-
-            all_signals.extend(signals);
-        }
-
-        if all_signals.is_empty() {
-            return None;
-        }
-
-        // Normalize if enabled
-        if self.normalize {
-            normalize_scores(&mut all_signals);
-        }
-
-        // Sort by score descending
-        all_signals.sort_by(score_cmp);
-
-        // P1 (SNR gating, default OFF): prune low-relevance signals before assembly.
-        super::signals::apply_relevance_cutoff(&mut all_signals);
-
-        // Budget-aware assembly
-        let mut output = String::new();
-        for (_, text) in &all_signals {
-            if output.len() + text.len() > self.budget && !output.is_empty() {
-                break;
-            }
-            if !output.is_empty() {
-                output.push_str(" | ");
-            }
-            output.push_str(text);
-        }
-
-        if output.is_empty() {
-            None
-        } else {
-            Some(output)
-        }
+        // Cross-audit 04/09/2026 — este corpo era uma COPIA integral de
+        // `execute_with_metrics`, e a sua copia media cada camada num
+        // `let mut _metrics` com underscore: a medicao era paga em toda invocacao
+        // de hook e descartada por construcao. Duas copias do mesmo laco divergem
+        // no primeiro dia em que alguem corrige so uma. Uma fonte, e quem nao quer
+        // as metricas descarta aqui.
+        self.execute_with_metrics(ctx).0
     }
 
     /// Execute and return metrics alongside the output.
@@ -417,7 +373,8 @@ impl SignalLayer for BlastRadiusSignalLayer {
 ///
 /// Uses [`compute_enriched_blast_radius`] for semantic categorisation of impact.
 /// Severity score (0–1) is propagated from the enriched result and discounted by
-/// dependency kind: direct=100%, transitive=50%, co-edited=30%.
+/// dependency kind ([`ImpactCategory::signal_discount`]: direct=100%, transitive=50%,
+/// co-edited=30%).
 ///
 /// Only runs at CILA level ≥ 3.
 pub struct EnrichedBlastRadiusSignalLayer {
@@ -445,14 +402,11 @@ impl SignalLayer for EnrichedBlastRadiusSignalLayer {
         let enriched = compute_enriched_blast_radius(&self.index, ctx.file_path, &co_edit);
         let severity = enriched.severity as f32;
         let mut signals = Vec::new();
-        for dep in &enriched.direct_dependents {
-            signals.push((severity, format!("direct:{dep}")));
-        }
-        for dep in &enriched.transitive_dependents {
-            signals.push((severity * 0.5, format!("transitive:{dep}")));
-        }
-        for co in &enriched.co_edited_files {
-            signals.push((severity * 0.3, format!("co_edit:{co}")));
+        for category in ImpactCategory::ALL {
+            let weight = severity * category.signal_discount();
+            for dep in enriched.files(category) {
+                signals.push((weight, format!("{}:{dep}", category.signal_prefix())));
+            }
         }
         signals
     }
@@ -612,17 +566,156 @@ impl SignalLayer for HnswSignalLayer {
     }
 }
 
+// ─── S0 (2026-09-01): the hook call sites' SignalContext v2 ─────────────
+//
+// The three pre-hooks used to run their pipelines on
+// `SignalContext::new(&rel_path, "")` — no tool, no proposed change — so no
+// `SignalLayer` could look at the code about to be written. These builders are
+// the single place the live contexts are assembled; a layer that needs the
+// proposal reads `ctx.proposed` / `ctx.analysable_text()`.
+
+/// Context for `pre_write`: the whole proposed file content travels with it.
+pub fn context_for_write<'a>(
+    rel_path: &'a str,
+    content: &'a str,
+    cila: usize,
+) -> SignalContext<'a> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_write")
+        .with_tool_name("Write")
+        .with_proposed(ProposedChange::Write { content })
+}
+
+/// Context for `pre_edit`: the exact replacement travels with it.
+pub fn context_for_edit<'a>(
+    rel_path: &'a str,
+    old_string: &'a str,
+    new_string: &'a str,
+    cila: usize,
+) -> SignalContext<'a> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_edit")
+        .with_tool_name("Edit")
+        .with_proposed(ProposedChange::Edit {
+            old_string,
+            new_string,
+        })
+}
+
+/// Context for `pre_read`: no mutation, only the tool identity.
+pub fn context_for_read(rel_path: &str, cila: usize) -> SignalContext<'_> {
+    SignalContext::new(rel_path, "")
+        .with_cila(cila)
+        .with_hook("pre_read")
+        .with_tool_name("Read")
+}
+
 // ─── Tests ──────────────────────────────────────────────────────────────
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // ── S0 (2026-09-01): the three hook call sites build their context here ──
+
+    #[test]
+    fn context_for_write_carries_tool_and_proposed_content() {
+        let ctx = context_for_write("src/new.rs", "fn fresh() {}", 4);
+        assert_eq!(ctx.hook_name, "pre_write");
+        assert_eq!(ctx.tool_name, "Write");
+        assert_eq!(ctx.cila_level, 4);
+        assert_eq!(ctx.file_path, "src/new.rs");
+        assert_eq!(
+            ctx.proposed,
+            Some(ProposedChange::Write {
+                content: "fn fresh() {}"
+            })
+        );
+        assert_eq!(ctx.analysable_text(), "fn fresh() {}");
+    }
+
+    #[test]
+    fn context_for_edit_carries_old_and_new_strings() {
+        let ctx = context_for_edit("src/lib.rs", "fn a() {}", "fn a() { 1 }", 3);
+        assert_eq!(ctx.hook_name, "pre_edit");
+        assert_eq!(ctx.tool_name, "Edit");
+        assert_eq!(
+            ctx.proposed,
+            Some(ProposedChange::Edit {
+                old_string: "fn a() {}",
+                new_string: "fn a() { 1 }"
+            })
+        );
+        assert_eq!(ctx.analysable_text(), "fn a() { 1 }");
+    }
+
+    #[test]
+    fn context_for_read_has_tool_but_no_proposal() {
+        let ctx = context_for_read("src/lib.rs", 2);
+        assert_eq!(ctx.hook_name, "pre_read");
+        assert_eq!(ctx.tool_name, "Read");
+        assert!(ctx.proposed.is_none());
+        assert_eq!(
+            ctx.analysable_text(),
+            "",
+            "nothing proposed, nothing on hand"
+        );
+    }
+
     #[test]
     fn test_empty_pipeline_returns_none() {
         let pipeline = SignalPipeline::new(1000);
         let ctx = SignalContext::new("test.rs", "fn main() {}");
         assert!(pipeline.execute(&ctx).is_none());
+    }
+
+    /// Cross-audit 04/09/2026 — `execute` era uma COPIA integral de
+    /// `execute_with_metrics`, e media cada camada num `_metrics` descartado por
+    /// construcao. Agora delega. Este teste e' o que impede as duas de divergirem
+    /// de novo: duas copias do mesmo laco so ficam iguais enquanto ninguem corrige
+    /// uma delas.
+    #[test]
+    fn execute_e_execute_with_metrics_nunca_divergem() {
+        let pipeline = SignalPipeline::new(1000)
+            .with_normalize(false)
+            .add_layer(StaticSignalLayer::new(
+                "alta",
+                vec![(0.9, "sinal alto".to_string())],
+            ))
+            .add_layer(StaticSignalLayer::new(
+                "baixa",
+                vec![(0.2, "sinal baixo".to_string())],
+            ));
+        let ctx = SignalContext::new("test.rs", "");
+        let (com_metricas, metricas) = pipeline.execute_with_metrics(&ctx);
+        assert_eq!(
+            pipeline.execute(&ctx),
+            com_metricas,
+            "as duas rotas tem de dar a MESMA saida"
+        );
+        assert_eq!(metricas.len(), 2, "uma metrica por camada que rodou");
+        assert!(
+            metricas.iter().all(|m| m.signal_count == 1),
+            "cada camada estatica produz 1 sinal: {metricas:?}"
+        );
+    }
+
+    /// A medicao chegou a TODAS as camadas, nao so as duas que a tinham a mao.
+    /// `StaticSignalLayer` nunca teve um `layer_metrics` proprio e agora e' medivel
+    /// pelo metodo default do trait — a expansao que justificou nao inventar um
+    /// chamador de fachada para as duas orfas.
+    #[test]
+    fn qualquer_camada_e_medivel_pelo_default_do_trait() {
+        let camada = StaticSignalLayer::new(
+            "sem_metrica_propria",
+            vec![(0.7, "um".to_string()), (0.3, "dois".to_string())],
+        );
+        let ctx = SignalContext::new("test.rs", "");
+        let m = camada.metrics(&ctx);
+        assert_eq!(m.name, "sem_metrica_propria");
+        assert_eq!(m.signal_count, 2, "conta os sinais que a camada produziu");
     }
 
     #[test]

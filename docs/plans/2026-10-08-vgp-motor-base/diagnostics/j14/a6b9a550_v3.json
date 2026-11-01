@@ -1,0 +1,165 @@
+{
+ "pronto": false,
+ "pendencias": [
+  "falso deny (inline) limite superior 95% 1.18% > 1% (1/400, taxa 0.250%) — com n=400 o teto admite no máximo 0 falso(s)",
+  "p95 1014.9 ms > 1000.0 ms",
+  "falso deny (arquivo) piorou: 1 > base 0"
+ ],
+ "inconclusivo": false,
+ "inconclusivo_motivo": "",
+ "timeouts_camada2": 74,
+ "camada2_sem_veredito": 165,
+ "taxa_timeouts_camada2": 0.06954887218045112,
+ "patamar_timeouts_camada2": 0.2,
+ "sinal_camada2": "presente",
+ "exigir_limite_superior": true,
+ "falso_deny_por_balde": {
+  "arquivo": {
+   "falsos": 1,
+   "n": 600,
+   "taxa": 0.0016666666666666668,
+   "limite_superior_95": 0.007881816463574474,
+   "teto": 0.01,
+   "limite_ate_o_teto": true,
+   "falsos_permitidos_pelo_teto": 1
+  },
+  "inline": {
+   "falsos": 1,
+   "n": 400,
+   "taxa": 0.0025,
+   "limite_superior_95": 0.011804304453987273,
+   "teto": 0.01,
+   "limite_ate_o_teto": false,
+   "falsos_permitidos_pelo_teto": 0
+  }
+ },
+ "recall_simbolo": {
+  "arquivo": 0.9230769230769231,
+  "inline": 0.8518518518518519
+ },
+ "positivos_simbolo": {
+  "arquivo": [
+   12,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "recall_deny_informativo": {
+  "arquivo": [
+   2,
+   13
+  ],
+  "inline": [
+   23,
+   27
+  ]
+ },
+ "forma_fora_do_recall": {
+  "arquivo": [
+   1,
+   11
+  ],
+  "inline": [
+   0,
+   13
+  ]
+ },
+ "nao_classificado": [],
+ "falsos": [
+  {
+   "id": "f2fe38f67432",
+   "balde": "arquivo",
+   "path": "/home/gabrielgadea/projects/analise/backend/tests/unit/services/test_hybrid_pipeline_flags.py",
+   "achados": [
+    {
+     "classe": "atributo",
+     "nome": "QDRANT_AVAILABLE",
+     "linha": 17,
+     "severidade": "deny",
+     "sugestao": "\"QDRANT_AVAILABLE\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "QDRANT_AVAILABLE",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "\"QDRANT_AVAILABLE\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    },
+    {
+     "classe": "atributo",
+     "nome": "HybridRetriever",
+     "linha": 18,
+     "severidade": "deny",
+     "sugestao": "\"HybridRetriever\" is not a known attribute of module \"services.hybrid_pipeline\"",
+     "reais": []
+    }
+   ]
+  },
+  {
+   "id": "2106f0ebf279",
+   "balde": "inline",
+   "path": "<string>",
+   "achados": [
+    {
+     "classe": "nome",
+     "nome": "exit",
+     "linha": 1,
+     "severidade": "deny",
+     "sugestao": "nome usado sem definição em nenhum escopo",
+     "reais": []
+    }
+   ]
+  }
+ ],
+ "negativos": {
+  "arquivo": 600,
+  "inline": 400
+ },
+ "avisos_em_negativos": 60,
+ "defeito_de_corpus": [],
+ "p95_ms": 1014.890641,
+ "chamadas": 1064,
+ "erros": [],
+ "perdidos": [
+  {
+   "id": "d2df466d5128",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "slides_fisica_eleitoral",
+   "verdict": "allow"
+  },
+  {
+   "id": "b4ce1d5390bf",
+   "origem": "inline",
+   "classe": "kwarg",
+   "esperado": "tipo",
+   "verdict": "allow"
+  },
+  {
+   "id": "1ba03f63a4be",
+   "origem": "inline",
+   "classe": "nome",
+   "esperado": "last",
+   "verdict": "allow"
+  },
+  {
+   "id": "4053b83f0fc2",
+   "origem": "atribuido",
+   "classe": "nome",
+   "esperado": "defaultdict",
+   "verdict": "allow"
+  },
+  {
+   "id": "0eca52ee0e0b",
+   "origem": "inline",
+   "classe": "atributo",
+   "esperado": "simd",
+   "verdict": "allow"
+  }
+ ]
+}

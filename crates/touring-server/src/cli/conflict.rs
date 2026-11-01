@@ -51,10 +51,11 @@ enum ConflictCmd {
 }
 /// Run the conflict subcommand.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match ConflictCli::try_parse_from(args.iter().skip(1)) {
-        Ok(cli) => cli,
-        Err(e) => e.exit(),
-    };
+    let cli =
+        match crate::cli::common::parse_tolerating_json::<ConflictCli, _, _>(args.iter().skip(1)) {
+            Ok(cli) => cli,
+            Err(e) => e.exit(),
+        };
     match cli.cmd.unwrap_or(ConflictCmd::Scan {
         path: ".".to_string(),
     }) {

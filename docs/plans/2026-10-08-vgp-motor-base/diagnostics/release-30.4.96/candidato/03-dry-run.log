@@ -1,0 +1,48 @@
+[propagate] workspace : /home/gabrielgadea/projects/touring
+[propagate] versão    : 30.4.96
+[propagate] WARN modo DRY-RUN — nada será aplicado
+
+── 1/6 GATES — cargo check + clippy + espelho client/ + referência + rito + testes dos crates tocados ──
+  base: commit de release dfe0fd1e (release 30.4.95: V0e5 (S3 avisa, /proc ptrace, nota de teste)
+  381 arquivo(s) tocados desde o release (commits + árvore de trabalho); 348 fora de qualquer pacote
+  AVISO: Cargo.lock, Cargo.toml mudou - a raiz não pertence a pacote algum e NÃO é mapeada pelo gate
+  [dry-run] cargo check --workspace && cargo clippy --workspace --all-targets -- -D warnings
+  [dry-run] python3 scripts/sync-client-skills.py --check
+  [dry-run] python3 docs/gen_reference.py --validate
+  [dry-run] python3 -m pytest scripts/test_update_touring.py -q
+  [dry-run] python3 -m pytest scripts/test_touring_quality_score.py -q
+  [dry-run] python3 -m pytest scripts/test_propagate_release*.py -q (glob — vazio reprova)
+  [dry-run] scripts/r3-s1a-gate (S1a: cargo test -p touring-hook-runtime -- --ignored r3_emission_cost_is_bounded, sob hw-slot, 1 re-medição)
+  [dry-run] testes dos crates tocados desde o último release: 7 pacote(s), 1 por vez sob o hw-slot (rc 75 = sem vaga: repete 1×)
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-cli --no-fail-fast
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-code --no-fail-fast
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hook-handlers --no-fail-fast --features pre-hooks,post-hooks
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-hooks --no-fail-fast
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-lsp --no-fail-fast
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-pyright --no-fail-fast
+  [dry-run]   /home/gabrielgadea/projects/touring/scripts/hw-slot --class rust --label release-tests -- cargo test -p touring-server --no-fail-fast
+
+── 2/6 BUILD — update-touring (kill → build → install dual-target → restart → verify) ──
+  [dry-run] update-touring
+[propagate] WARN dry-run: a checagem de rótulo não roda (build simulado)
+
+── 3/6 FREEZE — snapshot imutável em ~/.touring/toolchains/30.4.96 ──
+  [dry-run] touring toolchain install --from-source /home/gabrielgadea/projects/touring 30.4.96 --force
+
+── 4/6 DEFAULT — canal default → 30.4.96 ──
+  [dry-run] touring toolchain default 30.4.96
+
+── 5/6 PROPAGATE — canal 30.4.96 para cada projeto consumidor (fonte permanece em 'dev') ──
+touring update: FAILED /home/gabrielgadea/projects/analise: toolchain 30.4.96 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.96). Run `touring toolchain install` first.
+2026-10-10T01:22:31.783702Z ERROR touring: update failed: 1 project(s) failed to update — run `touring help` for details
+[propagate] WARN esperado em dry-run: toolchain 30.4.96 ainda não instalada (o passo 3/6 a criaria)
+touring update: FAILED /home/gabrielgadea/projects/konverter: toolchain 30.4.96 is not installed (expected /home/gabrielgadea/.touring/toolchains/30.4.96). Run `touring toolchain install` first.
+2026-10-10T01:22:31.804494Z ERROR touring: update failed: 1 project(s) failed to update — run `touring help` for details
+[propagate] WARN esperado em dry-run: toolchain 30.4.96 ainda não instalada (o passo 3/6 a criaria)
+[propagate] projetos alcançados: 2
+
+── 5.5/6 PROVA — contrato de code mode + CEG contra o binário instalado ──
+  [dry-run] (a prova roda apenas em execução real)
+
+── 6/6 VERIFY — versão resolvida por projeto ──
+  [dry-run] (verificação roda apenas em execução real)

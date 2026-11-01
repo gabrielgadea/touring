@@ -57,10 +57,31 @@ enum IndexCmd {
         /// Directory to index (optional; daemon uses workspace root if absent).
         #[arg(long)]
         dir: Option<String>,
+        /// Wait for the rebuild to seal its generation, polling `index status`.
+        ///
+        /// A rebuild past its heavy budget answers exit 79 (`still_running`)
+        /// with the instruction to poll `index status` by hand. With `--wait`
+        /// the client runs that poll itself and exits 0 once the generation is
+        /// sealed. The default is unchanged — no script that calls `index
+        /// rebuild` today behaves differently.
+        #[arg(long)]
+        wait: bool,
+        /// Seconds between polls while waiting.
+        #[arg(long, default_value_t = 5u64)]
+        poll_secs: u64,
+        /// Give up waiting after this many seconds (0 = wait indefinitely).
+        #[arg(long, default_value_t = 3600u64)]
+        wait_timeout_secs: u64,
     },
     /// On-demand single-file reindex (B3, 2026-05-10).
     Ingest {
         /// Path of the file to reindex.
+        path: String,
+    },
+    /// Why a path is, or is not, in the index — the walker's own rules applied to
+    /// one file (skipped dir, unsupported extension, over the size ceiling, …).
+    Why {
+        /// Repo-relative or absolute path to explain.
         path: String,
     },
 }
@@ -72,7 +93,8 @@ enum IndexCmd {
 /// Returns an error if the daemon socket is unreachable or the daemon
 /// reports a failure response.
 pub fn run(args: &[String]) -> anyhow::Result<()> {
-    let cli = match IndexCli::try_parse_from(args.iter().skip(1)) {
+    let cli = match crate::cli::common::parse_tolerating_json::<IndexCli, _, _>(args.iter().skip(1))
+    {
         Ok(cli) => cli,
         Err(e) => e.exit(),
     };
@@ -107,26 +129,62 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
             let output = daemon_query("cli-index-files", payload)?;
             println!("{output}");
         }
-        IndexCmd::Rebuild { dir } => {
-            // A full rebuild walks the whole tree; on this workspace (2065 source
-            // files) it runs past the 120s default, and the client used to give up
-            // on a rebuild that was progressing normally — reporting the raw
-            // `WouldBlock` errno as "Resource temporarily unavailable". An explicit
-            // `--timeout` still wins over this floor.
-            crate::daemon_client::raise_timeout_floor(1800);
+        IndexCmd::Rebuild {
+            dir,
+            wait,
+            poll_secs,
+            wait_timeout_secs,
+        } => {
+            // A full rebuild runs past the 120s default; `daemon_query` waits past
+            // the heavy budget for every hook in `touring_foundation::is_heavy_hook`
+            // (an explicit `--timeout` still wins).
             let payload = match dir {
                 Some(d) => serde_json::json!({ "dir": d }),
                 None => serde_json::json!({}),
             };
-            let output = daemon_query("cli-index-rebuild", payload)?;
-            println!("{output}");
+            match daemon_query("cli-index-rebuild", payload) {
+                Ok(output) => {
+                    println!("{output}");
+                    if wait {
+                        println!(
+                            "{}",
+                            wait_for_generation_seal(poll_secs, wait_timeout_secs)?
+                        );
+                    }
+                }
+                // The rebuild outlived its budget and is STILL WALKING. Without
+                // `--wait` this is exit 79 plus a note telling the caller to poll
+                // by hand; with it, we run that poll here and answer when the
+                // generation is sealed.
+                Err(e) if wait && rebuild_still_running(&e) => {
+                    eprintln!(
+                        "index rebuild exceeded its budget and keeps running — waiting for the \
+                         generation seal (polling every {poll_secs}s)"
+                    );
+                    println!(
+                        "{}",
+                        wait_for_generation_seal(poll_secs, wait_timeout_secs)?
+                    );
+                }
+                Err(e) => return Err(e),
+            }
         }
         IndexCmd::Ingest { path } => {
             if path.is_empty() {
-                anyhow::bail!("index ingest requires <file>: usage `touring index ingest <path>`");
+                anyhow::bail!(
+                    "index ingest requires <file>: usage `touring index ingest <path>` — run `touring help` for details"
+                );
             }
             let payload = serde_json::json!({ "path": path });
             let output = daemon_query("cli-index-ingest", payload)?;
+            println!("{output}");
+        }
+        IndexCmd::Why { path } => {
+            if path.is_empty() {
+                anyhow::bail!("index why requires <path>: usage `touring index why <path>`");
+            }
+            let payload = serde_json::json!({ "path": path });
+            let output = daemon_query("cli-index-why", payload)?;
             println!("{output}");
         }
     }
@@ -137,6 +195,94 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
 pub(super) fn command() -> clap::Command {
     use clap::CommandFactory;
     IndexCli::command()
+}
+
+/// Is this failure a rebuild that outlived its budget and is still walking?
+///
+/// `DaemonBusy` carries `retryable`: a LIGHT handler that ran out of budget may
+/// be retried, a HEAVY one may not — re-running `index rebuild` would wait for
+/// the running walk and then repeat the whole thing. `retryable == false` is
+/// therefore exactly "still running, do not retry, poll instead".
+fn rebuild_still_running(err: &anyhow::Error) -> bool {
+    err.downcast_ref::<crate::daemon_client::DaemonBusy>()
+        .is_some_and(|busy| !busy.retryable)
+}
+
+/// O que o payload de `index status` diz sobre a geração.
+///
+/// Três estados, não dois. Cross-audit 20/09/2026: o predicado booleano lia
+/// payload ilegível e campo ausente como "não está construindo", e `--wait`
+/// então retornava **exit 0 imediatamente, sem ter esperado nada** — "selou" e
+/// "não sei" ficavam indistinguíveis na saída E no código de saída. Um comando
+/// cujo nome é `--wait` não pode responder sucesso por não ter entendido a
+/// resposta.
+#[derive(Debug, PartialEq, Eq)]
+enum EstadoGeracao {
+    /// O walk ainda está em curso.
+    Construindo,
+    /// A geração foi selada (`complete`, `aborted`, `partial`, `scoped`…).
+    Selada(String),
+    /// Payload ilegível, sem `index_generation.state`, ou projeto sem banco.
+    Desconhecida,
+}
+
+/// Pura, para ser testável sem daemon.
+fn generation_state(status_json: &str) -> EstadoGeracao {
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(status_json) else {
+        return EstadoGeracao::Desconhecida;
+    };
+    match v
+        .get("index_generation")
+        .and_then(|g| g.get("state"))
+        .and_then(|s| s.as_str())
+    {
+        Some("building") => EstadoGeracao::Construindo,
+        Some(outro) => EstadoGeracao::Selada(outro.to_string()),
+        None => EstadoGeracao::Desconhecida,
+    }
+}
+
+/// Poll `index status` until the rebuild's generation stops being `building`.
+///
+/// Client-side only: nothing in the daemon changes, and the default remains a
+/// synchronous rebuild. It exists because a rebuild past its heavy budget exits
+/// 79 with the instruction to poll `touring index status` by hand — a loop a
+/// person should not have to run. `index status` is answered off the project
+/// actor (decision 3-A, 14/09/2026), so it keeps replying during the sealing
+/// phase, which is precisely when the wait matters.
+fn wait_for_generation_seal(poll_secs: u64, timeout_secs: u64) -> anyhow::Result<String> {
+    let started = std::time::Instant::now();
+    let interval = std::time::Duration::from_secs(poll_secs.max(1));
+    loop {
+        let status = daemon_query("cli-index-status", serde_json::json!({}))?;
+        match generation_state(&status) {
+            EstadoGeracao::Selada(_) => return Ok(status),
+            // Nunca devolver sucesso sobre uma resposta que não se entendeu: o
+            // chamador pediu para ESPERAR o selo, e "não sei" não é o selo.
+            EstadoGeracao::Desconhecida => anyhow::bail!(
+                "index status não trouxe `index_generation.state` — não dá para afirmar \
+                 que a geração selou. Payload: {}",
+                status.chars().take(400).collect::<String>()
+            ),
+            EstadoGeracao::Construindo => {}
+        }
+        if timeout_secs > 0 && started.elapsed().as_secs() >= timeout_secs {
+            anyhow::bail!(
+                "index rebuild still building after {timeout_secs}s — it keeps running; \
+                 raise --wait-timeout-secs (0 waits indefinitely) or poll `touring index status`"
+            );
+        }
+        // Dormir o MENOR entre o intervalo e o que resta do orçamento. Antes o
+        // relógio só era consultado DEPOIS do sleep, então `--poll-secs 600
+        // --wait-timeout-secs 60` esperava 600 s: a flag mentia sobre o próprio
+        // contrato (erro na direção segura, mas ainda uma mentira).
+        let mut espera = interval;
+        if timeout_secs > 0 {
+            let restante = timeout_secs.saturating_sub(started.elapsed().as_secs());
+            espera = espera.min(std::time::Duration::from_secs(restante.max(1)));
+        }
+        std::thread::sleep(espera);
+    }
 }
 
 #[cfg(test)]
@@ -161,6 +307,18 @@ mod tests {
     fn explicit_status_parses() {
         let cli = parse(&["index", "status"]);
         assert!(matches!(cli.cmd, Some(IndexCmd::Status)));
+    }
+
+    #[test]
+    fn why_takes_one_path() {
+        let cli = parse(&["index", "why", "crates/x/src/big.rs"]);
+        assert!(
+            matches!(cli.cmd, Some(IndexCmd::Why { ref path }) if path == "crates/x/src/big.rs")
+        );
+        assert!(
+            IndexCli::try_parse_from(s(&["index", "why"])).is_err(),
+            "the path is required"
+        );
     }
 
     #[test]
@@ -231,7 +389,7 @@ mod tests {
     #[test]
     fn rebuild_parses_dir() {
         let cli = parse(&["index", "rebuild", "--dir", "/tmp/proj"]);
-        let Some(IndexCmd::Rebuild { dir }) = cli.cmd else {
+        let Some(IndexCmd::Rebuild { dir, .. }) = cli.cmd else {
             panic!("expected Rebuild");
         };
         assert_eq!(dir.as_deref(), Some("/tmp/proj"));
@@ -240,10 +398,92 @@ mod tests {
     #[test]
     fn rebuild_no_dir_is_none() {
         let cli = parse(&["index", "rebuild"]);
-        let Some(IndexCmd::Rebuild { dir }) = cli.cmd else {
+        let Some(IndexCmd::Rebuild { dir, .. }) = cli.cmd else {
             panic!("expected Rebuild");
         };
         assert!(dir.is_none());
+    }
+
+    /// The default must stay synchronous: every script that calls
+    /// `index rebuild` today keeps its behaviour.
+    #[test]
+    fn rebuild_does_not_wait_unless_asked() {
+        let cli = parse(&["index", "rebuild"]);
+        let Some(IndexCmd::Rebuild {
+            wait,
+            poll_secs,
+            wait_timeout_secs,
+            ..
+        }) = cli.cmd
+        else {
+            panic!("expected Rebuild");
+        };
+        assert!(!wait, "--wait is opt-in");
+        assert_eq!(poll_secs, 5);
+        assert_eq!(wait_timeout_secs, 3600);
+    }
+
+    #[test]
+    fn rebuild_wait_accepts_its_knobs() {
+        let cli = parse(&[
+            "index",
+            "rebuild",
+            "--wait",
+            "--poll-secs",
+            "2",
+            "--wait-timeout-secs",
+            "0",
+        ]);
+        let Some(IndexCmd::Rebuild {
+            wait,
+            poll_secs,
+            wait_timeout_secs,
+            ..
+        }) = cli.cmd
+        else {
+            panic!("expected Rebuild");
+        };
+        assert!(wait);
+        assert_eq!(poll_secs, 2);
+        assert_eq!(wait_timeout_secs, 0, "0 means wait indefinitely");
+    }
+
+    #[test]
+    fn a_building_generation_is_what_keeps_the_wait_going() {
+        assert_eq!(
+            generation_state(r#"{"initialized":true,"index_generation":{"state":"building"}}"#),
+            EstadoGeracao::Construindo
+        );
+        for sealed in ["complete", "aborted", "partial", "scoped", "none"] {
+            assert_eq!(
+                generation_state(&format!(r#"{{"index_generation":{{"state":"{sealed}"}}}}"#)),
+                EstadoGeracao::Selada(sealed.to_string()),
+                "`{sealed}` is not a rebuild in flight"
+            );
+        }
+    }
+
+    /// Um payload que não se entende NÃO é um selo.
+    ///
+    /// Este teste afirmava o contrário — que status ilegível "encerra a espera" —
+    /// e com isso defendia o defeito: `--wait` saía 0 imediatamente, sem ter
+    /// esperado, e "selou" ficava indistinguível de "não sei" no exit code.
+    /// Quem pediu para esperar o selo precisa ouvir que o selo não foi visto.
+    #[test]
+    fn um_status_ilegivel_e_desconhecido_nunca_um_selo() {
+        for opaco in [
+            "not json at all",
+            "{}",
+            r#"{"index_generation":{}}"#,
+            "",
+            r#"{"error":"no such project"}"#,
+        ] {
+            assert_eq!(
+                generation_state(opaco),
+                EstadoGeracao::Desconhecida,
+                "{opaco:?} não diz nada sobre a geração — não pode passar por selo"
+            );
+        }
     }
 
     #[test]

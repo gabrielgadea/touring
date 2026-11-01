@@ -1,0 +1,45 @@
+{
+  "phase": "B2",
+  "entities": [
+    {
+      "entity_id": "phase:B2",
+      "type": "phase",
+      "description": "I13 entregue: RPC cli-index-why + 'touring index why <path>' \u2014 tabelas do walker hoisted para o m\u00f3dulo (uma c\u00f3pia), classify_index_candidate puro na ordem do walker, 10 vereditos; 4 testes novos (incl. e2e in-process sobre o rebuild real com huge.rs de 8 MiB+1), parse test CLI, tripwires 239->240/243->244/245->246 atualizados nos 4 s\u00edtios; clippy limpo em 4 crates; deploy PID 505359; rebuild vivo 4.613 arquivos/208 s, doctor 7/7; 9 caminhos reais \u2192 9 vereditos (CI .github n\u00e3o indexada; baseline JSON 29 MB oversized; analysis.md eligible_not_indexed)."
+    },
+    {
+      "entity_id": "memory:loop:task_1789266884554123368:B2:done",
+      "type": "memory",
+      "description": "phase lesson (memory key)"
+    },
+    {
+      "entity_id": "loop:loop:task_1789266884554123368",
+      "type": "loop",
+      "description": "loop anchor (bridge node)"
+    },
+    {
+      "entity_id": "dag:decomp:task_1789266884554123368",
+      "type": "dag",
+      "description": "decompose task anchor (bridge node)"
+    }
+  ],
+  "relations": [
+    {
+      "relation_id": "phase:B2|produces|memory:loop:task_1789266884554123368:B2:done",
+      "source": "phase:B2",
+      "type": "produces",
+      "target": "memory:loop:task_1789266884554123368:B2:done"
+    },
+    {
+      "relation_id": "memory:loop:task_1789266884554123368:B2:done|generated-by|loop:loop:task_1789266884554123368",
+      "source": "memory:loop:task_1789266884554123368:B2:done",
+      "type": "generated-by",
+      "target": "loop:loop:task_1789266884554123368"
+    },
+    {
+      "relation_id": "memory:loop:task_1789266884554123368:B2:done|generated-by|dag:decomp:task_1789266884554123368",
+      "source": "memory:loop:task_1789266884554123368:B2:done",
+      "type": "generated-by",
+      "target": "dag:decomp:task_1789266884554123368"
+    }
+  ]
+}

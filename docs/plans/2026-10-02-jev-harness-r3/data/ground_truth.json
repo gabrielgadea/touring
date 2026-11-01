@@ -1,0 +1,1226 @@
+{
+  "status": "DEGRADED",
+  "script": "ground_truth_collector",
+  "timestamp": "2026-10-02T15:43:58+00:00",
+  "intent": "r3: Jev/Laya em modo sombra — A1 gate de relevância das injeções/nudges (cli_suggester, context_budget) + A2 desfecho de rota/recompensa do bandit (classify_route_outcome, claim_route_reward); replay offline primeiro, shadow online fail-open; prompt_enhance student_endpoint use_case journal",
+  "duration_ms": 3315,
+  "daemon_degraded": true,
+  "extracted": {
+    "symbols": [
+      "claim_route_reward",
+      "classify_route_outcome",
+      "cli_suggester",
+      "context_budget",
+      "prompt_enhance",
+      "student_endpoint",
+      "use_case"
+    ],
+    "paths": []
+  },
+  "summary": {
+    "verified_symbols": 0,
+    "unverified_symbols": 7,
+    "gotchas_found": 0,
+    "lessons_applied": 10,
+    "orphan_count": 1,
+    "paths_inspected": 0
+  },
+  "doctor": {
+    "components": [
+      {
+        "name": "binary_version",
+        "status": "ok",
+        "detail": "touring 30.4.90"
+      },
+      {
+        "name": "daemon_socket",
+        "status": "ok",
+        "detail": "/tmp/touring-daemon-1000.sock"
+      },
+      {
+        "name": "daemon_health",
+        "status": "ok",
+        "detail": "status=healthy, projects=4"
+      },
+      {
+        "name": "circuit_breaker",
+        "status": "ok",
+        "detail": "{\"global\":{\"catastrophic_count\":0,\"open_until_ts\":0},\"by_class\":{},\"by_project\":{},\"by_session\":{}}"
+      },
+      {
+        "name": "project_db",
+        "status": "ok",
+        "detail": "/home/gabrielgadea/projects/touring/.claude/touring/symbols.db (503709696 bytes)"
+      },
+      {
+        "name": "project_actor",
+        "status": "ok",
+        "detail": "responsive (696 ms)"
+      },
+      {
+        "name": "wiring_diagnostic",
+        "status": "warning",
+        "detail": "root=/home/gabrielgadea/projects/touring/ polyglot=off rows=100905 producers=12616 consumers=88289 pub=11614 kind_unknown=1 non_wireable=0 unread=0 abs_paths=0"
+      },
+      {
+        "name": "index_generation",
+        "status": "ok",
+        "detail": "generation 46 complete at 2026-10-01 23:50:20 (5623 files, 97891 symbols)"
+      },
+      {
+        "name": "gpu_embeddings",
+        "status": "ok",
+        "detail": "cuda — 118 texts embedded on the GPU by this daemon"
+      }
+    ]
+  },
+  "status_snapshot": {
+    "code_mode": {
+      "adoption_ratio": 0.5714285714285714,
+      "bash_calls": 70,
+      "gates": {
+        "g10_exec_burst": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g1_burst": {
+          "denied": 3,
+          "followed": 1
+        },
+        "g2_pipe_exit": {
+          "denied": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "denied": 4,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "denied": 1,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "denied": 1,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "denied": 0,
+          "followed": 2
+        },
+        "g9_sed_inline": {
+          "denied": 0,
+          "followed": 0
+        }
+      },
+      "runs": 40
+    },
+    "composite_health_score": 0.6264,
+    "daemon_health": {
+      "components": [
+        {
+          "name": "knowledge_db",
+          "note": "always initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "linucb_bandit",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "symbol_store",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "crdt_graph",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "predictor",
+          "note": "loaded",
+          "status": "healthy"
+        },
+        {
+          "name": "cognitive_runtime",
+          "note": "initialized",
+          "status": "healthy"
+        },
+        {
+          "name": "enrichment_pipeline",
+          "note": "auto-triggered at session-start",
+          "status": "active"
+        },
+        {
+          "name": "gotcha_db",
+          "note": "integrated in knowledge_db",
+          "status": "healthy"
+        }
+      ],
+      "healthy_count": 7,
+      "total_count": 8
+    },
+    "gate_metrics": {
+      "activity_instructions_loaded_count": 0,
+      "activity_post_edit_count": 10,
+      "activity_post_write_count": 13,
+      "activity_pre_compact_count": 1,
+      "activity_pre_edit_count": 21,
+      "actor_budget_timeout_count": 0,
+      "actor_queue_wait": {
+        "count": 1326,
+        "max_us": 1415167,
+        "p50_us": 79,
+        "p90_us": 36447,
+        "p999_us": 1414143,
+        "p99_us": 534527
+      },
+      "actor_send_timeout_count": 0,
+      "adoption_antipattern_count": 5,
+      "adoption_touring_count": 10,
+      "ann_search_latency": {
+        "count": 8,
+        "max_us": 24863,
+        "p50_us": 9863,
+        "p90_us": 24863,
+        "p999_us": 24863,
+        "p99_us": 24863
+      },
+      "antipattern_converted_count": 0,
+      "bash_calls_total_count": 70,
+      "blast_inject_count": 0,
+      "blast_mutation_count": 0,
+      "blast_timeout_count": 0,
+      "cargo_test_paused_count": 0,
+      "ceg_blocked_count": 0,
+      "ceg_captured_count": 63,
+      "ceg_fast_path_count": 60,
+      "ceg_sandboxed_count": 0,
+      "code_mode_arm_followed_both_count": 0,
+      "code_mode_arm_followed_code_count": 0,
+      "code_mode_arm_followed_native_count": 0,
+      "code_mode_arm_offered_both_count": 0,
+      "code_mode_arm_offered_code_count": 1,
+      "code_mode_arm_offered_native_count": 0,
+      "code_mode_bytes_elided_total": 0,
+      "code_mode_runs_count": 40,
+      "code_mode_subcall_bytes_total": 10444,
+      "code_mode_subcalls_count": 6,
+      "compression_bytes_in_total": 0,
+      "compression_bytes_out_total": 0,
+      "compression_profile_applied_count": 0,
+      "core_pinning_e_count": 0,
+      "core_pinning_p_count": 0,
+      "ctx_batch_execute_count": 0,
+      "ctx_batch_item_count": 0,
+      "ctx_budget_alert_emitted_count": 0,
+      "ctx_budget_warning_emitted_count": 0,
+      "ctx_discover_opportunities_found": 0,
+      "ctx_discover_session_count": 0,
+      "ctx_doctor_call_count": 0,
+      "ctx_execute_file_count": 0,
+      "ctx_explain_count": 0,
+      "ctx_gain_graph_count": 0,
+      "ctx_purge_count": 0,
+      "ctx_replay_count": 0,
+      "ctx_session_adoption_query_count": 0,
+      "ctx_smart_count": 0,
+      "ctx_upgrade_count": 0,
+      "diagnostic_b302_emitted_count": 0,
+      "diagnostic_q220_nonidempotent_emitted_count": 0,
+      "diagnostic_tdg_emitted_count": 0,
+      "diagnostic_w115_skipped_region_written_count": 0,
+      "diagnostic_wiring_finding_emitted_count": 761,
+      "e3_counterfactual_observed_count": 0,
+      "embedding_cuda_fallback_count": 0,
+      "embedding_cuda_fallback_reason": "",
+      "embedding_device": "cuda",
+      "embedding_latency": {
+        "count": 119,
+        "max_us": 12503,
+        "p50_us": 2653,
+        "p90_us": 5683,
+        "p999_us": 12503,
+        "p99_us": 12063
+      },
+      "embedding_texts_cpu_count": 0,
+      "embedding_texts_cuda_count": 119,
+      "enrichment_context_bytes_total": 47922,
+      "enrichment_emit_count": 50,
+      "enrichment_mean_bytes_per_emit": 958.44,
+      "exec_heredoc_inline_seen_count": 0,
+      "g10_write_run_pair_denied_count": 0,
+      "g1_inspect_burst_denied_count": 1,
+      "g1_inspect_first_passed_count": 4,
+      "g1_post_deny_other_count": 0,
+      "g1_post_deny_same_class_count": 1,
+      "g4_observed_count": 18,
+      "g5_observed_count": 1,
+      "gate_events": {
+        "g10_exec_burst": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g1_burst": {
+          "bypassed": 0,
+          "denied": 3,
+          "emitted": 0,
+          "followed": 1
+        },
+        "g2_pipe_exit": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        },
+        "g3_edit_sem_read": {
+          "bypassed": 0,
+          "denied": 4,
+          "emitted": 1,
+          "followed": 0
+        },
+        "g6_redundant": {
+          "bypassed": 0,
+          "denied": 1,
+          "emitted": 1,
+          "followed": 0
+        },
+        "g7_reinspect": {
+          "bypassed": 0,
+          "denied": 1,
+          "emitted": 2,
+          "followed": 0
+        },
+        "g8_loop_rewrite": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 2,
+          "followed": 2
+        },
+        "g9_sed_inline": {
+          "bypassed": 0,
+          "denied": 0,
+          "emitted": 0,
+          "followed": 0
+        }
+      },
+      "gate_fatigue": {
+        "bypass_ratio": 0.0,
+        "bypassed_total": 0,
+        "denied_total": 9,
+        "per_gate": [
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 3,
+            "fp_candidate": false,
+            "gate": "g1_burst"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g2_pipe_exit"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 4,
+            "fp_candidate": false,
+            "gate": "g3_edit_sem_read"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 1,
+            "fp_candidate": false,
+            "gate": "g6_redundant"
+          },
+          {
+            "bypass_ratio": 0.0,
+            "bypassed": 0,
+            "denied": 1,
+            "fp_candidate": false,
+            "gate": "g7_reinspect"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g8_loop_rewrite"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g9_sed_inline"
+          },
+          {
+            "bypass_ratio": null,
+            "bypassed": 0,
+            "denied": 0,
+            "fp_candidate": false,
+            "gate": "g10_exec_burst"
+          }
+        ]
+      },
+      "gate_metrics_daily_flush_count": 0,
+      "health_delta_compute_count": 6,
+      "health_delta_improvement_count": 0,
+      "health_delta_outstanding": 19,
+      "health_delta_record_count": 25,
+      "health_delta_recovery_count": 0,
+      "health_delta_regression_count": 1,
+      "health_delta_streak_alert_count": 0,
+      "hook_dispatch_by_name": {
+        "ceg-observe": 65,
+        "cli-ast-blast": 13,
+        "cli-ast-meta": 14,
+        "cli-code-mode-run": 40,
+        "cli-decompose-claim": 1,
+        "cli-decompose-ready": 1,
+        "cli-e2e": 1,
+        "cli-flywheel-status": 19,
+        "cli-gate-metrics": 48,
+        "cli-health-delta-status": 18,
+        "cli-incremental-status": 19,
+        "cli-index-find": 11,
+        "cli-index-status": 46,
+        "cli-kpi": 103,
+        "cli-learning-reward": 5,
+        "cli-learning-status": 323,
+        "cli-memory-link": 4,
+        "cli-memory-query": 2,
+        "cli-memory-recall": 5,
+        "cli-memory-store": 4,
+        "cli-resource-monitor-status": 18,
+        "cli-session-list": 19,
+        "cli-suggest": 110,
+        "cli-wiring-cycles": 1,
+        "cli-wiring-modules": 1,
+        "cli-wiring-orphans": 2,
+        "cli-wiring-status": 19,
+        "cwd-changed": 4,
+        "enter-plan-mode": 1,
+        "exit-plan-mode": 1,
+        "instructions-loaded": 1,
+        "post-bash": 63,
+        "post-compact": 1,
+        "post-edit": 10,
+        "post-read": 3,
+        "post-tool-batch": 89,
+        "post-tool-failure": 4,
+        "post-tool-rl": 97,
+        "post-write": 13,
+        "pre-bash": 62,
+        "pre-compact": 1,
+        "pre-edit": 21,
+        "pre-edit-prevention": 23,
+        "pre-glob": 1,
+        "pre-grep": 1,
+        "pre-read": 17,
+        "pre-write": 25,
+        "session-start": 1,
+        "subagent-start": 1,
+        "subagent-stop": 5,
+        "task-completed": 1,
+        "task-created": 1,
+        "task-sync-create": 1,
+        "task-sync-delete": 1,
+        "task-sync-get": 1,
+        "task-sync-list": 1,
+        "task-sync-output": 1,
+        "task-sync-stop": 6,
+        "task-sync-update": 1,
+        "teammate-idle": 1
+      },
+      "hook_dispatch_latency": {
+        "count": 1371,
+        "max_us": 984575,
+        "p50_us": 673,
+        "p90_us": 130047,
+        "p999_us": 952831,
+        "p99_us": 764415
+      },
+      "jdm_class_a_count": 0,
+      "jdm_class_b_count": 0,
+      "jdm_class_c_count": 0,
+      "jdm_class_d_count": 0,
+      "linucb_route_generator_count": 0,
+      "linucb_route_hint_count": 0,
+      "linucb_route_manual_count": 0,
+      "m3_delegation_advised_count": 0,
+      "mcts_shadow_deadlock_detected_count": 0,
+      "mcts_shadow_run_count": 0,
+      "mcts_shadow_timeout_count": 0,
+      "measured_tokens_in_total": 0,
+      "measured_tokens_out_total": 0,
+      "memory_pressure_green_count": 0,
+      "memory_pressure_red_count": 0,
+      "memory_pressure_total_tick_count": 0,
+      "memory_pressure_yellow_count": 0,
+      "memory_rss_mb": 2202.36328125,
+      "memory_virt_mb": 16527175.7890625,
+      "metadata_backpressure_dropped": 0,
+      "metadata_cache_hit": 0,
+      "native_injection_code_route_count": 5,
+      "native_injection_followed_count": 5,
+      "native_injection_resisted_count": 18,
+      "phrase_query_match_count": 29,
+      "pillar_induction_emitted_count": 0,
+      "pillar_induction_followed_count": 0,
+      "post_tool_l4_mandatory": 0,
+      "pre_edit_fast_path": 40,
+      "pre_edit_fast_ratio": 0.5633802816901409,
+      "pre_edit_full": 31,
+      "pre_grep_enrichment_count": 0,
+      "pre_grep_zero_results_count": 0,
+      "pre_write_fast_path": 40,
+      "pre_write_fast_ratio": 0.6896551724137931,
+      "pre_write_full": 18,
+      "prefetch_enqueued_count": 0,
+      "prefetch_warmed_count": 0,
+      "query_cache_hit_count": 26,
+      "query_cache_hit_ratio": 0.3058823529411765,
+      "query_cache_invalidate_count": 13,
+      "query_cache_miss_count": 59,
+      "read_aggressive_chunked_count": 0,
+      "read_aggressive_passthrough_count": 0,
+      "reindex_failure_count": 0,
+      "rkyv_dispatch_bytes": 71884,
+      "rkyv_dispatch_count": 763,
+      "rkyv_dispatch_latency": {
+        "count": 762,
+        "max_us": 1430527,
+        "p50_us": 948,
+        "p90_us": 691711,
+        "p999_us": 1430527,
+        "p99_us": 979455
+      },
+      "rkyv_mean_bytes": 94.21231979030144,
+      "rkyv_parse_error_count": 0,
+      "rkyv_response_count": 762,
+      "routed_bytes_in_total": 0,
+      "routed_bytes_out_total": 0,
+      "sandbox_tee_persisted_count": 0,
+      "sandbox_timeout_fallback_count": 0,
+      "savings_event_count": 0,
+      "suggestion_uptake_emitted_count": 33,
+      "suggestion_uptake_followed_count": 3,
+      "swap_thrashing_detected_count": 0,
+      "tantivy_commit_count": 8,
+      "tantivy_query_latency": {
+        "count": 0,
+        "max_us": 0,
+        "p50_us": 0,
+        "p90_us": 0,
+        "p999_us": 0,
+        "p99_us": 0
+      },
+      "tantivy_query_latency_us": 0,
+      "tantivy_stream_backpressure_drop_count": 0,
+      "tantivy_stream_enqueued_count": 6,
+      "tantivy_stream_flush_count": 4,
+      "tantivy_stream_flush_docs_count": 4,
+      "tantivy_stream_index_unavailable_drop_count": 0,
+      "tantivy_trigram_query_count": 0,
+      "tantivy_upsert_count": 44,
+      "task_sync_create_count": 0,
+      "task_sync_deduped_count": 0,
+      "task_sync_update_propagated_count": 0,
+      "token_measured_event_count": 0,
+      "tokio_injection_queue_depth": 0,
+      "tokio_num_blocking_threads": 0,
+      "tokio_num_idle_threads": 0,
+      "tokio_num_workers": 0,
+      "tool_output_routed_count": 0,
+      "tool_outputs_cleanup_deleted_count": 0,
+      "tool_outputs_ttl_skip_count": 0,
+      "total_invocations": 129,
+      "touring_init_invocation_count": 0,
+      "wave3_t201_count": 0,
+      "wave3_t202_count": 0,
+      "wave3_t203_count": 0,
+      "wave3_t204_count": 0,
+      "wave3_t205_count": 0,
+      "wave3_t206_count": 0,
+      "wave3_t207_count": 0,
+      "wave3_t208_count": 0,
+      "wave3_t209_count": 0,
+      "wave3_t210_count": 0,
+      "wave3_t211_count": 0,
+      "wave3_t212_count": 0,
+      "wave3_t213_count": 0,
+      "wave3_t214_count": 0,
+      "wave3_t215_count": 0,
+      "wave3_t301_count": 0,
+      "wave3_t302_count": 0,
+      "wave3_t303_count": 0,
+      "wave3_t304_count": 0,
+      "wave3_t305_count": 0,
+      "wave3_t306_count": 0,
+      "wave3_t307_count": 0,
+      "wave3_t308_count": 0,
+      "wave3_t309_count": 0,
+      "wave3_t310_count": 0,
+      "workflow_advice_emitted_count": 36,
+      "workflow_antipattern_detected_count": 2
+    },
+    "health_delta": {
+      "alert_threshold": 3,
+      "compute_count": 6,
+      "improvement_count": 0,
+      "outstanding": 19,
+      "record_count": 25,
+      "recovery_count": 0,
+      "regression_count": 1,
+      "streak_alert_count": 0
+    },
+    "incremental": {
+      "backing_cache": "HookResultCache (moka, 5-min TTL)",
+      "cache_hit_rate": 0.3413793103448276,
+      "file_count": 5603,
+      "note": "cache_hit_rate measures HookResultCache (populated by pre_read/post_edit/etc), not parser/incremental cache. Direct CLI calls bypass it; hit_rate stays 0.0 in fresh sessions until hooks fire.",
+      "symbol_count": 328836,
+      "total_accesses": 0
+    },
+    "index": {
+      "file_count": 5603,
+      "index_generation": {
+        "detail": "generation 46 complete at 2026-10-01 23:50:20 (5623 files, 97891 symbols)",
+        "files": 5623,
+        "finished_at": "2026-10-01 23:50:20",
+        "generation": 46,
+        "owner_pid": 1768910,
+        "started_at": "2026-10-01 23:43:18",
+        "state": "complete",
+        "symbols": 97891
+      },
+      "initialized": true,
+      "symbol_count": 328836
+    },
+    "learning": {
+      "agentic_rl_state": {
+        "active": true,
+        "learning_phase_score": 0.9921900981423636,
+        "update_count": 13
+      },
+      "arm_count": 8,
+      "bandit_type": "linucb",
+      "corpus_pending": 0,
+      "ema_reward": 0.8343425405361421,
+      "last_td_error": 0.3415492671188334,
+      "linucb_loaded": true,
+      "mean_td_error": 1.44865625,
+      "update_count": 52934
+    },
+    "quality_signal": {
+      "bottleneck": "acyclicity",
+      "raw": {
+        "complexity_gini": 0.4839836982372803,
+        "cycle_count": 16,
+        "max_depth": 12,
+        "modularity_q": 0.16664758112260003,
+        "redundancy_ratio": 0.0,
+        "total_edges": 2504,
+        "total_functions": 15570,
+        "total_nodes": 1402
+      },
+      "root": "/home/gabrielgadea/projects/touring",
+      "root_causes": {
+        "acyclicity": 0.058823529411764705,
+        "depth": 0.4,
+        "equality": 0.5160163017627197,
+        "modularity": 0.44443172074840004,
+        "redundancy": 1.0
+      },
+      "signal_0_10000": 3519,
+      "signal_normalized": 0.35189727848378366
+    },
+    "resource_monitor": "",
+    "sessions": {
+      "count": 20,
+      "sessions": [
+        {
+          "created_at": "2026-05-07T03:03:17.996170012+00:00",
+          "objective": "",
+          "session_id": "wave24-test",
+          "task_type": "task",
+          "updated_at": "2026-10-02T12:11:26.071927892+00:00"
+        },
+        {
+          "created_at": "2026-10-02T11:32:43.120848118+00:00",
+          "objective": "",
+          "session_id": "wave24-warmup",
+          "task_type": "task",
+          "updated_at": "2026-10-02T12:11:26.000020254+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:02.597085125+00:00",
+          "objective": "",
+          "session_id": "31",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:45:17.371599589+00:00"
+        },
+        {
+          "created_at": "2026-08-31T17:14:07.230842782+00:00",
+          "objective": "",
+          "session_id": "27",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:43:55.449751163+00:00"
+        },
+        {
+          "created_at": "2026-08-31T15:47:43.952933671+00:00",
+          "objective": "",
+          "session_id": "26",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:35.389687622+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:46:02.575573405+00:00",
+          "objective": "",
+          "session_id": "29",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:39:13.088781713+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:35:15.929264938+00:00",
+          "objective": "",
+          "session_id": "28",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:38:24.356049974+00:00"
+        },
+        {
+          "created_at": "2026-08-31T18:47:00.176903804+00:00",
+          "objective": "",
+          "session_id": "30",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:37:37.913050531+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:36.791698024+00:00",
+          "objective": "",
+          "session_id": "25",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:36:58.845654394+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:19.702827263+00:00",
+          "objective": "",
+          "session_id": "24",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:35:00.412769017+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:31:02.038133072+00:00",
+          "objective": "",
+          "session_id": "23",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:34:10.023717399+00:00"
+        },
+        {
+          "created_at": "2026-08-25T21:30:47.910615451+00:00",
+          "objective": "",
+          "session_id": "22",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:33:14.134498601+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:50.978686499+00:00",
+          "objective": "",
+          "session_id": "21",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:32:45.269227323+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:37.656923416+00:00",
+          "objective": "",
+          "session_id": "20",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:19:48.249461566+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:20.173475648+00:00",
+          "objective": "Verificar type=code em fragments ADW antes de recomendar C",
+          "session_id": "19",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:16:32.858191716+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:47:06.232865776+00:00",
+          "objective": "",
+          "session_id": "18",
+          "task_type": "task",
+          "updated_at": "2026-09-01T16:11:53.996622097+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:52.995482838+00:00",
+          "objective": "",
+          "session_id": "17",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:53:17.145950302+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:39.982530919+00:00",
+          "objective": "Persistir explanation.md + v4 digest em memória",
+          "session_id": "16",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:52:14.508842671+00:00"
+        },
+        {
+          "created_at": "2026-08-25T19:46:26.860222833+00:00",
+          "objective": "Explicar Top-5 Aprimoramentos + 5 Candidatas",
+          "session_id": "15",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:32:27.956670056+00:00"
+        },
+        {
+          "created_at": "2026-08-25T18:32:50.420715266+00:00",
+          "objective": "",
+          "session_id": "14",
+          "task_type": "task",
+          "updated_at": "2026-09-01T15:22:19.649507388+00:00"
+        }
+      ]
+    },
+    "wiring": {
+      "hypergraph_cycles": {
+        "count": 1776,
+        "detail": {
+          "_elided_array_len": 1046
+        }
+      },
+      "knowledge_activity": {
+        "access_count": 7037,
+        "bash_count": 9676,
+        "coedit_pairs": 15457,
+        "edit_count": 2868,
+        "gotcha_count": 13,
+        "relation_count": 33443,
+        "task_metrics_count": 401
+      },
+      "module_count": 1489,
+      "multi_import_hyperedges": {
+        "count": 0
+      },
+      "orphan_count": 761,
+      "total_consumers": 8929,
+      "total_pub_symbols": 8889
+    }
+  },
+  "e2e": {
+    "version": "30.4.90",
+    "target": "/home/gabrielgadea/projects/touring",
+    "depth": "standard",
+    "timestamp": "1790955836",
+    "overall_score": 0.8572637912867855,
+    "overall_status": "pass",
+    "total_duration_ms": 609,
+    "phases": [
+      {
+        "phase": "index",
+        "status": "pass",
+        "score": 0.851248322147651,
+        "weight": 2.0,
+        "duration_ms": 41,
+        "metrics": {
+          "coverage_pct": "75.2",
+          "disk_files": 7450,
+          "indexed_files": 5603,
+          "knowledge_files": 5576,
+          "relation_count": 33443,
+          "symbol_count": 328836,
+          "symbols_per_file": 58.689273603426734,
+          "tantivy_commits": 8,
+          "tantivy_docs": 116136,
+          "tantivy_pending": 0,
+          "tantivy_size_bytes": 3374,
+          "tantivy_upserts": 44
+        },
+        "issues": [],
+        "tests_run": 5,
+        "tests_passed": 5
+      },
+      {
+        "phase": "wiring",
+        "status": "pass",
+        "score": 0.8092101672143124,
+        "weight": 2.0,
+        "duration_ms": 251,
+        "metrics": {
+          "avg_integration_score": 0.9201259675412053,
+          "broken_chains": 0,
+          "churn_pattern_count": 0,
+          "consumer_coverage_pct": "90.0",
+          "functional_chains": 152,
+          "modules_below_threshold": 69,
+          "orphan_count": 1293,
+          "orphan_rate_pct": "10.0",
+          "total_consumers": 88289,
+          "total_pub_symbols": 12956,
+          "wiring_score": 0.8092101672143124
+        },
+        "issues": [],
+        "tests_run": 4,
+        "tests_passed": 4
+      },
+      {
+        "phase": "knowledge",
+        "status": "pass",
+        "score": 0.8999999999999999,
+        "weight": 1.0,
+        "duration_ms": 42,
+        "metrics": {
+          "access_count": 7037,
+          "active_gotchas": 0,
+          "avg_line_count": 787.5616929698708,
+          "avg_symbol_density": 0.08012535284521446,
+          "bash_outcome_count": 9676,
+          "coedit_pairs": 15457,
+          "edit_history_count": 2868,
+          "file_knowledge_count": 5576,
+          "gotcha_hit_rate_pct": "2987753.8",
+          "gotcha_prevented_errors": 0,
+          "gotcha_total": 13,
+          "hot_files": 48,
+          "import_graph_health": 1.0,
+          "knowledge_activity": {
+            "access_count": 7037,
+            "bash_count": 9676,
+            "coedit_pairs": 15457,
+            "edit_count": 2868,
+            "gotcha_count": 13,
+            "relation_count": 33443,
+            "task_metrics_count": 401
+          },
+          "knowledge_score": 0.9982783357245337,
+          "language_distribution": {
+            "c": 3,
+            "css": 7,
+            "example": 1,
+            "graphql": 1,
+            "html": 4,
+            "javascript": 1086,
+            "json": 266,
+            "jsonc": 1,
+            "jsonl": 1,
+            "log": 3,
+            "markdown": 1040,
+            "out": 12,
+            "output": 165,
+            "python": 510,
+            "rust": 2142,
+            "scm": 1,
+            "service": 3,
+            "shell": 77,
+            "timer": 1,
+            "toml": 147,
+            "txt": 42,
+            "typescript": 28,
+            "unknown": 6,
+            "yaml": 29
+          },
+          "languages": 24,
+          "memory_entries": 20359
+        },
+        "issues": [
+          "48 hot file(s) edited 3+ times in 7d"
+        ],
+        "tests_run": 7,
+        "tests_passed": 6
+      },
+      {
+        "phase": "ast",
+        "status": "warn",
+        "score": 0.7757999999999999,
+        "weight": 2.0,
+        "duration_ms": 245,
+        "metrics": {
+          "blast_radius_sample": 1,
+          "files_parsed": 30,
+          "files_sampled": 30,
+          "high_complexity_files": 0,
+          "languages": {
+            "json": 2,
+            "markdown": 7,
+            "python": 3,
+            "rust": 5,
+            "shell": 5,
+            "toml": 3,
+            "yaml": 5
+          },
+          "parse_rate_pct": "100.0",
+          "total_symbols": 758
+        },
+        "issues": [],
+        "tests_run": 31,
+        "tests_passed": 31
+      },
+      {
+        "phase": "quality",
+        "status": "pass",
+        "score": 1.0,
+        "weight": 1.5,
+        "duration_ms": 23,
+        "metrics": {
+          "antipattern_rate_pct": "0.0",
+          "avg_error_coverage": "0.052",
+          "avg_quality_score": "0.951",
+          "files_analyzed": 30,
+          "files_with_antipatterns": 0,
+          "max_complexity": 64,
+          "top_offenders": [],
+          "total_antipatterns": 0,
+          "total_unwraps": 9
+        },
+        "issues": [],
+        "tests_run": 30,
+        "tests_passed": 30
+      },
+      {
+        "phase": "learning",
+        "status": "pass",
+        "score": 0.8857142857142857,
+        "weight": 0.5,
+        "duration_ms": 3,
+        "metrics": {
+          "bandit_active": false,
+          "blast_connections": 0,
+          "cognitive_enriched": true,
+          "crdt_active": true,
+          "ema_reward": 0.8343425405361421,
+          "linucb_arms": 8,
+          "linucb_health_injected": true,
+          "predictor_active": true,
+          "update_count": 52934
+        },
+        "issues": [],
+        "tests_run": 7,
+        "tests_passed": 6
+      }
+    ],
+    "summary": {
+      "total_phases": 6,
+      "phases_passed": 5,
+      "phases_warned": 1,
+      "phases_failed": 0,
+      "total_tests_run": 84,
+      "total_tests_passed": 82,
+      "total_issues": 1,
+      "top_issues": [
+        "[KNOWLEDGE] 48 hot file(s) edited 3+ times in 7d"
+      ]
+    },
+    "cache_stats": {
+      "hook_result_cache": {
+        "entry_count": 1,
+        "hit_rate": 0.3413793103448276,
+        "hits": 99,
+        "misses": 191
+      }
+    }
+  },
+  "wiring_audit": {
+    "cycles": {
+      "count": 2,
+      "detail": {
+        "cycle_count": 2,
+        "cycles": {
+          "_elided_array_len": 2
+        }
+      }
+    },
+    "low_score_modules": {
+      "_elided_array_len": 416
+    },
+    "orphans": {
+      "dead_patterns": [],
+      "diagnostic_count": 761,
+      "diagnostics": {
+        "_elided_array_len": 761
+      },
+      "internal_only": {
+        "_elided_array_len": 2564
+      },
+      "internal_only_count": 2564,
+      "orphan_count": 761,
+      "orphans": {
+        "_elided_array_len": 761
+      },
+      "resolution": {
+        "heuristic_edges": 78178,
+        "name_only_candidates": 7210,
+        "origin_breakdown": [
+          {
+            "origin": "ast_declared",
+            "rows": 12616
+          },
+          {
+            "origin": "ast_resolved",
+            "rows": 10111
+          },
+          {
+            "origin": "ast_inferred",
+            "rows": 78178
+          }
+        ],
+        "top_unresolved_modules_debt_only": {
+          "_elided_array_len": 10
+        },
+        "unresolved_by_class": [
+          {
+            "call_sites": 5830,
+            "class": "external"
+          },
+          {
+            "call_sites": 935,
+            "class": "workspace_unresolved"
+          },
+          {
+            "call_sites": 406,
+            "class": "scope_keyword"
+          },
+          {
+            "call_sites": 22,
+            "class": "unmeasured"
+          },
+          {
+            "call_sites": 17,
+            "class": "ambiguous_alias"
+          }
+        ],
+        "unresolved_samples": {
+          "_elided_array_len": 5
+        }
+      }
+    },
+    "rfc100_diagnostics": {
+      "count": 761,
+      "findings": {
+        "_elided_array_len": 761
+      }
+    }
+  },
+  "wiring_orphans": {
+    "_elided_array_len": 761
+  },
+  "evolution_drift": {},
+  "memory_lessons": [
+    {
+      "key": "lesson:engineer:cli_suggester:slice2-error-lesson-retrieval",
+      "score": 0.30785554653771696,
+      "source": "ann",
+      "stored_at": "2026-05-16 03:02:15",
+      "value": "Slice 2 of PreToolUse Action-Outcome Learning Strategy: 4-source error-lesson retrieval (bash_outcomes, edit_history, memory_entries outcome:*:failure, gotcha_matches) + deterministic score=severity*recency*frequency*sig_match ranking + 800-char budget injection. Key pattern: use TouringConfig::knowledge_db_canonical(project_root) NOT FileKnowledgeDB.path() (no such method). run() takes &HookRuntime (immutable) — replicate memory_recall_sql pattern directly. TABLE_EDIT_HISTORY hardcoded inline (no schema_guard import). age_days_from_sqlite parses YMD via JDN formula, does NOT validate month range — test accordingly. 20 new tests, 3277 total pass."
+    },
+    {
+      "key": "loop-state:task_1789764631204999666",
+      "score": 0.30242761969566345,
+      "source": "tfidf:memory",
+      "stored_at": "2026-09-18 21:09:21",
+      "value": "loop-state:task_1789764631204999666 D4 e D3 concluídos no código (18/09). D4: DELETE_ROUTE fonte única em touring-hooks-shared::bash_ast_validator (route/route_examples por regra, bypass por PALAVRA via discloses_intent, route_examples() + guarda D8 cruzada every_delete_refusal_names_an_open_route no PreToolValidator com ToolSchema.route/delete_route/with_route). D3: touring-intelligence::rl::memory::retirement (live_predicate, retired_keys, retirement_of) usado por rlm search/scan_prefix/query_…"
+    },
+    {
+      "key": "lesson:hook-strategy-complete:2026-05-16",
+      "score": 0.301223246101578,
+      "source": "ann",
+      "stored_at": "2026-05-16 13:09:53",
+      "value": "Estrategia PreToolUse action-outcome learning COMPLETA — Phases 1+2+3. P1: ActionSignature + retrieval multi-fonte + ranking + RL injection reward (3 slices). P2: CC transcript miner parser+state-machine+sweep+task-tokio (3 slices). P3: classifiers Task/WebFetch em cli_suggester (8 arms) + 3 matchers settings.json. Hook agora identifica ActionSignature, recupera licoes de erros passados (incl. mineradas de transcripts CC), injeta top-K, aprende via RL. Cobertura 10 tools. DEPLOY pendente: update-touring (rebuild+restart daemon) para tornar live. Gates: cargo check --workspace 0 errors, 3291 lib touring-hooks, 749 lib touring-server."
+    },
+    {
+      "key": "snippet:auto:99a94a412013",
+      "score": 0.3000775873661041,
+      "source": "tfidf:memory",
+      "stored_at": "2026-10-02 11:51:12",
+      "value": "snippet:auto:99a94a412013 \nlines = open(\"/home/gabrielgadea/projects/touring/crates/touring-hook-runtime/src/prompt_enhance.rs\").read().splitlines()\nimport re\nfor i in range(500, min(620, len(lines))+1):\n    l = lines[i-1]\n    if re.search(r\"fn |student_classify|student_http_post|student_enabled|student_url\", l):\n        print(f\"{i}: {l.strip()[:130]}\")\nprint(\"=== base 303-330 ===\")\nfor i in range(303, 331): print(f\"{i}: {lines[i-1]}\")\n"
+    },
+    {
+      "key": "edit:crates/touring-hooks/src/cli_suggester.rs:outcome",
+      "score": 0.3000325203097049,
+      "source": "ann",
+      "stored_at": "2026-05-19 03:03:18",
+      "value": "{\"path\":\"crates/touring-hooks/src/cli_suggester.rs\",\"intent\":\"Add 4 P6.4 unit tests covering CEG advisory routing, trivial command exclusion, workflow_stage_hint default, and fail-open no-panic invariant\",\"operation\":\"rewrite\",\"grade_pre\":\"?\",\"grade_post\":\"?\",\"snapshot\":\"/home/gabrielgadea/.claude/touring/perfect-edit-snapshots/cli_suggester.rs.20260519T000317.snapshot\",\"edited_at\":1779159798.058095}"
+    },
+    {
+      "key": "decisao:g0-filtro-payload-automatico:2026-09-22",
+      "score": 0.2975793594311479,
+      "source": "ann",
+      "stored_at": "2026-09-23 00:37:54",
+      "value": "G0 aprovado por Gabriel e implementado: prompt_enhance.rs ganhou AUTOMATED_PAYLOAD_PREFIXES (14 prefixos) + is_automated_payload(), consultado por compose_json e run_user_prompt_submit; payload de máquina recebe {skipped: automated_payload, suppressOutput} e nenhum intent/CILA. 6 testes novos (incl. guard D8 cruzado que exige a mesma lista no executor e nas amostras), prova por mutação mata 3, suíte do crate 434 verde, clippy limpo. MEDIDA que fundamentou: no corpus G1 de 800 prompts, 160 (20%) eram payload de máquina — 134 'Another Claude session sent a message'; e o PROFESSOR (sonnet) rotulou 45 deles como analysis/debug, ou seja 28% receberiam modo de trabalho mesmo com bom classificador → por isso filtro determinístico, não modelo. GOTCHA de deploy: update-touring NÃO alcança as sessões; o shim serve ~/.touring/toolchains/<default>/bin — era 30.4.62 enquanto a fonte estava em 30.4.63. Propagar exige scripts/propagate-release.sh <versão> (bump do workspace ANTES)."
+    },
+    {
+      "key": "snippet:auto:ca9c3548ee2c",
+      "score": 0.2891605794429779,
+      "source": "tfidf:memory",
+      "stored_at": "2026-10-02 11:49:42",
+      "value": "snippet:auto:ca9c3548ee2c \nt = open(\"/home/gabrielgadea/projects/touring/crates/touring-hook-runtime/src/prompt_enhance_tests.rs\").read().splitlines()\nimport re\nfor i, l in enumerate(t, 1):\n    if re.search(r\"student_classify|classify_with_details|compose_json|LAYA_STUDENT|TOURING_LAYA|CEG_SEMANTIC|JOURNAL_ENV_LOCK|fn semantic_bash|fn w44\", l) and i > 1116:\n        print(f\"{i}: {l.strip()[:120]}\")\n"
+    },
+    {
+      "key": "checkpoint:w44-pre-edit:2026-10-01",
+      "score": 0.29657444255785026,
+      "source": "ann",
+      "stored_at": "2026-10-01 12:37:19",
+      "value": "Checkpoint pré-L3 W4.4 (blast 46, 3ª edição no arquivo): prompt_enhance.rs ganha student_classify via TcpStream (servidor do aluno :8971), flag TOURING_LAYA_INTENT (default-OFF), τ=0.6 calibrado no test (acc 0.926, suporte 22.5%), fallback keyword, journal com source=laya|keyword. Aluno provado: acc 0.608 (> keyword 0.536, > Jev 0.533, piso 0.85×professor), p99 24.4ms, ECE 0.174 sub-confiante monotônico. Snapshot prompt_enhance.rs.pre-w44."
+    },
+    {
+      "key": "snippet:auto:b0ac85c29fc9",
+      "score": 0.2439245730638504,
+      "source": "tfidf:memory",
+      "stored_at": "2026-10-02 14:58:34",
+      "value": "snippet:auto:b0ac85c29fc9 \nlines = open(\"/home/gabrielgadea/projects/touring/crates/touring-hook-runtime/src/prompt_enhance.rs\").read().splitlines()\nimport re\nfor i, l in enumerate(lines, 1):\n    if re.search(r\"fn student_http_post|fn student_request_body|TcpStream|trim_start|connect|set_read|set_write\", l):\n        print(f\"{i}: {l.strip()[:130]}\")\nprint(\"=== corpo student_http_post ===\")\nstart = next(i for i, l in enumerate(lines, 1) if \"fn student_http_post\" in l)\nfor i in range(start-14, min(…"
+    },
+    {
+      "key": "wing_taco-forge/diary/entries/2026-06-10T10:59:58.254322560+00:00",
+      "score": 0.2930203008092409,
+      "source": "ann",
+      "stored_at": "1781089198",
+      "value": "{\"timestamp\":\"2026-06-10T10:59:58.254668715Z\",\"content\":\"perfect-edit OK: crates/touring-hooks/src/gateway/outcome_learner.rs (op=free-form grade=?→? orphan_delta=0)\",\"markers\":{},\"is_aaak\":true}"
+    }
+  ],
+  "gotcha_per_file": {},
+  "vgp_verifications": [
+    {
+      "name": "use_case",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "prompt_enhance",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "student_endpoint",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "cli_suggester",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "classify_route_outcome",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "context_budget",
+      "verified": false,
+      "suggestion": ""
+    },
+    {
+      "name": "claim_route_reward",
+      "verified": false,
+      "suggestion": ""
+    }
+  ],
+  "ast_overviews": {},
+  "ast_blasts": {}
+}

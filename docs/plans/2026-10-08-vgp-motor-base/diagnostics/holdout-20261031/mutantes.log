@@ -1,0 +1,2 @@
+hw-slot: aguardando — temp 92C > 88C
+[{"nome": "inline_prefere_primeiro", "rc": 1, "morto": true}, {"nome": "inline_aceita_ts_ausente", "rc": 1, "morto": true}, {"nome": "cache_aceita_ts_ausente", "rc": 1, "morto": true}, {"nome": "arquivo_aceita_ts_ausente", "rc": 1, "morto": true}]

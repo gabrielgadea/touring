@@ -1,0 +1,5 @@
+
+=== 8 tests, 3 failures ===
+  FAIL scan --check stale total: expected 397, got 401
+  FAIL sum(C1+C3+C4+C5+C6): expected 397, got 401
+  FAIL C6 envvars: expected 26, got 30

@@ -1,0 +1,48 @@
+{
+ "exec": {
+  "verdict": "allow",
+  "layer": 1,
+  "lang": "python",
+  "elapsed_ms": 3.277843,
+  "findings": []
+ },
+ "exit": {
+  "verdict": "deny",
+  "layer": 1,
+  "lang": "python",
+  "elapsed_ms": 0.131152,
+  "findings": [
+   {
+    "classe": "nome",
+    "nome": "exit",
+    "linha": 1,
+    "severidade": "deny",
+    "sugestao": "nome usado sem definição em nenhum escopo",
+    "reais": []
+   }
+  ]
+ },
+ "return": {
+  "verdict": "allow",
+  "layer": 1,
+  "lang": "python",
+  "elapsed_ms": 0.08821,
+  "findings": []
+ },
+ "trap": {
+  "verdict": "deny",
+  "layer": 1,
+  "lang": "python",
+  "elapsed_ms": 0.088114,
+  "findings": [
+   {
+    "classe": "nome",
+    "nome": "trap",
+    "linha": 1,
+    "severidade": "deny",
+    "sugestao": "nome usado sem definição em nenhum escopo",
+    "reais": []
+   }
+  ]
+ }
+}

@@ -78,7 +78,15 @@ pub fn run(
         Err(_) => return Ok(()), // File not readable — skip silently
     };
 
-    let rel_path = make_relative(file_path, &runtime.project_root);
+    // The walker's admission (cross-audit 14/09/2026, B3): a read of a file the
+    // rebuild refuses writes nothing, and a companion file is stored under its
+    // key. Without it a read of `~/.claude/skills/…` stored an absolute key.
+    let Ok(rel_path) = crate::shared::reindex::admission_refusal(
+        runtime,
+        &make_relative(file_path, &runtime.project_root),
+    ) else {
+        return Ok(());
+    };
     let language = detect_language(&rel_path);
 
     // Choose extraction path: AST (precise) or regex (fast fallback)
@@ -87,6 +95,19 @@ pub fn run(
     } else {
         build_knowledge_regex(&rel_path, &content, &language)
     };
+
+    // A read is not a change. When the stored knowledge already carries this exact
+    // content, every wiring row was derived from it — by the rebuild or by the
+    // last edit — and re-deriving here only rewrote them (cross-audit 14/09/2026:
+    // the critics' reads alone moved the orphan count during the audit).
+    let content_unchanged = runtime
+        .ctx
+        .knowledge
+        .lookup(&rel_path)
+        .ok()
+        .flatten()
+        .and_then(|stored| stored.content_hash)
+        .is_some_and(|stored| knowledge.content_hash.as_deref() == Some(stored.as_str()));
 
     // Upsert file knowledge
     let _ = runtime.ctx.knowledge.upsert(&knowledge);
@@ -109,30 +130,12 @@ pub fn run(
             .replace_relations_from(&rel_path, &relations);
     }
 
-    // ── Wiring Intelligence: populate wiring_map with pub symbols + consumer entries ──
-    populate_wiring_map(&runtime.ctx.knowledge, &rel_path, &knowledge);
-
-    // ── F9 (2026-05-11): dynamic-dispatch consumer edges ──
-    //
-    // `.method()` and `Type::assoc_fn()` are syntactically invisible to the
-    // `use`-statement scraping above; walk the AST for call expressions and
-    // wire each matching producer row to this file. Cap at 4 producers per
-    // distinct call name to prevent fan-out blow-up for generic names like
-    // `clone` or `iter`. No-op for non-Rust files (the helper returns []).
-    let method_names = crate::ast_bridge::extract_file_method_calls(&content, &abs_path);
-    if !method_names.is_empty()
-        && let Ok(producers) = runtime
-            .ctx
-            .knowledge
-            .find_producer_modules_for_methods(&method_names, 4)
-    {
-        for (module_file, symbol_name) in &producers {
-            let _ =
-                runtime
-                    .ctx
-                    .knowledge
-                    .record_consumer(module_file, symbol_name, &rel_path, None);
-        }
+    // ── Wiring Intelligence: the file's whole wiring, only when its content changed ──
+    // (The F9 name-only dispatch pass that lived here is `record_inferred_consumers`
+    // inside `refresh_file_wiring` now: capped, provenance `ast_inferred`, with type
+    // positions and qualified calls — it used to record guesses as `ast_resolved`.)
+    if !content_unchanged {
+        populate_wiring_map(&runtime.ctx.knowledge, &rel_path, &knowledge, &content);
     }
 
     // ── Functional Signature: register module's functional identity for chain detection ──
@@ -206,11 +209,6 @@ pub fn run(
 
 // ─── Wiring Intelligence ─────────────────────────────────────────────────────
 
-/// Populate the wiring_map from file knowledge.
-///
-/// 1. Extracts pub symbols from symbols_json and registers them (orphan initially)
-/// 2. Extracts imported symbols from imports_json and records consumers
-///
 /// Subprojects inside the touring workspace that are NOT touring crates.
 /// These are indexed by the daemon but should NOT contribute to wiring analysis
 /// because their symbols have no consumers in the touring crates proper.
@@ -231,10 +229,12 @@ fn populate_wiring_map(
     db: &super::knowledge::FileKnowledgeDB,
     rel_path: &str,
     knowledge: &FileKnowledge,
+    content: &str,
 ) {
-    // Skip non-code languages — they don't have real symbol visibility
+    // Skip non-code languages — they don't have real symbol visibility (the one
+    // predicate the rebuild and the edit path use).
     if let Some(lang) = knowledge.language.as_deref()
-        && matches!(lang, "toml" | "json" | "yaml" | "markdown" | "html" | "css")
+        && !crate::wiring::declares_wireable_api(lang)
     {
         return;
     }
@@ -244,103 +244,18 @@ fn populate_wiring_map(
         return;
     }
 
-    // Register pub symbols defined in this file
-    if let Some(ref symbols_json) = knowledge.symbols_json
-        && let Ok(symbols) = serde_json::from_str::<Vec<serde_json::Value>>(symbols_json)
-    {
-        // Clear previous wiring entries for this module to avoid stale data
-        let _ = db.clear_wiring(rel_path);
-        for sym in &symbols {
-            let is_public = sym
-                .get("is_public")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            if is_public {
-                let name = sym.get("name").and_then(|v| v.as_str()).unwrap_or("");
-                let kind = sym
-                    .get("kind")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown");
-                if !name.is_empty() {
-                    let _ = db.register_pub_symbol(rel_path, name, kind, "public");
-                }
-            }
-        }
-    }
-
-    // Record this file as consumer of symbols it imports.
-    //
-    // 2026-05-11 fix: the legacy code guarded on `symbol_name.chars().next().is_uppercase()`
-    // assuming Rust-style PascalCase types. That guard discarded ~3000+ legitimate
-    // consumer rows for lowercase imports — free functions (`use foo::bar_fn`),
-    // submodules (`use foo::utils`), and rare lowercase types — turning every
-    // method/function producer they imported into a phantom orphan. The new code
-    // accepts any well-formed identifier and filters out only globs/keywords
-    // (`*`, `self`, `super`, `crate`) which are not real symbols.
-    if let Some(ref imports_json) = knowledge.imports_json
-        && let Ok(imports) = serde_json::from_str::<Vec<String>>(imports_json)
-    {
-        // Clear previous consumer entries from this file
-        let _ = db.clear_consumer_entries(rel_path);
-        for import_path in &imports {
-            let Some(symbol_name) = import_path.rsplit("::").next() else {
-                continue;
-            };
-            if !is_likely_rust_symbol_name(symbol_name) {
-                continue;
-            }
-            let module_hint = import_path
-                .rsplit_once("::")
-                .map(|(m, _)| m)
-                .unwrap_or(import_path);
-
-            // Check for cross-crate imports using resolve_import_path.
-            // The path resolves to a MODULE; the producer row lives where the
-            // symbol is DEFINED, so an intra-crate `pub use` is followed before
-            // recording — otherwise a facade is credited with a consumer it only
-            // forwards (08/08/2026, `KeywordSearch`).
-            if let Some(resolved) = resolve_import_path(module_hint, "rust") {
-                let definer =
-                    crate::symbol_extractors::definer_module(&resolved, symbol_name);
-                let _ = db.record_consumer(&definer, symbol_name, rel_path, None);
-            } else if module_hint.starts_with("crate::") {
-                // Crate-relative fallback (project-root resolution).
-                // Note: `super::` was previously also handled here but
-                // produced phantom files like "super/Foo.rs" — the
-                // resolver's keyword guard above now correctly returns
-                // None for those, and we deliberately skip them here.
-                let module_file = module_hint.replace("crate::", "src/").replace("::", "/") + ".rs";
-                let definer = crate::symbol_extractors::definer_module(&module_file, symbol_name);
-                let _ = db.record_consumer(&definer, symbol_name, rel_path, None);
-            }
-        }
-    }
-}
-
-/// Returns `true` if `s` looks like a Rust identifier eligible to be the
-/// last segment of a `use` path (i.e. a real imported symbol name).
-///
-/// Rejects globs (`*`), `use`-path keywords (`self`, `super`, `crate`), and
-/// any token that does not match `[A-Za-z_][A-Za-z0-9_]*`. Conservative on
-/// purpose: false negatives here just mean a missed consumer edge (orphan
-/// stays orphan), whereas false positives would let `*` and keywords flow
-/// into wiring_map as bogus symbol names.
-#[inline]
-fn is_likely_rust_symbol_name(s: &str) -> bool {
-    if s.is_empty() {
-        return false;
-    }
-    if matches!(s, "*" | "self" | "super" | "crate") {
-        return false;
-    }
-    let mut chars = s.chars();
-    let Some(first) = chars.next() else {
-        return false;
-    };
-    if !(first.is_ascii_alphabetic() || first == '_') {
-        return false;
-    }
-    chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+    // The file's whole wiring through the single hook-path refresh the edit,
+    // file-changed and task-output paths use. This body used to clear every
+    // consumer row of the file — the rebuild's inferred edges included — and
+    // re-record only `use` imports through a resolver of its own, whose `crate::`
+    // string fallback minted phantom modules (`src/protocol.rs`, `src/shared.rs`)
+    // (cross-audit 14/09/2026, B1).
+    crate::wiring::refresh_file_wiring(
+        db,
+        rel_path,
+        knowledge.language.as_deref().unwrap_or(""),
+        content,
+    );
 }
 
 // ─── AST path (tree-sitter via touring-ast) ──────────────────────────────────
@@ -571,10 +486,42 @@ const x = require('lodash');"#;
         assert_eq!(hash.len(), 16); // 8 bytes = 16 hex chars
     }
 
+    /// A dotted Python module resolves to a file that EXISTS, or to nothing.
+    ///
+    /// This used to assert `Some("packages/kazuba_core/models.py")` for a path
+    /// that need not exist anywhere — the assertion pinned the defect in place.
+    /// Under it, `import pathlib` produced a producer row for `pathlib.py`:
+    /// 88 such phantoms measured in `analise` on 2026-08-19, 76 of them with
+    /// `symbol_kind='unknown'`, none reachable by any JOIN. The Rust arm two
+    /// tests down has probed the filesystem since the phantom-`super.rs` fix;
+    /// the Python arm never did.
     #[test]
     fn test_resolve_import_python() {
-        let path = resolve_import_path("packages.kazuba_core.models", "python");
-        assert_eq!(path, Some("packages/kazuba_core/models.py".to_string()));
+        let tmp = tempfile::TempDir::new().expect("tempdir");
+        let pkg = tmp.path().join("packages").join("kazuba_core");
+        std::fs::create_dir_all(&pkg).expect("mkdir");
+        std::fs::write(pkg.join("models.py"), "class User: pass\n").expect("write");
+        let importer = tmp.path().join("app.py");
+        std::fs::write(&importer, "from packages.kazuba_core.models import User\n").expect("write");
+
+        let path = touring_hooks_core::symbol_extractors::resolve_import_path_with_source(
+            "packages.kazuba_core.models",
+            "python",
+            importer.to_str(),
+        );
+        assert_eq!(
+            path.as_deref(),
+            Some(pkg.join("models.py").to_string_lossy().as_ref()),
+            "an existing module resolves to its file"
+        );
+
+        // And a stdlib import, which is a file in nobody's project, resolves to
+        // nothing rather than to a producer row for a file that is not there.
+        assert_eq!(
+            resolve_import_path("pathlib", "python"),
+            None,
+            "a stdlib import must not become a phantom producer"
+        );
     }
 
     #[test]
@@ -801,19 +748,14 @@ const x = require('lodash');"#;
             read_count: 1,
             last_read_at: None,
             imports_json: Some("[]".into()),
-            symbols_json: Some(
-                r#"[
-                {"name":"TfIdfVectorizer","kind":"struct","is_public":true,"line":5},
-                {"name":"internal_fn","kind":"function","is_public":false,"line":20},
-                {"name":"compute_scores","kind":"function","is_public":true,"line":30}
-            ]"#
-                .into(),
-            ),
+            symbols_json: None,
             content_hash: None,
             notes: None,
         };
 
-        populate_wiring_map(&db, "src/tfidf.rs", &knowledge);
+        let content =
+            "pub struct TfIdfVectorizer;\nfn internal_fn() {}\npub fn compute_scores() {}\n";
+        populate_wiring_map(&db, "src/tfidf.rs", &knowledge, content);
 
         let orphans = db.orphan_symbols().unwrap();
         assert_eq!(
@@ -826,40 +768,61 @@ const x = require('lodash');"#;
         assert!(names.contains(&"compute_scores"));
     }
 
+    /// The read path wires a Rust file's imports from its CONTENT, through the
+    /// pass the rebuild runs. Until 18/09/2026 it read the stored `imports_json`,
+    /// a line regex that never saw a `use a::{B}` list — the stale `[]` below —
+    /// nor a re-export the file also uses.
     #[test]
     fn test_populate_wiring_map_records_consumers() {
         use super::super::knowledge::FileKnowledgeDB;
         use tempfile::TempDir;
 
         let tmp = TempDir::new().unwrap();
-        let db_path = tmp.path().join("test.db");
-        let db = FileKnowledgeDB::new(&db_path).unwrap();
+        let root = tmp.path();
+        std::fs::create_dir_all(root.join("src")).unwrap();
+        std::fs::write(
+            root.join("Cargo.toml"),
+            "[package]\nname = \"probe\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("src/tfidf.rs"), "pub struct TfIdfVectorizer;\n").unwrap();
+        let content = "use crate::tfidf::{TfIdfVectorizer};\n\npub fn make() -> TfIdfVectorizer {\n    TfIdfVectorizer\n}\n";
+        std::fs::write(root.join("src/nexus.rs"), content).unwrap();
+        let db_dir = root.join(".claude").join("touring");
+        std::fs::create_dir_all(&db_dir).unwrap();
+        let db = FileKnowledgeDB::new(&db_dir.join("knowledge.db")).unwrap();
 
-        // First, register a pub symbol in the target module
         db.register_pub_symbol("src/tfidf.rs", "TfIdfVectorizer", "struct", "public")
             .unwrap();
-
-        // Then process a consumer file that imports it
         let knowledge = FileKnowledge {
             file_path: "src/nexus.rs".into(),
             language: Some("rust".into()),
-            line_count: 50,
+            line_count: 5,
             symbol_count: 1,
             read_count: 1,
             last_read_at: None,
-            imports_json: Some(r#"["crate::tfidf::TfIdfVectorizer"]"#.into()),
+            imports_json: Some("[]".into()),
             symbols_json: Some("[]".into()),
             content_hash: None,
             notes: None,
         };
+        // Production upserts the knowledge before refreshing the wiring (`run`).
+        db.upsert(&knowledge).unwrap();
+        populate_wiring_map(&db, "src/nexus.rs", &knowledge, content);
 
-        populate_wiring_map(&db, "src/nexus.rs", &knowledge);
-
-        // The TfIdfVectorizer should now have a consumer entry
-        let score = db.integration_score("src/tfidf.rs").unwrap();
-        assert!(
-            score > 0.0,
-            "Integration score should be > 0 after recording consumer"
+        let resolved: i64 = db
+            .conn_ref()
+            .query_row(
+                "SELECT COUNT(*) FROM wiring_map
+                 WHERE module_file = 'src/tfidf.rs' AND symbol_name = 'TfIdfVectorizer'
+                   AND consumer_file = 'src/nexus.rs' AND contract_source = 'ast_resolved'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            resolved, 1,
+            "the brace-list import resolves from the content, not the stale imports_json"
         );
     }
 
@@ -877,6 +840,94 @@ const x = require('lodash');"#;
             "AST ({}) should find >= regex ({}) symbols",
             ast_knowledge.symbol_count,
             regex_symbols.len()
+        );
+    }
+
+    /// Cross-audit 14/09/2026 (B1): a read is not a change. Re-reading a file
+    /// whose stored knowledge carries the same content leaves its wiring rows —
+    /// including edges only a rebuild derives — untouched; the old path cleared
+    /// them on every read.
+    #[test]
+    fn a_read_of_a_file_the_walker_refuses_writes_nothing() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join(".venv/lib")).unwrap();
+        let refused = tmp.path().join(".venv/lib/site.py");
+        std::fs::write(&refused, "def vendored():\n    pass\n").unwrap();
+        let outside = tempfile::TempDir::new().unwrap();
+        let stray = outside.path().join("stray.py");
+        std::fs::write(&stray, "def stray():\n    pass\n").unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        for file in [&refused, &stray] {
+            let input = serde_json::json!({
+                "session_id": "t",
+                "tool_input": { "file_path": file.to_string_lossy() }
+            });
+            run(&rt, &input).expect("read");
+        }
+        let rows: i64 = rt
+            .ctx
+            .knowledge
+            .conn_ref()
+            .query_row("SELECT COUNT(*) FROM file_knowledge", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            rows, 0,
+            "neither the excluded nor the outside file is stored"
+        );
+    }
+
+    #[test]
+    fn a_re_read_of_unchanged_content_leaves_the_wiring_alone() {
+        use touring_hook_runtime::knowledge_wiring::WiringOrigin;
+
+        let tmp = tempfile::TempDir::new().unwrap();
+        std::fs::create_dir_all(tmp.path().join("src")).unwrap();
+        let file = tmp.path().join("src/lib.rs");
+        std::fs::write(&file, "pub fn exported() {}\nfn body() { helper(); }\n").unwrap();
+        let rt = HookRuntime::new(tmp.path()).unwrap();
+        let input = serde_json::json!({
+            "session_id": "t",
+            "tool_input": { "file_path": file.to_string_lossy() }
+        });
+
+        run(&rt, &input).expect("first read");
+        // An edge a rebuild derived and the hook path cannot re-derive.
+        rt.ctx
+            .knowledge
+            .register_pub_symbol("src/extra.rs", "rebuild_only", "function", "public")
+            .unwrap();
+        rt.ctx
+            .knowledge
+            .record_consumer_with_origin(
+                "src/extra.rs",
+                "rebuild_only",
+                "src/lib.rs",
+                None,
+                WiringOrigin::AstInferred,
+            )
+            .unwrap();
+        let edges = |rt: &HookRuntime| -> i64 {
+            rt.ctx
+                .knowledge
+                .conn_ref()
+                .query_row(
+                    "SELECT COUNT(*) FROM wiring_map WHERE consumer_file = 'src/lib.rs' AND symbol_name = 'rebuild_only'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap()
+        };
+        assert_eq!(edges(&rt), 1);
+
+        run(&rt, &input).expect("unchanged re-read");
+        assert_eq!(edges(&rt), 1, "an unchanged read left the edge in place");
+
+        std::fs::write(&file, "pub fn exported() {}\nfn body() {}\n").unwrap();
+        run(&rt, &input).expect("read after an external change");
+        assert_eq!(
+            edges(&rt),
+            0,
+            "a changed file is refreshed: the edge it no longer supports is gone"
         );
     }
 }

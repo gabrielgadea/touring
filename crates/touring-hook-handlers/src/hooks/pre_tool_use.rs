@@ -226,7 +226,7 @@ fn check_tool_output_routing(
             match crate::tool_output_router::envelope_as_tool_input(tool_name, &modified) {
                 Some(updated_input) => Some(HookResponse::ContextWithUpdatedInput {
                     context,
-                    event_name: Some("pre_tool_use".into()),
+                    event_name: Some("PreToolUse".into()),
                     updated_input,
                 }),
                 None => {
@@ -234,7 +234,7 @@ fn check_tool_output_routing(
                     // original call proceed and only add the hash to context.
                     Some(HookResponse::Context {
                         context,
-                        event_name: Some("pre_tool_use".into()),
+                        event_name: Some("PreToolUse".into()),
                     })
                 }
             }
@@ -681,7 +681,7 @@ fn assemble_response(
         };
         return HookResponse::ContextWithUpdatedInput {
             context: combined_ctx,
-            event_name: Some("TaskCreate".to_string()),
+            event_name: Some("PreToolUse".to_string()),
             updated_input,
         };
     }

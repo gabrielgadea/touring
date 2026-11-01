@@ -1,0 +1,11 @@
+{
+  "phase": "P1a2",
+  "entities": [
+    {
+      "entity_id": "phase:P1a2",
+      "type": "phase",
+      "description": "peer_cred (tokio UnixStream, sem dep nova) \u2192 DaemonRequest.peer_pid (#[serde(skip)]) nos caminhos JSON, rkyv e ACP; linha 'heavy op:' ganha peer=pid=<n> comm=<proc/comm>; helper peer_label com 3 testes (pid pr\u00f3prio, None\u2192unknown, pid morto)"
+    }
+  ],
+  "relations": []
+}

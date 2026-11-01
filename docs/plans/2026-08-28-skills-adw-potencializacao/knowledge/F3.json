@@ -1,0 +1,11 @@
+{
+  "phase": "F3",
+  "entities": [
+    {
+      "entity_id": "phase:F3",
+      "type": "phase",
+      "description": "skill-refine.toml: REFINE por evidencia (mine_transcripts + quality_gate + agente craft TACO-skilling); estreia completed sobre loop-engineering com gate de primeira; promovido"
+    }
+  ],
+  "relations": []
+}

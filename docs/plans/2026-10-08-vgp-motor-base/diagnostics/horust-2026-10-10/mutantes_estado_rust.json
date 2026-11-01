@@ -1,0 +1,325 @@
+{
+ "estado": "/home/gabrielgadea/projects/touring/docs/plans/2026-10-08-vgp-motor-base/scripts/estado_rust_no_instante.py",
+ "sha_antes": "4ee2d523276c66f34e89bc49784d0ce74e933e55877e896c7d6274a334eb76fa",
+ "sha_depois": "4ee2d523276c66f34e89bc49784d0ce74e933e55877e896c7d6274a334eb76fa",
+ "controle_sem_mutacao": {
+  "rc": 0,
+  "falhas": [],
+  "resumo": "54 passed in 1.02s"
+ },
+ "mutantes_mortos": "29/29",
+ "mutantes": [
+  {
+   "mutante": "m1",
+   "descricao": "sem overlay de crate",
+   "rc": 1,
+   "falhas": [
+    "test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante",
+    "test_materializar_grava_os_modulos_no_formato_do_manifesto",
+    "test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje",
+    "test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao",
+    "test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante"
+   ],
+   "resumo": "5 failed, 49 passed in 0.76s",
+   "morto": true
+  },
+  {
+   "mutante": "m2",
+   "descricao": "so lib.rs",
+   "rc": 1,
+   "falhas": [
+    "test_todas_as_raizes_do_crate_entram",
+    "test_raiz_declarada_no_manifesto_entra_por_extras_raiz"
+   ],
+   "resumo": "2 failed, 52 passed in 0.51s",
+   "morto": true
+  },
+  {
+   "mutante": "m3",
+   "descricao": "filhos ao lado (ignora o stem)",
+   "rc": 1,
+   "falhas": [
+    "test_arvore_basica_mod_rs_e_arquivo_com_filhos",
+    "test_modulo_inline_aninha_o_diretorio_dos_filhos"
+   ],
+   "resumo": "2 failed, 52 passed in 0.67s",
+   "morto": true
+  },
+  {
+   "mutante": "m4",
+   "descricao": "ignora #[path]",
+   "rc": 1,
+   "falhas": [
+    "test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs",
+    "test_modulo_inline_aninha_o_diretorio_dos_filhos"
+   ],
+   "resumo": "2 failed, 52 passed in 0.74s",
+   "morto": true
+  },
+  {
+   "mutante": "m5",
+   "descricao": "ignora o aninhamento inline",
+   "rc": 1,
+   "falhas": [
+    "test_modulo_inline_aninha_o_diretorio_dos_filhos"
+   ],
+   "resumo": "1 failed, 53 passed in 0.64s",
+   "morto": true
+  },
+  {
+   "mutante": "m6",
+   "descricao": "quebrada vira mod_sem_arquivo",
+   "rc": 1,
+   "falhas": [
+    "test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod",
+    "test_prioridade_entre_motivos",
+    "test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto",
+    "test_arquivo_criado_por_write_e_depois_quebrado_e_dobra_quebrada_nao_sem_origem"
+   ],
+   "resumo": "4 failed, 50 passed in 1.07s",
+   "morto": true
+  },
+  {
+   "mutante": "m7",
+   "descricao": "mod sem arquivo nao e falta",
+   "rc": 1,
+   "falhas": [
+    "test_modulo_declarado_sem_arquivo_deixa_o_crate_incompleto",
+    "test_historia_quebrada_vence_a_ausencia_entre_os_candidatos_de_um_mod",
+    "test_prioridade_entre_motivos",
+    "test_modulo_declarado_mas_criado_so_por_bash_deixa_o_crate_incompleto",
+    "test_edicao_que_nao_casa_com_a_base_quebra_a_dobra_e_o_crate_fica_incompleto",
+    "test_arquivo_criado_por_write_e_depois_quebrado_e_dobra_quebrada_nao_sem_origem"
+   ],
+   "resumo": "6 failed, 48 passed in 0.70s",
+   "morto": true
+  },
+  {
+   "mutante": "m8",
+   "descricao": "entrada fora da arvore nao e falta",
+   "rc": 1,
+   "falhas": [
+    "test_entrada_fora_da_arvore_de_modulos_e_incompleta"
+   ],
+   "resumo": "1 failed, 53 passed in 0.61s",
+   "morto": true
+  },
+  {
+   "mutante": "m9",
+   "descricao": "sem raiz nao e falta",
+   "rc": 1,
+   "falhas": [
+    "test_crate_sem_raiz_no_instante_e_incompleto"
+   ],
+   "resumo": "1 failed, 53 passed in 0.65s",
+   "morto": true
+  },
+  {
+   "mutante": "m10",
+   "descricao": "overlay grava o disco de hoje",
+   "rc": 1,
+   "falhas": [
+    "test_materializar_grava_os_modulos_no_formato_do_manifesto"
+   ],
+   "resumo": "1 failed, 53 passed in 0.79s",
+   "morto": true
+  },
+  {
+   "mutante": "m11",
+   "descricao": "sem guarda de ciclo",
+   "rc": 124,
+   "falhas": [
+    "TIMEOUT"
+   ],
+   "resumo": "timeout de 90 s: o mutante nao termina",
+   "morto": true
+  },
+  {
+   "mutante": "m12",
+   "descricao": "a propria entrada entra nos overlays",
+   "rc": 1,
+   "falhas": [
+    "test_overlays_do_crate_excluem_a_propria_entrada_e_carregam_o_conteudo_do_instante",
+    "test_materializar_grava_os_modulos_no_formato_do_manifesto",
+    "test_crate_m_f_com_f_so_no_instante_o_overlay_e_o_do_instante_nao_o_de_hoje",
+    "test_edicao_da_sessao_antes_do_instante_entra_e_depois_do_instante_nao",
+    "test_use_super_glob_com_o_pai_alterado_depois_o_overlay_do_pai_e_o_do_instante"
+   ],
+   "resumo": "5 failed, 49 passed in 0.62s",
+   "morto": true
+  },
+  {
+   "mutante": "m13",
+   "descricao": "carregado por #[path] nao age como mod-rs",
+   "rc": 1,
+   "falhas": [
+    "test_path_attr_e_relativo_ao_diretorio_do_arquivo_e_o_carregado_vira_mod_rs"
+   ],
+   "resumo": "1 failed, 53 passed in 0.69s",
+   "morto": true
+  },
+  {
+   "mutante": "m14",
+   "descricao": "escopo de modulo ignora o mod inline",
+   "rc": 1,
+   "falhas": [
+    "test_o_nome_so_em_modulo_irmao_ou_pai_sem_glob_nao_e_classe_a",
+    "test_item_no_mesmo_mod_inline_do_uso_e_classe_a"
+   ],
+   "resumo": "2 failed, 52 passed in 0.59s",
+   "morto": true
+  },
+  {
+   "mutante": "m15",
+   "descricao": "let posterior conta",
+   "rc": 1,
+   "falhas": [
+    "test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao",
+    "test_binding_de_padrao_do_bloco_que_envolve_o_uso"
+   ],
+   "resumo": "2 failed, 52 passed in 0.70s",
+   "morto": true
+  },
+  {
+   "mutante": "m16",
+   "descricao": "comentarios definem o nome (sem limpar)",
+   "rc": 1,
+   "falhas": [
+    "test_nome_definido_em_outra_funcao_ou_so_em_comentario_ou_string_nao_e_classe_a"
+   ],
+   "resumo": "1 failed, 53 passed in 0.61s",
+   "morto": true
+  },
+  {
+   "mutante": "m17",
+   "descricao": "let de bloco fechado conta",
+   "rc": 1,
+   "falhas": [
+    "test_let_anterior_no_bloco_e_classe_a_e_o_posterior_ou_de_bloco_fechado_nao"
+   ],
+   "resumo": "1 failed, 53 passed in 0.61s",
+   "morto": true
+  },
+  {
+   "mutante": "m18",
+   "descricao": "impl/trait contam como escopo lexico",
+   "rc": 1,
+   "falhas": [
+    "test_metodo_de_impl_ou_trait_nao_e_escopo_lexico"
+   ],
+   "resumo": "1 failed, 53 passed in 0.60s",
+   "morto": true
+  },
+  {
+   "mutante": "m19",
+   "descricao": "raiz visivel dentro de mod inline",
+   "rc": 1,
+   "falhas": [
+    "test_o_nome_so_em_modulo_irmao_ou_pai_sem_glob_nao_e_classe_a"
+   ],
+   "resumo": "1 failed, 53 passed in 0.58s",
+   "morto": true
+  },
+  {
+   "mutante": "m20",
+   "descricao": "provedor ignora o registrado da sessao",
+   "rc": 1,
+   "falhas": [
+    "test_arquivo_criado_por_write_e_depois_quebrado_e_dobra_quebrada_nao_sem_origem"
+   ],
+   "resumo": "1 failed, 53 passed in 1.02s",
+   "morto": true
+  },
+  {
+   "mutante": "m21",
+   "descricao": "provedor ignora o que a sessao criou",
+   "rc": 1,
+   "falhas": [
+    "test_raiz_criada_so_pela_sessao_entra_no_crate"
+   ],
+   "resumo": "1 failed, 53 passed in 0.58s",
+   "morto": true
+  },
+  {
+   "mutante": "m22",
+   "descricao": "provedor lista o HEAD de hoje",
+   "rc": 1,
+   "falhas": [
+    "test_raiz_que_existia_no_instante_e_foi_apagada_depois_entra_no_crate"
+   ],
+   "resumo": "1 failed, 53 passed in 0.77s",
+   "morto": true
+  },
+  {
+   "mutante": "m23",
+   "descricao": "predicado de Bash ignorado",
+   "rc": 1,
+   "falhas": [
+    "test_provedor_marca_como_suspeito_o_arquivo_que_o_predicado_acusa"
+   ],
+   "resumo": "1 failed, 53 passed in 0.60s",
+   "morto": true
+  },
+  {
+   "mutante": "m24",
+   "descricao": "[lib] path ignorado",
+   "rc": 1,
+   "falhas": [
+    "test_extras_de_raiz_do_manifesto_do_crate"
+   ],
+   "resumo": "1 failed, 53 passed in 0.69s",
+   "morto": true
+  },
+  {
+   "mutante": "m25",
+   "descricao": "extras_raiz ignorado",
+   "rc": 1,
+   "falhas": [
+    "test_raiz_declarada_no_manifesto_entra_por_extras_raiz"
+   ],
+   "resumo": "1 failed, 53 passed in 0.59s",
+   "morto": true
+  },
+  {
+   "mutante": "m26",
+   "descricao": "prioridade invertida",
+   "rc": 1,
+   "falhas": [
+    "test_prioridade_entre_motivos"
+   ],
+   "resumo": "1 failed, 53 passed in 0.85s",
+   "morto": true
+  },
+  {
+   "mutante": "m27",
+   "descricao": "mod inline vira externo",
+   "rc": 1,
+   "falhas": [
+    "test_declaracoes_mod_externas_inline_atributos_e_aninhamento"
+   ],
+   "resumo": "1 failed, 53 passed in 0.62s",
+   "morto": true
+  },
+  {
+   "mutante": "m29",
+   "descricao": "uso qualificado conta como classe A",
+   "rc": 1,
+   "falhas": [
+    "test_uso_qualificado_por_caminho_nao_e_classe_a"
+   ],
+   "resumo": "1 failed, 53 passed in 0.70s",
+   "morto": true
+  },
+  {
+   "mutante": "m28",
+   "descricao": "char literal nao e limpo",
+   "rc": 1,
+   "falhas": [
+    "test_limpar_apaga_comentarios_e_strings_e_preserva_os_offsets",
+    "test_chaves_em_char_literal_e_em_string_nao_abrem_bloco"
+   ],
+   "resumo": "2 failed, 52 passed in 0.66s",
+   "morto": true
+  }
+ ]
+}

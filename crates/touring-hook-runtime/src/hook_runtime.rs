@@ -34,6 +34,16 @@ use touring_code::ast::{
     SharedPipeline, SymbolIndex, SymbolStore, graph::pheromone::PheromoneGraph,
 };
 use touring_foundation::schema::entity_registry::EntityRegistry;
+/// I-3 (31/10/2026): the hook answer type is ONE, defined in
+/// `touring-hooks-core` (`hook_response.rs`). This layer used to carry a second
+/// `HookResponse` enum with its own `emit` / `to_json`; the duplicate drifted (the
+/// PostToolUse `ContextWithUpdatedToolOutput` variant existed only here) and is
+/// gone. The path `touring_hook_runtime::hook_runtime::HookResponse` still resolves,
+/// together with the standalone route's dedupe scope (S-4p), which now lives next
+/// to the `emit` that reads it.
+pub use touring_hooks_core::hook_response::{
+    HookResponse, dedup_scope, dedup_with_scope, set_dedup_scope,
+};
 use touring_intelligence::reasoning::semantic_graph::NodeType;
 use touring_intelligence::reasoning::session_predictor::ToolInvocation;
 use touring_intelligence::reasoning::{
@@ -52,169 +62,6 @@ use touring_intelligence::rl::rl::tiny_transformer::{MarkovPredictor, TinyTransf
 use touring_intelligence::rl::{
     DriftDetector, EvolutionAnalyzer, ImmediateReward, OnlineRLConfig, OnlineRLEngine, WilsonRanker,
 };
-/// Response from a hook — testable alternative to `process::exit`.
-///
-/// Hooks can return this instead of calling the diverging `emit_*()` methods.
-/// The binary entry point converts this to stdout + exit code.
-#[derive(Debug, Clone, PartialEq)]
-pub enum HookResponse {
-    /// Allow the tool invocation (exit 0, no output).
-    Allow,
-    /// Inject context (exit 0, stdout JSON with additionalContext).
-    Context {
-        /// Additional context string injected into the hook output.
-        context: String,
-        /// Name of the lifecycle event this response belongs to, if known.
-        event_name: Option<String>,
-    },
-    /// Deny tool execution (PreToolUse only).
-    /// Returns permissionDecision: "deny" with reason.
-    Deny {
-        /// Human-readable explanation for denying the tool invocation.
-        reason: String,
-        /// Optional additional context emitted alongside the denial.
-        context: Option<String>,
-        /// Name of the lifecycle event this response belongs to, if known.
-        event_name: Option<String>,
-    },
-    /// Block after tool execution (PostToolUse).
-    /// Returns top-level decision: "block" with reason.
-    Block {
-        /// Human-readable explanation for blocking the executed tool.
-        reason: String,
-        /// Optional additional context emitted alongside the block.
-        context: Option<String>,
-        /// Name of the lifecycle event this response belongs to, if known.
-        event_name: Option<String>,
-    },
-    /// Halt session entirely.
-    /// Returns continue: false with stopReason.
-    Halt {
-        /// Reason reported to the user when halting the session.
-        reason: String,
-    },
-    /// Context injection with modified tool input.
-    /// Returns additionalContext + updatedInput in hookSpecificOutput.
-    /// Used by PreToolUse hooks to normalize or correct tool inputs.
-    ContextWithUpdatedInput {
-        /// Additional context string injected into the hook output.
-        context: String,
-        /// Name of the lifecycle event this response belongs to, if known.
-        event_name: Option<String>,
-        /// Corrected tool input that replaces the original invocation payload.
-        updated_input: serde_json::Value,
-    },
-}
-impl HookResponse {
-    /// Serialize this response to stdout and call `process::exit(0)`.
-    ///
-    /// This is the bridge between the testable `HookResponse` and the
-    /// diverging behavior required by Claude Code hook protocol.
-    pub fn emit(self) -> ! {
-        // `Allow` emits nothing — an empty hook response is signalled by empty
-        // stdout. Every other variant serializes byte-identically to `to_json`
-        // (verified variant-by-variant), so delegate there: one source of truth
-        // for the wire format, eliminating the emit/to_json drift-bug class.
-        if !matches!(self, HookResponse::Allow) {
-            println!("{}", self.to_json());
-        }
-        std::process::exit(0);
-    }
-    /// Build a context response with event name.
-    pub fn context_with_event(context: impl Into<String>, event_name: impl Into<String>) -> Self {
-        HookResponse::Context {
-            context: context.into(),
-            event_name: Some(event_name.into()),
-        }
-    }
-    /// Serialize to JSON string without exiting (for tests and logging).
-    pub fn to_json(&self) -> String {
-        match self {
-            HookResponse::Allow => "{}".to_string(),
-            HookResponse::Context {
-                context,
-                event_name,
-            } => {
-                let truncated = crate::hook_response::truncate_context(context);
-                let mut hso = serde_json::json!({ "additionalContext" : truncated, });
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name.clone());
-                    }
-                }
-                serde_json::json!({ "hookSpecificOutput" : hso }).to_string()
-            }
-            HookResponse::Deny {
-                reason,
-                context,
-                event_name,
-            } => {
-                let mut hso = serde_json::json!(
-                    { "permissionDecision" : "deny", "permissionDecisionReason" : reason,
-                    }
-                );
-                if let Some(ctx) = context {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["additionalContext"] = serde_json::Value::String(ctx.clone());
-                    }
-                }
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name.clone());
-                    }
-                }
-                serde_json::json!({ "hookSpecificOutput" : hso }).to_string()
-            }
-            HookResponse::Block {
-                reason,
-                context,
-                event_name,
-            } => {
-                let mut hso = serde_json::json!({});
-                if let Some(ctx) = context {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["additionalContext"] = serde_json::Value::String(ctx.clone());
-                    }
-                }
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name.clone());
-                    }
-                }
-                serde_json::json!(
-                    { "decision" : "block", "reason" : reason, "hookSpecificOutput" :
-                    hso, }
-                )
-                .to_string()
-            }
-            HookResponse::Halt { reason } => {
-                serde_json::json!({ "continue" : false, "stopReason" : reason, }).to_string()
-            }
-            HookResponse::ContextWithUpdatedInput {
-                context,
-                event_name,
-                updated_input,
-            } => {
-                let truncated = crate::hook_response::truncate_context(context);
-                let mut hso = serde_json::json!(
-                    { "additionalContext" : truncated, "updatedInput" : updated_input, }
-                );
-                if let Some(name) = event_name {
-                    #[allow(clippy::indexing_slicing)]
-                    {
-                        hso["hookEventName"] = serde_json::Value::String(name.clone());
-                    }
-                }
-                serde_json::json!({ "hookSpecificOutput" : hso }).to_string()
-            }
-        }
-    }
-}
 /// Core context layer — always initialized, used by ALL hooks.
 ///
 /// Contains the knowledge DB, intent classifier, PII scanner,
@@ -277,13 +124,15 @@ pub struct ContextRuntime {
     /// Always enabled. Manages Register/Prepare/Decide/Delta protocol with remote
     /// subagents over the daemon socket using rkyv zero-copy framing.
     pub distributed_saga: crate::saga::DistributedSagaCoordinator,
-    /// WASM inferlet evaluation channel — sender to the project actor so that
-    /// `cli_inferlets_exec` (which runs on the bare actor thread) can dispatch
-    /// `RunInferlet` commands and await the result synchronously via oneshot.
-    /// `Arc<Mutex<Option<...>>>` allows None before actor spawn and safe mutation
-    /// through `&HookRuntime` shared reference post-spawn.
+    /// Weak handle to the project actor's own command channel, injected at spawn.
+    ///
+    /// Weak on purpose (cross-audit 14/09/2026, A2): the actor owns this runtime,
+    /// so a strong sender stored here kept the channel open for the actor's whole
+    /// life, and an actor evicted by the LRU never saw `recv()` return `None`.
+    /// `Arc<Mutex<Option<...>>>` allows `None` before the actor spawns and safe
+    /// mutation through a shared `&HookRuntime`.
     cmd_tx: std::sync::Arc<
-        std::sync::Mutex<Option<mpsc::Sender<crate::daemon_protocol::ProjectCommand>>>,
+        std::sync::Mutex<Option<mpsc::WeakSender<crate::daemon_protocol::ProjectCommand>>>,
     >,
     /// Wave 13 (2026-04-27): distributed tracing context for hook chain observability.
     /// Records per-hop timing across `pre_read → pre_edit → post_edit → post_write`.
@@ -293,20 +142,20 @@ pub struct ContextRuntime {
 }
 
 impl ContextRuntime {
-    /// Returns the actor command sender injected at spawn time.
-    /// Used by `cli_inferlets_exec` to dispatch RunInferlet from the bare actor thread.
-    pub fn cmd_tx(&self) -> mpsc::Sender<crate::daemon_protocol::ProjectCommand> {
+    /// A sender to the project actor's command channel: `None` before the actor
+    /// spawns, and `None` once every dispatch-side sender is gone (the project was
+    /// evicted or the daemon is shutting down), so a handler never keeps a dying
+    /// actor alive.
+    pub fn cmd_tx(&self) -> Option<mpsc::Sender<crate::daemon_protocol::ProjectCommand>> {
         let guard = self.cmd_tx.lock().expect("cmd_tx mutex poisoned");
-        guard
-            .as_ref()
-            .expect("cmd_tx not initialized — actor not yet spawned")
-            .clone()
+        guard.as_ref().and_then(mpsc::WeakSender::upgrade)
     }
 
-    /// Inject the command sender at actor spawn time. Called from `ProjectRuntime::new`.
-    pub fn set_cmd_tx(&self, tx: mpsc::Sender<crate::daemon_protocol::ProjectCommand>) {
+    /// Record the actor's command channel at spawn time, as a weak handle.
+    /// Called from `ProjectRuntime::new`.
+    pub fn set_cmd_tx(&self, tx: &mpsc::Sender<crate::daemon_protocol::ProjectCommand>) {
         let mut guard = self.cmd_tx.lock().expect("cmd_tx mutex poisoned");
-        *guard = Some(tx);
+        *guard = Some(tx.downgrade());
     }
 }
 /// Learning layer — RL models, bandits, predictors.
@@ -610,10 +459,9 @@ pub struct HookRuntime {
     /// Auto-save hook for interval-based checkpointing (replaces mempal_save_hook.sh).
     /// Tracks tool exchanges and fires checkpoint at configured interval (default: 15).
     pub auto_save: crate::auto_save_hook::AutoSaveHook,
-    /// TRIAD state for write operation protection (pre_write/post_write/rollback).
-    /// Stores the BranchFs snapshot taken before a write; cleared after post_write.
-    /// `RefCell` for interior mutability: pre_write sets, post_write reads/resets.
-    pub triad_state: RefCell<Option<crate::triad_hook::TriadState>>,
+    // (S12, 25/09/2026) The single `triad_state` slot that lived here was shared by every
+    // session of the daemon — post-write of file A consumed and rolled back B's snapshot.
+    // TRIAD state now lives in `triad_hook`'s store keyed by (session, canonical path).
     /// W4-2: ACO event processor — drains decomposer ACO events and injects
     /// them into the UnifiedPheromoneBus for downstream ACO consumers.
     pub aco_event_processor: AcoEventProcessor,
@@ -863,6 +711,20 @@ impl HookRuntime {
                 bandit: None,
                 online_rl: Some({
                     let mut engine = OnlineRLEngine::new(OnlineRLConfig::default());
+                    // P1 retenção (29/08/2026): restore the lifetime identity
+                    // BEFORE warmup, so a restarted daemon continues the count
+                    // instead of being reborn — `update_count` had been
+                    // measuring daemon uptime, not learning (13 → 7 across one
+                    // restart, measured live). Unreadable file ⇒ fresh engine,
+                    // and `restore_stats` is monotonic, so a stale snapshot
+                    // can never rewind a live count.
+                    let stats_path = project_root.join(".claude/data/online_rl_state.json");
+                    if let Ok(raw) = std::fs::read_to_string(&stats_path)
+                        && let Ok(stats) =
+                            serde_json::from_str::<touring_intelligence::rl::OnlineRlStats>(&raw)
+                    {
+                        engine.restore_stats(&stats);
+                    }
                     engine.inject_warmup_reward();
                     engine
                 }),
@@ -907,7 +769,6 @@ impl HookRuntime {
             context_injection_file: None,
             decompose_event_state: HashMap::new(),
             auto_save: crate::auto_save_hook::AutoSaveHook::new(),
-            triad_state: RefCell::new(None),
             aco_event_processor: {
                 let aco_state = crate::aco_wiring::AcoWiringState::new();
                 AcoEventProcessor::new(Arc::new(aco_state.bus))
@@ -1770,4 +1631,34 @@ pub fn make_relative(path: &str, project_root: &Path) -> String {
     p.strip_prefix(project_root)
         .map(|r| r.to_string_lossy().to_string())
         .unwrap_or_else(|_| path.to_string())
+}
+
+/// F2 (hashtag library, 2026-08-11): re-harvest `#tags:` codetag anchors from
+/// freshly written/edited content into snippet memories. Shared by
+/// post_write (content already in the payload) and post_edit (content read
+/// from disk). Fail-open by construction — the write already happened; a
+/// sync failure is a debug log, never a block.
+pub fn sync_codetag_anchors(project_root: &std::path::Path, rel_path: &str, content: &str) {
+    // The marker check alone is NOT a sufficient skip: a file whose *last*
+    // anchor was just removed carries no marker but still owns snippet
+    // entries that must be tombstoned (D1, cross-audit 2026-08-23). Fast
+    // paths, in order: markerless content + no memory DB on disk → nothing
+    // to do; markerless content + no surviving entries for this path → skip.
+    let has_marker = content.contains("#tags:");
+    let db = touring_foundation::TouringConfig::memory_db_canonical(project_root);
+    if !has_marker && !db.exists() {
+        return;
+    }
+    let Ok(conn) = rusqlite::Connection::open(&db) else {
+        return;
+    };
+    if !has_marker
+        && !touring_intelligence::rl::memory::codetag::has_snippet_entries(&conn, rel_path)
+            .unwrap_or(false)
+    {
+        return;
+    }
+    if let Err(e) = touring_intelligence::rl::memory::codetag::sync_file(&conn, rel_path, content) {
+        tracing::debug!(error = %e, path = rel_path, "codetag sync failed (fail-open)");
+    }
 }

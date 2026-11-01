@@ -1,0 +1,1021 @@
+{
+ "0dcf0bab45c5": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "success_rate",
+    "severidade": "warn",
+    "sugestao": "instância de `RateLimitTestResult` não tem membro `success_rate`",
+    "reais": [
+     "successful_requests",
+     "blocking_detected",
+     "blocked_requests",
+     "average_response_time",
+     "blocking_threshold",
+     "requests_sent",
+     "delay_used"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "success_rate",
+    "severidade": "warn",
+    "sugestao": "instância de `RateLimitTestResult` não tem membro `success_rate`",
+    "reais": [
+     "average_response_time",
+     "blocked_requests",
+     "blocking_detected",
+     "blocking_threshold",
+     "delay_used",
+     "requests_sent",
+     "successful_requests"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "success_rate",
+    "severidade": "warn",
+    "sugestao": "instância de `RateLimitTestResult` não tem membro `success_rate`",
+    "reais": [
+     "average_response_time",
+     "blocked_requests",
+     "blocking_detected",
+     "blocking_threshold",
+     "delay_used",
+     "requests_sent",
+     "successful_requests"
+    ]
+   }
+  ]
+ },
+ "15d469304a03": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "votos_nominais_por_comparecente",
+    "severidade": "deny",
+    "sugestao": "instância de `UsoDoVoto` não tem membro `votos_nominais_por_comparecente`",
+    "reais": [
+     "comparecimento",
+     "branco_nulo_por_comparecente",
+     "eleitores_um_voto",
+     "eleitores_dois_votos",
+     "piso_dois_votos",
+     "nominais_por_comparecente",
+     "y_ancorado",
+     "eleitores_nenhum_voto"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "votos_nominais_por_comparecente",
+    "severidade": "deny",
+    "sugestao": "instância de `UsoDoVoto` não tem membro `votos_nominais_por_comparecente`",
+    "reais": [
+     "ancora_coerente",
+     "branco_nulo_por_comparecente",
+     "comparecimento",
+     "eleitores_dois_votos",
+     "eleitores_nenhum_voto",
+     "eleitores_sem_as_duas_telas",
+     "eleitores_um_voto",
+     "nominais_por_comparecente"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "votos_nominais_por_comparecente",
+    "severidade": "deny",
+    "sugestao": "instância de `UsoDoVoto` não tem membro `votos_nominais_por_comparecente`",
+    "reais": [
+     "ancora_coerente",
+     "branco_nulo_por_comparecente",
+     "comparecimento",
+     "eleitores_dois_votos",
+     "eleitores_nenhum_voto",
+     "eleitores_sem_as_duas_telas",
+     "eleitores_um_voto",
+     "nominais_por_comparecente"
+    ]
+   }
+  ]
+ },
+ "2463291faf76": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "rotas_de_som",
+    "severidade": "warn",
+    "sugestao": "instância de `DadosDaPagina` não tem membro `rotas_de_som`",
+    "reais": [
+     "dias_de_agenda",
+     "niveis",
+     "gerado_em",
+     "maxima",
+     "dias_de_frota",
+     "agenda_carregada",
+     "municipios",
+     "eventos"
+    ]
+   },
+   {
+    "classe": "kwarg",
+    "nome": "rotas",
+    "severidade": "warn",
+    "sugestao": "argumento-nome inexistente na assinatura",
+    "reais": [
+     "municipios",
+     "bairros",
+     "dossie_municipio",
+     "dossie_bairro",
+     "agenda",
+     "programacao",
+     "bytes_do_mapa",
+     "bytes_comprimidos",
+     "camadas_de",
+     "agora"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "rotas_de_som",
+    "severidade": "warn",
+    "sugestao": "instância de `DadosDaPagina` não tem membro `rotas_de_som`",
+    "reais": [
+     "agenda_carregada",
+     "bairros",
+     "camadas_de",
+     "dias_de_agenda",
+     "dias_de_frota",
+     "eventos",
+     "gerado_em",
+     "maxima"
+    ]
+   },
+   {
+    "classe": "kwarg",
+    "nome": "rotas",
+    "severidade": "warn",
+    "sugestao": "argumento-nome inexistente na assinatura",
+    "reais": [
+     "municipios",
+     "bairros",
+     "dossie_municipio",
+     "dossie_bairro",
+     "agenda",
+     "programacao",
+     "bytes_do_mapa",
+     "bytes_comprimidos",
+     "camadas_de",
+     "agora"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "rotas_de_som",
+    "severidade": "warn",
+    "sugestao": "instância de `DadosDaPagina` não tem membro `rotas_de_som`",
+    "reais": [
+     "agenda_carregada",
+     "bairros",
+     "camadas_de",
+     "dias_de_agenda",
+     "dias_de_frota",
+     "eventos",
+     "gerado_em",
+     "maxima"
+    ]
+   },
+   {
+    "classe": "kwarg",
+    "nome": "rotas",
+    "severidade": "warn",
+    "sugestao": "argumento-nome inexistente na assinatura",
+    "reais": [
+     "municipios",
+     "bairros",
+     "dossie_municipio",
+     "dossie_bairro",
+     "agenda",
+     "programacao",
+     "bytes_do_mapa",
+     "bytes_comprimidos",
+     "camadas_de",
+     "agora"
+    ]
+   }
+  ]
+ },
+ "34511b9ac100": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "arestas_pedidas",
+     "avisos",
+     "total_na_leitura",
+     "gravado",
+     "arestas_criadas",
+     "chave",
+     "recuperado_por",
+     "integro"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "arestas_criadas",
+     "arestas_pedidas",
+     "avisos",
+     "chave",
+     "gravado",
+     "integro",
+     "json",
+     "recuperado_por"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "arestas_criadas",
+     "arestas_pedidas",
+     "avisos",
+     "chave",
+     "gravado",
+     "integro",
+     "json",
+     "recuperado_por"
+    ]
+   }
+  ]
+ },
+ "8b7a3476e024": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "recuperado_por",
+     "gravado",
+     "total_na_leitura",
+     "avisos",
+     "integro",
+     "json",
+     "chave",
+     "arestas_criadas"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "arestas_criadas",
+     "arestas_pedidas",
+     "avisos",
+     "chave",
+     "gravado",
+     "integro",
+     "json",
+     "recuperado_por"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "total",
+    "severidade": "deny",
+    "sugestao": "instância de `Recibo` não tem membro `total`",
+    "reais": [
+     "arestas_criadas",
+     "arestas_pedidas",
+     "avisos",
+     "chave",
+     "gravado",
+     "integro",
+     "json",
+     "recuperado_por"
+    ]
+   }
+  ]
+ },
+ "c876d78f82ee": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `q3`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `q3`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte_fora_da_caixa",
+     "corte",
+     "q3",
+     "fracao_acima",
+     "eixo",
+     "q1"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   }
+  ]
+ },
+ "cda03737f157": {
+  "f55ec4b5_antes": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `q3`?",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `q3`?",
+    "reais": [
+     "q3",
+     "corte",
+     "q1",
+     "acima_do_corte",
+     "corte_fora_da_caixa",
+     "mediana",
+     "fracao_acima",
+     "eixo"
+    ]
+   }
+  ],
+  "70e0051a_depois": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   }
+  ],
+  "4501e1e5_final": [
+   {
+    "classe": "membro",
+    "nome": "correlacao",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `correlacao`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "mesmo_eixo",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `mesmo_eixo`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "se_cancelam",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `se_cancelam`",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_a`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "eixo_b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `eixo_b`. Você quis dizer `eixo`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "a",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `a`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   },
+   {
+    "classe": "membro",
+    "nome": "b",
+    "severidade": "warn",
+    "sugestao": "instância de `PoderDeDiscriminacao` não tem membro `b`. Você quis dizer `n`?",
+    "reais": [
+     "acima_do_corte",
+     "assimetria",
+     "corte",
+     "corte_fora_da_caixa",
+     "eixo",
+     "fracao_acima",
+     "mediana",
+     "n"
+    ]
+   }
+  ]
+ }
+}
