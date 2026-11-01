@@ -114,6 +114,32 @@ alvo). Não há mais 217 entradas para escrever: elas não existem.
    adjudicador de html para o estrato OSS, ou o html sai do "não provada" por
    decisão explícita.
 
+## 4.1 O `html`: **NÃO PROVADA por decisão explícita** nesta rodada
+
+**Decisão da coordenadora (31/10)**: o `html` fica **NÃO PROVADA por decisão
+explícita** nesta rodada. Um adjudicador próprio para html é **trabalho novo**,
+**fora do escopo do V-8** — e o escopo não é ampliado sem o Gabriel.
+
+Três coisas que a decisão fixa:
+
+1. **O n = 83** do estrato `transcript` (a classe html: 83 entradas, 10
+   arquivos distintos, 8 sessões distintas; `atinge_alvo = false`; `n = 83 <
+   299` → o limite superior de Clopper-Pearson 95 % com 0 falsos não fica em
+   1 %). O javascript do mesmo estrato: n = 21.
+2. **O motivo**: falta um **adjudicador OSS para html**. O adjudicador de DELTA
+   do `construir_holdout_web.py` lê os **transcripts** — não os clones — e o
+   `rotular_oss.py` (o adjudicador congelado do `oraculo_ls.js`) rotula hoje
+   `javascript`/`tsx`/`typescript`, **não html**. Sem adjudicador, não há
+   estrato OSS para html.
+3. **A rota para fechar**: um **adjudicador html sobre `html5-boilerplate` e
+   `dom-examples`** (os dois clones da ORDEM que têm html), registrado como
+   **item NOVO a decidir** — a coordenadora leva o item à lista de pendências.
+
+`tsx`, `typescript` e `javascript` seguem pela **re-rotulação em curso** (§4),
+com o **mesmo critério**: classe com **299 negativos ou mais**, dentro do teto
+e com o selo conferido, sai do "não provada"; a que não atingir segue
+declarada como tal, com o n e o motivo.
+
 ## 5. Regras (do briefing, em vigor)
 
 - Nada foi mergeado no branch principal; nada foi sobrescrito nem apagado: o
