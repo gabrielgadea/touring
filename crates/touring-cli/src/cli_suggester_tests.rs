@@ -737,6 +737,49 @@ fn collect_memory_lessons_one_db_matches_signature() {
     assert!(items[0].text.contains("transcript-ab12"));
 }
 
+/// C6 on the lesson injector (01/11/2026): the injected `Past failure` text is
+/// model context, so a stored value carrying a bidi override or a zero-width
+/// character (rows older than the write-side guard) is cleaned on the way out.
+#[test]
+fn collect_memory_lessons_sanitizes_the_injected_value() {
+    use crate::action_signature::{ActionSignature, ContextQualifier};
+    let dir = tempfile::TempDir::new().expect("tempdir");
+    let db = dir.path().join("memory.db");
+    let conn = rusqlite::Connection::open(&db).expect("open");
+    conn.execute_batch(
+        "CREATE TABLE memory_entries (
+                 key TEXT PRIMARY KEY, value TEXT NOT NULL,
+                 tier TEXT NOT NULL DEFAULT 'local',
+                 entry_type TEXT NOT NULL DEFAULT 'insight');",
+    )
+    .expect("schema");
+    conn.execute(
+        "INSERT INTO memory_entries (key, value) VALUES (?1, ?2)",
+        rusqlite::params![
+            "outcome:bash:transcript-ef56:failure",
+            "Exit\u{200B} code 1 \u{202E}gnihton"
+        ],
+    )
+    .expect("insert");
+    drop(conn);
+    let sig = ActionSignature {
+        tool_class: "bash".into(),
+        intent_class: "x".into(),
+        context_qualifier: ContextQualifier::Plain,
+    };
+    let items = collect_memory_lessons_one_db(&db, &sig);
+    assert_eq!(items.len(), 1);
+    let text = &items[0].text;
+    assert!(
+        !text.contains('\u{200B}') && !text.contains('\u{202E}'),
+        "invisible characters must not reach the injected lesson: {text:?}"
+    );
+    assert!(
+        text.contains("Exit code 1"),
+        "visible text survives: {text:?}"
+    );
+}
+
 #[test]
 fn federated_cache_is_fresh_respects_ttl_boundary() {
     use std::time::{Duration, Instant};

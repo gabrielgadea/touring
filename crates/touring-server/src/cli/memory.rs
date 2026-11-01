@@ -213,6 +213,11 @@ enum MemoryCmd {
         /// Sort field (default: access_count).
         #[arg(long, default_value = "access_count")]
         sort: String,
+        /// Only entries of this tier (the tier is a namespace — decision B,
+        /// 01/11/2026). Any stored tier name is accepted; an empty result reports
+        /// the tiers that exist.
+        #[arg(long)]
+        tier: Option<String>,
     },
     /// Backfill the ANN corpus from existing memory_entries (S-04 2026-05-29).
     ///
@@ -337,13 +342,14 @@ pub fn run(args: &[String]) -> anyhow::Result<()> {
         | MemoryCmd::Unlink { .. }) => {
             run_tag_query(cmd)?;
         }
-        MemoryCmd::List { limit, sort } => {
+        MemoryCmd::List { limit, sort, tier } => {
             // Key is "sort", not "sort_by": the handler reads `payload["sort"]`,
             // so the old name meant `--sort` was silently ignored and every
             // listing fell back to the default ordering (2026-08-02).
             let payload = serde_json::json!({
                 "limit": limit,
                 "sort": sort,
+                "tier": tier,
             });
             let output = daemon_query("cli-memory-list", payload)?;
             println!("{output}");
@@ -569,11 +575,21 @@ mod tests {
     #[test]
     fn list_defaults() {
         let cli = parse(&["memory", "list"]);
-        let Some(MemoryCmd::List { limit, sort }) = cli.cmd else {
+        let Some(MemoryCmd::List { limit, sort, tier }) = cli.cmd else {
             panic!("expected List");
         };
         assert_eq!(limit, 20);
         assert_eq!(sort, "access_count");
+        assert_eq!(tier, None, "no tier filter unless asked");
+    }
+
+    #[test]
+    fn list_with_tier() {
+        let cli = parse(&["memory", "list", "--tier", "semantic"]);
+        let Some(MemoryCmd::List { tier, .. }) = cli.cmd else {
+            panic!("expected List");
+        };
+        assert_eq!(tier.as_deref(), Some("semantic"));
     }
 
     #[test]
