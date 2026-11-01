@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "B6 e a captura do crash — o que foi feito, medido e descoberto"
+description: "Duas frentes numa rodada: fechar o ponto cego do wiring Python (B6) e instalar a camada 1 da estratégia do crash (captura). O que segue é o registro do que foi medido, incluindo quatro defeitos que não estavam no plano e apareceram no caminho — três deles em instrumentos meus."
+timestamp: 2026-09-16T19:55:49-03:00
+---
+
 # B6 e a captura do crash — o que foi feito, medido e descoberto
 
 > 16/09/2026 · ordem de Gabriel: *"faça os dois agora"* · sessão touring-18, com medições

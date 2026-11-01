@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Canvas D: shell no touring-quality (investigação, 15/09/2026)"
+description: "Pedido de Gabriel: *\"Aprovado. E investigue profundamente o Canvas D\"*. A decisão D3 aprovada dizia: shell passa a ser lido como shell em todas as dimensões, dimensões sem semântica de shell respondem N/A, F2.1/F2.4/F2.6 seguem lendo shell, e o composite é medido antes e depois."
+timestamp: 2026-09-16T07:56:06-03:00
+---
+
 # Canvas D: shell no touring-quality (investigação, 15/09/2026)
 
 Pedido de Gabriel: *"Aprovado. E investigue profundamente o Canvas D"*. A decisão D3 aprovada

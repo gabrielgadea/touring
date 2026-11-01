@@ -16,6 +16,14 @@ use std::io::Write;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+/// A tmpdir marked as a project root, so the binary's walk-up stops here
+/// instead of climbing into whatever project encloses the system temp dir.
+fn test_project() -> tempfile::TempDir {
+    let tmp = tempfile::tempdir().expect("tempdir for the test project");
+    std::fs::create_dir_all(tmp.path().join(".touring")).expect("project marker");
+    tmp
+}
+
 /// The default build of this crate must compile the standalone hook arms.
 #[test]
 fn default_build_enables_standalone_hook_arms() {
@@ -78,7 +86,7 @@ fn read_trace_lines(trace_file: &Path) -> Vec<serde_json::Value> {
 /// standalone — and the F0.3a trace must say so in one line.
 #[test]
 fn standalone_post_bash_is_alive_and_traced() {
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = test_project();
     let trace = tmp.path().join("hook_trace.jsonl");
     let payload = r#"{"session_id":"f03c-guard","tool_name":"Bash","tool_input":{"command":"touring index find F03cGuard -j"},"tool_response":{"stdout":"","stderr":""}}"#;
 
@@ -121,7 +129,7 @@ fn standalone_post_bash_is_alive_and_traced() {
 /// its single trace line — the atexit path covers EVERY exit.
 #[test]
 fn stateless_help_is_traced_with_empty_stdin() {
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = test_project();
     let trace = tmp.path().join("hook_trace.jsonl");
 
     let (stdout, _stderr) = run_hook("help", None, tmp.path(), &trace);
@@ -136,7 +144,7 @@ fn stateless_help_is_traced_with_empty_stdin() {
 /// Without the env var the binary must not create any trace file (opt-in).
 #[test]
 fn no_trace_file_without_env() {
-    let tmp = tempfile::tempdir().expect("tempdir");
+    let tmp = test_project();
     let never = tmp.path().join("never.jsonl");
     let mut cmd = Command::new(env!("CARGO_BIN_EXE_touring-hook"));
     let out = cmd

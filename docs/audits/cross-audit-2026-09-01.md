@@ -6,6 +6,7 @@ scope: "Everything done in session 6e88792f on 2026-09-01"
 timestamp: 2026-09-01T16:58:00-03:00
 auditor: TACO-cross-audit (self-invoked)
 verdict: PARTIAL_PASS
+description: "Cross-audit of skill-aprimoramento 2026-09-01 execution — veredito PARTIAL_PASS"
 ---
 
 > **UPDATE 2026-09-01** — Wrapper revertido (Opção B) + Daemon recuperado

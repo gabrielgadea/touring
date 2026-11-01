@@ -5,6 +5,7 @@ okf_version: "1.0"
 tags: [cross-audit, code-mode, sdk, f1-f6, 2026-09-01]
 plan_id: docs/audits/cross-audit-2026-09-01
 timestamp: 2026-09-01T11:58:00-03:00
+description: "Code-mode-sinal F1-F6 — Cross-audit (TACO 7 phases)"
 ---
 
 # Cross-audit: Code-mode-sinal F1-F6 (2026-09-01)

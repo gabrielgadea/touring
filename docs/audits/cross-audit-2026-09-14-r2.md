@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Cross-audit 14/09/2026, rodada 2: o que a rodada 1 corrigiu e o que o ambiente revelou"
+description: "Tudo o que foi implementado desde a abertura da fase 5 da rodada 1, levantado por mtime (≥ 15h de 14/09) e não pela memória do autor. São 51 arquivos no repo e 5 scripts vivos em `~/.claude/skills`: - as correções dos lotes 1-3; - o scanner textual reescrito; - o extrator de tipos (B12 e declaração); - o `update-touring` (verify e resolvedor); - o pragma no `run_bench.py`; - a release 30.4.47…"
+timestamp: 2026-09-15T16:48:26-03:00
+---
+
 # Cross-audit 14/09/2026, rodada 2: o que a rodada 1 corrigiu e o que o ambiente revelou
 
 > **Estado: pausa humana cumprida (14/09, ~19:45). Gabriel aprovou os lotes L1-L6, a variante `.gitignore` no L2 e a release 30.4.48 com aviso às sessões. Fase 5 em andamento.**

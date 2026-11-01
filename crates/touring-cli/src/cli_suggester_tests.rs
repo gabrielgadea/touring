@@ -2254,6 +2254,7 @@ mod code_mode_gates_w1 {
     }
 
     #[test]
+    #[serial_test::serial(t3_env)]
     fn g2_reescreve_por_default_e_nega_sob_fallback() {
         // S-8.6 (spike SUPORTADO): o default é REWRITE — allow + updatedInput
         // com o comando REAL prefixado; o deny fica atrás do override de
@@ -2297,6 +2298,7 @@ mod code_mode_gates_w1 {
     /// G2 voltaram "did not complete within its 120s timeout and was moved to the
     /// background". Só o `command` pode mudar; o resto da chamada viaja junto.
     #[test]
+    #[serial_test::serial(t3_env)]
     fn g2_reescrita_preserva_os_campos_da_chamada() {
         let cmd = "cargo test 2>&1 | tail -3; echo EXIT=$?";
         let input = json!({"command": cmd, "timeout": 600000, "run_in_background": true, "description": "d"});
@@ -2314,6 +2316,7 @@ mod code_mode_gates_w1 {
     /// orçamento declarado, o laço herdava os 30 s padrão do `touring run` e
     /// morria (`exit_code -2`, medido ao vivo num laço de espera de 600 s).
     #[test]
+    #[serial_test::serial(t3_env)]
     fn g8_reescrita_preserva_o_orcamento_e_os_campos_da_chamada() {
         let cmd = r#"for f in a.rs b.rs; do grep -n "fn main" $f; done"#;
         let input = json!({"command": cmd, "timeout": 300000, "description": "laço"});
@@ -3213,6 +3216,7 @@ mod burst_gate_w2 {
     /// antes do teto externo; em background vale o teto do `touring run`. O
     /// `updatedInput` preserva os demais campos da chamada.
     #[test]
+    #[serial_test::serial(t3_env)]
     fn g1_reescrita_preserva_o_orcamento_e_os_campos_da_chamada() {
         let reescrita = |proj: &str, base: usize, input: serde_json::Value| {
             let proj = Path::new(proj);
@@ -4043,6 +4047,7 @@ mod apresentacao_por_escopo {
     /// família nova coexiste, arquivo corrompido recomeça de zeros sem panic
     /// (evidência ilegível é evidência inexistente, jamais um valor inventado).
     #[test]
+    #[serial_test::serial(gate_metrics)]
     fn evidencia_duravel_acumula_em_disco_e_tolera_corrupcao() {
         use super::super::{bump_durable_evidence, read_durable_evidence};
         let tmp = tempfile::tempdir().expect("tempdir");

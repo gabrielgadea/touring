@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Fechamento do DAG (03/10/2026): o que o `decompose` mentia e como ficou"
+description: "Achado extra do Z3 (não estava na lista): o RPC `cli-workflow-stats`/`-status` lê `subtask_results` (`decompose_workflow.rs:104,393`), e nada em produção escrevia nessa tabela — consumidor sem produtor responde `null` e parece saudável. A lição está na memória `copia-morta-carregava-o-que-a-viva-perdeu`."
+timestamp: 2026-10-04T00:38:36-03:00
+---
+
 # Fechamento do DAG (03/10/2026): o que o `decompose` mentia e como ficou
 
 > Origem: o Gabriel aprovou ("recomendações aprovadas — corrija e ative tudo") os itens que

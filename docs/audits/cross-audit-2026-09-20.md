@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Cross-audit — o que o juiz não mede"
+description: "O juiz (`loop_converged.py`) devolveu exit 0, 8/8 cláusulas, Platinum 0,93845 sobre este código. A auditoria encontrou onze defeitos nele."
+timestamp: 2026-09-23T23:18:56-03:00
+---
+
 # Cross-audit — o que o juiz não mede
 
 > **Escopo**: commits `07cc5278` e `e7f47c1d` (21 arquivos `.rs`), mais o trabalho

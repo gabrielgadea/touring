@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Cross-audit 14/09/2026 — rodadas 8 e 9 e o wrapper de qualidade"
+description: "Tudo o que esta sessão implementou: - Rodada 8 (S1-S19): - patch do tree-sitter-md; - cessão cooperativa do ator; - produtores de wiring com fonte única; - gate de raiz no pre_edit; - escopo do rebuild e selo de geração; - `worktree_rebuild_command`; - `is_wireable_source`; - skip único no touring-quality; - exit 75; - `startup_identity`. - Rodada 9: 1-A (companheiras fora do wiring), 2-A…"
+timestamp: 2026-09-15T16:48:26-03:00
+---
+
 # Cross-audit 14/09/2026 — rodadas 8 e 9 e o wrapper de qualidade
 
 > **Estado: fases 1-4 concluídas; PAUSA HUMANA antes da fase 5.** Nenhuma correção foi aplicada. DAG `task_1789406779265539522`.

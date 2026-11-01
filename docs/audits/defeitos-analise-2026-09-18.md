@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "Os defeitos que o analise relatou — 18/09/2026 (30.4.57 → 30.4.58)"
+description: "A sessão `analise-0e` mediu cinco defeitos do Touring 30.4.57 no repositório analise (Python, poliglota) e os relatou com evidência. Gabriel mandou corrigir tudo, em cooperação com o analise. Esta nota registra o que cada defeito era de fato. Em dois casos a causa não era a relatada, e a correção achou quatro defeitos a mais."
+timestamp: 2026-09-18T19:01:52-03:00
+---
+
 # Os defeitos que o analise relatou — 18/09/2026 (30.4.57 → 30.4.58)
 
 A sessão `analise-0e` mediu cinco defeitos do Touring 30.4.57 no repositório analise

@@ -1,0 +1,45 @@
+--- a/client/hooks/code_mode_sdk_section.py
++++ b/client/hooks/code_mode_sdk_section.py
+@@ -127,8 +127,9 @@
+         "code": (
+             "inspeção ISOLADA PASSA — de qualquer classe. O que colapsa é a "
+             "RAJADA: a 2ª chamada de `grep`/`cat`/`find`/`ls`/`wc`/`sed-n` "
+-            "dentro de 300s volta NEGADA com as duas fundidas em 1 programa "
+-            "(a 1ª já executou intacta). Calibrado por medição em 115 "
++            "dentro de 300s AVISA e executa nativa, com as duas fundidas em 1 "
++            "programa pronto; a 3ª da mesma classe é reescrita para o sandbox "
++            "(G1). Calibrado por medição em 115 "
+             "transcripts: 77,5% do volume de inspeção está em rajadas ≥2, e "
+             "os 22,5% isolados não pagam mais pedágio. Um `touring run` na "
+             "janela zera a contagem."
+--- a/scripts/test_code_mode_sdk_section.py
++++ b/scripts/test_code_mode_sdk_section.py
+@@ -100,7 +100,7 @@
+     body = hook.section(STUB, "code", "TOURING_CODE_MODE (sessão)")
+     assert "apresentação `code`" in body
+     assert "TOURING_CODE_MODE (sessão)" in body
+-    assert "NEGADA" in body  # o efeito do modo code é dito com todas as letras
++    assert "AVISA" in body  # o efeito do modo code é dito com todas as letras
+ 
+ 
+ def test_section_native_says_induction_off():
+@@ -183,8 +183,8 @@
+ 
+ def _rust_deny_at() -> int:
+     src = SUGGESTER.read_text(encoding="utf-8")
+-    m = re.search(r'INSPECT_BURST_DENY_AT:\s*u32\s*=\s*(\d+)', src)
+-    assert m, "INSPECT_BURST_DENY_AT não encontrado no cli_suggester.rs"
++    m = re.search(r'INSPECT_BURST_ADVISE_AT:\s*u32\s*=\s*(\d+)', src)
++    assert m, "INSPECT_BURST_ADVISE_AT não encontrado no cli_suggester.rs"
+     return int(m.group(1))
+ 
+ 
+@@ -220,7 +220,7 @@
+     efeito = next(l for l in body.splitlines() if l.startswith("Efeito:"))
+     ordinal = {2: "2ª", 3: "3ª", 4: "4ª"}.get(deny_at, f"{deny_at}ª")
+     assert ordinal in efeito, (
+-        f"executor nega na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
++        f"executor avisa na {ordinal} chamada, mas a seção não declara esse gatilho: {efeito}"
+     )
+     assert f"{window}s" in efeito, (
+         f"executor usa janela de {window}s, mas a seção não a declara: {efeito}"

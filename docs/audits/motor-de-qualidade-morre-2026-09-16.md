@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "O motor de qualidade morre, e o juiz chama isso de nota baixa (16/09/2026)"
+description: "Achado colhido durante a verificação do B5, fora do escopo do B5 e ainda sem causa provada. Fica registrado com a evidência inteira porque a próxima pessoa que vir `quality_gold` vermelho vai ler uma mensagem que aponta para o lugar errado."
+timestamp: 2026-09-16T07:57:01-03:00
+---
+
 # O motor de qualidade morre, e o juiz chama isso de nota baixa (16/09/2026)
 
 Achado colhido durante a verificação do B5, **fora do escopo do B5** e ainda **sem causa provada**.

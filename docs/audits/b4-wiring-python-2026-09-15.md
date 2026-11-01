@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "B4 e o wiring Python (15/09/2026)"
+description: "Decisão de Gabriel (15/09): a classe \"só interno\" — símbolo público consumido apenas pelo próprio arquivo — fica fora do `orphans_base` e é relatada à parte, junto do conserto do wiring Python pedido pela analise-08, na release 30.4.52, sem tocar nos arquivos do juiz. DAG `task_1789523522266898296`."
+timestamp: 2026-09-16T07:56:40-03:00
+---
+
 # B4 e o wiring Python (15/09/2026)
 
 Decisão de Gabriel (15/09): a classe "só interno" — símbolo público consumido apenas pelo próprio

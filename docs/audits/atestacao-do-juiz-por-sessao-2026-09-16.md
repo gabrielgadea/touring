@@ -1,3 +1,10 @@
+---
+type: Audit
+title: "O juiz foi atestado por uma sessão — diagnóstico completo (16/09/2026)"
+description: "Ordem de Gabriel, 16/09: restaurar o registro anterior e diagnosticar por inteiro. Feito. Este documento é o diagnóstico; cada afirmação abaixo tem a medição ao lado, e o que não foi medido está dito como tal."
+timestamp: 2026-09-16T07:57:01-03:00
+---
+
 # O juiz foi atestado por uma sessão — diagnóstico completo (16/09/2026)
 
 Ordem de Gabriel, 16/09: **restaurar o registro anterior e diagnosticar por inteiro.** Feito. Este

@@ -5,6 +5,7 @@ description: "Secret-named binding que nao e o ultimo segmento de um padrao de d
 date: 2026-10-29
 severity: MEDIUM (gate P0 BLOCK / FailClosedLoc)
 status: CORRIGIDO em 4a93eac0 (29/10/2026); vale no binário a partir do próximo deploy
+timestamp: 2026-10-29T14:26:35-03:00
 ---
 
 <!-- touring-quality:allow-secrets — este documento cita fixtures fictícias do bypass -->
